@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#real-time-updates" class="md-skip">
+        <a href="#board-changes-appear-instantly-for-everyone" class="md-skip">
           Skip to content
         </a>
       
@@ -4168,16 +4168,20 @@
   
 
 
-<h1 id="real-time-updates">Real-time Updates<a class="headerlink" href="#real-time-updates" title="Permanent link">&para;</a></h1>
-<p>Visiban uses WebSockets (Django Channels + Valkey) to push board changes to all connected clients instantly — no polling required.</p>
+<h1 id="board-changes-appear-instantly-for-everyone">Board changes appear instantly for everyone<a class="headerlink" href="#board-changes-appear-instantly-for-everyone" title="Permanent link">&para;</a></h1>
+<p><a id="real-time-updates"></a></p>
+<p>WebSockets (Django Channels + Valkey) push every board change to all connected clients, with no polling. Valkey ships in the default <code>docker-compose.yml</code>, so there is nothing to set up.</p>
+<p><strong>Why it matters:</strong> Open tabs and teammates stay in sync without a page refresh.</p>
+<p><strong>Yes, but:</strong> background tabs can miss events. Visiban re-fetches the board when a tab returns to the foreground and after every reconnect; see <a href="#tab-focus-reconciliation">Tab-focus reconciliation</a>.</p>
+<p><strong>Watch out:</strong> production needs a Valkey instance, set via <code>REDIS_URL</code>; see <a href="#requirements">Requirements</a>.</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <ol>
-<li>When a user opens a board, the frontend opens a WebSocket connection to <code>ws://{host}/ws/boards/{board_id}/</code></li>
-<li>The browser SPA authenticates with the session cookie; unauthenticated connections are closed with code <code>4001</code>, connections from a non-member are closed with <code>4003</code>, and so are connections from an account with a pending password or username change (the same account-state checks apply to REST, MCP, and WebSocket connections)</li>
-<li>Any mutation — card, column, swimlane, label, member, or board setting change — broadcasts an event to all clients subscribed to that board's channel group</li>
-<li>The frontend applies the event to local state, keeping all open tabs in sync without a page refresh</li>
+<li>When a user opens a board, the frontend opens a WebSocket connection to <code>ws://{host}/ws/boards/{board_id}/</code>.</li>
+<li>The browser SPA authenticates with the session cookie. Unauthenticated connections are closed with code <code>4001</code>, connections from a non-member are closed with <code>4003</code>, and so are connections from an account with a pending password or username change (the same account-state checks apply to REST, MCP, and WebSocket connections).</li>
+<li>Any mutation (card, column, swimlane, label, member, or board setting change) broadcasts an event to all clients subscribed to that board's channel group.</li>
+<li>The frontend applies the event to local state, keeping all open tabs in sync without a page refresh.</li>
 </ol>
-<p>Native, CLI, and agent clients have no cookie jar to send, so they authenticate with a short-lived <strong>ticket</strong> (since 1.2) obtained over the REST API instead — see <a href="../../api/websockets/#ticket-authentication-since-12">WebSocket API → Ticket authentication</a> for the full flow.</p>
+<p>Native, CLI, and agent clients have no cookie jar to send, so they authenticate with a short-lived <strong>ticket</strong> (since 1.2) obtained over the REST API instead. See <a href="../../api/websockets/#ticket-authentication-since-12">WebSocket API → Ticket authentication</a> for the full flow.</p>
 <h2 id="connection-status">Connection status<a class="headerlink" href="#connection-status" title="Permanent link">&para;</a></h2>
 <p>The top-right corner of the board toolbar shows the connection state via the <strong>ConnectionStatus</strong> component. When healthy the indicator is intentionally quiet; it becomes prominent only when there is a problem:</p>
 <ul>
@@ -4187,7 +4191,12 @@
 <li>🟡 <strong>Connecting…</strong> — initial connection attempt in progress; amber pill</li>
 <li>🔴 <strong>Offline</strong> — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect</li>
 </ul>
-<p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Offline</strong>. If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code <code>1011</code> instead, and the client keeps reconnecting until the server recovers (since 1.2).</p>
+<p><strong>Reconnect rules:</strong></p>
+<ul>
+<li>The client reconnects automatically after 3 seconds if the connection drops.</li>
+<li>If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted. The indicator switches directly to <strong>Offline</strong>.</li>
+<li>If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code <code>1011</code> instead, and the client keeps reconnecting until the server recovers (since 1.2).</li>
+</ul>
 <p>After you log out or change your password, open board and group tabs show the connection indicator as <strong>Offline</strong> within about 30–40 seconds. Reload the page to reconnect. This includes the tab you changed your password in. Logging out in one browser does not affect tabs signed in through another session. See <a href="../../api/websockets/#credential-revocation-since-12">Credential revocation</a>.</p>
 <h2 id="event-types">Event types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h2>
 <p>Board-channel events fall into a few categories:</p>
@@ -4196,9 +4205,9 @@
 <li><strong>Members</strong> — added, role changed, or removed (removing the current user also closes their connection; if that event is lost, the server's access re-check still closes the connection, with code <code>4003</code>, at the first board change, or the first keepalive ping (sent every 30 seconds), more than about 7 seconds after the server last confirmed their access — see <a href="../../api/websockets/#access-re-check-and-eviction">Access re-check and eviction</a>)</li>
 <li><strong>Cards</strong> — created, field changes, moves between columns/swimlanes, deletion, archive, and restore</li>
 <li><strong>Columns, swimlanes, and labels</strong> — created, updated, deleted, and (for columns and swimlanes) reordered</li>
-<li><strong>Feature-specific families</strong> riding the same board channel: saved-filter events (see <a href="../saved-filters/">Saved Filters</a>), custom field and swimlane field events (see <a href="../custom-fields/#api-and-real-time-events">Custom Fields</a>), and — when <a href="../issue-board-lens/">Issue Board Lens</a> is enabled — Git Lens connection events</li>
+<li><strong>Feature-specific families</strong> riding the same board channel: saved-filter events (see <a href="../saved-filters/">Saved Filters</a>), custom field and swimlane field events (see <a href="../custom-fields/#api-and-real-time-events">Custom Fields</a>), and, when <a href="../issue-board-lens/">Issue Board Lens</a> is enabled, Git Lens connection events</li>
 </ul>
-<p>For the complete, canonical event list, trigger conditions, and <code>data</code> shape for every event, see <strong><a href="../../api/websockets/#event-reference">WebSocket API — Event reference</a></strong> — that table is CI-enforced against the backend event registry and frontend handlers, so it cannot drift the way a second hand-maintained copy would.</p>
+<p>For the complete, canonical event list, trigger conditions, and <code>data</code> shape for every event, see <strong><a href="../../api/websockets/#event-reference">WebSocket API — Event reference</a></strong>. That table is CI-enforced against the backend event registry and frontend handlers, so it cannot drift the way a second hand-maintained copy would.</p>
 <h2 id="event-payload-structure">Event payload structure<a class="headerlink" href="#event-payload-structure" title="Permanent link">&para;</a></h2>
 <p>Every WebSocket message has this envelope:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
@@ -4233,10 +4242,10 @@
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The legacy plural event names (<code>columns.reordered</code>, <code>swimlanes.reordered</code>) emitted in 1.0 were dropped in 1.1 (#944) — only the singular forms above are emitted. Subscribe to <code>column.reordered</code> / <code>swimlane.reordered</code>.</p>
+<p>The legacy plural event names (<code>columns.reordered</code>, <code>swimlanes.reordered</code>) emitted in 1.0 were dropped in 1.1 (#944). Only the singular forms above are emitted. Subscribe to <code>column.reordered</code> / <code>swimlane.reordered</code>.</p>
 </div>
 <h3 id="cardmoved-payload"><code>card.moved</code> payload<a class="headerlink" href="#cardmoved-payload" title="Permanent link">&para;</a></h3>
-<p>The <code>card.moved</code> event includes both the updated card and the movement record — the same shape returned by <code>POST /api/v1/boards/{id}/cards/{id}/move/</code>:</p>
+<p>The <code>card.moved</code> event includes both the updated card and the movement record, the same shape returned by <code>POST /api/v1/boards/{id}/cards/{id}/move/</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -4252,15 +4261,16 @@
 <a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="p">}</span>
 <a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="p">}</span>
 </code></pre></div>
-<p><code>movement</code> is <code>null</code> if only the position changed within the same column/swimlane cell (pure reorder — no column or swimlane change occurred).</p>
+<p><code>movement</code> is <code>null</code> if only the position changed within the same column/swimlane cell (a pure reorder, with no column or swimlane change).</p>
 <h2 id="group-real-time-events">Group real-time events<a class="headerlink" href="#group-real-time-events" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
-<p>In addition to the per-board channel, Visiban exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).</p>
-<p><strong>Connection URL:</strong> <code>ws://{host}/ws/groups/{group_id}/</code></p>
-<p><strong>Authentication:</strong> same as the board channel — session cookie required. Unauthenticated connections are closed with code <code>4001</code>; connections from users without group membership, or with a pending password or username change, are closed with code <code>4003</code>. No retry is attempted for either code.</p>
-<p><strong>What it streams:</strong> board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations. Each payload follows the standard <code>{"event": "...", "data": {...}}</code> envelope. The group channel does not emit card-level events — those remain on the per-board channel.</p>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
+<p>Visiban also exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).</p>
+<ul>
+<li><strong>Connection URL:</strong> <code>ws://{host}/ws/groups/{group_id}/</code></li>
+<li><strong>Authentication:</strong> same as the board channel; session cookie required. Unauthenticated connections are closed with code <code>4001</code>; connections from users without group membership, or with a pending password or username change, are closed with code <code>4003</code>. No retry is attempted for either code.</li>
+<li><strong>What it streams:</strong> board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations.</li>
+</ul>
+<p>Each payload follows the standard <code>{"event": "...", "data": {...}}</code> envelope. The group channel does not emit card-level events; those remain on the per-board channel.</p>
 <p>For the complete, canonical event list and <code>data</code> shape for every event, see <strong><a href="../../api/websockets/#group-channel-since-11">WebSocket API — Group channel</a></strong>.</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <p>Real-time updates require a Valkey instance (the Redis-compatible, BSD-licensed fork). Visiban uses two separate connections:</p>
@@ -4309,13 +4319,16 @@
 </div>
 <h2 id="tab-focus-reconciliation">Tab-focus reconciliation<a class="headerlink" href="#tab-focus-reconciliation" title="Permanent link">&para;</a></h2>
 <p>When a browser tab is backgrounded, the operating system may throttle or suspend JavaScript timers and WebSocket connections. Events broadcast while the tab is inactive can be lost, causing the board state to drift.</p>
-<p>To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (<code>visibilitychange</code> event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent" — it does not flash a loading skeleton.</p>
-<p>The board is also re-fetched automatically each time the WebSocket reconnects after a dropped connection, regardless of the 30-second throttle, so changes made while you were disconnected appear without a manual refresh. The initial connection does not trigger an extra fetch. If a reconnect happens while you are dragging a card, column, or swimlane, the refresh waits and runs once when the drag ends, so the board can briefly show its pre-disconnect state until then. When several refreshes overlap, only the most recently started one updates the board.</p>
+<p>To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (<code>visibilitychange</code> event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent": it does not flash a loading skeleton.</p>
+<p>The board is also re-fetched each time the WebSocket reconnects after a dropped connection, regardless of the 30-second throttle, so changes made while you were disconnected appear without a manual refresh.</p>
+<ul>
+<li>The initial connection does not trigger an extra fetch.</li>
+<li>If a reconnect happens while you are dragging a card, column, or swimlane, the refresh waits and runs once when the drag ends, so the board can briefly show its pre-disconnect state until then.</li>
+<li>When several refreshes overlap, only the most recently started one updates the board.</li>
+</ul>
 <h2 id="resuming-after-a-dropped-connection">Resuming after a dropped connection<a class="headerlink" href="#resuming-after-a-dropped-connection" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer that lives outside the browser — a second front end, a sync job, the MCP server's REST client — can instead replay exactly what it missed:</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer outside the browser (a second front end, a sync job, the MCP server's REST client) can instead replay exactly what it missed:</p>
 <ul>
 <li>Every event the board channel broadcasts is durably persisted in the same transaction as the mutation it describes, and each WebSocket frame carries the matching <code>event_id</code>.</li>
 <li><code>GET /api/v1/boards/{id}/events/?after=&lt;event_id&gt;</code> returns the missed events in order, so a consumer can catch up without re-fetching the whole board.</li>
@@ -4323,7 +4336,7 @@
 </ul>
 <p>See <a href="../../api/events/">Board Change Feed API</a> for the full reference.</p>
 <h2 id="optimistic-concurrency-control">Optimistic concurrency control<a class="headerlink" href="#optimistic-concurrency-control" title="Permanent link">&para;</a></h2>
-<p>Card moves use optimistic concurrency control (OCC) to prevent lost updates. Every card carries a <code>version</code> number that increments on every mutation (move, field update). When the frontend sends a move request, it includes the card's current <code>version</code>. If another user modified the card in the meantime, the server returns <code>409 Conflict</code> with a <code>version_conflict</code> error code, and the frontend refreshes the board automatically.</p>
+<p>Card moves use optimistic concurrency control (OCC) to prevent lost updates. Every card carries a <code>version</code> number that increments on every mutation (move, field update). The frontend includes the card's current <code>version</code> in a move request. If another user modified the card in the meantime, the server returns <code>409 Conflict</code> with a <code>version_conflict</code> error code, and the frontend refreshes the board automatically.</p>
 <p>The version check is backward-compatible: clients that omit the <code>version</code> field bypass the OCC check entirely.</p>
 <h2 id="asgi-server">ASGI server<a class="headerlink" href="#asgi-server" title="Permanent link">&para;</a></h2>
 <p>The backend runs under <strong>daphne</strong> (ASGI) instead of gunicorn (WSGI) to support WebSocket connections. This is handled automatically in <code>docker-compose.yml</code> and the Helm chart.</p>

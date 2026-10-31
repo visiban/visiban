@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#group-inheritance" class="md-skip">
+        <a href="#add-someone-once-get-access-everywhere-below" class="md-skip">
           Skip to content
         </a>
       
@@ -4059,8 +4059,11 @@
   
 
 
-<h1 id="group-inheritance">Group Inheritance<a class="headerlink" href="#group-inheritance" title="Permanent link">&para;</a></h1>
-<p>Group roles are inherited through the group ancestry chain. A user with a role in a parent group automatically has that same role on all sub-groups and boards within it. <strong>Why it matters:</strong> add someone to a parent group once, and they get the right access everywhere below it — no per-board setup.</p>
+<h1 id="add-someone-once-get-access-everywhere-below">Add someone once, get access everywhere below<a class="headerlink" href="#add-someone-once-get-access-everywhere-below" title="Permanent link">&para;</a></h1>
+<p><a id="group-inheritance"></a></p>
+<p>A user with a role in a parent group automatically has that same role on all sub-groups and boards within it.</p>
+<p><strong>Why it matters:</strong> Add someone to a parent group once, and they get the right access everywhere below it, with no per-board setup.</p>
+<p><strong>The big picture:</strong> group roles are inherited through the group ancestry chain.</p>
 <p>All four non-admin roles — <code>admin</code>, <code>member</code>, <code>collaborator</code>, and <code>viewer</code> — are valid at both the group and board level. An explicit <code>BoardMembership</code> record can override the inherited role for a specific board.</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <p>When resolving a user's effective role on a board, Visiban checks in this order:</p>

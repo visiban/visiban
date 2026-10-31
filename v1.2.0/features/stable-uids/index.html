@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#stable-uids" class="md-skip">
+        <a href="#key-external-systems-on-uids-not-names" class="md-skip">
           Skip to content
         </a>
       
@@ -4135,8 +4135,12 @@
   
 
 
-<h1 id="stable-uids">Stable UIDs<a class="headerlink" href="#stable-uids" title="Permanent link">&para;</a></h1>
-<p>Every board object — boards, columns, swimlanes, labels, cards, and custom field definitions (added in 1.2) — carries a stable, globally unique identifier called a <strong>UID</strong>. <strong>Why it matters:</strong> names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.</p>
+<h1 id="key-external-systems-on-uids-not-names">Key external systems on UIDs, not names<a class="headerlink" href="#key-external-systems-on-uids-not-names" title="Permanent link">&para;</a></h1>
+<p><a id="stable-uids"></a></p>
+<p>Use an object's <code>uid</code>, not its name or numeric ID, as the key in any external system. A UID is a 16-character lowercase hex string such as <code>3a9f1c2d7e4b8a05</code>.</p>
+<p><strong>Why it matters:</strong> Names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.</p>
+<p><strong>The big picture:</strong> every board object (boards, columns, swimlanes, labels, cards, and custom field definitions (added in 1.2)) carries a stable, globally unique identifier called a <strong>UID</strong>.</p>
+<p><strong>Yes, but:</strong> exports don't carry UIDs, and import assigns brand-new ones. See <a href="#uids-in-export-files">UIDs in export files</a> and <a href="#uids-on-import">UIDs on import</a>.</p>
 <h2 id="what-is-a-uid">What is a UID?<a class="headerlink" href="#what-is-a-uid" title="Permanent link">&para;</a></h2>
 <p>A UID is a 16-character lowercase hex string (64 bits of randomness), generated once when the object is created and never changed again. Example: <code>3a9f1c2d7e4b8a05</code>.</p>
 <p>UIDs are:</p>
@@ -4191,7 +4195,7 @@
 </tbody>
 </table>
 <h2 id="uids-in-movement-history">UIDs in movement history<a class="headerlink" href="#uids-in-movement-history" title="Permanent link">&para;</a></h2>
-<p>When a card is moved, <code>CardMovement</code> captures the UID of the source and destination column and swimlane <strong>at the time of the move</strong>. These UID fields are:</p>
+<p>When a card is moved, <code>CardMovement</code> captures the UID of the source and destination column and swimlane <strong>at the time of the move</strong>:</p>
 <table>
 <thead>
 <tr>
@@ -4218,7 +4222,7 @@
 </tr>
 </tbody>
 </table>
-<p>These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its <code>id</code> FK becomes <code>null</code> in the movement record, but the <code>_uid</code> field keeps the original value — the right identifier for reconciling movement history against an external system.</p>
+<p>These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its <code>id</code> FK becomes <code>null</code> in the movement record, but the <code>_uid</code> field keeps the original value. That makes it the right identifier for reconciling movement history against an external system.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Building an integration that tracks where cards have been? Use the <code>*_uid</code> fields, not <code>*_id</code> or <code>*_name</code>. Names change. IDs go null after deletion. UIDs are permanent.</p>
@@ -4246,12 +4250,12 @@
 </code></pre></div>
 <p>Numeric <code>id</code> values are local to each installation. UIDs are the right key for storing Visiban objects in an external system.</p>
 <h2 id="uids-in-export-files">UIDs in export files<a class="headerlink" href="#uids-in-export-files" title="Permanent link">&para;</a></h2>
-<p>The JSON and CSV exports (<code>GET /api/v1/boards/{id}/export/</code>) serialize objects <strong>by name, not by UID</strong> — UIDs aren't included at all. This is intentional: the export format is built for portability, so columns and swimlanes are referenced by name and the file can be imported into a different board or installation without carrying over identifiers meaningless in the new context.</p>
+<p>The JSON and CSV exports (<code>GET /api/v1/boards/{id}/export/</code>) serialize objects <strong>by name, not by UID</strong>; UIDs aren't included at all. This is intentional: the export format is built for portability, so columns and swimlanes are referenced by name and the file can be imported into a different board or installation without carrying over identifiers meaningless in the new context.</p>
 <h2 id="uids-on-import">UIDs on import<a class="headerlink" href="#uids-on-import" title="Permanent link">&para;</a></h2>
 <p>Importing a board via <code>POST /api/v1/boards/import/</code> assigns <strong>every object a brand new UID</strong>, regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.</p>
 <ul>
-<li>If the source file was produced by the Visiban export endpoint, the original UIDs are not preserved — the imported board is a new entity with new identities.</li>
-<li>If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any <code>uid</code> field present in the JSON is silently ignored.</li>
+<li>If the source file came from the Visiban export endpoint, the original UIDs are not preserved. The imported board is a new entity with new identities.</li>
+<li>If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any <code>uid</code> field in the JSON is silently ignored.</li>
 </ul>
 <p>You can't use UIDs to correlate an imported board with its export source. To track which records came from a specific import, use the board name or a naming convention, then delete those boards explicitly after use.</p>
 <div class="admonition warning">

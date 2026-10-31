@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#card-descriptions" class="md-skip">
+        <a href="#format-card-descriptions-with-the-toolbar-or-markdown" class="md-skip">
           Skip to content
         </a>
       
@@ -4085,19 +4085,24 @@
   
 
 
-<h1 id="card-descriptions">Card Descriptions<a class="headerlink" href="#card-descriptions" title="Permanent link">&para;</a></h1>
-<p>Card descriptions support rich text formatting. You can write plain text, use the toolbar to apply formatting, or type markdown directly — the editor parses both.</p>
+<h1 id="format-card-descriptions-with-the-toolbar-or-markdown">Format card descriptions with the toolbar or markdown<a class="headerlink" href="#format-card-descriptions-with-the-toolbar-or-markdown" title="Permanent link">&para;</a></h1>
+<p><a id="card-descriptions"></a></p>
+<p>Click a card's description to edit it, using the toolbar or typed markdown. Click outside to save.</p>
+<p><strong>Why it matters:</strong> There is no Save button. Changes are sent to the server on blur.</p>
+<p><strong>How it works:</strong> the editor parses both toolbar formatting and typed markdown, and stores the result as markdown. Mentions notify the person you name. Admins and members can edit; viewers and collaborators can only read.</p>
 <h2 id="editing-a-description">Editing a description<a class="headerlink" href="#editing-a-description" title="Permanent link">&para;</a></h2>
-<p>Click anywhere on the description area to enter edit mode. A toolbar appears at the top and the cursor is placed at the end of the existing text.</p>
-<p>If the description is empty, the placeholder "Add a description…" is shown in view mode. Click it to start writing.</p>
-<p>A <strong>pencil icon (✎)</strong> appears in the top-right corner of the description on hover — clicking it also enters edit mode.</p>
-<p>To save, click anywhere outside the description. The editor closes and the formatted result is displayed immediately. Changes are sent to the server on blur — there is no explicit Save button.</p>
+<p>Click anywhere on the description area. A toolbar appears and the cursor lands at the end of the existing text.</p>
+<ul>
+<li><strong>Empty description:</strong> view mode shows the placeholder "Add a description…". Click it to start writing.</li>
+<li><strong>Pencil icon (✎):</strong> appears at the top right on hover. Clicking it also enters edit mode.</li>
+<li><strong>Save:</strong> click anywhere outside the description. The editor closes and shows the formatted result immediately.</li>
+</ul>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The description area can be resized vertically by dragging its bottom edge. This is useful for longer descriptions that would otherwise require scrolling inside the editor.</p>
+<p>Drag the description area's bottom edge to resize it vertically. This helps with long descriptions that would otherwise scroll inside the editor.</p>
 </div>
 <h2 id="toolbar-reference">Toolbar reference<a class="headerlink" href="#toolbar-reference" title="Permanent link">&para;</a></h2>
-<p>The toolbar provides one-click access to common formatting. All actions can also be triggered with keyboard shortcuts.</p>
+<p>Every toolbar action is one click. The table lists the Bold and Italic shortcuts; the editor (Tiptap StarterKit, with no custom bindings in Visiban) also binds its own default shortcuts for the other formats.</p>
 <table>
 <thead>
 <tr>
@@ -4149,13 +4154,16 @@
 </tr>
 </tbody>
 </table>
-<p>Active formatting is highlighted in the toolbar. Clicking an active button removes the formatting.</p>
+<p>Active formatting is highlighted. Clicking an active button removes the formatting.</p>
 <h3 id="text-color">Text color<a class="headerlink" href="#text-color" title="Permanent link">&para;</a></h3>
-<p>The <strong>A</strong> button in the toolbar opens a color picker with nine options: Default (reset), White, Red, Orange, Yellow, Green, Blue, Purple, and Pink. Select text first, then click a color swatch to apply it. The toolbar button shows an underline in the currently active color.</p>
-<p>To remove a color, select the colored text and click the <strong>Default</strong> swatch. This resets the text to the standard description color.</p>
-<p>Text colors are stored as inline HTML spans inside the markdown content. They render correctly in both the editor and the read-only view.</p>
+<p>The <strong>A</strong> button opens a picker with nine options: Default (reset), White, Red, Orange, Yellow, Green, Blue, Purple, and Pink.</p>
+<ul>
+<li><strong>Apply:</strong> select text, then click a swatch. The button shows an underline in the active color.</li>
+<li><strong>Remove:</strong> select the colored text and click the <strong>Default</strong> swatch.</li>
+<li><strong>Storage:</strong> colors are inline HTML spans inside the markdown. They render in both the editor and the read-only view.</li>
+</ul>
 <h2 id="supported-markdown-syntax">Supported markdown syntax<a class="headerlink" href="#supported-markdown-syntax" title="Permanent link">&para;</a></h2>
-<p>Descriptions are stored as markdown. You can type markdown directly in the editor without using the toolbar:</p>
+<p>Type markdown directly; no toolbar needed. Pasted markdown is parsed automatically.</p>
 <table>
 <thead>
 <tr>
@@ -4198,16 +4206,19 @@
 </tr>
 </tbody>
 </table>
-<p>Pasted markdown is parsed automatically — paste a formatted document and it renders correctly.</p>
 <h2 id="mentions">@mentions<a class="headerlink" href="#mentions" title="Permanent link">&para;</a></h2>
-<p>Type <code>@</code> followed by a username or display name to mention a board member in a description. An autocomplete dropdown appears as you type, filtered by the characters after <code>@</code>. Use the arrow keys and Enter to select a member, or press Escape to dismiss the dropdown.</p>
-<p>Mentions are highlighted in blue in both the editor and the rendered view. When you save a description that contains a new @mention, the mentioned user receives an in-app notification — the same notification behavior as @mentions in comments. Editing an existing mention does not send a duplicate notification.</p>
+<p>Type <code>@</code> plus a username or display name to mention a board member. An autocomplete dropdown filters as you type: use the arrow keys and Enter to select, or Escape to dismiss.</p>
+<ul>
+<li>Mentions are highlighted in blue in the editor and the rendered view.</li>
+<li>Saving a description with a new @mention sends that user an in-app notification, the same as @mentions in comments.</li>
+<li>Editing an existing mention does not send a duplicate.</li>
+</ul>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The autocomplete list shows up to six matching members. If you do not see the person you are looking for, type more characters to narrow the results.</p>
+<p>The autocomplete list shows up to six matching members. If you don't see the person, type more characters to narrow the results.</p>
 </div>
 <h2 id="view-mode">View mode<a class="headerlink" href="#view-mode" title="Permanent link">&para;</a></h2>
-<p>When you are not editing, the description renders as formatted text. Bold, italic, headings, lists, code, code blocks, blockquotes, and links are all displayed.</p>
+<p>Outside edit mode, the description renders bold, italic, headings, lists, code, code blocks, blockquotes, and links.</p>
 <h2 id="permissions">Permissions<a class="headerlink" href="#permissions" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4240,7 +4251,7 @@
 </tr>
 </tbody>
 </table>
-<p>Viewers and collaborators see the rendered description with no edit affordance — no hover border, no pencil icon, and clicking does not enter edit mode.</p>
+<p><strong>Yes, but:</strong> viewers and collaborators get no edit affordance at all: no hover border, no pencil icon, and clicking does not enter edit mode.</p>
 
 
 

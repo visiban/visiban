@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#board-role-permissions" class="md-skip">
+        <a href="#what-each-board-role-can-do" class="md-skip">
           Skip to content
         </a>
       
@@ -4057,9 +4057,12 @@
   
 
 
-<h1 id="board-role-permissions">Board Role Permissions<a class="headerlink" href="#board-role-permissions" title="Permanent link">&para;</a></h1>
-<p>Visiban uses four board-level roles to control what each member can do on a board. Site admins are a separate designation, covered at the end of this page. <strong>Why it matters:</strong> getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.</p>
-<p>This page is the detailed board-action reference. For how the same roles work at the group level, how group membership cascades down to boards, and how to assign roles, see <a href="../rbac/">Roles &amp; Access Control</a>.</p>
+<h1 id="what-each-board-role-can-do">What each board role can do<a class="headerlink" href="#what-each-board-role-can-do" title="Permanent link">&para;</a></h1>
+<p><a id="board-role-permissions"></a></p>
+<p>Four board roles (Admin, Member, Collaborator, Viewer) control what each member can do on a board. Set them in <strong>Board Settings → Members</strong>.</p>
+<p><strong>Why it matters:</strong> Getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.</p>
+<p><strong>The big picture:</strong> site admins are a separate designation, covered at the end of this page.</p>
+<p><strong>Go deeper:</strong> this page is the detailed board-action reference. For how the same roles work at the group level, how group membership cascades down to boards, and how to assign roles, see <a href="../rbac/">Roles &amp; Access Control</a>.</p>
 <h2 id="the-four-board-roles">The four board roles<a class="headerlink" href="#the-four-board-roles" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4088,7 +4091,7 @@
 </tbody>
 </table>
 <h2 id="permission-matrix">Permission matrix<a class="headerlink" href="#permission-matrix" title="Permanent link">&para;</a></h2>
-<p>The full board action matrix — including the group and site scopes the same four roles carry — now lives in one place: <a href="../rbac/roles/#permission-table">Roles &amp; Permissions — Permission table</a>. This page used to keep its own copy; the two drifted apart more than once, so this page links to the single source instead of maintaining a second copy.</p>
+<p>The full board action matrix, including the group and site scopes the same four roles carry, lives in one place: <a href="../rbac/roles/#permission-table">Roles &amp; Permissions — Permission table</a>. This page used to keep its own copy; the two drifted apart more than once, so this page links to the single source instead of maintaining a second copy.</p>
 <p>Quick pointers into that table:</p>
 <ul>
 <li><strong>Own vs. any</strong> — most card/comment/attachment/checklist actions split into an "own" row (any Member or Collaborator who created the content) and an "any" row (requires the <strong>moderator</strong> entitlement or Admin role). See <a href="#moderator-entitlement">Moderator entitlement</a> below for what that entitlement grants and how to assign it.</li>
@@ -4097,6 +4100,7 @@
 <li><strong>Viewer enforcement history</strong> — see the "Viewer boundary enforced since 1.0" note on the permission table.</li>
 </ul>
 <h2 id="how-to-set-roles">How to set roles<a class="headerlink" href="#how-to-set-roles" title="Permanent link">&para;</a></h2>
+<p>Only board Admins (and site admins) can do this.</p>
 <ol>
 <li>Open the board and click the <strong>Settings</strong> button (gear icon) in the toolbar.</li>
 <li>Go to the <strong>Members</strong> tab.</li>
@@ -4104,7 +4108,6 @@
 <li>To change a member's role: click the role badge next to their name and select a new one.</li>
 <li>To remove a member: click the trash icon next to their name.</li>
 </ol>
-<p>Only board Admins (and site admins) can do this.</p>
 <h2 id="moderator-entitlement">Moderator entitlement<a class="headerlink" href="#moderator-entitlement" title="Permanent link">&para;</a></h2>
 <p>The <strong>moderator</strong> entitlement lets an admin delegate content-moderation rights to a specific member without granting full admin access. A moderator can:</p>
 <ul>
@@ -4115,11 +4118,11 @@
 <li><strong>Delete</strong> comments authored by other users</li>
 </ul>
 <p>Without the moderator flag, members can only assign and edit cards they created, delete/archive cards they created, and delete comments they authored.</p>
+<p>To grant moderator rights, open Board Settings → Members and check the <strong>Moderator</strong> checkbox next to the member's name. Only admins can toggle this. The checkbox is available only for members and admins; collaborators and viewers can't be designated as moderators.</p>
 <div class="admonition note">
 <p class="admonition-title">Assignee dropdown gating</p>
 <p>The assignee field in the card detail panel is disabled for members without moderator (or admin) access who didn't create the card. A tooltip explains why it's locked. If a non-moderator member reaches the assignment API endpoint directly, the server returns <code>403 Forbidden</code> with the message: "Assigning cards requires Moderator or Admin access — ask a board admin."</p>
 </div>
-<p>To grant moderator rights, open Board Settings → Members and check the <strong>Moderator</strong> checkbox next to the member's name. Only admins can toggle this. The checkbox is only available for members and admins — collaborators and viewers can't be designated as moderators.</p>
 <div class="admonition note">
 <p class="admonition-title">Moderator is an entitlement, not a role</p>
 <p>Moderator is a boolean flag on the membership, not a fifth role. A member with moderator rights still appears as "Member" in the role dropdown. Demoting a moderator to collaborator or viewer automatically revokes the flag.</p>
@@ -4144,7 +4147,7 @@
 </tr>
 </tbody>
 </table>
-<p>When a user with <code>can_access_all_content</code> accesses a board, the permission system treats them as a site-level admin role — they can view and modify any board without an explicit membership.</p>
+<p>When a user with <code>can_access_all_content</code> accesses a board, the permission system treats them as a site-level admin role: they can view and modify any board without an explicit membership.</p>
 <p>A non-superuser who is <code>is_site_admin=True</code> but <code>can_access_all_content=False</code> can manage the admin panel (users, settings, instance configuration) but <strong>cannot</strong> see boards they aren't a member of. This separation lets operators grant admin panel access without granting board omniscience.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>

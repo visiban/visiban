@@ -4068,11 +4068,11 @@
   
 
 
-<h1 id="ask-your-own-agent-about-the-demo-data">Ask Your Own Agent About the Demo Data<a class="headerlink" href="#ask-your-own-agent-about-the-demo-data" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>This walkthrough points your own AI agent at a <strong>local</strong> Visiban instance loaded with the generic "Visiban Demo Board" from <code>seed_demo_data</code>, using a read-only token, so you can ask it questions about a realistic board. It takes about ten minutes. For the full MCP reference, see <a href="../mcp-server/">MCP Server</a>.</p>
+<h1 id="ask-your-own-agent-about-the-demo-data">Ask your own agent about the demo data<a class="headerlink" href="#ask-your-own-agent-about-the-demo-data" title="Permanent link">&para;</a></h1>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Point your own AI agent at a <strong>local</strong> Visiban instance with a read-only <code>mcp:read</code> token and ask it questions about the generic "Visiban Demo Board" from <code>seed_demo_data</code>. It takes about ten minutes.</p>
+<p><strong>Why it matters:</strong> You can ask an agent questions about a realistic board, with a read-only token.</p>
+<p><strong>Go deeper:</strong> for the full MCP reference, see <a href="../mcp-server/">MCP Server</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Why this runs locally and not on try.visiban.com</p>
 <p>The hosted demo does not expose MCP and does not let visitors create tokens. This is by design: publishing a credential on a public site is a security decision we chose not to make. The steps below give you the same kind of experience on your own machine, with the generic demo board rather than the hosted showcase boards (those need <code>--demo-site</code>, which requires <code>DEMO_MODE=true</code>, and that mode blocks creating tokens), where the token is yours alone.</p>
@@ -4092,7 +4092,7 @@
 <p>In a second terminal:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data
 </code></pre></div>
-<p>This creates the "Visiban Demo Board" (five columns, ten swimlanes, about 80 cards, with movement history, checklists, and comments). <code>DEBUG=true</code> in <code>.env.example</code> satisfies the command's production guard. See <a href="../../administration/demo-data/">Demo Data</a> for what the seed creates.</p>
+<p>This creates the "Visiban Demo Board": five columns, ten swimlanes, about 80 cards, with movement history, checklists, and comments. <code>DEBUG=true</code> in <code>.env.example</code> satisfies the command's production guard. See <a href="../../administration/demo-data/">Demo Data</a> for what the seed creates.</p>
 <h2 id="3-sign-in-and-mint-a-read-only-token">3. Sign in and mint a read-only token<a class="headerlink" href="#3-sign-in-and-mint-a-read-only-token" title="Permanent link">&para;</a></h2>
 <p>The seeded <code>demo1</code> to <code>demo5</code> accounts have unusable passwords, so use the site admin, which can read every board.</p>
 <ol>
@@ -4116,7 +4116,7 @@
 <p>The response's <code>token</code> field is the <code>vbn_...</code> value. Copy it now; it is shown once.</p>
 </li>
 </ol>
-<p>This step uses the API so the walkthrough is scriptable; in the web app you would tick <strong>mcp:read</strong> under Settings &gt; Access Tokens instead (see the <a href="../../api/mcp/">API Reference</a>).</p>
+<p><strong>Yes, but:</strong> this step uses the API so the walkthrough is scriptable. In the web app you would tick <strong>mcp:read</strong> under Settings &gt; Access Tokens instead (see the <a href="../../api/mcp/">API Reference</a>).</p>
 <p>A token with only <code>mcp:read</code> can list and read boards, columns, swimlanes, cards, and card history. Calling a write tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) fails with a structured error. Scopes are not hierarchical; see <a href="../personal-access-tokens/#scopes">Personal Access Tokens</a>.</p>
 <h2 id="4-connect-your-agent">4. Connect your agent<a class="headerlink" href="#4-connect-your-agent" title="Permanent link">&para;</a></h2>
 <p><strong>Claude Code:</strong></p>
@@ -4141,7 +4141,7 @@
 <li>"Which boards can you see, and how many cards are on the Visiban Demo Board?"</li>
 <li>"What is sitting in the Backlog column, highest priority first?"</li>
 <li>"Which cards have been in progress the longest?"</li>
-<li>"Show me the movement history of the card about <topic> and tell me who moved it last."</li>
+<li>"Show me the movement history of the card about a topic you pick and tell me who moved it last."</li>
 <li>"Summarize the comments on the cards assigned to demo2."</li>
 </ul>
 <p>Then try to break the read-only promise, to see the guardrail: "Create a card called Test in Backlog." The agent should report a permission error, and the board does not change.</p>

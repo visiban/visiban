@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#groups" class="md-skip">
+        <a href="#onboard-a-team-by-adding-one-group" class="md-skip">
           Skip to content
         </a>
       
@@ -1334,28 +1334,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#group-description" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Group description
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ancestor-breadcrumb-chain" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Ancestor breadcrumb chain
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#structure" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1382,6 +1360,28 @@
     <span class="md-ellipsis">
       
         Board roles vs group roles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#group-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Group description
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ancestor-breadcrumb-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ancestor breadcrumb chain
       
     </span>
   </a>
@@ -4212,25 +4212,26 @@
   
 
 
-<h1 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h1>
+<h1 id="onboard-a-team-by-adding-one-group">Onboard a team by adding one group<a class="headerlink" href="#onboard-a-team-by-adding-one-group" title="Permanent link">&para;</a></h1>
+<p><a id="groups"></a></p>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Groups organize boards and users into a hierarchy. A board can belong to one group; a group can have one parent group. Group trees are walked up to 6 levels deep, and creating a subgroup, or moving a group to a new parent, is refused when the result would be deeper than that.</p>
-<p><strong>Why it matters:</strong> membership and shared settings inherit down the tree, so a manager can onboard a whole team by adding one group instead of every board.</p>
-<h2 id="group-description">Group description<a class="headerlink" href="#group-description" title="Permanent link">&para;</a></h2>
-<p>Each group has an optional <strong>description</strong> field — a short free-text summary of the group's purpose. It appears on the group detail page and is inline-editable: click it to enter edit mode, then press <strong>Enter</strong> (or click outside) to save, or <strong>Escape</strong> to cancel.</p>
-<p>The description is returned as <code>description</code> in <code>GET /api/v1/groups/{id}/</code> and is writable via <code>PUT /api/v1/groups/{id}/</code> (group admin required).</p>
-<h2 id="ancestor-breadcrumb-chain">Ancestor breadcrumb chain<a class="headerlink" href="#ancestor-breadcrumb-chain" title="Permanent link">&para;</a></h2>
-<p>When viewing a group with a parent, the group detail page shows a breadcrumb chain above the group name, listing every ancestor from the root down to the immediate parent as a clickable link — useful for orienting yourself and navigating back up deep hierarchies.</p>
-<p>The full ancestor list is also available in the API: <code>GET /api/v1/groups/{id}/</code> returns an <code>ancestors</code> array (see <a href="../../api/groups/">Groups API</a>).</p>
-<h2 id="structure">Structure<a class="headerlink" href="#structure" title="Permanent link">&para;</a></h2>
+<p>Create a group, add people with a role, and they get that role on every board in it and in its subgroups.</p>
+<p><strong>Why it matters:</strong> Membership and shared settings inherit down the tree, so a manager can onboard a whole team by adding one group instead of every board.</p>
+<p><strong>The big picture:</strong> groups organize boards and users into a hierarchy.</p>
+<ul>
+<li>A board belongs to one group; a group has one parent group.</li>
+<li>Group trees are walked <strong>up to 6 levels deep</strong>. Creating a subgroup, or moving a group to a new parent, is refused when the result would be deeper.</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Acme Corp  (top-level group)
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── Engineering
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── Backend Team
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   └── Frontend Team
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└── Sales
 </code></pre></div>
+<h2 id="structure">Structure<a class="headerlink" href="#structure" title="Permanent link">&para;</a></h2>
+<p>The tree above shows a top-level group with two subgroups, one of which has two team groups of its own.</p>
 <h2 id="membership">Membership<a class="headerlink" href="#membership" title="Permanent link">&para;</a></h2>
 <p>Each group has members with one of four roles:</p>
 <table>
@@ -4259,18 +4260,25 @@
 </tr>
 </tbody>
 </table>
-<p>Membership is <strong>inherited</strong> — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup individually. See <a href="../rbac/inheritance/">Group Inheritance</a> for full details.</p>
+<p>Membership is <strong>inherited</strong>: a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup. See <a href="../rbac/inheritance/">Group Inheritance</a>.</p>
 <h2 id="board-roles-vs-group-roles">Board roles vs group roles<a class="headerlink" href="#board-roles-vs-group-roles" title="Permanent link">&para;</a></h2>
-<p>All four roles — <code>admin</code>, <code>member</code>, <code>collaborator</code>, and <code>viewer</code> — are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the <strong>Members</strong> button in the board toolbar. See <a href="../rbac/roles/">Roles &amp; Permissions</a>.</p>
+<p>All four roles (<code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code>) are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the <strong>Members</strong> button in the board toolbar. See <a href="../rbac/roles/">Roles &amp; Permissions</a>.</p>
+<h2 id="group-description">Group description<a class="headerlink" href="#group-description" title="Permanent link">&para;</a></h2>
+<p>Each group has an optional <strong>description</strong>: a short free-text summary of its purpose. It appears on the group detail page. Click it to edit inline, then press <strong>Enter</strong> (or click outside) to save, or <strong>Escape</strong> to cancel.</p>
+<p>The description is returned as <code>description</code> in <code>GET /api/v1/groups/{id}/</code> and is writable via <code>PUT /api/v1/groups/{id}/</code> (group admin required).</p>
+<h2 id="ancestor-breadcrumb-chain">Ancestor breadcrumb chain<a class="headerlink" href="#ancestor-breadcrumb-chain" title="Permanent link">&para;</a></h2>
+<p>For a group with a parent, the detail page shows a breadcrumb chain above the group name: every ancestor from the root down to the immediate parent, each a clickable link. It orients you and lets you navigate up deep hierarchies.</p>
+<p>The full ancestor list is also in the API: <code>GET /api/v1/groups/{id}/</code> returns an <code>ancestors</code> array (see <a href="../../api/groups/">Groups API</a>).</p>
 <h2 id="boards-inside-groups">Boards inside groups<a class="headerlink" href="#boards-inside-groups" title="Permanent link">&para;</a></h2>
-<p>Boards belonging to a group are visible to all group members. Group admins can create new boards from the group detail page, or <strong>import</strong> a board from a previously exported JSON or CSV file directly into the group. Boards can be moved between groups (or back to personal) using the move button that appears on hover.</p>
+<p>Boards in a group are visible to all group members. Group admins can create boards from the group detail page, or <strong>import</strong> a board from a previously exported JSON or CSV file directly into the group. Move a board between groups (or back to personal) with the move button that appears on hover.</p>
 <h2 id="subgroups">Subgroups<a class="headerlink" href="#subgroups" title="Permanent link">&para;</a></h2>
-<p>Group admins can create subgroups. Access is inherited through up to 6 levels of nesting; creating a subgroup, or moving a group under a new parent, is refused when the resulting tree would be deeper than 6 levels. Trees that were already deeper before this limit applied to creation are left as they are. The group detail page shows subgroups and optionally lists all boards across subgroups via the "Show subgroup boards" toggle.</p>
+<p>Group admins can create subgroups. Access is inherited through up to 6 levels of nesting; creating a subgroup, or moving a group under a new parent, is refused when the resulting tree would be deeper than 6 levels. Trees that were already deeper before this limit applied to creation are left as they are.</p>
+<p>The group detail page shows subgroups, and the "Show subgroup boards" toggle optionally lists all boards across subgroups.</p>
 <h2 id="invite-links">Invite links<a class="headerlink" href="#invite-links" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Group admins can generate up to <strong>5 active invite links</strong> per group from the group detail page. Each link is configured independently:</p>
+<p>Group admins generate up to <strong>5 active invite links</strong> per group from the group detail page. Anyone with the link joins with the role assigned to that link. Each link is configured independently:</p>
 <table>
 <thead>
 <tr>
@@ -4302,11 +4310,21 @@
 <p><strong>Changed in 1.2</strong> — a shareable link can no longer grant <code>admin</code> and always expires (#1727)</p>
 </blockquote>
 <p>A shareable link works for anyone who holds it, wherever it ends up being pasted, so it cannot make someone a group admin (which would make them an admin of every board in the group and its subgroups) and it cannot live forever. An <a href="#emailing-an-invite-link">emailed invite</a> cannot grant admin either, since a forwarded or misdirected email would do the same. To make someone an admin, change their role after they join. Upgrading to 1.2 revokes unused shareable links that had the <code>admin</code> role and gives unused links with no expiry an expiry 7 days after the upgrade. An emailed invite with the <code>admin</code> role sent before the upgrade stops working (it answers like a revoked link); send a new one as a member.</p>
-<p>Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and can't be used to join. Used single-use links display a status badge and consumed-at timestamp in the invite links list. Each link can be revoked independently — existing members are not affected.</p>
+<p><strong>Link status:</strong></p>
+<ul>
+<li>Expired links show a visual indicator and can't be used to join.</li>
+<li>Used single-use links display a status badge and consumed-at timestamp in the invite links list.</li>
+<li>Each link can be revoked independently. Existing members are not affected.</li>
+</ul>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>A link only works while the person who created it is an active user and still an admin of the group (or of a parent group). If the creator is deactivated, a site admin deactivating their account revokes all of their active, unused group invite links at once (consumed single-use links are left alone, so they keep showing as used), and they disappear from the group's invite panel in real time. If the creator is instead demoted or removed from the group, the link stops working at the next preview or join, and it is revoked so it drops off the active list and frees its slot toward the 5-link cap (links that lapsed before this fix are cleaned up by an upgrade migration). In both cases the link answers like any revoked link (<code>404 Not found</code>); the response does not say why.</p>
+<p><strong>Creator must stay an admin.</strong> A link only works while the person who created it is an active user and still an admin of the group (or of a parent group).</p>
+<ul>
+<li><strong>Creator deactivated:</strong> a site admin deactivating their account revokes all of their active, unused group invite links at once. Consumed single-use links are left alone, so they keep showing as used. The links disappear from the group's invite panel in real time.</li>
+<li><strong>Creator demoted or removed from the group:</strong> the link stops working at the next preview or join, and it is revoked so it drops off the active list and frees its slot toward the 5-link cap. Links that lapsed before this fix are cleaned up by an upgrade migration.</li>
+<li>In both cases the link answers like any revoked link (<code>404 Not found</code>); the response does not say why.</li>
+</ul>
 <p><strong>How it works:</strong></p>
 <ul>
 <li><strong>Unauthenticated visitors</strong> see a full authentication interface: a <strong>Create an account</strong> button (primary), a <strong>Sign in</strong> option, and social login buttons (Google / GitHub / GitLab) where configured. <em>(1.2+)</em> When the link can't create an account on this instance, they see a sign-in-only view instead, with no <strong>Create an account</strong> option — see <a href="#new-users-on-invite-only-instances">New users on invite-only instances</a>. After authenticating, the invite is accepted automatically and they land on the group page with a confirmation banner.</li>
@@ -4335,9 +4353,7 @@
 <p>Following the emailed link does <strong>not</strong> verify the recipient's email address. If they create a new account from it, registration still follows the instance's normal email-verification setting. <em>(1.2+)</em> With <code>EMAIL_VERIFICATION=mandatory</code>, the new account joins the group when the invited address is verified, not at sign-up; see <a href="../../administration/site-admins/">Site Admins</a>.</p>
 </div>
 <h3 id="new-users-on-invite-only-instances">New users on invite-only instances<a class="headerlink" href="#new-users-on-invite-only-instances" title="Permanent link">&para;</a></h3>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
 <p>On an instance whose registration mode is <strong>Invite-only</strong>, an invite <strong>emailed by a site admin</strong> also lets a newcomer create an account: they select <strong>Create an account</strong> (or an OAuth provider) on the join page, and the new account is added to the group with the invite's role. With <code>EMAIL_VERIFICATION=mandatory</code> and the invited address not yet verified, the account is added, and the invite used up, when that address is confirmed instead (see <a href="../../administration/site-admins/">Site Admins</a>). Registering uses up (or, until confirmation, holds) the invite, so it creates one account (for OAuth sign-up this is best-effort, as it is for site invites: two simultaneous OAuth sign-ups with one link could both create an account, but only one joins the group). <em>(1.2+)</em> The sign-up address (or the address the OAuth provider reports) must be the one the invite was sent to; a different address is refused and the invite stays unused. The invite stops creating accounts if the person who sent it is deactivated, is no longer a site admin, or is no longer an admin of the group, or if email invites are turned off (<code>INVITE_EMAIL_ENABLED=false</code>); revoke it in the panel to stop it sooner.</p>
 <p>Only site admins' emailed invites do this — admitting new people to an invite-only instance stays a site-admin decision, since any user can create a group and become its admin. An emailed invite from a group admin who is not a site admin, and any <strong>shareable</strong> link from the panel (single-use or not), still only work for people who already have an account. A newcomer who tries one is told: <em>"This invite link can't be used to create an account on this site. Ask a site admin for an invite."</em></p>
 <blockquote>
@@ -4346,7 +4362,7 @@
 <p>The join page now says so up front. When the link can't create an account — a shareable link or a non-site-admin's invite on an invite-only instance, an invite whose sender no longer qualifies, email invites turned off, or any link on a <strong>Closed</strong> instance — a signed-out visitor sees <em>"This invite link can't be used to create a new account. Sign in with an existing account to join."</em> with only a <strong>Sign in</strong> button (plus any OAuth buttons, which sign in an existing account; a new OAuth sign-up from such a link is still refused), and no <strong>Create an account</strong> option. The page deliberately doesn't say which of these reasons applies. Visitors who are already signed in are unaffected and join automatically. The check is a hint, not a guarantee: the server still decides at sign-up time, so a link can stop qualifying between the page loading and the form being submitted.</p>
 <p>The <strong>Invite by email</strong> section shows which case applies. A site admin on an invite-only instance sees: <em>"New people can join this site only from invites you email, not from a shareable link."</em> Everyone else on an invite-only instance, and everyone on a <strong>Closed</strong> instance (where no invite creates an account), sees the warning: <em>"New users can't sign up on this site. Only people who already have an account can join from this invite."</em></p>
 <h2 id="moving-boards-between-groups">Moving boards between groups<a class="headerlink" href="#moving-boards-between-groups" title="Permanent link">&para;</a></h2>
-<p>Any board can move to a different group or back to personal boards from the <strong>Move board</strong> dialog. Open it with the move icon that appears when you hover over or tab to a board row:</p>
+<p>Move a board to a different group, or back to personal boards, from the <strong>Move board</strong> dialog. Open it with the move icon that appears when you hover over or tab to a board row:</p>
 <ul>
 <li>on the dashboard, <strong>Move to group</strong> on a board in the <strong>Favorite Boards</strong> list or in <strong>My Boards</strong> (your personal boards);</li>
 <li>on a group page, <strong>Move to another group</strong> on a board in the group's <strong>Boards</strong> list.</li>
@@ -4361,12 +4377,11 @@
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Group admins can define a shared label library for the group. New boards created inside it automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.</p>
-<p>Manage labels from the <strong>Settings</strong> tab on the group detail page.</p>
+<p>Group admins define a shared label library in the <strong>Settings</strong> tab on the group detail page. New boards created in the group inherit these labels, so your team starts with a consistent tagging vocabulary.</p>
 <p><strong>Watch out:</strong> inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.</p>
 <p><strong>API:</strong> <code>GET/POST /api/v1/groups/{id}/labels/</code>, <code>PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/</code></p>
 <h2 id="group-board-defaults">Group board defaults<a class="headerlink" href="#group-board-defaults" title="Permanent link">&para;</a></h2>
-<p>Group admins can configure defaults for new boards created in the group. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.</p>
+<p>Group admins configure defaults for new boards in the group, in the <strong>Settings</strong> tab on the group detail page. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.</p>
 <table>
 <thead>
 <tr>
@@ -4385,21 +4400,17 @@
 </tr>
 </tbody>
 </table>
-<p>Board defaults are configured from the <strong>Settings</strong> tab on the group detail page.</p>
 <p><strong>API:</strong> <code>PATCH /api/v1/groups/{id}/board-defaults/</code></p>
 <h2 id="transferring-group-ownership">Transferring group ownership<a class="headerlink" href="#transferring-group-ownership" title="Permanent link">&para;</a></h2>
-<p>Only the <strong>current owner</strong> of a group can transfer ownership, and only to an existing group <strong>admin</strong>. Confirm the transfer by typing the group name exactly as shown.</p>
-<p>After transfer, the previous owner becomes a regular admin — not removed from the group.</p>
+<p>Only the <strong>current owner</strong> can transfer ownership, and only to an existing group <strong>admin</strong>. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.</p>
 <p>If the owner has left or been deactivated, a superuser can transfer the group from the Django admin; see <a href="../../administration/django-admin/#transferring-a-groups-ownership">Transferring a group's ownership</a>.</p>
 <p><strong>API:</strong> <code>POST /api/v1/groups/{id}/transfer-ownership/</code> with <code>{ "new_owner_id": 42, "confirmation": "Group Name" }</code></p>
 <h2 id="starring-groups">Starring groups<a class="headerlink" href="#starring-groups" title="Permanent link">&para;</a></h2>
-<p>The star button (☆/★) in the group detail page header lets you mark frequently-visited groups as favorites. Starred groups appear in a <strong>Favorite Groups</strong> section at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.</p>
+<p>The star button (☆/★) in the group detail page header marks a group as a favorite. Starred groups appear in a <strong>Favorite Groups</strong> section at the top of the sidebar. The star updates optimistically and rolls back on failure.</p>
 <h2 id="live-board-list">Live board list<a class="headerlink" href="#live-board-list" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
-<p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time — no page refresh needed.</p>
-<p>The group page subscribes to a per-group WebSocket channel (<code>ws/groups/&lt;group_id&gt;/</code>) that emits the following events:</p>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
+<p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time, with no page refresh.</p>
+<p>The page subscribes to a per-group WebSocket channel (<code>ws/groups/&lt;group_id&gt;/</code>) that emits:</p>
 <table>
 <thead>
 <tr>
@@ -4422,10 +4433,10 @@
 </tr>
 </tbody>
 </table>
-<p>A <strong>Live / Reconnecting… / Failed</strong> connection status indicator in the group page header mirrors the board-view indicator — it reflects the same five states and uses the same <code>ConnectionStatus</code> component. The "Refresh board" button in the popover re-fetches the board list from the API.</p>
+<p>A <strong>Live / Reconnecting… / Failed</strong> status indicator in the group page header mirrors the board-view indicator: it reflects the same five states and uses the same <code>ConnectionStatus</code> component. The "Refresh board" button in the popover re-fetches the board list from the API.</p>
 <h2 id="dashboard">Dashboard<a class="headerlink" href="#dashboard" title="Permanent link">&para;</a></h2>
-<p>The persistent, collapsible left sidebar is the primary way to navigate between groups and boards — it shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.</p>
-<p>The <strong>+ New board</strong> and <strong>+ New group</strong> buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required.</p>
+<p>The persistent, collapsible left sidebar is the primary way to navigate between groups and boards. It shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.</p>
+<p>The <strong>+ New board</strong> and <strong>+ New group</strong> buttons in the sidebar footer open their creation dialogs immediately, with no navigation.</p>
 <h3 id="create-group-modal">Create Group modal<a class="headerlink" href="#create-group-modal" title="Permanent link">&para;</a></h3>
 <p>The <strong>Create Group</strong> modal has two fields:</p>
 <table>
@@ -4446,8 +4457,8 @@
 </tr>
 </tbody>
 </table>
-<p>After creating a group or subgroup, the modal switches to a <strong>post-creation state</strong> where you can add subgroups immediately, without navigating away: type a name, click <strong>+ Add</strong> (or press Enter), and repeat. Each subgroup is created instantly. Click <strong>Done</strong> when finished.</p>
-<p>This flow works at every level of the hierarchy — create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.</p>
+<p>After you create a group or subgroup, the modal switches to a <strong>post-creation state</strong> where you can add subgroups right away: type a name, click <strong>+ Add</strong> (or press Enter), and repeat. Each subgroup is created instantly. Click <strong>Done</strong> when finished.</p>
+<p>This works at every level of the hierarchy: create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.</p>
 
 
 

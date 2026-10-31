@@ -27,7 +27,7 @@
     
     
       
-        <title>Features - Visiban</title>
+        <title>Find the feature you need - Visiban</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#features" class="md-skip">
+        <a href="#find-the-feature-you-need" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Features
+              Find the feature you need
             
           </span>
         </div>
@@ -3955,11 +3955,48 @@
   
 
 
-<h1 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h1>
-<p>Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.</p>
+<h1 id="find-the-feature-you-need">Find the feature you need<a class="headerlink" href="#find-the-feature-you-need" title="Permanent link">&para;</a></h1>
+<p><a id="features"></a></p>
+<p>Start with <a href="board/">Board &amp; Cards</a>; every other feature builds on the grid.</p>
+<p><strong>Why it matters:</strong> Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.</p>
+<p><strong>Go deeper:</strong> each section below links to the full page.</p>
+<table>
+<thead>
+<tr>
+<th>If you want to...</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Work a board day to day</td>
+<td><a href="board/">Board &amp; Cards</a></td>
+</tr>
+<tr>
+<td>See who moved what, and when</td>
+<td><a href="card-history/">Card History</a></td>
+</tr>
+<tr>
+<td>Spot bottlenecks and velocity</td>
+<td><a href="analytics/">Analytics</a></td>
+</tr>
+<tr>
+<td>Organize boards and invite a team</td>
+<td><a href="groups/">Groups</a></td>
+</tr>
+<tr>
+<td>Control who can do what</td>
+<td><a href="rbac/roles/">Roles &amp; Permissions</a></td>
+</tr>
+<tr>
+<td>Script the API or connect an AI agent</td>
+<td><a href="personal-access-tokens/">Personal Access Tokens</a> · <a href="mcp-server/">MCP Server</a></td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="the-board">The board<a class="headerlink" href="#the-board" title="Permanent link">&para;</a></h2>
-<p>The kanban grid is the heart of Visiban. Columns represent pipeline stages; swimlanes represent the entities moving through them — customers, projects, epics, or anything else.</p>
+<p>The kanban grid is the heart of Visiban. Columns are pipeline stages; swimlanes are the entities moving through them: customers, projects, epics, or anything else.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>              Backlog   │  To Do   │  Doing   │   Done
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>────────────────────────┼──────────┼──────────┼──────────
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Acme Corp         ■     │    ■ ■   │    ■     │
@@ -3970,19 +4007,23 @@
 </code></pre></div>
 <p>Cards are dragged between cells. Every move that changes column or swimlane is logged automatically to an immutable audit trail.</p>
 <p>Keyboard shortcuts make common actions instant: <code>f</code> toggles the filter bar, <code>/</code> focuses search, and <code>?</code> shows the full shortcut reference.</p>
-<p><strong>Grid overlays</strong> shade each cell by card count — without hiding or resizing anything, so you can spot hot spots at a glance.</p>
+<p><strong>Grid overlays</strong> shade each cell by card count, without hiding or resizing anything, so you can spot hot spots at a glance.</p>
 <p>→ <a href="board/">Board &amp; Cards</a> · <a href="board/#grid-overlays">Grid overlays</a></p>
 <hr />
 <h2 id="board-creation-templates">Board creation &amp; templates<a class="headerlink" href="#board-creation-templates" title="Permanent link">&para;</a></h2>
-<p>When creating a new board you choose from ten purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring &amp; Recruiting, Legal &amp; Compliance, or Infrastructure &amp; DevOps — each pre-seeded with the right columns and a swimlane placeholder. Or start from <strong>Blank Board</strong>, which creates no columns at all so you can build the layout yourself.</p>
-<p>After choosing a template you're prompted to name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your <strong>default board</strong> so it opens automatically after login.</p>
+<p>When creating a new board you choose from ten purposeful templates (Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring &amp; Recruiting, Legal &amp; Compliance, or Infrastructure &amp; DevOps), each pre-seeded with the right columns and a swimlane placeholder. Or start from <strong>Blank Board</strong>, which creates no columns at all so you can build the layout yourself.</p>
+<p>After choosing a template, name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your <strong>default board</strong> so it opens automatically after login.</p>
 <p>→ <a href="board/">Board &amp; Cards</a></p>
 <hr />
 <h2 id="start-from-a-sample">Start from a sample<a class="headerlink" href="#start-from-a-sample" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1452)</p>
 </blockquote>
-<p>Instead of finding and uploading a file, open <strong>Import</strong> on the Dashboard and pick a ready-made board under <strong>Start from a sample</strong> — Software Development, Sales Overlay, Simple Kanban, Sales Pipeline and more. Samples come from your own server, so they match your installed version, and their dates are moved to the day you import so the board does not open mostly overdue.</p>
+<p>Open <strong>Import</strong> on the Dashboard and pick a ready-made board under <strong>Start from a sample</strong>: Software Development, Sales Overlay, Simple Kanban, Sales Pipeline and more. No file hunting or uploading.</p>
+<ul>
+<li>Samples come from your own server, so they match your installed version.</li>
+<li>Their dates are moved to the day you import, so the board does not open mostly overdue.</li>
+</ul>
 <p>→ <a href="../getting-started/sample-boards/">Sample Boards</a></p>
 <hr />
 <h2 id="card-detail">Card detail<a class="headerlink" href="#card-detail" title="Permanent link">&para;</a></h2>
@@ -4004,9 +4045,12 @@
 <p>→ <a href="card-history/">Card History</a> · <a href="card-descriptions/">Card Descriptions</a> · <a href="card-relations/">Card Relations</a> · <a href="card-links/">Pull &amp; Merge Request Links</a></p>
 <hr />
 <h2 id="bulk-operations-data-portability">Bulk operations &amp; data portability<a class="headerlink" href="#bulk-operations-data-portability" title="Permanent link">&para;</a></h2>
-<p>Select multiple cards at once and apply bulk actions — move to a column, assign, set priority, archive, or delete — all from a toolbar that appears at the bottom of the board.</p>
-<p>Export your board as CSV or JSON for backup or analysis, or import a previously exported board to recreate it with all its structure and cards. Import accepts lowercase and snake_case column headers (e.g. <code>title</code>, <code>due_date</code>) so files from external tools import cleanly without manual editing.</p>
-<p>Coming from Trello? Import a Trello board JSON export into a new board, with a preview of how lists, labels, checklists, comments, and members will map before anything is created.</p>
+<p>Select multiple cards and apply bulk actions (move to a column, assign, set priority, archive, or delete) from a toolbar at the bottom of the board.</p>
+<ul>
+<li><strong>Export</strong> your board as CSV or JSON for backup or analysis.</li>
+<li><strong>Import</strong> a previously exported board to recreate it with all its structure and cards. Import accepts lowercase and snake_case column headers (e.g. <code>title</code>, <code>due_date</code>) so files from external tools import cleanly without manual editing.</li>
+<li><strong>Coming from Trello?</strong> Import a Trello board JSON export into a new board, with a preview of how lists, labels, checklists, comments, and members will map before anything is created.</li>
+</ul>
 <p>→ <a href="board/#bulk-card-operations">Board &amp; Cards</a> · <a href="board/#export-import">Export &amp; Import</a> · <a href="trello-import/">Import from Trello</a></p>
 <hr />
 <h2 id="card-history-survives-card-deletion">Card history survives card deletion<a class="headerlink" href="#card-history-survives-card-deletion" title="Permanent link">&para;</a></h2>
@@ -4017,7 +4061,7 @@
 <p>→ <a href="card-history/#deleted-cards-keep-their-history">Deleted cards keep their history</a> · <a href="../administration/card-history-retention/">Card History Retention</a></p>
 <hr />
 <h2 id="card-archiving">Card archiving<a class="headerlink" href="#card-archiving" title="Permanent link">&para;</a></h2>
-<p>Cards can be archived instead of deleted — removing them from the active board view while preserving their full history and movement audit trail. Archived cards can be restored at any time from the <strong>Archived</strong> panel in the board toolbar. Analytics dwell-time uses <code>archived_at</code> as the terminal timestamp so only the active period is counted.</p>
+<p>Archive a card instead of deleting it: it leaves the active board view, but its full history and movement audit trail stay. Restore it any time from the <strong>Archived</strong> panel in the board toolbar. Analytics dwell-time uses <code>archived_at</code> as the terminal timestamp, so only the active period is counted.</p>
 <p>→ <a href="card-archiving/">Card Archiving</a></p>
 <hr />
 <h2 id="analytics-visibility">Analytics &amp; visibility<a class="headerlink" href="#analytics-visibility" title="Permanent link">&para;</a></h2>
@@ -4048,31 +4092,29 @@
 <p>→ <a href="analytics/">Analytics</a></p>
 <hr />
 <h2 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h2>
-<p>Visiban surfaces two types of alerts in the notification bell:</p>
+<p>Visiban surfaces these alerts in the notification bell:</p>
 <ul>
 <li><strong>Assignment</strong> — you're notified when someone assigns a card to you</li>
 <li><strong>@mentions</strong> — you're notified when someone mentions you in a card description</li>
 <li><strong>Comments</strong> — opt in to be notified when someone comments on a card you created or are assigned to</li>
 <li><strong>Staleness</strong> — cards that haven't moved in N days (configurable per board) are tinted on a graduated scale, get a <code>Stale · 41d</code> badge and trigger a daily digest</li>
 </ul>
-<p>Aging cards are tinted on the board on a graduated scale: yellow as they approach the threshold, then orange, red and deep red at 1×, 2× and 3× the threshold. A card idle 150 days no longer looks the same as one idle 15 days. See <a href="card-history/#card-aging-tint">Card aging tint</a>.</p>
+<p><strong>Aging tint:</strong> aging cards are tinted on a graduated scale, yellow as they approach the threshold, then orange, red and deep red at 1×, 2× and 3× the threshold. A card idle 150 days no longer looks the same as one idle 15 days. See <a href="card-history/#card-aging-tint">Card aging tint</a>.</p>
 <p>Five of these events — assigned to me, @mentioned, due date approaching, a watched card moved, and a comment on a watched card — can also be <strong>delivered by email</strong>, off by default, once an administrator configures outgoing SMTP and you turn the per-event toggle on in Settings → Notifications.</p>
 <p>→ <a href="notifications/">Notifications</a> · <a href="notifications/#email-notifications">Email notifications</a></p>
 <hr />
 <h2 id="real-time-collaboration">Real-time collaboration<a class="headerlink" href="#real-time-collaboration" title="Permanent link">&para;</a></h2>
-<p>When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. The connection status indicator in the toolbar stays quiet when healthy — a small <strong>Live</strong> dot at wider viewports — and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.</p>
-<p>Powered by Django Channels and Valkey — no configuration required in the default Docker Compose setup.</p>
+<p>When multiple people work on a board at once, changes appear instantly without a page refresh. The toolbar's connection status indicator stays quiet when healthy (a small <strong>Live</strong> dot at wider viewports) and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.</p>
+<p>Powered by Django Channels and Valkey. No configuration is required in the default Docker Compose setup.</p>
 <p>→ <a href="realtime/">Real-time Updates</a></p>
 <hr />
 <h2 id="real-time-group-updates">Real-time group updates<a class="headerlink" href="#real-time-group-updates" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
-<p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time — no manual refresh needed. A <strong>Live / Reconnecting… / Failed</strong> status indicator mirrors the board-view connection badge.</p>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
+<p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time, with no manual refresh. A <strong>Live / Reconnecting… / Failed</strong> status indicator mirrors the board-view connection badge.</p>
 <p>→ <a href="groups/#live-board-list">Groups — Live board list</a></p>
 <hr />
 <h2 id="groups-access-control">Groups &amp; access control<a class="headerlink" href="#groups-access-control" title="Permanent link">&para;</a></h2>
-<p>Boards can be organized into groups and subgroups (access is inherited through up to 6 levels; creating a subgroup or moving a group past that depth is refused). Group membership cascades down the hierarchy — add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.</p>
+<p>Boards can be organized into groups and subgroups (access is inherited through up to 6 levels; creating a subgroup or moving a group past that depth is refused). Group membership cascades down the hierarchy: add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Acme Corp  ← add user here
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>└── Engineering  ← access inherited automatically
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    ├── Backend Team   ← and here
@@ -4115,9 +4157,7 @@
 <p>→ <a href="personal-access-tokens/">Personal Access Tokens</a> · <a href="personal-access-tokens/#scopes">Scopes</a></p>
 <hr />
 <h2 id="mcp-server">MCP Server<a class="headerlink" href="#mcp-server" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
 <p>Connect Claude Desktop, Copilot, or any <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a>-compatible AI agent to Visiban so it can read your boards and, with a suitably scoped token, create, move, update, and archive cards. Authenticates with the same Personal Access Token used elsewhere in the API. Off by default; operators enable it with <code>MCP_SERVER_ENABLED=true</code>.</p>
 <p>→ <a href="mcp-server/">MCP Server</a> · <a href="mcp-demo-walkthrough/">Ask your agent about the demo data</a></p>
 <hr />
@@ -4126,9 +4166,7 @@
 <p>→ <a href="stable-uids/">Stable UIDs</a></p>
 <hr />
 <h2 id="command-palette">Command palette<a class="headerlink" href="#command-palette" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
 <p>Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behavior adapts to the current surface:</p>
 <ul>
 <li><strong>Board</strong> — searches cards on the current board by title, plus board-scoped actions (open card history, toggle filters, switch view).</li>
@@ -4141,7 +4179,7 @@
 <h2 id="navigation">Navigation<a class="headerlink" href="#navigation" title="Permanent link">&para;</a></h2>
 <p>The application sidebar gives you persistent access to your full group and board hierarchy from any page. Starred boards and groups appear at the top of the sidebar in dedicated <strong>Favorite Boards</strong> and <strong>Favorite Groups</strong> sections. The sidebar collapses to a 48 px icon rail (with hover tooltips), expands back to 220 px, and remembers both states across reloads via <code>localStorage</code>.</p>
 <p>Site admins see a <strong>Site Admin</strong> link in the sidebar that opens the administration panel directly. The link is hidden for all other users.</p>
-<p>The authenticated app is optimized for desktop (1024 px and wider). Below that width, Visiban shows a "use a larger screen" notice instead of a degraded layout. Public join, share, and account-recovery pages remain accessible on any viewport.</p>
+<p>Below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally, so the app stays usable on phones and tablets (see <a href="navigation/#mobile-behavior">Navigation → Mobile behavior</a>). Public join, share, and account-recovery pages remain accessible on any viewport.</p>
 <p>→ <a href="navigation/">Navigation</a></p>
 <hr />
 <h2 id="site-administration">Site administration<a class="headerlink" href="#site-administration" title="Permanent link">&para;</a></h2>
@@ -4229,18 +4267,14 @@
 <p>→ <a href="saved-filters/">Saved Filters</a></p>
 <hr />
 <h2 id="custom-fields">Custom fields<a class="headerlink" href="#custom-fields" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
 <p>Board admins can define up to 30 typed metadata fields per board — text, number, date, dropdown, checkbox, URL, or multi-select — for tracking anything specific to that board's workflow. Up to 2 fields can be pinned to the card face as small chips; checkbox and dropdown chips are editable directly from the card face. Every field also gets its own input in the card detail panel, and the filter bar can filter on any of them.</p>
 <p>Boards can also define up to 15 separate fields scoped to <strong>swimlanes</strong> (rows) instead of cards, with up to 8 pinned as chips in the swimlane label panel. Swimlane fields are a fully independent per-board schema, managed on their own <strong>Swimlane fields</strong> tab in Board Settings, and each can be marked admin-only so only board admins see its values.</p>
 <p>Admins can also turn off <strong>Show field names on row chips</strong> (Board Settings → Swimlane fields) so each swimlane row chip shows its value alone; the name stays in the tooltip and for screen readers (added in 1.2).</p>
 <p>→ <a href="custom-fields/">Custom Fields</a> · <a href="custom-fields/#hiding-field-names-on-row-chips">Hiding field names on row chips</a></p>
 <hr />
 <h2 id="card-density">Card density<a class="headerlink" href="#card-density" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
 <p>Each board has an admin-controlled <strong>Card density</strong> setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in <strong>Board Settings → Display</strong>.</p>
 <p>The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed in 1.1. Card density is the single layout knob, and <code>localStorage</code> values for the old keys are silently ignored.</p>
 <p>Any member can override the board's density for their own view without changing it for anyone else — turn on <strong>Use my own density</strong> in Board Settings → Display (added in 1.2, browser-local, board-scoped).</p>
@@ -4315,10 +4349,8 @@
 <p>→ <a href="board/#swimlane-focus-mode">Board &amp; Cards — Swimlane focus mode</a></p>
 <hr />
 <h2 id="issue-board-lens">Issue Board Lens<a class="headerlink" href="#issue-board-lens" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Connect a public GitHub or GitLab repository to a board and view its issues as a read-only kanban grid — with the swimlane dimension that native provider boards lack. Columns default to a derived <strong>Pipeline</strong> view (Backlog → To Do → Doing → Review → Done) and can be changed to status labels, Open/Closed, or any label; swimlanes group by milestone, label, or assignee. The lens is off by default; operators enable it with <code>GIT_LENS_ENABLED=true</code>.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Connect a public GitHub or GitLab repository to a board and view its issues as a read-only kanban grid, with the swimlane dimension that native provider boards lack. Columns default to a derived <strong>Pipeline</strong> view (Backlog → To Do → Doing → Review → Done) and can be changed to status labels, Open/Closed, or any label; swimlanes group by milestone, label, or assignee. The lens is off by default; operators enable it with <code>GIT_LENS_ENABLED=true</code>.</p>
 <p>→ <a href="issue-board-lens/">Issue Board Lens</a></p>
 <hr />
 <h2 id="what-to-read-next">What to read next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>

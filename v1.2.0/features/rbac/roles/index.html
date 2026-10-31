@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#roles-permissions" class="md-skip">
+        <a href="#check-what-each-role-can-and-cant-touch" class="md-skip">
           Skip to content
         </a>
       
@@ -4059,8 +4059,10 @@
   
 
 
-<h1 id="roles-permissions">Roles &amp; Permissions<a class="headerlink" href="#roles-permissions" title="Permanent link">&para;</a></h1>
-<p>Visiban has five roles that control access at the group, board, and site level. <strong>Why it matters:</strong> this page is the single source of truth for what each role can and can't touch — check it before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.</p>
+<h1 id="check-what-each-role-can-and-cant-touch">Check what each role can and can't touch<a class="headerlink" href="#check-what-each-role-can-and-cant-touch" title="Permanent link">&para;</a></h1>
+<p><a id="roles-permissions"></a></p>
+<p>Five roles control access at the group, board, and site level; the tables below are the single source of truth.</p>
+<p><strong>Why it matters:</strong> Check this page before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.</p>
 <h2 id="role-hierarchy">Role hierarchy<a class="headerlink" href="#role-hierarchy" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4600,11 +4602,19 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>The board <strong>Members</strong> settings follow the same rule: for a board admin who is not a site admin, a member with <code>is_site_admin=True</code> and a membership on the board (a row with a numeric <code>id</code>) shows their role as plain text, with no role dropdown and no remove button. For that board admin, members who belong through the board's group, and a board owner without a membership, are editable even when their row carries <code>is_site_admin=True</code>, because the server accepts a role change for a user with no membership on the board: the first role change creates a board membership for them. The lock keys on a membership-backed row plus the site-admin flag, so it does not depend on which readers receive the flag. Which readers get the instance-wide roster is unchanged: a reader with <code>can_access_all_content</code> already resolves to the <code>site_admin</code> board role and gets it, as does a reader with <code>is_site_admin</code>. From then on that row carries the member's site-admin flag, and if they are a site admin it is locked for that board admin like any other site-admin membership.</p>
+<p>The board <strong>Members</strong> settings follow the same rule, for a board admin who is not a site admin:</p>
+<ul>
+<li>A member with <code>is_site_admin=True</code> and a membership on the board (a row with a numeric <code>id</code>) shows their role as plain text, with no role dropdown and no remove button.</li>
+<li>Members who belong through the board's group, and a board owner without a membership, are editable even when their row carries <code>is_site_admin=True</code>, because the server accepts a role change for a user with no membership on the board: the first role change creates a board membership for them.</li>
+<li>The lock keys on a membership-backed row plus the site-admin flag, so it does not depend on which readers receive the flag.</li>
+<li>Which readers get the instance-wide roster is unchanged: a reader with <code>can_access_all_content</code> already resolves to the <code>site_admin</code> board role and gets it, as does a reader with <code>is_site_admin</code>.</li>
+<li>From then on that row carries the member's site-admin flag, and if they are a site admin it is locked for that board admin like any other site-admin membership.</li>
+</ul>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>The board member list shows the board's own members: direct members, members inherited from the board's group, and the owner. A site admin (or a user with <code>can_access_all_content</code>) viewing the board also sees every user with <code>can_access_all_content</code> who has no other role on it, listed with the <strong>Site admin</strong> board role; such a user can still be assigned a board role, but their effective access stays full for as long as they have <code>can_access_all_content</code>. Anyone on the board can still @mention such a user by typing their username.</p>
+<p>The board member list shows the board's own members: direct members, members inherited from the board's group, and the owner.</p>
+<p>A site admin (or a user with <code>can_access_all_content</code>) viewing the board also sees every user with <code>can_access_all_content</code> who has no other role on it, listed with the <strong>Site admin</strong> board role; such a user can still be assigned a board role, but their effective access stays full for as long as they have <code>can_access_all_content</code>. Anyone on the board can still @mention such a user by typing their username.</p>
 <p><strong>Watch out:</strong> manage <code>is_site_admin</code> and <code>can_access_all_content</code> together (the <code>set_site_admin</code> command does this for you). Separate them only when you have a specific reason — see the tip below.</p>
 <p>Users with <code>can_access_all_content</code> see all boards and groups regardless of explicit membership — this is the flag that controls board-level omniscience. <code>is_site_admin</code> alone doesn't grant it.</p>
 <div class="admonition note">

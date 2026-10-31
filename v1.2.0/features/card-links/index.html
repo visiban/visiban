@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pull-merge-request-links" class="md-skip">
+        <a href="#jump-from-a-card-to-its-pull-request" class="md-skip">
           Skip to content
         </a>
       
@@ -1166,17 +1166,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#on-the-card-face" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        On the card face
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#adding-and-editing-a-link" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1201,6 +1190,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#on-the-card-face" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On the card face
+      
+    </span>
+  </a>
   
 </li>
       
@@ -4096,64 +4096,30 @@
   
 
 
-<h1 id="pull-merge-request-links">Pull &amp; Merge Request Links<a class="headerlink" href="#pull-merge-request-links" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Attach a pull request or merge request to a card so anyone looking at the board can
-jump straight from the work item to the code. Each card carries <strong>one</strong> link, with a
-provider (GitHub, GitLab, or Other) and a short reference such as <code>acme/web#12</code> or
-<code>group/project!45</code>.</p>
-<p>The link works with any http or https URL, so self-hosted GitLab and other code
-hosts are supported. The link is also available through the REST API — see
-<a href="#api">API</a>.</p>
-<hr />
-<h2 id="on-the-card-face">On the card face<a class="headerlink" href="#on-the-card-face" title="Permanent link">&para;</a></h2>
-<p>A card with a link shows a small pull-request glyph at the <strong>start</strong> of its metadata
-row, before any other indicator.</p>
-<table>
-<thead>
-<tr>
-<th>Card density</th>
-<th>What the badge shows</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Comfortable</td>
-<td>The glyph only</td>
-</tr>
-<tr>
-<td>Standard</td>
-<td>The glyph and the reference, truncated if long</td>
-</tr>
-<tr>
-<td>Dense</td>
-<td>The glyph and the reference, truncated if long</td>
-</tr>
-</tbody>
-</table>
-<p>At Comfortable density, hover the glyph to see the provider and reference — for
-example "GitHub acme/web#12 — github.com (opens in new tab)", which always shows the real host the link opens. The reference also appears in the
-hover peek as "GitHub acme/web#12".</p>
-<p>The badge is <strong>hidden in the Compact (single-line) card layout</strong>, which has no room
-for it. Open the card to see the link.</p>
-<p>Click the badge to open the link in a new tab. The card itself does not open.
-Cmd-click, Ctrl-click, and middle-click behave like any other link.</p>
+<h1 id="jump-from-a-card-to-its-pull-request">Jump from a card to its pull request<a class="headerlink" href="#jump-from-a-card-to-its-pull-request" title="Permanent link">&para;</a></h1>
+<p><a id="pull-merge-request-links"></a></p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>In a card's <em>Details</em> tab, open <strong>Pull / merge request</strong> → <strong>+ Link a pull or merge request</strong>, paste the URL, and click <strong>Save link</strong>.</p>
+<p><strong>Why it matters:</strong> Anyone looking at the board can jump from the work item straight to the code.</p>
+<p><strong>By the numbers:</strong></p>
+<ul>
+<li><strong>One link per card.</strong> To link a different pull request, edit the existing one.</li>
+<li><strong>Provider:</strong> GitHub, GitLab, or Other.</li>
+<li><strong>Reference:</strong> a short label such as <code>acme/web#12</code> or <code>group/project!45</code>.</li>
+<li><strong>Any http or https URL works</strong>, so self-hosted GitLab and other code hosts are supported.</li>
+</ul>
+<p><strong>Go deeper:</strong> the link is also in the REST API; see <a href="#api">API</a>.</p>
 <hr />
 <h2 id="adding-and-editing-a-link">Adding and editing a link<a class="headerlink" href="#adding-and-editing-a-link" title="Permanent link">&para;</a></h2>
-<p>Open a card and find the <strong>Pull / merge request</strong> section in the <em>Details</em> tab,
-directly after <strong>Relations</strong>.</p>
+<p>Open a card and find <strong>Pull / merge request</strong> in the <em>Details</em> tab, directly after <strong>Relations</strong>.</p>
 <ol>
 <li>Click <strong>+ Link a pull or merge request</strong>.</li>
-<li>Paste the URL. Visiban fills in the provider and reference for you (see below).</li>
-<li>Adjust the provider or reference if needed.</li>
+<li>Paste the URL. Visiban fills in the provider and reference.</li>
+<li>Adjust either if needed.</li>
 <li>Click <strong>Save link</strong>.</li>
 </ol>
-<p>Click <strong>Cancel</strong> to discard the change. Pressing <strong>Escape</strong> also cancels the edit; a
-second <strong>Escape</strong> closes the panel.</p>
-<p>On an existing link, use <strong>Edit</strong> to change it or <strong>Remove</strong> to delete it. Remove
-happens immediately, with no confirmation, because the link is easy to add again.</p>
+<p><strong>Cancel</strong> discards the change. <strong>Escape</strong> also cancels the edit, and a second <strong>Escape</strong> closes the panel.</p>
+<p>On an existing link, <strong>Edit</strong> changes it and <strong>Remove</strong> deletes it. Remove is immediate, with no confirmation, because the link is easy to add again.</p>
 <h3 id="how-the-url-is-read">How the URL is read<a class="headerlink" href="#how-the-url-is-read" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4181,17 +4147,45 @@ happens immediately, with no confirmation, because the link is easy to add again
 </tr>
 </tbody>
 </table>
-<p>GitLab subgroups are kept, so <code>group/subgroup/project!45</code> stays intact.</p>
-<p>You can override the detected provider and reference at any time.</p>
+<p>GitLab subgroups are kept, so <code>group/subgroup/project!45</code> stays intact. You can override the detected provider and reference at any time.</p>
+<hr />
+<h2 id="on-the-card-face">On the card face<a class="headerlink" href="#on-the-card-face" title="Permanent link">&para;</a></h2>
+<p>A card with a link shows a small pull-request glyph at the <strong>start</strong> of its metadata row, before any other indicator.</p>
+<table>
+<thead>
+<tr>
+<th>Card density</th>
+<th>What the badge shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Comfortable</td>
+<td>The glyph only</td>
+</tr>
+<tr>
+<td>Standard</td>
+<td>The glyph and the reference, truncated if long</td>
+</tr>
+<tr>
+<td>Dense</td>
+<td>The glyph and the reference, truncated if long</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Hover (Comfortable):</strong> shows the provider and reference, for example "GitHub acme/web#12 — github.com (opens in new tab)", which always shows the real host the link opens. The reference also appears in the hover peek as "GitHub acme/web#12".</li>
+<li><strong>Click:</strong> opens the link in a new tab without opening the card. Cmd-click, Ctrl-click, and middle-click behave like any other link.</li>
+<li><strong>Compact (single-line) layout:</strong> the badge is <strong>hidden</strong>, since there is no room. Open the card to see the link.</li>
+</ul>
 <hr />
 <h2 id="rules">Rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Only <strong>http</strong> and <strong>https</strong> URLs are accepted. For anything else the panel shows
-  "Enter a valid http or https URL." and <strong>Save link</strong> stays disabled.</li>
-<li>URLs that contain a username or password are rejected.</li>
+<li>Only <strong>http</strong> and <strong>https</strong> URLs are accepted. Anything else shows "Enter a valid http or https URL." and <strong>Save link</strong> stays disabled.</li>
+<li>URLs containing a username or password are rejected.</li>
 <li>The URL can be up to 2048 characters.</li>
-<li>The reference is required, cannot contain spaces or other whitespace/control characters, and can be up to 255 characters.</li>
-<li>Each card holds one link. To link a different pull request, edit the existing one.</li>
+<li>The reference is required, can't contain spaces or other whitespace/control characters, and can be up to 255 characters.</li>
+<li>Each card holds one link.</li>
 </ul>
 <hr />
 <h2 id="permissions">Permissions<a class="headerlink" href="#permissions" title="Permanent link">&para;</a></h2>
@@ -4227,27 +4221,21 @@ happens immediately, with no confirmation, because the link is easy to add again
 </tr>
 </tbody>
 </table>
-<p>Members are subject to the board's "edit only cards you created" rule unless they are
-a moderator or admin.</p>
-<p>Viewers and collaborators see the link and can click it, but get no edit controls.
-When a card has no link, they do not see the section at all.</p>
+<p>Members are subject to the board's "edit only cards you created" rule unless they are a moderator or admin.</p>
+<p>Viewers and collaborators see the link and can click it, but get no edit controls. When a card has no link, they don't see the section at all.</p>
 <hr />
 <h2 id="real-time-behavior">Real-time behavior<a class="headerlink" href="#real-time-behavior" title="Permanent link">&para;</a></h2>
-<p>Adding, changing, or removing a link updates the card on everyone's board
-immediately, over the same channel as every other card change. See
-<a href="../realtime/">Real-time Updates</a>.</p>
+<p>Adding, changing, or removing a link updates the card on everyone's board immediately, over the same channel as every other card change. See <a href="../realtime/">Real-time Updates</a>.</p>
 <hr />
 <h2 id="export-import-and-sharing">Export, import, and sharing<a class="headerlink" href="#export-import-and-sharing" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>JSON board export</strong> includes the link, and <strong>JSON import</strong> restores it.</li>
 <li><strong>CSV export</strong> does not include the link.</li>
-<li><strong>Public share links do not show the link.</strong> Pull request URLs can reveal private
-  repository names, so anonymous visitors never see them.</li>
+<li><strong>Public share links do not show the link.</strong> Pull request URLs can reveal private repository names, so anonymous visitors never see them.</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Adding, changing, or removing a link is not recorded in the card's activity
-history in this release.</p>
+<p>Adding, changing, or removing a link is not recorded in the card's activity history in this release.</p>
 </div>
 <hr />
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>

@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#keyboard-shortcuts" class="md-skip">
+        <a href="#drive-the-board-from-the-keyboard" class="md-skip">
           Skip to content
         </a>
       
@@ -1390,10 +1390,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#safety-rule-shortcuts-never-fire-while-typing" class="md-nav__link">
+  <a href="#shortcuts-never-fire-while-typing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Safety rule — shortcuts never fire while typing
+        Shortcuts never fire while typing
       
     </span>
   </a>
@@ -1401,10 +1401,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#navigation-works-on-every-authenticated-page" class="md-nav__link">
+  <a href="#navigation-every-authenticated-page" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Navigation — works on every authenticated page
+        Navigation: every authenticated page
       
     </span>
   </a>
@@ -1415,7 +1415,7 @@
   <a href="#board-view-switch-the-active-sub-tab" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Board view — switch the active sub-tab
+        Board view: switch the active sub-tab
       
     </span>
   </a>
@@ -4079,16 +4079,18 @@
   
 
 
-<h1 id="keyboard-shortcuts">Keyboard shortcuts<a class="headerlink" href="#keyboard-shortcuts" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
-<p>Visiban ships with a keyboard-first control scheme so power users can drive the board without moving their hands from the home row. <strong>Why it matters:</strong> for someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.</p>
-<p>Shortcuts are platform-aware: macOS renders them as glyphs (⌘, ⇧, ⌥); Linux / Windows renders them as named chords (<code>Ctrl</code>, <code>Shift</code>, <code>Alt</code>).</p>
-<p>Open the shortcuts overlay from any board by pressing <code>?</code>, or from the avatar menu → <strong>Keyboard shortcuts</strong>.</p>
-<h2 id="safety-rule-shortcuts-never-fire-while-typing">Safety rule — shortcuts never fire while typing<a class="headerlink" href="#safety-rule-shortcuts-never-fire-while-typing" title="Permanent link">&para;</a></h2>
-<p>Single-letter shortcuts are suppressed whenever the focused element is an input, textarea, select, or rich-text editor. Type <code>b</code> in the search box without switching to the Board view, or <code>y</code> in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\) fire everywhere, because the modifier makes the intent unambiguous.</p>
-<h2 id="navigation-works-on-every-authenticated-page">Navigation — works on every authenticated page<a class="headerlink" href="#navigation-works-on-every-authenticated-page" title="Permanent link">&para;</a></h2>
+<h1 id="drive-the-board-from-the-keyboard">Drive the board from the keyboard<a class="headerlink" href="#drive-the-board-from-the-keyboard" title="Permanent link">&para;</a></h1>
+<p><a id="keyboard-shortcuts"></a></p>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
+<p>Press <code>?</code> on any board (or use the avatar menu → <strong>Keyboard shortcuts</strong>) to open the shortcuts overlay.</p>
+<p><strong>Why it matters:</strong> For someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.</p>
+<p><strong>How it works:</strong> shortcuts are platform-aware. macOS renders glyphs (⌘, ⇧, ⌥); Linux and Windows render named chords (<code>Ctrl</code>, <code>Shift</code>, <code>Alt</code>).</p>
+<p><strong>Watch out:</strong> single-letter shortcuts never fire while you type; see the rule below.</p>
+<p><a id="safety-rule-shortcuts-never-fire-while-typing"></a></p>
+<h2 id="shortcuts-never-fire-while-typing">Shortcuts never fire while typing<a class="headerlink" href="#shortcuts-never-fire-while-typing" title="Permanent link">&para;</a></h2>
+<p>Single-letter shortcuts are suppressed when focus is in an input, textarea, select, or rich-text editor. Type <code>b</code> in the search box without switching to the Board view, or <code>y</code> in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\) fire everywhere, because the modifier makes the intent unambiguous.</p>
+<p><a id="navigation-works-on-every-authenticated-page"></a></p>
+<h2 id="navigation-every-authenticated-page">Navigation: every authenticated page<a class="headerlink" href="#navigation-every-authenticated-page" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -4115,10 +4117,12 @@
 </tr>
 </tbody>
 </table>
-<p>The command palette is the single cross-route entry point: type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the current surface — on a board it searches cards; on the Dashboard it jumps to a board; on Settings / Admin it lists navigation targets.</p>
-<p>Open the palette with an empty query and the default board list starts with your starred boards (alphabetical), rounded out by your most recent visits — a blank <code>⌘K</code> → <code>Enter</code> jumps straight into the workspace you care about most.</p>
-<p><code>G</code> then <code>U</code> is a chord, not a combo: press and release <code>G</code>, then press <code>U</code> within one second, to open the <a href="../navigation/">user menu</a> from anywhere in the authenticated app.</p>
-<h2 id="board-view-switch-the-active-sub-tab">Board view — switch the active sub-tab<a class="headerlink" href="#board-view-switch-the-active-sub-tab" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Command palette:</strong> the single cross-route entry point. Type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the surface: it searches cards on a board, jumps to a board on the Dashboard, and lists navigation targets on Settings / Admin.</li>
+<li><strong>Empty query:</strong> the default list starts with your starred boards (alphabetical), then your most recent visits, so a blank <code>⌘K</code> → <code>Enter</code> jumps into the workspace you care about most.</li>
+<li><strong><code>G</code> then <code>U</code></strong> is a chord, not a combo: press and release <code>G</code>, then press <code>U</code> within one second, to open the <a href="../navigation/">user menu</a> from anywhere in the authenticated app.</li>
+</ul>
+<h2 id="board-view-switch-the-active-sub-tab">Board view: switch the active sub-tab<a class="headerlink" href="#board-view-switch-the-active-sub-tab" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -4149,7 +4153,7 @@
 </tr>
 </tbody>
 </table>
-<p>View-tab shortcuts only fire while you are on a board route (<code>/boards/&lt;id&gt;</code>). They write to the <code>?view=</code> URL param with replace-history semantics so the browser Back button skips tab transitions.</p>
+<p>View-tab shortcuts fire only on a board route (<code>/boards/&lt;id&gt;</code>). They write to the <code>?view=</code> URL param with replace-history semantics, so the browser Back button skips tab transitions.</p>
 <h2 id="history-view">History view<a class="headerlink" href="#history-view" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4169,7 +4173,7 @@
 </tr>
 <tr>
 <td><kbd>Esc</kbd></td>
-<td>Close an open filter menu, then the detail panel, then return to the board — one level per press</td>
+<td>Close an open filter menu, then the detail panel, then return to the board, one level per press</td>
 </tr>
 </tbody>
 </table>
@@ -4225,8 +4229,10 @@
 </tr>
 </tbody>
 </table>
-<p><code>E</code> mirrors the toolbar's split-button primary action: if anything is expanded, it collapses everything; otherwise it expands everything. The split button's menu still offers granular "Hide all swimlanes / columns" options.</p>
-<p><code>F</code> and <code>⌘⇧L</code> / <code>Ctrl+Shift+L</code> also work on the <a href="../issue-board-lens/">Issue Board Lens</a> tab, since the lens shares the board's toolbar and its filter-row and card-layout shortcuts.</p>
+<ul>
+<li><strong><code>E</code></strong> mirrors the toolbar's split-button primary action: if anything is expanded, it collapses everything; otherwise it expands everything. The split button's menu still offers granular "Hide all swimlanes / columns" options.</li>
+<li><strong><code>F</code> and <code>⌘⇧L</code> / <code>Ctrl+Shift+L</code></strong> also work on the <a href="../issue-board-lens/">Issue Board Lens</a> tab, since the lens shares the board's toolbar and its filter-row and card-layout shortcuts.</li>
+</ul>
 <h2 id="help">Help<a class="headerlink" href="#help" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4247,7 +4253,7 @@
 </tbody>
 </table>
 <h2 id="accessibility">Accessibility<a class="headerlink" href="#accessibility" title="Permanent link">&para;</a></h2>
-<p>Every toolbar affordance with a single-key or single-modifier shortcut carries an <code>aria-keyshortcuts</code> attribute, so screen readers announce the binding when the control gains focus. Two-modifier chords (like <kbd>⌘⇧L</kbd>) stay in this overlay and the tooltip only — exposing every chord via ARIA would overwhelm assistive technology without adding value.</p>
+<p>Every toolbar affordance with a single-key or single-modifier shortcut carries an <code>aria-keyshortcuts</code> attribute, so screen readers announce the binding when the control gains focus. Two-modifier chords (like <kbd>⌘⇧L</kbd>) stay in this overlay and the tooltip only, because exposing every chord via ARIA would overwhelm assistive technology without adding value.</p>
 
 
 

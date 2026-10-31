@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#saved-filters" class="md-skip">
+        <a href="#save-a-filter-once-reuse-it-in-one-click" class="md-skip">
           Skip to content
         </a>
       
@@ -1093,21 +1093,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#loading-a-saved-filter" class="md-nav__link">
+  <a href="#loading-and-deleting" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Loading a saved filter
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deleting-a-saved-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Deleting a saved filter
+        Loading and deleting
       
     </span>
   </a>
@@ -4079,27 +4068,32 @@
   
 
 
-<h1 id="saved-filters">Saved Filters<a class="headerlink" href="#saved-filters" title="Permanent link">&para;</a></h1>
+<h1 id="save-a-filter-once-reuse-it-in-one-click">Save a filter once, reuse it in one click<a class="headerlink" href="#save-a-filter-once-reuse-it-in-one-click" title="Permanent link">&para;</a></h1>
+<p><a id="saved-filters"></a></p>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Save a named filter combination on any board and restore it in one click. Saved filters are stored server-side, so they are available on every device and browser you use to access Visiban.</p>
+<p>Set your filters, open the <strong>Saved</strong> dropdown next to the filter bar, and click <strong>Save current filters</strong>. Click a preset name later to restore it.</p>
+<p><strong>Why it matters:</strong> Presets are stored server-side, so they follow you across devices and browsers.</p>
+<p><strong>By the numbers:</strong> a preset captures search text, assignee, labels, priority, and due-date selection. Presets are private to you, and every board role, including Viewer, can create, load, and delete their own.</p>
 <h2 id="saving-a-filter">Saving a filter<a class="headerlink" href="#saving-a-filter" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Open the board and set your filters using the filter bar (press <code>f</code> or click <strong>Filters</strong>).</li>
+<li>Open the board and set your filters with the filter bar (press <code>f</code> or click <strong>Filters</strong>).</li>
 <li>Click the <strong>Saved</strong> dropdown to the right of the filter controls.</li>
 <li>Click <strong>Save current filters</strong>, enter a descriptive name, and confirm.</li>
 </ol>
-<p>The filter combination — search text, assignee, labels, priority, and due-date selection — is captured at save time. Changes to the filter bar after saving do not affect the stored preset.</p>
-<h2 id="loading-a-saved-filter">Loading a saved filter<a class="headerlink" href="#loading-a-saved-filter" title="Permanent link">&para;</a></h2>
-<p>Open the <strong>Saved</strong> dropdown and click any preset name. The filter bar updates immediately and the board redraws to show only matching cards.</p>
-<h2 id="deleting-a-saved-filter">Deleting a saved filter<a class="headerlink" href="#deleting-a-saved-filter" title="Permanent link">&para;</a></h2>
-<p>Hover over a preset name in the <strong>Saved</strong> dropdown to reveal the delete icon. Click it to remove the preset permanently. This action cannot be undone.</p>
+<p>Later changes to the filter bar don't affect the stored preset.</p>
+<p><a id="loading-a-saved-filter"></a>
+<a id="deleting-a-saved-filter"></a></p>
+<h2 id="loading-and-deleting">Loading and deleting<a class="headerlink" href="#loading-and-deleting" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Load:</strong> click a preset name in <strong>Saved</strong>. The filter bar updates and the board shows only matching cards.</li>
+<li><strong>Delete:</strong> hover a preset name, then click the delete icon. This is permanent and can't be undone.</li>
+</ul>
 <h2 id="scope-and-privacy">Scope and privacy<a class="headerlink" href="#scope-and-privacy" title="Permanent link">&para;</a></h2>
-<p>Saved filters are private to each user. Other board members cannot see, load, or delete your presets.</p>
-<p>Any board role — including Viewer — can create, load, and delete their own saved filters.</p>
+<p>Other board members can't see, load, or delete your presets. Any board role, including Viewer, can manage their own.</p>
 <h2 id="real-time-sync">Real-time sync<a class="headerlink" href="#real-time-sync" title="Permanent link">&para;</a></h2>
-<p>Saving or deleting a filter syncs your other open tabs on the same board immediately over WebSocket — the broadcast carries only the filter's ID and your user ID, never its contents, so other board members never see that you saved anything. See <a href="../realtime/">Real-time Updates</a>.</p>
+<p>Saving or deleting a filter syncs your other open tabs on the same board over WebSocket. The broadcast carries only the filter's ID and your user ID, never its contents, so other members never see that you saved anything. See <a href="../realtime/">Real-time Updates</a>.</p>
 <h2 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4129,13 +4123,16 @@
 </table>
 <p>See <a href="../../api/boards/#saved-filters"><code>docs/api/boards.md</code></a> for the full <code>state_json</code> shape and request/response fields.</p>
 <h2 id="schema-versioning">Schema versioning<a class="headerlink" href="#schema-versioning" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
-<p>Each saved filter carries a <code>state_version</code> field. The version identifies the shape of the stored <code>state_json</code> so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.</p>
-<p>Today only version <code>1</code> exists. The server accepts any <code>state_version</code> number ≥ 1, including one higher than it recognizes — so a mixed-version deploy where a newer frontend tags its write <code>state_version: 2</code> isn't rejected on the version number alone.</p>
-<p>That check is separate from the <code>state_json</code> key allow-list: the server still only accepts the v1 key set (<code>search</code>, <code>assigneeIds</code>, <code>labelIds</code>, <code>priorities</code>, <code>dueDate</code>) regardless of the declared version, so a genuinely new v2-only key is rejected with <code>400</code> until the backend's allow-list is updated to match. On read, older clients fall back to a defensive v1 reader for any shared fields.</p>
-<p>Additive changes (adding a new optional key to <code>state_json</code>) do <strong>not</strong> require a version bump — update the key allow-list in the serializer's <code>validate_state_json</code> validator and the frontend <code>FilterState</code> type in the same release.</p>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
+<p>Each saved filter carries a <code>state_version</code> field identifying the shape of its stored <code>state_json</code>. A future non-additive change (for example, splitting one field into two) can then be migrated without losing old presets.</p>
+<p><strong>By the numbers:</strong> only version <code>1</code> exists today. The server accepts any <code>state_version</code> number ≥ 1, including one higher than it recognizes, so a mixed-version deploy where a newer frontend tags its write <code>state_version: 2</code> isn't rejected on the version number alone.</p>
+<p><strong>Yes, but:</strong> that check is separate from the <code>state_json</code> key allow-list.</p>
+<ul>
+<li>The server still accepts only the v1 key set (<code>search</code>, <code>assigneeIds</code>, <code>labelIds</code>, <code>priorities</code>, <code>dueDate</code>), whatever version is declared.</li>
+<li>A genuinely new v2-only key is rejected with <code>400</code> until the backend's allow-list is updated.</li>
+<li>On read, older clients fall back to a defensive v1 reader for any shared fields.</li>
+</ul>
+<p>Additive changes (a new optional key in <code>state_json</code>) need <strong>no</strong> version bump. Update the allow-list in the serializer's <code>validate_state_json</code> validator and the frontend <code>FilterState</code> type in the same release.</p>
 
 
 

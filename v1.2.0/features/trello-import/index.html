@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#import-from-trello" class="md-skip">
+        <a href="#import-a-trello-board-in-minutes" class="md-skip">
           Skip to content
         </a>
       
@@ -4101,11 +4101,11 @@
   
 
 
-<h1 id="import-from-trello">Import from Trello<a class="headerlink" href="#import-from-trello" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Bring a Trello board into Visiban in a few minutes. You export the board from Trello as a JSON file, upload it, review a preview, and Visiban creates a <strong>new board</strong> from it.</p>
+<h1 id="import-a-trello-board-in-minutes">Import a Trello board in minutes<a class="headerlink" href="#import-a-trello-board-in-minutes" title="Permanent link">&para;</a></h1>
+<p><a id="import-from-trello"></a></p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Export the board from Trello as JSON, click <strong>Import</strong> on the Dashboard or a group page, then <strong>Import a Trello export</strong>. Review the preview, and Visiban creates a <strong>new board</strong> from it.</p>
+<p><strong>Why it matters:</strong> Lists, cards, labels, checklists, comments, and attachment links come across, and a preview shows how they map before anything is created.</p>
 <div class="admonition note">
 <p class="admonition-title">What is not supported</p>
 <ul>
@@ -4114,6 +4114,7 @@
 <li>Jira or other tools. Only Trello JSON exports are supported.</li>
 </ul>
 </div>
+<p><strong>By the numbers:</strong> files up to 25 MB by default (administrators can change this with <code>IMPORT_MAX_SIZE_BYTES</code>), 5,000 cards, 10 imports per hour. See <a href="#limits">Limits</a>.</p>
 <h2 id="export-your-board-from-trello">Export your board from Trello<a class="headerlink" href="#export-your-board-from-trello" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Open the board in Trello.</li>
@@ -4144,7 +4145,8 @@
 <li>If you select no labels, all cards go into a single swimlane.</li>
 </ul>
 <p><strong>Members.</strong> See <a href="#member-matching-and-privacy">Member matching and privacy</a>.</p>
-<p>Click <strong>Create board</strong>. You see an upload progress bar, then <strong>Creating board…</strong>. Keep the window open until it finishes. The import runs while you wait (there is no background job yet), so very large boards can take a minute.</p>
+<p>Click <strong>Create board</strong>. You see an upload progress bar, then <strong>Creating board…</strong>.</p>
+<p><strong>Watch out:</strong> keep the window open until it finishes. The import runs while you wait (there is no background job yet), so very large boards can take a minute.</p>
 <h2 id="what-gets-imported">What gets imported<a class="headerlink" href="#what-gets-imported" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

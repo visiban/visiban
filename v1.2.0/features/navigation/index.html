@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#navigation" class="md-skip">
+        <a href="#jump-between-boards-from-the-sidebar" class="md-skip">
           Skip to content
         </a>
       
@@ -4118,41 +4118,45 @@
   
 
 
-<h1 id="navigation">Navigation<a class="headerlink" href="#navigation" title="Permanent link">&para;</a></h1>
-<p>The application sidebar gives you persistent, at-a-glance access to your full group and board hierarchy. It lives on the left edge of every authenticated page, on desktop-sized viewports. <strong>Why it matters:</strong> with dozens of boards across several workstreams, the sidebar is how you jump between them without hunting through menus.</p>
+<h1 id="jump-between-boards-from-the-sidebar">Jump between boards from the sidebar<a class="headerlink" href="#jump-between-boards-from-the-sidebar" title="Permanent link">&para;</a></h1>
+<p><a id="navigation"></a></p>
+<p>The left sidebar shows your full group and board hierarchy on every authenticated page, on desktop-sized viewports. Collapse it to a 48 px icon rail with the toggle in its header.</p>
+<p><strong>Why it matters:</strong> With dozens of boards across several workstreams, the sidebar is how you jump between them without hunting through menus.</p>
+<p><strong>How it works:</strong> star a board or group with the ☆/★ button in the top navbar breadcrumb. Starred items appear at the top of the sidebar, on the Dashboard, and in the command palette.</p>
+<p><strong>Yes, but:</strong> the sidebar's state (collapsed, expanded groups, recent boards) lives in <code>localStorage</code>, so it is per browser and device.</p>
 <h2 id="what-the-sidebar-shows">What the sidebar shows<a class="headerlink" href="#what-the-sidebar-shows" title="Permanent link">&para;</a></h2>
 <p>The sidebar renders sections in this order, omitting any empty section entirely:</p>
 <ol>
 <li><strong>Dashboard</strong> — always present; navigates to <code>/</code> and highlights when the current path is <code>/</code>.</li>
-<li><strong>Favorite Boards</strong> — boards the current user has starred, in the order they were starred. Only shown when at least one board is starred.</li>
-<li><strong>Favorite Groups</strong> — groups the current user has starred. Only shown when at least one group is starred.</li>
-<li><strong>Recent Boards</strong> — the last 5 boards the current user visited, most recent first. Only shown when at least one board has been visited. See <a href="#recent-boards">Recent Boards</a> below.</li>
-<li><strong>Groups and their boards</strong> — all top-level groups (groups with no parent). Each group can be expanded to reveal the boards that belong to it. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.</li>
-<li><strong>Personal</strong> — boards that do not belong to any group, collected under a "Personal" heading. Only shown when at least one such board exists.</li>
+<li><strong>Favorite Boards</strong> — boards you have starred, in the order you starred them. Shown only when at least one board is starred.</li>
+<li><strong>Favorite Groups</strong> — groups you have starred. Shown only when at least one group is starred.</li>
+<li><strong>Recent Boards</strong> — the last 5 boards you visited, most recent first. Shown only when at least one board has been visited. See <a href="#recent-boards">Recent Boards</a> below.</li>
+<li><strong>Groups and their boards</strong> — all top-level groups (groups with no parent). Expand a group to reveal its boards. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.</li>
+<li><strong>Personal</strong> — boards that do not belong to any group, under a "Personal" heading. Shown only when at least one such board exists.</li>
 </ol>
 <p>A 3D engraved separator (<code>h-px bg-slate-900</code> / <code>h-px bg-slate-600/50</code>) appears between each pair of visible sections.</p>
-<p>Groups and personal boards load from a single API call on mount (<code>GET /api/v1/groups/</code> and <code>GET /api/v1/boards/</code>). Favorite boards and groups come from <code>GET /api/v1/boards/?starred=true</code> and <code>GET /api/v1/groups/?starred=true</code>, re-fetched whenever the star version counter increments — any time a board or group is starred or unstarred.</p>
+<p><strong>Data loading:</strong> groups and personal boards load from a single API call on mount (<code>GET /api/v1/groups/</code> and <code>GET /api/v1/boards/</code>). Favorite boards and groups come from <code>GET /api/v1/boards/?starred=true</code> and <code>GET /api/v1/groups/?starred=true</code>, re-fetched whenever the star version counter increments, which happens any time a board or group is starred or unstarred.</p>
 <h2 id="recent-boards">Recent Boards<a class="headerlink" href="#recent-boards" title="Permanent link">&para;</a></h2>
 <p><strong>Recent Boards</strong> tracks the last 5 boards you visited, most recent first, between the Favorites sections and the Groups tree.</p>
 <ul>
 <li>Visits are recorded automatically whenever you navigate to a board page.</li>
-<li>The list is stored in <code>localStorage</code> under the key <code>user:prefs:recent-boards</code> — it persists across page reloads but is device-local and not synced across browsers or devices.</li>
-<li>Entries are deduplicated: navigating to a board you already visited moves it to the top of the list rather than adding a duplicate.</li>
+<li>The list is stored in <code>localStorage</code> under the key <code>user:prefs:recent-boards</code>. It persists across page reloads but is device-local and not synced across browsers or devices.</li>
+<li>Entries are deduplicated: revisiting a board moves it to the top instead of adding a duplicate.</li>
 <li>The section is hidden when no boards have been visited yet.</li>
 </ul>
-<p>In the <strong>collapsed sidebar rail</strong>, the Recent section is represented by a clock icon. Clicking it opens a flyout panel showing the same 5 boards.</p>
+<p>In the <strong>collapsed sidebar rail</strong>, the Recent section is a clock icon. Clicking it opens a flyout panel showing the same 5 boards.</p>
 <h2 id="starring-boards-and-groups">Starring boards and groups<a class="headerlink" href="#starring-boards-and-groups" title="Permanent link">&para;</a></h2>
-<p>The star button (☆/★) appears in the <strong>breadcrumb in the top navbar</strong>, right after the board or group name — click it to toggle. Starred boards and groups appear in the <strong>Favorite Boards</strong> and <strong>Favorite Groups</strong> sections at the top of the sidebar. The star updates optimistically and rolls back on failure.</p>
+<p>The star button (☆/★) appears in the <strong>breadcrumb in the top navbar</strong>, right after the board or group name. Click it to toggle. Starred boards and groups appear in the <strong>Favorite Boards</strong> and <strong>Favorite Groups</strong> sections at the top of the sidebar. The star updates optimistically and rolls back on failure.</p>
 <p>Starred boards also surface in two more places so they stay one click away from anywhere in the app:</p>
 <blockquote>
 <p><strong>Added in 1.1</strong> — the Dashboard Favorite Boards section and command palette starred-boards ranking (#450)</p>
 </blockquote>
 <ul>
-<li><strong>Dashboard — Favorite Boards section.</strong> A dedicated section above <em>My Boards</em> lists every starred board (personal or grouped) alphabetically. Hidden entirely when no boards are starred, so the Dashboard stays uncluttered for users who haven't starred anything yet.</li>
-<li><strong>Command palette default view.</strong> Opening the palette (<code>⌘K</code> / <code>Ctrl+K</code>) with an empty query lists your starred boards first — alphabetically — followed by your recent visits. A ★ glyph marks the starred rows.</li>
+<li><strong>Dashboard — Favorite Boards section.</strong> A dedicated section above <em>My Boards</em> lists every starred board (personal or grouped) alphabetically. It is hidden entirely when no boards are starred, so the Dashboard stays uncluttered.</li>
+<li><strong>Command palette default view.</strong> Opening the palette (<code>⌘K</code> / <code>Ctrl+K</code>) with an empty query lists your starred boards first, alphabetically, followed by your recent visits. A ★ glyph marks the starred rows.</li>
 </ul>
 <h2 id="collapse-and-expand">Collapse and expand<a class="headerlink" href="#collapse-and-expand" title="Permanent link">&para;</a></h2>
-<p>A toggle button sits in the header of the sidebar. Clicking it switches between two states:</p>
+<p>A toggle button in the sidebar header switches between two states:</p>
 <table>
 <thead>
 <tr>
@@ -4174,7 +4178,7 @@
 </tr>
 </tbody>
 </table>
-<p>In the collapsed state, fixed destinations (Dashboard, Site Admin) render as direct icon links. Variable-length sections (Favorites, Groups, Personal boards) each render as a single trigger icon regardless of how many items the section contains:</p>
+<p>In the collapsed state, fixed destinations (Dashboard, Site Admin) render as direct icon links. Variable-length sections (Favorites, Groups, Personal boards) each render as a single trigger icon, however many items the section holds:</p>
 <table>
 <thead>
 <tr>
@@ -4206,7 +4210,7 @@
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>When the sidebar is collapsed to the 48 px icon rail, clicking a section trigger icon opens a flyout panel to its right with the full, scrollable list of items for that section — so you can browse and navigate without expanding the sidebar.</p>
+<p>In the 48 px icon rail, clicking a section trigger icon opens a flyout panel to its right with the full, scrollable list for that section, so you can browse and navigate without expanding the sidebar.</p>
 <p>Three sections produce flyouts:</p>
 <table>
 <thead>
@@ -4230,12 +4234,15 @@
 </tr>
 </tbody>
 </table>
-<p>Each flyout panel is 224 px wide (<code>w-56</code>), dark-themed (<code>bg-slate-800</code>), and scrollable up to 320 px tall (<code>max-h-80</code>), with an uppercase muted section header at the top. Items are clickable links that navigate to the board or group and close the flyout.</p>
-<p><strong>Watch out:</strong> only one flyout can be open at a time — opening one closes any other. Flyouts also close on outside click, Escape, or a second click on the same trigger icon.</p>
+<p>Each flyout panel is 224 px wide (<code>w-56</code>), dark-themed (<code>bg-slate-800</code>), and scrollable up to 320 px tall (<code>max-h-80</code>), with an uppercase muted section header at the top. Items are links that navigate to the board or group and close the flyout.</p>
+<p><strong>Watch out:</strong> only one flyout can be open at a time; opening one closes any other. Flyouts also close on outside click, Escape, or a second click on the same trigger icon.</p>
 <p>The active board or group's trigger icon gets the blue active highlight (<code>text-blue-400 bg-blue-600/20</code>) even while its flyout is closed, so "you are here" is visible without opening it.</p>
 <h3 id="groups-flyout-ordering">Groups flyout ordering<a class="headerlink" href="#groups-flyout-ordering" title="Permanent link">&para;</a></h3>
-<p>The Groups flyout flattens the sidebar tree in depth-first pre-order, matching the expanded sidebar tree: within each group, boards appear before subgroups.</p>
-<p>Items are indented by depth in the group hierarchy (<code>paddingLeft: 12 + depth * 12</code> pixels). Visual depth is capped at 3 — groups nested deeper are rendered at depth-3 indentation but never omitted. Root-level items (<code>depth 0</code>) use brighter text (<code>text-slate-300</code>); nested items (<code>depth &gt; 0</code>) use slightly muted text (<code>text-slate-400</code>).</p>
+<p>The Groups flyout flattens the sidebar tree in depth-first pre-order, matching the expanded tree: within each group, boards appear before subgroups.</p>
+<ul>
+<li><strong>Indent:</strong> by depth in the group hierarchy (<code>paddingLeft: 12 + depth * 12</code> pixels). Visual depth is capped at 3: groups nested deeper render at depth-3 indentation but are never omitted.</li>
+<li><strong>Text:</strong> root-level items (<code>depth 0</code>) use brighter text (<code>text-slate-300</code>); nested items (<code>depth &gt; 0</code>) use slightly muted text (<code>text-slate-400</code>).</li>
+</ul>
 <h2 id="localstorage-persistence">localStorage persistence<a class="headerlink" href="#localstorage-persistence" title="Permanent link">&para;</a></h2>
 <p>Two keys are written to <code>localStorage</code> to survive page reloads and navigation:</p>
 <table>
@@ -4268,16 +4275,19 @@
 <blockquote>
 <p><strong>Changed in 1.1</strong> — replaced the desktop-only viewport gate with a responsive layout (#524)</p>
 </blockquote>
-<p>Below the <code>lg</code> breakpoint (1024 px), the persistent sidebar collapses into a hamburger drawer: tap the menu icon in the mobile top bar to slide it in as a full-height overlay, and tap the backdrop, the close button, or a nav item to dismiss it. The rest of the app — Dashboard, boards, groups, settings — renders normally at any width, with nothing blocked.</p>
-<p>On the board view, the toolbar strip scrolls horizontally when it runs out of room, while the overflow kebab menu (<code>⋮</code>) and connection status stay pinned at the right edge so they're always reachable. The board grid scrolls horizontally too. The Kanban grid, swimlane panel, and card interactions stay fully usable on a phone or portrait-mode tablet.</p>
-<p>Public routes — join links, share links, email confirmation, and password reset — render outside the authenticated shell, so invites and account recovery always work from a phone.</p>
+<p>Below the <code>lg</code> breakpoint (1024 px), the persistent sidebar collapses into a hamburger drawer. Tap the menu icon in the mobile top bar to slide it in as a full-height overlay; tap the backdrop, the close button, or a nav item to dismiss it. The rest of the app (Dashboard, boards, groups, settings) renders normally at any width, with nothing blocked.</p>
+<ul>
+<li><strong>Board toolbar:</strong> the strip scrolls horizontally when it runs out of room, while the overflow kebab menu (<code>⋮</code>) and connection status stay pinned at the right edge so they're always reachable.</li>
+<li><strong>Board grid:</strong> scrolls horizontally too. The Kanban grid, swimlane panel, and card interactions stay fully usable on a phone or portrait-mode tablet.</li>
+<li><strong>Public routes:</strong> join links, share links, email confirmation, and password reset render outside the authenticated shell, so invites and account recovery always work from a phone.</li>
+</ul>
 <h2 id="footer-shortcuts">Footer shortcuts<a class="headerlink" href="#footer-shortcuts" title="Permanent link">&para;</a></h2>
-<p>In the sidebar's expanded state, a footer pinned to the bottom offers two quick-action links:</p>
+<p>In the expanded state, a footer pinned to the bottom of the sidebar offers two quick-action links:</p>
 <ul>
 <li><strong>New board</strong> — opens the board creation modal directly</li>
 <li><strong>New group</strong> — opens the group creation modal directly</li>
 </ul>
-<p>Hidden entirely when the sidebar is collapsed to the icon rail.</p>
+<p>The footer is hidden entirely when the sidebar is collapsed to the icon rail.</p>
 
 
 

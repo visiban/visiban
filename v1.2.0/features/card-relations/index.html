@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#card-relations" class="md-skip">
+        <a href="#see-whats-stuck-without-opening-a-card" class="md-skip">
           Skip to content
         </a>
       
@@ -4096,14 +4096,12 @@
   
 
 
-<h1 id="card-relations">Card Relations<a class="headerlink" href="#card-relations" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Link two cards on the same board to record that one depends on the other. A card
-that something is waiting on carries a red indicator on the board, so you can see
-what is stuck without opening anything.</p>
-<p>Three relation directions are available:</p>
+<h1 id="see-whats-stuck-without-opening-a-card">See what's stuck without opening a card<a class="headerlink" href="#see-whats-stuck-without-opening-a-card" title="Permanent link">&para;</a></h1>
+<p><a id="card-relations"></a></p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>In a card's <em>Details</em> tab, open <strong>Relations</strong> → <strong>+ Add relation</strong> to say what blocks it. A blocked card shows a red ⊖ on the board.</p>
+<p><strong>Why it matters:</strong> You can see what is stuck while scanning a column, without opening anything.</p>
+<p><strong>How it works:</strong> three relation directions link two cards on the same board.</p>
 <table>
 <thead>
 <tr>
@@ -4116,12 +4114,12 @@ what is stuck without opening anything.</p>
 <tr>
 <td><strong>Blocked by</strong></td>
 <td>The other card has to land before this one can move</td>
-<td>Yes — on this card</td>
+<td>Yes, on this card</td>
 </tr>
 <tr>
 <td><strong>Blocks</strong></td>
 <td>This card has to land before the other one can move</td>
-<td>Yes — on the other card</td>
+<td>Yes, on the other card</td>
 </tr>
 <tr>
 <td><strong>Relates to</strong></td>
@@ -4130,44 +4128,30 @@ what is stuck without opening anything.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Blocks</strong> and <strong>Blocked by</strong> are the same link seen from opposite ends. Record
-"A is blocked by B" and card B automatically shows "Blocks A" — there is nothing
-to keep in sync by hand.</p>
+<p><strong>Blocks</strong> and <strong>Blocked by</strong> are the same link seen from opposite ends. Record "A is blocked by B" and card B automatically shows "Blocks A". There is nothing to keep in sync by hand.</p>
+<p><strong>Yes, but:</strong> blockers are not cleared automatically; see <a href="#limits">Limits</a>.</p>
 <hr />
 <h2 id="the-blocked-indicator">The blocked indicator<a class="headerlink" href="#the-blocked-indicator" title="Permanent link">&para;</a></h2>
-<p>A card with at least one unfinished blocker shows a red ⊖ glyph at the start of
-its metadata row. With more than one blocker, the count appears next to it.</p>
-<p>The indicator appears at <strong>every card density</strong> and in both the Compact and
-Expanded card layouts, because seeing blocked work while scanning a column is the
-point of the feature. Hovering shows the exact count ("Blocked by 2 cards").</p>
-<p>Only <strong>Blocked by</strong> relations count. A card that blocks other cards is not itself
-blocked, and <strong>Relates to</strong> never contributes.</p>
-<p>Blockers that have been <strong>archived</strong> stop counting — an archived card is not on
-the board, so it cannot be what is holding work up. The relation itself is kept
-and shown in the card detail panel (struck through, marked <em>Archived</em>) so you can
-see why and remove it.</p>
+<p>A card with at least one unfinished blocker shows a red ⊖ glyph at the start of its metadata row. With more than one blocker, the count appears next to it. Hovering shows the exact count ("Blocked by 2 cards").</p>
+<ul>
+<li><strong>Where it appears:</strong> at <strong>every card density</strong> and in both Compact and Expanded layouts, because seeing blocked work while scanning a column is the point.</li>
+<li><strong>What counts:</strong> only <strong>Blocked by</strong> relations. A card that blocks others is not itself blocked, and <strong>Relates to</strong> never contributes.</li>
+<li><strong>Archived blockers stop counting:</strong> an archived card is not on the board, so it can't be holding work up. The relation is kept and shown in the card detail panel (struck through, marked <em>Archived</em>) so you can see why and remove it.</li>
+</ul>
 <hr />
 <h2 id="viewing-and-editing-relations">Viewing and editing relations<a class="headerlink" href="#viewing-and-editing-relations" title="Permanent link">&para;</a></h2>
-<p>Open a card and find the <strong>Relations</strong> section in the <em>Details</em> tab, between
-Weight and Checklist. It groups links under <strong>Blocked by</strong>, <strong>Blocks</strong>, and
-<strong>Relates to</strong>, in that order — what you are waiting on first.</p>
-<p>Each row shows the linked card's title and the column it is currently sitting in,
-which usually answers "is my blocker done yet?" without another click. Click a
-title to open that card; the panel switches to it.</p>
-<p>The section starts expanded when the card has any relations and collapsed when it
-has none.</p>
+<p>Open a card and find <strong>Relations</strong> in the <em>Details</em> tab, between Weight and Checklist. It groups links under <strong>Blocked by</strong>, <strong>Blocks</strong>, and <strong>Relates to</strong>, in that order: what you are waiting on first.</p>
+<p>Each row shows the linked card's title and the column it is in, which usually answers "is my blocker done yet?" without another click. Click a title to open that card; the panel switches to it.</p>
+<p>The section starts expanded when the card has any relations and collapsed when it has none.</p>
 <h3 id="adding-a-relation">Adding a relation<a class="headerlink" href="#adding-a-relation" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Click <strong>+ Add relation</strong>.</li>
-<li>Pick the direction — <strong>Blocked by</strong> (the default), <strong>Blocks</strong>, or <strong>Relates to</strong>.</li>
+<li>Pick the direction: <strong>Blocked by</strong> (the default), <strong>Blocks</strong>, or <strong>Relates to</strong>.</li>
 <li>Type at least two characters to search the board's cards, and pick one.</li>
 </ol>
-<p>The picker stays open after each link so you can add several in a row. Cards that
-cannot be linked — the card itself, and anything already linked in a way that
-would conflict — are left out of the results.</p>
+<p>The picker stays open after each link so you can add several in a row. Cards that can't be linked (the card itself, and anything already linked in a conflicting way) are left out of the results.</p>
 <h3 id="removing-a-relation">Removing a relation<a class="headerlink" href="#removing-a-relation" title="Permanent link">&para;</a></h3>
-<p>Hover a relation row and click <strong>✕</strong>. Either card can remove the link; both show
-it. There is no confirmation step — the relation is trivially re-addable.</p>
+<p>Hover a relation row and click <strong>✕</strong>. Either card can remove the link; both show it. There is no confirmation step, since the relation is trivially re-addable.</p>
 <hr />
 <h2 id="permissions">Permissions<a class="headerlink" href="#permissions" title="Permanent link">&para;</a></h2>
 <table>
@@ -4201,38 +4185,24 @@ it. There is no confirmation step — the relation is trivially re-addable.</p>
 </tr>
 </tbody>
 </table>
-<p>A relation changes how a <em>different</em> card reads on the board for everyone, so
-adding and removing requires at least the Member role — one tier stricter than
-comments, attachments, and checklist items, which collaborators can edit.
-Viewers and collaborators see relations but no controls.</p>
-<p>Any member can remove any relation, including one someone else created. A member
-can already edit both of the cards a relation links, so restricting the unlink to
-its author would not protect anything.</p>
+<p>A relation changes how a <em>different</em> card reads on the board for everyone, so adding and removing requires at least the Member role. That is one tier stricter than comments, attachments, and checklist items, which collaborators can edit. Viewers and collaborators see relations but no controls.</p>
+<p>Any member can remove any relation, including one someone else created. A member can already edit both linked cards, so restricting the unlink to its author would protect nothing.</p>
 <hr />
 <h2 id="limits">Limits<a class="headerlink" href="#limits" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Same board only.</strong> Relations cannot span boards.</li>
 <li><strong>A card cannot be linked to itself.</strong></li>
-<li><strong>Two cards cannot block each other.</strong> Longer chains (A blocks B blocks C
-  blocks A) are not detected and are permitted.</li>
-<li><strong>Relations are not carried by board export or import.</strong> A board exported and
-  re-imported loses its relations.</li>
-<li><strong>Blockers are not cleared automatically.</strong> Moving a blocking card to a done
-  column does not remove the relation or the indicator — archive the card, or
-  remove the relation, when the dependency is resolved.</li>
+<li><strong>Two cards cannot block each other.</strong> Longer chains (A blocks B blocks C blocks A) are not detected and are permitted.</li>
+<li><strong>Relations are not carried by board export or import.</strong> A board exported and re-imported loses its relations.</li>
+<li><strong>Blockers are not cleared automatically.</strong> Moving a blocking card to a done column does not remove the relation or the indicator. Archive the card, or remove the relation, when the dependency is resolved.</li>
 </ul>
 <hr />
 <h2 id="real-time-behavior">Real-time behavior<a class="headerlink" href="#real-time-behavior" title="Permanent link">&para;</a></h2>
-<p>Adding or removing a relation updates both cards for everyone viewing the board
-immediately, over the same WebSocket channel as every other card change. See
-<a href="../realtime/">Real-time Updates</a>.</p>
-<p>Relations are visible on <strong>public share links</strong> only as the blocked indicator —
-anonymous visitors see that a card is blocked and by how many cards, but not the
-relation list, who created it, or when.</p>
+<p>Adding or removing a relation updates both cards for everyone viewing the board immediately, over the same WebSocket channel as every other card change. See <a href="../realtime/">Real-time Updates</a>.</p>
+<p>Relations are visible on <strong>public share links</strong> only as the blocked indicator. Anonymous visitors see that a card is blocked and by how many cards, but not the relation list, who created it, or when.</p>
 <hr />
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
-<p>See <a href="../../api/cards/#relations-since-12">Cards API → Relations</a> for the
-<code>blocker_count</code> field and the relation endpoints.</p>
+<p>See <a href="../../api/cards/#relations-since-12">Cards API → Relations</a> for the <code>blocker_count</code> field and the relation endpoints.</p>
 
 
 

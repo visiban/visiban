@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#feature-toggles" class="md-skip">
+        <a href="#switch-features-on-or-off-for-the-whole-instance" class="md-skip">
           Skip to content
         </a>
       
@@ -1558,17 +1558,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#managing-toggles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Managing toggles
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#available-toggles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1580,10 +1569,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#who-can-change-toggles" class="md-nav__link">
+  <a href="#managing-toggles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Who can change toggles
+        Managing toggles
       
     </span>
   </a>
@@ -4046,18 +4035,13 @@
   
 
 
-<h1 id="feature-toggles">Feature Toggles<a class="headerlink" href="#feature-toggles" title="Permanent link">&para;</a></h1>
+<h1 id="switch-features-on-or-off-for-the-whole-instance">Switch features on or off for the whole instance<a class="headerlink" href="#switch-features-on-or-off-for-the-whole-instance" title="Permanent link">&para;</a></h1>
+<p><a id="feature-toggles"></a></p>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Site admins can enable or disable specific features across the entire instance from the admin panel. Toggling a feature never deletes or alters existing data — it only gates access to that functionality going forward.</p>
-<h2 id="managing-toggles">Managing toggles<a class="headerlink" href="#managing-toggles" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Go to <code>/admin</code> (accessible via the <strong>Site Admin</strong> link in the sidebar).</li>
-<li>Click the <strong>Settings</strong> tab.</li>
-<li>Find the feature under the <strong>Features</strong> section and flip the toggle.</li>
-</ol>
-<p>Changes take effect within about 60 seconds due to server-side caching. No restart needed.</p>
+<p>Site admins flip a toggle at <strong>/admin → Settings → Features</strong>. It takes effect within about 60 seconds, with no restart.</p>
+<p><strong>Why it matters:</strong> Toggling never deletes or alters existing data. It only gates access going forward. Use toggles to disable a feature during an incident, roll out new functionality gradually, or restrict capabilities for compliance.</p>
 <h2 id="available-toggles">Available toggles<a class="headerlink" href="#available-toggles" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4075,11 +4059,18 @@
 </tr>
 </tbody>
 </table>
-<p>Additional toggles will appear in this table as new gated features are introduced.</p>
-<h2 id="who-can-change-toggles">Who can change toggles<a class="headerlink" href="#who-can-change-toggles" title="Permanent link">&para;</a></h2>
-<p>Only users with site admin status (<code>is_site_admin</code>) can access the admin panel Settings tab. Board admins and members have no visibility into instance-level feature toggles.</p>
+<p>New gated features will be added to this table.</p>
+<p><a id="who-can-change-toggles"></a></p>
+<h2 id="managing-toggles">Managing toggles<a class="headerlink" href="#managing-toggles" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Go to <code>/admin</code> (the <strong>Site Admin</strong> link in the sidebar).</li>
+<li>Click the <strong>Settings</strong> tab.</li>
+<li>Find the feature under <strong>Features</strong> and flip the toggle.</li>
+</ol>
+<p>Changes take effect within about 60 seconds due to server-side caching. No restart needed.</p>
+<p><strong>Who can change them:</strong> only users with site admin status (<code>is_site_admin</code>). Board admins and members can't see instance-level toggles.</p>
 <h2 id="effect-on-existing-data">Effect on existing data<a class="headerlink" href="#effect-on-existing-data" title="Permanent link">&para;</a></h2>
-<p>Disabling a feature never removes data created while it was active. Re-enabling it restores full access to that data. For example, disabling file uploads doesn't delete existing card attachments — it just blocks new uploads until re-enabled.</p>
+<p>Disabling a feature never removes data created while it was active, and re-enabling restores full access to it. For example, disabling file uploads keeps existing card attachments and just blocks new uploads.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Use feature toggles to roll out new functionality gradually, to disable a feature during an incident, or to restrict capabilities on instances with specific compliance requirements.</p>

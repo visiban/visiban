@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#custom-fields" class="md-skip">
+        <a href="#track-your-own-fields-on-cards-and-swimlanes" class="md-skip">
           Skip to content
         </a>
       
@@ -1108,6 +1108,17 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#field-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field types
+      
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#managing-card-fields-board-settings-card-fields" class="md-nav__link">
@@ -4291,13 +4302,20 @@
   
 
 
-<h1 id="custom-fields">Custom Fields<a class="headerlink" href="#custom-fields" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Board admins can define typed metadata fields scoped to a single board — where a label is an untyped tag, a custom field is a named key with a type. Use custom fields to track information specific to your workflow that doesn't fit the built-in card fields: sprint, budget, region, array type, anything.</p>
-<p>Custom fields come in two independent flavors, scoped to different objects on the board: <strong>card fields</strong>, described on the rest of this page, and <strong>swimlane fields</strong>, described in <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a> below. The two are separate per-board schemas — a board may define a card field and a swimlane field with the same name, and they are never merged or compared.</p>
-<p>Seven field types are available:</p>
+<h1 id="track-your-own-fields-on-cards-and-swimlanes">Track your own fields on cards and swimlanes<a class="headerlink" href="#track-your-own-fields-on-cards-and-swimlanes" title="Permanent link">&para;</a></h1>
+<p><a id="custom-fields"></a></p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Board admins define typed fields in <strong>Board Settings → Card fields</strong> (or <strong>Swimlane fields</strong>). Everyone then fills them in on the card or row.</p>
+<p><strong>Why it matters:</strong> A label is an untyped tag; a custom field is a named key with a type. Use fields for what the built-in card fields don't cover: sprint, budget, region, array type, anything.</p>
+<p><strong>The big picture:</strong> two independent flavors, scoped to different objects.</p>
+<ul>
+<li><strong>Card fields:</strong> described on the rest of this page.</li>
+<li><strong>Swimlane fields:</strong> described in <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>. The two are separate per-board schemas. A board may define a card field and a swimlane field with the same name, and they are never merged or compared.</li>
+</ul>
+<p><strong>By the numbers:</strong> up to <strong>30 card fields</strong>, with up to <strong>2 of them pinned</strong> to the card face. Swimlane fields have smaller caps; see <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>.</p>
+<p><strong>Yes, but:</strong> <code>is_required</code> isn't enforced and filters match exact values only. See <a href="#limitations-in-this-release">Limitations in this release</a>.</p>
+<h2 id="field-types">Field types<a class="headerlink" href="#field-types" title="Permanent link">&para;</a></h2>
+<p>Seven types are available:</p>
 <table>
 <thead>
 <tr>
@@ -4352,69 +4370,75 @@
 </tr>
 </tbody>
 </table>
-<p>A board can have up to <strong>30 card fields</strong>, and up to <strong>2 of them pinned</strong> to the card face at once. (Swimlane fields have their own, smaller caps — see <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>.)</p>
 <hr />
 <h2 id="managing-card-fields-board-settings-card-fields">Managing card fields (Board Settings → Card fields)<a class="headerlink" href="#managing-card-fields-board-settings-card-fields" title="Permanent link">&para;</a></h2>
 <div class="admonition note">
 <p class="admonition-title">Tab renamed in 1.2</p>
 <p>This tab was named <strong>Fields</strong> before 1.2. It was renamed to <strong>Card fields</strong> when <a href="#swimlane-row-custom-fields">swimlane fields</a> shipped, so the two tabs read unambiguously side by side.</p>
 </div>
-<p>Open <strong>Board Settings</strong> and select the <strong>Card fields</strong> tab (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields.</p>
-<p>The tab lists every field defined on the board in display order, showing the type glyph, name, type label, and pin state. Hover a row to reveal <strong>✎ Edit</strong> and <strong>✕ Delete</strong>. Drag the <code>⋮⋮</code> handle to reorder fields — the order here is the order fields appear in the card detail panel and, for pinned fields, on the card face.</p>
+<p>Open <strong>Board Settings</strong> and select <strong>Card fields</strong> (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields.</p>
+<p>The tab lists every field in display order with its type glyph, name, type label, and pin state. Hover a row for <strong>✎ Edit</strong> and <strong>✕ Delete</strong>. Drag the <code>⋮⋮</code> handle to reorder. That order is the order in the card detail panel and, for pinned fields, on the card face.</p>
 <h3 id="adding-or-editing-a-field">Adding or editing a field<a class="headerlink" href="#adding-or-editing-a-field" title="Permanent link">&para;</a></h3>
-<p>Click <strong>+ Add field</strong>, or <strong>✎</strong> on an existing field, to open the inline editor:</p>
+<p>Click <strong>+ Add field</strong>, or <strong>✎</strong> on a field, to open the inline editor:</p>
 <ul>
-<li><strong>Field name</strong> — required, unique on the board</li>
-<li><strong>Type</strong> — one of the seven types above, chosen from a row of buttons</li>
-<li><strong>Help text</strong> — optional hint shown next to the input wherever the field is edited</li>
-<li><strong>Format</strong> (number only) — optional <strong>Prefix</strong>, <strong>Suffix</strong>, and <strong>Decimals</strong>; see <a href="#number-formatting">Number formatting</a> below</li>
-<li><strong>Choices</strong> (dropdown and multi-select) — add rows one at a time with <strong>+ Add choice</strong>, drag to reorder, or click <strong>Paste a list</strong> to bulk-add choices from a newline-separated block of text in one step. The round swatch in front of each choice sets its color — see <a href="#choice-colors">Choice colors</a> below</li>
-<li><strong>Pin to card face</strong> — toggle to add this field's value to the card face (see <a href="#pinned-fields-on-the-card-face">Pinned fields on the card face</a> below)</li>
+<li><strong>Field name:</strong> required, unique on the board</li>
+<li><strong>Type:</strong> one of the seven types, chosen from a row of buttons</li>
+<li><strong>Help text:</strong> optional hint shown next to the input wherever the field is edited</li>
+<li><strong>Format</strong> (number only): optional <strong>Prefix</strong>, <strong>Suffix</strong>, and <strong>Decimals</strong>; see <a href="#number-formatting">Number formatting</a></li>
+<li><strong>Choices</strong> (dropdown and multi-select): add rows with <strong>+ Add choice</strong>, drag to reorder, or click <strong>Paste a list</strong> to bulk-add from a newline-separated block of text in one step. The round swatch in front of each choice sets its color; see <a href="#choice-colors">Choice colors</a></li>
+<li><strong>Pin to card face:</strong> toggle to show this field's value on the card face; see <a href="#pinned-fields-on-the-card-face">Pinned fields on the card face</a></li>
 </ul>
 <p>Click <strong>Save field</strong> to commit, or <strong>Cancel</strong> to discard.</p>
 <div class="admonition warning">
 <p class="admonition-title">A field's type locks once it holds a value</p>
-<p>Once any card on the board has a stored value for a field, the API blocks changing that field's type — the editor disables the other type buttons and explains why, the same way it does for <a href="#swimlane-row-custom-fields">swimlane fields</a>. Delete the field and add it again under a new type if you need to change it. A brand-new, unsaved field has no existing values yet, so its type can be changed freely.</p>
+<p>Once any card on the board has a stored value for a field, the API blocks changing that field's type. The editor disables the other type buttons and explains why, the same way it does for <a href="#swimlane-row-custom-fields">swimlane fields</a>. Delete the field and add it again under a new type if you need to change it. A brand-new, unsaved field has no values yet, so its type can be changed freely.</p>
 </div>
 <h3 id="field-limits">Field limits<a class="headerlink" href="#field-limits" title="Permanent link">&para;</a></h3>
-<p>The tab header shows a running count, e.g. <code>12 of 30 · 1 of 2 pinned</code>. As the board approaches the cap:</p>
+<p>The tab header shows a running count, for example <code>12 of 30 · 1 of 2 pinned</code>.</p>
 <ul>
-<li>At <strong>28–29 fields</strong>, a warning line shows how many fields are left before <strong>+ Add field</strong> locks out</li>
-<li>At <strong>30 fields</strong>, <strong>+ Add field</strong> is disabled with an inline explanation — delete an existing field to make room</li>
+<li>At <strong>28–29 fields</strong>, a warning line shows how many fields are left before <strong>+ Add field</strong> locks out.</li>
+<li>At <strong>30 fields</strong>, <strong>+ Add field</strong> is disabled with an inline explanation. Delete a field to make room.</li>
 </ul>
 <h3 id="pinned-fields-on-the-card-face">Pinned fields on the card face<a class="headerlink" href="#pinned-fields-on-the-card-face" title="Permanent link">&para;</a></h3>
-<p>Up to <strong>2 fields per board</strong> can be pinned so their values show directly on the card face without opening the card. Toggle <strong>Pin to card face</strong> in the field editor, or click the <strong>Pin</strong> button on a field's row.</p>
-<p>If 2 fields are already pinned and you try to pin a third, a swap prompt appears naming the 2 currently-pinned fields — pick which one to replace. Unpinning a field doesn't delete its data: unpinned values remain visible in the card detail panel and in the <a href="#hover-peek">hover peek</a>.</p>
+<p>Up to <strong>2 fields per board</strong> can be pinned so their values show on the card face without opening the card. Toggle <strong>Pin to card face</strong> in the field editor, or click <strong>Pin</strong> on a field's row.</p>
+<p>Pinning a third field opens a swap prompt naming the 2 pinned fields; pick which to replace. Unpinning doesn't delete data: unpinned values stay visible in the card detail panel and in the <a href="#hover-peek">hover peek</a>.</p>
 <h3 id="deleting-a-field">Deleting a field<a class="headerlink" href="#deleting-a-field" title="Permanent link">&para;</a></h3>
-<p>Click <strong>✕</strong> on a field's row. Deleting a field is permanent — it removes the field definition <strong>and every card's stored value for it</strong>. To confirm, type the field's exact name into the confirmation dialog.</p>
+<p>Click <strong>✕</strong> on a field's row. Deleting is permanent: it removes the field definition <strong>and every card's stored value for it</strong>. To confirm, type the field's exact name into the dialog.</p>
 <div class="admonition danger">
 <p class="admonition-title">This cannot be undone</p>
 <p>There is no way to recover a deleted field's values. If you only want to stop showing a field on the card face, unpin it instead of deleting it.</p>
 </div>
 <h3 id="viewing-fields-as-a-non-admin">Viewing fields as a non-admin<a class="headerlink" href="#viewing-fields-as-a-non-admin" title="Permanent link">&para;</a></h3>
-<p>Members, collaborators, and viewers see a read-only list of the board's fields — name, type, and pin status — with a banner explaining that only board admins can add or edit fields.</p>
+<p>Members, collaborators, and viewers see a read-only list of the board's fields (name, type, and pin status) with a banner explaining that only board admins can add or edit fields.</p>
 <hr />
 <h2 id="custom-fields-on-the-card-face">Custom fields on the card face<a class="headerlink" href="#custom-fields-on-the-card-face" title="Permanent link">&para;</a></h2>
-<p>Pinned field values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, in the format <code>Field name: value</code>. A dropdown value shows a small color dot before the value, or — if an admin gave its choice a color — a tinted badge (see <a href="#choice-colors">Choice colors</a>); a checkbox value shows <strong>Yes</strong> or <strong>No</strong>; a URL value shows just the site's hostname (for example <code>wiki.example.com</code>) as a link; a multi-select value shows up to two of its picks as small chips, with a <code>+N</code> marker for the rest (hover it to see them all). Long values are truncated with an ellipsis; hover the chip to see the full value.</p>
-<p>An unset pinned field is hidden at <strong>Comfortable</strong> and <strong>Standard</strong> card density (see <a href="../board/#card-density">Card density</a>) to keep the card face uncluttered. At <strong>Dense</strong> density, an unset pinned field shows as a dashed "ghost" chip instead, so power users always see the full set of pinned fields whether or not they're populated.</p>
+<p>Pinned values render as small bordered chips in the card's metadata row, alongside labels and checklist progress, as <code>Field name: value</code>.</p>
+<ul>
+<li><strong>Dropdown:</strong> a small color dot before the value, or, if an admin gave the choice a color, a tinted badge (see <a href="#choice-colors">Choice colors</a>).</li>
+<li><strong>Checkbox:</strong> <strong>Yes</strong> or <strong>No</strong>.</li>
+<li><strong>URL:</strong> just the site's hostname (for example <code>wiki.example.com</code>) as a link.</li>
+<li><strong>Multi-select:</strong> up to two picks as small chips, with a <code>+N</code> marker for the rest (hover it to see them all).</li>
+<li><strong>Long values:</strong> truncated with an ellipsis; hover the chip for the full value.</li>
+</ul>
+<p><strong>Unset pinned fields:</strong> hidden at <strong>Comfortable</strong> and <strong>Standard</strong> card density (see <a href="../board/#card-density">Card density</a>) to keep the face uncluttered. At <strong>Dense</strong> density they show as a dashed "ghost" chip, so power users always see the full set of pinned fields.</p>
 <h3 id="quick-edit-from-the-card-face">Quick edit from the card face<a class="headerlink" href="#quick-edit-from-the-card-face" title="Permanent link">&para;</a></h3>
-<p>Checkbox and dropdown chips are directly editable from the card face, without opening the card: click a checkbox chip to toggle it, or click a dropdown chip to open a small popover and pick a new value. The editable affordance is a dotted underline under the value — shown at all times, not just on hover, so it's discoverable without training. Text, number, date, URL, and multi-select fields are not quick-editable from the card face; edit them in the card detail panel. Clicking a URL chip's hostname opens the link in a new tab without opening the card.</p>
+<p>Checkbox and dropdown chips are editable without opening the card. Click a checkbox chip to toggle it; click a dropdown chip to open a popover and pick a value. A dotted underline under the value marks it editable, always visible rather than only on hover.</p>
+<p>Text, number, date, URL, and multi-select fields are not quick-editable; edit them in the card detail panel. Clicking a URL chip's hostname opens the link in a new tab without opening the card.</p>
 <hr />
 <h2 id="custom-fields-in-the-card-detail-panel">Custom fields in the card detail panel<a class="headerlink" href="#custom-fields-in-the-card-detail-panel" title="Permanent link">&para;</a></h2>
-<p>The card detail panel shows a collapsible <strong>Custom fields</strong> section (below Labels, above Weight) listing every field defined on the board — not just the pinned ones — each with its own typed input:</p>
+<p>A collapsible <strong>Custom fields</strong> section (below Labels, above Weight) lists every field on the board, not just pinned ones, each with its own typed input:</p>
 <ul>
-<li><strong>Text</strong> — plain text input</li>
-<li><strong>Number</strong> — numeric input</li>
-<li><strong>Date</strong> — calendar picker</li>
-<li><strong>Dropdown</strong> — select from the field's defined choices</li>
-<li><strong>Checkbox</strong> — toggle</li>
-<li><strong>URL</strong> — web address input; saves when you leave the field or press Enter (see <a href="#url-fields">URL fields</a>)</li>
-<li><strong>Multi-select</strong> — a checklist of the field's choices; saves when you close it (see <a href="#multi-select-fields">Multi-select fields</a>)</li>
+<li><strong>Text:</strong> plain text input</li>
+<li><strong>Number:</strong> numeric input</li>
+<li><strong>Date:</strong> calendar picker</li>
+<li><strong>Dropdown:</strong> select from the field's choices</li>
+<li><strong>Checkbox:</strong> toggle</li>
+<li><strong>URL:</strong> web address input; saves when you leave the field or press Enter (see <a href="#url-fields">URL fields</a>)</li>
+<li><strong>Multi-select:</strong> a checklist of choices; saves when you close it (see <a href="#multi-select-fields">Multi-select fields</a>)</li>
 </ul>
-<p>Each field autosaves on change, the same way other card detail fields behave. The section opens automatically if any field already has a stored value on the card; otherwise it starts collapsed and expands on click.</p>
-<p>If the board has no custom fields defined, this section doesn't appear at all.</p>
+<p>Each field autosaves on change, like other card detail fields. The section opens automatically if any field already has a value on the card; otherwise it starts collapsed. If the board has no custom fields, the section doesn't appear.</p>
 <h3 id="number-formatting">Number formatting<a class="headerlink" href="#number-formatting" title="Permanent link">&para;</a></h3>
-<p>A number field can show its value with a unit and a fixed number of decimal places — <code>$1,234.50</code>, <code>8 h</code>, <code>-$5.00</code> — while the value itself stays a plain number. Set it in the field editor's <strong>Format</strong> block, which appears only while the field's type is <strong>Number</strong>:</p>
+<p>A number field can show a unit and fixed decimals (<code>$1,234.50</code>, <code>8 h</code>, <code>-$5.00</code>) while the value stays a plain number. Set it in the field editor's <strong>Format</strong> block, which appears only for the <strong>Number</strong> type:</p>
 <table>
 <thead>
 <tr>
@@ -4441,61 +4465,67 @@
 </tr>
 </tbody>
 </table>
-<p>A <strong>Preview</strong> line under the block shows how <code>1234.5</code> will look with your settings. A decimals value outside 0–10 shows <em>Enter 0 to 10.</em> and the field can't be saved until it is fixed.</p>
+<p>A <strong>Preview</strong> line shows how <code>1234.5</code> will look. A decimals value outside 0–10 shows <em>Enter 0 to 10.</em> and blocks saving until fixed.</p>
 <ul>
-<li><strong>Display only</strong> — formatting changes how a value <strong>looks</strong> on the card face, in the card detail panel, in the hover peek, on swimlane row chips, and in the filter bar's active-filter chip. The stored value is never changed: editing still uses a plain number box, with the prefix and suffix shown beside it as non-editable labels.</li>
-<li><strong>Very large numbers</strong> — with Decimals set, a number beyond about 9 quadrillion (2^53) can show rounded digits. Only the display is affected; the stored value keeps every digit.</li>
-<li><strong>Negative numbers</strong> put the minus sign before the prefix: <code>-$5.00</code>, not <code>$-5.00</code>. A negative value that rounds to zero shows without a sign (<code>$0.00</code>).</li>
-<li><strong>Separators</strong> — grouping and the decimal point use US conventions (<code>1,234.50</code>) for every viewer. The <strong>Number format</strong> preference in your profile settings does not apply to custom field values. There is no currency model or conversion: <code>$</code> is just text.</li>
-<li><strong>Exports stay raw</strong> — CSV and JSON exports contain the stored number (<code>1234.5</code>), not the formatted text. The JSON export also lists each field's <code>number_prefix</code>, <code>number_suffix</code> and <code>number_decimals</code>, so a consumer can apply the format itself.</li>
-<li><strong>Filtering uses the raw number</strong> — type the number itself (<code>1234.5</code>) in the filter bar, not the formatted text.</li>
-<li><strong>Changing the type</strong> — switching a field away from Number clears its format options.</li>
+<li><strong>Display only:</strong> formatting changes how a value <strong>looks</strong> on the card face, in the card detail panel, in the hover peek, on swimlane row chips, and in the filter bar's active-filter chip. The stored value never changes: editing still uses a plain number box, with the prefix and suffix beside it as non-editable labels.</li>
+<li><strong>Very large numbers:</strong> with Decimals set, a number beyond about 9 quadrillion (2^53) can show rounded digits. Only the display is affected; the stored value keeps every digit.</li>
+<li><strong>Negative numbers:</strong> the minus sign goes before the prefix (<code>-$5.00</code>, not <code>$-5.00</code>). A negative value that rounds to zero shows without a sign (<code>$0.00</code>).</li>
+<li><strong>Separators:</strong> grouping and the decimal point use US conventions (<code>1,234.50</code>) for every viewer. The <strong>Number format</strong> preference in your profile settings does not apply to custom field values. There is no currency model or conversion: <code>$</code> is just text.</li>
+<li><strong>Exports stay raw:</strong> CSV and JSON exports contain the stored number (<code>1234.5</code>), not the formatted text. The JSON export also lists each field's <code>number_prefix</code>, <code>number_suffix</code> and <code>number_decimals</code>, so a consumer can apply the format itself.</li>
+<li><strong>Filtering uses the raw number:</strong> type <code>1234.5</code> in the filter bar, not the formatted text.</li>
+<li><strong>Changing the type:</strong> switching a field away from Number clears its format options.</li>
 </ul>
 <p>The same options are available on <a href="#swimlane-row-custom-fields">swimlane fields</a>.</p>
 <h3 id="url-fields">URL fields<a class="headerlink" href="#url-fields" title="Permanent link">&para;</a></h3>
-<p>A URL field holds one web address — a runbook, a design file, a CRM record — as a clickable link instead of an unclickable string in a text field. Unlike a card's single <a href="../card-links/">pull / merge request link</a>, a board can have several URL fields, and they work on swimlanes too.</p>
+<p>A URL field holds one web address (a runbook, a design file, a CRM record) as a clickable link. Unlike a card's single <a href="../card-links/">pull / merge request link</a>, a board can have several URL fields, and they work on swimlanes too.</p>
 <ul>
-<li><strong>Entering a value</strong> — type or paste the address and leave the field (or press Enter). If you leave off the scheme, <code>https://</code> is added for you, so <code>example.com</code> saves as <code>https://example.com</code>. Only <code>http://</code> and <code>https://</code> addresses are accepted; anything else (for example <code>javascript:</code> or <code>ftp:</code>) shows an inline error under the input and is <strong>not</strong> saved — your typed text stays in the box so you can fix it. Press Escape to put back the last saved value.</li>
-<li><strong>Length</strong> — an address can be at most <strong>500 characters</strong>, the same cap as every other custom field value. Longer addresses are rejected rather than shortened.</li>
-<li><strong>Opening the link</strong> — under an editable URL field, an <strong>Open link ↗</strong> line opens the saved address in a new tab. Read-only viewers see the full address as a link. Pinned chips on the card face and in the swimlane label panel show just the hostname (with a leading <code>www.</code> dropped); hover the chip to see the full address.</li>
-<li><strong>Links always open in a new tab</strong>, and only <code>http://</code>/<code>https://</code> values are ever rendered as links. A stored value that isn't a valid web address is shown as plain text.</li>
+<li><strong>Entering a value:</strong> type or paste the address and leave the field (or press Enter). Without a scheme, <code>https://</code> is added, so <code>example.com</code> saves as <code>https://example.com</code>. Only <code>http://</code> and <code>https://</code> are accepted; anything else (for example <code>javascript:</code> or <code>ftp:</code>) shows an inline error under the input and is <strong>not</strong> saved. Your typed text stays in the box so you can fix it. Escape puts back the last saved value.</li>
+<li><strong>Length:</strong> at most <strong>500 characters</strong>, the same cap as every other custom field value. Longer addresses are rejected rather than shortened.</li>
+<li><strong>Opening the link:</strong> an editable URL field has an <strong>Open link ↗</strong> line that opens the saved address in a new tab. Read-only viewers see the full address as a link. Pinned chips on the card face and in the swimlane label panel show just the hostname (a leading <code>www.</code> dropped); hover for the full address.</li>
+<li><strong>Links always open in a new tab</strong>, and only <code>http://</code>/<code>https://</code> values are ever rendered as links. A stored value that isn't a valid web address shows as plain text.</li>
 </ul>
 <h3 id="multi-select-fields">Multi-select fields<a class="headerlink" href="#multi-select-fields" title="Permanent link">&para;</a></h3>
-<p>A multi-select field holds <strong>several</strong> of a fixed list of choices at once — the platforms a change touches, the teams involved, the regions affected — where a dropdown holds exactly one.</p>
+<p>A multi-select field holds <strong>several</strong> of a fixed list of choices at once (the platforms a change touches, the teams involved, the regions affected), where a dropdown holds exactly one.</p>
 <ul>
-<li><strong>Picking values</strong> — click the field to open a checklist of its choices. Type to narrow the list, then check or uncheck as many as you like; the footer shows how many are selected. Nothing is saved while the list is open: closing it saves the whole selection once. Click <strong>Done</strong>, press Escape or Tab, or click anywhere outside the list to close it.</li>
-<li><strong>Keyboard</strong> — ↑ and ↓ move through the list, Enter (or Space, while the search box is empty) checks or unchecks the highlighted choice, and typing filters. With a search typed, the first Escape clears the search and the second closes the list.</li>
-<li><strong>Order</strong> — selected values are always stored and shown in the order of the field's choices, whatever order you picked them in.</li>
-<li><strong>Clearing</strong> — uncheck everything and close the list; the field becomes unset.</li>
-<li><strong>If the save fails</strong>, the field goes back to what it was before and a message names the field: <em>Couldn't save Platforms. Try again.</em></li>
-<li><strong>Length</strong> — all of a card's picks together can be at most <strong>500 characters</strong> (the same cap as every other custom field value, measured on the stored form). A selection over the cap is refused, not shortened.</li>
+<li><strong>Picking values:</strong> click the field to open a checklist. Type to narrow it, then check or uncheck as many choices as you like; the footer shows how many are selected. Nothing saves while the list is open: closing it saves the whole selection once. Click <strong>Done</strong>, press Escape or Tab, or click outside to close.</li>
+<li><strong>Keyboard:</strong> ↑ and ↓ move through the list, Enter (or Space, while the search box is empty) checks or unchecks the highlighted choice, and typing filters. With a search typed, the first Escape clears the search and the second closes the list.</li>
+<li><strong>Order:</strong> selected values are always stored and shown in the order of the field's choices, whatever order you picked them in.</li>
+<li><strong>Clearing:</strong> uncheck everything and close the list; the field becomes unset.</li>
+<li><strong>If the save fails</strong>, the field returns to its previous value and a message names the field: <em>Couldn't save Platforms. Try again.</em></li>
+<li><strong>Length:</strong> all of a card's picks together can be at most <strong>500 characters</strong> (the same cap as every other custom field value, measured on the stored form). A selection over the cap is refused, not shortened.</li>
 </ul>
 <h4 id="renaming-or-removing-a-choice">Renaming or removing a choice<a class="headerlink" href="#renaming-or-removing-a-choice" title="Permanent link">&para;</a></h4>
-<p>Renaming or removing a choice on a dropdown or multi-select field <strong>never changes values already on cards or swimlanes</strong>. A card that held the old choice keeps it as text: it still shows on the card (in the same neutral style as every other value, with no <a href="#choice-colors">choice color</a>), still appears in exports, and still matches nothing in the filter bar's choice list, which only offers current choices.</p>
-<p>In a multi-select's checklist these leftover values are listed under <strong>No longer a choice</strong>, checked. You can keep them while you change the other picks, or uncheck them to drop them — but once dropped, a value that is no longer a choice can't be picked again.</p>
-<h3 id="choice-colors">Choice colors<a class="headerlink" href="#choice-colors" title="Permanent link">&para;</a></h3>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Each choice on a dropdown or multi-select field can have its own color, so a value like <strong>High</strong> or <strong>Blocked</strong> stands out at a glance. Colors work the same on card fields and <a href="#swimlane-row-custom-fields">swimlane fields</a>.</p>
+<p>Renaming or removing a choice on a dropdown or multi-select field <strong>never changes values already on cards or swimlanes</strong>. A card that held the old choice keeps it as text:</p>
 <ul>
-<li><strong>Setting a color</strong> — in the field editor, click the round swatch in front of a choice and pick one of eight colors: <strong>Slate</strong>, <strong>Blue</strong>, <strong>Green</strong>, <strong>Amber</strong>, <strong>Red</strong>, <strong>Violet</strong>, <strong>Pink</strong>, or <strong>Teal</strong>. <strong>Reset to automatic</strong> removes it again. The color is saved with the rest of the field when you click <strong>Save field</strong>.</li>
-<li><strong>Automatic</strong> — a choice with no color picked shows the small automatic color dot it always has, so boards created before 1.2 look exactly as they did. In the field editor its swatch is an empty dashed circle labelled <em>Automatic</em>.</li>
-<li><strong>Where it shows</strong> — a colored choice renders as a tinted badge on the card face and in the swimlane label panel (and in the card detail panel and the multi-select picker's selected chips), inside the field's usual bordered chip. The choice's text is always shown — the color is never the only way to read it — and every color meets WCAG AA contrast in both light and dark themes. The list of options you pick from is unchanged.</li>
-<li><strong>Renaming or removing a choice resets its color</strong> — the color belongs to the choice's text, so a renamed choice starts out <em>Automatic</em> again, and a removed choice's color is deleted. Values still stored under the old text (see <a href="#renaming-or-removing-a-choice">Renaming or removing a choice</a>) render neutral.</li>
-<li><strong>Changing the type</strong> — switching a field away from Dropdown or Multi-select clears its colors. Switching between Dropdown and Multi-select keeps them.</li>
-<li><strong>Keyboard</strong> — in the color popover, the arrow keys move between swatches, Space or Enter picks one, and Escape closes just the popover (not Board Settings), as does tabbing out of it.</li>
+<li>it still shows on the card, in the same neutral style as every other value, with no <a href="#choice-colors">choice color</a>;</li>
+<li>it still appears in exports;</li>
+<li>it matches nothing in the filter bar's choice list, which offers only current choices.</li>
+</ul>
+<p>In a multi-select's checklist these leftover values are listed under <strong>No longer a choice</strong>, checked. Keep them while you change other picks, or uncheck them to drop them. Once dropped, a value that is no longer a choice can't be picked again.</p>
+<h3 id="choice-colors">Choice colors<a class="headerlink" href="#choice-colors" title="Permanent link">&para;</a></h3>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Each choice on a dropdown or multi-select field can have its own color, so a value like <strong>High</strong> or <strong>Blocked</strong> stands out. Colors work the same on card fields and <a href="#swimlane-row-custom-fields">swimlane fields</a>.</p>
+<ul>
+<li><strong>Setting a color:</strong> in the field editor, click the round swatch in front of a choice and pick one of eight colors: <strong>Slate</strong>, <strong>Blue</strong>, <strong>Green</strong>, <strong>Amber</strong>, <strong>Red</strong>, <strong>Violet</strong>, <strong>Pink</strong>, or <strong>Teal</strong>. <strong>Reset to automatic</strong> removes it. The color saves with the rest of the field when you click <strong>Save field</strong>.</li>
+<li><strong>Automatic:</strong> a choice with no color keeps the small automatic color dot it always had, so boards created before 1.2 look exactly as they did. In the editor its swatch is an empty dashed circle labelled <em>Automatic</em>.</li>
+<li><strong>Where it shows:</strong> a colored choice renders as a tinted badge on the card face and in the swimlane label panel (and in the card detail panel and the multi-select picker's selected chips), inside the field's usual bordered chip. The choice's text is always shown, so color is never the only way to read it, and every color meets WCAG AA contrast in both light and dark themes. The list of options you pick from is unchanged.</li>
+<li><strong>Renaming or removing a choice resets its color:</strong> the color belongs to the choice's text, so a renamed choice starts <em>Automatic</em> again and a removed choice's color is deleted. Values still stored under the old text (see <a href="#renaming-or-removing-a-choice">Renaming or removing a choice</a>) render neutral.</li>
+<li><strong>Changing the type:</strong> switching a field away from Dropdown or Multi-select clears its colors. Switching between Dropdown and Multi-select keeps them.</li>
+<li><strong>Keyboard:</strong> in the color popover, the arrow keys move between swatches, Space or Enter picks one, and Escape closes just the popover (not Board Settings), as does tabbing out of it.</li>
 <li>Colors are display-only: exports, filters and the API's <code>choices</code> list are unchanged.</li>
 </ul>
 <hr />
 <h2 id="hover-peek">Hover peek<a class="headerlink" href="#hover-peek" title="Permanent link">&para;</a></h2>
-<p>Hovering a card for 600 ms opens the existing <a href="../board/#card-peek">card peek popover</a>. Alongside weight, attachment count, and last-moved information, the peek now lists any <strong>non-pinned</strong> custom field values that have data — so a field's value is never hidden just because it isn't one of the board's 2 pinned slots.</p>
-<p>Custom fields get their own line in the peek, separate from weight and attachments. Pinned fields aren't repeated there since they already show on the card face. When the board pins at least one field, the line starts with <strong>Other fields —</strong> so it's clear these are different fields from the chips on the card, not a second value for the same field. For example, a card showing <code>SA: Glenda</code> on its face peeks as <code>Other fields — AE: Bob</code>.</p>
-<p>Field names are often abbreviated, so hovering an entry in the peek shows the value in full plus the field's help text, if set. Setting help text on a short-named field (for example, <code>SA</code> → "Solutions Architect") gives everyone a way to read what the abbreviation means.</p>
-<p>The list is capped at 6 entries; beyond that, a <code>+N more</code> marker summarizes the rest. Hovering the marker lists the names of the hidden fields.</p>
+<p>Hovering a card for 600 ms opens the existing <a href="../board/#card-peek">card peek popover</a>. Beside weight, attachment count, and last-moved information, the peek lists any <strong>non-pinned</strong> custom field values that have data, so a value is never hidden just because it isn't one of the 2 pinned slots.</p>
+<ul>
+<li><strong>Own line:</strong> custom fields get a separate line from weight and attachments. Pinned fields aren't repeated, since they show on the card face.</li>
+<li><strong>"Other fields —" prefix:</strong> when the board pins at least one field, the line starts with <strong>Other fields —</strong> so it's clear these differ from the chips on the card. A card showing <code>SA: Glenda</code> on its face peeks as <code>Other fields — AE: Bob</code>.</li>
+<li><strong>Hover an entry</strong> to see the full value plus the field's help text, if set. Help text on a short-named field (for example <code>SA</code> → "Solutions Architect") tells everyone what the abbreviation means.</li>
+<li><strong>Cap:</strong> 6 entries; a <code>+N more</code> marker summarizes the rest, and hovering it lists the hidden fields' names.</li>
+</ul>
 <hr />
 <h2 id="filtering-by-custom-fields">Filtering by custom fields<a class="headerlink" href="#filtering-by-custom-fields" title="Permanent link">&para;</a></h2>
-<p>The board's filter bar shows one filter control per <strong>pinned</strong> custom field by default — matching what's visible on the card face. Click <strong>+ Custom fields</strong> in the filter bar to add or remove filter controls for any other field on the board.</p>
+<p>The filter bar shows one control per <strong>pinned</strong> custom field by default, matching the card face. Click <strong>+ Custom fields</strong> to add or remove controls for any other field on the board.</p>
 <table>
 <thead>
 <tr>
@@ -4538,44 +4568,54 @@
 <p class="admonition-title">Note</p>
 <p>Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release.</p>
 </div>
-<p>A multi-select filter matches whole values only: checking <code>web</code> matches a card holding <code>web</code>, never one holding only <code>webhooks</code>. Within one field the checked choices are <strong>or</strong>-ed (any of them); different fields, and every other filter, are <strong>and</strong>-ed together.</p>
-<p>Which extra field controls you've added via <strong>+ Custom fields</strong>, and the values you've set in them, persist per-board in your browser alongside the rest of the filter bar state.</p>
+<ul>
+<li>A multi-select filter matches whole values only: checking <code>web</code> matches a card holding <code>web</code>, never one holding only <code>webhooks</code>.</li>
+<li>Within one field the checked choices are <strong>or</strong>-ed; different fields, and every other filter, are <strong>and</strong>-ed.</li>
+<li>The extra controls you added via <strong>+ Custom fields</strong>, and their values, persist per board in your browser with the rest of the filter bar state.</li>
+</ul>
 <hr />
 <h2 id="swimlane-row-custom-fields">Swimlane (row) custom fields<a class="headerlink" href="#swimlane-row-custom-fields" title="Permanent link">&para;</a></h2>
-<p>Board admins can also define typed fields on <strong>swimlanes</strong> (rows) instead of cards — a separate per-board schema from the card fields above. Use a swimlane field to capture something that belongs to the row as a whole rather than to any one card on it: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.</p>
-<p>A board can have up to <strong>15 swimlane fields</strong>, and up to <strong>8 of them pinned</strong> to the swimlane label panel at once.</p>
+<p>Board admins can also define typed fields on <strong>swimlanes</strong> (rows) instead of cards, in a separate per-board schema. Use one for something that belongs to the row as a whole: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A pinned multi-select swimlane field shows up to three of its picks on the row, wrapping onto further lines.</p>
+<p><strong>By the numbers:</strong> up to <strong>15 swimlane fields</strong>, with up to <strong>8 of them pinned</strong> to the swimlane label panel.</p>
 <h3 id="managing-swimlane-fields-board-settings-swimlane-fields">Managing swimlane fields (Board Settings → Swimlane fields)<a class="headerlink" href="#managing-swimlane-fields-board-settings-swimlane-fields" title="Permanent link">&para;</a></h3>
-<p>Open <strong>Board Settings</strong> and select the <strong>Swimlane fields</strong> tab, beside <strong>Card fields</strong>. Only board admins can create, edit, reorder, pin, or delete swimlane fields.</p>
-<p>Admins can also jump straight here from the board: when a swimlane's <code>+N</code> popover is open and the board has two or more swimlane fields, choose <strong>Edit field order…</strong> in its footer. It closes the popover and opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.</p>
-<p>The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. <code>12 of 15 · 2 of 8 pinned</code>. At <strong>13–14 fields</strong>, a warning line shows how many fields are left before <strong>+ Add field</strong> locks out; at <strong>15 fields</strong>, <strong>+ Add field</strong> is disabled with an inline explanation.</p>
-<p>The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns and multi-selects, the <a href="#number-formatting">number format</a> options for number fields, and a pin toggle — plus one addition:</p>
+<p>Open <strong>Board Settings</strong> and select <strong>Swimlane fields</strong>, beside <strong>Card fields</strong>. Only board admins can create, edit, reorder, pin, or delete swimlane fields.</p>
+<p><strong>Shortcut:</strong> when a swimlane's <code>+N</code> popover is open and the board has two or more swimlane fields, admins can choose <strong>Edit field order…</strong> in its footer. It closes the popover and opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.</p>
+<p>The tab lists fields in display order with the same glyph, name, type label, and pin state as the Card fields tab. The header shows a running count, for example <code>12 of 15 · 2 of 8 pinned</code>. At <strong>13–14 fields</strong>, a warning line shows how many are left before <strong>+ Add field</strong> locks out; at <strong>15 fields</strong>, <strong>+ Add field</strong> is disabled with an inline explanation.</p>
+<p>The editor matches the card field editor (name, type, help text, choices for dropdowns and multi-selects, the <a href="#number-formatting">number format</a> options for number fields, and a pin toggle), plus one addition:</p>
 <ul>
-<li><strong>Admin only</strong> — toggle, <strong>on by default</strong> for a new field. An admin-only field's values are withheld from every non-admin role entirely: members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.</li>
+<li><strong>Admin only:</strong> toggle, <strong>on by default</strong> for a new field. An admin-only field's values are withheld from every non-admin role entirely. Members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Field type is locked once a swimlane holds a value</p>
-<p>Unlike a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong> — this is enforced by the API, not just a client-side caution. The field editor disables the other type buttons and explains why. Delete the field and add it again under a new type if you need to change it.</p>
+<p>Unlike a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong>. The API enforces this, not just a client-side caution. The field editor disables the other type buttons and explains why. Delete the field and add it again under a new type if you need to change it.</p>
 </div>
 <h3 id="pinned-fields-in-the-swimlane-label-panel">Pinned fields in the swimlane label panel<a class="headerlink" href="#pinned-fields-in-the-swimlane-label-panel" title="Permanent link">&para;</a></h3>
-<p>Up to 8 pinned swimlane fields render as chips in the swimlane's label panel — the sticky left column, alongside the swimlane's name — stacked below the row name. They're hidden while the swimlane is collapsed, the same way the rest of the label panel's detail is. If the swimlane has further, unpinned field values set, a trailing <code>+N</code> chip opens a read-only popover listing every value the current viewer may see. The N unpinned values come first, followed by the pinned ones under an <strong>On row</strong> heading. The popover grows to fit its values up to the height of the window; when it still has to scroll, a fade at its bottom edge shows there is more below. When the list has to scroll, keyboard focus lands in it on open, so the arrow keys, Page Down and Space scroll it straight away.</p>
-<h4 id="hiding-field-names-on-row-chips">Hiding field names on row chips<a class="headerlink" href="#hiding-field-names-on-row-chips" title="Permanent link">&para;</a></h4>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>By default each row chip shows its field's name before the value, for example <code>AD: Diane Foster</code>. With several pinned fields, that name repeats on every row and takes up width. A board admin can turn this off in <strong>Board Settings → Swimlane fields</strong> with the <strong>Show field names on row chips</strong> switch at the top of the tab. The setting applies to the whole board, for everyone viewing it, and other people with the board open see the change straight away.</p>
-<p>With names hidden, a row chip shows only its value (<code>Diane Foster</code>), and, unless you have resized it yourself, the swimlane label column starts narrower to match. The name is still available:</p>
+<p>Up to 8 pinned fields render as chips in the swimlane's label panel (the sticky left column, alongside the swimlane's name), stacked below the row name. They're hidden while the swimlane is collapsed, like the rest of the panel's detail.</p>
+<p>If the swimlane has further, unpinned values, a trailing <code>+N</code> chip opens a read-only popover listing every value the current viewer may see.</p>
 <ul>
-<li><strong>On hover</strong> — the chip's tooltip reads <code>Field name: value</code>, as before.</li>
-<li><strong>For screen readers</strong> — the chip is still announced as <code>Field name: value</code>.</li>
-<li><strong>In the row's field list</strong> — the row's field popover lists every field with its name. It opens from the <code>+N</code> button when the row has unpinned values, or from an <strong>All fields</strong> button when every value is pinned, so touch and keyboard users can always reach the names.</li>
+<li><strong>Order:</strong> the N unpinned values come first, then the pinned ones under an <strong>On row</strong> heading.</li>
+<li><strong>Size:</strong> the popover grows to fit its values up to the window height. When it must scroll, a fade at the bottom edge shows there is more, and keyboard focus lands in it on open, so the arrow keys, Page Down and Space scroll it straight away.</li>
 </ul>
-<p><strong>Checkbox fields always show their name</strong>, because a bare <strong>Yes</strong> or <strong>No</strong> means nothing without it. Colored choice badges, multi-select chips, the admin-only padlock, and the dropdown color dot are unchanged. Chips on the card face always show the field name; this setting only affects swimlane rows.</p>
+<h4 id="hiding-field-names-on-row-chips">Hiding field names on row chips<a class="headerlink" href="#hiding-field-names-on-row-chips" title="Permanent link">&para;</a></h4>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>By default each row chip shows its field's name before the value, for example <code>AD: Diane Foster</code>. With several pinned fields that name repeats on every row and takes up width. A board admin can turn it off in <strong>Board Settings → Swimlane fields</strong> with the <strong>Show field names on row chips</strong> switch at the top of the tab. The setting applies to the whole board, for everyone viewing it, and other people with the board open see the change straight away.</p>
+<p>With names hidden, a chip shows only its value (<code>Diane Foster</code>) and, unless you resized it yourself, the swimlane label column starts narrower. The name is still available:</p>
+<ul>
+<li><strong>On hover:</strong> the chip's tooltip reads <code>Field name: value</code>, as before.</li>
+<li><strong>For screen readers:</strong> the chip is still announced as <code>Field name: value</code>.</li>
+<li><strong>In the row's field list:</strong> the row's field popover lists every field with its name. It opens from the <code>+N</code> button when the row has unpinned values, or from an <strong>All fields</strong> button when every value is pinned, so touch and keyboard users can always reach the names.</li>
+</ul>
+<p><strong>Checkbox fields always show their name</strong>, because a bare <strong>Yes</strong> or <strong>No</strong> means nothing without it. Colored choice badges, multi-select chips, the admin-only padlock, and the dropdown color dot are unchanged. Chips on the card face always show the field name; this setting affects only swimlane rows.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Hidden names work best when each pinned field's values are recognizable on their own, like a person's name or a region. If two pinned fields can hold similar values (two dates, two numbers, or two fields with the same choices), consider leaving names on, since viewers on a touch screen or reading a screenshot can't hover to tell them apart.</p>
 </div>
 <h3 id="editing-values-edit-swimlane-modal">Editing values (Edit Swimlane modal)<a class="headerlink" href="#editing-values-edit-swimlane-modal" title="Permanent link">&para;</a></h3>
-<p>Swimlane field values are set in the <strong>Edit Swimlane modal</strong>, which gains a <strong>Fields</strong> section listing every field defined on the board (the section doesn't appear if the board has none). Editing a swimlane is already admin-only, so <strong>only board admins can set swimlane field values at all</strong>, regardless of a field's Admin only toggle — the toggle controls who can <em>read</em> a value, not who can <em>write</em> it. Edits are held in the modal and saved together with the rest of the swimlane when you click <strong>Save</strong>; they do not autosave field-by-field the way card fields do in the card detail panel.</p>
+<p>Swimlane field values are set in the <strong>Edit Swimlane modal</strong>, which gains a <strong>Fields</strong> section listing every field on the board (absent if the board has none).</p>
+<ul>
+<li><strong>Who:</strong> editing a swimlane is already admin-only, so <strong>only board admins can set swimlane field values at all</strong>, regardless of a field's Admin only toggle. The toggle controls who can <em>read</em> a value, not who can <em>write</em> it.</li>
+<li><strong>Saving:</strong> edits are held in the modal and saved together with the rest of the swimlane when you click <strong>Save</strong>. They do not autosave field by field the way card fields do in the card detail panel.</li>
+</ul>
 <hr />
 <h2 id="api-and-real-time-events">API and real-time events<a class="headerlink" href="#api-and-real-time-events" title="Permanent link">&para;</a></h2>
 <p>This page covers the UI. For the wire format:</p>

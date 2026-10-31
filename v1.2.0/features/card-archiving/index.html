@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#card-archiving" class="md-skip">
+        <a href="#hide-finished-cards-without-losing-them" class="md-skip">
           Skip to content
         </a>
       
@@ -1026,32 +1026,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#archiving-a-card" class="md-nav__link">
+  <a href="#archive-and-unarchive" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Archiving a card
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#viewing-archived-cards" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Viewing archived cards
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#unarchiving-a-card" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Unarchiving a card
+        Archive and unarchive
       
     </span>
   </a>
@@ -1070,10 +1048,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#relationship-to-deletion" class="md-nav__link">
+  <a href="#analytics-and-dwell-time" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Relationship to deletion
+        Analytics and dwell time
       
     </span>
   </a>
@@ -1081,10 +1059,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#analytics-and-dwell-time" class="md-nav__link">
+  <a href="#relationship-to-deletion" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Analytics and dwell time
+        Relationship to deletion
       
     </span>
   </a>
@@ -4090,19 +4068,46 @@
   
 
 
-<h1 id="card-archiving">Card Archiving<a class="headerlink" href="#card-archiving" title="Permanent link">&para;</a></h1>
+<h1 id="hide-finished-cards-without-losing-them">Hide finished cards without losing them<a class="headerlink" href="#hide-finished-cards-without-losing-them" title="Permanent link">&para;</a></h1>
+<p><a id="card-archiving"></a></p>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Archiving is a soft-delete for cards — an archived card is hidden from the active board but its history is preserved and it can be unarchived at any time.</p>
-<h2 id="archiving-a-card">Archiving a card<a class="headerlink" href="#archiving-a-card" title="Permanent link">&para;</a></h2>
-<p>Open the card detail panel and click <strong>Archive card</strong> in the footer. A confirmation dialog appears before the card is removed from the board. Archived cards are immediately hidden from the board grid and DnD.</p>
-<p><strong>Permission:</strong> member role or higher. Viewers and collaborators cannot archive cards.</p>
-<h2 id="viewing-archived-cards">Viewing archived cards<a class="headerlink" href="#viewing-archived-cards" title="Permanent link">&para;</a></h2>
-<p>Click <strong>Archived</strong> in the board toolbar to open the archived cards panel. The panel lists all archived cards for the board, showing the card title, column and swimlane it was in, and the date it was archived.</p>
-<h2 id="unarchiving-a-card">Unarchiving a card<a class="headerlink" href="#unarchiving-a-card" title="Permanent link">&para;</a></h2>
-<p>In the archived cards panel, click <strong>Unarchive</strong> next to a card. The card returns to its original column and swimlane position and becomes active again on the board.</p>
-<p><strong>Permission:</strong> member role or higher. Viewers and collaborators cannot unarchive cards.</p>
+<p>Click <strong>Archive card</strong> in the card detail panel to hide a card from the board. Its history stays, and you can unarchive it any time.</p>
+<p><strong>Why it matters:</strong> Archiving is a soft-delete and is reversible; deletion is not. Archive a card that is complete or on hold but may be referenced later. Delete a card you no longer need at all.</p>
+<p><strong>The big picture:</strong> archived cards vanish from the board grid and drag-and-drop but still count in analytics for the period they were active.</p>
+<p><strong>Watch out:</strong> deleting a column, swimlane, or board also deletes the archived cards in it. See <a href="#column-and-swimlane-deletion">Column and swimlane deletion</a>.</p>
+<p><a id="archiving-a-card"></a>
+<a id="viewing-archived-cards"></a>
+<a id="unarchiving-a-card"></a></p>
+<h2 id="archive-and-unarchive">Archive and unarchive<a class="headerlink" href="#archive-and-unarchive" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>How</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Archive</td>
+<td>Open the card, click <strong>Archive card</strong> in the footer, confirm</td>
+<td>Card is immediately hidden from the board</td>
+</tr>
+<tr>
+<td>View</td>
+<td>Click <strong>Archived</strong> in the board toolbar</td>
+<td>Panel lists each archived card's title, its column and swimlane, and the date archived</td>
+</tr>
+<tr>
+<td>Unarchive</td>
+<td>Click <strong>Unarchive</strong> next to a card in that panel</td>
+<td>Card returns to its original column and swimlane position</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Permission:</strong> member role or higher, for both archiving and unarchiving. Viewers and collaborators cannot.</p>
 <h2 id="real-time-sync">Real-time sync<a class="headerlink" href="#real-time-sync" title="Permanent link">&para;</a></h2>
 <p>Archive and unarchive events are broadcast to all board members over WebSockets:</p>
 <table>
@@ -4123,15 +4128,23 @@
 </tr>
 </tbody>
 </table>
-<h2 id="relationship-to-deletion">Relationship to deletion<a class="headerlink" href="#relationship-to-deletion" title="Permanent link">&para;</a></h2>
-<p>Archiving is reversible; deletion is not. Use archiving when a card is complete or on hold but may need to be referenced later. Use deletion when the card is no longer needed at all.</p>
 <h2 id="analytics-and-dwell-time">Analytics and dwell time<a class="headerlink" href="#analytics-and-dwell-time" title="Permanent link">&para;</a></h2>
-<p>Archived cards are included in analytics for the period they were active. Dwell time in the final stage is calculated up to the archive timestamp, not the current date. See <a href="../analytics/#dwell-time-and-archived-cards">Analytics &amp; Summary</a> for details.</p>
+<p>Archived cards are included in analytics for the period they were active. Dwell time in the final stage is calculated up to the archive timestamp, not the current date. See <a href="../analytics/#dwell-time-and-archived-cards">Analytics &amp; Summary</a>.</p>
+<h2 id="relationship-to-deletion">Relationship to deletion<a class="headerlink" href="#relationship-to-deletion" title="Permanent link">&para;</a></h2>
+<p>Archive when the card may be referenced later; delete when it is no longer needed at all (see the lede).</p>
 <h2 id="column-and-swimlane-deletion">Column and swimlane deletion<a class="headerlink" href="#column-and-swimlane-deletion" title="Permanent link">&para;</a></h2>
-<p>Deleting a column or swimlane also deletes all cards in it — including archived cards that were in that column or swimlane at the time of archiving. Both confirmation dialogs warn that any archived cards will also be permanently deleted.</p>
+<div class="admonition warning">
+<p class="admonition-title">Deleting a column or swimlane deletes its archived cards</p>
+<p>Deleting a column or swimlane also deletes all cards in it, including archived cards that were in it when archived. Both confirmation dialogs warn that archived cards will also be permanently deleted.</p>
+</div>
 <h2 id="board-deletion">Board deletion<a class="headerlink" href="#board-deletion" title="Permanent link">&para;</a></h2>
-<p>Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation — on the dashboard, in the board switcher, and in the <strong>Danger Zone</strong> of Board Settings — says so, and when the board has archived cards it tells you how many.</p>
-<p>Archived cards count toward the typed confirmation too: if a board holds any cards, active <strong>or</strong> archived, you must type the board's name before <strong>Delete</strong> is enabled. A board with no active cards but hundreds of archived ones can no longer be deleted with a single click. Only a board with no cards at all deletes without typing its name.</p>
+<p>Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation says so (on the dashboard, in the board switcher, and in the <strong>Danger Zone</strong> of Board Settings), and when the board has archived cards it tells you how many.</p>
+<p>Archived cards count toward the typed confirmation:</p>
+<ul>
+<li>If a board holds any cards, active <strong>or</strong> archived, you must type the board's name before <strong>Delete</strong> is enabled.</li>
+<li>A board with no active cards but hundreds of archived ones can no longer be deleted with a single click.</li>
+<li>Only a board with no cards at all deletes without typing its name.</li>
+</ul>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1289)</p>
 </blockquote>

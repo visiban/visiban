@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#analytics-summary-beta" class="md-skip">
+        <a href="#find-bottlenecks-and-measure-velocity" class="md-skip">
           Skip to content
         </a>
       
@@ -1202,6 +1202,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Summary view">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extension-panels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extension panels
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1278,6 +1295,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#view-mode-age-vs-throughput" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        View mode: Age vs Throughput
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#dwell-time-and-archived-cards" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1304,17 +1332,6 @@
     <span class="md-ellipsis">
       
         Empty period
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#view-mode-age-vs-throughput" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        View mode: Age vs Throughput
       
     </span>
   </a>
@@ -4157,26 +4174,28 @@
   
 
 
-<h1 id="analytics-summary-beta">Analytics &amp; Summary <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span><a class="headerlink" href="#analytics-summary-beta" title="Permanent link">&para;</a></h1>
-<p>Two extra views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving individual cards. Switch to them with the toolbar toggle: <strong>Board</strong>, <strong>Summary</strong>, <strong>Analytics</strong>.</p>
+<h1 id="find-bottlenecks-and-measure-velocity">Find bottlenecks and measure velocity<a class="headerlink" href="#find-bottlenecks-and-measure-velocity" title="Permanent link">&para;</a></h1>
+<p><a id="analytics-summary-beta"></a></p>
+<p>Switch the toolbar toggle (<strong>Board</strong>, <strong>Summary</strong>, <strong>Analytics</strong>) to see where cards stall and how fast work finishes. <strong>Beta.</strong></p>
+<p><strong>Why it matters:</strong> The two views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving cards.</p>
 <div class="admonition warning">
 <p class="admonition-title">Done columns must be marked before analytics data is accurate</p>
 <p>The dwell-time heatmap excludes columns that are marked as done. If your "Done" or "Released" column is not marked, closed work continues to accumulate dwell cycles and distorts the heatmap.</p>
 <p>To mark a column as done: <strong>Board → Column header overflow menu → Edit → "Mark as done column" checkbox</strong>.</p>
-<p>The Summary view's velocity counts also rely on this flag — only movements into marked-done columns are counted as completed work. See <a href="../../getting-started/board-setup/">Board Setup</a> for a step-by-step walkthrough.</p>
+<p>The Summary view's velocity counts rely on this flag too: only movements into marked-done columns are counted as completed work. See <a href="../../getting-started/board-setup/">Board Setup</a> for a step-by-step walkthrough.</p>
 </div>
 <h2 id="summary-view">Summary view<a class="headerlink" href="#summary-view" title="Permanent link">&para;</a></h2>
-<p>Shows a table of all swimlanes with:</p>
+<p>A table of all swimlanes with:</p>
 <ul>
-<li>Total card count with an inline proportional bar</li>
-<li><strong>7-day velocity</strong> — cards that moved into any column marked <code>is_done = true</code> in the last 7 days</li>
-<li><strong>30-day velocity</strong> — same over 30 days</li>
+<li>the total card count and an inline proportional bar</li>
+<li><strong>7-day velocity:</strong> cards that moved into any column marked <code>is_done = true</code> in the last 7 days</li>
+<li><strong>30-day velocity:</strong> the same over 30 days</li>
 </ul>
-<p>Columns are marked as done in the <strong>Edit Column</strong> modal ("Mark as done column" checkbox). Multiple done columns are supported — for example, boards with both a "Done" and a "Released" column will count movements into either as completed. See <a href="../board/#columns">Board &amp; Cards — Columns</a>.</p>
-<p>Useful for a quick health check across all active pipelines.</p>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
+<p>Mark columns as done in the <strong>Edit Column</strong> modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts movements into either as completed. See <a href="../board/#columns">Board &amp; Cards — Columns</a>.</p>
+<p>Use it for a quick health check across all active pipelines.</p>
+<p><strong>API:</strong> <code>GET /api/v1/boards/{id}/summary/</code></p>
+<h3 id="extension-panels">Extension panels<a class="headerlink" href="#extension-panels" title="Permanent link">&para;</a></h3>
+<p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
 <p>The summary response includes an <code>extension_panels</code> field (always an empty list in the OSS edition). Enterprise extensions can register additional panels here.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1770)</p>
@@ -4186,18 +4205,21 @@
 <p><strong>Changed in 1.2</strong> (#1826)</p>
 </blockquote>
 <p>Each panel declares the lowest board role that may see it. A member below that role does not get the panel, and a panel that declares nothing is shown to board admins only. See <a href="../../api/boards/#panel-visibility-by-role">panel visibility by role</a>.</p>
-<p><strong>API:</strong> <code>GET /api/v1/boards/{id}/summary/</code></p>
 <h2 id="analytics-view">Analytics view<a class="headerlink" href="#analytics-view" title="Permanent link">&para;</a></h2>
-<p>Shows time-in-stage data derived from <code>CardMovement</code> records.</p>
+<p>Time-in-stage data derived from <code>CardMovement</code> records. The heatmap is pinned at the top and always visible. The stalled cards list scrolls independently below it, separated by an engraved divider.</p>
 <h3 id="dwell-time-heatmap">Dwell time heatmap<a class="headerlink" href="#dwell-time-heatmap" title="Permanent link">&para;</a></h3>
-<p>The heatmap is pinned at the top of the analytics panel and remains visible at all times. The stalled cards list scrolls independently below it, separated by an engraved divider.</p>
-<p>The heatmap table has swimlanes as rows and active columns as columns. Each cell shows the average number of days cards spent in that stage during the selected period.</p>
+<p>Swimlanes are rows and active columns are columns. Each cell shows the average days cards spent in that stage during the selected period.</p>
 <h4 id="done-column-exclusion">Done column exclusion<a class="headerlink" href="#done-column-exclusion" title="Permanent link">&para;</a></h4>
-<p>Columns marked <code>is_done = true</code> are excluded from dwell-time calculations and hidden from the heatmap. Time spent in a done column is post-completion idle time and would distort the data if included. The API response includes a <code>done_columns</code> field listing the excluded column names, and a footer note below the heatmap reads "N done column(s) not shown".</p>
+<p>Columns marked <code>is_done = true</code> are excluded from dwell-time calculations and hidden from the heatmap, because time in a done column is post-completion idle time. The API response lists the excluded column names in <code>done_columns</code>, and a footer note reads "N done column(s) not shown".</p>
 <h4 id="velocity-column">Velocity column<a class="headerlink" href="#velocity-column" title="Permanent link">&para;</a></h4>
-<p>The rightmost column of the heatmap shows <strong>Velocity</strong> per swimlane. This is the average <code>deal_velocity_days</code> value — the number of days between a card's first and last movement within the selected period. A dash (<code>—</code>) appears when there is no velocity data for a swimlane.</p>
+<p>The rightmost column shows <strong>Velocity</strong> per swimlane: the average <code>deal_velocity_days</code>, the number of days between a card's first and last movement within the selected period. A dash (<code>—</code>) means no velocity data for that swimlane.</p>
 <h4 id="color-coding">Color-coding<a class="headerlink" href="#color-coding" title="Permanent link">&para;</a></h4>
-<p>Cells are color-coded based on the board's <code>staleness_threshold_days</code> setting and its <code>stale_warning_pct</code> percentage. The warning boundary is <code>threshold * stale_warning_pct / 100</code>, the share of the threshold a card has used. With the defaults of 7 days and 50%, the warning boundary is 3.5 days. With 75%, it is 5.25 days. A value of <code>0</code> turns the yellow band off, so cells are green until the threshold. The card <a href="../card-history/#card-aging-tint">aging tint</a> uses the same boundary.</p>
+<p>Cells are colored from the board's <code>staleness_threshold_days</code> and <code>stale_warning_pct</code>. The warning boundary is <code>threshold * stale_warning_pct / 100</code>, the share of the threshold a card has used.</p>
+<ul>
+<li>With the defaults (7 days, 50%), the boundary is 3.5 days. With 75%, it is 5.25 days.</li>
+<li>A value of <code>0</code> turns the yellow band off, so cells are green until the threshold.</li>
+<li>The card <a href="../card-history/#card-aging-tint">aging tint</a> uses the same boundary.</li>
+</ul>
 <div class="admonition note">
 <p class="admonition-title">Changed in 1.2 (#1841)</p>
 <p>Before 1.2 the boundary was computed as <code>threshold * (1 - stale_warning_pct / 100)</code>, the inverse of what the setting says. Boards on the default 50% are unaffected. Boards with any other value see the yellow band move.</p>
@@ -4233,49 +4255,55 @@
 </tr>
 </tbody>
 </table>
-<p>The level is never conveyed by color alone: each colored cell shows its marker next to the value, screen readers announce the level text ("OK", "Warning", "High") after the value, and a legend below the heatmap maps each marker and color to its level.</p>
+<p>Color is never the only signal: each colored cell shows its marker next to the value, screen readers announce the level text ("OK", "Warning", "High") after the value, and a legend below the heatmap maps each marker and color to its level.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Both <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> are configurable per board in the board settings modal. Adjusting them changes the heatmap coloring immediately on the next analytics load.</p>
+<p>Both <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> are configurable per board in the board settings modal. Changes recolor the heatmap on the next analytics load.</p>
 </div>
 <h3 id="period-toggle">Period toggle<a class="headerlink" href="#period-toggle" title="Permanent link">&para;</a></h3>
-<p>Switch between <strong>7 days</strong>, <strong>30 days</strong>, and <strong>90 days</strong> to control which card movements are included in the calculation. The period toggle only appears in <strong>Throughput</strong> mode (see <a href="#view-mode-age-vs-throughput">View mode: Age vs Throughput</a> below) — <strong>Age</strong> mode always reflects the current moment, so there's no period to pick.</p>
-<h3 id="dwell-time-and-archived-cards">Dwell time and archived cards<a class="headerlink" href="#dwell-time-and-archived-cards" title="Permanent link">&para;</a></h3>
-<p>Analytics includes archived cards as part of the historical record. When a card is archived, its dwell time in the most recent stage is calculated using the <strong>archive timestamp</strong> as the exit time — not the current date. This means archived cards accurately reflect how long they were actively worked on, and dwell times stop accumulating at the moment of archiving.</p>
-<p>Active cards continue to accumulate dwell time in their current stage until they move again.</p>
-<p>Dwell-time calculations use only <code>movement_type = move</code> events. Archive and restore events are excluded so that archiving a card does not distort the time-in-stage figures for surrounding cards.</p>
-<h3 id="stalled-cards">Stalled cards<a class="headerlink" href="#stalled-cards" title="Permanent link">&para;</a></h3>
-<p>Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold — <strong>Swimlane</strong>, <strong>Card</strong> (title), and <strong>Days Stalled</strong>. A count badge on the section header (e.g. "3 cards stalled") shows the total.</p>
-<p>Click any row to open the card detail panel directly — no need to go back to the board view first.</p>
-<p>The default threshold is the board's <code>staleness_threshold_days</code> setting. You can override it for a single request by passing the <code>stalled_days</code> query parameter — this affects only the stalled cards list and does not change the heatmap coloring.</p>
-<p>Archived cards and cards in done columns are excluded from stalled card detection — they are no longer in-flight and flagging them as stalled would be misleading.</p>
-<h3 id="empty-period">Empty period<a class="headerlink" href="#empty-period" title="Permanent link">&para;</a></h3>
-<p>When the selected time window contains no movement data at all (for example, a newly created board or a period before the board had any activity), the analytics view shows an informational message rather than an empty heatmap. Widen the period or add some card movements to populate the view.</p>
+<p>Switch between <strong>7 days</strong>, <strong>30 days</strong>, and <strong>90 days</strong> to choose which movements count. The toggle appears only in <strong>Throughput</strong> mode (see <a href="#view-mode-age-vs-throughput">View mode: Age vs Throughput</a>); <strong>Age</strong> mode always reflects the current moment, so there is no period to pick.</p>
 <h3 id="view-mode-age-vs-throughput">View mode: Age vs Throughput<a class="headerlink" href="#view-mode-age-vs-throughput" title="Permanent link">&para;</a></h3>
-<p>The heatmap has two display modes, toggled by a button pair in the analytics toolbar:</p>
+<p>A button pair in the analytics toolbar toggles the heatmap mode. The choice persists per board in localStorage (<code>board:{boardId}:analytics-view-mode</code>) and defaults to <strong>Age</strong>.</p>
 <table>
 <thead>
 <tr>
 <th>Mode</th>
 <th>What the heatmap shows</th>
+<th>Use it to</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Age</strong></td>
-<td>Average time (days) cards have currently been sitting in each stage — a snapshot of in-flight work. High values indicate cards that are blocked or accumulating idle time right now.</td>
+<td>Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now.</td>
+<td>Find current bottlenecks</td>
 </tr>
 <tr>
 <td><strong>Throughput</strong></td>
-<td>Average time cards that <strong>exited</strong> a stage during the selected period spent in that stage before moving on. Reflects historical flow efficiency rather than current queue depth.</td>
+<td>Average time cards that <strong>exited</strong> a stage during the selected period spent there before moving on. Reflects historical flow efficiency, not current queue depth.</td>
+<td>Compare historical flow across periods</td>
 </tr>
 </tbody>
 </table>
-<p>The active mode is persisted per-board in localStorage (<code>board:{boardId}:analytics-view-mode</code>) and defaults to <strong>Age</strong>.</p>
-<p>When <strong>Throughput</strong> mode is active, the column footer row shows the number of cards that contributed to each average (e.g. "5 cards"). Stages that had zero throughput in the period show a dash (<code>—</code>). The color thresholds (green/yellow/red) apply to both modes using the same <code>staleness_threshold_days</code> setting.</p>
-<p>Use <strong>Age</strong> when you want to find current bottlenecks. Use <strong>Throughput</strong> when you want to compare historical flow efficiency across periods.</p>
+<p>In <strong>Throughput</strong> mode the column footer row shows how many cards contributed to each average (for example "5 cards"), and stages with zero throughput show a dash (<code>—</code>). The green/yellow/red thresholds apply to both modes, using the same <code>staleness_threshold_days</code>.</p>
+<h3 id="dwell-time-and-archived-cards">Dwell time and archived cards<a class="headerlink" href="#dwell-time-and-archived-cards" title="Permanent link">&para;</a></h3>
+<p>Analytics includes archived cards as part of the historical record.</p>
+<ul>
+<li><strong>Archived card:</strong> dwell time in its most recent stage uses the <strong>archive timestamp</strong> as the exit time, not the current date. Dwell stops accumulating when the card is archived.</li>
+<li><strong>Active card:</strong> keeps accumulating dwell time in its current stage until it moves again.</li>
+<li><strong>Which events count:</strong> only <code>movement_type = move</code> events. Archive and restore events are excluded, so archiving doesn't distort time-in-stage for surrounding cards.</li>
+</ul>
+<h3 id="stalled-cards">Stalled cards<a class="headerlink" href="#stalled-cards" title="Permanent link">&para;</a></h3>
+<p>Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: <strong>Swimlane</strong>, <strong>Card</strong> (title), and <strong>Days Stalled</strong>. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.</p>
+<ul>
+<li><strong>Default threshold:</strong> the board's <code>staleness_threshold_days</code>.</li>
+<li><strong>Override:</strong> pass the <code>stalled_days</code> query parameter. It affects only the stalled list, not the heatmap coloring.</li>
+<li><strong>Excluded:</strong> archived cards and cards in done columns, since they are no longer in flight and flagging them would mislead.</li>
+</ul>
+<h3 id="empty-period">Empty period<a class="headerlink" href="#empty-period" title="Permanent link">&para;</a></h3>
+<p>When the selected window has no movement data at all (a new board, or a period before any activity), the view shows an informational message instead of an empty heatmap. Widen the period or add some card movements.</p>
 <h3 id="csv-export">CSV export<a class="headerlink" href="#csv-export" title="Permanent link">&para;</a></h3>
-<p>Click <strong>Export CSV</strong> to download the heatmap data as a comma-separated file for use in spreadsheets. The export includes all active columns, the velocity column, and a stalled card count per swimlane. The export button is only visible to <strong>admin</strong> and <strong>site_admin</strong> users.</p>
+<p>Click <strong>Export CSV</strong> to download the heatmap data for spreadsheets. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to <strong>admin</strong> and <strong>site_admin</strong> users.</p>
 <h3 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h3>
 <p><strong>API:</strong> <code>GET /api/v1/boards/{id}/analytics/?days=30</code></p>
 <table>

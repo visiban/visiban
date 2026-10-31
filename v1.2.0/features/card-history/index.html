@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#card-history" class="md-skip">
+        <a href="#see-who-moved-a-card-and-when" class="md-skip">
           Skip to content
         </a>
       
@@ -1278,50 +1278,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#movement-history" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Movement history
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deleted-cards-keep-their-history" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Deleted cards keep their history
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#imported-history" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Imported history
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#activity-log" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Activity log
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#viewing-history" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1357,6 +1313,50 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#movement-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement history
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#activity-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Activity log
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deleted-cards-keep-their-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deleted cards keep their history
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#imported-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Imported history
+      
+    </span>
+  </a>
   
 </li>
       
@@ -4163,52 +4163,39 @@
   
 
 
-<h1 id="card-history">Card History<a class="headerlink" href="#card-history" title="Permanent link">&para;</a></h1>
-<p>Every card keeps a full audit trail of movements and field changes. <strong>Why it matters:</strong> you can see who moved a card and when — the record incident retros and audits need.</p>
+<h1 id="see-who-moved-a-card-and-when">See who moved a card, and when<a class="headerlink" href="#see-who-moved-a-card-and-when" title="Permanent link">&para;</a></h1>
+<p><a id="card-history"></a></p>
+<p>Open a card's <strong>Activity</strong> tab to see every movement and field change, newest first.</p>
+<p><strong>Why it matters:</strong> You can see who moved a card and when. It is the record incident retros and audits need.</p>
+<p><strong>The big picture:</strong> every card keeps a full audit trail of movements and field changes. Movement records are append-only, and deleting a card keeps them.</p>
+<p><strong>Go deeper:</strong> the board-level <strong>History</strong> tab shows movements across every card; see <a href="#board-level-movement-history">Board-level movement history</a>.</p>
+<h2 id="viewing-history">Viewing history<a class="headerlink" href="#viewing-history" title="Permanent link">&para;</a></h2>
+<p>Open a card and click <strong>Activity</strong> in its detail panel. The timeline lists movements and field changes in reverse chronological order. Each entry shows:</p>
+<ul>
+<li>what changed (from → to)</li>
+<li>who made the change</li>
+<li>when it happened (relative time, for example "3 days ago")</li>
+</ul>
+<p>Movement entries keep the full column and swimlane names even after those are renamed or deleted. A deleted column's name shows in italic red with a <strong>Deleted —</strong> prefix and a hover tooltip, so you can tell live columns from removed ones at a glance.</p>
+<h3 id="duration-between-entries">Duration between entries<a class="headerlink" href="#duration-between-entries" title="Permanent link">&para;</a></h3>
+<p>Each movement entry shows how long the card stayed in that column before the next move, such as "Spent 3h here" or "Spent 2d here", on the right. Durations come from the gap between consecutive movement timestamps, in the most readable unit (minutes, hours, or days). The last entry has no duration, because the card is still there.</p>
+<h3 id="checklist-event-grouping">Checklist event grouping<a class="headerlink" href="#checklist-event-grouping" title="Permanent link">&para;</a></h3>
+<p>Sequential checklist events of the same type collapse into one entry, for example "Added checklist items: "item a", "item b", "item c"". This keeps the timeline compact during bulk checklist edits.</p>
+<p>The UID fields on each movement record (<code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>) are also preserved permanently. Use them, not the name or ID fields, to correlate movement history in an external system. See <a href="../stable-uids/">Stable UIDs</a>.</p>
 <h2 id="movement-history">Movement history<a class="headerlink" href="#movement-history" title="Permanent link">&para;</a></h2>
-<p>A <code>CardMovement</code> record captures every column or swimlane change. Each record includes:</p>
+<p>A <code>CardMovement</code> record captures every column or swimlane change. Pure position reorders within the same cell don't create one. Each record includes:</p>
 <ul>
 <li>From column / to column (FK, nullable after deletion)</li>
 <li>From swimlane / to swimlane (FK, nullable after deletion)</li>
-<li>From column UID / to column UID — stable even after the column is deleted or renamed</li>
-<li>From swimlane UID / to swimlane UID — stable even after the swimlane is deleted or renamed</li>
+<li>From column UID / to column UID: stable even after the column is deleted or renamed</li>
+<li>From swimlane UID / to swimlane UID: stable even after the swimlane is deleted or renamed</li>
 <li>Denormalized names at the time of the move (from_column_name, to_column_name, etc.)</li>
 <li>Who moved it (<code>moved_by</code>)</li>
-<li>When (<code>moved_at</code>) — indexed for query performance</li>
+<li>When (<code>moved_at</code>), indexed for query performance</li>
 <li>Optional notes</li>
-<li><strong>Movement type</strong> (<code>movement_type</code>) — one of <code>move</code> (standard drag-and-drop or API move), <code>archived</code> (card was archived), or <code>unarchived</code> (card was unarchived from the Archived panel)</li>
+<li><strong>Movement type</strong> (<code>movement_type</code>): one of <code>move</code> (standard drag-and-drop or API move), <code>archived</code> (card was archived), or <code>unarchived</code> (card was unarchived from the Archived panel)</li>
 </ul>
-<p>Pure position reorders within the same cell don't create a movement record.</p>
-<p><code>archived</code> and <code>unarchived</code> events appear in the card's own timeline and in the board-level History view.</p>
-<p>Find the movement timeline in the card detail panel's <strong>Activity</strong> tab.</p>
-<h2 id="deleted-cards-keep-their-history">Deleted cards keep their history<a class="headerlink" href="#deleted-cards-keep-their-history" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Changed in 1.2</strong> (#1469)</p>
-</blockquote>
-<p>Movement records are append-only: once written, they are not edited, and they are removed only with their board or by a superuser's <code>purge_card_history</code> run (since 1.2; see <a href="../../administration/card-history-retention/">Card History Retention</a>).</p>
-<ul>
-<li><strong>Deleting a card keeps its movements.</strong> This covers deleting the card itself and deleting the column or swimlane it is in. Each record keeps the card's UID and title (<code>card_uid</code>, <code>card_title</code>) as of when it was recorded (for movements from before 1.2 and for imported ones, as of the upgrade or import), so the board's <strong>History</strong> view still lists it under the original card. A deleted card no longer appears under the <strong>Swimlane</strong> filter, which filters by the card's current swimlane.</li>
-<li><strong>Each movement keeps the title recorded with it.</strong> While a card exists, its history is listed under its current title. Once it is deleted, each movement is listed under the title the card had at that move, so a card renamed before it was deleted appears under its earlier titles too.</li>
-<li><strong>Deleting the board removes all of its movements</strong>, including those of cards deleted earlier. Apart from that, since 1.2 only a superuser can remove them, with the <code>purge_card_history</code> command (see <a href="../../administration/card-history-retention/">Card History Retention</a>).</li>
-<li><strong>Metrics are unchanged.</strong> The Summary and Analytics views and the stale-card check count only cards that still exist, as before. A deleted card's movements do not count toward throughput, cycle time or dwell time.</li>
-<li><strong>Exports don't include them yet.</strong> JSON and CSV board export write movements per card, so a deleted card's history is not exported (#1796).</li>
-</ul>
-<p>In the Django admin (<code>/admin/</code>), movement records can be viewed but not added, edited or deleted; earlier releases allowed edits and deletes there. The admin list shows, and searches, the card UID and the card's title <strong>as recorded at the time of each move</strong>, not a renamed card's current title. Moving a card to another board in the admin keeps its movement history attached to the card's current board.</p>
-<p>A deleted card's title and any movement notes stay visible to the board's members until the board is deleted or a superuser purges them on request (since 1.2, #1797). <a href="../../administration/card-history-retention/">Card History Retention</a> covers the purge command and the other places a deleted card's title can remain.</p>
-<p>Before 1.2, deleting a card also deleted its movement history.</p>
-<h2 id="imported-history">Imported history<a class="headerlink" href="#imported-history" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Changed in 1.2</strong> (#1675)</p>
-</blockquote>
-<p>A board created by a <a href="../board/#import">JSON import</a> with <strong>Card history</strong> included brings the file's movements and activity entries with it. Each imported entry:</p>
-<ul>
-<li>keeps the time the file gives it, so the timeline reads in its original order;</li>
-<li>is recorded under the user who ran the import (<code>moved_by</code> / <code>actor</code>);</li>
-<li>keeps the username the file named as plain text in <code>imported_from_username</code>. It is shown next to the importer's name — "by Kelly · imported, originally alice" in the card's <strong>Activity</strong> tab, and "imported, originally alice" under the mover in the board's <strong>History</strong> view. When the file named nobody, the entry just says "imported".</li>
-</ul>
-<p>The source name is never matched to an account here: imported entries are shown under the importer's name. Entries recorded on the board after the import have <code>imported_from_username: null</code> and show no note. History imported by earlier versions also carries <code>null</code>, since the original name was not kept.</p>
-<p>Imported comments work the same way (since 1.2, #1702): a comment created by a JSON or <a href="../trello-import/#comment-authors">Trello import</a> is posted under the importer, keeps its original time, and keeps the source's author name in <code>imported_from_username</code>, shown after the time in the card's comment list ("imported, originally alice"). Comments posted on the board carry <code>null</code>.</p>
-<p>Exports carry the field too: JSON export writes <code>imported_from_username</code> on every movement, activity, and comment, and re-importing such a file keeps the original source name (not the name of whoever imported it first). CSV export appends the note to the mover in <strong>Movement History</strong>, for example <code>…|Kelly (imported, originally alice)</code>.</p>
+<p><code>archived</code> and <code>unarchived</code> events appear in the card's own timeline and in the board-level History view. The movement timeline is in the card detail panel's <strong>Activity</strong> tab.</p>
 <h2 id="activity-log">Activity log<a class="headerlink" href="#activity-log" title="Permanent link">&para;</a></h2>
 <p>The activity log also tracks field changes:</p>
 <table>
@@ -4265,19 +4252,33 @@
 <p class="admonition-title">Note</p>
 <p>Due date change tracking was added in 1.0.</p>
 </div>
-<h2 id="viewing-history">Viewing history<a class="headerlink" href="#viewing-history" title="Permanent link">&para;</a></h2>
-<p>Open a card and click <strong>Activity</strong> in its detail panel. The timeline shows movements and field changes in reverse chronological order. Each entry shows:</p>
+<h2 id="deleted-cards-keep-their-history">Deleted cards keep their history<a class="headerlink" href="#deleted-cards-keep-their-history" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Changed in 1.2</strong> (#1469)</p>
+</blockquote>
+<p>Movement records are append-only: once written, they are not edited, and they are removed only with their board or by a superuser's <code>purge_card_history</code> run (since 1.2; see <a href="../../administration/card-history-retention/">Card History Retention</a>). Before 1.2, deleting a card also deleted its movement history.</p>
 <ul>
-<li>What changed (from → to)</li>
-<li>Who made the change</li>
-<li>When it happened (relative time, e.g. "3 days ago")</li>
+<li><strong>Deleting a card keeps its movements.</strong> This covers deleting the card itself and deleting the column or swimlane it is in. Each record keeps the card's UID and title (<code>card_uid</code>, <code>card_title</code>) as of when it was recorded (for movements from before 1.2 and for imported ones, as of the upgrade or import), so the board's <strong>History</strong> view still lists it under the original card. A deleted card no longer appears under the <strong>Swimlane</strong> filter, which filters by the card's current swimlane.</li>
+<li><strong>Each movement keeps the title recorded with it.</strong> While a card exists, its history is listed under its current title. Once it is deleted, each movement is listed under the title the card had at that move, so a card renamed before it was deleted appears under its earlier titles too.</li>
+<li><strong>Deleting the board removes all of its movements</strong>, including those of cards deleted earlier. Apart from that, since 1.2 only a superuser can remove them, with the <code>purge_card_history</code> command (see <a href="../../administration/card-history-retention/">Card History Retention</a>).</li>
+<li><strong>Metrics are unchanged.</strong> The Summary and Analytics views and the stale-card check count only cards that still exist, as before. A deleted card's movements do not count toward throughput, cycle time or dwell time.</li>
+<li><strong>Exports don't include them yet.</strong> JSON and CSV board export write movements per card, so a deleted card's history is not exported (#1796).</li>
 </ul>
-<p>Movement entries keep the full column and swimlane names, even after those columns or swimlanes are renamed or deleted. A deleted column's name shows in italic red with a <strong>Deleted —</strong> prefix and a hover tooltip, so you can tell live columns from removed ones at a glance.</p>
-<h3 id="duration-between-entries">Duration between entries<a class="headerlink" href="#duration-between-entries" title="Permanent link">&para;</a></h3>
-<p>Each movement entry shows how long the card stayed in that column before the next move — "Spent 3h here" or "Spent 2d here" on the right side of the entry. Durations come from the gap between consecutive movement timestamps, shown in the most readable unit (minutes, hours, or days). The last entry has no duration label, because the card is still there.</p>
-<h3 id="checklist-event-grouping">Checklist event grouping<a class="headerlink" href="#checklist-event-grouping" title="Permanent link">&para;</a></h3>
-<p>Sequential checklist events of the same type collapse into one grouped entry instead of one row per item — for example, "Added checklist items: "item a", "item b", "item c"". This keeps the timeline compact when bulk checklist edits would otherwise dominate it.</p>
-<p>The UID fields on each movement record (<code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>) are also preserved permanently. Use them, not the name or ID fields, to correlate movement history in an external system. See <a href="../stable-uids/">Stable UIDs</a>.</p>
+<p>In the Django admin (<code>/admin/</code>), movement records can be viewed but not added, edited or deleted; earlier releases allowed edits and deletes there. The admin list shows, and searches, the card UID and the card's title <strong>as recorded at the time of each move</strong>, not a renamed card's current title. Moving a card to another board in the admin keeps its movement history attached to the card's current board.</p>
+<p>A deleted card's title and any movement notes stay visible to the board's members until the board is deleted or a superuser purges them on request (since 1.2, #1797). <a href="../../administration/card-history-retention/">Card History Retention</a> covers the purge command and the other places a deleted card's title can remain.</p>
+<h2 id="imported-history">Imported history<a class="headerlink" href="#imported-history" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Changed in 1.2</strong> (#1675)</p>
+</blockquote>
+<p>A board created by a <a href="../board/#import">JSON import</a> with <strong>Card history</strong> included brings the file's movements and activity entries with it. Each imported entry:</p>
+<ul>
+<li>keeps the time the file gives it, so the timeline reads in its original order;</li>
+<li>is recorded under the user who ran the import (<code>moved_by</code> / <code>actor</code>);</li>
+<li>keeps the username the file named as plain text in <code>imported_from_username</code>. It is shown next to the importer's name: "by Kelly · imported, originally alice" in the card's <strong>Activity</strong> tab, and "imported, originally alice" under the mover in the board's <strong>History</strong> view. When the file named nobody, the entry just says "imported".</li>
+</ul>
+<p>The source name is never matched to an account here: imported entries are shown under the importer's name. Entries recorded on the board after the import have <code>imported_from_username: null</code> and show no note. History imported by earlier versions also carries <code>null</code>, since the original name was not kept.</p>
+<p>Imported comments work the same way (since 1.2, #1702): a comment created by a JSON or <a href="../trello-import/#comment-authors">Trello import</a> is posted under the importer, keeps its original time, and keeps the source's author name in <code>imported_from_username</code>, shown after the time in the card's comment list ("imported, originally alice"). Comments posted on the board carry <code>null</code>.</p>
+<p>Exports carry the field too: JSON export writes <code>imported_from_username</code> on every movement, activity, and comment, and re-importing such a file keeps the original source name (not the name of whoever imported it first). CSV export appends the note to the mover in <strong>Movement History</strong>, for example <code>…|Kelly (imported, originally alice)</code>.</p>
 <h2 id="how-dwell-time-is-calculated">How dwell time is calculated<a class="headerlink" href="#how-dwell-time-is-calculated" title="Permanent link">&para;</a></h2>
 <p>Dwell time is the gap between two consecutive <code>CardMovement</code> records. The Analytics view uses these gaps to compute median dwell time per stage and flag outliers. See <a href="../analytics/">Analytics</a>.</p>
 <h2 id="stale-card-detection">Stale card detection<a class="headerlink" href="#stale-card-detection" title="Permanent link">&para;</a></h2>
@@ -4286,7 +4287,7 @@
 <blockquote>
 <p><strong>Changed in 1.2</strong> (#1841, #1843, #1863)</p>
 </blockquote>
-<p>On the board, a card's tint shows how long it has been idle, measured in multiples of the board's threshold. Idle time counts from the card's last move. A card that has never moved, such as one imported from Trello or CSV, counts from its creation date, the same rule the stale check uses. The tint deepens in fixed steps:</p>
+<p>A card's tint shows how long it has been idle, in multiples of the board's threshold. Idle time counts from the card's last move. A card that has never moved, such as one imported from Trello or CSV, counts from its creation date, the same rule the stale check uses. The tint deepens in fixed steps:</p>
 <table>
 <thead>
 <tr>
@@ -4317,7 +4318,13 @@
 </tr>
 </tbody>
 </table>
-<p>Each step starts exactly at its edge. With a 14-day threshold, a card idle exactly 28 days is red, not orange. The multiples (1×, 2×, 3×) are fixed and are not a board setting. There is no green step, because the tint marks cards that need a look, never cards that are "good". The tint reports age only. It does not mean a card is stuck: a card waiting on an outside party ages the same way. Cards in a done column never age: they get no tint and no "Stale" badge, however long ago they last moved. The daily stale-card digest skips them too.</p>
+<ul>
+<li><strong>Edges:</strong> each step starts exactly at its edge. With a 14-day threshold, a card idle exactly 28 days is red, not orange.</li>
+<li><strong>Fixed multiples:</strong> 1×, 2×, 3× are not a board setting.</li>
+<li><strong>No green step:</strong> the tint marks cards that need a look, never cards that are "good".</li>
+<li><strong>Age only:</strong> the tint does not mean a card is stuck. A card waiting on an outside party ages the same way.</li>
+<li><strong>Done columns:</strong> cards there never age. They get no tint and no "Stale" badge, however long ago they last moved, and the daily stale-card digest skips them too.</li>
+</ul>
 <p>Color is never the only signal:</p>
 <ul>
 <li>Card text fades slightly as the card ages.</li>
@@ -4333,11 +4340,11 @@
 <p>The tint had two steps, and every card past the threshold looked the same however long it had been idle. Before 1.2, <code>stale_warning_pct</code> was also applied inverted, so the warning point was <code>100 − stale_warning_pct</code> percent of the threshold. For example, a board set to 75% showed the warning after 25% of the threshold. Boards on the default 50% are unaffected. Boards with any other value see the warning point move to the percentage the setting states.</p>
 </div>
 <h2 id="api-access">API access<a class="headerlink" href="#api-access" title="Permanent link">&para;</a></h2>
-<p>Movement history and the activity log are accessible via the API:</p>
+<p>Movement history and the activity log are available through the API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>GET /api/v1/boards/{board_id}/cards/{card_id}/movements/
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>GET /api/v1/boards/{board_id}/cards/{card_id}/activities/
 </code></pre></div>
-<p>Movement records include <code>card_uid</code>, <code>card_title</code>, <code>from_column_name</code>, <code>to_column_name</code>, <code>from_swimlane_name</code>, <code>to_swimlane_name</code>, <code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>, <code>moved_by</code>, <code>moved_at</code>, and <code>movement_type</code>. The column and swimlane name and UID fields are denormalized — captured at write time, accurate regardless of future renames or deletions. <code>card_uid</code> and <code>card_title</code> show the card's current values while the card exists, and the values kept on the record once it is deleted. See <a href="../stable-uids/">Stable UIDs</a> for the full field reference and integration examples.</p>
+<p>Movement records include <code>card_uid</code>, <code>card_title</code>, <code>from_column_name</code>, <code>to_column_name</code>, <code>from_swimlane_name</code>, <code>to_swimlane_name</code>, <code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>, <code>moved_by</code>, <code>moved_at</code>, and <code>movement_type</code>. The column and swimlane name and UID fields are denormalized: captured at write time, accurate regardless of future renames or deletions. <code>card_uid</code> and <code>card_title</code> show the card's current values while the card exists, and the values kept on the record once it is deleted. See <a href="../stable-uids/">Stable UIDs</a> for the full field reference and integration examples.</p>
 <h2 id="board-level-movement-history">Board-level movement history<a class="headerlink" href="#board-level-movement-history" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>

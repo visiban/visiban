@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#personal-access-tokens" class="md-skip">
+        <a href="#call-the-api-without-sharing-your-password" class="md-skip">
           Skip to content
         </a>
       
@@ -4140,11 +4140,13 @@
   
 
 
-<h1 id="personal-access-tokens">Personal Access Tokens<a class="headerlink" href="#personal-access-tokens" title="Permanent link">&para;</a></h1>
+<h1 id="call-the-api-without-sharing-your-password">Call the API without sharing your password<a class="headerlink" href="#call-the-api-without-sharing-your-password" title="Permanent link">&para;</a></h1>
+<p><a id="personal-access-tokens"></a></p>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Personal Access Tokens (PATs) authenticate API requests from scripts, CI pipelines, and integrations without sharing your password or relying on a browser session cookie. Each token acts on your behalf, limited to your own access rights and further narrowed by its <a href="#scopes">scopes</a>.</p>
+<p>Open <strong>Settings → Access Tokens</strong>, fill in the <strong>New token</strong> form, and click <strong>Generate token</strong>. Then send it as <code>Authorization: Token vbn_...</code> on API requests.</p>
+<p><strong>Why it matters:</strong> Each token acts on your behalf, limited to your own access rights and narrowed by its <a href="#scopes">scopes</a>. Scripts, CI pipelines, and integrations never need your password or a browser session cookie.</p>
 <p><strong>When to use a PAT:</strong></p>
 <ul>
 <li><strong>Scripts</strong> — automate card creation, moves, or exports from a shell script or cron job</li>
@@ -4152,14 +4154,15 @@
 <li><strong>Integrations</strong> — connect external tools that call the Visiban API directly</li>
 <li><strong>Local development</strong> — test API calls quickly without maintaining a session</li>
 </ul>
-<p>In a browser, session-based login is used automatically — no token needed.</p>
+<p>In a browser, session-based login is used automatically; no token needed.</p>
+<p><strong>Watch out:</strong> the full token value is shown <strong>only once</strong>. Copy it before leaving the page.</p>
 <hr />
 <h2 id="create-a-token">Create a token<a class="headerlink" href="#create-a-token" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Open your avatar menu (top-right) and select <strong>Settings</strong>.</li>
+<li>Open your avatar menu (top right) and select <strong>Settings</strong>.</li>
 <li>Go to <strong>Access Tokens</strong> in the left sidebar.</li>
 <li>Use the <strong>New token</strong> form above the token list.</li>
-<li>Enter a descriptive name — for example, <code>deploy-script</code> or <code>ci-pipeline</code>.</li>
+<li>Enter a descriptive name, for example <code>deploy-script</code> or <code>ci-pipeline</code>.</li>
 <li>Optionally set an expiry date (see <a href="#expiry">Expiry</a> below).</li>
 <li>Choose the token's <a href="#scopes">scopes</a>. <code>read</code> and <code>write</code> are pre-checked, so leaving them alone gives the default token. Tick <code>mcp:read</code> (and <code>mcp:write</code> for write tools) to make a token an MCP client can use, or untick <code>read</code> and <code>write</code> if the token is only for MCP. At least one scope is required. <code>admin</code> is offered to site administrators only.</li>
 <li>Click <strong>Generate token</strong>.</li>
@@ -4172,14 +4175,12 @@
 <p>Tokens are prefixed with <code>vbn_</code> so they're easy to spot in logs and configuration files. The full format is <code>vbn_</code> followed by 40 hex characters (44 characters total), generated with <code>secrets.token_hex</code>. Validate it with the regex <code>^vbn_[0-9a-f]{40}$</code>.</p>
 <hr />
 <h2 id="identifying-tokens-after-creation">Identifying tokens after creation<a class="headerlink" href="#identifying-tokens-after-creation" title="Permanent link">&para;</a></h2>
-<p>Since the full value is shown only once, the Access Tokens list identifies each token by its <strong>prefix</strong> — the first 8 characters (e.g. <code>vbn_a3f1...</code>). Combined with the token's name and its <strong>last used</strong> timestamp, that's usually enough to tell tokens apart.</p>
+<p>Since the full value is shown only once, the Access Tokens list identifies each token by its <strong>prefix</strong> (the first 8 characters, for example <code>vbn_a3f1...</code>). Together with the token's name and its <strong>last used</strong> timestamp, that usually tells tokens apart.</p>
 <p><strong>Last used</strong> shows when the token last authenticated a request; tokens never used show "Never".</p>
 <hr />
 <h2 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Every token created from version 1.2 onward carries an explicit list of <strong>scopes</strong> — the operations it's allowed to perform. This is what lets you give a script, a CI pipeline, or an AI agent a credential less powerful than your own account.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Every token created from version 1.2 onward carries an explicit list of <strong>scopes</strong>: the operations it's allowed to perform. Scopes let you give a script, a CI pipeline, or an AI agent a credential less powerful than your own account.</p>
 <table>
 <thead>
 <tr>
@@ -4219,13 +4220,13 @@
 </div>
 <p><strong>Why it's non-hierarchical:</strong> a hierarchy would quietly turn a narrow credential back into a broad one. If <code>admin</code> implied <code>write</code>, a token issued only to read the settings page could modify every board on the instance. Listing each grant explicitly keeps the token's authority exactly what you see on the token list, with nothing inherited.</p>
 <h3 id="default-scopes">Default scopes<a class="headerlink" href="#default-scopes" title="Permanent link">&para;</a></h3>
-<p>A token created without specific scopes gets <code>read</code> and <code>write</code> — enough for the scripting and CI use cases PATs were built for, and nothing more. <code>admin</code> and the <code>mcp:*</code> scopes must always be requested explicitly.</p>
+<p>A token created without specific scopes gets <code>read</code> and <code>write</code>: enough for the scripting and CI use cases PATs were built for, and nothing more. <code>admin</code> and the <code>mcp:*</code> scopes must always be requested explicitly.</p>
 <h3 id="tokens-created-before-12">Tokens created before 1.2<a class="headerlink" href="#tokens-created-before-12" title="Permanent link">&para;</a></h3>
-<p>Tokens that already existed when your instance upgraded to 1.2 have <strong>no scopes recorded</strong>. They keep working exactly as before across the whole REST API, including the admin endpoints if you're a site administrator — upgrading doesn't break a running integration.</p>
-<p>They are, however, refused by the MCP server: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with <code>mcp:read</code> (tick it in Settings &gt; Access Tokens, or use <code>POST /api/v1/auth/tokens/</code> with <code>"scopes": ["mcp:read"]</code>; see <a href="../mcp-server/#generating-a-bearer-token">MCP Server</a>).</p>
+<p>Tokens that already existed when your instance upgraded to 1.2 have <strong>no scopes recorded</strong>. They keep working exactly as before across the whole REST API, including the admin endpoints if you're a site administrator, so upgrading doesn't break a running integration.</p>
+<p>The MCP server refuses them: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with <code>mcp:read</code> (tick it in Settings &gt; Access Tokens, or use <code>POST /api/v1/auth/tokens/</code> with <code>"scopes": ["mcp:read"]</code>; see <a href="../mcp-server/#generating-a-bearer-token">MCP Server</a>).</p>
 <p>Replace pre-1.2 tokens with scoped ones as you rotate them.</p>
 <h3 id="what-a-scope-cannot-do">What a scope cannot do<a class="headerlink" href="#what-a-scope-cannot-do" title="Permanent link">&para;</a></h3>
-<p>Scopes are a ceiling, never a floor — they narrow a token's authority and never widen it. Every request is still subject to the same board membership and role checks as a browser session. A token scoped <code>admin</code> on a non-administrator account reaches nothing new.</p>
+<p>Scopes are a ceiling, never a floor: they narrow a token's authority and never widen it. Every request is still subject to the same board membership and role checks as a browser session. A token scoped <code>admin</code> on a non-administrator account reaches nothing new.</p>
 <hr />
 <h2 id="expiry">Expiry<a class="headerlink" href="#expiry" title="Permanent link">&para;</a></h2>
 <p>The expiry date is optional:</p>
