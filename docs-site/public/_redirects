@@ -1,0 +1,8 @@
+# GitLab Pages redirects (#1271 spike). Not deployed.
+#
+# mike serves the default version under the `latest` alias and pre-releases
+# under `next`. starlight-versions serves the current version at the root, so
+# those two aliases become redirects. Versioned paths (/v1.2/, /v1.1/, ...)
+# need no rule: the version slugs in astro.config.mjs reuse mike's paths.
+/latest/* /:splat 301
+/next/* /:splat 302

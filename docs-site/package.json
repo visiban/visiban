@@ -1,0 +1,20 @@
+{
+  "name": "visiban-docs-site-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "snapshot": "node scripts/snapshot-from-tag.mjs"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.41.3",
+    "astro": "7.3.3",
+    "starlight-versions": "0.9.1"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
