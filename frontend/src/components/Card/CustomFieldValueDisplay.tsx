@@ -115,7 +115,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           // Not aria-label: ARIA 1.2 prohibits naming a generic <span>.
           <span className="sr-only">{definition.name}: </span>
         ) : (
-          <span className="text-fg-muted truncate">{definition.name}:</span>
+          <span className="text-fg-tertiary truncate">{definition.name}:</span>
         )}
         {isUrl ? (
           // stopPropagation: the row label panel is a double-click-to-edit
@@ -141,7 +141,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
       title={`${definition.name}: ${displayText}`}
     >
       {dot}
-      <span className={`text-fg-muted truncate ${multiEntries ? "min-w-0 shrink-[3]" : ""}`}>{definition.name}:</span>
+      <span className={`text-fg-tertiary truncate ${multiEntries ? "min-w-0 shrink-[3]" : ""}`}>{definition.name}:</span>
       {isUrl ? (
         <CustomFieldLink value={value} variant="host" maxHostChars={16} stopPropagation />
       ) : multiEntries ? (

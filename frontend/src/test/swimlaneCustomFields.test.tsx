@@ -374,14 +374,14 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     renderRow(laneWith('J. Rivera'), [owner])
     const label = screen.getByText('Owner:')
     expect(label).not.toHaveClass('sr-only')
-    expect(label).toHaveClass('text-fg-muted')
+    expect(label).toHaveClass('text-fg-tertiary') // #1862: fg-muted is sub-AA on bg-surface in dark
   })
 
   it('drops the visible name but keeps it for screen readers and in the title when hidden', () => {
     renderRow(laneWith('J. Rivera'), [owner], false, { hideRowChipFieldNames: true })
     const label = screen.getByText('Owner:')
     expect(label).toHaveClass('sr-only')
-    expect(label).not.toHaveClass('text-fg-muted')
+    expect(label).not.toHaveClass('text-fg-tertiary')
     expect(screen.getByText('J. Rivera')).toBeInTheDocument()
     expect(screen.getByTitle('Owner: J. Rivera')).toBeInTheDocument()
   })

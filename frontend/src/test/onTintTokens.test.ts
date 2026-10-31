@@ -147,6 +147,17 @@ describe('card aging ramp contrast (#1841)', () => {
 })
 
 
+// CardItem plus every component it mounts inside the metadata row (nested ones included:
+// MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
+const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue']
+// `text-<x>` utilities that are not a color: size, alignment, wrap and overflow.
+const NOT_COLOR = new Set([
+  'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
+  'left', 'center', 'right', 'justify', 'start', 'end',
+  'ellipsis', 'clip', 'wrap', 'nowrap', 'balance', 'pretty',
+])
+const TEXT_UTILITY = /\btext-(\[[^\]]*\]|[a-z0-9][a-z0-9-]*)(\/\d+)?/g
+
 // #1844: metadata text on a tinted card face. CardItem puts AGING_STAGE_CLASSES[stage].metaClass
 // (`card-aging-meta`) on the metadata row; index.css rescopes the row's text tokens to on-tint values
 // there. Everything below is derived from the real CSS and stage classes, and the ratios are the ones
@@ -162,9 +173,6 @@ describe('card metadata on an aging tint (#1844)', () => {
   // mounts there (CustomFieldLink, MultiSelectChips). The source scan below keeps this list honest.
   const META = ['fg-secondary', 'fg-tertiary', 'fg-muted', 'fg-faint', 'info', 'danger', 'success']
   const TINTED = ['warning', 'stale', 'stale2x', 'stale3x'] as const
-  // CardItem plus every component it mounts inside the metadata row (nested ones included:
-  // MultiSelectChips mounts ChoiceValue). The import guard below keeps this list complete.
-  const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue']
   // Sibling components CardItem imports that never render inside the row: they are portaled.
   const PORTALED = ['CardPeekPopover', 'CustomFieldQuickEditPopover']
   const themes = [
@@ -227,6 +235,8 @@ describe('card metadata on an aging tint (#1844)', () => {
     expect(metaRatio(lightBlock, 'stale3x', rgbOf(lightBlock, 'fg-tertiary'))).toBeCloseTo(3.88, 2)
   })
 
+  // Still true of the token (#1862 changed the card face, not the token): this is why the row's
+  // untinted text moved to fg-tertiary rather than the tint being retuned.
   it('fg-muted is already sub-AA on an untinted dark card, so no overlay or opacity tuning could fix it', () => {
     expect(ratio(rgbOf(darkBlock, 'fg-muted'), rgbOf(darkBlock, 'surface'))).toBeCloseTo(3.07, 2)
   })
@@ -263,11 +273,6 @@ describe('card metadata on an aging tint (#1844)', () => {
   // and an opacity modifier (`text-fg-muted/60`) on any text color is rejected: the pinned ratios
   // assume full-opacity text.
   it('every text color on the card face is covered by the rescope or listed with a reason', () => {
-    const notColor = new Set([
-      'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
-      'left', 'center', 'right', 'justify', 'start', 'end',
-      'ellipsis', 'clip', 'wrap', 'nowrap', 'balance', 'pretty',
-    ])
     const allowed = new Set([
       ...META,
       'fg', // card title and the aging tooltip (bg-sunken); pinned in the #1841 ramp test above
@@ -275,9 +280,9 @@ describe('card metadata on an aging tint (#1844)', () => {
     ])
     for (const f of CARD_FACE_FILES) {
       const src = readFileSync(`src/components/Card/${f}.tsx`, 'utf8')
-      for (const m of src.matchAll(/\btext-(\[[^\]]*\]|[a-z0-9][a-z0-9-]*)(\/\d+)?/g)) {
+      for (const m of src.matchAll(TEXT_UTILITY)) {
         const [whole, name, alpha] = m
-        if (notColor.has(name)) continue
+        if (NOT_COLOR.has(name)) continue
         expect(alpha, `${f}.tsx uses ${whole}: no opacity modifier on card-face text`).toBeUndefined()
         if (name.endsWith('-on-tint')) continue // explicit on-tint token, as the urgency badge uses
         expect(allowed.has(name), `${f}.tsx uses ${whole}`).toBe(true)
@@ -300,6 +305,58 @@ describe('card metadata on an aging tint (#1844)', () => {
       const src = readFileSync(`src/components/Card/${f}.tsx`, 'utf8')
       for (const [cls] of src.matchAll(re)) expect(intended.has(cls), `${f}.tsx uses ${cls}`).toBe(true)
     }
+  })
+})
+
+// #1862: the same card face with no tint, where every text element sits directly on bg-surface.
+// fg-muted (3.07:1 dark) and the dense empty-field ghost's fg-faint (1.93 dark / 2.56 light) were
+// below 4.5:1 there, so those elements moved to fg-tertiary. CustomFieldValueDisplay is included
+// because its chip and row-chip variants are the same chip on the swimlane label panel (bg-surface).
+// The values are the ones recorded in frontend/CLAUDE.md § Card aging ramp.
+describe('untinted card face text (#1862)', () => {
+  const FILES = [...CARD_FACE_FILES, 'CustomFieldValueDisplay']
+  // A token used in these files that may sit below 4.5:1 on bare bg-surface, each with its reason.
+  const EXEMPT: Record<string, string> = {
+    'on-primary': 'selection checkbox tick on its solid bg-primary-emphasis fill, not on bg-surface',
+    success: '#2029: light green-600 is 3.30:1 on white (the checklist-complete count)',
+  }
+  const used = new Set<string>()
+  for (const f of FILES) {
+    const src = readFileSync(`src/components/Card/${f}.tsx`, 'utf8')
+    for (const [, name] of src.matchAll(TEXT_UTILITY)) if (!NOT_COLOR.has(name)) used.add(name)
+  }
+  const onSurface = (block: string, t: string) => ratio(rgbOf(block, t), rgbOf(block, 'surface'))
+
+  it('never uses fg-muted or fg-faint for text', () => {
+    expect(used.has('fg-muted')).toBe(false)
+    expect(used.has('fg-faint')).toBe(false)
+    // The ratios the issue reported, which is why: the tokens themselves are unchanged.
+    expect(onSurface(darkBlock, 'fg-muted')).toBeCloseTo(3.07, 2)
+    expect(onSurface(darkBlock, 'fg-faint')).toBeCloseTo(1.93, 2)
+    expect(onSurface(lightBlock, 'fg-faint')).toBeCloseTo(2.56, 2)
+  })
+
+  it.each([
+    ['dark', darkBlock, 5.29],
+    ['light', lightBlock, 4.83],
+  ])('%s theme: every other text token used holds >= 4.5:1 on bg-surface', (_n, block, floor) => {
+    const checked = [...used].filter((t) => !(t in EXEMPT))
+    expect(checked).toContain('fg-tertiary')
+    const worst = Math.min(...checked.map((t) => onSurface(block, t)))
+    for (const t of checked) expect(onSurface(block, t), t).toBeGreaterThanOrEqual(4.5)
+    expect(worst).toBeCloseTo(floor, 2)
+  })
+
+  it('fg-tertiary, the tone the muted and ghost text moved to, is 5.71 dark / 7.58 light', () => {
+    expect(onSurface(darkBlock, 'fg-tertiary')).toBeCloseTo(5.71, 2)
+    expect(onSurface(lightBlock, 'fg-tertiary')).toBeCloseTo(7.58, 2)
+  })
+
+  // When this fails, #2029 has fixed the light success token: drop the exemption above and the
+  // matching note in frontend/CLAUDE.md.
+  it('the success exemption is still needed: light success is sub-AA on white', () => {
+    expect(used.has('success')).toBe(true)
+    expect(onSurface(lightBlock, 'success')).toBeCloseTo(3.30, 2)
   })
 })
 
