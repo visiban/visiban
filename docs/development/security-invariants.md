@@ -26,36 +26,23 @@ Each rule has a statement, the reason it exists, and a table:
 | Entry point | The file and function (or class) where a request on that surface starts |
 | Enforced via | The code that applies the rule on that surface today |
 
-Entry points use file and function names, not line numbers, so the table
-survives edits. Paths are relative to `backend/`. Where a rule has a shared
-implementation, it lives in `visiban/authorization.py` and the "Enforced via"
-column names it. `accounts/tests/test_auth_entry_points.py` enforces Rules 1
-and 2: it discovers every routed REST and non-DRF view, every routed WebSocket
-consumer, the MCP transport, every invite-link model, and every function that
-looks an invite up by its token, and fails when one skips the shared function.
-It also checks that each top-level path segment with a route is either gated by
-`PendingAccountActionMiddleware` or recorded as serving no session HTML, and
-that every route under the gated prefixes, Django admin views included, has a
-recorded forced-change decision (`gated` or `exempt: <reason>`) that the
-middleware keeps for each pending flag.
-It enumerates Rule 6 too, through `GroupPlacementEntryPointTests`: every
-function that writes `Board.group` must call the shared group-admin check or be
-allowlisted.
-It also pins the registration and OAuth adapter call sites to the shared
-functions and to `registration_token_kind` (Rule 4 dispatch). It does not
-enumerate Rule 3 (the revocation table is a review checklist), Rule 5, Rule 9,
-Rule 10 or Rule 13 (review checklists, pinned by the tests named under each), and it
-does not test locking; the concurrent tests for each consume-once path do.
-Rules 11 and 12 are enumerated by their own tests instead:
-`groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests`
-(Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py`
-`AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their
-shared function outside `visiban/authorization.py` (`groups/services.py`
-`lock_membership_for_removal_or_demotion` and `boards/permissions.py`
-`analytics_extensions_for_role`), an accepted deviation from step 5 of
-[How to add a rule](#how-to-add-a-rule).
-[Authorization Entry Points](authorization-entry-points.md) says what each
-entry point calls and how that test finds them.
+Entry points use file and function names, not line numbers, so the table survives edits. Paths are relative to `backend/`. Where a rule has a shared implementation, it lives in `visiban/authorization.py` and the "Enforced via" column names it.
+
+**What the tests enumerate.** `accounts/tests/test_auth_entry_points.py` enforces Rules 1 and 2. It discovers every routed REST and non-DRF view, every routed WebSocket consumer, the MCP transport, every invite-link model, and every function that looks an invite up by its token, and fails when one skips the shared function.
+
+- It also checks that each top-level path segment with a route is either gated by `PendingAccountActionMiddleware` or recorded as serving no session HTML.
+- It checks that every route under the gated prefixes, Django admin views included, has a recorded forced-change decision (`gated` or `exempt: <reason>`) that the middleware keeps for each pending flag.
+- It enumerates Rule 6 too, through `GroupPlacementEntryPointTests`: every function that writes `Board.group` must call the shared group-admin check or be allowlisted.
+- It also pins the registration and OAuth adapter call sites to the shared functions and to `registration_token_kind` (Rule 4 dispatch).
+
+**What it does not enumerate.**
+
+- Rule 3: the revocation table is a review checklist.
+- Rule 5, Rule 9, Rule 10 and Rule 13: review checklists, pinned by the tests named under each.
+- Locking: the concurrent tests for each consume-once path cover it.
+- Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
+
+**Go deeper:** [Authorization Entry Points](authorization-entry-points.md) says what each entry point calls and how that test finds them.
 
 ## Rule 1: Account-state gates apply to every transport
 
