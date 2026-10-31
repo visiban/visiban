@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import tw from '../../tailwind.config.js?raw'
 import { describe, expect, it } from 'vitest'
 import { INVITE_STATUS_STYLES } from '../constants/invites'
-import { AGING_STAGE_CLASSES } from '../utils/agingTint'
+import { AGING_STAGE_CLASSES, urgencyBadgeToneClass } from '../utils/agingTint'
 import { CHOICE_COLORS } from '../constants/choiceColors'
 
 // #1550: every on-tint text token must be declared in both theme blocks of index.css and exposed
@@ -311,20 +311,24 @@ describe('card metadata on an aging tint (#1844)', () => {
 // #1862: the same card face with no tint, where every text element sits directly on bg-surface.
 // fg-muted (3.07:1 dark) and the dense empty-field ghost's fg-faint (1.93 dark / 2.56 light) were
 // below 4.5:1 there, so those elements moved to fg-tertiary. CustomFieldValueDisplay is included
-// because its chip and row-chip variants are the same chip on the swimlane label panel (bg-surface).
-// The values are the ones recorded in frontend/CLAUDE.md § Card aging ramp.
+// because its chip and row-chip variants are the same chip on the swimlane label panel (bg-surface),
+// and AdminOnlyFieldGlyph because the row chip mounts it. The values are the ones recorded in
+// frontend/CLAUDE.md § Card aging ramp.
 describe('untinted card face text (#1862)', () => {
-  const FILES = [...CARD_FACE_FILES, 'CustomFieldValueDisplay']
-  // A token used in these files that may sit below 4.5:1 on bare bg-surface, each with its reason.
+  const FILES = [...CARD_FACE_FILES.map((f) => `Card/${f}`), 'Card/CustomFieldValueDisplay', 'Common/AdminOnlyFieldGlyph']
+  // A token used on the untinted card face that may sit below 4.5:1 on bare bg-surface, with its reason.
   const EXEMPT: Record<string, string> = {
     'on-primary': 'selection checkbox tick on its solid bg-primary-emphasis fill, not on bg-surface',
     success: '#2029: light green-600 is 3.30:1 on white (the checklist-complete count)',
+    warning: '#2029: light orange-600 is 3.56:1 on white (the due-soon urgency badge)',
   }
   const used = new Set<string>()
   for (const f of FILES) {
-    const src = readFileSync(`src/components/Card/${f}.tsx`, 'utf8')
+    const src = readFileSync(`src/components/${f}.tsx`, 'utf8')
     for (const [, name] of src.matchAll(TEXT_UTILITY)) if (!NOT_COLOR.has(name)) used.add(name)
   }
+  // The urgency badge's untinted tone comes from a util, not a class literal in a scanned file.
+  for (const tone of ['danger', 'warning', 'info'] as const) used.add(urgencyBadgeToneClass(tone, 'none').replace(/^text-/, ''))
   const onSurface = (block: string, t: string) => ratio(rgbOf(block, t), rgbOf(block, 'surface'))
 
   it('never uses fg-muted or fg-faint for text', () => {
@@ -352,11 +356,13 @@ describe('untinted card face text (#1862)', () => {
     expect(onSurface(lightBlock, 'fg-tertiary')).toBeCloseTo(7.58, 2)
   })
 
-  // When this fails, #2029 has fixed the light success token: drop the exemption above and the
-  // matching note in frontend/CLAUDE.md.
-  it('the success exemption is still needed: light success is sub-AA on white', () => {
+  // When this fails, #2029 has fixed the light success/warning tokens: drop the exemptions above and
+  // the matching note in frontend/CLAUDE.md.
+  it('the success and warning exemptions are still needed: both are sub-AA on white in light mode', () => {
     expect(used.has('success')).toBe(true)
+    expect(used.has('warning')).toBe(true)
     expect(onSurface(lightBlock, 'success')).toBeCloseTo(3.30, 2)
+    expect(onSurface(lightBlock, 'warning')).toBeCloseTo(3.56, 2)
   })
 })
 

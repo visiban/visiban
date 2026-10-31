@@ -136,7 +136,7 @@ export default function SwimlaneFieldsPopover({
         className="text-xs min-w-0 break-words"
       />
       {def.is_admin_only && (
-        <AdminOnlyFieldGlyph className="w-3 h-3 text-fg-faint shrink-0 mt-0.5 ml-auto" />
+        <AdminOnlyFieldGlyph className="w-3 h-3 text-fg-tertiary shrink-0 mt-0.5 ml-auto" />
       )}
     </div>
   );

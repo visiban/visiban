@@ -138,6 +138,8 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
       [def]
     )
     expect(screen.getByLabelText('Admin-only field')).toBeInTheDocument()
+    // #1862: a meaningful glyph needs 3:1; fg-faint was 1.93 dark, fg-tertiary is 5.71.
+    expect(screen.getByLabelText('Admin-only field')).toHaveClass('text-fg-tertiary')
   })
 
   it('renders no padlock for a public field', () => {
@@ -420,6 +422,9 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     expect(trigger).toHaveTextContent('All fields')
     expect(trigger).toHaveAccessibleName(/^All fields: Show all 2 field values for Acme Corp$/)
     expect(trigger).toHaveClass('min-h-6')
+    // #1862: same untinted floor as the row chips beside it; fg-muted is 3.07:1 on bg-surface in dark.
+    expect(trigger).toHaveClass('text-fg-tertiary', 'hover:text-fg-secondary')
+    expect(trigger).not.toHaveClass('text-fg-muted')
     await user.click(trigger)
     const text = screen.getByRole('dialog', { name: 'Field values for Acme Corp' }).textContent ?? ''
     for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)
