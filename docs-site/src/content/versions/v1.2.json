@@ -1,0 +1,49 @@
+{
+  "sidebar": [
+    {
+      "label": "Home",
+      "link": "/"
+    },
+    {
+      "label": "Getting Started",
+      "items": [
+        {
+          "slug": "getting-started",
+          "label": "Overview"
+        },
+        {
+          "slug": "getting-started/why-visiban",
+          "label": "Why Visiban"
+        },
+        {
+          "slug": "getting-started/installation",
+          "label": "Installation"
+        },
+        {
+          "slug": "getting-started/kubernetes",
+          "label": "Kubernetes (Helm)"
+        },
+        {
+          "slug": "getting-started/first-boot",
+          "label": "First Boot"
+        },
+        {
+          "slug": "getting-started/oauth",
+          "label": "OAuth Setup"
+        },
+        {
+          "slug": "getting-started/board-setup",
+          "label": "Board Setup"
+        },
+        {
+          "slug": "getting-started/sample-boards",
+          "label": "Sample Boards"
+        },
+        {
+          "slug": "getting-started/onboarding-tour",
+          "label": "Onboarding Tour"
+        }
+      ]
+    }
+  ]
+}

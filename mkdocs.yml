@@ -135,6 +135,7 @@ nav:
     - WebSocket Event Contract: development/websocket-event-contract.md
     - Nightly Load Test: development/nightly-load-test.md
     - Load Test Version Benchmarks: development/load-test-version-benchmarks.md
+    - Docs Style (Smart Brevity): development/docs-style-smart-brevity.md
   - Administration:
     - administration/index.md
     - Configuration: administration/configuration.md

@@ -1,0 +1,29 @@
+{
+  "name": "visiban-docs-site-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "snapshot": "node scripts/snapshot-from-tag.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "check:facts": "node scripts/check-rewrite-facts.mjs",
+    "measure:mdx": "node scripts/measure-mdx-parse.mjs",
+    "measure:anchors": "node scripts/measure-anchor-drift.mjs",
+    "check:version-anchors": "node scripts/check-version-anchors.mjs",
+    "test:versions": "node scripts/test-version-slugs.mjs",
+    "test:anchors": "node scripts/test-anchor-model.mjs",
+    "test:facts": "node scripts/test-rewrite-facts.mjs",
+    "test": "node scripts/test-version-slugs.mjs && node scripts/test-anchor-model.mjs && node scripts/test-rewrite-facts.mjs"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.41.3",
+    "astro": "7.3.3",
+    "starlight-versions": "0.9.1"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
