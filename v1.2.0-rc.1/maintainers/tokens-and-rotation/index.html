@@ -4149,12 +4149,12 @@ describe where it lives instead.</p>
 <td>TBD — confirm expiry set on Docker Hub</td>
 </tr>
 <tr>
-<td><code>GITLAB_API_TOKEN</code> (<strong>not yet created</strong> — required for release tags since #1154)</td>
-<td>GitLab personal access token, <code>read_api</code> scope, owned by an account with Reporter role or higher on <code>visiban/visiban</code> (Maintainer for <code>schedule-config-check</code>, which reads schedule variables); project access tokens need Premium on GitLab.com and the <code>visiban</code> group is on Free</td>
-<td>TBD</td>
-<td>GitLab CI/CD variable (protected, masked)</td>
-<td><code>schedule-config-check</code> (reads pipeline schedules; <code>CI_JOB_TOKEN</code> cannot) and <code>suppressions-check</code> / <code>kaizen-yield-watch</code> as a read fallback. Without it, <code>schedule-config-check</code> warns and passes — see <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a>. <strong>Required by <code>release-main-pipeline-guard</code> (#1154): until it exists, every <code>v*</code> tag pipeline refuses to publish.</strong> Create it before the next release tag — see <a href="#gitlab_api_token-and-the-release-guard">below</a></td>
-<td>n/a until created</td>
+<td><code>GITLAB_API_TOKEN</code> (OSS; required for release tags since #1154)</td>
+<td>GitLab personal access token <code>visiban-release-guard-read</code>, <code>read_api</code> scope only. Owner has <strong>Maintainer</strong> on <code>visiban/visiban</code> (the guard needs Reporter; <code>schedule-config-check</code> needs Maintainer to see schedule variables) and is <strong>not</strong> a member of <code>visiban/visiban-enterprise</code>. Project access tokens need Premium on GitLab.com and the <code>visiban</code> group is on Free</td>
+<td><code>visiban-ci-bot</code></td>
+<td>GitLab CI/CD variable (protected, masked, expand off)</td>
+<td><code>release-main-pipeline-guard</code> (#1154): every <code>v*</code> tag pipeline refuses to publish without it. Also <code>schedule-config-check</code> (reads pipeline schedules; <code>CI_JOB_TOKEN</code> cannot; see <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a>) and <code>suppressions-check</code> / <code>kaizen-yield-watch</code> as a read fallback. See <a href="#gitlab_api_token-and-the-release-guard">below</a>. The enterprise project does not have one yet (see below)</td>
+<td><strong>2027-10-30</strong></td>
 </tr>
 <tr>
 <td><code>FUZZ_DEEP_API_TOKEN</code> (optional — <strong>not yet created</strong>)</td>
@@ -4180,11 +4180,15 @@ tag's commit before anything is published (see
 <a href="../known-ci-failures/#release-main-pipeline-guard-refuses-to-publish-a-release-tag">Known CI Failures</a>).
 It needs <code>GITLAB_API_TOKEN</code> and <strong>refuses every release tag while the variable is unset</strong>.
 It never falls back to an unauthenticated read.</p>
-<p><strong>Create it before the next <code>v*</code> tag.</strong> Use a <strong>personal access token</strong> with the
-<strong><code>read_api</code></strong> scope. Its owner needs <strong>Reporter role or higher</strong> on <code>visiban/visiban</code>, so the
-token can still read pipelines if they ever stop being public. Prefer a dedicated bot user,
-like <code>visiban-mirror-bot</code>, over a maintainer's own account: the token reads with its owner's
-permissions and stops working when that account loses access.</p>
+<p><strong>Current token (created 2026-10-31, #1996):</strong> <code>visiban-release-guard-read</code>, owned by
+<code>visiban-ci-bot</code> (Maintainer on <code>visiban/visiban</code>), <code>read_api</code> only, expires <strong>2027-10-30</strong>.
+The owner is deliberately <strong>not</strong> a member of <code>visiban/visiban-enterprise</code>: this variable lives
+in the public project's CI, so its token must not be able to read private enterprise code.</p>
+<p>When rotating or recreating it, use a <strong>personal access token</strong> with the <strong><code>read_api</code></strong> scope.
+Its owner needs <strong>Reporter role or higher</strong> on <code>visiban/visiban</code> for the guard, so the token can
+still read pipelines if they ever stop being public, and <strong>Maintainer</strong> for
+<code>schedule-config-check</code> (below). Prefer a dedicated bot user over a maintainer's own account:
+the token reads with its owner's permissions and stops working when that account loses access.</p>
 <p>Project and group access tokens and service accounts are not options here. On GitLab.com
 they need Premium or Ultimate, and the <code>visiban</code> group is on the Free plan (checked
 2026-10-26 via <code>GET /namespaces/visiban</code>: <code>plan: free</code>). <code>RUNNER_STATUS_TOKEN</code> is a personal
@@ -4193,10 +4197,13 @@ token for the same reason.</p>
 needs <strong>Maintainer</strong>, or the token's owner must own the schedules. GitLab's pipeline
 schedules API returns a schedule's <code>variables</code> only to Maintainers, Owners and the schedule's
 owner, and that check reads the variables. With a Reporter-owned token it would see every
-schedule with no variables at all. The <code>read_api</code> scope keeps the token read-only whatever
-its owner's role, so a Maintainer bot account with a <code>read_api</code> token serves both.</p>
-<p>Store it as a CI/CD variable named <code>GITLAB_API_TOKEN</code>, <strong>masked</strong> and <strong>protected</strong>. <code>v*</code> tags
-are protected, so it reaches tag pipelines. A GitLab.com personal access token expires within
+schedule with no variables at all, report every schedule-only variable as MISSING, and turn
+the scheduled pipelines red: a Developer- or Reporter-owned token is worse than none. The
+<code>read_api</code> scope keeps the token read-only whatever its owner's role, so a Maintainer bot
+account with a <code>read_api</code> token serves both.</p>
+<p>Store it as a CI/CD variable named <code>GITLAB_API_TOKEN</code>, <strong>masked</strong> and <strong>protected</strong>, with
+<strong>Expand variable reference</strong> off. <code>v*</code> tags are protected on <code>visiban/visiban</code> (Maintainers),
+so it reaches tag pipelines. A GitLab.com personal access token expires within
 365 days, so record its expiry in the inventory table above. The guard sends it as <code>PRIVATE-TOKEN</code> and never prints
 it. Creating it also turns on the other readers in the inventory row
 (<code>schedule-config-check</code> stops warning and starts asserting).</p>
@@ -4205,8 +4212,26 @@ runs the same <code>.gitlab-ci.yml</code>, so its <code>v*</code> tag pipelines 
 enterprise project's own API. They refuse to publish until that project also has a masked,
 protected <code>GITLAB_API_TOKEN</code>: a personal access token with <code>read_api</code>, whose owner has Reporter or higher on the enterprise project. They also
 need a green enterprise <code>main</code> pipeline at the same commit that contains the
-<code>ALWAYS_REQUIRED</code> jobs. Check both on the enterprise project before the first release tag
-after #1154.</p>
+<code>ALWAYS_REQUIRED</code> jobs. <strong>As of 2026-10-31 neither holds, plus a third gap:</strong> the enterprise
+project has no <code>GITLAB_API_TOKEN</code>, <strong>no protected tags</strong> (so a protected variable would never
+reach its tag pipelines), and its <code>main</code> pipeline has not been green since 2026-03-10 (every
+<code>backend-test</code> shard fails with <code>ImproperlyConfigured: settings.DATABASES ... supply the NAME</code>,
+which points at CI configuration missing on that project, not at code). Its tag pipelines
+therefore refuse to publish regardless of a token. This does not affect OSS releases, which
+publish from the OSS tag pipeline. When fixing it: get enterprise <code>main</code> green, protect <code>v*</code>
+there (Maintainers; <code>visiban-mirror-bot</code> is Maintainer, so mirroring still creates tags), then
+add a <strong>separate</strong> <code>read_api</code> token owned by <code>visiban-mirror-bot</code>. Never reuse the mirror's
+write token or the OSS token.</p>
+<p><strong>Verifying a token without a tag:</strong> from a checkout detached at a commit whose <code>main</code>
+pipeline exists and is green (otherwise the guard waits up to 10 minutes, then reports it not
+found), run the guard directly. Read the token with <code>read -rs</code> so it never lands on the command
+line or in shell history, and export it, because the guard reads it from the environment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">read</span><span class="w"> </span>-rs<span class="w"> </span>GITLAB_API_TOKEN<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">export</span><span class="w"> </span>GITLAB_API_TOKEN
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">CI_API_V4_URL</span><span class="o">=</span>https://gitlab.com/api/v4<span class="w"> </span><span class="nv">CI_PROJECT_ID</span><span class="o">=</span><span class="m">79990909</span><span class="w"> </span><span class="nv">CI_DEFAULT_BRANCH</span><span class="o">=</span>main<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>python3<span class="w"> </span>scripts/wait-for-main-pipeline.py<span class="w"> </span>--sha<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>git<span class="w"> </span>rev-parse<span class="w"> </span>HEAD<span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">unset</span><span class="w"> </span>GITLAB_API_TOKEN
+</code></pre></div>
+<p><code>79990909</code> is <code>visiban/visiban</code>; use <code>80083859</code> for the enterprise project.</p>
 <p>Why not something narrower:</p>
 <ul>
 <li><strong><code>CI_JOB_TOKEN</code></strong> cannot list pipelines: the endpoint is not on GitLab's job-token

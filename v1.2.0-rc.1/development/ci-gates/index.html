@@ -4467,9 +4467,12 @@ active schedule setting <code>VAR=true</code>, unless the variable is listed in
 <p class="admonition-title">The check only asserts anything when <code>GITLAB_API_TOKEN</code> is configured</p>
 <p>A job's <code>CI_JOB_TOKEN</code> cannot read pipeline schedules. Without a <code>GITLAB_API_TOKEN</code> CI
 variable, the lookup is
-inconclusive and the job <strong>warns and passes</strong>. As of #1383 no such variable exists on the
-project or the group, so the check is currently a warning only. Until it is configured, a
-schedule missing a variable goes unreported, which is the gap #1213 was filed over. Before</p>
+inconclusive and the job <strong>warns and passes</strong>, and a schedule missing a variable goes
+unreported, which is the gap #1213 was filed over. The variable has existed on
+<code>visiban/visiban</code> since 2026-10-31 (#1996), owned by a Maintainer bot, so the check
+asserts from the next scheduled pipeline on. A red <code>schedule-config-check</code> there names a
+real gap the check could not see before. If it is ever removed or its owner drops below Maintainer, the check either
+falls back to warning or reports every schedule-only variable as <code>MISSING</code>. Before</p>
 <h1 id="1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying">1383 the script also stopped at the rejected job token instead of trying<a class="headerlink" href="#1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying" title="Permanent link">&para;</a></h1>
 <p><code>GITLAB_API_TOKEN</code>. It now falls through to it. The variable is a personal access token
 with <code>read_api</code> scope. For this check its owner needs <strong>Maintainer</strong>, or must own the

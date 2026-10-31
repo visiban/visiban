@@ -4261,7 +4261,7 @@ pipeline</strong> on <code>main</code> with <code>SONAR_SCHEDULED=true</code>. T
 "true"</code> rule has no active schedule setting <code>VAR=true</code>. It can only read schedules when a
 <code>GITLAB_API_TOKEN</code> variable is configured; without one it warns and passes. See
 <a href="../../development/ci-gates/#scheduled-pipelines">CI Gate Self-Tests § Scheduled pipelines</a>.
-Do not rely on it to catch a deleted schedule until that token exists.</p>
+The token has existed since 2026-10-31 (#1996), so a deleted schedule is now caught.</p>
 </div>
 <h2 id="when-the-nightly-sonarscan-is-yellow">When the nightly <code>sonar:scan</code> is yellow<a class="headerlink" href="#when-the-nightly-sonarscan-is-yellow" title="Permanent link">&para;</a></h2>
 <p><code>sonar:scan</code> is <code>allow_failure: true</code>, so it never makes the pipeline red, and nothing alerts
