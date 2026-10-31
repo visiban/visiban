@@ -22,7 +22,7 @@ from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
 from accounts.permissions import TokenHasScope
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
-from visiban.request_shape import MAX_OFFSET, OFFSET_QUERY_PARAMETER, parse_offset
+from visiban.request_shape import MAX_OFFSET, OFFSET_QUERY_PARAMETER, parse_offset, query_text
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -366,7 +366,8 @@ _CARD_LIST_SCHEMA = extend_schema(
             description=(
                 "Every 400 is the coded "
                 '`{"detail": ..., "code": "invalid_query_param"}` (#1832): a bad '
-                "`limit` (negative or not an integer), an `offset` above 2^62, and a "
+                "`limit` (negative or not an integer), an `offset` above 2^62, a "
+                "`search` containing a NUL (0x00) character, and a "
                 "filter value that fails its type check, such as `assignee` or "
                 "`due_before`. A filter error also keeps the field-keyed entry it "
                 "has had since 1.1 next to `detail` and `code` "
@@ -560,7 +561,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # Server-side text search — applied only when the ?search= param is present and non-empty.
         # This intentionally does not use DRF SearchFilter or CardFilter so that the search param
         # remains distinct from the django-filters params and the filter logic is easy to trace.
-        q = self.request.query_params.get("search", "").strip()
+        q = query_text(self.request, "search").strip()
         if q:
             qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
         return qs

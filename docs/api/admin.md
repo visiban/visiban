@@ -371,7 +371,7 @@ Paginated list of all accounts on the instance. Site admin only.
 
 | Param | Description |
 |---|---|
-| `search` | Filter by username, display name, or email (partial, case-insensitive) |
+| `search` | Filter by username, display name, or email (partial, case-insensitive). A value containing a NUL (0x00) character returns `400` with `{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}` (*Changed in 1.3, #1887*; it was a `500` on PostgreSQL) |
 | `offset` | Zero-based row offset (default: `0`) |
 | `page_size` | Results per page (default: `50`, max: `200`) |
 

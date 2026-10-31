@@ -102,6 +102,24 @@ def parse_offset(request, param="offset"):
     return value
 
 
+def query_text(request, param):
+    """Return the free-text query param ``param`` (``""`` when absent), or raise a 400.
+
+    PostgreSQL cannot store or compare a NUL (0x00) in a text value: a lookup
+    such as ``title__icontains="a\\x00"`` raises ``DataError``, an unhandled
+    500. Body fields already refuse NUL (#1184); a free-text query parameter
+    that reaches an ORM lookup is refused here with the bad-query-param 400
+    (``{detail, code: "invalid_query_param"}``, #1832). Found when #1887/#1975
+    published ``search`` and ``exclude_type``, which put them in front of
+    ``backend-schema-fuzz``. The value is returned unstripped, so each caller
+    keeps its own whitespace handling.
+    """
+    value = request.query_params.get(param, "")
+    if "\x00" in value:
+        raise CodedValidationError(INVALID_QUERY_PARAM, f"{param} must not contain NUL (0x00) characters.")
+    return value
+
+
 # The OpenAPI declaration of an ``offset`` read by parse_offset() (#1975), for
 # views that page by hand and so get no parameter from a DRF paginator. Kept
 # beside parse_offset() so the documented leniency and bound match the parse.

@@ -19,7 +19,7 @@ from ..models import BoardExportLog, CardMovement
 from ..serializers import CardMovementSerializer
 from .. import hooks
 from ..permissions import analytics_extensions_for_role
-from visiban.request_shape import OFFSET_QUERY_PARAMETER, parse_offset
+from visiban.request_shape import OFFSET_QUERY_PARAMETER, parse_offset, query_text
 from ._helpers import get_board_for_user
 
 _logger = logging.getLogger(__name__)
@@ -128,7 +128,8 @@ _ANALYTICS_400 = OpenApiResponse(
 _MOVEMENTS_400 = OpenApiResponse(
     description=(
         "`moved_after` or `moved_before` is not an ISO date, `swimlane_id`, `to_column_id` or "
-        "`moved_by_id` is not an integer, or `offset` is above 2^62 (`code: invalid_query_param`)."
+        "`moved_by_id` is not an integer, `exclude_type` contains a NUL (0x00) character, or "
+        "`offset` is above 2^62 (`code: invalid_query_param`)."
     ),
     response=_BAD_QUERY_PARAM_SERIALIZER,
 )
@@ -792,7 +793,8 @@ class BoardAnalyticsMixin:
                     return _invalid_query_param(f"{param} must be a positive integer.")
                 qs = qs.filter(**{lookup: parsed})
 
-        exclude_type = request.query_params.get("exclude_type")
+        # NUL-checked (#1887): movement_type__in with a NUL is a DataError (500).
+        exclude_type = query_text(request, "exclude_type")
         if exclude_type:
             exclude_types = [t.strip() for t in exclude_type.split(",") if t.strip()]
             qs = qs.exclude(movement_type__in=exclude_types)

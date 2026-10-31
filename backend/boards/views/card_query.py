@@ -37,6 +37,7 @@ from visiban.permissions import (
 from visiban.exceptions import INVALID_QUERY_PARAM_SCHEMA
 from visiban.filters import CodedDjangoFilterBackend
 from visiban.pagination import CardQueryCursorPagination
+from visiban.request_shape import query_text
 
 from ..models import Card
 from ..serializers import (
@@ -289,7 +290,8 @@ class CardQueryFilter(django_filters.FilterSet):
             200: CardQuerySerializer(many=True),
             400: OpenApiResponse(
                 description=(
-                    "A malformed `cursor`, or a filter value that fails its type check "
+                    "A malformed `cursor`, a `search` containing a NUL (0x00) character, "
+                    "or a filter value that fails its type check "
                     '(`{"detail": ..., "code": "invalid_query_param"}`; a filter error also '
                     "keeps its field-keyed entry, e.g. `updated_since`)."
                 ),
@@ -381,7 +383,7 @@ class CardQueryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         if self.request.query_params.get("include_archived", "").lower() != "true":
             qs = qs.filter(archived_at__isnull=True)
         qs = _card_queryset(qs)
-        search = self.request.query_params.get("search", "").strip()
+        search = query_text(self.request, "search").strip()
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
         return qs

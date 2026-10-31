@@ -464,7 +464,7 @@ Board-level movement history for all cards, sorted newest first.
 | `moved_by_id` | integer | Filter by the user who performed the move |
 | `moved_after` | ISO date | Include movements on or after this date (e.g. `2026-01-01`) |
 | `moved_before` | ISO date | Include movements on or before this date |
-| `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,unarchived` hides system events) |
+| `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,unarchived` hides system events). A value containing a NUL (0x00) character returns `400` with `{"detail": "exclude_type must not contain NUL (0x00) characters.", "code": "invalid_query_param"}` (*Changed in 1.3, #1887*; it was a `500` on PostgreSQL) |
 | `offset` | integer | Pagination offset (default: `0`). A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. |
 
 `export_min_role` also applies to movement exports requested with `?export=<format>`: a caller below the threshold receives the same `403` with `code: "export_restricted"` as the board export, and each successful export is recorded in the [export history](#get-apiv1boardsidexport-history). Movement exports share the board export rate limit (20 exports/hour per authenticated user, scope `board_export`; `429 Too Many Requests` when exceeded). Ordinary movement reads are not rate limited by it.
