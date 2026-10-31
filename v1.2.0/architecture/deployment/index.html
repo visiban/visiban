@@ -4205,29 +4205,29 @@
 
 <h1 id="deploy-with-docker-compose-or-helm">Deploy with Docker Compose or Helm<a class="headerlink" href="#deploy-with-docker-compose-or-helm" title="Permanent link">&para;</a></h1>
 <p>Two supported paths: Docker Compose for a single server, Helm for Kubernetes. Both run the same images and the same daphne/ASGI backend.</p>
-<p><strong>Why it matters:</strong> Pick one path and stay on it. Compose is the default for self-hosting; Helm is for clusters.</p>
-<p><strong>The minimum (Compose):</strong></p>
+<p><strong>Why it matters:</strong> Docker Compose is the recommended path for self-hosting a single server; Helm is the path for Kubernetes.</p>
+<p><strong>The minimum (Compose):</strong> fill in <code>DJANGO_SECRET_KEY</code> and <code>DATABASE_URL</code> in <code>.env</code> (leave the default for bundled Postgres), then start the stack:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># Fill in DJANGO_SECRET_KEY and DATABASE_URL (or leave default for bundled Postgres)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
 </code></pre></div>
-<p>Fill in <code>DJANGO_SECRET_KEY</code> and <code>DATABASE_URL</code> in <code>.env</code> first (leave the default for bundled Postgres). The full block is below.</p>
+<p><strong>Yes, but:</strong> this is the development stack. For production use <code>docker-compose.prod.yml</code> (<a href="#docker-compose-recommended-for-self-hosting">below</a>) or Helm.</p>
 <p><strong>Go deeper:</strong> <a href="../scaling/">Scaling</a> for load, <a href="#rate-limiting">Rate limiting</a> for API limits.</p>
 <h2 id="docker-compose-recommended-for-self-hosting">Docker Compose (recommended for self-hosting)<a class="headerlink" href="#docker-compose-recommended-for-self-hosting" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Tested:</strong> The Docker Compose development stack has been verified end-to-end.</p>
 </blockquote>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># Fill in DJANGO_SECRET_KEY and DATABASE_URL (or leave default for bundled Postgres)</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
-</code></pre></div>
-<p>The <code>docker-compose.yml</code> starts four services: <code>db</code> (Postgres 17), <code>valkey</code> (Valkey 8), <code>backend</code> (daphne ASGI), and <code>frontend</code> (Vite dev server). The backend runs <code>migrate</code> and <code>ensure_site_admin</code> automatically on startup.</p>
-<blockquote>
-<p><strong>Note:</strong> The backend uses <strong>daphne</strong> (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.</p>
-</blockquote>
-<p>The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. Access the <a href="../../api/openapi/">OpenAPI schema</a> at <code>http://localhost:8000/api/schema/swagger-ui/</code> — the schema endpoints require an authenticated session or PAT, to avoid exposing the full API surface to anonymous callers.</p>
-<p>For a production-oriented Docker Compose stack (nginx, TLS via certbot, a <code>scheduler</code> service for daily notification jobs, no bind-mounted source), see <code>docker-compose.prod.yml</code> and <a href="../../getting-started/installation/">Installation</a>.</p>
+<p><strong>How it works:</strong> <code>docker-compose.yml</code> starts four services:</p>
+<ul>
+<li><code>db</code>: Postgres 17</li>
+<li><code>valkey</code>: Valkey 8</li>
+<li><code>backend</code>: daphne ASGI, not gunicorn, so WebSocket connections work for real-time board updates. It runs <code>migrate</code> and <code>ensure_site_admin</code> on startup.</li>
+<li><code>frontend</code>: Vite dev server</li>
+</ul>
+<p><strong>Ports:</strong> the backend (8000) is exposed directly. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. The <a href="../../api/openapi/">OpenAPI schema</a> is at <code>http://localhost:8000/api/schema/swagger-ui/</code>; it requires an authenticated session or PAT, so anonymous callers can't see the full API surface.</p>
+<p><strong>Production:</strong> <code>docker-compose.prod.yml</code> adds nginx, TLS via certbot, and a <code>scheduler</code> service for daily notification jobs, with no bind-mounted source. See <a href="../../getting-started/installation/">Installation</a>.</p>
 <h2 id="production-docker-images">Production Docker images<a class="headerlink" href="#production-docker-images" title="Permanent link">&para;</a></h2>
-<p>Pre-built images are published to the GitLab container registry automatically by CI. <code>:latest</code> always means the newest <strong>stable</strong> release: it is written only by a stable release-tag pipeline, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (<code>-alpha</code>/<code>-beta</code>/<code>-rc</code>) publishes its own exact version tag and never touches <code>:latest</code>. Every merge to <code>main</code> pushes an amd64-only <code>:main</code> and short-SHA tag instead:</p>
+<p>CI publishes pre-built images to the GitLab container registry. <code>:latest</code> is the newest <strong>stable</strong> release: only a stable release-tag pipeline writes it, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (<code>-alpha</code>/<code>-beta</code>/<code>-rc</code>) publishes its own exact version tag and never touches <code>:latest</code>. Every merge to <code>main</code> pushes an amd64-only <code>:main</code> and short-SHA tag instead:</p>
 <table>
 <thead>
 <tr>
@@ -4255,19 +4255,18 @@
 <p>The GitLab-registry <code>:main</code> and short-SHA tags built on <code>main</code> are <strong>linux/amd64 only</strong> and have not been through a release's gates. Use <code>:latest</code> or a pinned release tag (for example <code>v1.2.0</code>) for anything you run in production; both are multi-arch, so they work on arm64 hosts (Apple Silicon, Graviton, Raspberry Pi). GHCR's <code>ghcr.io/visiban/visiban/backend:latest</code> / <code>frontend:latest</code> behave the same way. Before 1.2, GitLab <code>:latest</code> tracked <code>main</code> builds; if you relied on that, switch to <code>:main</code>. See <a href="../../administration/container-image-retention/#gitlab-registry-latest-is-stable-only-main-publishes-main">Container image retention</a>.</p>
 </div>
 <p>To build images manually:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>backend/Dockerfile<span class="w"> </span>-t<span class="w"> </span>registry.gitlab.com/visiban/visiban/backend:latest<span class="w"> </span>backend/
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>frontend/Dockerfile<span class="w"> </span>-t<span class="w"> </span>registry.gitlab.com/visiban/visiban/frontend:latest<span class="w"> </span>frontend/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>backend/Dockerfile<span class="w"> </span>-t<span class="w"> </span>registry.gitlab.com/visiban/visiban/backend:latest<span class="w"> </span>backend/
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>frontend/Dockerfile<span class="w"> </span>-t<span class="w"> </span>registry.gitlab.com/visiban/visiban/frontend:latest<span class="w"> </span>frontend/
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The Helm chart runs the backend with <strong>daphne</strong> (ASGI server) by default — the same as the Docker Compose stack. WebSocket connections and all real-time features work out of the box in Kubernetes with no extra configuration required.</p>
+<p>The Helm chart runs the backend with <strong>daphne</strong> (ASGI server) by default, like Compose. WebSockets and real-time features need no extra configuration in Kubernetes.</p>
 </div>
 <h2 id="kubernetes-helm">Kubernetes / Helm<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Tested:</strong> The Helm chart has been deployed and verified on a live Kubernetes cluster.</p>
 </blockquote>
-<p>A Helm chart is included under <code>helm/visiban/</code>. Images are pulled from the GitLab container registry — see <a href="#production-docker-images">Production Docker images</a> above.</p>
-<p>The Helm chart bundles the following database and cache dependencies:</p>
+<p>The chart lives in <code>helm/visiban/</code> and pulls images from the GitLab container registry (<a href="#production-docker-images">Production Docker images</a>). It bundles:</p>
 <table>
 <thead>
 <tr>
@@ -4290,115 +4289,115 @@
 </tbody>
 </table>
 <blockquote>
-<p><strong>Note (Bitnami PostgreSQL):</strong> The Bitnami <code>postgresql</code> subchart is disabled by default (<code>postgresql.subchartEnabled: false</code>) because Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart deploys PostgreSQL via its own StatefulSet instead. Set <code>postgresql.subchartEnabled: true</code> to revert to the Bitnami subchart if needed.</p>
-<p><strong>Note:</strong> Both the Docker Compose and Kubernetes/Helm stacks run <strong>PostgreSQL 17</strong>. If you are migrating an existing deployment from an older release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See <a href="#upgrading-postgresql-major-versions">Upgrading PostgreSQL major versions</a>.</p>
+<p><strong>Note (Bitnami PostgreSQL):</strong> The Bitnami <code>postgresql</code> subchart is off by default (<code>postgresql.subchartEnabled: false</code>): Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart's own StatefulSet deploys PostgreSQL instead. Set <code>postgresql.subchartEnabled: true</code> to revert.</p>
+<p><strong>Note:</strong> Compose and Helm both run <strong>PostgreSQL 17</strong>. Coming from a release that used PostgreSQL 16, export your data first: major version upgrades are not performed in-place. See <a href="#upgrading-postgresql-major-versions">Upgrading PostgreSQL major versions</a>.</p>
 </blockquote>
 <h3 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># The only remaining subchart is the opt-in Bitnami PostgreSQL one</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># (postgresql.subchartEnabled). Valkey is part of the chart itself since 0.5.0.</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>bitnami<span class="w"> </span>https://charts.bitnami.com/bitnami
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># The only remaining subchart is the opt-in Bitnami PostgreSQL one</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># (postgresql.subchartEnabled). Valkey is part of the chart itself since 0.5.0.</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>bitnami<span class="w"> </span>https://charts.bitnami.com/bitnami
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
 </code></pre></div>
 <p>Create a secret values file (never committed — <code>values.secret.yaml</code> is gitignored):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cp<span class="w"> </span>helm/visiban/values.secret.yaml.example<span class="w"> </span>helm/visiban/values.secret.yaml
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Edit values.secret.yaml — set djangoSecretKey and postgresql.auth.password</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp<span class="w"> </span>helm/visiban/values.secret.yaml.example<span class="w"> </span>helm/visiban/values.secret.yaml
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># Edit values.secret.yaml — set djangoSecretKey and postgresql.auth.password</span>
 </code></pre></div>
 <p>Then install:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Never pass secrets via <code>--set</code></p>
 <p>Using <code>--set secret.djangoSecretKey=...</code> exposes the value in shell history and the process list. Use a gitignored values file (<code>-f values.secret.yaml</code>) or a pre-created Kubernetes Secret (<code>secret.existingSecret</code>) instead.</p>
 </div>
-<p>After the install, retrieve the one-time admin password:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
+<p>Then retrieve the one-time admin password:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
 </code></pre></div>
 <h3 id="using-an-existing-kubernetes-secret">Using an existing Kubernetes Secret<a class="headerlink" href="#using-an-existing-kubernetes-secret" title="Permanent link">&para;</a></h3>
-<p>For production clusters managed by Sealed Secrets, External Secrets Operator, or Vault, you can bring your own Secret instead of having the chart create one:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Create the Secret outside Helm (or via your secrets manager)</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>visiban-credentials<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--from-literal<span class="o">=</span>django-secret-key<span class="o">=</span><span class="s2">"</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">'import secrets; print(secrets.token_urlsafe(50))'</span><span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>--from-literal<span class="o">=</span>database-url<span class="o">=</span><span class="s2">"postgres://visiban:PASSWORD@HOST:5432/visiban"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>--from-literal<span class="o">=</span>google-client-id<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>--from-literal<span class="o">=</span>google-client-secret<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>--from-literal<span class="o">=</span>github-client-id<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span>--from-literal<span class="o">=</span>github-client-secret<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span>--from-literal<span class="o">=</span>gitlab-client-id<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span>--from-literal<span class="o">=</span>gitlab-client-secret<span class="o">=</span><span class="s2">""</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1"># Tell the chart to use it</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">  </span>--set<span class="w"> </span>secret.existingSecret<span class="o">=</span>visiban-credentials<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.auth.existingSecret<span class="o">=</span>visiban-pg-password<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
+<p>With Sealed Secrets, External Secrets Operator, or Vault, bring your own Secret instead of letting the chart create one:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Create the Secret outside Helm (or via your secrets manager)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>visiban-credentials<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--from-literal<span class="o">=</span>django-secret-key<span class="o">=</span><span class="s2">"</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">'import secrets; print(secrets.token_urlsafe(50))'</span><span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--from-literal<span class="o">=</span>database-url<span class="o">=</span><span class="s2">"postgres://visiban:PASSWORD@HOST:5432/visiban"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--from-literal<span class="o">=</span>google-client-id<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>--from-literal<span class="o">=</span>google-client-secret<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>--from-literal<span class="o">=</span>github-client-id<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>--from-literal<span class="o">=</span>github-client-secret<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span>--from-literal<span class="o">=</span>gitlab-client-id<span class="o">=</span><span class="s2">""</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>--from-literal<span class="o">=</span>gitlab-client-secret<span class="o">=</span><span class="s2">""</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="c1"># Tell the chart to use it</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">  </span>--set<span class="w"> </span>secret.existingSecret<span class="o">=</span>visiban-credentials<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.auth.existingSecret<span class="o">=</span>visiban-pg-password<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
 </code></pre></div>
-<p>The existing Secret must contain the same keys the chart expects: <code>django-secret-key</code>, <code>database-url</code>, plus OAuth provider keys (empty strings for unused providers). The PostgreSQL Secret must contain a <code>password</code> key.</p>
+<p><strong>Required keys:</strong> <code>django-secret-key</code>, <code>database-url</code>, plus OAuth provider keys (empty strings for unused providers). The PostgreSQL Secret needs a <code>password</code> key.</p>
 <h3 id="tls-with-cert-manager">TLS with cert-manager<a class="headerlink" href="#tls-with-cert-manager" title="Permanent link">&para;</a></h3>
-<p>If cert-manager and a <code>letsencrypt-prod</code> ClusterIssuer are installed, enable TLS:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.secretName<span class="o">=</span>boards-example-tls<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">"ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt-prod"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
+<p>With cert-manager and a <code>letsencrypt-prod</code> ClusterIssuer installed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.secretName<span class="o">=</span>boards-example-tls<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">"ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt-prod"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
 </code></pre></div>
 <h3 id="tls-with-self-signed-certificates">TLS with self-signed certificates<a class="headerlink" href="#tls-with-self-signed-certificates" title="Permanent link">&para;</a></h3>
-<p>For staging or internal deployments, use cert-manager's built-in self-signed issuer:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># self-signed-issuer.yaml</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIssuer</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selfsigned-issuer</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">selfSigned</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<p>For staging or internal use, point cert-manager's self-signed issuer at the ingress:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># self-signed-issuer.yaml</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIssuer</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selfsigned-issuer</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">selfSigned</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>self-signed-issuer.yaml
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.secretName<span class="o">=</span>visiban-selfsigned-tls<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">"ingress.annotations.cert-manager\.io/cluster-issuer=selfsigned-issuer"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.internal<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span>--set<span class="w"> </span>secret.djangoSecretKey<span class="o">=</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import secrets; print(secrets.token_urlsafe(50))"</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.auth.password<span class="o">=</span>&lt;strong-password&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>self-signed-issuer.yaml
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.secretName<span class="o">=</span>visiban-selfsigned-tls<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">"ingress.annotations.cert-manager\.io/cluster-issuer=selfsigned-issuer"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>https://boards.internal<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span>--set<span class="w"> </span>secret.djangoSecretKey<span class="o">=</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import secrets; print(secrets.token_urlsafe(50))"</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.auth.password<span class="o">=</span>&lt;strong-password&gt;
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Browsers will show a certificate warning with self-signed certs. This is expected and suitable only for internal or staging environments.</p>
 </div>
 <h3 id="deploying-without-tls">Deploying without TLS<a class="headerlink" href="#deploying-without-tls" title="Permanent link">&para;</a></h3>
-<p>When TLS is terminated upstream (e.g. by a cloud load balancer) or not needed (air-gapped network), deploy with <code>ingress.tls.enabled=false</code> and enable insecure cookies:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.enabled<span class="o">=</span><span class="nb">false</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.forceInsecureCookies<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>http://boards.internal<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span>--set<span class="w"> </span>secret.djangoSecretKey<span class="o">=</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import secrets; print(secrets.token_urlsafe(50))"</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.auth.password<span class="o">=</span>&lt;strong-password&gt;
+<p>If TLS is terminated upstream (e.g. by a cloud load balancer) or not needed (air-gapped network), set <code>ingress.tls.enabled=false</code> and enable insecure cookies:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>--set<span class="w"> </span>ingress.host<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>--set<span class="w"> </span>ingress.tls.enabled<span class="o">=</span><span class="nb">false</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.forceInsecureCookies<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.allowedHosts<span class="o">=</span>boards.internal<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.corsAllowedOrigins<span class="o">=</span>http://boards.internal<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span>--set<span class="w"> </span>secret.djangoSecretKey<span class="o">=</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import secrets; print(secrets.token_urlsafe(50))"</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.auth.password<span class="o">=</span>&lt;strong-password&gt;
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -4620,13 +4619,13 @@
 </tbody>
 </table>
 <p>To add additional annotations (e.g. cert-manager):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>--set<span class="w"> </span><span class="s1">'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt-prod'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>--set<span class="w"> </span><span class="s1">'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt-prod'</span>
 </code></pre></div>
 <p>For non-nginx ingress controllers (Traefik, AWS ALB, etc.), override the annotations in a values file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">ingress</span><span class="p">:</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">className</span><span class="p">:</span><span class="w"> </span><span class="s">"traefik"</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">traefik.ingress.kubernetes.io/router.middlewares</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-upload-limit@kubernetescrd</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">ingress</span><span class="p">:</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">className</span><span class="p">:</span><span class="w"> </span><span class="s">"traefik"</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">traefik.ingress.kubernetes.io/router.middlewares</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-upload-limit@kubernetescrd</span>
 </code></pre></div>
 <h3 id="network-policies">Network policies<a class="headerlink" href="#network-policies" title="Permanent link">&para;</a></h3>
 <p>When <code>networkPolicy.enabled: true</code>, the chart creates a default-deny ingress policy and explicit allowlists:</p>
@@ -4647,35 +4646,35 @@
 <li><strong>bootstrap</strong> — <code>python manage.py ensure_site_admin</code> (creates the admin account on first install and writes the one-time password to <code>/run/visiban/admin_password</code>)</li>
 </ol>
 <p>After the first install, retrieve the one-time admin password:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
 </code></pre></div>
 <p>See <a href="../../getting-started/first-boot/#kubernetes-helm">First Boot</a> for details and password reset instructions.</p>
 <h3 id="media-persistence">Media persistence<a class="headerlink" href="#media-persistence" title="Permanent link">&para;</a></h3>
-<p>User-uploaded attachments are stored on a PersistentVolumeClaim (<code>&lt;release&gt;-visiban-media</code>). Both the backend pod (read-write) and the frontend nginx pod (read-only, for X-Accel-Redirect) mount this volume.</p>
-<p>If the backend and frontend pods may run on different nodes, use a <strong>ReadWriteMany (RWX)</strong> storage class or add a pod affinity rule to co-locate them. With the default <strong>ReadWriteOnce (RWO)</strong>, both pods must land on the same node.</p>
-<p>To disable the PVC and use an emptyDir instead (data lost on pod restart):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>--set<span class="w"> </span>backend.mediaPersistence.enabled<span class="o">=</span><span class="nb">false</span>
+<p>Attachments live on a PersistentVolumeClaim (<code>&lt;release&gt;-visiban-media</code>). The backend pod mounts it read-write; the frontend nginx pod mounts it read-only (for X-Accel-Redirect).</p>
+<p><strong>Watch out:</strong> with the default <strong>ReadWriteOnce (RWO)</strong>, both pods must land on the same node. If they may run on different nodes, use a <strong>ReadWriteMany (RWX)</strong> storage class or add a pod affinity rule to co-locate them.</p>
+<p>To use an emptyDir instead (data lost on pod restart):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>--set<span class="w"> </span>backend.mediaPersistence.enabled<span class="o">=</span><span class="nb">false</span>
 </code></pre></div>
 <h3 id="openapi-schema">OpenAPI schema<a class="headerlink" href="#openapi-schema" title="Permanent link">&para;</a></h3>
-<p>The nginx ingress proxies <code>/api/</code> to the backend, so the schema endpoints are accessible at your ingress host with no additional configuration — sign in first, since these endpoints require an authenticated session or PAT:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>https://&lt;ingress-host&gt;/api/schema/swagger-ui/
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>https://&lt;ingress-host&gt;/api/schema/redoc/
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>https://&lt;ingress-host&gt;/api/schema/
+<p>The nginx ingress proxies <code>/api/</code> to the backend, so the schema endpoints work at your ingress host with no extra configuration. Sign in first: they require an authenticated session or PAT.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>https://&lt;ingress-host&gt;/api/schema/swagger-ui/
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>https://&lt;ingress-host&gt;/api/schema/redoc/
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>https://&lt;ingress-host&gt;/api/schema/
 </code></pre></div>
-<p>The backend port is <strong>not</strong> exposed outside the cluster. For direct backend access during debugging:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/&lt;release-name&gt;-backend<span class="w"> </span><span class="m">8000</span>:8000
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="c1"># then: http://localhost:8000/api/schema/swagger-ui/</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="c1"># (send the real Host header, or put `localhost` in backend.settings.allowedHosts</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1">#  together with backend.settings.allowUnsafeHosts=true)</span>
+<p>The backend port is <strong>not</strong> exposed outside the cluster. To debug directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/&lt;release-name&gt;-backend<span class="w"> </span><span class="m">8000</span>:8000
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># then: http://localhost:8000/api/schema/swagger-ui/</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># (send the real Host header, or put `localhost` in backend.settings.allowedHosts</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1">#  together with backend.settings.allowUnsafeHosts=true)</span>
 </code></pre></div>
 <h3 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml
 </code></pre></div>
 <p>Pass your values file on each upgrade. <code>--reuse-values</code> starts from the previous
-release's stored values, so keys that a newer chart added are missing, and it
-cannot be used to move from the 1.1 chart (see below).</p>
+release's stored values, which lack keys a newer chart added, so it cannot move
+you off the 1.1 chart (see below).</p>
 <p>An install that still uses the default PostgreSQL password (<code>visiban</code>, or an empty
 one) must change the database role's password and set <code>postgresql.auth.password</code>
 first, or the render fails. See the
@@ -4689,44 +4688,49 @@ values lack the keys 1.2 added, so the render fails. The 1.1
 (removed no earlier than 1.3). See the
 <a href="../../administration/upgrade/#upgrading-to-12x">upgrade guide</a>.</p>
 <h3 id="upgrading-postgresql-major-versions">Upgrading PostgreSQL major versions<a class="headerlink" href="#upgrading-postgresql-major-versions" title="Permanent link">&para;</a></h3>
-<p>The bundled PostgreSQL subchart does not perform in-place major version upgrades. If you have an existing deployment on PostgreSQL 16 and are upgrading to a chart version that bundles PostgreSQL 17, you must migrate your data manually:</p>
+<p>The bundled PostgreSQL subchart does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data manually:</p>
 <ol>
 <li>
 <p><strong>Export data from the running PostgreSQL 16 pod:</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-postgresql-0<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>visiban_backup.sql
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-postgresql-0<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>visiban_backup.sql
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Delete the existing PersistentVolumeClaim</strong> (this removes the old data volume):
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>data-visiban-postgresql-0
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>data-visiban-postgresql-0
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Upgrade the Helm release</strong> — this provisions a fresh PostgreSQL 17 pod. The
    new data directory takes its password from <code>postgresql.auth.password</code>, which must
    be your own value (the placeholder fails the render):
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span>--set-string<span class="w"> </span>postgresql.auth.password<span class="o">=</span><span class="s2">"</span><span class="nv">$PG_PASSWORD</span><span class="s2">"</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span>--set-string<span class="w"> </span>postgresql.auth.password<span class="o">=</span><span class="s2">"</span><span class="nv">$PG_PASSWORD</span><span class="s2">"</span>
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Wait for PostgreSQL to become ready</strong>, then restore:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-postgresql-0<span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>--timeout<span class="o">=</span>120s
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-i<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-postgresql-0<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>visiban_backup.sql
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-postgresql-0<span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>--timeout<span class="o">=</span>120s
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-i<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-postgresql-0<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>visiban_backup.sql
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Restart the backend</strong> to re-run migrations:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>restart<span class="w"> </span>deployment<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-backend
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>restart<span class="w"> </span>deployment<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>visiban-backend
 </code></pre></div></p>
 </li>
 </ol>
 <h2 id="scaling-out">Scaling out<a class="headerlink" href="#scaling-out" title="Permanent link">&para;</a></h2>
-<p>When a single-server deployment starts to show latency under load, see <a href="../scaling/">Scaling</a> for the recommended sequence — worker tuning, S3 for attachments, connection pooling, horizontal replicas, and read replicas — with concrete guidance on when each step is warranted.</p>
+<p>If a single server shows latency under load, follow the sequence in <a href="../scaling/">Scaling</a>: worker tuning, S3 for attachments, connection pooling, horizontal replicas, read replicas.</p>
 <h2 id="rate-limiting">Rate limiting<a class="headerlink" href="#rate-limiting" title="Permanent link">&para;</a></h2>
-<p>In production (<code>DEBUG=False</code>), the API enforces the following request rate limits per client. In development (<code>DEBUG=True</code>), most scopes are raised to 9999/hour, which is a finite budget rather than true disabling; the public share-link scopes (<code>share_link</code>, <code>share_link_token</code>) have no development bypass. <code>VISIBAN_DISABLE_THROTTLING=True</code> is a CI-only switch (used by the schema-fuzz job) that lifts every throttle rate; it requires <code>DEBUG=True</code> and the app refuses to start otherwise.</p>
+<p>With <code>DEBUG=False</code> (production) the API enforces the per-client limits below.</p>
+<p><strong>By the numbers:</strong></p>
+<ul>
+<li><strong>Development (<code>DEBUG=True</code>):</strong> most scopes rise to 9999/hour, a finite budget rather than true disabling. The public share-link scopes (<code>share_link</code>, <code>share_link_token</code>) have no development bypass.</li>
+<li><strong><code>VISIBAN_DISABLE_THROTTLING=True</code>:</strong> a CI-only switch (used by the schema-fuzz job) that lifts every throttle rate. It requires <code>DEBUG=True</code>; the app refuses to start otherwise.</li>
+</ul>
 <table>
 <thead>
 <tr>
@@ -4749,7 +4753,7 @@ values lack the keys 1.2 added, so the render fails. The 1.1
 <tr>
 <td>Login (<code>/api/v1/auth/login/</code>) (1.1+)</td>
 <td>20 / hour per IP</td>
-<td>This DRF throttle only wraps the SPA/API endpoint. Alongside it, allauth's own <code>login_failed</code> gate (<code>ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"</code>) applies to <strong>both</strong> <code>/api/v1/auth/login/</code> (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at <code>/accounts/login/</code> (which this DRF throttle does not wrap at all — the allauth gate is its only rate limit). That gate is two rates, both enforced everywhere it applies: 10 failed attempts / minute per IP (across any accounts), and 5 failed attempts / 5 min per account (across any IPs)</td>
+<td>This DRF throttle wraps only the SPA/API endpoint. The allauth <code>login_failed</code> gate below applies on top</td>
 </tr>
 <tr>
 <td>Password change (<code>/api/v1/auth/change-password/</code>, <code>/api/v1/auth/password/change/</code>)</td>
@@ -4768,21 +4772,27 @@ values lack the keys 1.2 added, so the render fails. The 1.1
 </tr>
 </tbody>
 </table>
-<p>Clients that exceed one of the DRF throttle scopes above receive <code>HTTP 429 Too Many Requests</code>. The standard <code>Retry-After</code> header is not set — clients should implement exponential backoff. Neither <code>login_failed</code> lockout above is a DRF throttle, and neither follows this shape: at login either one returns <code>HTTP 400 Bad Request</code> with <code>{"non_field_errors": ["Too many failed login attempts. Try again later."]}</code> — identical wording, so the response alone doesn't say which rate tripped. On the password-change endpoints, which draw on the same budgets, the lockout returns <code>HTTP 429 Too Many Requests</code>. See <a href="../../api/authentication/#1-obtain-a-token">API Authentication</a> for the full set of login error responses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>These limits are generous for normal interactive use. If you run a very large team or integrate Visiban with automation that makes frequent API calls, monitor your request volume and raise the <code>user</code> limit in <code>DEFAULT_THROTTLE_RATES</code> in <code>settings.py</code> if needed.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Because the per-IP <code>login_failed</code> rate (10 failed attempts/minute) is shared across every account attempted from that IP, a shared-NAT deployment (an office, a school, a carrier-grade NAT) can trip it on behalf of accounts that never failed a login themselves — a correct password from that IP is refused alongside the ones that were actually wrong, for up to the ~1-minute window. This is the tradeoff for closing the SPA credential-stuffing gap the per-account rate alone doesn't cover (many accounts, one IP); it is allauth's own default shape for this rate.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>While the per-account login lockout is active, even the <strong>correct</strong> password is refused — the lockout is on the account, not on wrong guesses specifically, so a locked-out legitimate user must wait out the 5-minute window unless they use one of the two early-recovery paths below (#1203).</p>
+<p>Exceeding a DRF throttle scope returns <code>HTTP 429 Too Many Requests</code>. The standard <code>Retry-After</code> header is not set, so clients should back off exponentially.</p>
+<p><strong>Login lockout (allauth <code>login_failed</code>):</strong> <code>ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"</code>. It is not a DRF throttle and applies to <strong>both</strong> <code>/api/v1/auth/login/</code> (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at <code>/accounts/login/</code>, which the DRF throttle does not wrap at all. The gate is two rates, both enforced everywhere it applies:</p>
 <ul>
-<li><strong>A successful password reset clears it.</strong> Visiban's reset-confirm endpoint (dj-rest-auth's <code>PasswordResetConfirmSerializer</code>) doesn't go through allauth's own reset flow, so it doesn't get allauth's built-in lockout-clearing for free — Visiban's <code>VisibanPasswordResetConfirmSerializer</code> clears it explicitly after a successful reset instead. Since 1.2 (#1206), every attempt that names an existing account — by username or by email — counts against one lockout keyed on the account itself, and that is the bucket cleared; the username- and email-string buckets are cleared too, for identifiers that don't resolve to exactly one account and for lockouts recorded before the upgrade.</li>
-<li><strong>A site admin can clear it directly</strong>, without the user needing to complete a reset at all — <code>POST /api/v1/admin/users/{id}/clear-lockout/</code> (site-admin only). See <a href="../../api/authentication/#1-obtain-a-token">API Authentication</a> for the endpoint contract.</li>
+<li>10 failed attempts / minute per IP (across any accounts)</li>
+<li>5 failed attempts / 5 min per account (across any IPs)</li>
+</ul>
+<p><strong>What the client sees:</strong> at login either lockout returns <code>HTTP 400 Bad Request</code> with <code>{"non_field_errors": ["Too many failed login attempts. Try again later."]}</code>. The wording is identical, so the response doesn't say which rate tripped. The password-change endpoints draw on the same budgets and return <code>HTTP 429 Too Many Requests</code>. See <a href="../../api/authentication/#1-obtain-a-token">API Authentication</a> for the full set of login error responses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These limits suit normal interactive use. For a very large team or frequent automation, monitor request volume and raise the <code>user</code> limit in <code>DEFAULT_THROTTLE_RATES</code> in <code>settings.py</code>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The per-IP <code>login_failed</code> rate (10 failed attempts/minute) is shared across every account tried from that IP. Behind a shared NAT (an office, a school, a carrier-grade NAT), it can trip for accounts that never failed a login: a correct password from that IP is refused for up to the ~1-minute window. The tradeoff closes the SPA credential-stuffing gap (many accounts, one IP) that the per-account rate alone doesn't cover. It is allauth's own default shape for this rate.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>While the per-account lockout is active, even the <strong>correct</strong> password is refused: the lockout is on the account, not on wrong guesses. A locked-out user waits out the 5-minute window unless they use one of two early-recovery paths (#1203):</p>
+<ul>
+<li><strong>A successful password reset clears it.</strong> The reset-confirm endpoint (dj-rest-auth's <code>PasswordResetConfirmSerializer</code>) bypasses allauth's own reset flow, so it gets no built-in lockout-clearing. Visiban's <code>VisibanPasswordResetConfirmSerializer</code> clears it explicitly. Since 1.2 (#1206), every attempt naming an existing account, by username or email, counts against one lockout keyed on the account, and that bucket is cleared. The username- and email-string buckets are cleared too, for identifiers that don't resolve to exactly one account and for lockouts recorded before the upgrade.</li>
+<li><strong>A site admin can clear it directly</strong>, with no reset needed: <code>POST /api/v1/admin/users/{id}/clear-lockout/</code> (site-admin only). See <a href="../../api/authentication/#1-obtain-a-token">API Authentication</a> for the endpoint contract.</li>
 </ul>
 </div>
 

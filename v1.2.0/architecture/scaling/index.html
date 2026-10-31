@@ -2455,6 +2455,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#scaling-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scaling sequence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-single-server-baseline" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2545,17 +2556,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#scaling-sequence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Scaling sequence
-      
-    </span>
-  </a>
   
 </li>
       
@@ -4118,208 +4118,9 @@
 <p><a id="scaling"></a></p>
 <h1 id="scale-a-single-server-first-then-in-eight-steps">Scale a single server first, then in eight steps<a class="headerlink" href="#scale-a-single-server-first-then-in-eight-steps" title="Permanent link">&para;</a></h1>
 <p>Visiban runs comfortably on one server for most teams. Below: the practical ceilings on a single server, and what to change — and when — as load grows.</p>
-<p><strong>Why it matters:</strong> Scaling in the wrong order wastes money. Start with the <a href="#scaling-sequence">Scaling sequence</a>: tune workers first, and move attachments to S3 before adding replicas.</p>
-<div class="admonition note">
-<p class="admonition-title">Managed hosting</p>
-<p>Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. What follows is for self-hosted deployments: a single team or organization running their own instance. Same architecture — the operational responsibility is yours.</p>
-</div>
-<hr />
-<h2 id="the-single-server-baseline">The single-server baseline<a class="headerlink" href="#the-single-server-baseline" title="Permanent link">&para;</a></h2>
-<p>The default Docker Compose stack runs all services on one machine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Internet → Nginx → daphne (ASGI) → PostgreSQL
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                               ↘ Valkey (channel layer)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                               ↘ Local disk (attachments)
-</code></pre></div>
-<p><strong>Practical ceiling for a single server (4 vCPU / 8 GB RAM):</strong></p>
-<table>
-<thead>
-<tr>
-<th>Metric</th>
-<th>Comfortable</th>
-<th>Approaching limit</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Active users (daily)</td>
-<td>&lt; 500</td>
-<td>&gt; 1 000</td>
-</tr>
-<tr>
-<td>Concurrent open boards</td>
-<td>&lt; 100</td>
-<td>&gt; 200</td>
-</tr>
-<tr>
-<td>Simultaneous WebSocket connections</td>
-<td>&lt; 300</td>
-<td>&gt; 600</td>
-</tr>
-<tr>
-<td>Boards</td>
-<td>&lt; 1 000</td>
-<td>&gt; 5 000</td>
-</tr>
-<tr>
-<td>Cards (total across all boards)</td>
-<td>&lt; 500 000</td>
-<td>&gt; 2 000 000</td>
-</tr>
-<tr>
-<td>Attachment storage</td>
-<td>&lt; 100 GB</td>
-<td>Disk-dependent</td>
-</tr>
-</tbody>
-</table>
-<p>A well-tuned 8 vCPU / 16 GB server comfortably doubles these numbers. The bottleneck on a single server is almost always <strong>concurrent REST requests</strong> (synchronous daphne workers), not memory or the database.</p>
-<hr />
-<h2 id="component-by-component-guide">Component-by-component guide<a class="headerlink" href="#component-by-component-guide" title="Permanent link">&para;</a></h2>
-<h3 id="application-server-daphne-asgi">Application server (daphne / ASGI)<a class="headerlink" href="#application-server-daphne-asgi" title="Permanent link">&para;</a></h3>
-<p>Daphne is an ASGI server that handles both HTTP requests and WebSocket connections in a single process. WebSocket connections are handled asynchronously (coroutines); REST API requests are also async-capable but go through synchronous Django views today.</p>
-<p><strong>What limits it:</strong>
-The REST views are synchronous. Under high concurrent HTTP load, requests queue behind each other. Symptoms: rising p95 latency on the card list and board endpoints before the database shows any stress.</p>
-<p><strong>How to tune before scaling out:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Increase daphne worker count in docker-compose.yml or Helm values</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>command:<span class="w"> </span>daphne<span class="w"> </span>-b<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--verbosity<span class="w"> </span><span class="m">1</span><span class="w"> </span>-u<span class="w"> </span>/tmp/daphne.sock<span class="w"> </span>visiban.asgi:application
-</code></pre></div>
-<p>For production, run daphne behind Nginx and increase <code>--workers</code> or switch to <code>uvicorn</code> with multiple workers:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uvicorn visiban.asgi:application --workers 8 --host 0.0.0.0 --port 8000
-</code></pre></div>
-<p>A good starting point: <code>(2 × vCPU) + 1</code> workers.</p>
-<p><strong>How to scale out (horizontal):</strong>
-Run multiple backend replicas behind a load balancer. Requirements before doing this:</p>
-<ol>
-<li><strong>Attachment storage must be on S3/GCS</strong> — local disk is not shared between replicas; see <a href="#attachment-storage">Attachment storage</a> below.</li>
-<li><strong>Valkey is already required</strong> — the channel layer (WebSocket pub/sub) uses Valkey; this is already in the default stack.</li>
-<li><strong>Sticky sessions are not required</strong> — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.</li>
-<li><strong>Database connections</strong> — each replica opens its own connection pool. Add pgBouncer if the total connection count approaches PostgreSQL's <code>max_connections</code> (default 100).</li>
-</ol>
-<p><strong>Kubernetes:</strong> The Helm chart supports <code>backend.replicaCount</code>. Set it to 2+ and ensure the <code>externalDatabase</code> and <code>externalRedis</code> values point to shared instances (not the bundled in-cluster Valkey pod, which is single-replica by default).</p>
-<p><strong>When to act:</strong> When p95 HTTP response time on <code>/api/v1/boards/{id}/cards/</code> exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.</p>
-<hr />
-<h3 id="postgresql">PostgreSQL<a class="headerlink" href="#postgresql" title="Permanent link">&para;</a></h3>
-<p>PostgreSQL handles all persistent state: boards, cards, movements, memberships, comments, attachments metadata, and notifications.</p>
-<p><strong>What limits it:</strong>
-Write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via <code>CardMovement</code>). Read throughput is less of a concern because the query budgets are tight (≤ 20 queries for full board load) and the ORM uses <code>select_related</code>/<code>prefetch_related</code> throughout.</p>
-<p><strong>Connection count:</strong> Each daphne/uvicorn worker opens a persistent connection. With 4 workers per replica and 3 replicas, you need ~12 connections minimum plus headroom. PostgreSQL's default <code>max_connections = 100</code> is fine for small deployments; large deployments should add pgBouncer.</p>
-<p><strong>How to tune before scaling out:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">-- Check connection usage</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">pg_stat_activity</span><span class="p">;</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">-- Increase max_connections (requires restart)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1">-- Set in postgresql.conf or via Helm: postgresql.primary.extraEnvVars</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">max_connections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">shared_buffers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">256</span><span class="n">MB</span><span class="w">   </span><span class="c1">-- 25% of RAM is a common starting point</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">effective_cache_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="n">GB</span>
-</code></pre></div>
-<p><strong>Connection pooling (pgBouncer):</strong>
-Add pgBouncer in transaction-mode pooling between the application and PostgreSQL. This is the first step when connection count becomes a concern, before adding a read replica.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># docker-compose.yml addition</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">pgbouncer</span><span class="p">:</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">edoburu/pgbouncer</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">environment</span><span class="p">:</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">DATABASE_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://visiban:password@db:5432/visiban</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">POOL_MODE</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">transaction</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">MAX_CLIENT_CONN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">DEFAULT_POOL_SIZE</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
-</code></pre></div>
-<p><strong>Read replica:</strong>
-Analytics queries (the dwell-time heatmap, summary endpoint, stalled-cards list) are read-heavy. Route them to a read replica by adding a <code>DATABASES["analytics"]</code> entry in <code>settings.py</code> and using <code>queryset.using("analytics")</code> in the analytics ViewSet. This is not required until the analytics endpoint measurably impacts write latency on the primary.</p>
-<p><strong>When to act:</strong>
-- Add pgBouncer when connection count regularly exceeds 80% of <code>max_connections</code>
-- Vertical scale (more CPU/RAM) before a read replica — PostgreSQL scales well vertically
-- Add a read replica when analytics queries start affecting p95 write latency (observable via <code>pg_stat_activity</code> slow query logging)</p>
-<hr />
-<h3 id="valkey">Valkey<a class="headerlink" href="#valkey" title="Permanent link">&para;</a></h3>
-<p>Valkey (the Redis-compatible, BSD-licensed fork) serves two roles: the Django Channels channel layer (WebSocket pub/sub) and the registration-mode cache.</p>
-<p><strong>What limits it:</strong>
-Valkey is single-threaded per core. The channel layer publish/subscribe pattern means every board mutation triggers one <code>PUBLISH</code> and N <code>SUBSCRIBE</code> deliveries (one per connected WebSocket client on that board). At 50 users on a single board, that is 50 message deliveries per card move.</p>
-<p><strong>How to tune:</strong>
-Valkey is rarely the bottleneck for team-scale deployments. The default single-node Valkey handles tens of thousands of pub/sub messages per second. No action required until you see Valkey CPU above 80%.</p>
-<p><strong>Valkey Cluster / Sentinel:</strong>
-For high availability, use Valkey Sentinel (managed failover) or Valkey Cluster (horizontal sharding). Valkey is wire-compatible with Redis Sentinel protocol, so the <code>channels_redis</code> configuration is the same:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">CHANNEL_LAYERS</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">"default"</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="s2">"BACKEND"</span><span class="p">:</span> <span class="s2">"channels_redis.core.RedisChannelLayer"</span><span class="p">,</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="s2">"CONFIG"</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>            <span class="s2">"hosts"</span><span class="p">:</span> <span class="p">[</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                <span class="p">{</span><span class="s2">"host"</span><span class="p">:</span> <span class="s2">"valkey-sentinel-1"</span><span class="p">,</span> <span class="s2">"port"</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>                <span class="p">{</span><span class="s2">"host"</span><span class="p">:</span> <span class="s2">"valkey-sentinel-2"</span><span class="p">,</span> <span class="s2">"port"</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>            <span class="p">],</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>            <span class="s2">"master_name"</span><span class="p">:</span> <span class="s2">"visiban-master"</span><span class="p">,</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="p">},</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="p">}</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">}</span>
-</code></pre></div>
-<p><strong>When to act:</strong> When Valkey CPU is consistently above 60% during peak hours, or when you require HA with automatic failover (Sentinel). Valkey Cluster adds complexity without benefit until you have millions of pub/sub events per minute.</p>
-<hr />
-<h3 id="attachment-storage">Attachment storage<a class="headerlink" href="#attachment-storage" title="Permanent link">&para;</a></h3>
-<p><strong>This is the one hard blocker for horizontal scaling.</strong></p>
-<p>The default configuration stores uploaded files on the container's local filesystem (<code>MEDIA_ROOT</code>). If you run two backend replicas, each has its own local disk — files uploaded via replica A are invisible to replica B.</p>
-<p><strong>Before adding a second backend replica, migrate attachments to S3 (or any S3-compatible store — MinIO, Cloudflare R2, Backblaze B2):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># settings.py — add django-storages (Django 5 uses STORAGES, not DEFAULT_FILE_STORAGE)</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">STORAGES</span><span class="p">[</span><span class="s2">"default"</span><span class="p">][</span><span class="s2">"BACKEND"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"storages.backends.s3boto3.S3Boto3Storage"</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">AWS_STORAGE_BUCKET_NAME</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"AWS_STORAGE_BUCKET_NAME"</span><span class="p">]</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">AWS_S3_ENDPOINT_URL</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"AWS_S3_ENDPOINT_URL"</span><span class="p">)</span>  <span class="c1"># For MinIO / R2</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">AWS_S3_FILE_OVERWRITE</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">AWS_DEFAULT_ACL</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Private by default</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pip<span class="w"> </span>install<span class="w"> </span>django-storages<span class="w"> </span>boto3
-</code></pre></div>
-<p>Existing attachments on local disk must be migrated to S3 before switching. Use <code>aws s3 sync</code> or equivalent.</p>
-<p><strong>MinIO for self-hosters who want S3 compatibility without AWS:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># docker-compose.yml addition</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">minio</span><span class="p">:</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">minio/minio</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">server /data --console-address ":9001"</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">environment</span><span class="p">:</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">MINIO_ROOT_USER</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visiban</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">MINIO_ROOT_PASSWORD</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${MINIO_PASSWORD}</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="nt">volumes</span><span class="p">:</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">minio_data:/data</span>
-</code></pre></div>
-<p><strong>When to act:</strong> Before adding a second backend replica. There is no workaround — shared filesystem (NFS) is an alternative but significantly slower and operationally complex compared to S3.</p>
-<hr />
-<h3 id="static-assets-nginx-cdn">Static assets (Nginx / CDN)<a class="headerlink" href="#static-assets-nginx-cdn" title="Permanent link">&para;</a></h3>
-<p>Static assets (the compiled React frontend, fonts, icons) are served by WhiteNoise from the Django/daphne process. WhiteNoise is efficient and appropriate for single-server deployments — it serves pre-compressed files from memory.</p>
-<p><strong>For multi-region or high-traffic deployments</strong>, offload static assets to a CDN:</p>
-<ol>
-<li>Run <code>python manage.py collectstatic</code> to collect assets to <code>STATIC_ROOT</code></li>
-<li>Upload <code>STATIC_ROOT</code> to a CDN bucket (S3 + CloudFront, R2 + Cloudflare, etc.)</li>
-<li>Set <code>STATIC_URL</code> to the CDN base URL</li>
-</ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">STATIC_URL</span> <span class="o">=</span> <span class="s2">"https://cdn.example.com/static/"</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">STORAGES</span><span class="p">[</span><span class="s2">"staticfiles"</span><span class="p">][</span><span class="s2">"BACKEND"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"storages.backends.s3boto3.S3StaticStorage"</span>
-</code></pre></div>
-<p>Disable WhiteNoise once the CDN is serving static files.</p>
-<p><strong>When to act:</strong> When static asset requests are a measurable share of backend CPU, or when you have users in multiple geographic regions and need lower latency for the initial page load. Not required for single-region deployments.</p>
-<hr />
-<h3 id="nginx-reverse-proxy-load-balancer">Nginx (reverse proxy / load balancer)<a class="headerlink" href="#nginx-reverse-proxy-load-balancer" title="Permanent link">&para;</a></h3>
-<p>Nginx is the entry point in both the Docker Compose and Kubernetes stacks. In a single-server deployment it terminates TLS and proxies to daphne. For horizontal scaling it also load-balances across backend replicas.</p>
-<p><strong>WebSocket handling — critical configuration:</strong>
-Nginx must forward <code>Upgrade</code> and <code>Connection</code> headers for WebSockets to work:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">location</span><span class="w"> </span><span class="s">/ws/</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="kn">proxy_pass</span><span class="w"> </span><span class="s">http://backend</span><span class="p">;</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="kn">proxy_http_version</span><span class="w"> </span><span class="mi">1</span><span class="s">.1</span><span class="p">;</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">Upgrade</span><span class="w"> </span><span class="nv">$http_upgrade</span><span class="p">;</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">Connection</span><span class="w"> </span><span class="s">"upgrade"</span><span class="p">;</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">Host</span><span class="w"> </span><span class="nv">$host</span><span class="p">;</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="kn">proxy_read_timeout</span><span class="w"> </span><span class="mi">86400</span><span class="p">;</span><span class="w">  </span><span class="c1"># Keep WebSocket connections alive</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">}</span>
-</code></pre></div>
-<p><strong>Multi-replica upstream:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">upstream</span><span class="w"> </span><span class="s">backend</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="kn">least_conn</span><span class="p">;</span><span class="w">  </span><span class="c1"># Route to the replica with fewest active connections</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">backend-1</span><span class="p">:</span><span class="mi">8000</span><span class="p">;</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">backend-2</span><span class="p">:</span><span class="mi">8000</span><span class="p">;</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">backend-3</span><span class="p">:</span><span class="mi">8000</span><span class="p">;</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">}</span>
-</code></pre></div>
-<p><code>least_conn</code> is preferred over round-robin because WebSocket connections are long-lived — round-robin would accumulate all WebSocket connections on the first server reached.</p>
-<hr />
+<p><strong>Why it matters:</strong> each step in the sequence below resolves the typical bottleneck before it bites. Start with step 1.</p>
 <h2 id="scaling-sequence">Scaling sequence<a class="headerlink" href="#scaling-sequence" title="Permanent link">&para;</a></h2>
-<p>Scale components in this order. Each step resolves the typical bottleneck before it becomes a problem.</p>
+<p>Scale in this order. Each step resolves the typical bottleneck before it bites.</p>
 <table>
 <thead>
 <tr>
@@ -4371,7 +4172,196 @@ Nginx must forward <code>Upgrade</code> and <code>Connection</code> headers for 
 </tr>
 </tbody>
 </table>
-<p>Steps 1–2 are operational changes with no code. Steps 3–8 require configuration changes and, for step 6, a small code change to route queries.</p>
+<p>Steps 1–2 are operational changes with no code. Steps 3–8 need configuration changes and, for step 6, a small code change to route queries.</p>
+<div class="admonition note">
+<p class="admonition-title">Managed hosting</p>
+<p>Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. This page covers self-hosted deployments: one team or organization running its own instance. The architecture is the same; the operational responsibility is yours.</p>
+</div>
+<hr />
+<h2 id="the-single-server-baseline">The single-server baseline<a class="headerlink" href="#the-single-server-baseline" title="Permanent link">&para;</a></h2>
+<p>The default Docker Compose stack runs all services on one machine:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Internet → Nginx → daphne (ASGI) → PostgreSQL
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                               ↘ Valkey (channel layer)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                               ↘ Local disk (attachments)
+</code></pre></div>
+<p><strong>Practical ceiling for a single server (4 vCPU / 8 GB RAM):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Comfortable</th>
+<th>Approaching limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Active users (daily)</td>
+<td>&lt; 500</td>
+<td>&gt; 1 000</td>
+</tr>
+<tr>
+<td>Concurrent open boards</td>
+<td>&lt; 100</td>
+<td>&gt; 200</td>
+</tr>
+<tr>
+<td>Simultaneous WebSocket connections</td>
+<td>&lt; 300</td>
+<td>&gt; 600</td>
+</tr>
+<tr>
+<td>Boards</td>
+<td>&lt; 1 000</td>
+<td>&gt; 5 000</td>
+</tr>
+<tr>
+<td>Cards (total across all boards)</td>
+<td>&lt; 500 000</td>
+<td>&gt; 2 000 000</td>
+</tr>
+<tr>
+<td>Attachment storage</td>
+<td>&lt; 100 GB</td>
+<td>Disk-dependent</td>
+</tr>
+</tbody>
+</table>
+<p>A well-tuned 8 vCPU / 16 GB server comfortably doubles these numbers. The single-server bottleneck is almost always <strong>concurrent REST requests</strong> (synchronous daphne workers), not memory or the database.</p>
+<hr />
+<h2 id="component-by-component-guide">Component-by-component guide<a class="headerlink" href="#component-by-component-guide" title="Permanent link">&para;</a></h2>
+<h3 id="application-server-daphne-asgi">Application server (daphne / ASGI)<a class="headerlink" href="#application-server-daphne-asgi" title="Permanent link">&para;</a></h3>
+<p>Daphne is an ASGI server handling HTTP and WebSocket in one process. WebSockets run asynchronously (coroutines). REST requests are async-capable but go through synchronous Django views today.</p>
+<p><strong>What limits it:</strong> the synchronous REST views. Under high concurrent HTTP load, requests queue behind each other. Symptom: rising p95 latency on the card list and board endpoints before the database shows any stress.</p>
+<p><strong>How to tune before scaling out:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Increase daphne worker count in docker-compose.yml or Helm values</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>command:<span class="w"> </span>daphne<span class="w"> </span>-b<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>-p<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--verbosity<span class="w"> </span><span class="m">1</span><span class="w"> </span>-u<span class="w"> </span>/tmp/daphne.sock<span class="w"> </span>visiban.asgi:application
+</code></pre></div>
+<p>For production, run daphne behind Nginx and increase <code>--workers</code> or switch to <code>uvicorn</code> with multiple workers:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uvicorn visiban.asgi:application --workers 8 --host 0.0.0.0 --port 8000
+</code></pre></div>
+<p>A good starting point: <code>(2 × vCPU) + 1</code> workers.</p>
+<p><strong>How to scale out (horizontal):</strong> run multiple backend replicas behind a load balancer. Before you do:</p>
+<ol>
+<li><strong>Attachment storage must be on S3/GCS</strong> — local disk is not shared between replicas; see <a href="#attachment-storage">Attachment storage</a> below.</li>
+<li><strong>Valkey is already required</strong> — the channel layer (WebSocket pub/sub) uses Valkey; this is already in the default stack.</li>
+<li><strong>Sticky sessions are not required</strong> — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.</li>
+<li><strong>Database connections</strong> — each replica opens its own connection pool. Add pgBouncer if the total connection count approaches PostgreSQL's <code>max_connections</code> (default 100).</li>
+</ol>
+<p><strong>Kubernetes:</strong> set <code>backend.replicaCount</code> to 2+ and point <code>externalDatabase</code> and <code>externalRedis</code> at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).</p>
+<p><strong>When to act:</strong> When p95 HTTP response time on <code>/api/v1/boards/{id}/cards/</code> exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.</p>
+<hr />
+<h3 id="postgresql">PostgreSQL<a class="headerlink" href="#postgresql" title="Permanent link">&para;</a></h3>
+<p>PostgreSQL holds all persistent state: boards, cards, movements, memberships, comments, attachments metadata, and notifications.</p>
+<p><strong>What limits it:</strong> write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via <code>CardMovement</code>). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load) and the ORM uses <code>select_related</code>/<code>prefetch_related</code> throughout.</p>
+<p><strong>Connection count:</strong> each daphne/uvicorn worker opens a persistent connection. With 4 workers per replica and 3 replicas, you need ~12 connections plus headroom. PostgreSQL's default <code>max_connections = 100</code> suits small deployments; large ones should add pgBouncer.</p>
+<p><strong>How to tune before scaling out:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">-- Check connection usage</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">pg_stat_activity</span><span class="p">;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">-- Increase max_connections (requires restart)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1">-- Set in postgresql.conf or via Helm: postgresql.primary.extraEnvVars</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">max_connections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">200</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">shared_buffers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">256</span><span class="n">MB</span><span class="w">   </span><span class="c1">-- 25% of RAM is a common starting point</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">effective_cache_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="n">GB</span>
+</code></pre></div>
+<p><strong>Connection pooling (pgBouncer):</strong> add pgBouncer in transaction-mode pooling between the application and PostgreSQL. It is the first step when connection count becomes a concern, before a read replica.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># docker-compose.yml addition</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">pgbouncer</span><span class="p">:</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">edoburu/pgbouncer</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">environment</span><span class="p">:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">DATABASE_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://visiban:password@db:5432/visiban</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">POOL_MODE</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">transaction</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">MAX_CLIENT_CONN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">DEFAULT_POOL_SIZE</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+</code></pre></div>
+<p><strong>Read replica:</strong> analytics queries (the dwell-time heatmap, summary endpoint, stalled-cards list) are read-heavy. Route them to a replica with a <code>DATABASES["analytics"]</code> entry in <code>settings.py</code> and <code>queryset.using("analytics")</code> in the analytics ViewSet. Not required until analytics measurably hurts write latency on the primary.</p>
+<p><strong>When to act:</strong>
+- Add pgBouncer when connection count regularly exceeds 80% of <code>max_connections</code>
+- Vertical scale (more CPU/RAM) before a read replica — PostgreSQL scales well vertically
+- Add a read replica when analytics queries start affecting p95 write latency (observable via <code>pg_stat_activity</code> slow query logging)</p>
+<hr />
+<h3 id="valkey">Valkey<a class="headerlink" href="#valkey" title="Permanent link">&para;</a></h3>
+<p>Valkey (the Redis-compatible, BSD-licensed fork) serves two roles: the Django Channels channel layer (WebSocket pub/sub) and the registration-mode cache.</p>
+<p><strong>What limits it:</strong> Valkey is single-threaded per core. Every board mutation triggers one <code>PUBLISH</code> and N <code>SUBSCRIBE</code> deliveries (one per connected WebSocket client on that board). At 50 users on one board, that is 50 deliveries per card move.</p>
+<p><strong>How to tune:</strong> rarely needed at team scale. A default single node handles tens of thousands of pub/sub messages per second. Act only when Valkey CPU exceeds 80%.</p>
+<p><strong>Valkey Cluster / Sentinel:</strong> for high availability, use Valkey Sentinel (managed failover) or Valkey Cluster (horizontal sharding). Valkey is wire-compatible with the Redis Sentinel protocol, so the <code>channels_redis</code> configuration is the same:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">CHANNEL_LAYERS</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">"default"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="s2">"BACKEND"</span><span class="p">:</span> <span class="s2">"channels_redis.core.RedisChannelLayer"</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="s2">"CONFIG"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>            <span class="s2">"hosts"</span><span class="p">:</span> <span class="p">[</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                <span class="p">{</span><span class="s2">"host"</span><span class="p">:</span> <span class="s2">"valkey-sentinel-1"</span><span class="p">,</span> <span class="s2">"port"</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>                <span class="p">{</span><span class="s2">"host"</span><span class="p">:</span> <span class="s2">"valkey-sentinel-2"</span><span class="p">,</span> <span class="s2">"port"</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>            <span class="p">],</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>            <span class="s2">"master_name"</span><span class="p">:</span> <span class="s2">"visiban-master"</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="p">},</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="p">}</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>When to act:</strong> When Valkey CPU is consistently above 60% during peak hours, or when you require HA with automatic failover (Sentinel). Valkey Cluster adds complexity without benefit until you have millions of pub/sub events per minute.</p>
+<hr />
+<h3 id="attachment-storage">Attachment storage<a class="headerlink" href="#attachment-storage" title="Permanent link">&para;</a></h3>
+<p><strong>This is the one hard blocker for horizontal scaling.</strong></p>
+<p>By default uploads live on the container's local filesystem (<code>MEDIA_ROOT</code>). With two backend replicas, each has its own disk, so files uploaded via replica A are invisible to replica B.</p>
+<p><strong>Before adding a second backend replica, migrate attachments to S3 (or any S3-compatible store: MinIO, Cloudflare R2, Backblaze B2):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># settings.py — add django-storages (Django 5 uses STORAGES, not DEFAULT_FILE_STORAGE)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">STORAGES</span><span class="p">[</span><span class="s2">"default"</span><span class="p">][</span><span class="s2">"BACKEND"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"storages.backends.s3boto3.S3Boto3Storage"</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">AWS_STORAGE_BUCKET_NAME</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"AWS_STORAGE_BUCKET_NAME"</span><span class="p">]</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">AWS_S3_ENDPOINT_URL</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"AWS_S3_ENDPOINT_URL"</span><span class="p">)</span>  <span class="c1"># For MinIO / R2</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">AWS_S3_FILE_OVERWRITE</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">AWS_DEFAULT_ACL</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Private by default</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pip<span class="w"> </span>install<span class="w"> </span>django-storages<span class="w"> </span>boto3
+</code></pre></div>
+<p>Migrate existing local-disk attachments to S3 before switching, with <code>aws s3 sync</code> or equivalent.</p>
+<p><strong>MinIO for self-hosters who want S3 compatibility without AWS:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># docker-compose.yml addition</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">minio</span><span class="p">:</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">minio/minio</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">server /data --console-address ":9001"</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">environment</span><span class="p">:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">MINIO_ROOT_USER</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visiban</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">MINIO_ROOT_PASSWORD</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${MINIO_PASSWORD}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="nt">volumes</span><span class="p">:</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">minio_data:/data</span>
+</code></pre></div>
+<p><strong>When to act:</strong> before adding a second backend replica. There is no workaround; a shared filesystem (NFS) is an alternative but much slower and more complex to operate than S3.</p>
+<hr />
+<h3 id="static-assets-nginx-cdn">Static assets (Nginx / CDN)<a class="headerlink" href="#static-assets-nginx-cdn" title="Permanent link">&para;</a></h3>
+<p>WhiteNoise serves static assets (the compiled React frontend, fonts, icons) from the Django/daphne process, from memory and pre-compressed. That suits single-server deployments.</p>
+<p><strong>For multi-region or high-traffic deployments</strong>, offload static assets to a CDN:</p>
+<ol>
+<li>Run <code>python manage.py collectstatic</code> to collect assets to <code>STATIC_ROOT</code></li>
+<li>Upload <code>STATIC_ROOT</code> to a CDN bucket (S3 + CloudFront, R2 + Cloudflare, etc.)</li>
+<li>Set <code>STATIC_URL</code> to the CDN base URL</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">STATIC_URL</span> <span class="o">=</span> <span class="s2">"https://cdn.example.com/static/"</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">STORAGES</span><span class="p">[</span><span class="s2">"staticfiles"</span><span class="p">][</span><span class="s2">"BACKEND"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"storages.backends.s3boto3.S3StaticStorage"</span>
+</code></pre></div>
+<p>Disable WhiteNoise once the CDN is serving static files.</p>
+<p><strong>When to act:</strong> when static requests are a measurable share of backend CPU, or users in several regions need faster initial page loads. Not required for single-region deployments.</p>
+<hr />
+<h3 id="nginx-reverse-proxy-load-balancer">Nginx (reverse proxy / load balancer)<a class="headerlink" href="#nginx-reverse-proxy-load-balancer" title="Permanent link">&para;</a></h3>
+<p>Nginx is the entry point in both the Docker Compose and Kubernetes stacks. On one server it terminates TLS and proxies to daphne; for horizontal scaling it also load-balances across replicas.</p>
+<p><strong>WebSocket handling (critical):</strong> Nginx must forward <code>Upgrade</code> and <code>Connection</code> headers for WebSockets to work:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">location</span><span class="w"> </span><span class="s">/ws/</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="kn">proxy_pass</span><span class="w"> </span><span class="s">http://backend</span><span class="p">;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="kn">proxy_http_version</span><span class="w"> </span><span class="mi">1</span><span class="s">.1</span><span class="p">;</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">Upgrade</span><span class="w"> </span><span class="nv">$http_upgrade</span><span class="p">;</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">Connection</span><span class="w"> </span><span class="s">"upgrade"</span><span class="p">;</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="kn">proxy_set_header</span><span class="w"> </span><span class="s">Host</span><span class="w"> </span><span class="nv">$host</span><span class="p">;</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="kn">proxy_read_timeout</span><span class="w"> </span><span class="mi">86400</span><span class="p">;</span><span class="w">  </span><span class="c1"># Keep WebSocket connections alive</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Multi-replica upstream:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">upstream</span><span class="w"> </span><span class="s">backend</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="kn">least_conn</span><span class="p">;</span><span class="w">  </span><span class="c1"># Route to the replica with fewest active connections</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">backend-1</span><span class="p">:</span><span class="mi">8000</span><span class="p">;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">backend-2</span><span class="p">:</span><span class="mi">8000</span><span class="p">;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="kn">server</span><span class="w"> </span><span class="n">backend-3</span><span class="p">:</span><span class="mi">8000</span><span class="p">;</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">}</span>
+</code></pre></div>
+<p>Prefer <code>least_conn</code> over round-robin: WebSocket connections are long-lived, so round-robin would accumulate them on the first server reached.</p>
 <hr />
 <h2 id="what-does-not-scale-linearly">What does not scale linearly<a class="headerlink" href="#what-does-not-scale-linearly" title="Permanent link">&para;</a></h2>
 <ul>

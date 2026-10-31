@@ -4095,9 +4095,8 @@
 
 <p><a id="architecture-overview"></a></p>
 <h1 id="one-django-backend-one-react-spa-two-datastores">One Django backend, one React SPA, two datastores<a class="headerlink" href="#one-django-backend-one-react-spa-two-datastores" title="Permanent link">&para;</a></h1>
-<p>How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking over REST and WebSocket, backed by PostgreSQL and Valkey. Read this first if you're contributing code or evaluating self-hosting.</p>
-<p><strong>Why it matters:</strong> Visiban is a monolith with no microservices, queues, or search index. Two datastores are all a self-hoster operates.</p>
-<p><strong>The big picture:</strong> the browser talks to a daphne ASGI backend over REST and WebSocket. PostgreSQL 17 holds the data. Valkey 8 carries WebSocket channel messages.</p>
+<p>A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by PostgreSQL 17 and Valkey 8. Read this first if you're contributing code or evaluating self-hosting.</p>
+<p><strong>Why it matters:</strong> no microservices, queues, or search index: a self-hoster operates two datastores.</p>
 <p><strong>Go deeper:</strong> <a href="../data-model/">Data Model</a>, <a href="../deployment/">Deployment</a>, <a href="../decisions/">Technology Decisions</a>.</p>
 <h2 id="system-components">System components<a class="headerlink" href="#system-components" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────┐
@@ -4204,22 +4203,22 @@
 <ol>
 <li>Browser sends REST request with session cookie; a non-browser client sends a <code>PersonalAccessToken</code> instead</li>
 <li>DRF authenticates, trying <code>PATAuthentication</code>, then <code>SessionAuthentication</code>, then <code>TokenAuthentication</code> in that order</li>
-<li>View calls <code>get_board_role()</code> or <code>_require_group_admin()</code> to resolve the caller's effective role</li>
+<li>View calls <code>get_board_role()</code> or <code>_require_group_admin()</code> for the caller's effective role</li>
 <li>Queryset filtering restricts results to accessible boards/groups</li>
-<li>Response serialized and returned as JSON</li>
+<li>Response is serialized to JSON</li>
 </ol>
 <h2 id="websocket-lifecycle">WebSocket lifecycle<a class="headerlink" href="#websocket-lifecycle" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Frontend opens <code>ws://{host}/ws/boards/{board_id}/</code> on page load</li>
-<li><code>AuthMiddlewareStack</code> authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001. A caller with no session cookie — a PAT/DRF-token client, a different origin, or a native/CLI client — instead requests a short-lived, single-use <strong>ticket</strong> over REST first and passes it as <code>?ticket=</code> on the upgrade (<code>accounts.ws_auth.TicketAuthMiddleware</code>, #1109); the ticket only authenticates the connection, it grants no extra authorization</li>
-<li>On connect, the consumer joins the <code>board_{id}</code> channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change) regardless of how the connection was authenticated</li>
+<li><code>AuthMiddlewareStack</code> authenticates the connection via the session cookie; unauthenticated connections close with code 4001. A caller with no session cookie (a PAT/DRF-token client, a different origin, or a native/CLI client) first requests a short-lived, single-use <strong>ticket</strong> over REST and passes it as <code>?ticket=</code> on the upgrade (<code>accounts.ws_auth.TicketAuthMiddleware</code>, #1109). The ticket only authenticates the connection; it grants no extra authorization</li>
+<li>On connect, the consumer joins the <code>board_{id}</code> channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change), however the connection was authenticated</li>
 <li>Any mutation (card move, update, delete) calls <code>broadcast_board_event()</code> which publishes to Valkey</li>
 <li>Valkey fans the event out to all consumers in the group</li>
 <li>Each consumer forwards the event to its WebSocket client</li>
 <li>The <code>useBoardSocket</code> React hook applies the event to local state</li>
 </ol>
 <h2 id="cicd-pipeline">CI/CD pipeline<a class="headerlink" href="#cicd-pipeline" title="Permanent link">&para;</a></h2>
-<p>GitLab CI runs on every push, MR, and version tag. The pipeline validates code quality, runs tests, scans for vulnerabilities, and — on merges to <code>main</code> and version tags — deploys Docker images and the docs site.</p>
+<p>GitLab CI runs on every push, MR, and version tag. It lints, tests, scans for vulnerabilities, and, on merges to <code>main</code> and version tags, deploys Docker images and the docs site.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>┌─────────────────────────────────────────────────────────────┐
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>│                     GitLab CI Pipeline                      │
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│                                                             │
@@ -4268,7 +4267,7 @@
 <li><strong>Docs versioned with mike</strong> — each release tag publishes a frozen snapshot to docs.visiban.com; stable releases update the <code>latest</code> alias, pre-releases update <code>next</code>.</li>
 </ul>
 <h3 id="which-security-jobs-block-a-merge">Which security jobs block a merge<a class="headerlink" href="#which-security-jobs-block-a-merge" title="Permanent link">&para;</a></h3>
-<p>"Blocks" means the job fails the pipeline, and the project setting <code>only_allow_merge_if_pipeline_succeeds</code> then prevents the merge. A job with <code>allow_failure: true</code> shows a yellow warning instead. Full policy, suppression format, and runbook: <a href="../../maintainers/security-scanners/">Security Scanners</a>.</p>
+<p>"Blocks" means the job fails the pipeline, and the project setting <code>only_allow_merge_if_pipeline_succeeds</code> then prevents the merge. A job with <code>allow_failure: true</code> shows a yellow warning instead. Policy, suppression format, and runbook: <a href="../../maintainers/security-scanners/">Security Scanners</a>.</p>
 <table>
 <thead>
 <tr>
@@ -4389,7 +4388,7 @@
 <li><code>/share/:token</code> — Public read-only board view (no authentication required)</li>
 <li><code>/admin</code> — Site administration panel (site admins only)</li>
 </ul>
-<p>State is local React state with optimistic updates on drag-and-drop. No global state library.</p>
+<p>State is local React state with optimistic updates on drag-and-drop; there is no global state library.</p>
 
 
 

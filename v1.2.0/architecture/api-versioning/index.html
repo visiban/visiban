@@ -4069,11 +4069,9 @@
 <h1 id="the-apiv1-contract-what-never-changes">The /api/v1/ contract: what never changes<a class="headerlink" href="#the-apiv1-contract-what-never-changes" title="Permanent link">&para;</a></h1>
 <p>Visiban's REST API is a public contract from 1.0 onward: this page is the backward-compatibility policy that binds every change to it.</p>
 <p><strong>Why it matters:</strong> Integrations built on <code>/api/v1/</code> keep working through every 1.x release. Deprecations get headers and at least one minor release of notice.</p>
-<p><strong>The big picture:</strong> everything lives under <code>/api/v1/</code>, and only <code>v1</code> exists today.</p>
 <h2 id="url-path-versioning-apiv1">URL path versioning — <code>/api/v1/</code><a class="headerlink" href="#url-path-versioning-apiv1" title="Permanent link">&para;</a></h2>
-<p>All Visiban API endpoints are served under the <code>/api/v1/</code> prefix (e.g. <code>/api/v1/boards/</code>, <code>/api/v1/auth/login/</code>). This is implemented using DRF's <code>URLPathVersioning</code> with <code>DEFAULT_VERSION = "v1"</code> and <code>ALLOWED_VERSIONS = ["v1"]</code>.</p>
-<p>Requests to an unsupported version (e.g. <code>/api/v2/</code>) receive <code>406 Not Acceptable</code>.</p>
-<p>A small number of infrastructure-level endpoints are intentionally unversioned:</p>
+<p>Every API endpoint is served under <code>/api/v1/</code> (e.g. <code>/api/v1/boards/</code>, <code>/api/v1/auth/login/</code>), using DRF's <code>URLPathVersioning</code> with <code>DEFAULT_VERSION = "v1"</code> and <code>ALLOWED_VERSIONS = ["v1"]</code>. A request to an unsupported version (e.g. <code>/api/v2/</code>) receives <code>406 Not Acceptable</code>.</p>
+<p>A few infrastructure endpoints are intentionally unversioned:</p>
 <table>
 <thead>
 <tr>
@@ -4101,7 +4099,7 @@
 </tbody>
 </table>
 <h2 id="backward-compatibility-policy">Backward-compatibility policy<a class="headerlink" href="#backward-compatibility-policy" title="Permanent link">&para;</a></h2>
-<p>The URL prefix is the version signal for clients. Within a major version, the following changes are <strong>never</strong> made in a patch or minor release:</p>
+<p>The URL prefix is the version signal. Within a major version, a patch or minor release <strong>never</strong> makes these changes:</p>
 <table>
 <thead>
 <tr>
@@ -4132,7 +4130,7 @@
 </tr>
 </tbody>
 </table>
-<p>These rules are enforced by code review and are documented in <code>CLAUDE.md</code> so they apply to every contribution.</p>
+<p>Code review and <code>CLAUDE.md</code> enforce these rules on every contribution.</p>
 <h2 id="pagination-shape">Pagination shape<a class="headerlink" href="#pagination-shape" title="Permanent link">&para;</a></h2>
 <p>Most paginated list endpoints return a consistent envelope:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
@@ -4144,10 +4142,10 @@
 </code></pre></div>
 <p>Query parameters: <code>?offset=0&amp;page_size=50</code> (max <code>200</code>). This shape is stable for the lifetime of <code>v1</code>. A few endpoints deliberately use another shape (cursor <code>{results, next_cursor}</code> on <code>/cards/</code>, <code>next</code>/<code>previous</code> links on a card timeline, <code>{results, next_cursor}</code> on the board events feed, where <code>next_cursor</code> is an integer and the deprecated <code>next</code> is also returned, and bare arrays for small bounded lists); see <a href="../../api/#pagination">Pagination</a> for the full list.</p>
 <h2 id="how-deprecation-works">How deprecation works<a class="headerlink" href="#how-deprecation-works" title="Permanent link">&para;</a></h2>
-<p>When a field or endpoint needs to be removed in a future release:</p>
+<p>To remove a field or endpoint in a future release:</p>
 <ol>
 <li>
-<p><strong>Announce deprecation</strong> — add <code>Deprecation</code> and <code>Sunset</code> response headers to the relevant endpoint for at least one minor release before removing the behavior:</p>
+<p><strong>Announce deprecation</strong> — add <code>Deprecation</code> and <code>Sunset</code> response headers to the endpoint for at least one minor release before removing the behavior:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Deprecation: true
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Sunset: &lt;ISO 8601 date of planned removal&gt;
 </code></pre></div>
@@ -4208,7 +4206,7 @@
 </tbody>
 </table>
 <h2 id="future-versioning">Future versioning<a class="headerlink" href="#future-versioning" title="Permanent link">&para;</a></h2>
-<p>When a breaking change is unavoidable, a <code>/api/v2/</code> prefix will be introduced. Both versions will be served in parallel for at least one minor release cycle to allow integrators to migrate. Until a breaking change is required, only <code>v1</code> exists — there is no <code>/api/v2/</code> today.</p>
+<p>If a breaking change becomes unavoidable, a <code>/api/v2/</code> prefix will be introduced and both versions served in parallel for at least one minor release cycle, so integrators can migrate. Until then only <code>v1</code> exists; there is no <code>/api/v2/</code> today.</p>
 
 
 

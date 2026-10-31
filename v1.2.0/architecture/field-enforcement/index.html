@@ -4056,12 +4056,12 @@
 
 <p><a id="field-enforcement"></a></p>
 <h1 id="which-api-constraint-fields-the-server-actually-enforces">Which API constraint fields the server actually enforces<a class="headerlink" href="#which-api-constraint-fields-the-server-actually-enforces" title="Permanent link">&para;</a></h1>
-<p>Some API fields read as rules rather than values: <code>wip_limit</code>, <code>allowed_priorities</code>, <code>default_board_member_role</code>, <code>is_required</code>. A client that reads one of them will assume the server enforces it. Since 1.2 some of those clients are AI agents talking to the <a href="../../features/mcp-server/">MCP server</a>, and an agent cannot notice that a rule is only advisory. It reads the schema and acts on it.</p>
-<p><strong>Why it matters:</strong> Do not assume a field that reads as a rule is enforced. Check its class (binding, advisory, or scaffold) in <a href="#the-three-classes">The three classes</a> and the tables below.</p>
+<p>Some API fields read as rules: <code>wip_limit</code>, <code>allowed_priorities</code>, <code>default_board_member_role</code>, <code>is_required</code>. A client that reads one assumes the server enforces it. Since 1.2 some of those clients are AI agents talking to the <a href="../../features/mcp-server/">MCP server</a>. An agent cannot notice that a rule is only advisory: it reads the schema and acts on it.</p>
+<p><strong>Why it matters:</strong> Don't assume a rule-like field is enforced. Check its class in <a href="#the-three-classes">The three classes</a>.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1077)</p>
 </blockquote>
-<p>This page classifies every constraint-shaped field in the OSS models and serializers, and records what each one actually binds.</p>
+<p>This page classifies every constraint-shaped field in the OSS models and serializers and records what each one binds.</p>
 <h2 id="the-three-classes">The three classes<a class="headerlink" href="#the-three-classes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4085,10 +4085,10 @@
 </tr>
 </tbody>
 </table>
-<p>Any field that is not binding on every write path says so in its OpenAPI description, starting with the token <code>Enforcement: binding</code>, <code>Enforcement: advisory</code>, or <code>Enforcement: scaffold</code>. The strings live in <code>backend/visiban/field_enforcement.py</code> and are attached at the serializer layer. <code>backend/boards/tests/test_field_enforcement_schema.py</code> checks that every string starts with its token and pins it to every schema component that carries the field.</p>
-<p>Out of scope: enterprise code, env-var settings, and plain values that do not read as rules, such as <code>name</code>, <code>color</code>, <code>position</code>, <code>card_density</code>, or <code>staleness_threshold_days</code>. <code>Board.show_wip_at_limit</code> is display-only, and its description already says so.</p>
+<p>A field that is not binding on every write path says so in its OpenAPI description, which starts with <code>Enforcement: binding</code>, <code>Enforcement: advisory</code>, or <code>Enforcement: scaffold</code>. The strings live in <code>backend/visiban/field_enforcement.py</code> and attach at the serializer layer. <code>backend/boards/tests/test_field_enforcement_schema.py</code> checks that every string starts with its token and pins it to every schema component that carries the field.</p>
+<p>Out of scope: enterprise code, env-var settings, and plain values that don't read as rules, such as <code>name</code>, <code>color</code>, <code>position</code>, <code>card_density</code>, or <code>staleness_threshold_days</code>. <code>Board.show_wip_at_limit</code> is display-only, and its description already says so.</p>
 <h2 id="gaps-and-scaffolds">Gaps and scaffolds<a class="headerlink" href="#gaps-and-scaffolds" title="Permanent link">&para;</a></h2>
-<p>These fields are the reason this page exists. Each gap and scaffold has a tracking issue; the <code>Card.version</code> row and the board-import exemption of the WIP and weight rows are by design.</p>
+<p>These fields are why this page exists. Each gap and scaffold has a tracking issue; the <code>Card.version</code> row and the board-import exemption of the WIP and weight rows are by design.</p>
 <table>
 <thead>
 <tr>
@@ -4180,7 +4180,7 @@
 </tbody>
 </table>
 <h2 id="binding-fields">Binding fields<a class="headerlink" href="#binding-fields" title="Permanent link">&para;</a></h2>
-<p>Classified from a review of the code on 2026-10-04; see the tracking issues for known gaps. Each row names where the main check lives.</p>
+<p>Classified from a code review on 2026-10-04; see the tracking issues for known gaps. Each row names where the main check lives.</p>
 <table>
 <thead>
 <tr>
@@ -4298,15 +4298,14 @@
 </tbody>
 </table>
 <h2 id="fields-that-do-not-exist">Fields that do not exist<a class="headerlink" href="#fields-that-do-not-exist" title="Permanent link">&para;</a></h2>
-<p>One candidate named in #1077 needed no classification:</p>
 <ul>
-<li><strong><code>Column.automation_skip</code></strong> was proposed in #201 and never landed. When it does, it must ship either binding or with an <code>Enforcement: scaffold</code> description.</li>
+<li><strong><code>Column.automation_skip</code></strong> (named in #1077) was proposed in #201 and never landed. When it does, it must ship binding or with an <code>Enforcement: scaffold</code> description.</li>
 </ul>
 <h2 id="keeping-this-page-true">Keeping this page true<a class="headerlink" href="#keeping-this-page-true" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>New constraint-shaped field:</strong> it ships binding on every path, or it ships with an <code>Enforcement:</code> description in <code>backend/visiban/field_enforcement.py</code>, a row on this page, and a tracking issue.</li>
+<li><strong>New constraint-shaped field:</strong> it ships binding on every path, or with an <code>Enforcement:</code> description in <code>backend/visiban/field_enforcement.py</code>, a row on this page, and a tracking issue.</li>
 <li><strong>Closing a gap:</strong> update the description constant, this page, and the behavioral pin in <code>test_field_enforcement_schema.py</code> in the same MR. <code>WipEnforcementBehaviorTests</code> is the example: it pinned the WIP gap until #1428 closed it, and was inverted in the same change.</li>
-<li><strong>Put descriptions on the serializer, not the model.</strong> A model <code>help_text</code> change generates an <code>AlterField</code> migration for what is a documentation-only change.</li>
+<li><strong>Put descriptions on the serializer, not the model.</strong> A model <code>help_text</code> change generates an <code>AlterField</code> migration for a documentation-only change.</li>
 </ul>
 
 
