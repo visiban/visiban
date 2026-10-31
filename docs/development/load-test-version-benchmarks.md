@@ -36,45 +36,30 @@ A point-in-time comparison of API read-path latency across Visiban 1.0, 1.1, and
 
 ## Methodology and caveats
 
-**Environment.** All three versions ran as separate, disposable stacks (Postgres 17 +
-Valkey/Redis + a single `daphne` process each) on one shared development machine that had
-roughly a dozen other Claude Code sessions active throughout — CPU idle hovered 83-89% with a
-1-minute load average of 2-7 on an 18-core machine, not a dedicated benchmark host. This adds
-run-to-run noise (visible directly in the [ceiling escalation](#finding-the-ceiling-max-cards-and-swimlanes)
-data below) but does not explain away the two clear signals in this doc — the near-3x latency
-jump from doubling card count, and the concurrency degradation — both of which are far larger
-than the noise band.
+**Environment.** All three versions ran as separate, disposable stacks (Postgres 17 + Valkey/Redis + a single `daphne` process each) on one shared development machine, not a dedicated benchmark host. Roughly a dozen other Claude Code sessions were active throughout: CPU idle hovered 83-89% with a 1-minute load average of 2-7 on an 18-core machine.
 
-**Deployment shape.** Each backend ran as one `daphne` process in dev settings (`DEBUG=true`),
-the same way [`nightly-load-test.md`](nightly-load-test.md)'s job runs it — not behind multiple
-workers/processes the way a production deployment would be. This matters most for the
-10-concurrent-user result: it measures one process's capacity to interleave concurrent I/O-bound
-requests, not Visiban's ceiling under a horizontally-scaled deployment. Re-measuring behind a
-multi-worker ASGI setup is listed as an open follow-up.
+- This adds run-to-run noise, visible in the [ceiling escalation](#finding-the-ceiling-max-cards-and-swimlanes) data below.
+- It does not explain away the two clear signals in this doc, the near-3x latency jump from doubling card count and the concurrency degradation. Both are far larger than the noise band.
 
-**Fixtures.** `manage.py seed_demo_data` at `main` supports `--scale N` (introduced for #1082,
-after 1.1.0): `--scale 1` (default) seeds the ~115-card "Visiban Demo Board"; `--scale 5`
-and `--scale 20` seed a separate "Visiban Load Test Board" at roughly 600 and 2,400 cards
-respectively. **`--scale` does not exist at the `v1.0.0` or `v1.1.0` tags** — those versions
-can only seed the ~115-card default board, so the apples-to-apples comparison across all three
-versions is limited to that one fixture size. The medium (~600-card), large (~2,400-card), and
-ceiling-escalation fixtures are `main`-only for that reason, not because 1.0/1.1 were found to
-perform worse at scale — they were never tested at scale.
+**Deployment shape.** Each backend ran as one `daphne` process in dev settings (`DEBUG=true`), the same way [`nightly-load-test.md`](nightly-load-test.md)'s job runs it, not behind multiple workers/processes the way a production deployment would be.
 
-**Endpoint availability at older tags.** `v1.0.0` and `v1.1.0` predate the flat
-`/api/v1/cards/` route (added after 1.1) — card search there used the board-nested
-`/api/v1/boards/{id}/cards/?search=` route instead, which exercises the same search code path.
-`v1.0.0` additionally predates the `card_timeline` endpoint (added with migration `0045`,
-post-1.0), so that endpoint has no 1.0.0 number at all — reported as N/A, not zero. These
-substitutions were made in unmodified-logic copies of `scripts/nightly_load_test.py` kept
-outside the repo (this was a one-off comparison, not a tool worth maintaining three URL-shape
-branches of); the production job at `main` needs no such patching.
+- This matters most for the 10-concurrent-user result. It measures one process's capacity to interleave concurrent I/O-bound requests, not Visiban's ceiling under a horizontally-scaled deployment.
+- Re-measuring behind a multi-worker ASGI setup is listed as an open follow-up.
 
-**Concurrency harness.** `scripts/nightly_load_test.py` only measures sequential single-client
-latency by design. The 10-concurrent-user numbers came from a separate ad hoc script
-(`ThreadPoolExecutor`-based, one `requests.Session` per worker) written for this pass and not
-added to `scripts/` — it was not reviewed or wired into any committed budget, and promoting it
-would need its own pass.
+**Fixtures.** `manage.py seed_demo_data` at `main` supports `--scale N` (introduced for #1082, after 1.1.0):
+
+- `--scale 1` (default) seeds the ~115-card "Visiban Demo Board".
+- `--scale 5` and `--scale 20` seed a separate "Visiban Load Test Board" at roughly 600 and 2,400 cards respectively.
+- **`--scale` does not exist at the `v1.0.0` or `v1.1.0` tags.** Those versions can only seed the ~115-card default board, so the apples-to-apples comparison across all three versions is limited to that one fixture size.
+- The medium (~600-card), large (~2,400-card), and ceiling-escalation fixtures are `main`-only for that reason, not because 1.0/1.1 were found to perform worse at scale. They were never tested at scale.
+
+**Endpoint availability at older tags.**
+
+- `v1.0.0` and `v1.1.0` predate the flat `/api/v1/cards/` route (added after 1.1). Card search there used the board-nested `/api/v1/boards/{id}/cards/?search=` route instead, which exercises the same search code path.
+- `v1.0.0` additionally predates the `card_timeline` endpoint (added with migration `0045`, post-1.0), so that endpoint has no 1.0.0 number at all: reported as N/A, not zero.
+- These substitutions were made in unmodified-logic copies of `scripts/nightly_load_test.py` kept outside the repo. This was a one-off comparison, not a tool worth maintaining three URL-shape branches of; the production job at `main` needs no such patching.
+
+**Concurrency harness.** `scripts/nightly_load_test.py` only measures sequential single-client latency by design. The 10-concurrent-user numbers came from a separate ad hoc script (`ThreadPoolExecutor`-based, one `requests.Session` per worker) written for this pass and not added to `scripts/`. It was not reviewed or wired into any committed budget, and promoting it would need its own pass.
 
 ## Version comparison — identical fixture
 
@@ -155,15 +140,11 @@ timeouts (30s client timeout, never hit). The endpoint gets progressively slower
 
 ## Comparison with other OSS and commercial boards
 
-**This is not a benchmark.** Visiban's numbers above were measured directly, under our own
-conditions, against our own fixtures. Nothing below was — it's what's publicly documented or
-publicly reported about other tools' scale limits, gathered by web search on 2026-09-28, with a
-source link on every line. Where a product's own team has published an official number, it's
-labeled **official**; a GitHub issue, forum thread, or community report is labeled
-**anecdotal**. Do not read any figure below as measured under equivalent conditions to
-Visiban's own numbers, and do not read a product's silence on this table as a performance
-finding — several rows below are "nothing credible found," which is itself the result, not an
-absence of research.
+**This is not a benchmark.** Visiban's numbers above were measured directly, under our own conditions, against our own fixtures. Nothing below was. It is what's publicly documented or publicly reported about other tools' scale limits, gathered by web search on 2026-09-28, with a source link on every line.
+
+- A number the product's own team published is labeled **official**; a GitHub issue, forum thread, or community report is labeled **anecdotal**.
+- Do not read any figure below as measured under equivalent conditions to Visiban's own numbers.
+- Do not read a product's silence on this table as a performance finding. Several rows are "nothing credible found," which is itself the result, not an absence of research.
 
 ### Self-hosted / OSS
 
@@ -194,15 +175,9 @@ absence of research.
 
 ### Reading this against Visiban's own numbers
 
-Visiban's `board_full` has no hard cap and never errored at any scale tested (up to 24,052
-cards) — it just gets slow, crossing a self-imposed 3x-budget line somewhere around 8,500-14,500
-cards. That compares favorably, in scale terms, to Trello's hard 5,000-card wall and Jira's
-5,000-item view cap: Visiban remains functional (if slow) well past where those products stop
-serving a board at all. That comparison has real limits, though — it's a single-user,
-single-process backend number against hosted multi-tenant products under real concurrent load,
-which is the harder problem (see the 10-concurrent-user finding above). Nothing here should be
-read as "Visiban outperforms Trello" — it should be read as "Visiban's failure mode at scale is
-graceful degradation rather than a hard wall, and that's worth knowing," full stop.
+Visiban's `board_full` has no hard cap and never errored at any scale tested (up to 24,052 cards). It just gets slow, crossing a self-imposed 3x-budget line somewhere around 8,500-14,500 cards. In scale terms that compares favorably to Trello's hard 5,000-card wall and Jira's 5,000-item view cap: Visiban remains functional (if slow) well past where those products stop serving a board at all.
+
+**Yes, but:** The comparison has real limits. It is a single-user, single-process backend number against hosted multi-tenant products under real concurrent load, which is the harder problem (see the 10-concurrent-user finding above). Don't read it as "Visiban outperforms Trello." Read it as "Visiban's failure mode at scale is graceful degradation rather than a hard wall, and that's worth knowing," full stop.
 
 ## Open follow-ups
 

@@ -8,12 +8,9 @@ A new view, consumer, or transport calls the shared function for each rule that 
 
 ## Why one function per rule
 
-Each rule used to be written again on every transport. A fix to one copy then
-left the other copies unfixed, and each gap was found only when a reviewer
-happened to look at the other transport. Now each rule has one definition in
-`backend/visiban/authorization.py`. Every entry point calls it, and
-`backend/accounts/tests/test_auth_entry_points.py` fails CI when an entry point
-does not.
+Each rule has one definition in `backend/visiban/authorization.py`. Every entry point calls it, and `backend/accounts/tests/test_auth_entry_points.py` fails CI when an entry point does not.
+
+**Why it matters:** Each rule used to be written again on every transport. A fix to one copy left the other copies unfixed, and a reviewer found each gap only by happening to look at the other transport.
 
 ## The shared functions
 
@@ -62,10 +59,7 @@ refuses a `process=connect` callback for an inactive account or one with a pendi
 the signed-in account (email addresses, connected providers, passwords) is
 never exempt.
 
-The admission rule above is documented policy. What the code enforces is a
-subset (`visiban.middleware.oss_gated_view_names`): the middleware ignores, and
-system check `accounts.E007` reports, a `PENDING_ACTION_EXTRA_EXEMPT_VIEWS`
-entry that names, other than a view already exempt in OSS,
+The admission rule above is documented policy. The code enforces a subset (`visiban.middleware.oss_gated_view_names`). The middleware ignores, and system check `accounts.E007` reports, a `PENDING_ACTION_EXTRA_EXEMPT_VIEWS` entry that names, other than a view already exempt in OSS,
 
 - any view that can serve a path under the built-in `/accounts/` or `/admin/`
   prefixes, whoever mounted it (including admin model views whose routes take
@@ -73,33 +67,22 @@ entry that names, other than a view already exempt in OSS,
 - any OSS view that can serve a path under a `PENDING_ACTION_EXTRA_GATED_PREFIXES`
   entry.
 
-"Can serve" is decided on each URL pattern's matching rules, not on its printed
-route (#1593): a regex alternation such as `^(?:accounts|admin)/`, a leading
-converter such as `<str:section>/` (which can be `accounts`), a `path`
-converter and an unanchored regex (Django applies it with `search()`) all
-count. A route whose reach the walk cannot bound (a regex that would have to
-match past the end of the gated prefix, a custom converter, an unknown pattern
-class such as `LocalePrefixPattern`) is counted, so the check fails safe and may
-reject a name that could not in fact reach a gated path; rename that URL.
+"Can serve" is decided on each URL pattern's matching rules, not on its printed route (#1593). All of these count:
 
-An extension's own views are the top-level patterns the root URLconf took from
-its extension point: `visiban/urls.py` keeps them in `extension_urlpatterns`
-(filled from `enterprise.urls.enterprise_urlpatterns`). Those count only under
-the built-in prefixes, so an extension can exempt its own view under its own
-prefix. A root URLconf without `extension_urlpatterns` (a project that replaces
-`ROOT_URLCONF` instead of using the extension point) marks every route as OSS;
-such a project must declare `extension_urlpatterns` in its root module for its
-own views under an extra prefix to be exemptible.
+- a regex alternation such as `^(?:accounts|admin)/`,
+- a leading converter such as `<str:section>/` (which can be `accounts`),
+- a `path` converter, and
+- an unanchored regex (Django applies it with `search()`).
 
-Extension routes are identified by object identity: a top-level pattern counts
-as the extension's own only if it is the same object listed in
-`enterprise_urlpatterns` (and so in `extension_urlpatterns`). An extension must
-register the very pattern objects it exposes. Wrapping or copying them, or
-listing an OSS pattern object in `enterprise_urlpatterns`, mislabels routes, and
-an OSS `include()` wrapped inside an extension's own include is treated as
-extension routes in full. A literal endpoint regex without an end anchor
-(`^acc`) is matched with `search()` by Django and so counts as open-ended: it can
-serve `/accounts/x`.
+A route whose reach the walk cannot bound (a regex that would have to match past the end of the gated prefix, a custom converter, an unknown pattern class such as `LocalePrefixPattern`) is counted. The check fails safe and may reject a name that could not in fact reach a gated path; rename that URL.
+
+**Extension routes.** An extension's own views are the top-level patterns the root URLconf took from its extension point: `visiban/urls.py` keeps them in `extension_urlpatterns` (filled from `enterprise.urls.enterprise_urlpatterns`).
+
+- Those count only under the built-in prefixes, so an extension can exempt its own view under its own prefix.
+- A root URLconf without `extension_urlpatterns` (a project that replaces `ROOT_URLCONF` instead of using the extension point) marks every route as OSS. Such a project must declare `extension_urlpatterns` in its root module for its own views under an extra prefix to be exemptible.
+- Extension routes are identified by object identity: a top-level pattern counts as the extension's own only if it is the same object listed in `enterprise_urlpatterns` (and so in `extension_urlpatterns`). An extension must register the very pattern objects it exposes.
+- Wrapping or copying them, or listing an OSS pattern object in `enterprise_urlpatterns`, mislabels routes. An OSS `include()` wrapped inside an extension's own include is treated as extension routes in full.
+- A literal endpoint regex without an end anchor (`^acc`) is matched with `search()` by Django and so counts as open-ended: it can serve `/accounts/x`.
 
 REST keeps DRF permission classes. They evaluate the same gate objects as the
 other transports, one gate per class, so that an endpoint a pending user must
@@ -168,8 +151,7 @@ password and runs `finalize_password_change` in one transaction.
 
 ## How the enforcement test finds entry points
 
-The test discovers entry points from the running configuration. It does not
-keep a list of them, so a new entry point is checked without anyone adding it:
+The test discovers entry points from the running configuration. It keeps no list of them, so a new entry point is checked without anyone adding it:
 
 - **REST:** walks the root URL resolver. For each DRF view and each HTTP method
   it serves (each viewset action, plus `OPTIONS`), it builds the view and reads
@@ -200,22 +182,13 @@ keep a list of them, so a new entry point is checked without anyone adding it:
   checked as real calls in the parsed source, so a mention in a comment does
   not count.
 
-Each checker also has a negative test. A synthetic view, viewset action,
-consumer, authenticator or invite model that skips the shared check must be
-reported. This proves the checker can fail.
+Each checker also has a negative test: a synthetic view, viewset action, consumer, authenticator or invite model that skips the shared check must be reported. This proves the checker can fail.
 
-The allowlists cannot go stale. A view and route pair that matches no
-discovered entry point fails the test, and so does an allowlisted view that
-already applies both gates. Entries for views that exist only in some
-configurations (an OIDC provider installed only when its settings are present)
-are marked optional.
+**The allowlists cannot go stale.** A view and route pair that matches no discovered entry point fails the test, and so does an allowlisted view that already applies both gates. Entries for views that exist only in some configurations (an OIDC provider installed only when its settings are present) are marked optional.
 
 ## Advisory copies of the creator rule
 
-A few places restate part of the invite creator rule inline instead of calling
-the shared function. They are not entry points: none of them decides whether a
-link admits anyone, so a drift there cannot grant access. Registration and
-joining re-check through the shared functions, under the invite's row lock.
+A few places restate part of the invite creator rule inline instead of calling the shared function. They are not entry points. None of them decides whether a link admits anyone, so a drift there cannot grant access: registration and joining re-check through the shared functions, under the invite's row lock.
 
 | Location | What it is | Why it is not routed through the shared function |
 |---|---|---|
@@ -271,11 +244,7 @@ module adds decisions, it does not override OSS ones.
 
 ## Feature-flagged routes
 
-The Issue Board Lens views are mounted only with `GIT_LENS_ENABLED`. The main
-backend CI job runs with the flag off, so the `backend-test-git-lens` job also
-runs this test with the flag on, and the lens views are enumerated there. The
-allowlists contain no flag-dependent entries, so the stale-entry check passes
-either way.
+The Issue Board Lens views are mounted only with `GIT_LENS_ENABLED`. The main backend CI job runs with the flag off, so the `backend-test-git-lens` job also runs this test with the flag on, and the lens views are enumerated there. The allowlists contain no flag-dependent entries, so the stale-entry check passes either way.
 
 ## How the group-placement scan finds them
 

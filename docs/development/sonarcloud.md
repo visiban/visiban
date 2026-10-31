@@ -38,23 +38,19 @@ produces. `sonar:scan` declares `needs:` on both producer jobs with `artifacts: 
 | `backend/coverage.xml` | `backend-test-coverage` | Cobertura XML | `sonar.python.coverage.reportPaths` |
 | `frontend/coverage/lcov.info` | `frontend-test` | LCOV | `sonar.javascript.lcov.reportPaths` |
 
-The scanner runs from the repository root, and neither report resolves from there as emitted.
-Left alone, the scanner reads the report, resolves zero files, and reports 0.0% coverage with
-no error. `scripts/sonar-scan.sh --prep-only` writes a rewritten copy of each report, and
-`sonar-project.properties` points at the copies:
+**Watch out:** The scanner runs from the repository root, and neither report resolves from there as emitted. Left alone, it reads the report, resolves zero files, and reports 0.0% coverage with no error. `scripts/sonar-scan.sh --prep-only` writes a rewritten copy of each report, and `sonar-project.properties` points at the copies:
 
 | Original | Rewritten copy | Rewrite | Why |
 |---|---|---|---|
 | `backend/coverage.xml` | `backend/coverage.sonar.xml` | An empty `<source></source>` becomes `<source><repo>/backend</source>` | `backend/.coveragerc` sets `relative_files = true` so parallel test shards can combine. That makes the report list filenames relative to `backend/` with no source root. |
 | `frontend/coverage/lcov.info` | `frontend/coverage/lcov.sonar.info` | `SF:src/...` becomes `SF:frontend/src/...` | Vitest records paths relative to `frontend/`. |
 
-The originals are never modified, because GitLab's coverage tooling still reads them. A
-missing report only prints a warning, so one failed producer does not abort the whole scan.
-The script prints how many class entries and `SF:` files each rewritten report lists and warns
-when the count is zero, so the nightly log shows whether paths resolved. `sh
-scripts/sonar-scan.sh --self-test` proves both rewrites against fixtures; the
-`sonar-scan-selftest` job runs it. See
-[Testing § SonarCloud coverage import](testing.md#sonarcloud-coverage-import-1370).
+- The originals are never modified, because GitLab's coverage tooling still reads them.
+- A missing report only prints a warning, so one failed producer does not abort the whole scan.
+- The script prints how many class entries and `SF:` files each rewritten report lists and warns when the count is zero, so the nightly log shows whether paths resolved.
+- `sh scripts/sonar-scan.sh --self-test` proves both rewrites against fixtures; the `sonar-scan-selftest` job runs it.
+
+See [Testing § SonarCloud coverage import](testing.md#sonarcloud-coverage-import-1370).
 
 ## What Sonar does not count or flag
 
@@ -76,24 +72,19 @@ in `sonar-project.properties`:
 | `backend/factories.py` | Test-data factory module |
 | `backend/boards/seed_data/**` | Standalone fixture generators (`generate_seed_data.py`, `generate_seed_data_part2.py`) that write the `backend/boards/sample_boards/*.json` and `sample-boards/*.csv` fixtures checked into the repo; run by hand, never imported by any runtime path |
 
-Nothing under product source is excluded to reach a number. If you are tempted to add an
-exclusion because a file is hard to cover, write the test instead.
+**Watch out:** Nothing under product source is excluded to reach a number. If you are tempted to add an exclusion because a file is hard to cover, write the test instead.
 
-**`sonar.issue.ignore.multicriteria.*`** silences one rule for one path, for findings that were
-triaged and confirmed as false positives. Every criterion carries a comment saying why. The
-`lint:sonar-exclusions` job (`scripts/check-sonar-exclusions.sh`) fails when a criterion's glob
-matches no tracked file, which is what a rename looks like when it silently un-suppresses
-findings. Each criterion's comment must also name its rule. The nightly `sonar:rules-check` job
-adds an online check that every rule key is still active in the project's quality profile
-(fail-open: no token or an API error warns and passes). See [Suppression Markers § SonarCloud suppressions](suppressions.md#sonarcloud-suppressions).
+**`sonar.issue.ignore.multicriteria.*`** silences one rule for one path, for findings that were triaged and confirmed as false positives.
 
-These properties apply only to CI-based analysis (the `sonar:scan` job and a local
-`scripts/sonar-scan.sh` run). SonarCloud's Automatic Analysis ignores
-`sonar-project.properties`, so it must stay off for this project.
+- Every criterion carries a comment saying why, and the comment must name its rule.
+- The `lint:sonar-exclusions` job (`scripts/check-sonar-exclusions.sh`) fails when a criterion's glob matches no tracked file, which is what a rename looks like when it silently un-suppresses findings.
+- The nightly `sonar:rules-check` job adds an online check that every rule key is still active in the project's quality profile (fail-open: no token or an API error warns and passes).
 
-When you add a Django app that has a `tests/` directory, add that directory to `sonar.tests`
-and keep it in step with the `backend/*/tests/**` exclusion. The two lists are maintained by
-hand.
+See [Suppression Markers § SonarCloud suppressions](suppressions.md#sonarcloud-suppressions).
+
+**Yes, but:** These properties apply only to CI-based analysis (the `sonar:scan` job and a local `scripts/sonar-scan.sh` run). SonarCloud's Automatic Analysis ignores `sonar-project.properties`, so it must stay off for this project.
+
+When you add a Django app that has a `tests/` directory, add that directory to `sonar.tests` and keep it in step with the `backend/*/tests/**` exclusion. The two lists are maintained by hand.
 
 ## Quality policy
 
@@ -114,8 +105,7 @@ hand.
 - **Coverage targets.** Aim for at least 85% on Sonar, with 80% as the floor. The enforced
   gates are separate; see [Testing § Coverage targets](testing.md#coverage-targets).
 
-Fix findings in code where you can. Reach for a suppression only when the finding is a false
-positive, and say why in the same change.
+Fix findings in code where you can. Suppress only a false positive, and say why in the same change.
 
 ## Running a scan locally
 
@@ -165,10 +155,7 @@ Open the [project page](https://sonarcloud.io/project/overview?id=visiban_visiba
 
 They are two unrelated measurements and are not expected to match.
 
-Two jobs declare a `coverage:` regex in `.gitlab-ci.yml`: `backend-test-coverage` (the `TOTAL`
-line of `coverage report`) and `frontend-test` (the `All files` line of Vitest's text report).
-GitLab averages the values it collects into the pipeline's coverage figure, which is what the
-README badge shows. Check the `coverage:` lines in `.gitlab-ci.yml` if this changes.
+Two jobs declare a `coverage:` regex in `.gitlab-ci.yml`: `backend-test-coverage` (the `TOTAL` line of `coverage report`) and `frontend-test` (the `All files` line of Vitest's text report). GitLab averages the values it collects into the pipeline's coverage figure, which is what the README badge shows. Check the `coverage:` lines in `.gitlab-ci.yml` if this changes.
 
 | | GitLab coverage badge | SonarCloud |
 |---|---|---|
@@ -177,7 +164,6 @@ README badge shows. Check the `coverage:` lines in `.gitlab-ci.yml` if this chan
 | Denominator | Whatever each tool reports: everything `backend/.coveragerc` does not omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded |
 | Updates | Every pipeline that runs the jobs | Nightly |
 
-Because the badge averages two percentages, a small frontend and a large backend count equally,
-while Sonar weights each file by its lines. The badge never reaches the scanner, and the
-scanner never feeds the badge. The backend gate (`--fail-under=90`) applies only to the
-backend number, not to either combined figure.
+- The badge averages two percentages, so a small frontend and a large backend count equally. Sonar weights each file by its lines.
+- The badge never reaches the scanner, and the scanner never feeds the badge.
+- The backend gate (`--fail-under=90`) applies only to the backend number, not to either combined figure.
