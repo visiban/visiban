@@ -60,16 +60,18 @@ EXPOSE 5173
 FROM ${BASE_REGISTRY}/nginx:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+# Default server config: listens on 8080 and sends the same response headers as
+# the bundled nginx templates and the Helm chart (#1994).
+COPY nginx.default.conf /etc/nginx/conf.d/default.conf
 
 # Run as the base image's built-in non-root `nginx` user (#1528, trivy
 # DS-0002). Three things a non-root nginx needs that the stock image assumes
-# root for: a listen port >= 1024 (8080, matching the Helm chart's own
-# nginx.conf), a writable pid file (/tmp/nginx.pid instead of /var/run), and
+# root for: a listen port >= 1024 (8080, set in nginx.default.conf, matching the
+# Helm chart's own nginx.conf), a writable pid file (/tmp/nginx.pid instead of /var/run), and
 # a writable cache dir (the base image leaves /var/cache/nginx root-owned).
 # Everything else nginx writes already goes to /tmp or /var/cache/nginx, and
 # the logs are symlinked to /dev/stdout and /dev/stderr.
-RUN sed -i -E 's/listen([[:space:]]+)(\[::\]:)?80;/listen\1\28080;/' /etc/nginx/conf.d/default.conf \
- && sed -i 's#^pid .*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
+RUN sed -i 's#^pid .*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
  && grep -q 'listen[[:space:]]*8080;' /etc/nginx/conf.d/default.conf \
  && grep -q '^pid /tmp/nginx.pid;' /etc/nginx/nginx.conf \
  && chown -R nginx:nginx /var/cache/nginx

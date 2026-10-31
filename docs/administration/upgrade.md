@@ -1615,6 +1615,15 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     - **Direct `docker run` users** must publish the new container port:
       `docker run -p 80:8080 ghcr.io/visiban/visiban/frontend:<tag>`. The old `-p 80:80`
       mapping no longer reaches nginx.
+    - **The image's default config now matches the bundled templates' response headers.**
+      The image installs `frontend/nginx.default.conf` as its default server config. It
+      still serves only the static files (no `/api/` or `/ws/` proxying), and it now sends
+      the same `Content-Security-Policy`, `X-Frame-Options: DENY` and
+      `X-Content-Type-Options: nosniff` headers as `nginx/app.conf.template`,
+      `nginx/app-http.conf.template` and the Helm chart's frontend ConfigMap. Its
+      `connect-src` is `'self'` only; to name your hostname for the WebSocket, or to
+      proxy `/api/` and `/ws/`, mount one of those configs over
+      `/etc/nginx/conf.d/default.conf`.
     - **Production Compose and the Helm chart are unaffected.** Production Compose only copies
       the static files out of the image and serves them from the stock `nginx` service on
       80/443, and the chart already used 8080 (see the chart 0.7.0 note above).

@@ -644,6 +644,59 @@ class NginxConnectSrcPolicyTests(SimpleTestCase):
                 )
 
 
+class FrontendImageHeaderParityTests(SimpleTestCase):
+    """The frontend image's default nginx config matches the bundled templates (#1994).
+
+    ``frontend/nginx.default.conf`` is installed as ``conf.d/default.conf`` by both
+    frontend Dockerfiles, so running the image on its own sends the same response
+    headers as the bundled templates. Only the templated connect-src host list may
+    differ; any other drift fails here.
+    """
+
+    REPO_ROOT = Path(__file__).resolve().parents[3]
+    IMAGE_CONF = "frontend/nginx.default.conf"
+    TEMPLATE = "nginx/app-http.conf.template"
+    HEADERS = ("X-Frame-Options", "X-Content-Type-Options", "Content-Security-Policy")
+
+    @classmethod
+    def _header(cls, text, name):
+        import re
+
+        m = re.search(rf'^\s*add_header\s+{name}\s+(.*?)\s*;\s*$', text, re.M)
+        if not m:
+            return None
+        return re.sub(r"connect-src[^;]*", "connect-src X", m.group(1).replace('"', ""))
+
+    def _read(self, rel):
+        path = self.REPO_ROOT / rel
+        if not path.exists():
+            self.skipTest("deployment configs are not part of the backend image")
+        return path.read_text()
+
+    def test_image_config_headers_match_bundled_template(self):
+        image, template = self._read(self.IMAGE_CONF), self._read(self.TEMPLATE)
+        for name in self.HEADERS:
+            with self.subTest(name):
+                self.assertIsNotNone(self._header(template, name))
+                self.assertEqual(self._header(image, name), self._header(template, name))
+
+    def test_headers_are_server_level(self):
+        import re
+
+        image = self._read(self.IMAGE_CONF)
+        for block in re.findall(r"^\s*location\b[^{]*\{([^}]*)\}", image, re.M):
+            self.assertNotIn("add_header", block)
+
+    def test_both_dockerfiles_install_the_image_config(self):
+        self._read(self.IMAGE_CONF)
+        for rel in ("frontend/Dockerfile", "frontend/Dockerfile.prod"):
+            with self.subTest(rel):
+                self.assertRegex(
+                    self._read(rel),
+                    r"(?m)^COPY\s+nginx\.default\.conf\s+/etc/nginx/conf\.d/default\.conf",
+                )
+
+
 class SampleTypeContractTests(SimpleTestCase):
     """The TS ``SampleBoardInclude`` union must list exactly the values the API can send (#1452)."""
 

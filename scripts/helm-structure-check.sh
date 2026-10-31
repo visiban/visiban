@@ -598,6 +598,58 @@ check_frontend_security_headers() {
 }
 
 # ---------------------------------------------------------------------------
+# The frontend image's own default config sends the same headers (#1994).
+# ---------------------------------------------------------------------------
+# frontend/nginx.default.conf is what both frontend Dockerfiles install as the
+# image's conf.d/default.conf. Compare its X-Frame-Options, X-Content-Type-Options
+# and Content-Security-Policy lines against nginx/app-http.conf.template. The
+# template's connect-src host list is templated (${DOMAIN}), so it is normalized
+# on both sides; every other directive must match exactly.
+check_frontend_image_headers() {
+  section "Frontend image default config matches the bundled template headers (#1994)"
+
+  local root img tpl bad=0 h
+  root="$(dirname "${BASH_SOURCE[0]}")/.."
+  img="$root/frontend/nginx.default.conf"
+  tpl="$root/nginx/app-http.conf.template"
+  if [ ! -f "$img" ] || [ ! -f "$tpl" ]; then
+    fail "frontend/nginx.default.conf or nginx/app-http.conf.template not found — cannot compare headers"
+    return
+  fi
+
+  # One normalized line per header: name + quoted value (connect-src hosts
+  # collapsed), whitespace squeezed.
+  norm() {
+    grep -E "^[[:space:]]*add_header[[:space:]]+$2[[:space:]]" "$1" | head -1 \
+      | sed -E 's/"//g; s/connect-src[^;]*/connect-src X/; s/[[:space:]]+/ /g; s/^ //' || true
+  }
+  for h in X-Frame-Options X-Content-Type-Options Content-Security-Policy; do
+    local a b
+    a="$(norm "$img" "$h")"
+    b="$(norm "$tpl" "$h")"
+    if [ -z "$a" ]; then
+      fail "frontend/nginx.default.conf sends no $h (the bundled template does)"
+      bad=1
+    elif [ "$a" != "$b" ]; then
+      fail "frontend/nginx.default.conf $h differs from nginx/app-http.conf.template: image='$a' template='$b'"
+      bad=1
+    fi
+  done
+  if awk '/^[[:space:]]*location[[:space:]]/{loc=1} loc&&/^[[:space:]]*add_header/{f=1} END{exit !f}' "$img"; then
+    fail "a location in frontend/nginx.default.conf declares its own add_header — it drops the server-level headers"
+    bad=1
+  fi
+  for h in frontend/Dockerfile frontend/Dockerfile.prod; do
+    if ! grep -qE '^COPY[[:space:]]+nginx\.default\.conf[[:space:]]+/etc/nginx/conf\.d/default\.conf' "$root/$h"; then
+      fail "$h does not install frontend/nginx.default.conf as conf.d/default.conf"
+      bad=1
+    fi
+  done
+  [ "$bad" -eq 0 ] && pass "frontend image default config sends the bundled template's headers, and both Dockerfiles install it"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # 5. Probe paths must be routes the backend actually serves.
 # ---------------------------------------------------------------------------
 # A renamed health URL makes every backend pod fail its readiness gate: the
@@ -2057,6 +2109,7 @@ run_all_checks() {
   check_nginx_upstream
   check_spa_cache_policy
   check_frontend_security_headers
+  check_frontend_image_headers
   check_probe_paths
   check_transport_limits
   check_netpol_coverage
