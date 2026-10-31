@@ -1,6 +1,19 @@
-# Deployment
+# Deploy with Docker Compose or Helm
 
 Two supported paths: Docker Compose for a single server, Helm for Kubernetes. Both run the same images and the same daphne/ASGI backend.
+
+**Why it matters:** Pick one path and stay on it. Compose is the default for self-hosting; Helm is for clusters.
+
+**The minimum (Compose):**
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Fill in `DJANGO_SECRET_KEY` and `DATABASE_URL` in `.env` first (leave the default for bundled Postgres). The full block is below.
+
+**Go deeper:** [Scaling](scaling.md) for load, [Rate limiting](#rate-limiting) for API limits.
 
 ## Docker Compose (recommended for self-hosting)
 

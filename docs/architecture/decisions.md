@@ -1,6 +1,12 @@
-# Technology Decisions
+<a id="technology-decisions"></a>
+
+# Why the stack is a boring monolith
 
 Why each piece of the Visiban stack was chosen, not just what was chosen — for contributors, self-hosters, and anyone evaluating the trade-offs.
+
+**Why it matters:** Each choice trades power for fewer moving parts. Check the reasoning before proposing a replacement.
+
+**The big picture:** one monolith, containerized, with an upgrade path to Kubernetes.
 
 ---
 

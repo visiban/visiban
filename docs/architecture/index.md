@@ -1,6 +1,12 @@
-# Architecture
+<a id="architecture"></a>
+
+# How Visiban is built, deployed, and scaled
 
 Technical documentation for developers and self-hosters.
+
+**Why it matters:** Start with the right page and skip the rest. Contributors need the overview and service layer; self-hosters need deployment and scaling.
+
+**Go deeper:** pick a document.
 
 | Document | Description |
 |---|---|

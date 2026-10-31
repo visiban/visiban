@@ -1,9 +1,13 @@
-# Data Model
+<a id="data-model"></a>
+
+# Data model: who owns which tables
 
 Three Django apps own the schema: `accounts` (users, tokens, site settings, admin audit),
 `boards` (boards, cards, and everything on them), `groups` (the folder hierarchy boards sit
 in). A fourth, `git_lens`, adds one model but is off by default — see
 [Issue Board Lens](#git_lens-app-off-by-default) at the bottom of this page.
+
+**Why it matters:** `CardMovement` is the audit trail, and it is append-only. Read [Key design decisions](#key-design-decisions) before writing code that touches cards, columns, or tokens.
 
 ## Core entities
 

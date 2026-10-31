@@ -1,10 +1,24 @@
-# Service Layer
+<a id="service-layer"></a>
+
+# Board rules live in services, not views
 
 Board mutations that carry invariants live in `backend/boards/services/`, not in the DRF views that expose them over HTTP.
 
+**Why it matters:** An invariant inside an HTTP handler can only be reached by an HTTP request. Every other writer (MCP, import, webhooks) must then re-implement the rules or skip them.
+
+**The big picture:**
+
+- One service function per card state transition owns the role check, concurrency check, row locks, limits, audit trail, transaction, and deferred side effects.
+- Views keep parsing, field validation, and serialization.
+- Two write paths still bypass the service, on purpose: import/export and the Django admin (see [Write paths that remain divergent](#write-paths-that-remain-divergent)).
+
+**Watch out:** The lock order is a deadlock-avoidance contract. Reordering locks in a service function can deadlock concurrent moves.
+
+**Go deeper:** [Field Enforcement](field-enforcement.md) lists which limits bind on which write path.
+
 ## Why the layer exists
 
-Until Visiban 1.2 every card state transition was implemented inline in `CardViewSet`. That was fine while the REST API was the only writer. It stopped being fine as soon as a second consumer appeared, because an invariant that lives inside an HTTP handler can only be reached by making an HTTP request — so any second code path has to either re-implement the rules or skip them.
+Until Visiban 1.2 every card state transition was implemented inline in `CardViewSet`. That was fine while the REST API was the only writer. A second consumer broke it: any second code path had to either re-implement the rules or skip them.
 
 Both failure modes had already happened:
 
@@ -15,7 +29,7 @@ The API now has several writers in view — a second front end, MCP write tools,
 
 ## What a service function owns
 
-For one state transition:
+**How it works:** for one state transition, a service function owns:
 
 | Concern | Example |
 |---|---|

@@ -1,6 +1,10 @@
-# Scaling
+<a id="scaling"></a>
+
+# Scale a single server first, then in eight steps
 
 Visiban runs comfortably on one server for most teams. Below: the practical ceilings on a single server, and what to change — and when — as load grows.
+
+**Why it matters:** Scaling in the wrong order wastes money. Start with the [Scaling sequence](#scaling-sequence): tune workers first, and move attachments to S3 before adding replicas.
 
 !!! note "Managed hosting"
     Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. What follows is for self-hosted deployments: a single team or organization running their own instance. Same architecture — the operational responsibility is yours.

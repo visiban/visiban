@@ -1,6 +1,14 @@
-# Architecture Overview
+<a id="architecture-overview"></a>
+
+# One Django backend, one React SPA, two datastores
 
 How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking over REST and WebSocket, backed by PostgreSQL and Valkey. Read this first if you're contributing code or evaluating self-hosting.
+
+**Why it matters:** Visiban is a monolith with no microservices, queues, or search index. Two datastores are all a self-hoster operates.
+
+**The big picture:** the browser talks to a daphne ASGI backend over REST and WebSocket. PostgreSQL 17 holds the data. Valkey 8 carries WebSocket channel messages.
+
+**Go deeper:** [Data Model](data-model.md), [Deployment](deployment.md), [Technology Decisions](decisions.md).
 
 ## System components
 
