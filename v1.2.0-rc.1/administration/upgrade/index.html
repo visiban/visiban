@@ -5919,6 +5919,22 @@ custom frontend image:</p>
 deep-merges nested maps, so a single-leaf <code>--set</code> keeps the chart's other
 <code>frontend.securityContext.container</code> defaults in place.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Frontend image default nginx config: response headers aligned with the bundled templates</p>
+<p>The frontend image's default server config (<code>frontend/nginx.default.conf</code>, installed as
+<code>/etc/nginx/conf.d/default.conf</code>) sends the same <code>Content-Security-Policy</code>,
+<code>X-Frame-Options: DENY</code> and <code>X-Content-Type-Options: nosniff</code> headers as
+<code>nginx/app.conf.template</code>, <code>nginx/app-http.conf.template</code> and the Helm chart's frontend
+ConfigMap. It serves only the static files (no <code>/api/</code> or <code>/ws/</code> proxying), and its
+<code>connect-src</code> is <code>'self'</code> only.</p>
+<p>The bundled templates cannot be mounted over it as they are: they contain a literal
+<code>${DOMAIN}</code> that needs <code>envsubst</code>, listen on port 80 (the image runs as a non-root
+user and listens on 8080), and proxy to an upstream named <code>backend</code> that only resolves
+under Compose. To name your hostname for the WebSocket or to proxy <code>/api/</code> and <code>/ws/</code>,
+either copy one of the templates and adapt the port, domain and upstream, or use the
+Helm chart's rendered frontend ConfigMap <code>nginx.conf</code> (which already listens on 8080), and mount
+the result over <code>/etc/nginx/conf.d/default.conf</code>.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">Frontend image now runs as non-root and listens on 8080; reset the dev <code>node_modules</code> volume</p>
 <p>The <code>ghcr.io/visiban/visiban/frontend</code> image (and <code>frontend/Dockerfile.prod</code>) now runs as
