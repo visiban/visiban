@@ -42,11 +42,11 @@ Visiban is an open-source, self-hosted Kanban board where every row is an entity
 **The board:**
 
 - **Swimlanes.** Rows represent entities (customers, projects, teams); columns are pipeline stages.
-- **Custom fields** *(1.2)*. Typed fields on cards and on swimlane rows (text, number, date, dropdown, checkbox, URL, multi-select), pinned to the card face or lane label.
+- **Custom fields.** <span class="vb-version" title="Added in 1.2">1.2+</span> Typed fields on cards and on swimlane rows (text, number, date, dropdown, checkbox, URL, multi-select), pinned to the card face or lane label.
 - **WIP limits.** Soft or hard limits per column, enforced on move, create, and restore.
 - **Card aging.** Cards tint as they sit; per-board staleness thresholds and stale-card notifications.
 - **Saved filters.** Save and restore filter presets per board, private to each user.
-- **Trello import** *(1.2)*. Create a board from a Trello JSON export.
+- **Trello import.** <span class="vb-version" title="Added in 1.2">1.2+</span> Create a board from a Trello JSON export.
 
 **The record:**
 
@@ -66,7 +66,7 @@ Visiban is an open-source, self-hosted Kanban board where every row is an entity
 
 - **OAuth and OIDC.** Google, GitHub, and GitLab login out of the box; connect any OIDC provider through environment variables.
 - **Personal access tokens.** Token-based API access for scripts and integrations; scopes are new in 1.2.
-- **MCP server** *(1.2, off by default)*. Let an AI agent you already run query and update boards with a scoped token.
+- **MCP server.** <span class="vb-version" title="Added in 1.2">1.2+</span> Off by default. Let an AI agent you already run query and update boards with a scoped token.
 
 **Running it:**
 

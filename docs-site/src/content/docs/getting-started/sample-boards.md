@@ -36,9 +36,9 @@ In the app, open **Import** on the Dashboard and pick a board under **Start from
 
 ### From the app
 
-:::note[Added in 1.2]
-The sample gallery in the Import Board dialog.
-:::
+<span class="vb-version" title="Added in 1.2">1.2+</span>
+
+The sample gallery in the Import Board dialog:
 
 1. Log in to your Visiban instance.
 2. From the **Dashboard** (or a group page), click **Import**.
