@@ -1,31 +1,33 @@
-# Analytics & Summary <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
+# Find bottlenecks and measure velocity
 
-Switch to **Summary** or **Analytics** with the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where cards stall and how fast work finishes.
+Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where cards stall and how fast work finishes. **Beta.**
 
-**Why it matters:** The two views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving individual cards.
-
-**Watch out:** mark your Done column first, or the data is wrong.
+**Why it matters:** The two views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving cards.
 
 !!! warning "Done columns must be marked before analytics data is accurate"
     The dwell-time heatmap excludes columns that are marked as done. If your "Done" or "Released" column is not marked, closed work continues to accumulate dwell cycles and distorts the heatmap.
 
     To mark a column as done: **Board → Column header overflow menu → Edit → "Mark as done column" checkbox**.
 
-    The Summary view's velocity counts also rely on this flag — only movements into marked-done columns are counted as completed work. See [Board Setup](../getting-started/board-setup.md) for a step-by-step walkthrough.
+    The Summary view's velocity counts rely on this flag too: only movements into marked-done columns are counted as completed work. See [Board Setup](../getting-started/board-setup.md) for a step-by-step walkthrough.
 
 ## Summary view
 
-Shows a table of all swimlanes with:
+A table of all swimlanes with:
 
-- Total card count with an inline proportional bar
-- **7-day velocity**: cards that moved into any column marked `is_done = true` in the last 7 days
-- **30-day velocity**: same over 30 days
+- the total card count and an inline proportional bar
+- **7-day velocity:** cards that moved into any column marked `is_done = true` in the last 7 days
+- **30-day velocity:** the same over 30 days
 
-Columns are marked as done in the **Edit Column** modal ("Mark as done column" checkbox). Multiple done columns are supported — for example, boards with both a "Done" and a "Released" column will count movements into either as completed. See [Board & Cards — Columns](board.md#columns).
+Mark columns as done in the **Edit Column** modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts movements into either as completed. See [Board & Cards — Columns](board.md#columns).
 
 Use it for a quick health check across all active pipelines.
 
-> **Added in 1.1**
+**API:** `GET /api/v1/boards/{id}/summary/`
+
+### Extension panels
+
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
 The summary response includes an `extension_panels` field (always an empty list in the OSS edition). Enterprise extensions can register additional panels here.
 
@@ -37,29 +39,29 @@ The Summary tab renders `stats` and `table` panels below the swimlane table. See
 
 Each panel declares the lowest board role that may see it. A member below that role does not get the panel, and a panel that declares nothing is shown to board admins only. See [panel visibility by role](../api/boards.md#panel-visibility-by-role).
 
-**API:** `GET /api/v1/boards/{id}/summary/`
-
 ## Analytics view
 
-Shows time-in-stage data derived from `CardMovement` records.
+Time-in-stage data derived from `CardMovement` records. The heatmap is pinned at the top and always visible. The stalled cards list scrolls independently below it, separated by an engraved divider.
 
 ### Dwell time heatmap
 
-The heatmap is pinned at the top of the analytics panel and remains visible at all times. The stalled cards list scrolls independently below it, separated by an engraved divider.
-
-The heatmap table has swimlanes as rows and active columns as columns. Each cell shows the average number of days cards spent in that stage during the selected period.
+Swimlanes are rows and active columns are columns. Each cell shows the average days cards spent in that stage during the selected period.
 
 #### Done column exclusion
 
-Columns marked `is_done = true` are excluded from dwell-time calculations and hidden from the heatmap. Time spent in a done column is post-completion idle time and would distort the data if included. The API response includes a `done_columns` field listing the excluded column names, and a footer note below the heatmap reads "N done column(s) not shown".
+Columns marked `is_done = true` are excluded from dwell-time calculations and hidden from the heatmap, because time in a done column is post-completion idle time. The API response lists the excluded column names in `done_columns`, and a footer note reads "N done column(s) not shown".
 
 #### Velocity column
 
-The rightmost column of the heatmap shows **Velocity** per swimlane. This is the average `deal_velocity_days` value — the number of days between a card's first and last movement within the selected period. A dash (`—`) appears when there is no velocity data for a swimlane.
+The rightmost column shows **Velocity** per swimlane: the average `deal_velocity_days`, the number of days between a card's first and last movement within the selected period. A dash (`—`) means no velocity data for that swimlane.
 
 #### Color-coding
 
-Cells are color-coded based on the board's `staleness_threshold_days` setting and its `stale_warning_pct` percentage. The warning boundary is `threshold * stale_warning_pct / 100`, the share of the threshold a card has used. With the defaults of 7 days and 50%, the warning boundary is 3.5 days. With 75%, it is 5.25 days. A value of `0` turns the yellow band off, so cells are green until the threshold. The card [aging tint](card-history.md#card-aging-tint) uses the same boundary.
+Cells are colored from the board's `staleness_threshold_days` and `stale_warning_pct`. The warning boundary is `threshold * stale_warning_pct / 100`, the share of the threshold a card has used.
+
+- With the defaults (7 days, 50%), the boundary is 3.5 days. With 75%, it is 5.25 days.
+- A value of `0` turns the yellow band off, so cells are green until the threshold.
+- The card [aging tint](card-history.md#card-aging-tint) uses the same boundary.
 
 !!! note "Changed in 1.2 (#1841)"
     Before 1.2 the boundary was computed as `threshold * (1 - stale_warning_pct / 100)`, the inverse of what the setting says. Boards on the default 50% are unaffected. Boards with any other value see the yellow band move.
@@ -71,55 +73,49 @@ Cells are color-coded based on the board's `staleness_threshold_days` setting an
 | Red | ▲ High | Average is at or above `staleness_threshold_days` (outlier / bottleneck) |
 | Grey / dash | none | No data for that swimlane-column combination |
 
-The level is never conveyed by color alone: each colored cell shows its marker next to the value, screen readers announce the level text ("OK", "Warning", "High") after the value, and a legend below the heatmap maps each marker and color to its level.
+Color is never the only signal: each colored cell shows its marker next to the value, screen readers announce the level text ("OK", "Warning", "High") after the value, and a legend below the heatmap maps each marker and color to its level.
 
 !!! tip
-    Both `staleness_threshold_days` and `stale_warning_pct` are configurable per board in the board settings modal. Adjusting them changes the heatmap coloring immediately on the next analytics load.
+    Both `staleness_threshold_days` and `stale_warning_pct` are configurable per board in the board settings modal. Changes recolor the heatmap on the next analytics load.
 
 ### Period toggle
 
-Switch between **7 days**, **30 days**, and **90 days** to control which card movements are included in the calculation. The period toggle only appears in **Throughput** mode (see [View mode: Age vs Throughput](#view-mode-age-vs-throughput) below) — **Age** mode always reflects the current moment, so there's no period to pick.
-
-### Dwell time and archived cards
-
-Analytics includes archived cards as part of the historical record. When a card is archived, its dwell time in the most recent stage is calculated using the **archive timestamp** as the exit time — not the current date. This means archived cards accurately reflect how long they were actively worked on, and dwell times stop accumulating at the moment of archiving.
-
-Active cards continue to accumulate dwell time in their current stage until they move again.
-
-Dwell-time calculations use only `movement_type = move` events. Archive and restore events are excluded so that archiving a card does not distort the time-in-stage figures for surrounding cards.
-
-### Stalled cards
-
-Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold — **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (e.g. "3 cards stalled") shows the total.
-
-Click any row to open the card detail panel directly — no need to go back to the board view first.
-
-The default threshold is the board's `staleness_threshold_days` setting. You can override it for a single request by passing the `stalled_days` query parameter — this affects only the stalled cards list and does not change the heatmap coloring.
-
-Archived cards and cards in done columns are excluded from stalled card detection — they are no longer in-flight and flagging them as stalled would be misleading.
-
-### Empty period
-
-When the selected time window contains no movement data at all (for example, a newly created board or a period before the board had any activity), the analytics view shows an informational message rather than an empty heatmap. Widen the period or add some card movements to populate the view.
+Switch between **7 days**, **30 days**, and **90 days** to choose which movements count. The toggle appears only in **Throughput** mode (see [View mode: Age vs Throughput](#view-mode-age-vs-throughput)); **Age** mode always reflects the current moment, so there is no period to pick.
 
 ### View mode: Age vs Throughput
 
-The heatmap has two display modes, toggled by a button pair in the analytics toolbar:
+A button pair in the analytics toolbar toggles the heatmap mode. The choice persists per board in localStorage (`board:{boardId}:analytics-view-mode`) and defaults to **Age**.
 
-| Mode | What the heatmap shows |
-|---|---|
-| **Age** | Average time (days) cards have currently been sitting in each stage — a snapshot of in-flight work. High values indicate cards that are blocked or accumulating idle time right now. |
-| **Throughput** | Average time cards that **exited** a stage during the selected period spent in that stage before moving on. Reflects historical flow efficiency rather than current queue depth. |
+| Mode | What the heatmap shows | Use it to |
+|---|---|---|
+| **Age** | Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now. | Find current bottlenecks |
+| **Throughput** | Average time cards that **exited** a stage during the selected period spent there before moving on. Reflects historical flow efficiency, not current queue depth. | Compare historical flow across periods |
 
-The active mode is persisted per-board in localStorage (`board:{boardId}:analytics-view-mode`) and defaults to **Age**.
+In **Throughput** mode the column footer row shows how many cards contributed to each average (for example "5 cards"), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
 
-When **Throughput** mode is active, the column footer row shows the number of cards that contributed to each average (e.g. "5 cards"). Stages that had zero throughput in the period show a dash (`—`). The color thresholds (green/yellow/red) apply to both modes using the same `staleness_threshold_days` setting.
+### Dwell time and archived cards
 
-**Go deeper:** use **Age** to find current bottlenecks. Use **Throughput** to compare historical flow efficiency across periods.
+Analytics includes archived cards as part of the historical record.
+
+- **Archived card:** dwell time in its most recent stage uses the **archive timestamp** as the exit time, not the current date. Dwell stops accumulating when the card is archived.
+- **Active card:** keeps accumulating dwell time in its current stage until it moves again.
+- **Which events count:** only `movement_type = move` events. Archive and restore events are excluded, so archiving doesn't distort time-in-stage for surrounding cards.
+
+### Stalled cards
+
+Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.
+
+- **Default threshold:** the board's `staleness_threshold_days`.
+- **Override:** pass the `stalled_days` query parameter. It affects only the stalled list, not the heatmap coloring.
+- **Excluded:** archived cards and cards in done columns, since they are no longer in flight and flagging them would mislead.
+
+### Empty period
+
+When the selected window has no movement data at all (a new board, or a period before any activity), the view shows an informational message instead of an empty heatmap. Widen the period or add some card movements.
 
 ### CSV export
 
-Click **Export CSV** to download the heatmap data as a comma-separated file for use in spreadsheets. The export includes all active columns, the velocity column, and a stalled card count per swimlane. The export button is only visible to **admin** and **site_admin** users.
+Click **Export CSV** to download the heatmap data for spreadsheets. It includes all active columns, the velocity column, and a stalled card count per swimlane. The button is visible only to **admin** and **site_admin** users.
 
 ### API reference
 
