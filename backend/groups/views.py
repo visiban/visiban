@@ -1482,6 +1482,9 @@ class GroupViewSet(viewsets.ModelViewSet):
             active_count = GroupInviteLink.objects.filter(
                 group=group, is_active=True, used_at__isnull=True,
                 delivery=GroupInviteLink.Delivery.LINK,
+                # A link whose role can never redeem reports revoked and holds
+                # no slot (#2015).
+                role__in=GroupInviteLink.redeemable_roles(),
             ).count()
             if active_count >= 5:
                 return Response(
@@ -1554,14 +1557,16 @@ class GroupViewSet(viewsets.ModelViewSet):
             # 404, not a 500 from the invite's deferred foreign key (#1719).
             if Group.objects.select_for_update().filter(pk=group.pk).first() is None:
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-            # A pre-#2006 admin invite can never redeem, so it holds no slot.
+            # An invite whose role can never redeem (a pre-#2006 admin invite,
+            # or a role outside the enum, #2015) holds no slot.
             pending_emailed = GroupInviteLink.objects.filter(
                 group=group,
                 delivery=GroupInviteLink.Delivery.EMAIL,
                 is_active=True,
                 used_at__isnull=True,
                 expires_at__gt=timezone.now(),
-            ).exclude(role=GroupInviteLink.Role.ADMIN).count()
+                role__in=GroupInviteLink.redeemable_roles(),
+            ).count()
             if pending_emailed >= GROUP_MAX_PENDING_EMAILED_INVITES:
                 return Response(
                     {
@@ -1997,8 +2002,14 @@ class JoinGroupView(APIView):
         # preview answers like a revoked link rather than offering a join that
         # the POST would refuse.
         # An emailed admin invite minted before #2006 is refused the same way.
-        if link.role == GroupInviteLink.Role.ADMIN:
-            logger.info("Invite token lookup failed: admin invite. token=%s ip=%s", token_hint, ip)
+        # A stored role outside the enum is refused the same way (#2015).
+        if not link.role_redeemable:
+            logger.info(
+                "Invite token lookup failed: %s. token=%s ip=%s",
+                "admin invite" if link.role_refusal == "admin" else "invalid role",
+                token_hint,
+                ip,
+            )
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         # Residual distinction accepted: with a live creator an expired or
         # consumed link still answers 410, so "creator gone" (404) is
@@ -2141,9 +2152,14 @@ class JoinGroupView(APIView):
             # redeeming. Same 404 as a revoked link, so it leaks nothing.
             # An emailed admin invite minted before #2006 is refused too: no
             # invite grants admin.
-            if link.role == GroupInviteLink.Role.ADMIN:
+            # A stored role outside GroupMembership.Role.values is refused the
+            # same way, matching group_link_registration_refusal (Rule 9, #2015):
+            # ``choices`` is not enforced on save, so a row written outside the
+            # API must not copy an unknown role into a membership.
+            if not link.role_redeemable:
                 logger.info(
-                    "Invite token redemption failed: admin invite. token=%s user_id=%s ip=%s outcome=failure",
+                    "Invite token redemption failed: %s. token=%s user_id=%s ip=%s outcome=failure",
+                    "admin invite" if link.role_refusal == "admin" else "invalid role",
                     token_hint,
                     request.user.pk,
                     ip,

@@ -87,11 +87,9 @@ def group_link_registration_refusal(link: GroupInviteLink, *, reserved_for=None)
         # Unreachable from the validator (its lookup filters is_active); kept
         # so a caller holding a revoked instance never gets a false "admits".
         return "invite_invalid"
-    if link.role not in GroupMembership.Role.values:
-        return "invite_invalid"
-    if link.role == GroupMembership.Role.ADMIN:
-        # No invite grants admin (#2006); an emailed admin invite minted before
-        # that is refused rather than honored.
+    if not link.role_redeemable:
+        # An unknown role, or admin: no invite grants admin (#2006), so an
+        # emailed admin invite minted before that is refused, not honored.
         return "invite_invalid"
     if not (link.single_use and link.delivery == GroupInviteLink.Delivery.EMAIL):
         return "invite_not_for_registration"
