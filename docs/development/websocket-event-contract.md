@@ -12,14 +12,11 @@ Add a board-channel or group-channel event name freely. Renaming or removing one
 | **Documented** | a table row in [`docs/api/websockets.md`](../api/websockets.md) |
 | **Handled** | an `event.event === "<name>"` branch in `BoardView.tsx` / `GroupDetail.tsx` (or the matching socket hook) |
 
-The `ws-event-reachability` CI job reconciles all three and fails when a name is missing
-from any of them. A name present in only two of the three looks complete from every angle
-you would normally check — which is exactly why it needs a machine to check it.
+The `ws-event-reachability` CI job reconciles all three and fails when a name is missing from any of them. A name present in only two of the three looks complete from every angle you would normally check, which is why a machine has to check it.
 
 ## Adding an event
 
-1. **Declare it.** Add a constant to the registry for the channel it rides, and add that
-   constant to `BOARD_CHANNEL_EVENTS` or `GROUP_CHANNEL_EVENTS`.
+1. **Declare it.** Add a constant to the registry for the channel it rides, and add that constant to `BOARD_CHANNEL_EVENTS` or `GROUP_CHANNEL_EVENTS`.
 
     ```python
     # backend/boards/broadcast.py
@@ -38,21 +35,15 @@ you would normally check — which is exactly why it needs a machine to check it
                                  actor_id=request.user.id)
     ```
 
-    A bare string at an emit site fails the gate. The registry has to be the authoritative
-    list, and a literal is invisible to it — including the ones a grep would miss, like
-    `EVT_MEMBER_ADDED if created else EVT_MEMBER_UPDATED`.
+    A bare string at an emit site fails the gate. The registry has to be the authoritative list, and a literal is invisible to it, including the ones a grep would miss, like `EVT_MEMBER_ADDED if created else EVT_MEMBER_UPDATED`.
 
-3. **Document it** — add a row to the right channel's table in `docs/api/websockets.md`,
-   with the real `data` shape.
+3. **Document it.** Add a row to the right channel's table in `docs/api/websockets.md`, with the real `data` shape.
 
 4. **Handle it** in the frontend, or exempt it with a reason (see below).
 
 ## Exempting an event with no frontend handler
 
-Some events are legitimately not acted on by this frontend — for example a board-channel
-`board.created`, which can only reach a client already subscribed to a board that did not
-exist a moment earlier. Record it in `INTENTIONALLY_UNHANDLED_BOARD_EVENTS` (or the group
-equivalent) **with the reason**:
+Some events are legitimately not acted on by this frontend. For example, a board-channel `board.created` can only reach a client already subscribed to a board that did not exist a moment earlier. Record it in `INTENTIONALLY_UNHANDLED_BOARD_EVENTS` (or the group equivalent) **with the reason**:
 
 ```python
 INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
@@ -60,18 +51,14 @@ INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
 }
 ```
 
-The reason is not decoration: without it the gate cannot tell a considered omission from a
-forgotten one, and the exemption becomes a rubber stamp. An exemption for an event that
-now *has* a handler also fails — stale exemptions are removed, not left lying around.
+- **The reason is required:** without it the gate cannot tell a considered omission from a forgotten one, and the exemption becomes a rubber stamp.
+- **Stale exemptions fail:** an exemption for an event that now *has* a handler fails too. Remove stale exemptions.
 
 ## Retiring an event
 
-Never delete a documented name outright. Move it from the channel frozenset to
-`DEPRECATED_BOARD_EVENTS` / `DEPRECATED_GROUP_EVENTS`, mapping the wire name to the
-release it was deprecated in, and **keep the docs row** — the deprecation notice has to
-stand for at least one minor release before the name can go. The gate enforces both
-halves: a deprecated name that is still emitted fails, and so does one whose docs row was
-removed early.
+Never delete a documented name outright. Move it from the channel frozenset to `DEPRECATED_BOARD_EVENTS` / `DEPRECATED_GROUP_EVENTS`, mapping the wire name to the release it was deprecated in, and **keep the docs row**. The deprecation notice has to stand for at least one minor release before the name can go.
+
+The gate enforces both halves: a deprecated name that is still emitted fails, and so does one whose docs row was removed early.
 
 ## Running the gate locally
 
@@ -81,42 +68,28 @@ python scripts/check-ws-event-reachability.py --self-test  # prove the detectors
 bash scripts/tests/check-ws-event-reachability.test.sh     # CLI surface + exit codes
 ```
 
-Exit codes: `0` everything reconciles, `1` findings, `2` the checker could not run (a
-missing file or an unparseable registry). It fails closed on purpose — "I could not look"
-must never read as "I looked and it was fine".
+Exit codes: `0` everything reconciles, `1` findings, `2` the checker could not run (a missing file or an unparseable registry). It fails closed on purpose: "I could not look" must never read as "I looked and it was fine".
 
-CI runs `--self-test` immediately before the real invocation, on the same image. A bespoke
-gate whose detectors have silently stopped detecting is worse than no gate, because the
-green tick still reads as a verdict.
+CI runs `--self-test` immediately before the real invocation, on the same image. A bespoke gate whose detectors have silently stopped detecting is worse than no gate, because the green tick still reads as a verdict.
 
 ## Eviction must not depend on a frame
 
-Every publish is best-effort (#1462). A lost *data* frame is recoverable, because the
-client resyncs or replays the change feed. A lost frame that the **consumer** acts on is
-not, because no client-side resync runs consumer code. `member.removed` is that kind of
-frame: it closes the removed user's own socket. So it is only the fast path for
-eviction. `BoardConsumer` and `GroupConsumer` also re-check access before they forward
-any frame (`_access_close_code`, cached per socket for `ACCESS_RECHECK_SECONDS` plus up to
-`ACCESS_RECHECK_JITTER_SECONDS` of jitter, so about 7 s at most). They use the same
-predicate as `connect()`, and they close with `4003` when access is gone (#1477). A check
-that raises fails closed too: the frame is dropped and the socket closes with `1011`,
-which clients reconnect on, so with database-backed sessions (the default) `4003` means a
-definitive denial (#2003). Cache-only session backends are a known exception: a cache
-outage reads as a revoked session and closes with `4003` (#2014). See
-[Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction).
+Every publish is best-effort (#1462). A lost *data* frame is recoverable, because the client resyncs or replays the change feed. A lost frame that the **consumer** acts on is not, because no client-side resync runs consumer code.
 
-If you add an event that the consumer acts on, and especially one that revokes
-something, it needs the same backstop. Make sure the consumer reaches a correct state on
-its own when the frame never arrives.
+`member.removed` is that kind of frame: it closes the removed user's own socket. So it is only the fast path for eviction:
+
+- `BoardConsumer` and `GroupConsumer` also re-check access before they forward any frame (`_access_close_code`, cached per socket for `ACCESS_RECHECK_SECONDS` plus up to `ACCESS_RECHECK_JITTER_SECONDS` of jitter, so about 7 s at most).
+- They use the same predicate as `connect()`, and they close with `4003` when access is gone (#1477).
+- A check that raises fails closed too: the frame is dropped and the socket closes with `1011`, which clients reconnect on. With database-backed sessions (the default), `4003` therefore means a definitive denial (#2003).
+- **Yes, but:** cache-only session backends are a known exception. A cache outage reads as a revoked session and closes with `4003` (#2014).
+
+See [Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction).
+
+**Watch out:** If you add an event that the consumer acts on, and especially one that revokes something, it needs the same backstop. Make sure the consumer reaches a correct state on its own when the frame never arrives.
 
 ## What the gate does not cover
 
-`CARD_MUTATION_HOOKS` (`backend/boards/hooks.py`) is a *separate* frozen contract for
-enterprise add-ons, and it is not the WebSocket surface. The two agree on five card event
-names and deliberately diverge on one: unarchiving a card broadcasts `card.unarchived`
-over the socket but fires the hook event `card.restored`. Both strings are frozen
-independently; neither may be "corrected" to match the other. Hook handlers run after commit; a raising handler is logged and swallowed and cannot veto or roll back the write. `card.deleted` hooks fire only from `services.cards.delete_card`; admin card deletes and container cascades fire no hook; consume the [change feed](../api/events.md) to observe them (see [Deleting a container deletes its cards](../api/websockets.md#deleting-a-container-deletes-its-cards)). The mapping table in
-`hooks.py` is the only place that correspondence is written down.
-
-The gate also does not check payload *shapes* — only names. A docs row whose `data` column
-lies about the payload still passes, so keep the row honest when you change a serializer.
+- **`CARD_MUTATION_HOOKS`** (`backend/boards/hooks.py`) is a *separate* frozen contract for enterprise add-ons, not the WebSocket surface. The two agree on five card event names and deliberately diverge on one: unarchiving a card broadcasts `card.unarchived` over the socket but fires the hook event `card.restored`. Both strings are frozen independently; neither may be "corrected" to match the other. The mapping table in `hooks.py` is the only place that correspondence is written down.
+    - Hook handlers run after commit. A raising handler is logged and swallowed and cannot veto or roll back the write.
+    - `card.deleted` hooks fire only from `services.cards.delete_card`. Admin card deletes and container cascades fire no hook; consume the [change feed](../api/events.md) to observe them (see [Deleting a container deletes its cards](../api/websockets.md#deleting-a-container-deletes-its-cards)).
+- **Payload shapes.** The gate checks only names. A docs row whose `data` column lies about the payload still passes, so keep the row honest when you change a serializer.
