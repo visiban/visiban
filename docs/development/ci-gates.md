@@ -36,11 +36,8 @@ reference on a non-comment line, and fails if any of them:
 - has no `--self-test` mode at all, or
 - has one, but no job in `.gitlab-ci.yml` actually invokes it with that flag.
 
-Nothing here is hardcoded: when a new bespoke script is wired into the CI file (for example
-`check-suppression-issues.sh`), the parity check picks it up automatically the next run — no
-edit to the checker itself. Wired as its own job (`gate-selftest-parity`, `lint` stage),
-which runs `check-gate-selftest-parity.sh --self-test` before the real scan, same pattern as
-every gate it audits.
+Nothing is hardcoded. When a new bespoke script is wired into the CI file (for example
+`check-suppression-issues.sh`), the parity check picks it up on the next run, with no edit to the checker. It runs as its own job (`gate-selftest-parity`, `lint` stage), which runs `check-gate-selftest-parity.sh --self-test` before the real scan, like every gate it audits.
 
 ```bash
 bash scripts/check-gate-selftest-parity.sh            # scan the real .gitlab-ci.yml
@@ -49,7 +46,7 @@ bash scripts/check-gate-selftest-parity.sh --self-test # prove the scanner still
 
 ### Scope
 
-Only `scripts/*.sh`, `*.py`, and `*.mjs` files referenced by literal path in
+It covers only `scripts/*.sh`, `*.py`, and `*.mjs` files referenced by literal path in
 `.gitlab-ci.yml`. It does **not** reach into:
 
 - the inline `- |` shell blocks scattered across the CI file (there is no script file to
@@ -59,24 +56,17 @@ Only `scripts/*.sh`, `*.py`, and `*.mjs` files referenced by literal path in
 - scripts that are never invoked from `.gitlab-ci.yml` at all (e.g. `assemble-changelog.sh`
   and `close-milestone-issues.sh`, called only from `scripts/release.sh` at release time).
 
-Extending the meta-gate to any of these is future work, not silently assumed to be covered —
-see [Known gaps](#known-gaps-and-deferred-work) below.
+Extending the meta-gate to these is future work, not assumed covered. See [Known gaps](#known-gaps-and-deferred-work).
 
 ## The escape hatch: `gate-selftest-exempt:`
 
-Some scripts genuinely cannot build a synthetic known-bad input cheaply — most often a live
-smoke test whose entire value is exercising real infrastructure. Rather than let the parity
-check hardcode a list of exceptions (the same anti-pattern the meta-gate exists to avoid),
-an exempt script documents its own exemption, the same escape-hatch shape as
-`migration-check`'s `# concurrency-exempt:` comment and the OSV gate's `IgnoredVulns` entries:
+Some scripts cannot build a synthetic known-bad input cheaply, most often a live smoke test whose value is exercising real infrastructure. The parity check does not hardcode exceptions (the anti-pattern the meta-gate exists to avoid). An exempt script documents its own exemption instead, the same escape-hatch shape as `migration-check`'s `# concurrency-exempt:` comment and the OSV gate's `IgnoredVulns` entries:
 
 ```bash
 # gate-selftest-exempt: <reason>
 ```
 
-The comment must start the line (only leading whitespace and a single `#` before the marker)
-so that prose *describing* the marker — like this page, or `check-gate-selftest-parity.sh`'s
-own header — is never mistaken for a real exemption.
+**Watch out:** The comment must start the line (only leading whitespace and a single `#` before the marker). Prose *describing* the marker, like this page or `check-gate-selftest-parity.sh`'s own header, is then never mistaken for a real exemption.
 
 ### Currently exempt
 
@@ -133,11 +123,9 @@ any CI job — see below.
 
 ## What `trivy-scan` covers in the Helm chart
 
-`trivy fs` renders a Helm chart before it scans it, and the chart's render-time guards
-(`templates/_validate.tpl`) reject placeholder values. Without help trivy logs
-`Skipping chart ... validate.yaml` and scans no template (#1536). The job therefore passes
-`--helm-values helm/ci/trivy-values.yaml`, a render-only values file (arbitrary, non-secret
-values; never use it to install), and fails if `trivy-report.json` has no result for `helm/visiban/templates/` or if the `Skipping chart` line ever reappears (two checks, so a reworded log line cannot hide a skip).
+`trivy fs` renders a Helm chart before it scans it, and the chart's render-time guards (`templates/_validate.tpl`) reject placeholder values. Without help, trivy logs `Skipping chart ... validate.yaml` and scans no template (#1536).
+
+The job therefore passes `--helm-values helm/ci/trivy-values.yaml`, a render-only values file (arbitrary, non-secret values; **never use it to install**). It fails if `trivy-report.json` has no result for `helm/visiban/templates/` or if the `Skipping chart` line ever reappears. Two checks mean a reworded log line cannot hide a skip.
 
 - **Scanned:** the chart's default render plus NetworkPolicies, the scheduled-job CronJobs,
   the OIDC env block and the SMTP env block (those are switched on in the values file so
@@ -161,10 +149,9 @@ Run `python scripts/_paths.py --self-test` to exercise the helper (`..` traversa
 
 ## Scheduled pipelines
 
-A scheduled pipeline on `main` runs the **whole** pipeline, not just the schedule-gated jobs:
-the `$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH` rules match a schedule, and `changes:` rules
-evaluate true on one. Every extra schedule therefore costs a full pipeline (about 48 jobs).
-So the project keeps **three** schedules (#1383, #1384), not one per job. All three use the `America/New_York` time zone so their local start times hold across daylight saving, and they sit in the 00:00 to 07:00 ET window, at least 90 minutes apart, clear of the TruePPM project's own schedules:
+**Why it matters:** A scheduled pipeline on `main` runs the **whole** pipeline, not just the schedule-gated jobs: the `$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH` rules match a schedule, and `changes:` rules evaluate true on one. Every extra schedule costs a full pipeline (about 48 jobs).
+
+So the project keeps **three** schedules (#1383, #1384), not one per job. All three use the `America/New_York` time zone so their local start times hold across daylight saving. They sit in the 00:00 to 07:00 ET window, at least 90 minutes apart, clear of the TruePPM project's own schedules:
 
 | Schedule (id) | Cron (`America/New_York`) | Variables | Owner | Jobs it adds | What red means |
 |---|---|---|---|---|---|
@@ -172,47 +159,38 @@ So the project keeps **three** schedules (#1383, #1384), not one per job. All th
 | Nightly load test (#1082) (4463581) | `0 0 * * *` (00:00 ET) | `LOAD_TEST_SCHEDULE=true` | maintainers (schedule owner: `kellyhair`) | `nightly-load-test` (blocking) | A p95 budget was exceeded; see [Nightly load test](nightly-load-test.md). |
 | Weekly mutation testing (#1384) (4485984) | `0 6 * * 0` (Sunday 06:00 ET) | `MUTATION_TEST=true` | maintainers (schedule owner: `kellyhair`) | `backend-mutation` (50 shards) and `backend-mutation-report` (both `allow_failure: true` until the follow-up on #1384 makes the report blocking) | **Yellow `backend-mutation-report`:** either the merged adjusted mutation score is under the 0.90 floor (exit 1; the log names any target under it on its own), or the run was not measured (exit 2: a shard or target died, or finished with untested mutants). The log says which. See [Mutation testing](mutation-testing.md). |
 
-All three schedules also run every ordinary `main` job, plus the jobs that use any scheduled
-pipeline as their slot: `schedule-config-check`, `check-release-images`,
-`cleanup-merged-branches`. `check-release-attestations` is narrower: it runs only on the
-schedule that sets `CVE_SCAN` (Nightly), so it needs no schedule of its own. The helm and compose drills (`helm-install`, `helm-netpol`,
-`compose-prod-drill`) skip any schedule that sets `SONAR_SCHEDULED`, so they run on the
-load-test and weekly mutation schedules. The load test keeps its own schedule, three hours
-earlier than the Nightly one, because its latency budgets are noisy on a busy runner. Mutation
-testing keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see
-[Runner load](mutation-testing.md#runner-load)), which did not fit alongside the Nightly jobs. `backend-schema-fuzz`, the MR job, never runs on
-a schedule; `backend-schema-fuzz-deep` replaces it there.
+All three schedules also run every ordinary `main` job, plus the jobs that use any scheduled pipeline as their slot: `schedule-config-check`, `check-release-images`, `cleanup-merged-branches`.
 
-`seed-demo-data` has no schedule on purpose (#1232): it is manual-only on `main`, because the
-try.visiban.com demo now runs from the Helm chart's demo mode (see
-[Demo deployment](../maintainers/demo-deploy.md)) rather than a weekly CI reseed.
-`SCHEDULE_AUDIT_ACCEPTED_GAPS` is empty, so every schedule-gated variable must have an active
-schedule. Its last temporary entry, `MUTATION_TEST` (#1384), was removed once a schedule
-carried the variable (first the Nightly one, now the Weekly mutation testing one).
+- **`check-release-attestations`** is narrower: it runs only on the schedule that sets `CVE_SCAN` (Nightly), so it needs no schedule of its own.
+- **Helm and compose drills** (`helm-install`, `helm-netpol`, `compose-prod-drill`) skip any schedule that sets `SONAR_SCHEDULED`, so they run on the load-test and weekly mutation schedules.
+- **Load test:** it keeps its own schedule, three hours earlier than the Nightly one, because its latency budgets are noisy on a busy runner.
+- **Mutation testing:** it keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see [Runner load](mutation-testing.md#runner-load)), which did not fit alongside the Nightly jobs.
+- **`backend-schema-fuzz`**, the MR job, never runs on a schedule; `backend-schema-fuzz-deep` replaces it there.
+
+- **`seed-demo-data`** has no schedule on purpose (#1232). It is manual-only on `main`, because the try.visiban.com demo now runs from the Helm chart's demo mode (see [Demo deployment](../maintainers/demo-deploy.md)) rather than a weekly CI reseed.
+- **`SCHEDULE_AUDIT_ACCEPTED_GAPS`** is empty, so every schedule-gated variable must have an active schedule. Its last temporary entry, `MUTATION_TEST` (#1384), was removed once a schedule carried the variable (first the Nightly one, now the Weekly mutation testing one).
 
 ### Changing a schedule
 
-Schedules are GitLab project configuration (**Build → Pipeline schedules**), not files in this
-repository. `schedule-config-check` runs on every scheduled pipeline. It fails if any
-`$CI_PIPELINE_SOURCE == "schedule" && $VAR == "true"` rule in `.gitlab-ci.yml` has no
-active schedule setting `VAR=true`, unless the variable is listed in
-`SCHEDULE_AUDIT_ACCEPTED_GAPS`.
+Schedules are GitLab project configuration (**Build → Pipeline schedules**), not files in this repository. `schedule-config-check` runs on every scheduled pipeline. It fails if any `$CI_PIPELINE_SOURCE == "schedule" && $VAR == "true"` rule in `.gitlab-ci.yml` has no active schedule setting `VAR=true`, unless the variable is listed in `SCHEDULE_AUDIT_ACCEPTED_GAPS`.
 
 !!! warning "The check only asserts anything when `GITLAB_API_TOKEN` is configured"
     A job's `CI_JOB_TOKEN` cannot read pipeline schedules. Without a `GITLAB_API_TOKEN` CI
-    variable, the lookup is
-    inconclusive and the job **warns and passes**, and a schedule missing a variable goes
-    unreported, which is the gap #1213 was filed over. The variable has existed on
-    `visiban/visiban` since 2026-10-31 (#1996), owned by a Maintainer bot, so the check
-    asserts from the next scheduled pipeline on. A red `schedule-config-check` there names a
-    real gap the check could not see before. If it is ever removed or its owner drops below Maintainer, the check either
-    falls back to warning or reports every schedule-only variable as `MISSING`. Before
-    #1383 the script also stopped at the rejected job token instead of trying
-    `GITLAB_API_TOKEN`. It now falls through to it. The variable is a personal access token
-    with `read_api` scope. For this check its owner needs **Maintainer**, or must own the
-    schedules, because GitLab returns schedule `variables` only to them. Project access tokens
-    need Premium on GitLab.com, and the `visiban` group is on Free. See
-    [Tokens and Rotation](../maintainers/tokens-and-rotation.md#gitlab_api_token-and-the-release-guard).
+    variable, the lookup is inconclusive and the job **warns and passes**. A schedule missing a variable then goes
+    unreported, which is the gap #1213 was filed over.
+
+    - The variable has existed on `visiban/visiban` since 2026-10-31 (#1996), owned by a Maintainer bot, so the check
+      asserts from the next scheduled pipeline on. A red `schedule-config-check` there names a
+      real gap the check could not see before.
+    - If it is ever removed or its owner drops below Maintainer, the check either
+      falls back to warning or reports every schedule-only variable as `MISSING`.
+    - Before #1383 the script also stopped at the rejected job token instead of trying
+      `GITLAB_API_TOKEN`. It now falls through to it.
+    - The variable is a personal access token with `read_api` scope. For this check its owner needs **Maintainer**, or must own the
+      schedules, because GitLab returns schedule `variables` only to them. Project access tokens
+      need Premium on GitLab.com, and the `visiban` group is on Free.
+
+    See [Tokens and Rotation](../maintainers/tokens-and-rotation.md#gitlab_api_token-and-the-release-guard).
 
 Once `GITLAB_API_TOKEN` is configured, the order of a change matters:
 
@@ -227,15 +205,10 @@ MR or push pipeline. It fails the next scheduled pipeline on `main` after the me
 
 ### The README pipeline badge
 
-**Decision (#1383): the README badge keeps tracking the latest `main` pipeline, schedules
-included.** A red scheduled pipeline turns the badge red, which is deliberate. Both schedules
-feed it, including the 03:00 load-test pipeline. GitLab's pipeline badge
-can filter by ref and `ignore_skipped` but not by pipeline source, and the shields.io GitLab
-pipeline badge reads the same latest-pipeline-per-ref data. A schedule-free badge would mean
-running and maintaining a new endpoint, a service this project does not have. More
-importantly, every reason the badge can go red is a real problem with `main`, not a stochastic
-or external blip. Visiban is self-hosted, so for someone deciding whether to deploy `main`,
-that is exactly what a public status badge should show.
+**Decision (#1383): the README badge keeps tracking the latest `main` pipeline, schedules included.** A red scheduled pipeline turns the badge red, which is deliberate. Both schedules feed it, including the 03:00 load-test pipeline.
+
+- **No schedule-free option:** GitLab's pipeline badge can filter by ref and `ignore_skipped` but not by pipeline source, and the shields.io GitLab pipeline badge reads the same latest-pipeline-per-ref data. A schedule-free badge would mean running and maintaining a new endpoint, a service this project does not have.
+- **Every red is real:** every reason the badge can go red is a real problem with `main`, not a stochastic or external blip. Visiban is self-hosted, so for someone deciding whether to deploy `main`, that is exactly what a public status badge should show.
 
 The badge can go red for three reasons:
 
@@ -245,15 +218,13 @@ The badge can go red for three reasons:
 - An ordinary `main` job really fails in a scheduled run (for example, the 2026-10-01
   `frontend-test` red).
 
-Deep fuzz, Sonar and kaizen are `allow_failure: true` and **cannot** turn the badge red. The
-load test is the case most likely to reopen this decision. If its noise starts making the
-badge meaningless, the fix belongs in the load test's budgets, not in the badge. To revisit the
-decision, change this section and `README.md` together.
+Deep fuzz, Sonar and kaizen are `allow_failure: true` and **cannot** turn the badge red.
+
+**Yes, but:** The load test is the case most likely to reopen this decision. If its noise starts making the badge meaningless, the fix belongs in the load test's budgets, not in the badge. To revisit the decision, change this section and `README.md` together.
 
 ## Known gaps and deferred work
 
-Not every bespoke script called out when #1093 was filed got a self-test in the same pass.
-Deferred deliberately, not silently:
+Not every bespoke script called out when #1093 was filed got a self-test in the same pass. These are deferred deliberately, not silently:
 
 - **`scripts/close-milestone-issues.sh`** — an action script (closes GitLab issues via
   `glab`), not a detection/gate script: there is no pass/fail verdict to prove still fires.
@@ -273,12 +244,8 @@ Deferred deliberately, not silently:
 
 ## Why this matters here specifically
 
-Several CI jobs in this repo run on `alpine:3.19`, whose `grep`/`sed` are BusyBox, not GNU —
-no `--exclude-dir`, and subtly different behavior under `set -o pipefail` (a `grep -q`
-short-circuit sends `SIGPIPE` upstream, which `pipefail` turns into a false pipeline
-failure — found and fixed in `check-gate-selftest-parity.sh` itself while writing it; see the
-comment above `set -eu` in that script). `backend-lint` already ends a line with `|| true`
-(on its secondary Code Quality report step, not its blocking `ruff check` line — but the
-shape is exactly the hazard this page exists to guard against elsewhere). Write and test
-gate scripts assuming BusyBox and a bare `set -eu`, not GNU tools or `pipefail`, unless you
-have verified the specific behavior you rely on.
+Write and test gate scripts assuming BusyBox and a bare `set -eu`, not GNU tools or `pipefail`, unless you have verified the specific behavior you rely on.
+
+- Several CI jobs run on `alpine:3.19`, whose `grep`/`sed` are BusyBox, not GNU: no `--exclude-dir`, and subtly different behavior under `set -o pipefail`.
+- A `grep -q` short-circuit sends `SIGPIPE` upstream, which `pipefail` turns into a false pipeline failure. That was found and fixed in `check-gate-selftest-parity.sh` itself while writing it; see the comment above `set -eu` in that script.
+- `backend-lint` already ends a line with `|| true` (on its secondary Code Quality report step, not its blocking `ruff check` line), but the shape is exactly the hazard this page exists to guard against elsewhere.
