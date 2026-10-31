@@ -40,7 +40,7 @@ In a second terminal:
 docker compose exec backend python manage.py seed_demo_data
 ```
 
-This creates the "Visiban Demo Board" (five columns, ten swimlanes, about 80 cards, with movement history, checklists, and comments). `DEBUG=true` in `.env.example` satisfies the command's production guard. See [Demo Data](../administration/demo-data.md) for what the seed creates.
+This creates the "Visiban Demo Board": five columns, ten swimlanes, about 80 cards, with movement history, checklists, and comments. `DEBUG=true` in `.env.example` satisfies the command's production guard. See [Demo Data](../administration/demo-data.md) for what the seed creates.
 
 ## 3. Sign in and mint a read-only token
 
@@ -68,7 +68,7 @@ The seeded `demo1` to `demo5` accounts have unusable passwords, so use the site 
 
     The response's `token` field is the `vbn_...` value. Copy it now; it is shown once.
 
-This step uses the API so the walkthrough is scriptable; in the web app you would tick **mcp:read** under Settings > Access Tokens instead (see the [API Reference](../api/mcp.md)).
+**Yes, but:** this step uses the API so the walkthrough is scriptable. In the web app you would tick **mcp:read** under Settings > Access Tokens instead (see the [API Reference](../api/mcp.md)).
 
 A token with only `mcp:read` can list and read boards, columns, swimlanes, cards, and card history. Calling a write tool (`create_card`, `move_card`, `update_card`, `archive_card`) fails with a structured error. Scopes are not hierarchical; see [Personal Access Tokens](personal-access-tokens.md#scopes).
 
