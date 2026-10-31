@@ -5034,12 +5034,22 @@ arrives by any other route, any non-API write.</p>
 <tr>
 <td>Group invite links, link and email (REST)</td>
 <td><code>groups/serializers.py</code> <code>GroupInviteLinkCreateSerializer</code>, <code>GroupInviteLinkEmailSerializer</code></td>
-<td>A <code>ChoiceField</code> over <code>GROUP_INVITE_LINK_ROLE_CHOICES</code> (every role but <code>admin</code>, Rule 13) in both serializers, for a shareable link and for an emailed invite (#2006)</td>
+<td>A <code>ChoiceField</code> over <code>GROUP_INVITE_LINK_ROLE_CHOICES</code> (every role but <code>admin</code>, Rule 13) in both serializers, for a shareable link and for an emailed invite (#2006); <code>GroupInviteLink.generate</code> repeats the check against <code>GroupMembership.Role.values</code> (#2015), and <code>role_refusal</code> is the one predicate the preview, join, registration and <code>status</code> share</td>
 </tr>
 <tr>
 <td>Invite redemption at registration</td>
 <td><code>boards/invites.py</code> <code>role_is_grantable</code>, <code>_would_create_membership</code>; <code>groups/invite_registration.py</code> <code>group_link_registration_refusal</code></td>
 <td>The stored link role must be in the grantable set (<code>GRANTABLE_ROLES</code>) or <code>GroupMembership.Role.values</code>, else the invite is refused as invalid</td>
+</tr>
+<tr>
+<td>Group invite preview and redemption (REST)</td>
+<td><code>groups/views.py</code> <code>JoinGroupView.get</code>, <code>JoinGroupView.post</code></td>
+<td>The stored link role must be within <code>GroupMembership.Role.values</code> (and not <code>admin</code>, Rule 13), else the same <code>404</code> as a revoked link (preview and join), before any membership is written or the invite consumed; matches <code>group_link_registration_refusal</code> (#2015). Pinned by <code>groups/tests/test_join_group_role_validation_2015.py</code></td>
+</tr>
+<tr>
+<td>Board invite preview, join and grant at confirmation</td>
+<td><code>boards/views/invites.py</code> <code>JoinBoardView.get</code>, <code>.post</code> (both call <code>boards/invites.py</code> <code>unusable_code</code>); <code>boards/invites.py</code> <code>board_link_registration_refusal</code> (also the grant in <code>_grant_reserved_board_invite</code>)</td>
+<td><code>unusable_code</code> and <code>board_link_registration_refusal</code> treat a link whose role fails <code>role_is_grantable</code> (outside <code>BoardInviteLink.GRANTABLE_ROLES</code>) as <code>revoked</code> / <code>invite_invalid</code>, so nothing is written for it</td>
 </tr>
 <tr>
 <td>Assignable and notification member sets</td>

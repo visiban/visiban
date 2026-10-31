@@ -4921,7 +4921,7 @@
 <p><strong>Errors:</strong> the same as <code>GET /api/v1/groups/{id}/descendant-boards/</code>: <code>404 Not Found</code> if the group does not exist or the caller cannot see it; <code>403 Forbidden</code> for a navigation-only caller.</p>
 <hr />
 <h2 id="invite-links">Invite links<a class="headerlink" href="#invite-links" title="Permanent link">&para;</a></h2>
-<p>A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (<code>delivery: "email"</code>, below) are capped separately — up to 50 pending per group — and never count against the 5.</p>
+<p>A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (<code>delivery: "email"</code>, below) are capped separately — up to 50 pending per group — and never count against the 5. A link whose role can never redeem (see <code>status</code>) counts against neither cap.</p>
 <p>A link is revoked automatically (set inactive, freeing its slot, and announced as <code>invite_link.revoked</code>) when its creator is deactivated or deleted, loses group admin rights, or when a <code>parent</code> change moves the group so the creator no longer administers the link's group. Unused links only; a consumed single-use link is left alone. Join and preview independently refuse any link whose creator no longer qualifies, so nobody is admitted through a stale one.</p>
 <p>Upgrade cleanup: on upgrade, unused links whose creator was already deleted or deactivated are deactivated once. <strong>Not backfilled:</strong> links whose creator still exists and is active but was demoted, removed, or moved out of administering the group before this fix (tracked in #1565). They stay listed as active and hold a slot until revoked manually, but still admit nobody.</p>
 <p>Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.</p>
@@ -5067,7 +5067,7 @@
 <tr>
 <td><code>status</code></td>
 <td>string</td>
-<td>Computed status: <code>pending</code> (active and unredeemed), <code>used</code> (single-use and consumed), <code>expired</code> (past <code>expires_at</code>), or <code>revoked</code> (admin disabled). <em>(#2006)</em> An unused link with the <code>admin</code> role also reports <code>revoked</code>: it was minted before invites were capped below admin and can never be redeemed.</td>
+<td>Computed status: <code>pending</code> (active and unredeemed), <code>used</code> (single-use and consumed), <code>expired</code> (past <code>expires_at</code>), or <code>revoked</code> (admin disabled). <em>(#2006)</em> An unused link whose role can never redeem also reports <code>revoked</code>: an <code>admin</code> link minted before invites were capped below admin, or <em>(#2015)</em> a link whose stored role is outside the group roles. Neither counts toward a cap.</td>
 </tr>
 <tr>
 <td><code>delivery</code></td>
@@ -5141,7 +5141,7 @@
 <tr>
 <td><code>400 Bad Request</code></td>
 <td><code>{"code": "invite_email_cap_reached", ...}</code></td>
-<td>The group already has 50 pending emailed links (active, unexpired, unused; <em>(#2006)</em> an unusable <code>admin</code> invite does not count)</td>
+<td>The group already has 50 pending emailed links (active, unexpired, unused; <em>(#2006)</em> an unusable <code>admin</code> invite, or <em>(#2015)</em> one whose stored role is outside the group roles, does not count)</td>
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>
@@ -5323,7 +5323,7 @@
 <p><strong>Disclosure:</strong> <code>can_register</code> is visible to anyone holding the token, and its value can narrow down whether the site is closed, whether the link is an emailed single-use invite, and whether its sender still has admin rights. This is accepted under the token-as-capability model of this endpoint (#801): a token holder could learn the same thing by attempting registration with it. No reason, registration mode, delivery type or sender is ever returned.</p>
 <p><code>can_register</code> is present only on <code>200</code> responses, never on <code>404</code> / <code>410</code> bodies. A member previewing their own consumed single-use invite (below) gets <code>can_register: false</code> in <code>"invite_only"</code> mode. Site invite links (<code>vbnl_</code>) are out of scope: they are not group tokens, and the SPA routes them to the registration form without calling this endpoint.</p>
 <p><strong>Errors:</strong> <code>404 Not Found</code> (invalid or revoked token, or, <em>(1.2+)</em> the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is <code>404</code> even if it is also expired or consumed. A link with a live creator still answers <code>410</code> for expired or consumed, so the two cases remain distinguishable to a token holder), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
-<p><em>(1.2+, #1940)</em> A shareable (<code>delivery: "link"</code>) link with the <code>admin</code> role answers <code>404</code>, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. <em>(#2006)</em> An emailed <code>admin</code> invite sent before the cap answers <code>404</code> too; no invite grants admin.</p>
+<p><em>(1.2+, #1940)</em> A shareable (<code>delivery: "link"</code>) link with the <code>admin</code> role answers <code>404</code>, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. <em>(#2006)</em> An emailed <code>admin</code> invite sent before the cap answers <code>404</code> too; no invite grants admin. <em>(#2015)</em> A link whose stored role is not one of the group roles (only possible through a write outside the API) answers <code>404</code> as well.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
@@ -5355,7 +5355,7 @@
 <p><strong>Status:</strong> <code>201 Created</code> on first join; <code>200 OK</code> if the caller was already a member (existing role preserved, no downgrade).</p>
 <p><strong>Note:</strong> Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.</p>
 <p><strong>Errors:</strong> <code>401 Unauthorized</code> (not authenticated), <code>404 Not Found</code> (invalid or revoked token, or, <em>(1.2+)</em> the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is <code>404</code> even if it is also expired or consumed. A link with a live creator still answers <code>410</code> for expired or consumed, so the two cases remain distinguishable to a token holder), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed by someone who is not a member)</p>
-<p><em>(1.2+, #1940)</em> A shareable (<code>delivery: "link"</code>) link with the <code>admin</code> role answers <code>404</code> and nothing is written, the same as a revoked link. <em>(#2006)</em> An emailed <code>admin</code> invite sent before the cap is refused the same way.</p>
+<p><em>(1.2+, #1940)</em> A shareable (<code>delivery: "link"</code>) link with the <code>admin</code> role answers <code>404</code> and nothing is written, the same as a revoked link. <em>(#2006)</em> An emailed <code>admin</code> invite sent before the cap is refused the same way. <em>(#2015)</em> So is a link whose stored role is outside the group roles; nothing is written and a single-use link stays unconsumed.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
