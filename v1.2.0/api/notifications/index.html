@@ -4175,6 +4175,7 @@ while its <code>notif_*</code> counterpart is <code>false</code>. See
 <hr />
 <h3 id="get-apiv1notificationsunread-count"><code>GET /api/v1/notifications/unread-count/</code><a class="headerlink" href="#get-apiv1notificationsunread-count" title="Permanent link">&para;</a></h3>
 <p>Return the count of unread notifications for the current user. Used by the navbar bell badge. Requires authentication.</p>
+<p>The count is uncapped and covers every unread notification on a board you can still access (plus notifications with no board). It can exceed the 50 the list endpoint returns. Since 1.3 (#1959), rows on boards you have lost access to no longer reduce the count when they fall inside the newest 50.</p>
 <p><strong>Response</strong> <code>{ "count": 5 }</code></p>
 
 

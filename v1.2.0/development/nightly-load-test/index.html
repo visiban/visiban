@@ -4322,7 +4322,7 @@
 <li>The baseline's <code>fixture</code> block records <code>extra_board_count</code> and <code>multi_board_accessible_boards</code>.</li>
 </ul>
 </li>
-<li><strong><code>--with-notifications</code></strong> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user. That is more than the 50-row cap <code>NotificationListView</code> / <code>NotificationUnreadCountView</code> apply, so the job exercises the same "more unread than the cap" path a busy real inbox hits.</li>
+<li><strong><code>--with-notifications</code></strong> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user. That is more than the 50-row cap <code>NotificationListView</code> applies (<code>NotificationUnreadCountView</code> is uncapped and counts all 60), so the job exercises the same "more unread than the cap" path a busy real inbox hits.</li>
 <li><strong>A fixture size with no stated card/swimlane count is meaningless</strong>: a p95 is only interpretable next to its data volume. <code>nightly-load-test-results.json</code> (the job's artifact) records the actual card and swimlane count with the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets were derived against.</li>
 </ul>
 <h2 id="auth">Auth<a class="headerlink" href="#auth" title="Permanent link">&para;</a></h2>
