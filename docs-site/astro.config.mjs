@@ -31,6 +31,9 @@ export default defineConfig({
         'Open-source Kanban board where every row is an entity and every move is on the record.',
       social: [{ icon: 'gitlab', label: 'GitLab', href: 'https://gitlab.com/visiban/visiban' }],
       editLink: { baseUrl: 'https://gitlab.com/visiban/visiban/-/edit/main/docs-site/' },
+      // .vb-version: the inline "added in" badge (a plain <span>, so pages can
+      // stay .md, and it parses as MDX when starlight-versions cuts a version).
+      customCss: ['./src/styles/version-badge.css'],
       plugins: [starlightVersions({ versions: versions.map(({ slug, label }) => ({ slug, label })), current: { label: 'Latest (main)' } })],
       // The getting-started path reads top to bottom: decide, install, first
       // boot, set up a board, then branch to what your install needs.
@@ -50,7 +53,9 @@ export default defineConfig({
               items: [
                 { slug: 'getting-started/kubernetes' },
                 { slug: 'getting-started/oauth' },
-                { slug: 'getting-started/onboarding-tour' },
+                // Version badges mark what a page or option was added in; see
+                // docs/development/docs-style-smart-brevity.md ("Version badges").
+                { slug: 'getting-started/onboarding-tour', badge: { text: '1.1+', variant: 'note' } },
               ],
             },
           ],
