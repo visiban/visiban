@@ -1,7 +1,20 @@
 # OSV-Scanner config for frontend/package-lock.json (auto-discovered; see
 # scripts/osv-severity-gate.sh for the accepted-risk contract).
 #
-# No accepted-risk entries at present. The braces GHSA-vfj7-8cjw-p6xm waiver
+# The braces GHSA-vfj7-8cjw-p6xm waiver
 # (#1415) was removed because the advisory was withdrawn upstream on
 # 2026-10-23; osv-scanner reported it as an unused ignore. Add entries below
 # as [[IgnoredVulns]] blocks with a reason and an ignoreUntil date.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+# minimatch < 11.0.1: globparts amplification DoS (MODERATE, published
+# 2026-10-30). The only fix is 11.0.1; neither the 3.x line (eslint,
+# @eslint/config-array, @eslint/eslintrc) nor the 10.x line
+# (@typescript-eslint/typescript-estree) has a backport, and an overrides pin
+# to 11 would break eslint (3.x exports a function, 11 a named export). Both
+# copies are dev-only lint tooling that only matches the repo's own static
+# globs; not shipped in the production bundle, never sees user input. Remove
+# when the eslint toolchain moves to minimatch >= 11.0.1 (tracked in #2018).
+ignoreUntil = 2027-01-31
+reason = "No minimatch fix within the 3.x/10.x ranges eslint requires; dev-only lint tooling, never sees untrusted input"
