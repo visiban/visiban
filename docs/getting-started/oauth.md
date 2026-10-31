@@ -2,7 +2,7 @@
 
 Each login provider is two environment variables plus a callback URL registered with the provider. All of them are optional: username/email and password login always works.
 
-**Why it matters:** SSO is in the free, open-source core, not a paid tier. Your team signs in with the identity provider you already run.
+**Why it matters:** OAuth and OIDC login are in the free, open-source core. Your team signs in with the identity provider you already run.
 
 **The big picture:**
 

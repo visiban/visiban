@@ -2,7 +2,7 @@
 
 Install, log in once as the admin, mark your Done columns, then invite people. Do it in that order.
 
-**Why it matters:** Two of those steps are easy to skip, and skipping them costs you later. If you invite people before choosing a registration mode, anyone may be able to sign up. If cards move before the Done column is marked, your analytics start out skewed.
+**Why it matters:** Two of those steps are easy to skip, and skipping them costs you later. If cards move before the Done column is marked, your analytics start out skewed.
 
 ## The path
 

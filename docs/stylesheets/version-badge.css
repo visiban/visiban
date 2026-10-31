@@ -1,0 +1,18 @@
+/* "Added in" version badge (#1271). Markup:
+ *   <span class="vb-version" title="Added in 1.2">1.2+</span>
+ * Rules are in docs/development/docs-style-smart-brevity.md, "Version badges".
+ * Uses mkdocs-material tokens so it reads in both light and dark schemes. */
+.vb-version {
+  display: inline-block;
+  padding: 0 0.4em;
+  border: 1px solid var(--md-primary-fg-color);
+  border-radius: 0.25rem;
+  background-color: color-mix(in srgb, var(--md-primary-fg-color) 15%, transparent);
+  color: var(--md-typeset-color);
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}

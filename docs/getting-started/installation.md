@@ -6,7 +6,7 @@ To try Visiban, run `docker compose up --build`. To run it for real, use `init-p
 
 **The big picture:**
 
-- **Try it locally:** four containers, a dev server, and `localhost` defaults. This takes about five minutes.
+- **Try it locally:** four containers, a dev server, and `localhost` defaults.
 - **Run it in production:** released images pinned by `APP_VERSION`, nginx, and Let's Encrypt or your own TLS. Three steps.
 - <a id="kubernetes-helm"></a>**On Kubernetes?** Skip this page and use [Kubernetes (Helm)](kubernetes.md). The chart has been deployed and verified on a live cluster. Install values and upgrade steps are in [Deployment: Kubernetes / Helm](../architecture/deployment.md#kubernetes-helm).
 
