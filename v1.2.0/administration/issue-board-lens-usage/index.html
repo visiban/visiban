@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#issue-board-lens-usage" class="md-skip">
+        <a href="#see-how-much-traffic-the-issue-board-lens-sends-upstream" class="md-skip">
           Skip to content
         </a>
       
@@ -4071,15 +4071,14 @@
   
 
 
-<h1 id="issue-board-lens-usage">Issue Board Lens Usage<a class="headerlink" href="#issue-board-lens-usage" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
+<h1 id="see-how-much-traffic-the-issue-board-lens-sends-upstream">See how much traffic the Issue Board Lens sends upstream<a class="headerlink" href="#see-how-much-traffic-the-issue-board-lens-sends-upstream" title="Permanent link">&para;</a></h1>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
 <div class="admonition warning">
 <p class="admonition-title">Experimental feature</p>
 <p>The <a href="../../features/issue-board-lens/">Issue Board Lens</a> is experimental. The usage report's fields may change while the feature is experimental.</p>
 </div>
-<p>The Issue Board Lens reads GitHub and GitLab on behalf of the people viewing a lens board. GitLab reads are anonymous, so they count against your <strong>instance's</strong> IP address and the rate limit gitlab.com applies to it. GitHub reads use each viewer's own token. Below: how to see how much upstream traffic the lens actually generates, and why that traffic has a hard upper bound.</p>
+<p>Read <code>GET /api/v1/admin/git-lens/usage/</code> as a site admin to see the lens's outbound GitHub and GitLab calls, and why they have a hard upper bound.</p>
+<p><strong>Why it matters:</strong> the Issue Board Lens reads GitHub and GitLab on behalf of the people viewing a lens board. GitLab reads are anonymous, so they count against your <strong>instance's</strong> IP address and the rate limit gitlab.com applies to it. GitHub reads use each viewer's own token.</p>
 <p>Two surfaces are available only while <code>GIT_LENS_ENABLED=true</code>:</p>
 <ul>
 <li>an admin-only <strong>usage report</strong>, served over the API, and</li>
@@ -4190,7 +4189,7 @@
 </table>
 <p>A healthy instance shows <code>cache_fresh</code> well ahead of <code>fetched</code>.</p>
 <h3 id="retention-and-accuracy">Retention and accuracy<a class="headerlink" href="#retention-and-accuracy" title="Permanent link">&para;</a></h3>
-<p>The counters are kept in the Redis/Valkey cache as hourly buckets for 24 hours. They are <strong>operational telemetry, not an audit log</strong>. They are approximate, they are not attributed to users, and they reset if the cache is flushed or restarted. For longer history, collect the log lines described below with your normal log pipeline.</p>
+<p>The counters live in the Redis/Valkey cache as hourly buckets for 24 hours. They are <strong>operational telemetry, not an audit log</strong>: approximate, not attributed to users, and reset if the cache is flushed or restarted. For longer history, collect the log lines below with your normal log pipeline.</p>
 <hr />
 <h2 id="the-outbound-log-line">The outbound log line<a class="headerlink" href="#the-outbound-log-line" title="Permanent link">&para;</a></h2>
 <p>Every GitHub or GitLab HTTP request the lens makes writes one <code>INFO</code> line to the backend's standard output, on the logger <code>git_lens.outbound</code>:</p>
@@ -4238,7 +4237,7 @@
 <p>The default is <code>INFO</code>. The logger has nothing to emit while <code>GIT_LENS_ENABLED</code> is off.</p>
 <hr />
 <h2 id="why-the-traffic-is-bounded">Why the traffic is bounded<a class="headerlink" href="#why-the-traffic-is-bounded" title="Permanent link">&para;</a></h2>
-<p>The lens cannot generate unbounded upstream traffic, however many people view it or how they filter. The <code>bounds</code> section of the report shows the live values:</p>
+<p>However many people view it or how they filter, the lens cannot generate unbounded upstream traffic. The report's <code>bounds</code> section shows the live limits:</p>
 <table>
 <thead>
 <tr>

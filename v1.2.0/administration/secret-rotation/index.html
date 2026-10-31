@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#secret-rotation" class="md-skip">
+        <a href="#rotate-your-secrets-without-downtime-beyond-a-backend-restart" class="md-skip">
           Skip to content
         </a>
       
@@ -4172,18 +4172,26 @@
   
 
 
-<h1 id="secret-rotation">Secret Rotation<a class="headerlink" href="#secret-rotation" title="Permanent link">&para;</a></h1>
-<p>Rotate Visiban's three most critical secrets — <code>DJANGO_SECRET_KEY</code>, <code>DB_PASSWORD</code>, and <code>CORS_ALLOWED_ORIGINS</code> — without downtime beyond a backend restart.</p>
+<h1 id="rotate-your-secrets-without-downtime-beyond-a-backend-restart">Rotate your secrets without downtime beyond a backend restart<a class="headerlink" href="#rotate-your-secrets-without-downtime-beyond-a-backend-restart" title="Permanent link">&para;</a></h1>
+<p>Rotate Visiban's three most critical secrets (<code>DJANGO_SECRET_KEY</code>, <code>DB_PASSWORD</code>, and <code>CORS_ALLOWED_ORIGINS</code>) without downtime beyond a backend restart.</p>
+<p><strong>Why it matters:</strong> rotating <code>DJANGO_SECRET_KEY</code> logs every user out and can silently break outbound email and pending invites. Know the side effects before you start.</p>
+<p><strong>Go deeper:</strong> <a href="#admin-interface-access">Admin interface access</a> covers restricting <code>/admin/</code> by IP.</p>
 <hr />
 <h2 id="django_secret_key">DJANGO_SECRET_KEY<a class="headerlink" href="#django_secret_key" title="Permanent link">&para;</a></h2>
-<p>Django uses <code>SECRET_KEY</code> to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links. <em>(1.2+)</em> It also makes pending <strong>emailed site, group and board invites</strong> unusable: each stores a fingerprint of its recipient's address keyed from <code>SECRET_KEY</code>, and that fingerprint no longer matches after a key change, so resend those invites (see <a href="../site-admins/">Site admins</a>). Visiban has no environment variable for keeping an old key around. If you set Django's <code>SECRET_KEY_FALLBACKS</code> in your own settings override, invites made under a key listed there keep matching. Shareable invite links are not affected.</p>
+<p>Django uses <code>SECRET_KEY</code> to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links.</p>
+<p><em>(1.2+)</em> It also makes pending <strong>emailed site, group and board invites</strong> unusable. Each stores a fingerprint of its recipient's address keyed from <code>SECRET_KEY</code>, and that fingerprint no longer matches after a key change, so resend those invites (see <a href="../site-admins/">Site admins</a>).</p>
+<ul>
+<li>Visiban has no environment variable for keeping an old key around.</li>
+<li>If you set Django's <code>SECRET_KEY_FALLBACKS</code> in your own settings override, invites made under a key listed there keep matching.</li>
+<li>Shareable invite links are not affected.</li>
+</ul>
 <div class="admonition note">
 <p class="admonition-title">Key strength is now a confidentiality control, not only an integrity one</p>
-<p>Before Visiban stored secrets at rest, <code>SECRET_KEY</code> protected session and CSRF
-signatures — forgery, not disclosure. Now that it can encrypt a stored SMTP
-password, a weak or guessable key means anyone with a database dump or backup can
-recover that credential offline. Use a full-entropy value: the generator in step 1
-below produces one. Never shorten it, and never reuse it across environments.</p>
+<p><code>SECRET_KEY</code> used to protect only session and CSRF signatures (forgery, not
+disclosure). It can now encrypt a stored SMTP password, so a weak or guessable key lets
+anyone with a database dump or backup recover that credential offline. Use a
+full-entropy value (the generator in step 1 below produces one), never shorten it, and
+never reuse it across environments.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Rotating this key invalidates a stored SMTP password</p>
@@ -4191,9 +4199,9 @@ below produces one. Never shorten it, and never reuse it across environments.</p
 the <code>EMAIL_*</code> environment variables), the SMTP password is encrypted at rest using a
 key derived from <code>SECRET_KEY</code>. Rotating <code>SECRET_KEY</code> makes that stored password
 permanently unrecoverable, and outbound email will stop working.</p>
-<p>This is recoverable in under a minute — step 5 below — but only if you know to do it.
-Otherwise the symptom (password-reset emails silently stop arriving) shows up days
-later with nothing pointing back to the rotation.</p>
+<p>Step 5 below recovers it in under a minute, but only if you know to do it. Otherwise
+password-reset emails silently stop arriving, days later, with nothing pointing back
+to the rotation.</p>
 <p>To decouple the two, set a dedicated <code>VISIBAN_SECRET_ENCRYPTION_KEY</code> <strong>before</strong> you
 first store an SMTP password. See
 <a href="../configuration/#email-smtp">Configuration → Email</a>.</p>
@@ -4245,10 +4253,7 @@ this step.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#306)</p>
 </blockquote>
-<p>Optional. When set, this key — rather than one derived from <code>SECRET_KEY</code> — encrypts
-secrets Visiban stores at rest (today: the SMTP password set in <strong>Admin → Settings →
-Email</strong>). Setting it lets you rotate <code>SECRET_KEY</code> on its own schedule without
-invalidating stored secrets.</p>
+<p>Optional. When set, this key (rather than one derived from <code>SECRET_KEY</code>) encrypts secrets Visiban stores at rest (today: the SMTP password set in <strong>Admin → Settings → Email</strong>). It lets you rotate <code>SECRET_KEY</code> on its own schedule without invalidating stored secrets.</p>
 <h3 id="steps_1">Steps<a class="headerlink" href="#steps_1" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
@@ -4267,13 +4272,13 @@ invalidating stored secrets.</p>
 </ol>
 <div class="admonition note">
 <p class="admonition-title">Set it before storing secrets, not after</p>
-<p>Adding, changing, or removing this variable has the same effect on already-stored
-secrets as rotating <code>SECRET_KEY</code>: they become undecryptable and must be re-entered.
-There is no re-encryption command yet.</p>
+<p>Adding, changing, or removing this variable has the same effect on stored secrets as
+rotating <code>SECRET_KEY</code>: they become undecryptable and must be re-entered. No
+re-encryption command exists yet.</p>
 </div>
 <hr />
 <h2 id="db_password">DB_PASSWORD<a class="headerlink" href="#db_password" title="Permanent link">&para;</a></h2>
-<p>The database password is used by the Django backend to connect to PostgreSQL. Rotating it requires a coordinated update of both the database and the application config.</p>
+<p>The Django backend uses the database password to connect to PostgreSQL. <strong>Watch out:</strong> rotating it requires a coordinated update of both the database and the application config.</p>
 <h3 id="steps_2">Steps<a class="headerlink" href="#steps_2" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
@@ -4329,7 +4334,7 @@ There is no re-encryption command yet.</p>
 </code></pre></div>
 </li>
 </ol>
-<p>No user action is required — CORS policy is enforced per-request, not per-session.</p>
+<p><strong>Yes, but:</strong> no user action is required. CORS policy is enforced per-request, not per-session.</p>
 <hr />
 <h2 id="admin-interface-access">Admin interface access<a class="headerlink" href="#admin-interface-access" title="Permanent link">&para;</a></h2>
 <p>Since v1.0 the Django admin interface (<code>/admin/</code> — not the site-admin panel at
@@ -4343,10 +4348,9 @@ restricted to loopback addresses at both the Nginx layer and via
 <p>Then visit <code>https://localhost:8080/admin/</code> in your browser.</p>
 <h3 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h3>
 <p>The bundled <code>nginx/app.conf.template</code> hardcodes <code>allow 127.0.0.1; allow ::1;
-deny all;</code> on the <code>/admin/</code> block — it does not read any environment
-variable. To allow a non-loopback IP (e.g. an internal bastion host) on
-Compose, you must edit that template yourself and add an <code>allow</code> line for it,
-<strong>and</strong> set <code>DJANGO_ADMIN_ALLOWED_IPS</code> in <code>.env</code> so the middleware layer
+deny all;</code> on the <code>/admin/</code> block and reads no environment variable. To allow a
+non-loopback IP (e.g. an internal bastion host) on Compose, edit that template to add an
+<code>allow</code> line for it, <strong>and</strong> set <code>DJANGO_ADMIN_ALLOWED_IPS</code> in <code>.env</code> so the middleware
 agrees:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">DJANGO_ADMIN_ALLOWED_IPS</span><span class="o">=</span><span class="m">10</span>.0.1.20,10.0.1.21
 </code></pre></div>
@@ -4380,12 +4384,7 @@ behind its Ingress by default, see <a href="../configuration/#reverse-proxies-an
 Because one <code>adminAllowedIPs</code> value feeds both, list the ingress controller's range
 (for Nginx) as well as the client addresses (for Django).</p>
 </div>
-<p>Both layers accept CIDR ranges (e.g. <code>10.0.0.0/8</code>) as well as individual IPs —
-the backend middleware parses each entry with <code>ipaddress.ip_network()</code>, so a
-range that passes the Nginx allowlist is matched by Django too. An entry with
-host bits set (e.g. <code>10.0.0.5/24</code>) is normalized to its network address, and
-an unusually broad range (<code>/0</code> most of all) is logged as a warning at
-startup — both still take effect, for parity with Nginx.</p>
+<p>Both layers accept CIDR ranges (e.g. <code>10.0.0.0/8</code>) as well as single IPs. The backend middleware parses each entry with <code>ipaddress.ip_network()</code>, so a range that passes the Nginx allowlist matches in Django too. An entry with host bits set (e.g. <code>10.0.0.5/24</code>) is normalized to its network address, and an unusually broad range (<code>/0</code> most of all) is logged as a warning at startup. Both still take effect, for parity with Nginx.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Operators upgrading from a release prior to the v1.0 security hardening must apply the Nginx <code>/admin/</code> block manually if they manage the Nginx config outside of the bundled template. Add the following to the <code>/admin/</code> location block:</p>

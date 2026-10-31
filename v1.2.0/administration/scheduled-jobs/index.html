@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#scheduled-jobs" class="md-skip">
+        <a href="#schedule-the-four-maintenance-commands-visiban-needs" class="md-skip">
           Skip to content
         </a>
       
@@ -4060,15 +4060,16 @@
   
 
 
-<h1 id="scheduled-jobs">Scheduled Jobs<a class="headerlink" href="#scheduled-jobs" title="Permanent link">&para;</a></h1>
+<h1 id="schedule-the-four-maintenance-commands-visiban-needs">Schedule the four maintenance commands Visiban needs<a class="headerlink" href="#schedule-the-four-maintenance-commands-visiban-needs" title="Permanent link">&para;</a></h1>
+<p>Enable the shipped scheduler (Compose <code>scheduler</code> profile or Helm <code>scheduledJobs.enabled=true</code>) so the notification scans run. The two prune jobs stay off until you enable each one.</p>
+<p><strong>Why it matters:</strong> Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications.</p>
 <div class="admonition note">
 <p class="admonition-title">Added in 1.2</p>
 <p>Before 1.2, Visiban documented these commands but shipped nothing to run
 them — each needed a hand-written host cron line. 1.2 ships an opt-in
 scheduler for Docker Compose and native CronJobs for Kubernetes.</p>
 </div>
-<p>Visiban has four maintenance commands that must run on a schedule. None of them
-runs on a web request, and Visiban has no task queue. If nothing schedules them:</p>
+<p><strong>The big picture:</strong> Visiban has four maintenance commands that must run on a schedule. If nothing schedules them:</p>
 <ul>
 <li>users who turn on <strong>Due date approaching</strong> or <strong>Card has gone stale</strong> in
   their notification preferences never receive those notifications, in the bell
@@ -4111,22 +4112,11 @@ runs on a web request, and Visiban has no task queue. If nothing schedules them:
 </tr>
 </tbody>
 </table>
-<p><strong>The scheduler is off by default on both deployment paths</strong>, so upgrading
-changes nothing until you turn it on. Once it is on, the two notification scans
-run, and they only act for users who switched the matching preference on. The
-two prune jobs delete data, so each one stays off until you enable it on its own.</p>
-<p>All four commands are idempotent, so running one twice in a day does no harm.
-<strong>Running two copies at the same moment is different.</strong> If you already run any
-of these from host cron, remove that cron line before you enable the shipped
-scheduler. Two notification scans that start in the same minute can both pass
-the "already notified" check and notify the same user twice.</p>
+<p><strong>Yes, but:</strong> the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. The two prune jobs delete data, so each one stays off until you enable it on its own.</p>
+<p><strong>Watch out:</strong> all four commands are idempotent, so running one twice in a day does no harm. <strong>Running two copies at the same moment is different.</strong> If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.</p>
 <h2 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h2>
-<p><code>docker-compose.prod.yml</code> includes a <code>scheduler</code> service behind the <code>scheduler</code>
-<a href="https://docs.docker.com/compose/how-tos/profiles/">Compose profile</a>. It runs
-<code>python manage.py run_scheduler</code> in the backend image, with the same <code>.env</code> as
-the backend.</p>
-<p>Turn it on by adding the profile to <code>.env</code>. Keep <code>letsencrypt</code> in the list if
-you use it:</p>
+<p><code>docker-compose.prod.yml</code> includes a <code>scheduler</code> service behind the <code>scheduler</code> <a href="https://docs.docker.com/compose/how-tos/profiles/">Compose profile</a>. It runs <code>python manage.py run_scheduler</code> in the backend image, with the backend's <code>.env</code>.</p>
+<p>To turn it on, add the profile to <code>.env</code>, keeping <code>letsencrypt</code> if you use it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># .env</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">COMPOSE_PROFILES</span><span class="o">=</span>letsencrypt,scheduler
 </code></pre></div>
@@ -4134,16 +4124,14 @@ you use it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>scheduler
 </code></pre></div>
-<p>A <code>--profile</code> flag on the command line <strong>replaces</strong> <code>COMPOSE_PROFILES</code> rather
+<p><strong>Watch out:</strong> a <code>--profile</code> flag on the command line <strong>replaces</strong> <code>COMPOSE_PROFILES</code> rather
 than adding to it (verified with Docker Compose v5.3). <code>init-prod.sh</code> starts the
 stack with <code>--profile letsencrypt</code> when <code>TLS_MODE=letsencrypt</code>, so that run does
 not start the scheduler. Run the plain <code>up -d</code> above afterwards, or pass both
 flags yourself: <code>--profile letsencrypt --profile scheduler</code>.</p>
-<p>At startup the service prints the schedule it loaded. It logs a line when each
-job starts and when it finishes.</p>
+<p>At startup the service prints the schedule it loaded, and logs a line when each job starts and finishes.</p>
 <h3 id="choosing-jobs-and-times">Choosing jobs and times<a class="headerlink" href="#choosing-jobs-and-times" title="Permanent link">&para;</a></h3>
-<p>Each job's time comes from an environment variable in <code>.env</code>. A value is
-<code>HH:MM</code> (24-hour, <strong>UTC</strong>) or <code>off</code>:</p>
+<p>Each job's time comes from an <code>.env</code> variable. A value is <code>HH:MM</code> (24-hour, <strong>UTC</strong>) or <code>off</code>:</p>
 <table>
 <thead>
 <tr>
@@ -4170,23 +4158,17 @@ job starts and when it finishes.</p>
 </tr>
 </tbody>
 </table>
-<p>For example, this keeps the notification scans at their defaults and turns on
-both prune jobs:</p>
+<p>This keeps the notification scans at their defaults and turns on both prune jobs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># .env</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">SCHEDULE_PRUNE_BOARD_EVENTS</span><span class="o">=</span><span class="m">03</span>:00
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">SCHEDULE_PRUNE_NOTIFICATIONS</span><span class="o">=</span><span class="m">03</span>:30
 </code></pre></div>
-<p>Run <code>docker compose -f docker-compose.prod.yml up -d scheduler</code> again after
-changing any of these variables.</p>
+<p>After changing any of these variables, run <code>docker compose -f docker-compose.prod.yml up -d scheduler</code> again.</p>
 <h3 id="how-the-compose-scheduler-behaves">How the Compose scheduler behaves<a class="headerlink" href="#how-the-compose-scheduler-behaves" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Once a day per job, at or after its time.</strong> If a check runs late (for
-  example, the host was suspended), the job still runs that day.</li>
-<li><strong>No catch-up.</strong> A job whose time already passed when the container started
-  waits until the next day. This stops a restart loop from firing every job on
-  every restart. A missed notification scan is a skipped day, not a backlog.</li>
-<li><strong>A failing job does not stop the others.</strong> The error and traceback go to
-  the service log, and the next day's run happens as normal.</li>
+<li><strong>Once a day per job, at or after its time.</strong> A late check (for example, the host was suspended) still runs the job that day.</li>
+<li><strong>No catch-up.</strong> A job whose time passed before the container started waits until the next day, so a restart loop can't fire every job on every restart. A missed notification scan is a skipped day, not a backlog.</li>
+<li><strong>A failing job does not stop the others.</strong> The error and traceback go to the service log, and the next day's run happens as normal.</li>
 <li><strong>Bad configuration fails at startup.</strong> An invalid time, or every job set to
   <code>off</code>, is an error that names the variable. Because the service has
   <code>restart: unless-stopped</code>, this shows up as a restart loop rather than a
@@ -4194,17 +4176,14 @@ changing any of these variables.</p>
   scheduler</code> for a <code>Restarting</code> status, and read the error with
   <code>docker compose -f docker-compose.prod.yml logs scheduler</code>.</li>
 </ul>
-<p>Without the <code>scheduler</code> profile, you can still schedule the same commands from
-host cron:</p>
+<p>Without the <code>scheduler</code> profile, schedule the same commands from host cron:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="m">0</span><span class="w"> </span><span class="m">7</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="m">0</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="m">0</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w">  </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="m">30</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>/opt/visiban/docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications
 </code></pre></div>
 <h2 id="kubernetes-helm">Kubernetes (Helm)<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h2>
-<p>The chart renders one <code>CronJob</code> for each enabled entry under <code>scheduledJobs</code>.
-Each CronJob runs in the backend image, with the backend's environment and
-runtime Secret.</p>
+<p>The chart renders one <code>CronJob</code> per enabled entry under <code>scheduledJobs</code>, each running in the backend image with the backend's environment and runtime Secret.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>oci://ghcr.io/visiban/charts/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--set<span class="w"> </span>scheduledJobs.enabled<span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
@@ -4289,10 +4268,7 @@ runtime Secret.</p>
 </tr>
 </tbody>
 </table>
-<p>Every CronJob uses <code>concurrencyPolicy: Forbid</code>, so a slow run is never joined by
-the next one. The pods carry <code>app.kubernetes.io/component: scheduler</code>. With
-<code>networkPolicy.enabled=true</code>, that label is allowed to reach PostgreSQL and
-Valkey.</p>
+<p>Every CronJob uses <code>concurrencyPolicy: Forbid</code>, so a slow run is never joined by the next. The pods carry <code>app.kubernetes.io/component: scheduler</code>; with <code>networkPolicy.enabled=true</code>, that label may reach PostgreSQL and Valkey.</p>
 <p>To check on the jobs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>cronjobs<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>scheduler
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span><span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>scheduler
@@ -4329,23 +4305,15 @@ Valkey.</p>
 </tr>
 </tbody>
 </table>
-<p>On Compose and host cron, the window is read from the environment variable.
-The Helm chart does not set either variable on its pods, so on Helm you set the
-window with the job's <code>args</code>. A retention window only takes effect once its
-prune job is scheduled. Until then, nothing is deleted.</p>
-<p><code>prune_notifications</code> refuses a window shorter than 14 days. The notification
-rows are also the scans' record of what they have already sent: pruning them
-too soon would make <code>notify_due_soon</code> and <code>notify_stale_cards</code> notify, and
-email, the same card again. The retention window must also stay <strong>longer than</strong>
-any <code>--days</code> you pass to <code>notify_due_soon</code>. That command logs a warning when it
-does not.</p>
+<p>On Compose and host cron, the window comes from the environment variable. The Helm chart sets neither variable on its pods, so on Helm use the job's <code>args</code>. A retention window takes effect only once its prune job is scheduled; until then nothing is deleted.</p>
+<p><code>prune_notifications</code> refuses a window shorter than 14 days. The notification rows are also the scans' record of what they have already sent. Pruning them too soon would make <code>notify_due_soon</code> and <code>notify_stale_cards</code> notify, and email, the same card again.</p>
+<p>The retention window must also stay <strong>longer than</strong> any <code>--days</code> you pass to <code>notify_due_soon</code>. That command logs a warning when it does not.</p>
 <p>Before you enable a prune job on an existing install, preview what its first
 run would delete:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications<span class="w"> </span>--dry-run
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--dry-run
 </code></pre></div>
-<p>The first run on a large, never-pruned table deletes in batches of 5,000 rows
-(<code>--batch-size</code>), so it does not hold long locks.</p>
+<p>The first run on a large, never-pruned table deletes in batches of 5,000 rows (<code>--batch-size</code>), so it holds no long locks.</p>
 
 
 

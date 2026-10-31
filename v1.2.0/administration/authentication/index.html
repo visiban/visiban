@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#authentication" class="md-skip">
+        <a href="#pick-how-your-users-sign-in" class="md-skip">
           Skip to content
         </a>
       
@@ -4143,8 +4143,10 @@
   
 
 
-<h1 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h1>
-<p>Visiban supports several authentication methods. Some are available in the OSS edition; others require the enterprise edition.</p>
+<h1 id="pick-how-your-users-sign-in">Pick how your users sign in<a class="headerlink" href="#pick-how-your-users-sign-in" title="Permanent link">&para;</a></h1>
+<p>Visiban signs users in with a password, Google, GitHub, GitLab, or any OIDC provider out of the box. SAML and SCIM need the enterprise edition.</p>
+<p><strong>Why it matters:</strong> The sign-in method decides who can reach your instance and how they recover access. Accounts with a password share one password policy and one self-service reset flow.</p>
+<p><strong>The big picture:</strong> Some methods are available in the OSS edition; others require the enterprise edition.</p>
 <table>
 <thead>
 <tr>
@@ -4192,25 +4194,32 @@
 </tbody>
 </table>
 <h2 id="password-policy">Password policy<a class="headerlink" href="#password-policy" title="Permanent link">&para;</a></h2>
-<p>Every password must be at least <strong>12 characters</strong> long and pass Django's standard checks: not
-too similar to the user's username, email, or name; not a commonly used password; and not
-entirely numeric. The same policy applies on every path that sets a password — registration and
-invite-link sign-up, the password-reset link, both change-password API endpoints, admin-created
-accounts, the Django admin, and the interactive <code>createsuperuser</code> / <code>changepassword</code> management commands (<code>createsuperuser</code> still offers its own "bypass validation" prompt). Creating an account with <code>createsuperuser</code> and a password, or through the admin users API, is recorded in the <a href="../../api/admin/">admin action log</a>.</p>
-<p>The policy is checked only when a password is set. Accounts created before 1.2, when some of
-these paths accepted 8 characters, keep working and are asked for a 12-character password the
-next time they change it.</p>
-<p>Changing a password — through either <code>POST /api/v1/auth/change-password/</code> or
-<code>POST /api/v1/auth/password/change/</code> — requires the current password (except for OAuth-only
-accounts setting their first one, which needs an interactive session: a request authenticated
-with a token alone is refused), revokes all of the user's
-<a href="../../features/personal-access-tokens/">personal access tokens</a> and the API token issued at
-login (a caller that authenticated with that token receives a replacement in the response; see
-<a href="../../api/authentication/#api-token-on-password-change">API token on password change</a>), and
-clears a pending "must change password" flag set by an administrator. The browser session
-stays signed in.</p>
+<p>Every password must be at least <strong>12 characters</strong> long and pass Django's standard checks:</p>
+<ul>
+<li>not too similar to the user's username, email, or name</li>
+<li>not a commonly used password</li>
+<li>not entirely numeric</li>
+</ul>
+<p><strong>Where it applies:</strong> every path that sets a password:</p>
+<ul>
+<li>registration and invite-link sign-up</li>
+<li>the password-reset link</li>
+<li>both change-password API endpoints</li>
+<li>admin-created accounts</li>
+<li>the Django admin</li>
+<li>the interactive <code>createsuperuser</code> / <code>changepassword</code> management commands (<code>createsuperuser</code> still offers its own "bypass validation" prompt)</li>
+</ul>
+<p>Creating an account with <code>createsuperuser</code> and a password, or through the admin users API, is recorded in the <a href="../../api/admin/">admin action log</a>.</p>
+<p><strong>Yes, but:</strong> the policy is checked only when a password is set. Accounts created before 1.2, when some of these paths accepted 8 characters, keep working and are asked for a 12-character password the next time they change it.</p>
+<p><strong>What a password change does:</strong> changing a password, through either <code>POST /api/v1/auth/change-password/</code> or <code>POST /api/v1/auth/password/change/</code>:</p>
+<ul>
+<li>requires the current password (except for OAuth-only accounts setting their first one, which needs an interactive session: a request authenticated with a token alone is refused)</li>
+<li>revokes all of the user's <a href="../../features/personal-access-tokens/">personal access tokens</a> and the API token issued at login (a caller that authenticated with that token receives a replacement in the response; see <a href="../../api/authentication/#api-token-on-password-change">API token on password change</a>)</li>
+<li>clears a pending "must change password" flag set by an administrator</li>
+<li>leaves the browser session signed in</li>
+</ul>
 <h2 id="forgot-password-self-service-password-reset">Forgot password (self-service password reset)<a class="headerlink" href="#forgot-password-self-service-password-reset" title="Permanent link">&para;</a></h2>
-<p>Users with a password-based account can reset their own password from the login page without administrator intervention.</p>
+<p>Users with a password-based account can reset their own password from the login page, with no administrator needed.</p>
 <ol>
 <li>The user clicks <strong>Forgot password?</strong> on the login page and enters their email address.</li>
 <li>Visiban sends a reset link to the address. The link expires after 3 days (Django's default <code>PASSWORD_RESET_TIMEOUT</code>).</li>
@@ -4218,15 +4227,25 @@ stays signed in.</p>
 </ol>
 <p><strong>OAuth-only accounts</strong> — if the email belongs to an account that has never set a password (signed up via Google, GitHub, GitLab, or OIDC and never used "Change password"):</p>
 <ul>
-<li>If the address is <strong>verified</strong> on that account, Visiban sends a normal reset link, and following it sets the account's first password. This is the recovery path for someone who can no longer sign in with the provider they signed up with. <em>Changed in 1.2 (#1314)</em> — earlier versions never issued a link to these accounts. The link is tied to the address it was sent to: if that address is unverified or removed before the link is used, the link is refused, even if another address on the account is still verified (<em>1.2, #1337</em>). Any change to which of the account's addresses are verified voids its outstanding links, so the user requests a new one.</li>
-<li>If the address was never verified, Visiban sends an alternate email explaining that no password is set and directing the user to sign in with their provider. No reset token is issued, because mail reaching an unverified address proves nothing about who owns the account.</li>
+<li>If the address is <strong>verified</strong> on that account, Visiban sends a normal reset link, and following it sets the account's first password. This is the recovery path for someone who can no longer sign in with the provider they signed up with. <em>Changed in 1.2 (#1314)</em> — earlier versions never issued a link to these accounts.<ul>
+<li>The link is tied to the address it was sent to. If that address is unverified or removed before the link is used, the link is refused, even if another address on the account is still verified (<em>1.2, #1337</em>).</li>
+<li>Any change to which of the account's addresses are verified voids its outstanding links, so the user requests a new one.</li>
 </ul>
-<p><strong>Older reset links and allauth's pages</strong> — <em>Changed in 1.2 (#1554).</em> The server-rendered password-reset pages under <code>/accounts/password/reset/</code> (request, done, link, and link-done) now redirect to the app's <code>/forgot-password</code> page, so password reset has one implementation. A reset link already sitting in an inbox, which has the form <code>/accounts/password/reset/key/&lt;uid&gt;-&lt;key&gt;/</code>, redirects to the app's reset page with the same uid and key and keeps working until it expires; a malformed link under <code>/accounts/password/reset/key/</code> redirects to <code>/forgot-password</code>. The other pages under <code>/accounts/</code> stay mounted on purpose: <code>login/</code>, <code>login/code/confirm/</code>, <code>logout/</code>, <code>inactive/</code> and <code>reauthenticate/</code> (sign-in, sign-out and the inactive-account flow), <code>signup/</code>, <code>email/</code> and <code>confirm-email/</code> (project overrides or redirects to the app), and the social pages (<code>3rdparty/*</code>, its <code>social/*</code> aliases, and each configured provider's login and callback routes), which SSO needs. Nothing changes for SSO sign-in or the reset email sent from the app.</p>
-<p><strong>Rate limiting</strong> — the reset-request endpoint (<code>POST /api/v1/auth/password/reset/</code>) is rate-limited per IP to prevent it from being used as a bulk email-sending vector.</p>
-<p><strong>SMTP requirement</strong> — password reset emails require outbound email to be configured. See <code>EMAIL_HOST</code> and related settings in <a href="../configuration/">Configuration</a>. If email is not configured, reset emails are silently dropped (no error is shown to the user). In that case, administrators can reset passwords manually:</p>
+</li>
+<li>If the address was never verified, Visiban sends an alternate email saying no password is set and directing the user to sign in with their provider. No reset token is issued, because mail reaching an unverified address proves nothing about who owns the account.</li>
+</ul>
+<p><strong>Older reset links and allauth's pages</strong> — <em>Changed in 1.2 (#1554).</em> The server-rendered password-reset pages under <code>/accounts/password/reset/</code> (request, done, link, and link-done) now redirect to the app's <code>/forgot-password</code> page, so password reset has one implementation.</p>
+<ul>
+<li>A reset link already in an inbox (<code>/accounts/password/reset/key/&lt;uid&gt;-&lt;key&gt;/</code>) redirects to the app's reset page with the same uid and key and works until it expires.</li>
+<li>A malformed link under <code>/accounts/password/reset/key/</code> redirects to <code>/forgot-password</code>.</li>
+<li>The other pages under <code>/accounts/</code> stay mounted on purpose: <code>login/</code>, <code>login/code/confirm/</code>, <code>logout/</code>, <code>inactive/</code> and <code>reauthenticate/</code> (sign-in, sign-out and the inactive-account flow), <code>signup/</code>, <code>email/</code> and <code>confirm-email/</code> (project overrides or redirects to the app), and the social pages (<code>3rdparty/*</code>, its <code>social/*</code> aliases, and each configured provider's login and callback routes), which SSO needs.</li>
+</ul>
+<p>Nothing changes for SSO sign-in or the reset email sent from the app.</p>
+<p><strong>Rate limiting:</strong> the reset-request endpoint (<code>POST /api/v1/auth/password/reset/</code>) is rate-limited per IP, so it can't be used as a bulk email-sending vector.</p>
+<p><strong>Watch out: SMTP requirement.</strong> Password reset emails require outbound email to be configured. See <code>EMAIL_HOST</code> and related settings in <a href="../configuration/">Configuration</a>. If email is not configured, reset emails are silently dropped (no error is shown to the user). In that case, administrators can reset passwords manually:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>&lt;username&gt;
 </code></pre></div>
-<p>Resetting a password this way revokes the account's personal access tokens and its API auth token, so credentials issued under the old password stop working. It does not change whether the account must choose a new password.</p>
+<p>This revokes the account's personal access tokens and API auth token, so credentials issued under the old password stop working. It does not change whether the account must choose a new password.</p>
 <p>For API details, see <a href="../../api/authentication/#forgot-password">Authentication API — Forgot password</a>.</p>
 <h2 id="oauth-google-github-gitlab">OAuth (Google, GitHub, GitLab)<a class="headerlink" href="#oauth-google-github-gitlab" title="Permanent link">&para;</a></h2>
 <p>See the <a href="../../getting-started/oauth/">OAuth Setup</a> guide for step-by-step configuration of each provider.</p>
@@ -4234,25 +4253,31 @@ stays signed in.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1314)</p>
 </blockquote>
-<p>Visiban never attaches a provider to an existing account automatically just because the emails match — a provider can report an address it never verified. Instead:</p>
+<p>Visiban never attaches a provider to an existing account just because the emails match, because a provider can report an address it never verified. Instead:</p>
 <ul>
-<li><strong>Someone signs in with a provider whose email already belongs to an account.</strong> The login page says "You already have a Visiban account" and asks them to sign in the way they normally do: with their password, or — when the provider verified the email and the account has no password — with the provider the account already uses ("Continue with GitHub"). Once they're signed in, a one-time <strong>Connect {Provider}?</strong> prompt offers to connect the provider they first tried. The prompt names the provider account that tried (for example its GitHub username), so someone on a shared computer who doesn't recognize it can decline. The offer lasts 10 minutes and is shown once; choosing <strong>Not now</strong> dismisses it for good. It is discarded if anyone else signs in on that browser, or on sign-out. <strong>Connect</strong> only connects the same provider account that tried to sign in; if a different account of that provider is signed in on the browser, nothing is connected.</li>
+<li><strong>Someone signs in with a provider whose email already belongs to an account.</strong> The login page says "You already have a Visiban account" and asks them to sign in the usual way: with their password, or, when the provider verified the email and the account has no password, with the provider the account already uses ("Continue with GitHub"). Once signed in, a one-time <strong>Connect {Provider}?</strong> prompt offers to connect the provider they first tried.<ul>
+<li>The prompt names the provider account that tried (for example its GitHub username), so someone on a shared computer who doesn't recognize it can decline.</li>
+<li>The offer lasts 10 minutes and is shown once; <strong>Not now</strong> dismisses it for good. It is discarded if anyone else signs in on that browser, or on sign-out.</li>
+<li><strong>Connect</strong> only connects the same provider account that tried to sign in. If a different account of that provider is signed in on the browser, nothing is connected.</li>
+</ul>
+</li>
 <li><strong>The matching account is deactivated.</strong> The user sees the generic sign-in error; the account is never revealed or offered.</li>
 <li><strong>Email matching</strong> ignores case only. <code>alice+work@example.com</code> and <code>a.lice@gmail.com</code> are treated as different addresses from <code>alice@example.com</code> and <code>alice@gmail.com</code>.</li>
 </ul>
-<p>Users manage their providers in <strong>Settings → Security → Connected accounts</strong>, where they can connect any provider configured on the instance or disconnect one. Visiban won't let anyone remove their last way to sign in: a user without a password must keep at least one connected provider. A provider that's already connected to a different Visiban account can't be connected a second time.</p>
+<p>Users manage providers in <strong>Settings → Security → Connected accounts</strong>: connect any provider configured on the instance, or disconnect one. Nobody can remove their last way to sign in (a user without a password must keep at least one connected provider), and a provider already connected to a different Visiban account can't be connected again.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>A user who has a password is asked to enter it again before a new provider is connected, unless they confirmed it, or signed in with a provider, in the last five minutes. In the Visiban app this takes three steps on pages served by the backend, which are unbranded: the user confirms the password, clicks <strong>Continue</strong> on the page that follows, and then goes through the provider a second time. No second <strong>Connect</strong> click in Settings is needed. Signing in to the app with a username and password does not count as a recent confirmation, so a user who has just signed in that way is still asked once. A user without a password isn't asked; instead, their primary email address receives a notice that a sign-in provider was connected. Signing in with a provider is not affected.</p>
+<p>A user who has a password must enter it again before a new provider is connected, unless they confirmed it, or signed in with a provider, in the last five minutes. In the app this takes three steps on unbranded pages served by the backend: confirm the password, click <strong>Continue</strong> on the next page, then go through the provider a second time. No second <strong>Connect</strong> click in Settings is needed. Signing in with a username and password does not count as a recent confirmation, so a user who just did so is still asked once. A user without a password isn't asked; their primary email address receives a notice that a sign-in provider was connected. Signing in with a provider is not affected.</p>
 <blockquote>
 <p><strong>Changed in 1.2</strong> (#1260)</p>
 </blockquote>
-<p>A user without a password can set one in <strong>Settings → Security</strong>, but only within five minutes of signing in to Visiban with one of their connected providers (allauth's <code>ACCOUNT_REAUTHENTICATION_TIMEOUT</code>, default 300 seconds). After that, Settings asks them to sign out, sign in again with their provider, and set the password straight away; a user with no provider to sign in with is pointed to <strong>Forgot password?</strong> instead. The upgrade itself changes nothing here: a provider sign-in made shortly before the upgrade still counts while it is inside the five minutes. This keeps a copied browser session from being turned into a lasting password. Users who already have a password change it with their current password as before, and a password reset link still sets a first password without this step.</p>
+<p>A user without a password can set one in <strong>Settings → Security</strong>, but only within five minutes of signing in with one of their connected providers (allauth's <code>ACCOUNT_REAUTHENTICATION_TIMEOUT</code>, default 300 seconds). After that, Settings asks them to sign out, sign in again with their provider, and set the password straight away; a user with no provider to sign in with is pointed to <strong>Forgot password?</strong>. This keeps a copied browser session from becoming a lasting password.</p>
+<p>The upgrade changes nothing here: a provider sign-in made shortly before the upgrade still counts while inside the five minutes. Users with a password change it with their current password as before, and a reset link still sets a first password without this step.</p>
 <blockquote>
 <p><strong>Changed in 1.2</strong> (#1932)</p>
 </blockquote>
-<p>The same five-minute provider sign-in applies when a user without a password adds or changes an email address, in <strong>Settings → Profile</strong> and on the backend's <code>/accounts/email/</code> page. Outside the five minutes, Settings asks the user to sign out, sign in again with their provider, and change the address straight away. Users who have a password confirm it as before.</p>
+<p>The same five-minute provider sign-in applies when a user without a password adds or changes an email address, in <strong>Settings → Profile</strong> and on the backend's <code>/accounts/email/</code> page. Outside it, Settings asks them to sign out, sign in again with their provider, and change the address straight away. Users with a password confirm it as before.</p>
 <p><a id="generic-oidc"></a></p>
 <h2 id="generic-oidc-beta">Generic OIDC <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span><a class="headerlink" href="#generic-oidc-beta" title="Permanent link">&para;</a></h2>
 <div class="admonition info">
@@ -4262,13 +4287,13 @@ stays signed in.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Keycloak default port</p>
-<p>Keycloak's default HTTP port is <strong>8080</strong>. Visiban's backend also defaults to port <strong>8000</strong> in the development Docker Compose setup — there is no conflict. When running the local OIDC dev stack (<code>docker compose -f docker-compose.yml -f docker-compose.oidc.yml up</code>), Keycloak is available at <code>http://localhost:8080</code> and the app at <code>http://localhost:5173</code> (frontend) / <code>http://localhost:8000</code> (API).</p>
+<p>Keycloak's default HTTP port is <strong>8080</strong> and Visiban's development backend uses <strong>8000</strong>, so there is no conflict. The local OIDC dev stack (<code>docker compose -f docker-compose.yml -f docker-compose.oidc.yml up</code>) serves Keycloak at <code>http://localhost:8080</code>, the frontend at <code>http://localhost:5173</code> and the API at <code>http://localhost:8000</code>.</p>
 </div>
-<p>Generic OIDC is available in the OSS edition via <code>allauth.socialaccount.providers.openid_connect</code>, which is already included in the <code>django-allauth</code> dependency. No additional packages are required.</p>
+<p>Use generic OIDC when your identity provider supports standard OIDC but is not one of the pre-configured providers (Google, GitHub, GitLab). Common examples: Keycloak, Authentik, Dex, Okta, and any other OIDC-compliant IdP.</p>
+<p>It is available in the OSS edition via <code>allauth.socialaccount.providers.openid_connect</code>, which is already included in the <code>django-allauth</code> dependency. No additional packages are required.</p>
 <p>The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the <code>oidc-smoke</code> job. See <code>docker-compose.oidc.yml</code> for local development with Keycloak.</p>
-<p>Use this when your identity provider supports standard OIDC but is not one of the pre-configured providers (Google, GitHub, GitLab). Common examples: Keycloak, Authentik, Dex, Okta, and any other OIDC-compliant IdP.</p>
 <h3 id="configuration-via-environment-variables-recommended">Configuration via environment variables (recommended)<a class="headerlink" href="#configuration-via-environment-variables-recommended" title="Permanent link">&para;</a></h3>
-<p>Set all three of the following environment variables. The provider is only registered when all three are present — leaving any one blank disables OIDC entirely, preventing startup errors from partial configuration.</p>
+<p>Set all three required variables. The provider registers only when all three are present. Leaving any one blank disables OIDC entirely, which prevents startup errors from partial configuration.</p>
 <table>
 <thead>
 <tr>
@@ -4368,22 +4393,23 @@ the callback URL becomes:
 <code>https://&lt;your-domain&gt;/accounts/oidc/keycloak/login/callback/</code></p>
 </div>
 <h3 id="multi-provider-support">Multi-provider support<a class="headerlink" href="#multi-provider-support" title="Permanent link">&para;</a></h3>
-<p>The env-var approach configures a single OIDC provider. If you need multiple OIDC providers simultaneously (for example, separate realms for staff and contractors), configure additional providers through the Django admin at <code>/admin/socialaccount/socialapp/</code> with provider type <code>openid_connect</code>. Each additional provider requires a unique <strong>Provider ID</strong> slug, and its callback URL follows the pattern in the note above.</p>
+<p>The env-var approach configures one OIDC provider. For several at once (for example, separate realms for staff and contractors), add the others in the Django admin at <code>/admin/socialaccount/socialapp/</code> with provider type <code>openid_connect</code>. Each needs a unique <strong>Provider ID</strong> slug, and its callback URL follows the pattern in the note above.</p>
 <h3 id="oauthoidc-with-invite-only-registration">OAuth/OIDC with invite-only registration<a class="headerlink" href="#oauthoidc-with-invite-only-registration" title="Permanent link">&para;</a></h3>
-<p>When the instance is set to <strong>invite-only</strong> registration mode (Settings &gt; Registration), users who receive an invite link can register using any configured OAuth or OIDC provider — not just email and password. The invite token is passed through the OAuth flow automatically.</p>
-<p>Existing users can log in via OAuth regardless of the registration mode setting. The registration mode controls who may <strong>join</strong>; the authentication method controls how they <strong>prove identity</strong>. These are independent.</p>
+<p>In <strong>invite-only</strong> registration mode (Settings &gt; Registration), users with an invite link can register with any configured OAuth or OIDC provider, not just email and password. The invite token passes through the OAuth flow automatically.</p>
+<p>Existing users can log in via OAuth in any registration mode. Registration mode controls who may <strong>join</strong>; the authentication method controls how they <strong>prove identity</strong>. The two are independent.</p>
 <h3 id="disabling-password-login-when-oidc-is-active">Disabling password login when OIDC is active<a class="headerlink" href="#disabling-password-login-when-oidc-is-active" title="Permanent link">&para;</a></h3>
-<p>Setting OIDC env vars makes the OIDC login button appear alongside existing username/password and OAuth options — it does not disable them. A future release will add an admin toggle to disable password authentication entirely when SSO is configured. Until then, you can enforce OIDC-only access at the IdP level by issuing credentials only to users who should have access.</p>
+<p>Setting OIDC env vars adds the OIDC login button alongside the existing username/password and OAuth options. It does not disable them.</p>
+<p><strong>Yes, but:</strong> a future release will add an admin toggle to disable password authentication entirely when SSO is configured. Until then, enforce OIDC-only access at the IdP level by issuing credentials only to users who should have access.</p>
 <h2 id="saml-20-adfs">SAML 2.0 / ADFS<a class="headerlink" href="#saml-20-adfs" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Visiban Enterprise</strong> — This feature is available in <a href="https://visiban.com/enterprise">Visiban Enterprise</a>.</p>
 </blockquote>
-<p>SAML 2.0 and ADFS authentication are available in the enterprise edition. They require a separate library and are configured through the enterprise settings. Contact your Visiban Enterprise account team for setup instructions.</p>
+<p>SAML 2.0 and ADFS authentication are available in the enterprise edition. They need a separate library and are configured through the enterprise settings. Contact your Visiban Enterprise account team for setup.</p>
 <h2 id="scim-directory-sync-jit-provisioning">SCIM directory sync / JIT provisioning<a class="headerlink" href="#scim-directory-sync-jit-provisioning" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Visiban Enterprise</strong> — This feature is available in <a href="https://visiban.com/enterprise">Visiban Enterprise</a>.</p>
 </blockquote>
-<p>SCIM 2.0 directory sync (automatic user provisioning and deprovisioning from your IdP) and just-in-time (JIT) account creation on first login are enterprise features. They are intended for organizations with centralized identity management at scale. For smaller teams, manual user invitation via invite links covers the same onboarding workflow in the OSS edition.</p>
+<p>SCIM 2.0 directory sync (automatic user provisioning and deprovisioning from your IdP) and just-in-time (JIT) account creation on first login are enterprise features, aimed at organizations with centralized identity management at scale. Smaller teams get the same onboarding in the OSS edition through invite links.</p>
 <h2 id="classification-rationale">Classification rationale<a class="headerlink" href="#classification-rationale" title="Permanent link">&para;</a></h2>
 <p>For the reasoning behind the OSS vs enterprise boundary for these authentication methods, see the <a href="../../architecture/open-core-boundary/#oidc-authentication-oss-vs-saml-scim-enterprise">Open-Core Boundary</a> reference page.</p>
 

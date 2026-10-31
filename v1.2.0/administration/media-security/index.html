@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#media-storage-security" class="md-skip">
+        <a href="#keep-attachments-private-on-disk-or-in-a-bucket" class="md-skip">
           Skip to content
         </a>
       
@@ -4143,19 +4143,15 @@
   
 
 
-<h1 id="media-storage-security">Media Storage Security<a class="headerlink" href="#media-storage-security" title="Permanent link">&para;</a></h1>
-<p>Visiban validates every attachment before it's written to storage and serves
-downloads through an authenticated view, not a public file mount. Below:
-both controls, plus what to configure if you move attachment storage to S3,
-GCS, or Azure Blob.</p>
+<h1 id="keep-attachments-private-on-disk-or-in-a-bucket">Keep attachments private, on disk or in a bucket<a class="headerlink" href="#keep-attachments-private-on-disk-or-in-a-bucket" title="Permanent link">&para;</a></h1>
+<p>Visiban validates every attachment before it's written to storage and serves downloads through an authenticated view, not a public file mount. If you move attachment storage to S3, GCS, or Azure Blob, keep the bucket private.</p>
+<p><strong>Why it matters:</strong> attachments hold sensitive user content. The board-membership check in <code>ServeMediaView</code> is the primary access control, and bucket hardening is defense-in-depth.</p>
+<p><strong>The big picture:</strong> this page covers upload validation, authenticated serving, external object storage hardening, and cleaning up orphaned files.</p>
 <hr />
 <h2 id="attachment-upload-validation">Attachment upload validation<a class="headerlink" href="#attachment-upload-validation" title="Permanent link">&para;</a></h2>
-<p>Every file uploaded as a card attachment is validated by two independent
-checks before it is written to storage.</p>
+<p>Two independent checks validate every card attachment before it is written to storage.</p>
 <h3 id="mime-type-allowlist">MIME type allowlist<a class="headerlink" href="#mime-type-allowlist" title="Permanent link">&para;</a></h3>
-<p>The <code>Content-Type</code> header supplied by the browser is checked against an
-allowlist of permitted types. Anything not in the list is rejected with
-<code>HTTP 400</code> before any bytes are written to disk or object storage.</p>
+<p>The browser-supplied <code>Content-Type</code> header is checked against an allowlist. Anything not listed is rejected with <code>HTTP 400</code> before any bytes reach disk or object storage.</p>
 <table>
 <thead>
 <tr>
@@ -4194,25 +4190,11 @@ types, but text types (<code>text/plain</code>, <code>text/csv</code>) are trust
 declared MIME alone because they have no distinguishing byte signatures.</p>
 </div>
 <h3 id="magic-byte-validation">Magic-byte validation<a class="headerlink" href="#magic-byte-validation" title="Permanent link">&para;</a></h3>
-<p>For all binary file types, Visiban reads the first 12 bytes of the uploaded
-file and compares them against a table of known file signatures before
-accepting the upload. This prevents a renamed or misrepresented file (for
-example, an executable renamed to <code>.jpg</code>) from bypassing the allowlist by
-manipulating its <code>Content-Type</code> header.</p>
-<p>If the magic bytes do not match any recognized signature for the declared
-type, the upload is rejected with <code>HTTP 400</code> and the file is never written to
-storage.</p>
+<p>For all binary file types, Visiban reads the first 12 bytes of the upload and compares them against known file signatures. This stops a renamed or misrepresented file (for example, an executable renamed to <code>.jpg</code>) from bypassing the allowlist by manipulating its <code>Content-Type</code> header. If the magic bytes match no recognized signature for the declared type, the upload is rejected with <code>HTTP 400</code> and never written to storage.</p>
 <h3 id="content-disposition">Content-Disposition<a class="headerlink" href="#content-disposition" title="Permanent link">&para;</a></h3>
-<p>Attachment download URLs include <code>Content-Disposition: attachment</code> so that
-browsers always prompt the user to save the file rather than rendering it
-inline. The frontend also sets the HTML <code>download</code> attribute on attachment
-links as defense-in-depth.</p>
+<p>Attachment download URLs send <code>Content-Disposition: attachment</code>, so browsers prompt to save rather than render inline. The frontend also sets the HTML <code>download</code> attribute on attachment links as defense-in-depth.</p>
 <h3 id="authenticated-serving-not-a-bare-static-file-mount">Authenticated serving, not a bare static-file mount<a class="headerlink" href="#authenticated-serving-not-a-bare-static-file-mount" title="Permanent link">&para;</a></h3>
-<p><code>/media/</code> is <strong>not</strong> a raw Nginx file mount — that would serve any
-attachment to anyone who guessed its URL. Every download is proxied through
-Django's <code>ServeMediaView</code>, which checks board membership before serving the
-file, then hands off delivery one of two ways controlled by
-<code>USE_X_ACCEL_REDIRECT</code>:</p>
+<p><code>/media/</code> is <strong>not</strong> a raw Nginx file mount, which would serve any attachment to anyone who guessed its URL. Every download is proxied through Django's <code>ServeMediaView</code>, which checks board membership before serving the file. It then hands off delivery one of two ways, controlled by <code>USE_X_ACCEL_REDIRECT</code>:</p>
 <ul>
 <li><strong>On</strong> (production default): Django returns an <code>X-Accel-Redirect</code> header
   and Nginx streams the file itself from the internal-only
@@ -4223,26 +4205,15 @@ file, then hands off delivery one of two ways controlled by
   pod doesn't mount the media PVC — only the backend does, so a
   <code>ReadWriteOnce</code> storage class works even with multiple backend replicas.</li>
 </ul>
-<p>A request that can't be matched to a real, permitted attachment gets <code>404</code>
-(never <code>403</code>), so a guessed path can't be used to confirm a file exists.</p>
+<p>A request that matches no real, permitted attachment gets <code>404</code> (never <code>403</code>), so a guessed path can't confirm a file exists.</p>
 <hr />
 <h2 id="external-object-storage-s3-gcs-azure-blob">External object storage (S3, GCS, Azure Blob)<a class="headerlink" href="#external-object-storage-s3-gcs-azure-blob" title="Permanent link">&para;</a></h2>
-<p>Visiban stores attachments on the local filesystem (<code>MEDIA_ROOT</code>) by
-default — there is no <code>django-storages</code> (or equivalent) dependency in the
-shipped image, and <code>STORAGES</code> in <code>backend/visiban/settings.py</code> is hardcoded
-to <code>FileSystemStorage</code>. Moving to S3-compatible storage is a supported
-customization, not a built-in toggle: see
+<p>Visiban stores attachments on the local filesystem (<code>MEDIA_ROOT</code>) by default. There is no <code>django-storages</code> (or equivalent) dependency in the shipped image, and <code>STORAGES</code> in <code>backend/visiban/settings.py</code> is hardcoded to <code>FileSystemStorage</code>.</p>
+<p><strong>Yes, but:</strong> moving to S3-compatible storage is a supported customization, not a built-in toggle. See
 <a href="../../architecture/scaling/#attachment-storage">Scaling → Attachment storage</a>
 for the <code>django-storages</code> install and settings override, which you need
 before running more than one backend replica.</p>
-<p>Because every download still goes through the authenticated <code>ServeMediaView</code>
-(see <a href="#authenticated-serving-not-a-bare-static-file-mount">above</a>) — Django's
-storage backend only changes where bytes are read from, not who can request
-them — most bucket-level hardening below is defense-in-depth, not the primary
-access control. <code>X-Accel-Redirect</code> only works for local files Nginx can read
-directly, so <code>USE_X_ACCEL_REDIRECT</code> has no effect once you switch to S3;
-Django streams every download itself via <code>FileResponse</code> after fetching it
-from the bucket.</p>
+<p>Every download still goes through the authenticated <code>ServeMediaView</code> (see <a href="#authenticated-serving-not-a-bare-static-file-mount">above</a>); Django's storage backend changes only where bytes are read from, not who can request them. Most bucket-level hardening below is therefore defense-in-depth, not the primary access control. <code>X-Accel-Redirect</code> works only for local files Nginx can read, so <code>USE_X_ACCEL_REDIRECT</code> has no effect on S3: Django streams every download itself via <code>FileResponse</code> after fetching it from the bucket.</p>
 <h3 id="block-public-access">Block public access<a class="headerlink" href="#block-public-access" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -4277,21 +4248,15 @@ account used by the Visiban backend. Example AWS S3 bucket policy:</p>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="disable-cors-on-the-bucket">Disable CORS on the bucket<a class="headerlink" href="#disable-cors-on-the-bucket" title="Permanent link">&para;</a></h3>
-<p>Attachment downloads are always proxied through the application backend, never
-served directly from the bucket to the browser. There is no need to enable a
-permissive CORS policy on the bucket. If your infrastructure requires a CORS
-policy, restrict <code>AllowedOrigins</code> to your application's own domain.</p>
+<p>Attachment downloads always proxy through the backend, never straight from the bucket to the browser, so the bucket needs no permissive CORS policy. If your infrastructure requires one, restrict <code>AllowedOrigins</code> to your application's own domain.</p>
 <h3 id="enable-server-side-encryption">Enable server-side encryption<a class="headerlink" href="#enable-server-side-encryption" title="Permanent link">&para;</a></h3>
-<p>Enable server-side encryption on the bucket using managed keys (SSE-S3 /
-Google-managed / Azure-managed) or customer-managed keys (SSE-KMS / CMEK)
-according to your compliance requirements. Visiban does not require a
-specific key type.</p>
+<p>Enable server-side encryption on the bucket with managed keys (SSE-S3 / Google-managed / Azure-managed) or customer-managed keys (SSE-KMS / CMEK), per your compliance requirements. Visiban requires no specific key type.</p>
 <hr />
 <h2 id="removing-orphaned-attachment-files">Removing orphaned attachment files<a class="headerlink" href="#removing-orphaned-attachment-files" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1817)</p>
 </blockquote>
-<p>Deleting a card, column, swimlane or board, or deleting attachments in the Django admin, removes the attachment files from storage once the delete commits. If the delete rolls back, the files stay. A file is also kept while another attachment row still points at the same path.</p>
+<p>Deleting a card, column, swimlane or board, or deleting attachments in the Django admin, removes the attachment files once the delete commits. If the delete rolls back, the files stay. A file also stays while another attachment row points at the same path.</p>
 <p>Some files can still be left with no attachment row pointing at them:</p>
 <ul>
 <li>files from deletes made before upgrading to 1.2, which never removed them</li>

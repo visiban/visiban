@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#site-admins" class="md-skip">
+        <a href="#grant-admin-access-without-granting-every-board" class="md-skip">
           Skip to content
         </a>
       
@@ -4065,8 +4065,10 @@
   
 
 
-<h1 id="site-admins">Site Admins<a class="headerlink" href="#site-admins" title="Permanent link">&para;</a></h1>
-<p>Two flags, independent for accounts that are not superusers, control what a "site admin" can do on your instance: who can manage it, and who can see every board and group on it.</p>
+<h1 id="grant-admin-access-without-granting-every-board">Grant admin access without granting every board<a class="headerlink" href="#grant-admin-access-without-granting-every-board" title="Permanent link">&para;</a></h1>
+<p>Two flags control what a "site admin" can do on your instance: who can manage it, and who can see every board and group on it. They are independent for accounts that are not superusers.</p>
+<p><strong>Why it matters:</strong> You can give a support engineer visibility into every board without instance-settings access, or give an admin the settings panel without reading every board.</p>
+<p><strong>Go deeper:</strong> Day-to-day actions live in the <a href="../admin-panel/">Admin Panel</a>.</p>
 <h2 id="what-is-a-site-admin">What is a site admin?<a class="headerlink" href="#what-is-a-site-admin" title="Permanent link">&para;</a></h2>
 <p>"Site admin" covers two distinct privileges, tracked by separate flags:</p>
 <table>
@@ -4087,20 +4089,20 @@
 </tr>
 </tbody>
 </table>
-<p>Before Visiban 1.0.0 these two were coupled — <code>is_site_admin</code> implied content access. They are now independent for accounts that are not superusers (see the note below), so operators can grant admin panel access without also granting board/group omniscience, and vice versa.</p>
+<p><strong>Yes, but:</strong> before Visiban 1.0.0 these two were coupled, and <code>is_site_admin</code> implied content access. They are now independent for accounts that are not superusers (see the note below), so operators can grant admin panel access without also granting board/group omniscience, and vice versa.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Existing site admins are <strong>automatically migrated</strong>: the database migration sets <code>can_access_all_content=True</code> for every row where <code>is_site_admin=True</code>, so no access is lost on upgrade.</p>
 </div>
 <p>See <a href="../../features/rbac/roles/">Roles &amp; Permissions</a> for the full permission table.</p>
 <h2 id="granting-and-revoking-content-access-separately">Granting and revoking content access separately<a class="headerlink" href="#granting-and-revoking-content-access-separately" title="Permanent link">&para;</a></h2>
-<p>If you want a user to manage the admin panel <strong>without</strong> seeing all boards and groups, grant <code>is_site_admin</code> but leave <code>can_access_all_content</code> off:</p>
+<p>To let a user manage the admin panel <strong>without</strong> seeing all boards and groups, grant <code>is_site_admin</code> and leave <code>can_access_all_content</code> off:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Grant admin panel access only — board/group access unchanged</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Then immediately revoke content access if the user should not have it:</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># (use the admin panel toggle, or Django admin to uncheck can_access_all_content)</span>
 </code></pre></div>
-<p>If you want a user to see all boards (e.g. a support engineer) <strong>without</strong> admin panel access, you can enable <code>can_access_all_content</code> via the admin panel (<strong>Site Admin → Users → Grant all-content</strong>) without enabling <code>is_site_admin</code>.</p>
+<p>To let a user (e.g. a support engineer) see all boards <strong>without</strong> admin panel access, enable <code>can_access_all_content</code> in the admin panel (<strong>Site Admin → Users → Grant all-content</strong>) and leave <code>is_site_admin</code> off.</p>
 <p>The <code>set_site_admin</code> management command always sets <strong>both</strong> flags together for convenience:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Grant both flags</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
@@ -4139,10 +4141,10 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>A site admin cannot demote themselves — this prevents accidentally locking yourself out of the instance. To revoke your own status, ask another site admin to do it. The last active site admin on the instance cannot be demoted through the admin API or the site-admin panel.</p>
+<p>A site admin cannot demote themselves, which prevents locking yourself out. To revoke your own status, ask another site admin. The last active site admin cannot be demoted through the admin API or the site-admin panel.</p>
 </div>
 <h2 id="restricting-registration">Restricting registration<a class="headerlink" href="#restricting-registration" title="Permanent link">&para;</a></h2>
-<p>By default, anyone can create an account on a Visiban instance. The <strong>Settings</strong> tab in the admin panel (<code>/admin</code>) lets you change this:</p>
+<p>By default, anyone can create an account. Change this in the admin panel's <strong>Settings</strong> tab (<code>/admin</code>):</p>
 <table>
 <thead>
 <tr>
@@ -4174,11 +4176,24 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <li>The login page shows: <em>"An invite link is required to create an account."</em></li>
 </ul>
 <p><strong>Inviting users when invite-only is on:</strong></p>
-<p>Go to <strong>Site Admin → Invite Links</strong> to generate a new invite link. Send the link to the prospective user — they can follow it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once. <em>(1.2+)</em> A site invite link creates accounts only while the admin who created it is still an active site admin. Deactivating or deleting that admin (by any means, including the Django admin's <strong>Active</strong> checkbox), or removing their site admin status (<strong>Demote admin</strong> in the admin panel, <code>set_site_admin --revoke</code>, or removing their superuser status in the Django admin), stops their links from working, and <strong>Site Admin → Invite Links</strong> then lists those links as <strong>Revoked</strong> and no longer counts them toward the 50-link limit. <strong>Demote admin</strong>, <code>set_site_admin --revoke</code>, removing superuser status and deactivation from the admin panel also mark the pending links revoked. A link shown as <strong>Revoked</strong> only because its creator lost standing is not permanently revoked: if the creator's standing is restored, it becomes usable again. To retire such a link for good, revoke it explicitly while its creator is in good standing (the <strong>Revoke</strong> action is shown only for pending links), or at any time through <code>DELETE /api/v1/admin/invite-links/{id}/</code> (see the <a href="../../api/admin/">Admin API</a>).</p>
+<p>Go to <strong>Site Admin → Invite Links</strong> to generate a new invite link. Send the link to the prospective user, who follows it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.</p>
+<p><em>(1.2+)</em> A site invite link creates accounts only while the admin who created it is still an active site admin. These stop their links from working:</p>
+<ul>
+<li>deactivating or deleting that admin (by any means, including the Django admin's <strong>Active</strong> checkbox)</li>
+<li>removing their site admin status (<strong>Demote admin</strong> in the admin panel, <code>set_site_admin --revoke</code>, or removing their superuser status in the Django admin)</li>
+</ul>
+<p><strong>Site Admin → Invite Links</strong> then lists those links as <strong>Revoked</strong> and no longer counts them toward the 50-link limit. <strong>Demote admin</strong>, <code>set_site_admin --revoke</code>, removing superuser status and deactivation from the admin panel also mark the pending links revoked.</p>
+<p><strong>Yes, but:</strong> a link shown as <strong>Revoked</strong> only because its creator lost standing is not permanently revoked. If the creator's standing is restored, it becomes usable again. To retire such a link for good, revoke it explicitly while its creator is in good standing (the <strong>Revoke</strong> action is shown only for pending links), or at any time through <code>DELETE /api/v1/admin/invite-links/{id}/</code> (see the <a href="../../api/admin/">Admin API</a>).</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p><strong>Who can admit new accounts on an invite-only instance:</strong> only site admins. Besides site invite links, an invite a <strong>site admin</strong> emails from a group's invite panel lets its recipient create an account (password or OAuth) and joins them to that group with the invite's role. It is single-use and expires in 7 days by default. It stops creating accounts if its sender is deactivated, is no longer a site admin, or is no longer an admin of the group, and when email invites are turned off (<code>INVITE_EMAIL_ENABLED=false</code>, see <a href="../configuration/">Configuration</a>) — including invites already sent. Emailed invites from group admins who are not site admins, and every shareable group link, only work for people who already have an account; the group panel tells those senders so. See <a href="../../features/groups/#new-users-on-invite-only-instances">Groups</a>.</p>
+<p><strong>Who can admit new accounts on an invite-only instance:</strong> only site admins. Besides site invite links, an invite a <strong>site admin</strong> emails from a group's invite panel lets its recipient create an account (password or OAuth) and joins them to that group with the invite's role. It is single-use and expires in 7 days by default.</p>
+<p>It stops creating accounts when:</p>
+<ul>
+<li>its sender is deactivated, is no longer a site admin, or is no longer an admin of the group</li>
+<li>email invites are turned off (<code>INVITE_EMAIL_ENABLED=false</code>, see <a href="../configuration/">Configuration</a>), including invites already sent</li>
+</ul>
+<p>Emailed invites from group admins who are not site admins, and every shareable group link, only work for people who already have an account; the group panel tells those senders so. See <a href="../../features/groups/#new-users-on-invite-only-instances">Groups</a>.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
@@ -4190,9 +4205,9 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p><strong>Emailed group and board invites work only for the address they were sent to.</strong> When an admin emails a group or board invite, Visiban stores a keyed fingerprint of the address (an HMAC keyed from <code>DJANGO_SECRET_KEY</code>), never the address itself, and checks it every time the invite is used (#1678):</p>
+<p><strong>Emailed group and board invites work only for the address they were sent to.</strong> Visiban stores a keyed fingerprint of the address (an HMAC keyed from <code>DJANGO_SECRET_KEY</code>), never the address itself, and checks it every time the invite is used (#1678):</p>
 <ul>
-<li><strong>Joining with an existing account:</strong> the account must have the invited address. Under <code>EMAIL_VERIFICATION=mandatory</code> that means a verified address on the account (a pending, unconfirmed address change does not count). Under <code>optional</code> or <code>none</code>, the account's email address also counts. Those modes never ask anyone to prove an address, so there the check is only as strong as the verification setting. Capitalization and surrounding spaces don't matter; <code>+tags</code> and dots do.</li>
+<li><strong>Joining with an existing account:</strong> the account must have the invited address. Under <code>EMAIL_VERIFICATION=mandatory</code> that means a verified address (a pending, unconfirmed change does not count). Under <code>optional</code> or <code>none</code>, the account's email address also counts; those modes never ask anyone to prove an address, so the check is only as strong as the verification setting. Capitalization and surrounding spaces don't matter; <code>+tags</code> and dots do.</li>
 <li><strong>Creating an account from the invite</strong> (invite-only instances, see above): the sign-up address, or the address the OAuth provider reports, must be the invited one. The new account still goes through the normal email-verification setting.</li>
 <li><em>(New in 1.2)</em> <strong>When the membership starts, with <code>EMAIL_VERIFICATION=mandatory</code>:</strong> an account created from an emailed group or board invite joins the group or board when the invited address is verified, not at sign-up (#1704). Only invites bound to an address that is not yet verified are held; emailed invites sent before the upgrade, and sign-ups whose OAuth provider reports the invited address as verified, still join at sign-up. Until then the invite is held for that account: it is not used up and it lists as pending. The person sees the usual "verify your email" step; confirming the invited address adds them with the invite's role and uses up the invite.<ul>
 <li><strong>What the binding guarantees:</strong> the membership is granted to the account that registered the invited address, once that address is confirmed. Completing the grant requires control of the invited mailbox; the binding does not by itself verify who chose the account's password.</li>
@@ -4214,7 +4229,16 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>Site admins can also have Visiban <strong>email an invite</strong> straight to an address: under <strong>Site Admin → Invite Links</strong>, enter the address in <strong>Invite by email</strong> and select <strong>Send invite</strong> (also available as <code>POST /api/v1/admin/invite-links/send/</code>; see the <a href="../../api/admin/">Admin API</a>). If emailing isn't available — email isn't set up, or <code>INVITE_EMAIL_ENABLED</code> is off — the section points you to <strong>Settings → Email</strong> instead; on a demo site it just says email invites are disabled. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. Emailed links have their own limit — 200 pending — and don't count against the 50 shareable links. The address is not stored; the <code>202</code> response includes <code>already_registered</code>, saying whether it already belongs to an account (the email is sent either way), and never the raw token. If the mail server rejects the message, the endpoint returns <code>502</code> with a sanitized error <code>code</code> and revokes the link automatically. <code>invite_email_available</code> on <code>GET /api/v1/auth/site-config/</code> tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with <code>INVITE_EMAIL_ENABLED=false</code> (see <a href="../configuration/">Configuration</a>). The invite is bound to the address you entered: only a sign-up with that address (capitalization and surrounding spaces ignored) can use it. Following the link does not verify the recipient's address — registration still follows the normal email-verification setting.</p>
+<p>Site admins can also have Visiban <strong>email an invite</strong> straight to an address. Under <strong>Site Admin → Invite Links</strong>, enter the address in <strong>Invite by email</strong> and select <strong>Send invite</strong> (also available as <code>POST /api/v1/admin/invite-links/send/</code>; see the <a href="../../api/admin/">Admin API</a>).</p>
+<ul>
+<li><strong>What it creates:</strong> a single-use link that expires in 7 days (the API also accepts 1 or 30), sent from the instance's sender address.</li>
+<li><strong>Limits:</strong> emailed links have their own limit of 200 pending, and don't count against the 50 shareable links.</li>
+<li><strong>What's stored:</strong> the address is not stored. The <code>202</code> response includes <code>already_registered</code>, saying whether it already belongs to an account (the email is sent either way), and never the raw token.</li>
+<li><strong>On failure:</strong> if the mail server rejects the message, the endpoint returns <code>502</code> with a sanitized error <code>code</code> and revokes the link automatically.</li>
+<li><strong>Availability:</strong> <code>invite_email_available</code> on <code>GET /api/v1/auth/site-config/</code> tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with <code>INVITE_EMAIL_ENABLED=false</code> (see <a href="../configuration/">Configuration</a>). If emailing isn't available (email isn't set up, or <code>INVITE_EMAIL_ENABLED</code> is off), the section points you to <strong>Settings → Email</strong> instead; on a demo site it just says email invites are disabled.</li>
+<li><strong>Binding:</strong> the invite is bound to the address you entered. Only a sign-up with that address (capitalization and surrounding spaces ignored) can use it.</li>
+</ul>
+<p><strong>Yes, but:</strong> following the link does not verify the recipient's address. Registration still follows the normal email-verification setting.</p>
 <p>See <a href="../../getting-started/first-boot/">First Boot</a> for a full walkthrough of the invite link workflow, and <a href="../admin-panel/">Admin Panel</a> for the user management interface.</p>
 
 

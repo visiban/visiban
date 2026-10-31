@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#admin-panel" class="md-skip">
+        <a href="#run-your-instance-from-one-panel" class="md-skip">
           Skip to content
         </a>
       
@@ -4276,11 +4276,15 @@
   
 
 
-<h1 id="admin-panel">Admin Panel<a class="headerlink" href="#admin-panel" title="Permanent link">&para;</a></h1>
-<p>The admin panel at <code>/admin</code> is the primary interface for managing your Visiban instance. It is only accessible to site admins.</p>
+<h1 id="run-your-instance-from-one-panel">Run your instance from one panel<a class="headerlink" href="#run-your-instance-from-one-panel" title="Permanent link">&para;</a></h1>
+<p>The admin panel at <code>/admin</code> is where site admins manage users, registration, invites, and instance settings.</p>
+<p><strong>Why it matters:</strong> Most day-to-day admin work (adding a user, closing sign-ups, revoking a leaked invite, turning on maintenance mode) happens here without a shell.</p>
+<p><strong>The big picture:</strong> The panel has four tabs: <strong>Settings</strong>, <strong>Users</strong>, <strong>Invite Links</strong>, and <strong>Board Invites</strong>. It is accessible to site admins only.</p>
+<p><strong>Go deeper:</strong> Every operation also has a <a href="#cli-alternatives">CLI alternative</a>. For the two-flag admin model, see <a href="../site-admins/">Site Admins</a>.</p>
 <h2 id="settings-tab">Settings tab<a class="headerlink" href="#settings-tab" title="Permanent link">&para;</a></h2>
 <p>Controls instance-wide registration behavior and feature availability.</p>
 <h3 id="registration-mode">Registration mode<a class="headerlink" href="#registration-mode" title="Permanent link">&para;</a></h3>
+<p>Set who can create an account. Changes take effect immediately, with no restart.</p>
 <table>
 <thead>
 <tr>
@@ -4303,7 +4307,7 @@
 </tr>
 </tbody>
 </table>
-<p>Changes take effect immediately with no restart required. Existing user sessions and OAuth-linked accounts are never affected — only new sign-ups are gated.</p>
+<p><strong>Yes, but:</strong> only new sign-ups are gated. Existing user sessions and OAuth-linked accounts are never affected.</p>
 <h3 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4321,18 +4325,14 @@
 </tr>
 </tbody>
 </table>
-<p>Feature changes take effect within approximately 60 seconds due to server-side caching. Toggling a feature does not delete or alter any existing data.</p>
+<p><strong>By the numbers:</strong> feature changes take effect within about 60 seconds because of server-side caching. Toggling a feature never deletes or alters existing data.</p>
 <h3 id="email">Email<a class="headerlink" href="#email" title="Permanent link">&para;</a></h3>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Configure the SMTP server used for password-reset and email-verification messages, without editing environment variables or restarting the backend. Available only when the deployment has not pinned <code>EMAIL_BACKEND</code>/<code>backend.email.backend</code> to an explicit value. See <a href="../configuration/#configuring-smtp-from-the-admin-ui">Configuring SMTP from the admin UI</a>.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Configure the SMTP server for password-reset and email-verification messages, without editing environment variables or restarting the backend.</p>
+<p><strong>Yes, but:</strong> this is available only when the deployment has not pinned <code>EMAIL_BACKEND</code>/<code>backend.email.backend</code> to an explicit value. See <a href="../configuration/#configuring-smtp-from-the-admin-ui">Configuring SMTP from the admin UI</a>.</p>
 <h3 id="maintenance-mode">Maintenance mode<a class="headerlink" href="#maintenance-mode" title="Permanent link">&para;</a></h3>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Puts the whole instance into <strong>read-only mode</strong> while you run an upgrade or a migration. It is
-off by default.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Put the whole instance into <strong>read-only mode</strong> during an upgrade or migration. It is off by default.</p>
 <table>
 <thead>
 <tr>
@@ -4351,23 +4351,14 @@ off by default.</p>
 </tr>
 </tbody>
 </table>
-<p>Site admins are exempt and keep full read/write access — signed in through the browser or
-using a personal access token — but still see the notice. The setting lives in the database,
-so it survives a restart, and it takes effect immediately for every worker.</p>
-<p>See <a href="../maintenance-mode/">Maintenance Mode</a> for the full runbook: what everyone else sees, the
-exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a
-known limitation on tabs left open in the background.</p>
+<p><strong>How it works:</strong> site admins are exempt and keep full read/write access (signed in through the browser or using a personal access token), but still see the notice. The setting lives in the database, so it survives a restart, and it takes effect immediately for every worker.</p>
+<p><strong>Go deeper:</strong> <a href="../maintenance-mode/">Maintenance Mode</a> is the full runbook: what everyone else sees, the exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a known limitation on tabs left open in the background.</p>
 <h3 id="change-history">Change history<a class="headerlink" href="#change-history" title="Permanent link">&para;</a></h3>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Changes to the toggles on this tab — registration mode, file uploads, and maintenance mode —
-are recorded with the admin who made them and when. There is no UI for this yet; read the
-trail from <a href="../../api/admin/#action-log"><code>GET /api/v1/admin/action-log/</code></a>. See
-<a href="../maintenance-mode/#who-turned-it-on-the-action-log">Who turned it on?</a> for the incident-retro
-walkthrough.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Changes to the toggles on this tab (registration mode, file uploads, and maintenance mode) are recorded with the admin who made them and when.</p>
+<p><strong>Yes, but:</strong> there is no UI for this yet. Read the trail from <a href="../../api/admin/#action-log"><code>GET /api/v1/admin/action-log/</code></a>. See <a href="../maintenance-mode/#who-turned-it-on-the-action-log">Who turned it on?</a> for the incident-retro walkthrough.</p>
 <h2 id="users-tab">Users tab<a class="headerlink" href="#users-tab" title="Permanent link">&para;</a></h2>
-<p>Lists all accounts on the instance, paginated 50 per page. Use the search bar to filter by username, display name, or email address.</p>
+<p>Lists all accounts on the instance, 50 per page. Use the search bar to filter by username, display name, or email address.</p>
 <h3 id="user-status-badges">User status badges<a class="headerlink" href="#user-status-badges" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4399,16 +4390,17 @@ walkthrough.</p>
 <blockquote>
 <p><strong>Changed in 1.2</strong> — the less-frequent actions moved into a per-row overflow menu.</p>
 </blockquote>
-<p>Each row shows <strong>Deactivate</strong>/<strong>Reactivate</strong> and <strong>Make admin</strong>/<strong>Demote admin</strong> as inline
-text buttons — these are the actions admins reach for most often. The remaining, lower-frequency
-actions (<strong>Grant all-content</strong>/<strong>Revoke all-content</strong>, <strong>Force password reset</strong>, <strong>Clear
-lockout</strong>, and <strong>Restart onboarding tour</strong>, when each applies to that user) live behind the
-<strong>More actions</strong> (<code>⋮</code>) button at the end of the row. Open it with a click, or reach it with
-the keyboard (Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to
-close) — every item in the menu is a fully keyboard-navigable, screen-reader-labeled control,
-not just a mouse target.</p>
+<p>Each row shows <strong>Deactivate</strong>/<strong>Reactivate</strong> and <strong>Make admin</strong>/<strong>Demote admin</strong> as inline text buttons, the actions admins reach for most often.</p>
+<p>The lower-frequency actions live behind the <strong>More actions</strong> (<code>⋮</code>) button at the end of the row, when each applies to that user:</p>
+<ul>
+<li><strong>Grant all-content</strong>/<strong>Revoke all-content</strong></li>
+<li><strong>Force password reset</strong></li>
+<li><strong>Clear lockout</strong></li>
+<li><strong>Restart onboarding tour</strong></li>
+</ul>
+<p>Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is keyboard-navigable and screen-reader-labeled.</p>
 <h4 id="add-user">Add user<a class="headerlink" href="#add-user" title="Permanent link">&para;</a></h4>
-<p>Creates a local account directly. Fields:</p>
+<p>Creates a local account directly.</p>
 <table>
 <thead>
 <tr>
@@ -4440,18 +4432,28 @@ not just a mouse target.</p>
 <p>Copy the temporary password before closing the dialog — it is not shown again. The user needs it to log in and trigger the password-reset prompt. If you lose it, deactivate the account and create a new one.</p>
 </div>
 <h4 id="deactivate-reactivate">Deactivate / Reactivate<a class="headerlink" href="#deactivate-reactivate" title="Permanent link">&para;</a></h4>
-<p>Deactivated accounts cannot log in. No data is deleted. Can be reversed at any time by clicking <strong>Reactivate</strong>. On a superuser account, <strong>Deactivate</strong> and <strong>Reactivate</strong> are available to superusers only.</p>
-<p>You cannot deactivate your own account from this panel.</p>
-<p><strong>If the user owns any boards</strong>, deactivation opens a <strong>Transfer boards &amp; deactivate</strong>
-dialog first — you cannot deactivate a board owner without reassigning ownership.
-Search for a new owner per board (any existing member — a direct board member or one who
-has access through group membership both count) and confirm; deactivation and the ownership
-transfers happen together, atomically. Deactivating the account also revokes any invite links
-the departing user created — site invite links and, <em>(1.2+)</em>, the pending board invites they
-emailed (each board's admins see those invites move to <strong>Revoked</strong>) and their active, unused group invite links (each affected group's admins see them move to <strong>Revoked</strong>). Consumed single-use links are left as they are. <em>(1.2+)</em> It also turns off any public board share link the user turned on (links turned on before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier) record no admin and stop working at the upgrade instead; see the <a href="../upgrade/#upgrading-to-12x">upgrade notes</a>); see <a href="../../features/board/#when-a-share-link-ends-automatically">Board sharing</a>.</p>
+<p>Deactivated accounts cannot log in. No data is deleted. Click <strong>Reactivate</strong> to reverse it at any time.</p>
+<ul>
+<li>You cannot deactivate your own account from this panel.</li>
+<li>On a superuser account, <strong>Deactivate</strong> and <strong>Reactivate</strong> are available to superusers only.</li>
+</ul>
+<p><strong>If the user owns any boards</strong>, deactivation first opens a <strong>Transfer boards &amp; deactivate</strong> dialog, because you cannot deactivate a board owner without reassigning ownership. Search for a new owner per board (any existing member counts, direct or through group membership) and confirm. Deactivation and the transfers happen together, atomically.</p>
+<p><strong>What else deactivation does:</strong> it revokes any invite links the departing user created:</p>
+<ul>
+<li>site invite links</li>
+<li><em>(1.2+)</em> the pending board invites they emailed (each board's admins see those invites move to <strong>Revoked</strong>)</li>
+<li>their active, unused group invite links (each affected group's admins see them move to <strong>Revoked</strong>)</li>
+</ul>
+<p>Consumed single-use links are left as they are.</p>
+<p><em>(1.2+)</em> It also turns off any public board share link the user turned on (links turned on before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier) record no admin and stop working at the upgrade instead; see the <a href="../upgrade/#upgrading-to-12x">upgrade notes</a>); see <a href="../../features/board/#when-a-share-link-ends-automatically">Board sharing</a>.</p>
 <h4 id="make-admin-demote-admin">Make admin / Demote admin<a class="headerlink" href="#make-admin-demote-admin" title="Permanent link">&para;</a></h4>
-<p>Grants or revokes site admin status. You cannot change your own admin status — ask another site admin. <strong>Demote admin</strong> is not shown for an account that is still a superuser (the API refuses it); remove superuser status in the Django admin first. <em>(1.2+)</em> <strong>Demote admin</strong> also revokes the unused site invite links that user created; only an active site admin's site invite links create accounts.</p>
-<p>The last active site admin on the instance cannot be demoted.</p>
+<p>Grants or revokes site admin status.</p>
+<ul>
+<li>You cannot change your own admin status. Ask another site admin.</li>
+<li><strong>Demote admin</strong> is not shown for an account that is still a superuser (the API refuses it). Remove superuser status in the Django admin first.</li>
+<li><em>(1.2+)</em> <strong>Demote admin</strong> also revokes the unused site invite links that user created; only an active site admin's site invite links create accounts.</li>
+<li>The last active site admin on the instance cannot be demoted.</li>
+</ul>
 <h4 id="grant-all-content-revoke-all-content">Grant all-content / Revoke all-content<a class="headerlink" href="#grant-all-content-revoke-all-content" title="Permanent link">&para;</a></h4>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
@@ -4462,32 +4464,29 @@ emailed (each board's admins see those invites move to <strong>Revoked</strong>)
 <li><strong>Grant all-content</strong> and <strong>Revoke all-content</strong> on a superuser account are available to superusers only.</li>
 <li><strong>Revoke all-content</strong> removes that access. The user will only see boards and groups they are explicitly a member of. It is not shown for a superuser account, because superuser status implies all-content access (the API refuses it); remove superuser status in the Django admin first.</li>
 </ul>
-<p>These two flags — <code>is_site_admin</code> (admin panel access) and <code>can_access_all_content</code> (board/group omniscience) — are independent for accounts that are not superusers (a superuser always has both). See <a href="../site-admins/">Site Admins</a> for a detailed explanation of the two-flag model and examples of common configurations.</p>
+<p><strong>The big picture:</strong> <code>is_site_admin</code> (admin panel access) and <code>can_access_all_content</code> (board/group omniscience) are independent for accounts that are not superusers. A superuser always has both. See <a href="../site-admins/">Site Admins</a> for a detailed explanation of the two-flag model and examples of common configurations.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>The <code>set_site_admin</code> management command sets <strong>both</strong> flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel toggles described here, or edit the user directly in the <a href="../django-admin/">Django admin</a> at <code>/admin/accounts/user/</code>.</p>
 </div>
 <h4 id="force-password-reset">Force password reset<a class="headerlink" href="#force-password-reset" title="Permanent link">&para;</a></h4>
-<p>Sets <code>must_change_password = true</code> on the user. The next time they log in, they are presented with a password-change dialog before accessing the application. Useful after a suspected credential compromise. On a superuser account it is available to superusers only.</p>
+<p>Sets <code>must_change_password = true</code> on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to superusers only.</p>
 <h4 id="restart-onboarding-tour">Restart onboarding tour<a class="headerlink" href="#restart-onboarding-tour" title="Permanent link">&para;</a></h4>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Clears <code>has_completed_tour</code> for a user, so they see the <a href="../../getting-started/onboarding-tour/">onboarding tour</a> again the next time they open a board — the admin-initiated equivalent of the self-service <strong>Restart onboarding tour</strong> button in Settings → Behavior. Only shown when the user has already completed the tour — there is nothing to reset otherwise. No data is changed beyond the flag.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Clears <code>has_completed_tour</code> for a user, so they see the <a href="../../getting-started/onboarding-tour/">onboarding tour</a> again the next time they open a board. It is the admin-initiated equivalent of the self-service <strong>Restart onboarding tour</strong> button in Settings → Behavior.</p>
+<p>It is shown only when the user has already completed the tour, since there is nothing to reset otherwise. No data is changed beyond the flag.</p>
 <h4 id="clear-lockout">Clear lockout<a class="headerlink" href="#clear-lockout" title="Permanent link">&para;</a></h4>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Clears the per-account login lockout (on a superuser account this is available to superusers only; 5 failed login or password-change attempts within 5 minutes — see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>) immediately, letting the user log in again without waiting out the rest of the 5-minute window.</p>
-<p>A successful password reset already clears this automatically, so <strong>Clear lockout</strong> is for the case where that isn't an option — for example the user contacts support directly instead of using the reset-password flow, or reset emails aren't reaching them. It is safe to click at any time: if the account isn't currently locked out, nothing happens.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Clears the per-account login lockout immediately, so the user can log in again without waiting out the rest of the 5-minute window. The lockout is 5 failed login or password-change attempts within 5 minutes; see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>. On a superuser account this is available to superusers only.</p>
+<p><strong>Yes, but:</strong> a successful password reset already clears the lockout. Use <strong>Clear lockout</strong> when that isn't an option, for example the user contacts support instead of using the reset flow, or reset emails aren't arriving. It is safe at any time: if the account isn't locked out, nothing happens.</p>
 <h2 id="invite-links-tab">Invite Links tab<a class="headerlink" href="#invite-links-tab" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>The <strong>Invite Links</strong> tab lets site admins create and manage invite links for instance-wide registration. Invite links are only relevant when the instance registration mode is set to <strong>Invite-only</strong> (see <a href="#settings-tab">Settings tab</a>), but links can be created regardless of the current mode and activated later.</p>
-<p>Invite links work for both password-based and OAuth registration (Google, GitHub, GitLab, OIDC). When a new user follows a join link and chooses OAuth, the token is carried through the IdP redirect automatically and consumed on successful signup.</p>
+<p>Create and manage invite links for instance-wide registration. Links matter only when registration mode is <strong>Invite-only</strong> (see <a href="#settings-tab">Settings tab</a>), but you can create them in any mode and activate them later.</p>
+<p>Invite links work for password and OAuth registration (Google, GitHub, GitLab, OIDC). When a new user follows a join link and chooses OAuth, the token is carried through the IdP redirect and consumed on successful signup.</p>
 <h3 id="link-list">Link list<a class="headerlink" href="#link-list" title="Permanent link">&para;</a></h3>
-<p>Each row in the list shows:</p>
+<p>Each row shows:</p>
 <table>
 <thead>
 <tr>
@@ -4520,7 +4519,7 @@ emailed (each board's admins see those invites move to <strong>Revoked</strong>)
 </table>
 <p>Links that Visiban emailed (see <a href="#inviting-by-email">Inviting by email</a>) carry an <strong>Emailed</strong> badge and never show a copyable link, because the token exists only in the email.</p>
 <h3 id="creating-a-new-invite-link">Creating a new invite link<a class="headerlink" href="#creating-a-new-invite-link" title="Permanent link">&para;</a></h3>
-<p>Click <strong>New invite link</strong> to open the creation dialog. Fields:</p>
+<p>Click <strong>New invite link</strong> to open the creation dialog.</p>
 <table>
 <thead>
 <tr>
@@ -4539,7 +4538,7 @@ emailed (each board's admins see those invites move to <strong>Revoked</strong>)
 </tr>
 </tbody>
 </table>
-<p>After clicking <strong>Create</strong>, the full join URL (<code>/join/&lt;token&gt;</code>) is displayed <strong>once</strong> in the dialog. Copy it immediately — it is not shown again. The token prefix remains visible in the list for reference.</p>
+<p>After you click <strong>Create</strong>, the dialog shows the full join URL (<code>/join/&lt;token&gt;</code>) <strong>once</strong>. Copy it immediately. The token prefix stays visible in the list for reference.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>The full join URL is only revealed at creation time. If you close the dialog without copying it, you must revoke the link and create a new one.</p>
@@ -4548,20 +4547,28 @@ emailed (each board's admins see those invites move to <strong>Revoked</strong>)
 <blockquote>
 <p><strong>Added in 1.2</strong> (#731)</p>
 </blockquote>
-<p>Above the link list, the <strong>Invite by email</strong> section lets you have Visiban email an invite straight to an address: enter it and select <strong>Send invite</strong>. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored. Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See <a href="../site-admins/">Site Admins</a> for the API and rate-limit details.</p>
-<p>When emailing isn't possible, the section is replaced by a note that points to <strong>Settings → Email</strong> (select it to open the Settings tab) and reminds you that email invites must be enabled (<code>INVITE_EMAIL_ENABLED</code>, see <a href="../configuration/">Configuration</a>). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.</p>
+<p>In the <strong>Invite by email</strong> section above the link list, enter an address and select <strong>Send invite</strong>. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored.</p>
+<p>Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See <a href="../site-admins/">Site Admins</a> for the API and rate-limit details.</p>
+<p><strong>Yes, but:</strong> when emailing isn't possible, the section is replaced by a note. It points to <strong>Settings → Email</strong> (select it to open the Settings tab) and reminds you that email invites must be enabled (<code>INVITE_EMAIL_ENABLED</code>, see <a href="../configuration/">Configuration</a>). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.</p>
 <h3 id="revoking-a-link">Revoking a link<a class="headerlink" href="#revoking-a-link" title="Permanent link">&para;</a></h3>
 <p>Click <strong>Revoke</strong> on any active link to invalidate it immediately. Revoked links cannot be re-activated. Users who attempt to use a revoked link receive a clear error message.</p>
 <h2 id="board-invites-tab">Board Invites tab<a class="headerlink" href="#board-invites-tab" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>The <strong>Board Invites</strong> tab lists the invites of <strong>every board</strong> on the instance — invites board admins emailed and shareable invite links they created — so you can audit them or revoke a leaked link without being a member of the board. Board admins manage their own board's invites from <strong>Board Settings → Members</strong>.</p>
-<p>Pick a <strong>Status</strong> (Pending, the default; Used; Expired; Revoked; or All). Each row shows the board, the role the invite grants, how it was delivered (<strong>Email</strong> or <strong>Link</strong>), its status, when it expires, and who created it (<strong>—</strong> when that account was removed). An <strong>Existing accounts only</strong> tag means a new person couldn't create an account from the invite on this site right now — always the case for a shareable link on an invite-only site. The list shows 50 invites per page.</p>
-<p>The tab shows each invite's <strong>stored</strong> status. Unlike the board's own list, it does not check whether the invite's creator is still an admin of the board: an invite whose creator was demoted can show <strong>Pending</strong> here while the board's list shows it as revoked and nobody can join with it. Revoke it here to make that permanent. The <strong>Existing accounts only</strong> tag is likewise a best-effort hint; registration re-checks everything.</p>
-<p>Select <strong>Revoke</strong> on a pending invite and then <strong>Confirm</strong> to stop it working immediately. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in <a href="../../api/admin/#board-invites">Admin API — Board invites</a>.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Audit the invites of <strong>every board</strong> on the instance, or revoke a leaked link, without being a member of the board. The tab lists invites board admins emailed and shareable invite links they created. Board admins manage their own board's invites from <strong>Board Settings → Members</strong>.</p>
+<p>Pick a <strong>Status</strong> (Pending, the default; Used; Expired; Revoked; or All). Each row shows:</p>
+<ul>
+<li>the board</li>
+<li>the role the invite grants</li>
+<li>how it was delivered (<strong>Email</strong> or <strong>Link</strong>)</li>
+<li>its status</li>
+<li>when it expires</li>
+<li>who created it (<strong>—</strong> when that account was removed)</li>
+</ul>
+<p>An <strong>Existing accounts only</strong> tag means a new person couldn't create an account from the invite on this site right now (always so for a shareable link on an invite-only site). The list shows 50 invites per page.</p>
+<p>To stop an invite immediately, select <strong>Revoke</strong> on a pending invite and then <strong>Confirm</strong>. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in <a href="../../api/admin/#board-invites">Admin API — Board invites</a>.</p>
+<p><strong>Yes, but:</strong> the tab shows each invite's <strong>stored</strong> status and, unlike the board's own list, does not check whether the creator is still a board admin. An invite whose creator was demoted can show <strong>Pending</strong> here while the board's list shows it revoked and nobody can join with it. Revoke it here to make that permanent. The <strong>Existing accounts only</strong> tag is a best-effort hint; registration re-checks everything.</p>
 <h2 id="cli-alternatives">CLI alternatives<a class="headerlink" href="#cli-alternatives" title="Permanent link">&para;</a></h2>
-<p>All admin-panel operations are also available via management commands for scripting and automation:</p>
+<p>All admin-panel operations are also available via management commands, for scripting and automation.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Grant site admin</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>

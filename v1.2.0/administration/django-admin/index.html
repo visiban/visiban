@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#django-admin-panel" class="md-skip">
+        <a href="#edit-raw-records-in-the-django-admin" class="md-skip">
           Skip to content
         </a>
       
@@ -4065,17 +4065,13 @@
   
 
 
-<h1 id="django-admin-panel">Django Admin Panel<a class="headerlink" href="#django-admin-panel" title="Permanent link">&para;</a></h1>
-<p>Django's built-in admin — for direct database record editing, not day-to-day
-administration — lives at <code>/admin/</code> (<strong>with</strong> a trailing slash) on the backend
-server (port 8000 in development).</p>
-<p>Why it matters: this is a different page from the React <strong>site-admin panel</strong>
-at <code>/admin</code> (<strong>no</strong> trailing slash — see <a href="../admin-panel/">Admin Panel</a>), which
-is what most day-to-day tasks (users, registration mode, maintenance mode)
-should go through. The two share a URL prefix by coincidence of routing, not
-by design — Nginx and the SPA router tell them apart by the trailing slash.</p>
+<h1 id="edit-raw-records-in-the-django-admin">Edit raw records in the Django admin<a class="headerlink" href="#edit-raw-records-in-the-django-admin" title="Permanent link">&para;</a></h1>
+<p>Django's built-in admin lives at <code>/admin/</code> (<strong>with</strong> a trailing slash) on the backend server (port 8000 in development). Use it for direct database record editing, not day-to-day administration.</p>
+<p><strong>Why it matters:</strong> this is a different page from the React <strong>site-admin panel</strong> at <code>/admin</code> (<strong>no</strong> trailing slash; see <a href="../admin-panel/">Admin Panel</a>). Use the site-admin panel for most day-to-day tasks (users, registration mode, maintenance mode).</p>
+<p><strong>Yes, but:</strong> the two share a URL prefix by coincidence of routing, not by design. Nginx and the SPA router tell them apart by the trailing slash.</p>
 <h2 id="access">Access<a class="headerlink" href="#access" title="Permanent link">&para;</a></h2>
-<p>Log in with any user that has <code>is_staff = True</code> or <code>is_superuser = True</code>. The site admin account created by <code>ensure_site_admin</code> has <code>is_staff</code> and <code>is_superuser</code> set, so it can sign in here once it has changed the generated password (see below). To give another account Django admin access, set <code>is_staff</code> on it:</p>
+<p>Log in with any user that has <code>is_staff = True</code> or <code>is_superuser = True</code>. The site admin account created by <code>ensure_site_admin</code> has <code>is_staff</code> and <code>is_superuser</code> set, so it can sign in here once it has changed the generated password (see below).</p>
+<p>To give another account Django admin access, set <code>is_staff</code> on it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="s2">from accounts.models import User</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="s2">u = User.objects.get(username='someone')</span>
@@ -4083,12 +4079,12 @@ by design — Nginx and the SPA router tell them apart by the trailing slash.</p
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="s2">u.save()</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="s2">"</span>
 </code></pre></div>
-<p>An account with a forced password or username change pending (<code>must_change_password</code> or <code>must_change_username</code>) cannot use the Django admin until it completes the change in the web app: <code>/admin/</code> redirects it to the app and refuses form submissions. Only <strong>Log out</strong> stays available. The account created by <code>ensure_site_admin</code> starts with <code>must_change_password</code> set, so it changes its password in the web app before it can use the Django admin.</p>
+<p><strong>Watch out:</strong> an account with a forced password or username change pending (<code>must_change_password</code> or <code>must_change_username</code>) cannot use the Django admin until it completes the change in the web app. <code>/admin/</code> redirects it to the app and refuses form submissions. Only <strong>Log out</strong> stays available. The account created by <code>ensure_site_admin</code> starts with <code>must_change_password</code> set, so it changes its password in the web app before it can use the Django admin.</p>
 <h2 id="passwords">Passwords<a class="headerlink" href="#passwords" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Your own password:</strong> the admin's <strong>Change password</strong> link opens the web app, where you change it like any other user.</li>
 <li><strong>Another user's password</strong> (the user's <strong>Password</strong> form at <code>/admin/accounts/user/&lt;id&gt;/password/</code>): saving a new password, or disabling password sign-in, deletes that user's Personal Access Tokens and API token and ends their sessions. If a new password was set, the user must change it the next time they sign in. The action is recorded in the <a href="../../api/admin/">admin action log</a> with who made the change and which account it applied to; the password itself is never recorded.</li>
-<li><strong>Passwords set from the command line:</strong> <code>createsuperuser</code> (when a password is set), <code>ensure_site_admin</code> (the generated one-time password), <code>changepassword</code> and <code>provision_fuzz_token --set-random-password</code> record the same entry in the admin action log with source <code>cli</code> and no actor. The entry and the password change are saved together, so the password changes only if the entry is saved. Accounts created through the site-admin panel's API (<code>POST /api/v1/admin/users/</code>) are recorded the same way, with source <code>admin_api</code> and who created them. The demo seed writes no entry: it runs only with <code>DEMO_MODE=true</code>, and the demo's hourly reset empties the log.</li>
+<li><strong>Passwords set from the command line:</strong> <code>createsuperuser</code> (when a password is set), <code>ensure_site_admin</code> (the generated one-time password), <code>changepassword</code> and <code>provision_fuzz_token --set-random-password</code> write the same admin action log entry with source <code>cli</code> and no actor. The entry and the password change save together, so the password changes only if the entry saves. Accounts created through the site-admin panel's API (<code>POST /api/v1/admin/users/</code>) are recorded the same way, with source <code>admin_api</code> and who created them. The demo seed writes no entry: it runs only with <code>DEMO_MODE=true</code>, and the demo's hourly reset empties the log.</li>
 <li><strong>Adding a user:</strong> a user created here with a password must choose their own password the first time they sign in, the same as one created from the site-admin panel. Adding a user with a password is recorded in the admin action log; the password itself is not. A user created with password sign-in disabled is not asked to create one.</li>
 </ul>
 <h2 id="deactivating-users">Deactivating users<a class="headerlink" href="#deactivating-users" title="Permanent link">&para;</a></h2>
@@ -4101,7 +4097,7 @@ by design — Nginx and the SPA router tell them apart by the trailing slash.</p
 <li>Deleting a user, from the user's delete page or the <strong>Delete selected users</strong> action, applies the same guards: you cannot delete your own account, a user who owns boards (transfer the boards first), a user who owns groups (transfer the groups first, see <a href="#transferring-a-groups-ownership">Transferring a group's ownership</a>; deactivating the account remains available), the last active site admin, the last active superuser, or <em>(1.2+)</em> the last active admin of a group (make another active member an admin of the group first; a deactivated admin does not count, so a group whose only other admin is its deactivated owner needs a new admin or an <a href="#transferring-a-groups-ownership">ownership transfer</a>); staff accounts that are not superusers cannot delete another staff, superuser or site-admin account. A bulk delete is all-or-nothing: if any selected user is refused, none are deleted and each reason is shown.</li>
 <li>Changing a user's <strong>Email address</strong> here mails the user's previous address a short notice that the account's email was changed (it does not include the new address), the same as when users change it themselves.</li>
 <li>Marking an email address as verified (the <strong>Email addresses</strong> admin's verify action) on an account that has no password mails the account's current email a short notice that an address was confirmed on the account, the same as when users confirm one themselves.</li>
-<li>If the account changed after you opened its form, the save is refused with a message asking you to reload the page and make your changes again.</li>
+<li>A save is refused with a reload message if the account changed after you opened its form.</li>
 <li><strong>Groups</strong> (workspace groups, under the <strong>Groups</strong> app) — visible to superusers only and read-only: fields cannot be edited and groups cannot be deleted here. The one write is the <strong>Transfer ownership of the selected group</strong> action, intended for a group whose owner is deactivated or gone; it works on any group (see <a href="#transferring-a-groups-ownership">Transferring a group's ownership</a>).</li>
 <li><strong>Authentication and Authorization → Groups</strong> (Django auth permission groups) — visible and editable by superusers only; staff accounts do not see this entry even when granted the group permissions</li>
 <li><strong>Site settings</strong> — instance-wide configuration (registration mode, file uploads, <a href="../maintenance-mode/">maintenance mode</a>); clicking the entry goes directly to the settings form — there is always exactly one row</li>
@@ -4110,19 +4106,26 @@ by design — Nginx and the SPA router tell them apart by the trailing slash.</p
 <li><strong>Board memberships</strong> — view and correct membership records</li>
 <li><strong>Email addresses, social accounts, social tokens, social apps, API tokens and Sites</strong> — available to superusers only. Staff accounts do not see these entries.</li>
 </ul>
-<p>The change forms for users, groups, site settings, boards and board memberships save only the fields you changed; a field you left alone keeps its current stored value. If the record changed after you opened its form, the save is refused with a message asking you to reload the page and make your changes again.</p>
+<p>The change forms for users, groups, site settings, boards and board memberships save only the fields you changed; the rest keep their stored values. If the record changed after you opened its form, the save is refused with a message asking you to reload and redo your changes.</p>
 <h2 id="transferring-a-groups-ownership">Transferring a group's ownership<a class="headerlink" href="#transferring-a-groups-ownership" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1643)</p>
 </blockquote>
-<p>A user who owns groups cannot be deleted until ownership moves, and only the owner can transfer a group through the web app. When the owner is deactivated or gone, a superuser does it from the Django admin:</p>
+<p>A superuser can move a group to a new owner from the Django admin. A user who owns groups cannot be deleted until ownership moves, and only the owner can transfer a group through the web app. Use this when the owner is deactivated or gone:</p>
 <ol>
 <li>Open <strong>Groups</strong> under the <strong>Groups</strong> app and tick exactly one group. The list shows each owner and whether the owner is active.</li>
 <li>Choose <strong>Transfer ownership of the selected group</strong> and click <strong>Go</strong>.</li>
 <li>Pick the new owner. The list holds only active members of that group other than the current owner; add the person to the group first if they are not a member.</li>
 <li>Confirm. The new owner becomes an admin member of the group and its owner, the previous owner stays on the group as an admin member, and open sessions receive the same group update the web app sends.</li>
 </ol>
-<p>The action shares its transfer code with the web app, but its rules are deliberately looser, since it is a superuser's judgment call: there is no group-name confirmation, the new owner can be any active member of the group (not only an existing admin) and is made an admin, and it works on any group, not only those with a departed owner. The page records the owner it showed; if the owner changed before you confirmed, the transfer is refused and you retry from a reloaded page. Each transfer is recorded in the admin log. The action is available to superusers only. Staff accounts that are not superusers do not see the Groups entry. Once the groups are transferred, the former owner can be deleted.</p>
+<p><strong>Yes, but:</strong> the action shares its transfer code with the web app, but its rules are deliberately looser, since it is a superuser's judgment call:</p>
+<ul>
+<li>there is no group-name confirmation</li>
+<li>the new owner can be any active member of the group (not only an existing admin) and is made an admin</li>
+<li>it works on any group, not only those with a departed owner</li>
+</ul>
+<p>The page records the owner it showed. If the owner changed before you confirmed, the transfer is refused and you retry from a reloaded page. Each transfer is recorded in the admin log.</p>
+<p>The action is available to superusers only. Staff accounts that are not superusers do not see the Groups entry. Once the groups are transferred, the former owner can be deleted.</p>
 <h2 id="production-note">Production note<a class="headerlink" href="#production-note" title="Permanent link">&para;</a></h2>
 <p><strong>Restricted to loopback by default</strong> — both the bundled Nginx config and
 <code>AdminIPRestrictionMiddleware</code> block any client IP that isn't <code>127.0.0.1</code> or

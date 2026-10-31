@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#demo-data" class="md-skip">
+        <a href="#seed-a-demo-board-in-one-command" class="md-skip">
           Skip to content
         </a>
       
@@ -4232,8 +4232,15 @@
   
 
 
-<h1 id="demo-data">Demo Data<a class="headerlink" href="#demo-data" title="Permanent link">&para;</a></h1>
-<p><code>seed_demo_data</code> populates a board with realistic fake data for local development, staging demos, and CI. <strong>Why it matters:</strong> never point it at a database with real data — see the guard below.</p>
+<h1 id="seed-a-demo-board-in-one-command">Seed a demo board in one command<a class="headerlink" href="#seed-a-demo-board-in-one-command" title="Permanent link">&para;</a></h1>
+<p>Run <code>python manage.py seed_demo_data</code> to populate a board with realistic fake data for local development, staging demos, and CI.</p>
+<p><strong>Why it matters:</strong> never point it at a database with real data. See the guard below.</p>
+<p><strong>The big picture:</strong> the command has three levels.</p>
+<ul>
+<li><strong>Default:</strong> one "Visiban Demo Board" (see <a href="#overview">Overview</a>).</li>
+<li><strong><code>--demo-site</code>:</strong> the showcase content for a public demo (see <a href="#hosted-demo-instance">Hosted demo instance</a>).</li>
+<li><strong>Helm:</strong> a supported public deployment (see <a href="#public-demo-mode-helm">Public demo mode (Helm)</a>).</li>
+</ul>
 <blockquote>
 <p><strong>Warning: development and staging only.</strong> The command is guarded against running when <code>DEBUG=False</code> without <code>--force</code>, but <code>--force</code> must never be used on a live database. Demo boards, demo users, and dummy cards are indistinguishable from real data at the database level — there is no <code>is_demo</code> flag and no automated cleanup. See <a href="#cleaning-up-accidental-seeding">Cleaning up accidental seeding</a> if this happens.</p>
 </blockquote>
@@ -4241,13 +4248,13 @@
 <blockquote>
 <p><strong>Changed in 1.2</strong> — the board also belongs to a demo Group, and a custom field value, a file attachment, a <code>SavedFilter</code>, a group invite link, and a group label are now seeded alongside the board and cards.</p>
 </blockquote>
-<p>It creates a "Visiban Demo Board": five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one <code>SavedFilter</code>, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. The non-owner demo users (<code>demo2</code> to <code>demo5</code>) are <code>MEMBER</code>s of the demo Group (<code>demo1</code> is its admin), and <code>demo2</code> authored one card that carries its own attachment, comment, checklist item, and relation (used by the schema-fuzz CI job). Use it for:</p>
+<p>It creates a "Visiban Demo Board": five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group. One card carries a custom field value and a file attachment, and one <code>SavedFilter</code>, one group invite link, and one group label are seeded too, so every board- and group-scoped resource family has at least one real row. The non-owner demo users (<code>demo2</code> to <code>demo5</code>) are <code>MEMBER</code>s of the demo Group (<code>demo1</code> is its admin). <code>demo2</code> authored one card with its own attachment, comment, checklist item, and relation (used by the schema-fuzz CI job). Use it for:</p>
 <ul>
 <li>Local development to have a board ready without manual setup</li>
 <li>Staging environments used for product demos or sales calls</li>
 <li>CI pipelines that need a non-empty board for integration tests</li>
 </ul>
-<p>Card due dates on the generic demo board are counted from the day the command runs (UTC), not from a fixed date, so a board reseeded by the hourly reset never drifts into overdue. <code>--seed</code> keeps titles, layout and day offsets identical; only the calendar day moves (#1948).</p>
+<p>Card due dates on the generic demo board count from the day the command runs (UTC), so a board reseeded by the hourly reset never drifts into overdue. <code>--seed</code> keeps titles, layout and day offsets identical; only the calendar day moves (#1948).</p>
 <h2 id="running-the-command">Running the command<a class="headerlink" href="#running-the-command" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Create the demo board (skip if it already exists). Requires DEBUG=True or --force.</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data
@@ -4282,7 +4289,7 @@ board — This is CI-only, used by the
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--force
 </code></pre></div>
-<p>Even with the guard in place, do not expose <code>manage.py</code> on production servers in ways that allow arbitrary command execution, and ensure your deployment runbooks do not include <code>seed_demo_data</code> in any production provisioning step.</p>
+<p><strong>Watch out:</strong> even with the guard in place, do not expose <code>manage.py</code> on production servers in ways that allow arbitrary command execution. Make sure your deployment runbooks do not include <code>seed_demo_data</code> in any production provisioning step.</p>
 <h2 id="demo-user-accounts">Demo user accounts<a class="headerlink" href="#demo-user-accounts" title="Permanent link">&para;</a></h2>
 <p>The seed command creates five user accounts with unusable passwords (they cannot log in via password auth):</p>
 <table>
@@ -4315,7 +4322,7 @@ board — This is CI-only, used by the
 </tr>
 </tbody>
 </table>
-<p>The <code>@visiban.example</code> domain is deliberately not a real domain. If you need to use demo accounts for OAuth testing, you will need to adjust these emails to match your OAuth provider's allowed domains.</p>
+<p><strong>Yes, but:</strong> the <code>@visiban.example</code> domain is deliberately not a real domain. To use demo accounts for OAuth testing, adjust these emails to match your OAuth provider's allowed domains.</p>
 <h2 id="hosted-demo-instance">Hosted demo instance<a class="headerlink" href="#hosted-demo-instance" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.2</strong> — for running a public demo such as try.visiban.com (#1034).</p>
@@ -4323,7 +4330,7 @@ board — This is CI-only, used by the
 <p><code>seed_demo_data --demo-site</code> additionally seeds the content a public demo needs. It is opt-in; without the flag the command behaves exactly as described above.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--wipe<span class="w"> </span>--demo-site
 </code></pre></div>
-<p><code>--wipe</code> deletes the showcase boards before recreating them. It also deletes the Marketing Campaigns and Hiring Pipeline boards that releases before #1389 seeded, so reseeding an older demo database does not leave them behind. Each board <code>--wipe</code> deletes gets a <code>board.deleted</code> entry in the <a href="../../api/events/">change feed</a>, as a delete through the API does, so a feed consumer is never left on a board that no longer exists (#1889).</p>
+<p><code>--wipe</code> deletes the showcase boards before recreating them, including the Marketing Campaigns and Hiring Pipeline boards that releases before #1389 seeded. Each deleted board gets a <code>board.deleted</code> entry in the <a href="../../api/events/">change feed</a>, as an API delete does, so a feed consumer is never left on a board that no longer exists (#1889).</p>
 <p>It creates, alongside the normal demo board:</p>
 <ul>
 <li>
@@ -4391,7 +4398,15 @@ board — This is CI-only, used by the
 </tbody>
 </table>
 <p>Software Team has 20 cards and the five other hand-built boards 16 each, with comments, assignees, labels, and movement history.</p>
-<p><strong>Sales Territory (Overlay) is the <a href="../../getting-started/sample-boards/">Sales Overlay sample board</a></strong> (#1889): the command imports the shipped sample through the same importer the gallery's <strong>Create from sample</strong> uses, named "Sales Territory (Overlay)". So it carries what any imported board carries: 46 cards over ten accounts, the sample's full history credited to the importing admin with each original name kept as <strong>import provenance</strong>, a Commercial column over its WIP limit, a weight limit, closed deals (won and lost) already archived, and a <code>board.created</code> entry in its change feed. The sample's cast (<code>demo1</code>-<code>demo5</code>) are members of the board, as are the demo accounts. Dates are moved the way the gallery moves them: the sample's anchor date becomes the day of the reset, so ages and due dates count from the reset, and nothing is ever dated in the future (every sample's newest event is a day before its anchor). The sample format carries no card relations yet (<a href="https://gitlab.com/visiban/visiban/-/issues/1448">#1448</a>), so this board has none. The board's URL does not change across resets: the reset restarts the id sequences and creates the boards in a fixed order, which puts it at <code>/boards/6</code>.</p>
+<p><strong>Sales Territory (Overlay) is the <a href="../../getting-started/sample-boards/">Sales Overlay sample board</a></strong> (#1889). The command imports the shipped sample through the importer the gallery's <strong>Create from sample</strong> uses, named "Sales Territory (Overlay)". It carries what any imported board carries:</p>
+<ul>
+<li>46 cards over ten accounts</li>
+<li>the sample's full history, credited to the importing admin, with each original name kept as <strong>import provenance</strong></li>
+<li>a Commercial column over its WIP limit, and a weight limit</li>
+<li>closed deals (won and lost) already archived</li>
+<li>a <code>board.created</code> entry in its change feed</li>
+</ul>
+<p>The sample's cast (<code>demo1</code>-<code>demo5</code>) and the demo accounts are members. Dates move as the gallery moves them: the sample's anchor date becomes the day of the reset, so ages and due dates count from the reset and nothing is dated in the future (every sample's newest event is a day before its anchor). The sample format carries no card relations yet (<a href="https://gitlab.com/visiban/visiban/-/issues/1448">#1448</a>), so this board has none. Its URL is stable across resets: the reset restarts the id sequences and creates the boards in a fixed order, which puts it at <code>/boards/6</code>.</p>
 <p>The six other boards each also show off (#1363):</p>
 <ul>
 <li>partly done <strong>checklists</strong>, such as a release checklist on Software Team and inspection steps on Construction</li>
@@ -4401,58 +4416,90 @@ board — This is CI-only, used by the
 <li>on Software Team, linked GitLab and GitHub <strong>merge / pull requests</strong></li>
 <li>on the six hand-built boards, a realistic <strong>age mix</strong>: most cards moved in the last few days, a few aging and a few stale, with due dates that are overdue, due today, upcoming, or unset. Stale and overdue cards are always in-flight work, never in the Done column. Ages, due dates and the Logistics ETAs are counted from the day of the reset, so the mix looks the same after every reset</li>
 </ul>
-<p>Every card on every demo board, the generic demo board included, has a <strong>complete history</strong> (#1889). Its first movement is its creation, each move starts where the previous one ended, a lost deal never passes through Won, and everything it holds is backed by the entry the API writes when a person makes that change: a <code>+Label</code> activity for each label, an assignee, priority, weight and due-date change for each value set, a checklist-item added (and checked) entry for each item, a comment-added entry at each comment's time, and an archive movement for each archived card. Custom-field values and attachments have no card activity in Visiban yet (<a href="https://gitlab.com/visiban/visiban/-/issues/1909">#1909</a>), so none is seeded for them.</p>
-<p>An eighth board, <strong>Product Roadmap (Trello import)</strong>, is a Trello export, imported (<a href="https://gitlab.com/visiban/visiban/-/issues/1908">#1908</a>): the command feeds the Trello export under <code>backend/boards/tests/fixtures/</code> through the real <a href="../../features/trello-import/">Trello importer</a>, so the board carries genuine <strong>import provenance</strong>: each comment keeps the Trello author's name as text and starts "(imported from Trello)", and the cards keep their exported creation dates. It is created last, after every other board, so the Sales Territory (Overlay) board stays at <code>/boards/6</code>. The importer deliberately writes no movement or activity history, so the seed adds what the API would have written (a creation movement per card, an archive movement for the archived card, and an activity for each value a card holds), credited to the importing admin, and the board passes the same history check as the others. Unlike the other boards, its dates are <strong>not</strong> moved to the reset day: the cards keep the export's historical dates, so they read as old. The board's shape is the importer's test fixture (<code>backend/boards/tests/fixtures/trello_export.json</code>), so editing that fixture changes the demo. The accounts seated on the other showcase boards are seated here too, the visitor as a plain member.</p>
+<p>Every card on every demo board, the generic demo board included, has a <strong>complete history</strong> (#1889). Its first movement is its creation, each move starts where the previous one ended, and a lost deal never passes through Won. Everything a card holds is backed by the entry the API writes when a person makes that change:</p>
+<ul>
+<li>a <code>+Label</code> activity for each label</li>
+<li>an assignee, priority, weight and due-date change for each value set</li>
+<li>a checklist-item added (and checked) entry for each item</li>
+<li>a comment-added entry at each comment's time</li>
+<li>an archive movement for each archived card</li>
+</ul>
+<p>Custom-field values and attachments have no card activity in Visiban yet (<a href="https://gitlab.com/visiban/visiban/-/issues/1909">#1909</a>), so none is seeded for them.</p>
+<p>An eighth board, <strong>Product Roadmap (Trello import)</strong>, is a Trello export, imported (<a href="https://gitlab.com/visiban/visiban/-/issues/1908">#1908</a>). The command feeds the Trello export under <code>backend/boards/tests/fixtures/</code> through the real <a href="../../features/trello-import/">Trello importer</a>, so the board carries genuine <strong>import provenance</strong>: each comment keeps the Trello author's name as text and starts "(imported from Trello)", and the cards keep their exported creation dates.</p>
+<ul>
+<li><strong>Created last,</strong> after every other board, so Sales Territory (Overlay) stays at <code>/boards/6</code>.</li>
+<li><strong>History:</strong> the importer deliberately writes no movement or activity history, so the seed adds what the API would have written (a creation movement per card, an archive movement for the archived card, and an activity for each value a card holds), credited to the importing admin. The board passes the same history check as the others.</li>
+<li><strong>Dates are not moved</strong> to the reset day: the cards keep the export's historical dates, so they read as old.</li>
+<li><strong>Shape:</strong> the importer's test fixture (<code>backend/boards/tests/fixtures/trello_export.json</code>), so editing that fixture changes the demo.</li>
+<li><strong>Members:</strong> the accounts seated on the other showcase boards are seated here too, the visitor as a plain member.</li>
+</ul>
 <p>Not on the hosted demo, by design: an MCP connection. The demo mints no tokens, so <a href="../../features/mcp-demo-walkthrough/">ask your own agent</a> on a local instance instead.</p>
-<p><strong>Excluded: an Issue Board Lens board</strong> (<a href="https://gitlab.com/visiban/visiban/-/issues/1908">#1908</a>). The Lens derives its Backlog / To Do / Doing / Review / Done columns from the branches and merge requests of a live public repository, so showing it needs <code>GIT_LENS_ENABLED</code> and a live public repo on the demo deployment, which is a deployment-config decision outside the seed. The seed does not create one.</p>
+<p><strong>Excluded: an Issue Board Lens board</strong> (<a href="https://gitlab.com/visiban/visiban/-/issues/1908">#1908</a>). The Lens derives its Backlog / To Do / Doing / Review / Done columns from the branches and merge requests of a live public repository, so it needs <code>GIT_LENS_ENABLED</code> and a live public repo on the demo deployment: a deployment-config decision outside the seed. The seed creates none.</p>
 <p>Every link (merge requests, permit portals, CRM records, tracking pages) points at a fictional <code>*.example.com</code> address. The links are decorative; they do not imply an integration. All names, companies and accounts are fictional.
 - <strong>saved filters</strong> for the published visitor (#1889): Urgent and high, and Overdue, on Software Team; Coverage gaps and Exec escalations on Sales Territory (Overlay); Due this week on Logistics Exceptions. Saved filters are private to their owner, and the demo fence refuses creating one, so these are the visitor's whole list until the next reset
 - Software Team uses the <strong>Dense</strong> card layout (#1889), so one board shows every badge, including the aging meter on idle cards; the others keep the Comfortable default
 - a seeded <strong>notification inbox</strong> for the published visitor: seventeen unread notifications across the seven boards (@mentions, assignments, card moves, new comments, and stale and due-soon alerts), each from another account or from the system, never from the visitor. The demo fence refuses marking notifications read, so they stay unread until the next reset
-- the <strong>published visitor</strong> account (username from <code>DEMO_LOGIN_USERNAME</code>, default <code>visitor</code>; password from <code>DEMO_LOGIN_PASSWORD</code>) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While <code>DEMO_MODE</code> is on, this one account may also edit and archive cards other people created (every seeded card belongs to the admin); that exception is read from the setting at request time, so it disappears the moment <code>DEMO_MODE</code> is turned off rather than living on as a stored permission
+- the <strong>published visitor</strong> account (username from <code>DEMO_LOGIN_USERNAME</code>, default <code>visitor</code>; password from <code>DEMO_LOGIN_PASSWORD</code>) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While <code>DEMO_MODE</code> is on, this account may also edit and archive cards other people created (every seeded card belongs to the admin). That exception is read from the setting at request time, so it vanishes when <code>DEMO_MODE</code> is turned off rather than living on as a stored permission
 - a site <strong>admin</strong> account (<code>admin</code>, password from <code>DEMO_ADMIN_PASSWORD</code>, <strong>never published</strong>) that owns the seeded boards
 - two member accounts, <code>maya</code> and <code>jordan</code> (password from <code>DEMO_MEMBER_PASSWORD</code>)</p>
 </li>
 </ul>
 <p>It also turns file uploads off and sets registration to <strong>closed</strong>.</p>
-<p>Passwords come only from the environment and are re-applied on every run. For an account that already exists, a re-seed also revokes its personal access tokens and DRF auth token (a fresh account has none, and <code>--reset-database</code> recreates the accounts, so nothing is revoked there). The command refuses to run unless <code>DEMO_MODE=true</code> and <code>DEMO_LOGIN_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code> and <code>DEMO_MEMBER_PASSWORD</code> are all set, refuses an admin password equal to the published one, refuses a <code>DEMO_LOGIN_USERNAME</code> that names another seeded account, and cannot be combined with <code>--scale</code>. The onboarding tour is marked <strong>completed</strong> for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.</p>
+<p>Passwords come only from the environment and are re-applied on every run. For an account that already exists, a re-seed also revokes its personal access tokens and DRF auth token (a fresh account has none, and <code>--reset-database</code> recreates the accounts, so nothing is revoked there).</p>
+<p><strong>The command refuses to run when:</strong></p>
+<ul>
+<li><code>DEMO_MODE=true</code> is not set, or <code>DEMO_LOGIN_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code> or <code>DEMO_MEMBER_PASSWORD</code> is missing</li>
+<li>the admin password equals the published one</li>
+<li><code>DEMO_LOGIN_USERNAME</code> names another seeded account</li>
+<li>it is combined with <code>--scale</code></li>
+</ul>
+<p><strong>Onboarding tour:</strong> it is marked <strong>completed</strong> for the published visitor on every run. Finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.</p>
 <h3 id="resetting-the-whole-database">Resetting the whole database<a class="headerlink" href="#resetting-the-whole-database" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--wipe<span class="w"> </span>--demo-site<span class="w"> </span>--reset-database
 </code></pre></div>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1180).</p>
 </blockquote>
-<p><code>--reset-database</code> empties <strong>every table</strong> first, using Django's <code>flush</code>, and then seeds. This is the hosted demo's reset. The Helm chart's seed hook and hourly reset CronJob run exactly this command. A per-board <code>--wipe</code> is not enough for a public demo. It leaves sessions behind, so visitors would stay signed in across a reset the login page says signs them out. It also leaves rows that deleting boards does not reach (<code>BoardEvent.board_id</code> is deliberately not a foreign key) and anything a visitor created elsewhere. After the flush the command re-applies the Sites domain from <code>SITE_DOMAIN</code>.</p>
+<p><code>--reset-database</code> empties <strong>every table</strong> first, using Django's <code>flush</code>, and then seeds. This is the hosted demo's reset; the Helm chart's seed hook and hourly reset CronJob run exactly this command. A per-board <code>--wipe</code> is not enough for a public demo: it leaves sessions behind (visitors would stay signed in across a reset the login page says signs them out), rows that deleting boards does not reach (<code>BoardEvent.board_id</code> is deliberately not a foreign key), and anything a visitor created elsewhere. After the flush the command re-applies the Sites domain from <code>SITE_DOMAIN</code>.</p>
 <p>The flag is valid only with <code>--demo-site</code>, which refuses to run unless <code>DEMO_MODE=true</code>. The command therefore cannot empty the database of a normal install.</p>
 <p>See <a href="../configuration/#demo-mode">Demo mode</a> for the settings, and <a href="#public-demo-mode-helm">Public demo mode (Helm)</a> for the supported deployment.</p>
 <h3 id="threat-model">Threat model<a class="headerlink" href="#threat-model" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1179).</p>
 </blockquote>
-<p>A public demo publishes a working login. Everything that account can do, the whole internet can do, and it can do it to every other visitor. Two facts shape the design:</p>
+<p>A public demo publishes a working login. Everything that account can do, the whole internet can do, and it can do it to every other visitor. Three facts shape the design:</p>
 <ul>
 <li><strong>Role is not a control.</strong> <code>POST /api/v1/boards/</code> and <code>POST /api/v1/groups/{id}/boards/</code> make <em>any</em> authenticated caller the ADMIN of the board they create. A published credential of any role is therefore one request away from owning something. Seeding a harmless role cannot hold.</li>
 <li><strong>The guarantee is a deployment mode.</strong> With <code>DEMO_MODE=true</code>, <code>DemoModeMiddleware</code> refuses every request whose method is not <code>GET</code>, <code>HEAD</code> or <code>OPTIONS</code> — including <code>TRACE</code> and unknown verbs — for <strong>every caller</strong>, a site admin and anonymous clients included, unless it is on a short, pinned allowlist. A route added in a later release is refused by construction until someone deliberately adds it. The same rule covers allauth's <code>/accounts/</code> tree, <code>/admin/</code>, and <code>/mcp</code> (every MCP write tool is refused).</li>
-<li><strong>A published credential turns a per-account lockout into a DoS lever.</strong> The login endpoint locks an account out for 5 minutes after 5 failed passwords — a real defense on a normal install (see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>), but on a demo instance the published account's password is public, so <em>anyone</em> can send 5 wrong passwords and lock out every other visitor sharing that credential, repeatably. <code>accounts.serializers.LoginSerializer</code> exempts <code>DEMO_LOGIN_USERNAME</code> specifically — whether the visitor types that username or the demo account's email address (#1206) — from the per-account lockout while <code>DEMO_MODE</code> is on (#1199) — the per-IP throttle still applies, and every other account (including a real user's, if one exists on a demo instance) keeps the full lockout.</li>
+<li><strong>A published credential turns a per-account lockout into a DoS lever.</strong> The login endpoint locks an account out for 5 minutes after 5 failed passwords, a real defense on a normal install (see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>). On a demo instance the password is public, so <em>anyone</em> can send 5 wrong passwords and lock out every other visitor, repeatably. While <code>DEMO_MODE</code> is on, <code>accounts.serializers.LoginSerializer</code> exempts <code>DEMO_LOGIN_USERNAME</code> from the per-account lockout (#1199), whether the visitor types that username or the demo account's email address (#1206). The per-IP throttle still applies, and every other account (including a real user's, if one exists on a demo instance) keeps the full lockout.</li>
 </ul>
 <p>A refusal is <code>403</code> with a stable body:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"demo_read_only"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This is a shared demo — this change can't be saved here. ..."</span><span class="p">}</span>
 </code></pre></div>
 <p><strong>What a visitor can do:</strong> sign in and out, watch live updates, and create, edit (including custom-field values), move, archive and restore cards, and add, tick and remove checklist items. Each move is recorded in the card's History, which is the point of the demo. Allowed writes still pass normal board permissions.</p>
-<p><strong>What a visitor cannot do:</strong> create, rename or delete boards, columns, swimlanes, labels or custom fields; delete cards, comments or attachments; comment; upload attachments; add or remove card relations; star or unstar a board; mark a notification read; change their profile, password or preferences; mint personal access tokens; register, request a password reset (so the demo cannot be used as an email relay), or use invites and groups; connect a lens; import; or reach anything under the admin API. The SPA disables every one of these controls up front with the reason ("This is a shared demo — …") rather than letting the click round-trip to a 403 — <code>DemoWriteBlockedToast</code> remains as a shell-level safety net for whatever a future surface adds without its own affordance, not the primary mechanism.</p>
+<p><strong>What a visitor cannot do:</strong></p>
+<ul>
+<li>create, rename or delete boards, columns, swimlanes, labels or custom fields</li>
+<li>delete cards, comments or attachments; comment; upload attachments</li>
+<li>add or remove card relations; star or unstar a board; mark a notification read</li>
+<li>change their profile, password or preferences; mint personal access tokens</li>
+<li>register, request a password reset (so the demo cannot be used as an email relay), or use invites and groups</li>
+<li>connect a lens; import; or reach anything under the admin API</li>
+</ul>
+<p>The SPA disables every one of these controls up front with the reason ("This is a shared demo — …") rather than letting the click round-trip to a 403. <code>DemoWriteBlockedToast</code> remains as a shell-level safety net for whatever a future surface adds without its own affordance, not the primary mechanism.</p>
 <blockquote>
-<p><strong>Added in 1.2</strong> (#1193). A completeness-check on #1179 found several refused writes that still fell through to <code>DemoWriteBlockedToast</code> with no up-front affordance: deleting a comment or an attachment (card delete was already hidden outright, not merely toast-caught — see <code>frontend/CLAUDE.md</code> § Hosted demo surfaces); adding a card relation; starring or unstarring a board; and the "Mark all read" notification action. Each now gets the same <code>aria-disabled</code> treatment, reason and copy template as the surfaces #1179 shipped. Three cases are handled differently, because the write is not a control the visitor reached for:
+<p><strong>Added in 1.2</strong> (#1193). A completeness-check on #1179 found several refused writes that still fell through to <code>DemoWriteBlockedToast</code> with no up-front affordance: deleting a comment or an attachment (card delete was already hidden outright; see <code>frontend/CLAUDE.md</code> § Hosted demo surfaces), adding a card relation, starring or unstarring a board, and "Mark all read". Each now gets the same <code>aria-disabled</code> treatment, reason and copy template as the surfaces #1179 shipped. Three cases differ, because the write is not a control the visitor reached for:
 - <strong>Clicking an individual notification</strong> still navigates to the related card (its whole purpose) but silently skips the mark-read call rather than becoming aria-disabled, which would also block that navigation — the one explicit, standalone mark-read control ("Mark all read") gets the up-front affordance instead.
 - <strong>The theme-preference sync</strong> (<code>ThemeServerSync</code>) silently skips its PATCH; the local theme still applies via <code>localStorage</code>, only the cross-device sync is skipped.
 - <strong>The onboarding tour's completion save</strong> doesn't need a skip at all: <code>seed_demo_data</code> seeds the published visitor's <code>has_completed_tour</code> flag <code>true</code>, so the tour — and its completion save — never fires.</p>
 <p>Removing a card relation is refused by the fence too, and its control is hidden outright in demo mode, like card delete. When #1193 shipped no demo board had a relation, so that gate was defensive; since #1363 the seed adds relations, so it is what visitors actually see.</p>
 </blockquote>
-<p><strong>The reset is containment, not a control.</strong> Every hour, on the hour (<code>DEMO_RESET_SCHEDULE</code>), the reset job wipes the <strong>whole database</strong> and reseeds it (<code>--reset-database</code>). That also ends every session, because sessions are database-backed — visitors are told so on the login page and in the in-app demo bar, get a warning five minutes before, and land back on the login page with a "demo was reset" notice. The reset must stay a whole-database wipe: some tables (for example <code>BoardEvent</code>, whose <code>board_id</code> is deliberately not a foreign key) are not cleaned up by deleting boards, so a per-row reset would leak rows across resets.</p>
+<p><strong>The reset is containment, not a control.</strong> Every hour, on the hour (<code>DEMO_RESET_SCHEDULE</code>), the reset job wipes the <strong>whole database</strong> and reseeds it (<code>--reset-database</code>). That also ends every session, because sessions are database-backed. Visitors are told on the login page and in the in-app demo bar, get a warning five minutes before, and land back on the login page with a "demo was reset" notice. The reset must stay a whole-database wipe: deleting boards does not clean some tables (for example <code>BoardEvent</code>, whose <code>board_id</code> is deliberately not a foreign key), so a per-row reset would leak rows across resets.</p>
 <h2 id="public-demo-mode-helm">Public demo mode (Helm)<a class="headerlink" href="#public-demo-mode-helm" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1180). This replaces the Docker Compose demo stack (<code>deploy/demo/</code>), which was never released.</p>
 </blockquote>
-<p>The Helm chart is the supported way to run a public demo. Enable it with the <code>demo:</code> block, starting from the shipped <code>helm/visiban/values-demo.yaml</code>. The block is <strong>off by default</strong>, and with it off the chart renders exactly what it did before, so <code>helm upgrade</code> on an existing release changes nothing.</p>
+<p>The Helm chart is the supported way to run a public demo. Enable the <code>demo:</code> block, starting from the shipped <code>helm/visiban/values-demo.yaml</code>. It is <strong>off by default</strong>, and with it off the chart renders exactly what it did before, so <code>helm upgrade</code> on an existing release changes nothing.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban-demo<span class="w"> </span>./helm/visiban<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban-demo<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values-demo.yaml<span class="w"> </span><span class="se">\</span>
@@ -4530,26 +4577,38 @@ board — This is CI-only, used by the
 </tr>
 </tbody>
 </table>
-<p>The chart <strong>refuses to render</strong> a demo that could publish a credential, reach out, or leave its per-visitor rate limits keyed on a shared address. It fails when <code>loginHint</code> is set while the demo is off, when a <code>loginHint</code> half is missing or outside its character set, when SSO/OAuth or real SMTP is configured, when the media PVC is enabled, when <code>backend.settings.debug</code> is anything django-environ's parser treats as true — not just the literal <code>true</code>, but also <code>on</code>/<code>ok</code>/<code>y</code>/<code>yes</code> and any nonzero integer string like <code>1</code> or <code>-1</code> — when <code>networkPolicy.enabled</code> is off, when the bundled PostgreSQL or Valkey is replaced by an external one, when <code>backend.settings.numProxies</code> is unset or below <code>1</code>, when <code>backend.settings.allowUnsafeHosts</code> is <code>true</code> (a public demo never needs a catch-all or loopback <code>ALLOWED_HOSTS</code> entry, #1360), when the schedule is one the backend cannot evaluate, and when <code>demo.throttle.userRate</code> is malformed.</p>
+<p>The chart <strong>refuses to render</strong> a demo that could publish a credential, reach out, or leave its per-visitor rate limits keyed on a shared address. It fails when:</p>
+<ul>
+<li><code>loginHint</code> is set while the demo is off, or a <code>loginHint</code> half is missing or outside its character set</li>
+<li>SSO/OAuth or real SMTP is configured</li>
+<li>the media PVC is enabled</li>
+<li><code>backend.settings.debug</code> is anything django-environ's parser treats as true: not just the literal <code>true</code>, but also <code>on</code>/<code>ok</code>/<code>y</code>/<code>yes</code> and any nonzero integer string like <code>1</code> or <code>-1</code></li>
+<li><code>networkPolicy.enabled</code> is off</li>
+<li>the bundled PostgreSQL or Valkey is replaced by an external one</li>
+<li><code>backend.settings.numProxies</code> is unset or below <code>1</code></li>
+<li><code>backend.settings.allowUnsafeHosts</code> is <code>true</code> (a public demo never needs a catch-all or loopback <code>ALLOWED_HOSTS</code> entry, #1360)</li>
+<li>the schedule is one the backend cannot evaluate</li>
+<li><code>demo.throttle.userRate</code> is malformed</li>
+</ul>
 <h3 id="what-the-chart-guarantees-and-what-it-does-not">What the chart guarantees, and what it does not<a class="headerlink" href="#what-the-chart-guarantees-and-what-it-does-not" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The fence is the control.</strong> <code>DEMO_MODE</code> arms <code>DemoModeMiddleware</code> (see <a href="#threat-model">Threat model</a>). The chart's job is to guarantee that the variable reaches every container that imports Django settings: the backend and its init containers, the seed and reset pods, and scheduled jobs.</li>
-<li><strong><code>helm test</code> proves it after every deploy.</strong> Through the frontend Service, the path a visitor's request takes, it signs in with the published credential (expects <code>200</code>), creates a board (expects <code>403</code> with <code>demo_read_only</code> in the body; a <code>403</code> from a permission check does not count), moves a seeded card (expects <code>200</code>), and checks that <code>site-config</code> publishes <code>demo_next_reset_at</code> if and only if the reset runs. It does not check the tunnel or anything else in front of the frontend.</li>
-<li><strong>The reset is containment, not a control.</strong> The seed hook (post-install and post-upgrade) and the reset CronJob run the same pod: <code>migrate_with_lock</code>, then <code>seed_demo_data --force --wipe --demo-site --reset-database</code>. Every run signs every visitor out and re-applies the published password, so the login hint never points at a dead account. The CronJob runs with <code>concurrencyPolicy: Forbid</code>. A failed run keeps its Job for <code>kubectl logs</code> and leaves the previous data up. It is never a readiness signal, so a failed reset cannot take the demo down. The seed runs in its own pod, and demo mode has no shared media volume. The one small attachment the base demo board seeds therefore has no file on the serving pod, and downloading it answers <code>404</code>.</li>
-<li><strong>Egress is denied at the pod.</strong> A NetworkPolicy limits the backend, the seed and reset pods and the scheduled-job pods to DNS and the release's own PostgreSQL and Valkey. That closes, at the network layer, every outbound path a visitor could reach through the app: the lens, mail, and any future call site. It is only real if the cluster's CNI enforces NetworkPolicy. CI proves it on Calico. On your cluster, check it yourself (see the maintainer runbook's <a href="../../maintainers/demo-deploy/#2-networkpolicy-is-enforced-on-the-node">enforcement check</a>).</li>
+<li><strong><code>helm test</code> proves it after every deploy.</strong> Through the frontend Service (the path a visitor's request takes), it signs in with the published credential (expects <code>200</code>), creates a board (expects <code>403</code> with <code>demo_read_only</code> in the body; a <code>403</code> from a permission check does not count), moves a seeded card (expects <code>200</code>), and checks that <code>site-config</code> publishes <code>demo_next_reset_at</code> if and only if the reset runs. It does not check the tunnel or anything in front of the frontend.</li>
+<li><strong>The reset is containment, not a control.</strong> The seed hook (post-install and post-upgrade) and the reset CronJob run the same pod: <code>migrate_with_lock</code>, then <code>seed_demo_data --force --wipe --demo-site --reset-database</code>. Every run signs every visitor out and re-applies the published password, so the login hint never points at a dead account. The CronJob uses <code>concurrencyPolicy: Forbid</code>. A failed run keeps its Job for <code>kubectl logs</code> and leaves the previous data up; it is never a readiness signal, so a failed reset cannot take the demo down. The seed runs in its own pod and demo mode has no shared media volume, so the one small attachment the base demo board seeds has no file on the serving pod and downloading it answers <code>404</code>.</li>
+<li><strong>Egress is denied at the pod.</strong> A NetworkPolicy limits the backend, the seed and reset pods and the scheduled-job pods to DNS and the release's own PostgreSQL and Valkey. That closes every outbound path a visitor could reach through the app (the lens, mail, any future call site) at the network layer. It is real only if the cluster's CNI enforces NetworkPolicy. CI proves it on Calico; on your cluster, check it yourself (see the maintainer runbook's <a href="../../maintainers/demo-deploy/#2-networkpolicy-is-enforced-on-the-node">enforcement check</a>).</li>
 </ul>
 <h3 id="preconditions-outside-the-chart">Preconditions outside the chart<a class="headerlink" href="#preconditions-outside-the-chart" title="Permanent link">&para;</a></h3>
 <p>These cannot be expressed in values, and no CI job can verify them:</p>
 <ul>
 <li><strong>Expose only the frontend Service</strong>, for example through a Cloudflare Tunnel public hostname. The chart renders no Ingress in <code>values-demo.yaml</code>.</li>
-<li><strong>Count your proxies.</strong> Behind a tunnel, set <code>backend.settings.numProxies</code> to the real number of hops that append to <code>X-Forwarded-For</code> — including this chart's own frontend nginx, which always adds one. The chart refuses to render below <code>1</code> (a depth that would key every visitor's rate limits on one shared address is caught at render time), but it cannot know your actual proxy depth: get the count right, not just non-zero.</li>
+<li><strong>Count your proxies.</strong> Behind a tunnel, set <code>backend.settings.numProxies</code> to the real number of hops that append to <code>X-Forwarded-For</code>, including this chart's own frontend nginx, which always adds one. The chart refuses to render below <code>1</code> (which would key every visitor's rate limits on one shared address) but cannot know your actual depth: get the count right, not just non-zero.</li>
 <li><strong>Per-visitor rate limiting after sign-in</strong> has to come from in front of the host, such as a Cloudflare IP rate-limit rule. Every visitor shares one account, so the <code>user</code> throttle cannot tell them apart.</li>
 <li><strong>The host must not run CI jobs</strong> (TruePPM ADR-1197 D10).</li>
 <li><strong>Kubernetes 1.27 or later</strong>, for the CronJob <code>timeZone</code> field.</li>
 </ul>
 <p>The runbook for try.visiban.com itself, including the deployment record, is <a href="../../maintainers/demo-deploy/">Hosted Demo</a>.</p>
 <h2 id="ask-your-own-agent-about-the-demo-data">Ask your own agent about the demo data<a class="headerlink" href="#ask-your-own-agent-about-the-demo-data" title="Permanent link">&para;</a></h2>
-<p>The hosted demo deliberately does not expose MCP or mint tokens: publishing a credential on a public site is a security decision we chose not to make (<a href="https://gitlab.com/visiban/visiban/-/issues/1907">#1907</a>). To point your own agent at the generic demo board (the hosted showcase boards need <code>--demo-site</code>, whose <code>DEMO_MODE</code> fence blocks creating tokens), follow <a href="../../features/mcp-demo-walkthrough/">Ask Your Own Agent About the Demo Data</a>, a local walkthrough with a read-only <code>mcp:read</code> token.</p>
+<p>The hosted demo deliberately exposes no MCP and mints no tokens: publishing a credential on a public site is a security decision we chose not to make (<a href="https://gitlab.com/visiban/visiban/-/issues/1907">#1907</a>). To point your own agent at the generic demo board (the hosted showcase boards need <code>--demo-site</code>, whose <code>DEMO_MODE</code> fence blocks creating tokens), follow <a href="../../features/mcp-demo-walkthrough/">Ask Your Own Agent About the Demo Data</a>, a local walkthrough with a read-only <code>mcp:read</code> token.</p>
 <h2 id="demo-data-and-real-data">Demo data and real data<a class="headerlink" href="#demo-data-and-real-data" title="Permanent link">&para;</a></h2>
 <p>Demo records carry no special marker. A demo card looks identical to a real card at the database level — same fields, same UID format, same <code>archived_at</code> behavior. This means:</p>
 <ul>
@@ -4579,7 +4638,7 @@ board — This is CI-only, used by the
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__startswith</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">email__endswith</span><span class="o">=</span><span class="s2">"@visiban.example"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <h2 id="gitlab-ci-setup-for-automated-demo-refresh">GitLab CI setup for automated demo refresh<a class="headerlink" href="#gitlab-ci-setup-for-automated-demo-refresh" title="Permanent link">&para;</a></h2>
-<p>The <code>seed-demo-data</code> GitLab CI job refreshes the demo board on demand. It is manual-only and runs from <code>main</code> pipelines; there is no weekly schedule. The public demo at try.visiban.com runs from the Helm chart's demo mode instead (see <a href="../../maintainers/demo-deploy/">Demo deployment</a>), so this job is only needed for a separate Compose-based demo environment. It requires three GitLab CI/CD variables to be configured before it will work.</p>
+<p>The <code>seed-demo-data</code> GitLab CI job refreshes the demo board on demand. It is manual-only, runs from <code>main</code> pipelines, and has no weekly schedule. The public demo at try.visiban.com runs from the Helm chart's demo mode instead (see <a href="../../maintainers/demo-deploy/">Demo deployment</a>), so you need this job only for a separate Compose-based demo environment. It needs three GitLab CI/CD variables.</p>
 <h3 id="required-gitlab-cicd-variables">Required GitLab CI/CD variables<a class="headerlink" href="#required-gitlab-cicd-variables" title="Permanent link">&para;</a></h3>
 <p>In your GitLab project, go to <strong>Settings → CI/CD → Variables</strong> and add the following. All three must be <strong>Protected</strong> and <strong>Masked</strong>, scoped to the <code>demo</code> environment.</p>
 <table>
@@ -4606,10 +4665,10 @@ board — This is CI-only, used by the
 </table>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>If any of these variables are missing or empty, the GitLab CI job fails immediately with <code>ImproperlyConfigured: DJANGO_SECRET_KEY must be set</code>. The job appears in <code>main</code> pipelines as a manual trigger — if you see this error after clicking <strong>Run</strong>, check that all three variables are set and scoped correctly to the <code>demo</code> environment in <strong>Settings → CI/CD → Variables</strong>.</p>
+<p>If any of these variables is missing or empty, the job fails immediately with <code>ImproperlyConfigured: DJANGO_SECRET_KEY must be set</code>. If you see this after clicking <strong>Run</strong> on the manual job in a <code>main</code> pipeline, check that all three are set and scoped to the <code>demo</code> environment in <strong>Settings → CI/CD → Variables</strong>.</p>
 </div>
 <h3 id="optional-custom-random-seed">Optional: custom random seed<a class="headerlink" href="#optional-custom-random-seed" title="Permanent link">&para;</a></h3>
-<p>The job uses today's date (<code>YYYYMMDD</code>) as the random seed by default, so each refresh produces a naturally varied board while remaining reproducible within the same day. To override this, set <code>SEED_VALUE</code> to any integer when triggering the job manually via the GitLab pipeline UI:</p>
+<p>The job seeds randomness with today's date (<code>YYYYMMDD</code>), so each refresh varies but is reproducible within a day. To override it, set <code>SEED_VALUE</code> to any integer when triggering the job from the GitLab pipeline UI:</p>
 <table>
 <thead>
 <tr>
@@ -4632,18 +4691,18 @@ board — This is CI-only, used by the
 </tbody>
 </table>
 <h2 id="import-files-and-test-data">Import files and test data<a class="headerlink" href="#import-files-and-test-data" title="Permanent link">&para;</a></h2>
-<p>The board import endpoint (<code>POST /api/v1/boards/import/</code>) accepts the same JSON and CSV format produced by the board export. If someone uploads a hand-crafted file to simulate a board import (for automation testing, template validation, etc.):</p>
+<p>The board import endpoint (<code>POST /api/v1/boards/import/</code>) accepts the JSON and CSV format the board export produces. If you upload a hand-crafted file to simulate an import (for automation testing, template validation, etc.):</p>
 <ul>
 <li><strong>All objects receive fresh UIDs</strong> — the import code ignores any <code>uid</code> field present in the source file and generates new UIDs for every board, column, swimlane, label, and card created</li>
 <li><strong>Imported records are not tagged as test data</strong> — they are real database rows with no provenance marker</li>
 <li><strong>Column, swimlane, and label names drive the import</strong> — duplicate names within the same file are merged into a single object; the card's <code>column</code> and <code>swimlane</code> fields must match a name defined in the file's <code>columns</code>/<code>swimlanes</code> arrays</li>
 </ul>
-<p>If you are using the import endpoint to load test data, clean it up explicitly after the test. There is no bulk-delete-by-source-file operation; you will need to delete the board that was created.</p>
+<p><strong>Watch out:</strong> if you use the import endpoint to load test data, clean it up explicitly after the test. There is no bulk-delete-by-source-file operation; you need to delete the board that was created.</p>
 <h3 id="identifying-test-boards-in-development">Identifying test boards in development<a class="headerlink" href="#identifying-test-boards-in-development" title="Permanent link">&para;</a></h3>
-<p>If your development workflow involves creating many imported boards for testing, consider using a recognizable name prefix (e.g. <code>TEST: My Board</code>) so they can be found and deleted in bulk. Send the prefixed name in the import request's <code>name</code> field — it is used exactly as given. A prefix written only into the file's <code>name</code> ends up behind the importer's default <code>Imported:</code> prefix (<code>Imported: TEST: My Board</code>), so the filter below would miss it:</p>
+<p>If you create many imported boards for testing, use a recognizable name prefix (e.g. <code>TEST: My Board</code>) so you can find and delete them in bulk. Send the prefixed name in the import request's <code>name</code> field, which is used exactly as given. A prefix written only into the file's <code>name</code> lands behind the importer's default <code>Imported:</code> prefix (<code>Imported: TEST: My Board</code>), and the filter below would miss it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__startswith</span><span class="o">=</span><span class="s2">"TEST:"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
-<p>This is a convention, not an enforced constraint, and relies on the person creating the test data using the prefix consistently.</p>
+<p><strong>Yes, but:</strong> this is a convention, not an enforced constraint. It relies on the person creating the test data using the prefix consistently.</p>
 
 
 

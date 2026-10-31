@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#zero-downtime-upgrade-playbook" class="md-skip">
+        <a href="#upgrade-a-multi-replica-helm-deployment-with-no-downtime" class="md-skip">
           Skip to content
         </a>
       
@@ -4132,10 +4132,12 @@
   
 
 
-<h1 id="zero-downtime-upgrade-playbook">Zero-Downtime Upgrade Playbook<a class="headerlink" href="#zero-downtime-upgrade-playbook" title="Permanent link">&para;</a></h1>
+<h1 id="upgrade-a-multi-replica-helm-deployment-with-no-downtime">Upgrade a multi-replica Helm deployment with no downtime<a class="headerlink" href="#upgrade-a-multi-replica-helm-deployment-with-no-downtime" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#860)</p>
 </blockquote>
+<p>Run <code>helm upgrade</code> with the new image tags and let Kubernetes roll the backend one pod at a time. Old pods keep serving while new pods migrate.</p>
+<p><strong>Why it matters:</strong> the schema each migration leaves behind is safe for both the old and new backend code, so a rolling upgrade needs no maintenance window unless the release notes call for one. Back up first, and verify the rollout before it finishes.</p>
 <div class="admonition tip">
 <p class="admonition-title">Docker Compose or a single server?</p>
 <p>This playbook is for a <strong>Helm / Kubernetes</strong> deployment with more than one backend
@@ -4144,17 +4146,9 @@ replica. If you run Visiban with Docker Compose on a single host, follow the
 instead — that path already applies while the old container keeps serving traffic
 during migration, but there is no second replica to roll traffic across.</p>
 </div>
-<p>Roll a <strong>1.x → 1.(x+1) minor or patch</strong> upgrade across a multi-replica Helm deployment with no
-downtime window: pre-flight checks, the rolling deploy itself, and how to roll back if
-something goes wrong mid-rollout. It assumes the install path in
-<a href="../../getting-started/kubernetes/">Kubernetes (Helm)</a> and a <code>backendReplicaCount</code> of 2 or
-more (the <code>values-prod.yaml</code> overlay default).</p>
-<p><strong>Out of scope:</strong> major version upgrades (<code>1.x → 2.0</code>) — those are covered per-release in the
-<a href="../upgrade/#release-specific-upgrade-notes">Release-specific upgrade notes</a> — and
-multi-region coordination.</p>
-<p>The migration-safety rules this playbook relies on — nullable-first columns, add-then-drop
-column removal, add+copy+drop renames, concurrently-built indexes — are the same rules every
-Visiban code change follows. They are documented in full in
+<p><strong>The big picture:</strong> this playbook rolls a <strong>1.x → 1.(x+1) minor or patch</strong> upgrade across a multi-replica Helm deployment with no downtime window. It covers pre-flight checks, the rolling deploy itself, and how to roll back if something goes wrong mid-rollout. It assumes the install path in <a href="../../getting-started/kubernetes/">Kubernetes (Helm)</a> and a <code>backendReplicaCount</code> of 2 or more (the <code>values-prod.yaml</code> overlay default).</p>
+<p><strong>Out of scope:</strong> major version upgrades (<code>1.x → 2.0</code>), which are covered per-release in the <a href="../upgrade/#release-specific-upgrade-notes">Release-specific upgrade notes</a>, and multi-region coordination.</p>
+<p><strong>How it works:</strong> the migration-safety rules this playbook relies on (nullable-first columns, add-then-drop column removal, add+copy+drop renames, concurrently-built indexes) are the same rules every Visiban code change follows. They are documented in full in
 <a href="../upgrade/#zero-downtime-migration-rules">Zero-downtime migration rules</a> and enforced on every
 migration by the <code>migration-check</code> CI job (see
 <a href="../../development/database-migrations/">Database migrations</a>). The release contract behind
@@ -4169,11 +4163,7 @@ rules make possible.</p>
 <ol>
 <li>
 <p><strong>Read the changelog for every version between your current release and the target.</strong>
-   Pay particular attention to <code>changed</code> and <code>security</code> entries — <code>added</code> entries are
-   additive by definition and rarely affect an upgrade, but <code>changed</code> covers behavior shifts
-   (an env var default, a WebSocket payload addition, a Helm values key) and <code>security</code>
-   entries sometimes carry a required post-upgrade action, like the <code>find_cross_board_cards</code>
-   command in the <a href="../upgrade/#upgrading-to-12x">1.2 data-integrity note</a>.</p>
+   Focus on <code>changed</code> and <code>security</code> entries. <code>added</code> entries are additive and rarely affect an upgrade, but <code>changed</code> covers behavior shifts (an env var default, a WebSocket payload addition, a Helm values key) and <code>security</code> entries sometimes require a post-upgrade action, like the <code>find_cross_board_cards</code> command in the <a href="../upgrade/#upgrading-to-12x">1.2 data-integrity note</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># From a checkout at the target tag</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>log<span class="w"> </span>--oneline<span class="w"> </span>v&lt;current&gt;..v&lt;target&gt;<span class="w"> </span>--<span class="w"> </span>changelog.d/
 </code></pre></div>
@@ -4215,9 +4205,7 @@ use your provider's snapshot mechanism instead.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>--watch<span class="o">=</span><span class="nb">false</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend
 </code></pre></div>
-<p>Starting a rolling upgrade on top of an already-degraded deployment makes it much harder
-to tell a pre-existing problem from a new one once you start verifying half-rolled state
-in step 3 below.</p>
+<p>Starting on top of an already-degraded deployment makes it hard to tell a pre-existing problem from a new one when you verify half-rolled state in step 3 below.</p>
 </li>
 </ol>
 <hr />
@@ -4239,23 +4227,18 @@ existed. See <a href="../upgrade/#upgrading-to-12x">Upgrading to 1.2.x</a> if yo
 version old enough to have used it.) Each new pod the rolling update creates — one per replica,
 in sequence — runs three init containers in order before its <code>backend</code> container starts:
 <code>migrate</code>, <code>collectstatic</code>, then <code>bootstrap</code>.</p>
-<p>Because <code>backendReplicaCount</code> can be more than 1, more than one new pod's <code>migrate</code> init
-container can start around the same time. <code>manage.py migrate_with_lock</code> (not a plain
-<code>manage.py migrate</code>) is what keeps that safe: it takes a session-scoped PostgreSQL advisory
-lock before migrating. The first replica to acquire it runs the real migration; every other
-replica blocks on the lock and, once it acquires it, runs <code>migrate</code> again — a no-op, since
-<code>django_migrations</code> already records what the winner applied. No pod's <code>backend</code> container ever
-starts against a schema that's still being changed.</p>
-<p>Two tunables, both in seconds: <code>backend.migrate.connectTimeout</code> (default <code>300</code>) bounds how
-long a pod waits for the database to accept a connection at all — generous, since on a fresh
-install PostgreSQL may still be starting. <code>backend.migrate.lockTimeout</code> (default <code>900</code>) bounds
-how long a replica waits for another replica's in-flight migration to finish before giving up.
-Raise <code>lockTimeout</code> if your largest migration (an index build on <code>cards</code>, for example) can
-plausibly run longer than 15 minutes.</p>
-<p>Because the schema each <code>migrate</code> run leaves behind is safe for both the old and new backend
-code to read (that's the whole point of the
-<a href="../upgrade/#zero-downtime-migration-rules">zero-downtime migration rules</a>), old pods keep
-serving correctly the entire time new pods are migrating and starting.</p>
+<p>Because <code>backendReplicaCount</code> can be more than 1, more than one new pod's <code>migrate</code> init container can start around the same time. <code>manage.py migrate_with_lock</code> (not a plain <code>manage.py migrate</code>) keeps that safe: it takes a session-scoped PostgreSQL advisory lock before migrating.</p>
+<ul>
+<li>The first replica to acquire it runs the real migration.</li>
+<li>Every other replica blocks on the lock and, once it acquires it, runs <code>migrate</code> again. That is a no-op, since <code>django_migrations</code> already records what the winner applied.</li>
+<li>No pod's <code>backend</code> container ever starts against a schema that's still being changed.</li>
+</ul>
+<p><strong>By the numbers:</strong> two tunables, both in seconds.</p>
+<ul>
+<li><code>backend.migrate.connectTimeout</code> (default <code>300</code>) bounds how long a pod waits for the database to accept a connection at all. It is generous, since on a fresh install PostgreSQL may still be starting.</li>
+<li><code>backend.migrate.lockTimeout</code> (default <code>900</code>) bounds how long a replica waits for another replica's in-flight migration to finish before giving up. Raise it if your largest migration (an index build on <code>cards</code>, for example) can plausibly run longer than 15 minutes.</li>
+</ul>
+<p>The schema each <code>migrate</code> run leaves behind is safe for both old and new backend code (the point of the <a href="../upgrade/#zero-downtime-migration-rules">zero-downtime migration rules</a>), so old pods keep serving correctly while new pods migrate and start.</p>
 <h3 id="step-2-watch-the-rollouts-migrate-init-containers">Step 2 — Watch the rollout's migrate init containers<a class="headerlink" href="#step-2-watch-the-rollouts-migrate-init-containers" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>&lt;new-pod-name&gt;<span class="w"> </span>-c<span class="w"> </span>migrate
@@ -4288,13 +4271,12 @@ you're satisfied:</p>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">This checkpoint is approximate, not a guaranteed 50%</p>
-<p><code>kubectl rollout pause</code> stops the controller from replacing <em>further</em> pods, but it can't
-retroactively undo replacements already in flight when you run it — at low replica counts
-(2–4, which covers most self-hosted installs) the window between <code>helm upgrade</code> returning
-and your <code>pause</code> command landing is often enough for one pod to already be mid-replacement.
-Treat this as "verify on however many new pods are up so far," not as a precise 50/50
-canary gate. A true gated canary needs a progressive-delivery controller (e.g. Argo
-Rollouts), which is out of scope here.</p>
+<p><code>kubectl rollout pause</code> stops the controller replacing <em>further</em> pods but can't undo
+replacements already in flight. At low replica counts (2–4, most self-hosted installs),
+one pod is often already mid-replacement before your <code>pause</code> lands. Treat this as
+"verify on however many new pods are up so far," not a precise 50/50 canary gate. A true
+gated canary needs a progressive-delivery controller (e.g. Argo Rollouts), which is out
+of scope here.</p>
 </div>
 <p>If the new pods look healthy, resume the rollout to completion:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>resume<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
@@ -4340,11 +4322,7 @@ where the concern is the schema change itself rather than concurrent writes.</p>
 <hr />
 <h2 id="4-rollback">4. Rollback<a class="headerlink" href="#4-rollback" title="Permanent link">&para;</a></h2>
 <h3 id="a-new-pods-migrate-init-container-failed-2-step-12">A new pod's <code>migrate</code> init container failed (§2 Step 1–2)<a class="headerlink" href="#a-new-pods-migrate-init-container-failed-2-step-12" title="Permanent link">&para;</a></h3>
-<p>Traffic is unaffected — old pods are untouched by a new pod's init container failing, since
-Kubernetes never routes Service traffic to a pod whose init containers haven't all succeeded.
-The rollout stalls with the new pod stuck in <code>Init:Error</code> or <code>CrashLoopBackOff</code>, and
-<code>kubectl rollout status</code> will not return until you intervene — there's no separate hook Job for
-Helm to report as failed, so <code>helm upgrade</code> itself will have already returned successfully.</p>
+<p>Traffic is unaffected: Kubernetes never routes Service traffic to a pod whose init containers haven't all succeeded, so old pods are untouched. The rollout stalls with the new pod stuck in <code>Init:Error</code> or <code>CrashLoopBackOff</code>, and <code>kubectl rollout status</code> won't return until you intervene. With no hook Job for Helm to report as failed, <code>helm upgrade</code> itself has already returned successfully.</p>
 <p>Read the failed container's logs and fix the underlying cause:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>&lt;new-pod-name&gt;<span class="w"> </span>-c<span class="w"> </span>migrate
 </code></pre></div>
@@ -4358,9 +4336,7 @@ since Visiban's rules keep every 1.x migration additive), see
 operations can be reversed with <code>manage.py migrate &lt;app&gt; &lt;previous_migration&gt;</code> and which
 require restoring the backup taken in checklist step 4.</p>
 <h3 id="the-rollout-itself-is-unhealthy-2-step-3-or-4">The rollout itself is unhealthy (§2 Step 3 or 4)<a class="headerlink" href="#the-rollout-itself-is-unhealthy-2-step-3-or-4" title="Permanent link">&para;</a></h3>
-<p>The schema is already forward-compatible with the old code — that's what made the rolling
-upgrade safe to start — so reverting the <em>Deployment</em> is enough; there is no matching
-migration rollback to perform.</p>
+<p>The schema is already forward-compatible with the old code, which is what made the rolling upgrade safe, so reverting the <em>Deployment</em> is enough. No migration rollback is needed.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-frontend<span class="w"> </span>-n<span class="w"> </span>visiban
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
@@ -4371,11 +4347,7 @@ migration rollback to perform.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>helm<span class="w"> </span><span class="nb">history</span><span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>helm<span class="w"> </span>rollback<span class="w"> </span>visiban<span class="w"> </span>&lt;previous-revision&gt;<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>
-<p><code>helm rollback</code> recreates backend pods on the previous image, so their <code>migrate</code> init
-containers run <code>manage.py migrate_with_lock</code> again — a no-op, since the schema is already at
-whatever the failed upgrade left it at. That's safe precisely because that schema was built to
-be readable by both versions; <code>helm rollback</code> does not and cannot revert a schema change
-itself, only the Deployment/ConfigMap/Secret objects.</p>
+<p><code>helm rollback</code> recreates backend pods on the previous image, so their <code>migrate</code> init containers run <code>manage.py migrate_with_lock</code> again, a no-op since the schema is already where the failed upgrade left it. That is safe because both versions can read that schema. <code>helm rollback</code> cannot revert a schema change, only the Deployment/ConfigMap/Secret objects.</p>
 <hr />
 <h2 id="related-pages">Related pages<a class="headerlink" href="#related-pages" title="Permanent link">&para;</a></h2>
 <ul>

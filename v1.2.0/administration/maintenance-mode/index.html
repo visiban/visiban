@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#maintenance-mode" class="md-skip">
+        <a href="#freeze-writes-during-an-upgrade-without-taking-the-instance-down" class="md-skip">
           Skip to content
         </a>
       
@@ -4076,23 +4076,14 @@
   
 
 
-<h1 id="maintenance-mode">Maintenance Mode<a class="headerlink" href="#maintenance-mode" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Maintenance mode puts a Visiban instance into <strong>read-only mode</strong> for the duration of an
-upgrade or a migration. It exists so an operator can stop concurrent writes without stopping
-the instance — reads, and the operator's own access, keep working throughout.</p>
-<p>For the API shape, see <a href="../../api/admin/#maintenance-mode">Maintenance mode</a> in the API reference.</p>
+<h1 id="freeze-writes-during-an-upgrade-without-taking-the-instance-down">Freeze writes during an upgrade without taking the instance down<a class="headerlink" href="#freeze-writes-during-an-upgrade-without-taking-the-instance-down" title="Permanent link">&para;</a></h1>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Turn on maintenance mode to put a Visiban instance into <strong>read-only mode</strong> for the duration of an upgrade or a migration. Reads, and the operator's own access, keep working throughout.</p>
+<p><strong>Why it matters:</strong> an operator can stop concurrent writes without stopping the instance.</p>
+<p><strong>Go deeper:</strong> for the API shape, see <a href="../../api/admin/#maintenance-mode">Maintenance mode</a> in the API reference.</p>
 <h2 id="when-to-use-it">When to use it<a class="headerlink" href="#when-to-use-it" title="Permanent link">&para;</a></h2>
-<p>Reach for maintenance mode when the thing you want to prevent is <strong>concurrent writes</strong>, not
-the upgrade itself — for example, running a data-integrity script, or a migration that is
-technically zero-downtime-safe but you'd rather nobody move a card while it runs. It is the
-softer alternative to taking the instance fully offline.</p>
-<p>If you're following the <a href="../upgrade/#standard-upgrade-steps">Standard upgrade steps</a> or the
-<a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>, most 1.x releases don't need a
-maintenance window at all — Visiban's migrations are additive-only by rule. Turn maintenance
-mode on only when you specifically want to freeze writes, and off again once you're done.</p>
+<p>Reach for maintenance mode when the thing you want to prevent is <strong>concurrent writes</strong>, not the upgrade itself. Examples: running a data-integrity script, or a migration that is technically zero-downtime-safe but you'd rather nobody move a card while it runs. It is the softer alternative to taking the instance fully offline.</p>
+<p><strong>Yes, but:</strong> if you're following the <a href="../upgrade/#standard-upgrade-steps">Standard upgrade steps</a> or the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>, most 1.x releases don't need a maintenance window at all, because Visiban's migrations are additive-only by rule. Turn maintenance mode on only when you specifically want to freeze writes, and off again once you're done.</p>
 <h2 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h2>
 <p>From <strong>Admin → Settings → Maintenance</strong>:</p>
 <table>
@@ -4113,22 +4104,15 @@ mode on only when you specifically want to freeze writes, and off again once you
 </tr>
 </tbody>
 </table>
-<p>Turning the toggle <strong>on</strong> asks for inline confirmation — "Enable maintenance mode? All
-non-admin users will immediately lose write access." — since it's an instance-wide,
-immediate-effect change. Turning it <strong>off</strong> does not prompt: exits are never gated behind a
-confirmation, only the transition that removes access is.</p>
+<p>Turning the toggle <strong>on</strong> asks for inline confirmation ("Enable maintenance mode? All non-admin users will immediately lose write access."), since it is an instance-wide, immediate change. Turning it <strong>off</strong> does not prompt: only the transition that removes access is gated.</p>
 <div class="admonition tip">
 <p class="admonition-title">Put an end time in the message</p>
-<p>A notice with no ETA is the one people find most frustrating: "changes are disabled" with
-no sense of for how long reads as either trivial or alarming, depending on the reader. Say
-when you expect to be finished — for example, <em>"Upgrading to 1.2 — back by 14:00 UTC."</em></p>
+<p>A notice with no ETA frustrates people most: "changes are disabled" with no duration reads as trivial or alarming, depending on the reader. Say when you expect to finish, for example <em>"Upgrading to 1.2 — back by 14:00 UTC."</em></p>
 </div>
-<p>The setting lives on the database, so it survives a restart, and it takes effect immediately
-for every worker — there is no need to restart the service or wait for a cache to expire.</p>
+<p>The setting lives in the database, so it survives a restart and takes effect immediately for every worker. No service restart or cache wait is needed.</p>
 <h2 id="what-everyone-else-sees">What everyone else sees<a class="headerlink" href="#what-everyone-else-sees" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Reads keep working.</strong> Boards, cards, comments and history all stay visible. This is a
-  read-only mode, not an outage, so nobody loses access to information they need mid-incident.</li>
+<li><strong>Reads keep working.</strong> Boards, cards, comments and history stay visible. This is a read-only mode, not an outage, so nobody loses information they need mid-incident.</li>
 <li><strong>Writes are blocked</strong> — creating, editing, moving, archiving and deleting all fail with a
   <code>503</code> and a <code>maintenance_mode</code> error. This covers the REST API and the MCP write tools alike.</li>
 <li><strong>Every signed-in user sees the notice</strong> — a non-dismissible amber banner — until you turn
@@ -4150,26 +4134,17 @@ like any other write. To stop new sign-ups specifically, use
 <a href="../admin-panel/#registration-mode">Registration mode</a> instead.</p>
 </div>
 <h2 id="known-limitation-an-already-open-tab-can-lag-behind">Known limitation: an already-open tab can lag behind<a class="headerlink" href="#known-limitation-an-already-open-tab-can-lag-behind" title="Permanent link">&para;</a></h2>
-<p>Nothing pushes maintenance state to a browser tab that is already open — there is no
-WebSocket event for it. A tab only learns the instance is in maintenance mode in one of two
-ways:</p>
+<p><strong>Yes, but:</strong> nothing pushes maintenance state to a browser tab that is already open. There is no WebSocket event for it. A tab only learns the instance is in maintenance mode in one of two ways:</p>
 <ul>
 <li><strong>It tries to write.</strong> The <code>503</code> response tells the client immediately, and the banner
   appears at that point.</li>
 <li><strong>It regains focus.</strong> Coming back to a tab re-checks the instance settings (<code>/auth/site-config/</code>), throttled to at most
   once every 30 seconds, so a tab that was in the background picks up the change on refocus.</li>
 </ul>
-<p>A user who is idling on an open tab — not writing, not switching away — will not see the
-banner appear or disappear the instant you flip the toggle. Don't assume every open session
-updates the moment you act; if you need everyone to see the notice immediately, say so in
-another channel (chat, status page) rather than relying on the banner alone.</p>
+<p><strong>Watch out:</strong> a user who is idling on an open tab (not writing, not switching away) will not see the banner appear or disappear the instant you flip the toggle. Don't assume every open session updates the moment you act. If you need everyone to see the notice immediately, say so in another channel (chat, status page) rather than relying on the banner alone.</p>
 <h2 id="who-turned-it-on-the-action-log">Who turned it on? — the action log<a class="headerlink" href="#who-turned-it-on-the-action-log" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Every flip of the maintenance mode toggle is recorded, so an incident retrospective can
-answer "who put us into maintenance, and when did it end?" without guesswork. Each entry
-records the actor, the time, whether it went on or off, and the notice that was in force.</p>
+<p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
+<p>Every flip of the toggle is recorded, so an incident retrospective can answer "who put us into maintenance, and when did it end?" Each entry records the actor, the time, whether it went on or off, and the notice in force.</p>
 <p>Read it from <a href="../../api/admin/#action-log"><code>GET /api/v1/admin/action-log/</code></a>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>https://visiban.example.com/api/v1/admin/action-log/?action<span class="o">=</span>maintenance_mode.enabled<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_…"</span>
@@ -4188,12 +4163,8 @@ record and leaves no entry. Every route an operator would normally use is covere
 treat an empty log as "no audited path made this change", not as proof the setting was
 never touched.</p>
 </div>
-<p>Setting a value to the one it already holds is not recorded: the log contains real
-transitions only, so the gap between an <code>enabled</code> entry and the next <code>disabled</code> entry is the
-actual duration of the maintenance window.</p>
-<p>The log covers the instance-wide settings on the Admin → Settings tab. It does <strong>not</strong> yet
-cover user management — granting site admin, deactivating an account, or issuing an invite
-link leaves no entry.</p>
+<p>Setting a value to the one it already holds is not recorded. The log holds real transitions only, so the gap between an <code>enabled</code> entry and the next <code>disabled</code> entry is the actual maintenance window.</p>
+<p>The log covers the instance-wide settings on the Admin → Settings tab. It does <strong>not</strong> yet cover user management: granting site admin, deactivating an account, or issuing an invite link leaves no entry.</p>
 <div class="admonition warning">
 <p class="admonition-title">The audit write is part of the change</p>
 <p>A setting change and its log entry commit together: if the entry cannot be written, the
@@ -4220,11 +4191,8 @@ cleared from any container with database access:</p>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Turn it back off</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>maintenance_mode<span class="w"> </span>--off
 </code></pre></div>
-<p>Changes take effect immediately, exactly as they do from the admin panel. This is the
-break-glass path for an operator with shell access but no working ingress.</p>
-<p>Maintenance mode is also editable from the <a href="../django-admin/">Django admin</a> as a second
-break-glass route — <code>Site settings</code> has exactly one row, and edits there go through the same
-save path, so the cache invalidation still fires.</p>
+<p>Changes take effect immediately, as from the admin panel. This is the break-glass path for an operator with shell access but no working ingress.</p>
+<p>The <a href="../django-admin/">Django admin</a> is a second break-glass route: <code>Site settings</code> has exactly one row, and edits there use the same save path, so cache invalidation still fires.</p>
 <h2 id="related-pages">Related pages<a class="headerlink" href="#related-pages" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../admin-panel/#settings-tab">Admin Panel</a> — the Settings tab this control lives on, and the
