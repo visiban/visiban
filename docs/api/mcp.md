@@ -40,7 +40,20 @@ MCP_SERVER_ENABLED=true
     ```
 
 === "Helm"
-    The Helm chart does not yet expose this flag. Support is tracked in #1835.
+    ```bash
+    helm upgrade --install visiban ./helm/visiban \
+      --set backend.settings.mcpServerEnabled=true
+    ```
+
+    Or in a values file:
+
+    ```yaml
+    backend:
+      settings:
+        mcpServerEnabled: true
+    ```
+
+    The chart's frontend proxy already forwards `/mcp` to the backend.
 
 When the flag is off, the app is not installed, the `/mcp` route does not exist, and the MCP SDK is never imported — an install that does not use MCP exposes no additional surface.
 

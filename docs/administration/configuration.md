@@ -161,7 +161,7 @@ The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visi
 Two features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`).
 
 - **Migration:** turning `GIT_LENS_ENABLED` on adds the `git_lens` app and its tables, so a migration must run. In the production stack the `backend-init` service does that on `up -d`.
-- **Helm:** support for these flags is tracked in #1835.
+- **Helm:** set `backend.settings.mcpServerEnabled` and `backend.settings.gitLensEnabled` to `true` (both default `false`). See [Kubernetes deployment](../architecture/deployment.md).
 - **Names are stable:** a rename keeps the old name as a deprecated alias for at least one minor release.
 
 | Variable | Default | Description |

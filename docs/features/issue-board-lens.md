@@ -41,7 +41,15 @@ In Docker Compose add it to your `.env` file:
 GIT_LENS_ENABLED=true
 ```
 
-The Helm chart does not yet expose this flag. Support is tracked in #1835.
+With the Helm chart, set the chart value instead:
+
+```yaml
+backend:
+  settings:
+    gitLensEnabled: true
+```
+
+The chart renders `GIT_LENS_ENABLED=true` on every backend pod. Turning it on adds the `git_lens` tables, so the chart's migrate hook runs them on `helm upgrade`.
 
 When the variable isn't set, or is `false`, the feature is completely absent from the UI and API. No frontend restart is needed: the UI reads a capability flag from the backend on load.
 

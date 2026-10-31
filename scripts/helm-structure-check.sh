@@ -2179,6 +2179,43 @@ check_num_proxies_default() {
   [ "$bad" -eq 0 ] && pass "NUM_PROXIES: 2 with ingress on and unset; explicit values respected; absent with ingress off or a directly reachable frontend (with a NOTES.txt hint); render errors never read as absent"
 }
 
+# ---------------------------------------------------------------------------
+# 17. Optional feature flags render only when enabled (#1835).
+# ---------------------------------------------------------------------------
+backend_env_value() {
+  # Prints the value of env var $1 on the backend Deployment's app container
+  # (empty when absent). Extra args are helm flags. Render failure prints
+  # RENDER-ERROR so it never reads as "absent".
+  local name="$1" rendered
+  shift
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" "$@" 2>&1)" \
+    || { echo "RENDER-ERROR"; return 0; }
+  NAME="$name" yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$")))
+      | .spec.template.spec.containers[].env[] | select(.name == env(NAME)) | .value' <<< "$rendered" \
+    | grep -vE '^(---)?$' | head -1 || true
+}
+
+check_feature_flags() {
+  section "17. MCP_SERVER_ENABLED / GIT_LENS_ENABLED render only when enabled (#1835)"
+  local got bad=0 pair name value
+  for pair in "MCP_SERVER_ENABLED:mcpServerEnabled" "GIT_LENS_ENABLED:gitLensEnabled"; do
+    name="${pair%%:*}"; value="${pair##*:}"
+    got="$(backend_env_value "$name")"
+    if [ -n "$got" ]; then
+      fail "$name renders '$got' by default, expected absent"; bad=1
+    fi
+    got="$(backend_env_value "$name" --set "backend.settings.$value=true")"
+    if [ "$got" != "true" ]; then
+      fail "backend.settings.$value=true renders $name='${got:-<absent>}', expected true"; bad=1
+    fi
+    got="$(backend_env_value "$name" --set "backend.settings.$value=false")"
+    if [ -n "$got" ]; then
+      fail "backend.settings.$value=false renders $name='$got', expected absent"; bad=1
+    fi
+  done
+  [ "$bad" -eq 0 ] && pass "MCP_SERVER_ENABLED and GIT_LENS_ENABLED are absent by default and when false, and true when their backend.settings value is true"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -2203,6 +2240,7 @@ run_all_checks() {
   check_allowed_hosts_not_widened
   check_postgres_password_guard
   check_num_proxies_default
+  check_feature_flags
 }
 
 # ---------------------------------------------------------------------------
@@ -2329,6 +2367,9 @@ self_test() {
     "11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
+    # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
+    # in values never reaches the backend.
+    "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
     # 12 (#1210, #1224): every overridable hardened workload (backend,
     # postgresql, frontend) loses its capability drop through their shared

@@ -69,6 +69,14 @@
             "frontendUrl": { "type": "string" },
             "siteDomain": { "type": "string" },
             "forceInsecureCookies": { "type": "boolean" },
+            "mcpServerEnabled": {
+              "description": "MCP_SERVER_ENABLED (#1835). true mounts the MCP server at /mcp; false (default) leaves the variable unset, so /mcp returns 404.",
+              "type": "boolean"
+            },
+            "gitLensEnabled": {
+              "description": "GIT_LENS_ENABLED (#1835). true enables the Issue Board Lens (adds the git_lens app and its tables); false (default) leaves the variable unset.",
+              "type": "boolean"
+            },
             "adminAllowedIPs": { "type": "string" },
             "emailVerification": { "type": "string", "enum": ["optional", "mandatory", "none"] },
             "maxUploadSizeBytes": {

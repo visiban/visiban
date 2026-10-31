@@ -191,6 +191,16 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: FORCE_INSECURE_COOKIES
   value: "true"
 {{- end }}
+{{- /* Optional feature flags (#1835). Rendered only when true: the backend
+  defaults both to off, so the default render stays byte-identical. */}}
+{{- if $ctx.Values.backend.settings.mcpServerEnabled }}
+- name: MCP_SERVER_ENABLED
+  value: "true"
+{{- end }}
+{{- if $ctx.Values.backend.settings.gitLensEnabled }}
+- name: GIT_LENS_ENABLED
+  value: "true"
+{{- end }}
 {{- /*
   NUM_PROXIES (#1180, #1951). An explicit operator value always wins. When it
   is unset, the chart's Ingress is enabled and the frontend Service is
