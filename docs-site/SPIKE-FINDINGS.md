@@ -253,8 +253,8 @@ On pages that are mostly commands, tables, and warnings, "cut words, never facts
 
 **What you'll see:**
 
-- **On the root page:** a `1.2+` badge after the bold term of the **Custom fields**, **Trello import**, and **MCP server** Highlights bullets. "Off by default" stays plain text beside the MCP badge.
-- **On `installation`:** `1.2+` after the bold label **Verify the images:**, replacing the standalone `> **Added in 1.2**` blockquote above it.
+- **On the root page:** a `1.2+` badge inside the bold term, before its period, of the **Custom fields**, **Trello import**, and **MCP server** Highlights bullets. "Off by default" stays plain text beside the MCP badge.
+- **On `installation`:** `1.2+` inside the bold label, before its colon (**Verify the images 1.2+:**), replacing the standalone `> **Added in 1.2**` blockquote above it.
 - **On `sample-boards`:** `1.2+` alone under the "From the app" heading, replacing the "Added in 1.2" note about the sample gallery.
 - **On `onboarding-tour`:** `1.1+` on the page's first line, replacing `> **Added in 1.1**`, plus a `1.1+` badge on its sidebar entry.
 

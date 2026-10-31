@@ -36,9 +36,9 @@ t('baseline: the prototype root page loses nothing', () => assert.equal(count(ru
 
 for (const [name, re, kind] of [
   ['the Invite links bullet', /^- \*\*Invite links\.\*\*.*\n/m, 'terms'],
-  ['the Custom fields 1.2+ bullet', /^- \*\*Custom fields\.\*\*.*\n/m, 'terms'],
+  ['the Custom fields 1.2+ bullet', /^- \*\*Custom fields .*\n/m, 'terms'],
   ['the Groups bullet', /^- \*\*Groups\.\*\*.*\n/m, 'terms'],
-  ['the MCP server 1.2+ bullet', /^- \*\*MCP server\.\*\*.*\n/m, 'terms'],
+  ['the MCP server 1.2+ bullet', /^- \*\*MCP server .*\n/m, 'terms'],
   ['the Saved filters bullet', /^- \*\*Saved filters\.\*\*.*\n/m, 'terms'],
 ]) {
   t(`deleting ${name} is reported (${kind})`, () => {
@@ -60,7 +60,7 @@ t('the original *(1.2)* notes are satisfied by 1.2+ badges in the rewrite (versi
 })
 
 t('removing one 1.2+ badge is reported (versions)', () => {
-  const lost = run(old, neu.replace(` ${badge('1.2')} Off by default.`, ' Off by default.'))
+  const lost = run(old, neu.replace(` ${badge('1.2')}.** Off by default.`, '.** Off by default.'))
   assert.ok(lost.versions.some((v) => v.startsWith('added in 1.2:')), JSON.stringify(lost.versions))
 })
 
@@ -71,7 +71,7 @@ t('changing a badge from 1.2+ to 1.1+ is reported (versions)', () => {
 })
 
 t('a 1.0 badge is rejected (badges)', () => {
-  const lost = run(old, neu.replace('**Swimlanes.**', `**Swimlanes.** ${badge('1.0')}`))
+  const lost = run(old, neu.replace('**Swimlanes.**', `**Swimlanes ${badge('1.0')}.**`))
   assert.deepEqual(lost.badges, ['1.0+ (title "Added in 1.0")'])
 })
 
@@ -90,6 +90,11 @@ t('a version-only callout ("Added in 1.2") may become a badge; other notes may n
   assert.deepEqual(lost.versions, ['changed in 1.2'])
 })
 
+t('a badge after the closing bold, "**Term.** badge", is rejected (badges)', () => {
+  const lost = run(old, neu.replace(`**Trello import ${badge('1.2')}.**`, `**Trello import.** ${badge('1.2')}`))
+  assert.ok(lost.badges.some((b) => b.startsWith('badge inside prose')), JSON.stringify(lost.badges))
+})
+
 t('a badge inside a sentence is rejected (badges)', () => {
   const lost = run(old, neu.replace('scopes are new in 1.2.', `scopes are new in 1.2 ${badge('1.2')}.`))
   assert.ok(lost.badges.some((b) => b.startsWith('badge inside prose')), JSON.stringify(lost.badges))
@@ -98,7 +103,7 @@ t('a badge inside a sentence is rejected (badges)', () => {
 t('a prose note can not be replaced by a badge (versions)', () => {
   const swapped = neu
     .replace('scopes are new in 1.2.', 'with scopes.')
-    .replace('- **Personal access tokens.**', `- **Personal access tokens.** ${badge('1.2')}`)
+    .replace('- **Personal access tokens.**', `- **Personal access tokens ${badge('1.2')}.**`)
   const lost = run(old, swapped)
   assert.ok(lost.versions.includes('new in 1.2'), JSON.stringify(lost.versions))
   assert.deepEqual(lost.badges, [])

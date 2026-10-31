@@ -82,15 +82,15 @@ Write the callout title as the takeaway, not a category. "Back up first: this de
 **Badge a called-out feature or section, never a sentence.** When a page calls something out *as a feature* and it was added after 1.0, mark it with the release it was added in, as `MAJOR.MINOR+`:
 
 ```markdown
-- **Custom fields.** <span class="vb-version" title="Added in 1.2">1.2+</span> Typed fields on cards and on swimlane rows ...
-- **MCP server.** <span class="vb-version" title="Added in 1.2">1.2+</span> Off by default. Let an AI agent ...
+- **Custom fields <span class="vb-version" title="Added in 1.2">1.2+</span>.** Typed fields on cards and on swimlane rows ...
+- **MCP server <span class="vb-version" title="Added in 1.2">1.2+</span>.** Off by default. Let an AI agent ...
 ```
 
 **Why it matters:** A reader on 1.1 scanning a feature list or a page's sections needs to see at a glance what their install doesn't have. One consistent badge in those places is faster to scan than a mix of "*(1.2)*" and "Added in 1.2" callouts.
 
 **Where a badge goes. Only these places:**
 
-- **Right after the bold lead term of a feature bullet,** a table row, or a bold-labeled paragraph (`**Verify the images:** 1.2+ …`).
+- **Inside the bold lead term of a feature bullet,** a table row, or a bold-labeled paragraph, after the term and before its closing period or colon, so it reads "Custom fields 1.2+." and not "Custom fields. 1.2+" (`**Verify the images <span …>1.2+</span>:** …`). The punctuation stays inside the bold.
 - **Alone on its own line directly under a heading,** when the whole section is new. This replaces a standalone `> **Added in 1.2**` blockquote or a callout titled only "Added in 1.2".
 - **Alone on the first line of the body,** when the whole page is new. In `docs-site/`, also give the page's sidebar entry a `badge` in `astro.config.mjs`.
 

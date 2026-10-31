@@ -31,8 +31,9 @@
 //             MAJOR.MINOR+, title "Added in MAJOR.MINOR"), is never 1.0 or
 //             older (1.0 is the base product; nothing is "added" in it), and
 //             sits where a feature is called out, never inside a sentence:
-//             right after a bullet's, table row's or paragraph's bold lead
-//             term, or alone on its own line (under a heading, or at the top
+//             inside a bullet's, table row's or paragraph's bold lead term,
+//             after the term and before its closing "." or ":" ("**Custom
+//             fields 1.2+.**"), or alone on its own line (under a heading, or at the top
 //             of a page)
 //   anchors   every H2-H6 anchor mkdocs published (duplicates _1, _2, ...)
 //             must still resolve, as a heading id or an <a id> shim
@@ -88,8 +89,8 @@ const quoteLabels = (t) =>
     .map((m) => m[1].replace(/:\s*$/, '').trim())
     .filter((l) => !VERSION_ONLY.test(l)) // version notes are checked under versions
 const bulletTerms = (t) =>
-  [...stripFences(t).matchAll(/^\s*(?:[-*+]|\d+\.)\s+\*\*([^*]+)\*\*/gm)].map((m) => m[1].replace(/[.:]\s*$/, '').trim())
-const boldTerms = (t) => new Set([...stripFences(t).matchAll(/\*\*([^*]+)\*\*/g)].map((m) => key(m[1].replace(/[.:]\s*$/, ''))))
+  [...unbadge(stripFences(t)).matchAll(/^\s*(?:[-*+]|\d+\.)\s+\*\*([^*]+)\*\*/gm)].map((m) => m[1].replace(/[.:]\s*$/, '').trim())
+const boldTerms = (t) => new Set([...unbadge(stripFences(t)).matchAll(/\*\*([^*]+)\*\*/g)].map((m) => key(m[1].replace(/[.:]\s*$/, ''))))
 const NUM = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\\d+(?:[.,]\\d+)?)'
 // Function words after a number say nothing about a quantity ("one to three").
 const STOP = new Set(['to', 'of', 'or', 'and', 'the', 'a', 'an', 'in', 'on', 'for', 'is', 'are', 'at', 'per', 'by', 'with', 'than', 'that'])
@@ -104,14 +105,17 @@ const countPhrases = (t) =>
       .map((m) => m[0]),
   )
 const BADGE = /<span class="vb-version"([^>]*)>([^<]*)<\/span>/g
+// A badge sits inside its bold term ("**Custom fields 1.2+.**"); the term itself excludes it.
+const unbadge = (s) => s.replace(/\s<span class="vb-version"[^>]*>[^<]*<\/span>/g, '')
 export const badges = (t) =>
   [...stripFences(t).matchAll(BADGE)].map((m) => ({ label: m[2], title: /title="([^"]*)"/.exec(m[1])?.[1] ?? null }))
-// A badge belongs where a feature is called out: right after a bullet's,
-// table row's or paragraph's bold lead term, or alone on its own line.
+// A badge belongs where a feature is called out: inside the bold lead term of
+// a bullet, table row or paragraph, after the term and before its closing
+// punctuation ("**Custom fields 1.2+.**"), or alone on its own line.
 const PLACED = [
-  /^\s*(?:[-*+]|\d+\.)\s+\*\*[^*]+\*\*\s*<span class="vb-version"/,
-  /^\s*\|\s*\*\*[^*]+\*\*\s*<span class="vb-version"/,
-  /^\*\*[^*]+\*\*\s*<span class="vb-version"/,
+  /^\s*(?:[-*+]|\d+\.)\s+\*\*[^*<]+\s<span class="vb-version"[^>]*>[^<]*<\/span>[.:]?\*\*/,
+  /^\s*\|\s*\*\*[^*<]+\s<span class="vb-version"[^>]*>[^<]*<\/span>[.:]?\*\*/,
+  /^\*\*[^*<]+\s<span class="vb-version"[^>]*>[^<]*<\/span>[.:]?\*\*/,
   /^\s*<span class="vb-version"[^>]*>[^<]*<\/span>\s*$/,
 ]
 export function misplacedBadges(t) {
