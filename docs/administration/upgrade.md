@@ -1608,6 +1608,22 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     deep-merges nested maps, so a single-leaf `--set` keeps the chart's other
     `frontend.securityContext.container` defaults in place.
 
+!!! note "Frontend image default nginx config: response headers aligned with the bundled templates"
+    The frontend image's default server config (`frontend/nginx.default.conf`, installed as
+    `/etc/nginx/conf.d/default.conf`) sends the same `Content-Security-Policy`,
+    `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff` headers as
+    `nginx/app.conf.template`, `nginx/app-http.conf.template` and the Helm chart's frontend
+    ConfigMap. It serves only the static files (no `/api/` or `/ws/` proxying), and its
+    `connect-src` is `'self'` only.
+
+    The bundled templates cannot be mounted over it as they are: they contain a literal
+    `${DOMAIN}` that needs `envsubst`, listen on port 80 (the image runs as a non-root
+    user and listens on 8080), and proxy to an upstream named `backend` that only resolves
+    under Compose. To name your hostname for the WebSocket or to proxy `/api/` and `/ws/`,
+    either copy one of the templates and adapt the port, domain and upstream, or use the
+    Helm chart's rendered frontend ConfigMap `nginx.conf` (which already listens on 8080), and mount
+    the result over `/etc/nginx/conf.d/default.conf`.
+
 !!! warning "Frontend image now runs as non-root and listens on 8080; reset the dev `node_modules` volume"
     The `ghcr.io/visiban/visiban/frontend` image (and `frontend/Dockerfile.prod`) now runs as
     the non-root `nginx` user and nginx listens on **8080** instead of 80.
@@ -1615,15 +1631,6 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
     - **Direct `docker run` users** must publish the new container port:
       `docker run -p 80:8080 ghcr.io/visiban/visiban/frontend:<tag>`. The old `-p 80:80`
       mapping no longer reaches nginx.
-    - **The image's default config now matches the bundled templates' response headers.**
-      The image installs `frontend/nginx.default.conf` as its default server config. It
-      still serves only the static files (no `/api/` or `/ws/` proxying), and it now sends
-      the same `Content-Security-Policy`, `X-Frame-Options: DENY` and
-      `X-Content-Type-Options: nosniff` headers as `nginx/app.conf.template`,
-      `nginx/app-http.conf.template` and the Helm chart's frontend ConfigMap. Its
-      `connect-src` is `'self'` only; to name your hostname for the WebSocket, or to
-      proxy `/api/` and `/ws/`, mount one of those configs over
-      `/etc/nginx/conf.d/default.conf`.
     - **Production Compose and the Helm chart are unaffected.** Production Compose only copies
       the static files out of the image and serves them from the stock `nginx` service on
       80/443, and the chart already used 8080 (see the chart 0.7.0 note above).

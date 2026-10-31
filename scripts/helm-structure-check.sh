@@ -511,6 +511,29 @@ check_spa_cache_policy() {
   [ "$bad" -eq 0 ] && pass "nginx: /assets/ 404s, index.html is no-cache, hashed assets are immutable"
 }
 
+# Succeeds when any nginx `location` block declares its own add_header (which
+# drops every inherited server-level header). Tracks brace depth so the
+# one-line form `location / { add_header X 1; }` is caught as well as the
+# multi-line one; text before a location's opening brace is ignored.
+location_declares_add_header() {
+  awk '
+    {
+      line = $0
+      if (!inloc && line ~ /^[[:space:]]*location[[:space:]]/) {
+        if (index(line, "{") == 0) next
+        inloc = 1; depth = 0
+        line = substr(line, index(line, "{"))
+      }
+      if (inloc) {
+        if (line ~ /add_header[[:space:]]/) f = 1
+        n = gsub(/\{/, "{", line); m = gsub(/\}/, "}", line)
+        depth += n - m
+        if (depth <= 0) inloc = 0
+      }
+    }
+    END { exit !f }'
+}
+
 # ---------------------------------------------------------------------------
 # Frontend security headers must match the bundled nginx templates (#1952).
 # ---------------------------------------------------------------------------
@@ -565,7 +588,7 @@ check_frontend_security_headers() {
     fi
   fi
   # No location may declare its own add_header (inheritance drop).
-  if awk '/^[[:space:]]*location[[:space:]]/{loc=1} loc&&/^[[:space:]]*add_header/{f=1} END{exit !f}' <<< "$conf"; then
+  if location_declares_add_header <<< "$conf"; then
     fail "a nginx location declares its own add_header — it drops the server-level security headers"
     bad=1
   fi
@@ -609,7 +632,8 @@ check_frontend_image_headers() {
   section "Frontend image default config matches the bundled template headers (#1994)"
 
   local root img tpl bad=0 h
-  root="$(dirname "${BASH_SOURCE[0]}")/.."
+  # IMAGE_CHECK_ROOT lets --self-test point this at a damaged throwaway tree.
+  root="${IMAGE_CHECK_ROOT:-$(dirname "${BASH_SOURCE[0]}")/..}"
   img="$root/frontend/nginx.default.conf"
   tpl="$root/nginx/app-http.conf.template"
   if [ ! -f "$img" ] || [ ! -f "$tpl" ]; then
@@ -635,7 +659,7 @@ check_frontend_image_headers() {
       bad=1
     fi
   done
-  if awk '/^[[:space:]]*location[[:space:]]/{loc=1} loc&&/^[[:space:]]*add_header/{f=1} END{exit !f}' "$img"; then
+  if location_declares_add_header < "$img"; then
     fail "a location in frontend/nginx.default.conf declares its own add_header — it drops the server-level headers"
     bad=1
   fi
@@ -2362,6 +2386,45 @@ self_test() {
     # than left in $control_log, which this function deletes on return.
     echo "  ✗ SELF-TEST FAIL: the undamaged chart does not pass — every fixture result above is meaningless" >&2
     sed 's/^/      /' "$control_log" >&2
+    selftest_failures=$((selftest_failures + 1))
+  fi
+
+  # Negative control for check_frontend_image_headers (#1994). Its inputs are
+  # repo files, not chart files, so the chart fixtures above cannot damage them;
+  # instead copy the four files into a throwaway tree, apply one defect each via
+  # IMAGE_CHECK_ROOT, and require the check to fail. The undamaged copy must pass.
+  local ic="$tmp/image-check" ic_ok=1 ic_case ic_prog ic_rc
+  local ic_cases=(
+    "csp img-src widened|s/img-src 'self' data: blob:/img-src * data: blob:/"
+    "x-frame-options weakened|s/X-Frame-Options           \"DENY\"/X-Frame-Options           \"SAMEORIGIN\"/"
+    "x-content-type-options removed|s/add_header X-Content-Type-Options /add_header X-Removed /"
+    "one-line location add_header|s/index  index.html index.htm;/index index.html; add_header X-Loc 1;/"
+    "dockerfile stops installing config|DOCKERFILE"
+  )
+  for ic_case in "control|" "${ic_cases[@]}"; do
+    rm -rf "$ic"; mkdir -p "$ic/frontend" "$ic/nginx"
+    cp "$REPO_ROOT/frontend/nginx.default.conf" "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend/Dockerfile.prod" "$ic/frontend/"
+    cp "$REPO_ROOT/nginx/app-http.conf.template" "$ic/nginx/"
+    ic_prog="${ic_case#*|}"
+    if [ "$ic_prog" = "DOCKERFILE" ]; then
+      sed -i.bak 's/^COPY nginx.default.conf/COPY other.conf/' "$ic/frontend/Dockerfile.prod"
+    elif [ -n "$ic_prog" ]; then
+      sed -i.bak "$ic_prog" "$ic/frontend/nginx.default.conf"
+      cmp -s "$ic/frontend/nginx.default.conf" "$ic/frontend/nginx.default.conf.bak" && ic_ok=0
+    fi
+    ic_rc=0
+    ( IMAGE_CHECK_ROOT="$ic"; FAILURES=0; check_frontend_image_headers >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ) || ic_rc=1
+    if [ "${ic_case%%|*}" = "control" ]; then
+      [ "$ic_rc" -eq 0 ] || ic_ok=0
+    else
+      [ "$ic_rc" -eq 1 ] || { ic_ok=0; echo "  ✗ image-config case not rejected: ${ic_case%%|*}" >&2; }
+    fi
+  done
+  if [ "$ic_ok" -eq 1 ]; then
+    echo "  ✓ frontend image config: undamaged copy passes; drifted headers, a location add_header and a missing Dockerfile COPY are rejected"
+    passes=$((passes + 1))
+  else
+    echo "  ✗ SELF-TEST FAIL: check_frontend_image_headers did not behave on the image-config cases" >&2
     selftest_failures=$((selftest_failures + 1))
   fi
 
