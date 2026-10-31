@@ -10,7 +10,7 @@ Three Django apps own the schema:
 
 A fourth, `git_lens`, adds one model but is off by default (see [Issue Board Lens](#git_lens-app-off-by-default) at the bottom of this page).
 
-**Why it matters:** `CardMovement` is the audit trail, and it is append-only. Read [Key design decisions](#key-design-decisions) before writing code that touches cards, columns, or tokens.
+**Why it matters:** `CardMovement` is the audit trail, and it is append-only. See [Key design decisions](#key-design-decisions).
 
 **Go deeper:** [Core entities](#core-entities) is the field-by-field tree; [Entity details](#entity-details) explains the non-obvious ones.
 

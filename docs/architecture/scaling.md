@@ -4,7 +4,7 @@
 
 Visiban runs comfortably on one server for most teams. Below: the practical ceilings on a single server, and what to change — and when — as load grows.
 
-**Why it matters:** Scaling in the wrong order wastes money. Tune workers first, and move attachments to S3 before adding replicas. The sequence below is the default answer.
+**Why it matters:** each step in the sequence below resolves the typical bottleneck before it bites. Start with step 1.
 
 ## Scaling sequence
 

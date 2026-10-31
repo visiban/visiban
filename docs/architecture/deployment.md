@@ -2,7 +2,7 @@
 
 Two supported paths: Docker Compose for a single server, Helm for Kubernetes. Both run the same images and the same daphne/ASGI backend.
 
-**Why it matters:** Pick one path and stay on it. Compose is the default for self-hosting; Helm is for clusters.
+**Why it matters:** Docker Compose is the recommended path for self-hosting a single server; Helm is the path for Kubernetes.
 
 **The minimum (Compose):** fill in `DJANGO_SECRET_KEY` and `DATABASE_URL` in `.env` (leave the default for bundled Postgres), then start the stack:
 

@@ -6,7 +6,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 
 **Guiding principle:** "Can a small team work together effectively without this?" If no → OSS core. If yes → enterprise candidate.
 
-**Why it matters:** A feature's tier is decided once, here. Check the [Classification table](#classification-table) before building or documenting anything that might be Enterprise.
+**Why it matters:** this page records each feature's classification and its rulings. Check the [Classification table](#classification-table) before building or documenting anything that might be Enterprise.
 
 **Go deeper:** [Detailed rulings](#detailed-rulings) for split features, [OSS extension points](#oss-extension-points-implementation-status) for what Enterprise plugs into.
 

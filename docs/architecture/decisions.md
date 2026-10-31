@@ -4,7 +4,7 @@
 
 Why each piece of the Visiban stack was chosen, not just what was chosen, for contributors, self-hosters, and anyone evaluating the trade-offs.
 
-**Why it matters:** Each choice trades power for fewer moving parts. Check the reasoning before proposing a replacement.
+**Why it matters:** the stack follows one rule: the simplest thing that could work correctly and securely.
 
 **The big picture:** one containerized monolith, with an upgrade path to Kubernetes.
 
