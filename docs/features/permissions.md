@@ -1,8 +1,14 @@
-# Board Role Permissions
+# What each board role can do
 
-Visiban uses four board-level roles to control what each member can do on a board. Site admins are a separate designation, covered at the end of this page. **Why it matters:** getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.
+<a id="board-role-permissions"></a>
 
-This page is the detailed board-action reference. For how the same roles work at the group level, how group membership cascades down to boards, and how to assign roles, see [Roles & Access Control](rbac/index.md).
+Four board roles (Admin, Member, Collaborator, Viewer) control what each member can do on a board. Set them in **Board Settings → Members**.
+
+**Why it matters:** Getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.
+
+**The big picture:** site admins are a separate designation, covered at the end of this page.
+
+**Go deeper:** this page is the detailed board-action reference. For how the same roles work at the group level, how group membership cascades down to boards, and how to assign roles, see [Roles & Access Control](rbac/index.md).
 
 ## The four board roles
 
@@ -15,7 +21,7 @@ This page is the detailed board-action reference. For how the same roles work at
 
 ## Permission matrix
 
-The full board action matrix — including the group and site scopes the same four roles carry — now lives in one place: [Roles & Permissions — Permission table](rbac/roles.md#permission-table). This page used to keep its own copy; the two drifted apart more than once, so this page links to the single source instead of maintaining a second copy.
+The full board action matrix, including the group and site scopes the same four roles carry, lives in one place: [Roles & Permissions — Permission table](rbac/roles.md#permission-table). This page used to keep its own copy; the two drifted apart more than once, so this page links to the single source instead of maintaining a second copy.
 
 Quick pointers into that table:
 
@@ -26,13 +32,13 @@ Quick pointers into that table:
 
 ## How to set roles
 
+Only board Admins (and site admins) can do this.
+
 1. Open the board and click the **Settings** button (gear icon) in the toolbar.
 2. Go to the **Members** tab.
 3. To add a member: type their username or email in the invite field, choose a role, and click **Invite**.
 4. To change a member's role: click the role badge next to their name and select a new one.
 5. To remove a member: click the trash icon next to their name.
-
-Only board Admins (and site admins) can do this.
 
 ## Moderator entitlement
 
@@ -46,10 +52,10 @@ The **moderator** entitlement lets an admin delegate content-moderation rights t
 
 Without the moderator flag, members can only assign and edit cards they created, delete/archive cards they created, and delete comments they authored.
 
+To grant moderator rights, open Board Settings → Members and check the **Moderator** checkbox next to the member's name. Only admins can toggle this. The checkbox is available only for members and admins; collaborators and viewers can't be designated as moderators.
+
 !!! note "Assignee dropdown gating"
     The assignee field in the card detail panel is disabled for members without moderator (or admin) access who didn't create the card. A tooltip explains why it's locked. If a non-moderator member reaches the assignment API endpoint directly, the server returns `403 Forbidden` with the message: "Assigning cards requires Moderator or Admin access — ask a board admin."
-
-To grant moderator rights, open Board Settings → Members and check the **Moderator** checkbox next to the member's name. Only admins can toggle this. The checkbox is only available for members and admins — collaborators and viewers can't be designated as moderators.
 
 !!! note "Moderator is an entitlement, not a role"
     Moderator is a boolean flag on the membership, not a fifth role. A member with moderator rights still appears as "Member" in the role dropdown. Demoting a moderator to collaborator or viewer automatically revokes the flag.
@@ -63,7 +69,7 @@ Visiban tracks two flags on the User model, independent for accounts that are no
 | `is_site_admin` | Access to the admin panel (`/admin`) and admin API (`/api/v1/admin/*`). Does **not** grant board or group access on its own. |
 | `can_access_all_content` | Read/write access to every board and group on the instance, regardless of membership. This is the flag that bypasses board-level role checks. |
 
-When a user with `can_access_all_content` accesses a board, the permission system treats them as a site-level admin role — they can view and modify any board without an explicit membership.
+When a user with `can_access_all_content` accesses a board, the permission system treats them as a site-level admin role: they can view and modify any board without an explicit membership.
 
 A non-superuser who is `is_site_admin=True` but `can_access_all_content=False` can manage the admin panel (users, settings, instance configuration) but **cannot** see boards they aren't a member of. This separation lets operators grant admin panel access without granting board omniscience.
 

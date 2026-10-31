@@ -1,12 +1,20 @@
-# Notifications
+# Get told when a card needs you
 
-Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
+<a id="notifications"></a>
 
-Five of these events can also be **delivered by email** — see [Email notifications](#email-notifications) below.
+The bell in the navbar collects your in-app notifications. Choose which ones you get in **Settings → Notifications**.
+
+**Why it matters:** You get in-app notifications for assignments, @mentions, due dates, moves, comments, and board invites.
+
+**The big picture:** Visiban surfaces in-app notifications for card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
+
+**Go deeper:** five of these events can also be **delivered by email**; see [Email notifications](#email-notifications) below.
+
+**Watch out:** the due-date and stale-card scans run from management commands, and **nothing is sent until an operator turns on the scheduler**. See [Due date notifications](#due-date-notifications) and [Running the stale check](#running-the-stale-check).
 
 ## Notification bell
 
-The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only **unread** notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.
+The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed of **unread** notifications. Each notification is a deep link: clicking it marks it read (removing it from the dropdown), navigates to the board, and opens the card detail panel.
 
 Click **Mark all read** to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.
 
@@ -15,7 +23,7 @@ Click **Mark all read** to dismiss all notifications at once. Read notifications
 
 ## Notification preferences
 
-Each user can enable or disable individual notification triggers in **Settings → Notifications**. Preferences are saved immediately on toggle. Available toggles:
+Each user can enable or disable individual notification triggers in **Settings → Notifications**. Preferences are saved immediately on toggle.
 
 | Trigger | In-app default | Email available | Email default |
 |---|---|---|---|
@@ -37,43 +45,39 @@ Each user can enable or disable individual notification triggers in **Settings �
 
 ## Assignment notifications
 
-When a card is assigned to a user by someone else, that user receives a notification:
+When someone else assigns a card to you, you receive a notification:
 
-> "You were assigned to "{card title}""
+> "You were assigned to "\{card title\}""
 
 ## @mention notifications
 
 Typing `@username` in a card comment **or description** notifies the mentioned user:
 
-> "{author} mentioned you in "{card title}""
+> "\{author\} mentioned you in "\{card title\}""
 
-- Type `@` in the comment box or description field to open an inline autocomplete dropdown filtered by username and display name
-- Keyboard navigation: ↑↓ to move through suggestions, Enter or Tab to select, Escape to dismiss
-- Mentions are rendered as **bold blue** text in saved comments and descriptions
-- The author is never notified for their own mention
-- Only users who are members of the board (directly, via group inheritance, or site admins) can be mentioned
-- The autocomplete suggests the board's members. Users who can open every board without being a member (all-content access) are suggested only to site admins; anyone else can still mention them by typing their full `@username`
+- Type `@` in the comment box or description field to open an inline autocomplete dropdown filtered by username and display name.
+- Keyboard navigation: ↑↓ to move through suggestions, Enter or Tab to select, Escape to dismiss.
+- Mentions are rendered as **bold blue** text in saved comments and descriptions.
+- The author is never notified for their own mention.
+- Only users who are members of the board (directly, via group inheritance, or site admins) can be mentioned.
+- The autocomplete suggests the board's members. Users who can open every board without being a member (all-content access) are suggested only to site admins; anyone else can still mention them by typing their full `@username`.
 - **Description re-save guard** — Visiban tracks which users have already been notified for mentions on a given card's description. If you edit and re-save a description that still contains an existing `@username`, that user is not notified again. Only newly added mentions trigger a notification.
 
 ## Due date notifications
 
 When a card's due date is approaching (within 24 hours by default), the assignee is notified:
 
-> ""{card title}" is due soon"
+> ""\{card title\}" is due soon"
 
-Recipients opt in with the **Due date approaching** preference. The scan runs from
-the `notify_due_soon` management command rather than on a request, so it has to
-be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler
-(the Compose `scheduler` profile or the Helm `scheduledJobs.enabled` value), and
-**nothing is sent until you do**. See [Scheduled Jobs](../administration/scheduled-jobs.md).
+Recipients opt in with the **Due date approaching** preference.
+
+**Scheduling:** the scan runs from the `notify_due_soon` management command rather than on a request, so it has to be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler (the Compose `scheduler` profile or the Helm `scheduledJobs.enabled` value), and **nothing is sent until you do**. See [Scheduled Jobs](../administration/scheduled-jobs.md).
 
 ```bash
 python manage.py notify_due_soon
 ```
 
-Pass `--days N` to widen the window. `Card.due_date` is a date, not a timestamp,
-so the window is expressed in whole days; the default of `1` is the documented
-24-hour warning and covers cards due today or tomorrow.
+Pass `--days N` to widen the window. `Card.due_date` is a date, not a timestamp, so the window is expressed in whole days; the default of `1` is the documented 24-hour warning and covers cards due today or tomorrow.
 
 !!! warning "Keep `--days` below the notification retention window"
     The scan checks earlier due-date notifications, up to `--days` back, so it
@@ -84,12 +88,10 @@ so the window is expressed in whole days; the default of `1` is the documented
     90-day default retention is well clear. The command logs a warning when
     `--days` is greater than or equal to `NOTIFICATION_RETENTION_DAYS`.
 
-The command is idempotent per due date: a card is visible to it on two
-consecutive runs (due tomorrow, then due today) and produces **one** notification
-in total. Changing a card's due date makes it eligible again, because a
-rescheduled card is a new commitment. An assignee who has since lost access to
-the board is skipped — the assignee field is not cleared when a member is
-removed, and card titles are board content.
+**Idempotence:** the command is idempotent per due date. A card is visible to it on two consecutive runs (due tomorrow, then due today) and produces **one** notification in total.
+
+- Changing a card's due date makes it eligible again, because a rescheduled card is a new commitment.
+- An assignee who has since lost access to the board is skipped. The assignee field is not cleared when a member is removed, and card titles are board content.
 
 !!! note "Added in 1.2"
     The due-date notification is new in 1.2 (#356). Earlier releases described it
@@ -97,15 +99,15 @@ removed, and card titles are board content.
 
 ## Card moved notifications
 
-When a card is moved to a different column by another user, the card's assignee is notified.
+When another user moves a card to a different column, the card's assignee is notified.
 
 ## Board invite notifications
 
 When a user is added to a board (directly or via group membership), they receive a notification:
 
-> "You were added to "{board name}""
+> "You were added to "\{board name\}""
 
-This notification appears in the bell dropdown and includes a **View board →** link, making it clear that clicking will navigate to the board. Users can disable board invite notifications in **Settings → Notifications** by toggling the **Board invites** preference.
+It appears in the bell dropdown with a **View board →** link, so it is clear that clicking navigates to the board. Disable these in **Settings → Notifications** with the **Board invites** preference.
 
 ## Comment added notifications
 
@@ -114,65 +116,55 @@ This notification appears in the bell dropdown and includes a **View board →**
 > created a notification (#1277). It now works as described below, and can
 > also be delivered by email (#1295).
 
-When someone comments on a card you are **watching**, you get a notification in
-the bell:
+When someone comments on a card you are **watching**, you get a notification in the bell:
 
-> "{username} commented on "{card title}""
+> "\{username\} commented on "\{card title\}""
 
-For now, you are watching a card when you **created it** or **are assigned to
-it**. There is no separate watch or unwatch control yet, and commenting on a card
-does not make you a watcher. Explicit watch/unwatch is planned (#229).
+For now, you are watching a card when you **created it** or **are assigned to it**. There is no separate watch or unwatch control yet, and commenting on a card does not make you a watcher. Explicit watch/unwatch is planned (#229).
 
-- **Off by default.** Turn on **Comment on a watched card** in
-  **Settings → Notifications** to receive these.
-- **Never for your own comment.** Commenting on a card you created or are
-  assigned to does not notify you.
-- **One notification per comment.** If the same comment @mentions you, you get
-  only the @mention notification, not this one as well.
-- **Only while you can see the board.** If you created a card but have since
-  been removed from the board, or your account is deactivated, you are not
-  notified.
-- **Email is optional.** Turn on **Also send by email** under *Comment on a
-  watched card* to get a copy by email as well. It is off by default and, like
-  every email preference, inert while the in-app toggle is off. See
-  [Email notifications](#email-notifications).
+- **Off by default.** Turn on **Comment on a watched card** in **Settings → Notifications** to receive these.
+- **Never for your own comment.** Commenting on a card you created or are assigned to does not notify you.
+- **One notification per comment.** If the same comment @mentions you, you get only the @mention notification, not this one as well.
+- **Only while you can see the board.** If you created a card but have since been removed from the board, or your account is deactivated, you are not notified.
+- **Email is optional.** Turn on **Also send by email** under *Comment on a watched card* to get a copy by email as well. It is off by default and, like every email preference, inert while the in-app toggle is off. See [Email notifications](#email-notifications).
 
 ## Staleness notifications
 
-Cards that haven't moved between columns in a configurable number of days are considered **stale**. The `notify_stale_cards` management command scans all boards and creates notifications for assignees and board admins of stale cards, for those who have the **Card has gone stale** preference on (it was **Due date approaching** before 1.2 — see the note in [Notification preferences](#notification-preferences)).
+Cards that haven't moved between columns in a configurable number of days are **stale**. The `notify_stale_cards` management command scans all boards and notifies assignees and board admins of stale cards, for those who have the **Card has gone stale** preference on (it was **Due date approaching** before 1.2 — see the note in [Notification preferences](#notification-preferences)).
 
 The notification text is `"<card title>" hasn't moved in N days (board: <board name>)`. Very long card titles are shortened with an ellipsis so the text always fits, and board names longer than 100 characters are shortened to 100 characters in this text.
 
 ### Staleness threshold
 
-Each board has a `staleness_threshold_days` setting (default: **7 days**). A card is stale when its last `CardMovement` record is older than this threshold (or when a card has never been moved and was created more than that many days ago).
+Each board has a `staleness_threshold_days` setting (default: **7 days**). A card is stale when its last `CardMovement` record is older than this threshold, or when a card has never been moved and was created more than that many days ago.
 
 ### Stale card indicator
 
-Stale cards are tinted on the board, and the tint deepens from orange to red to deep red at 1×, 2× and 3× the threshold. At Comfortable and Standard density their badge shows the idle days (`Stale · 41d`). Where no badge is shown, for example in the Compact card layout, a one-to-three-bar meter at the start of the title marks the step. A never-moved card is measured from its creation date, as in the threshold rule above. Cards in a done column are never tinted or badged, and the `notify_stale_cards` digest skips them too, so you are never notified about finished work. The card API's `is_stale` field is unchanged and still ignores columns; clients decide how to display it. See [Card aging tint](card-history.md#card-aging-tint).
+Stale cards are tinted on the board, and the tint deepens from orange to red to deep red at 1×, 2× and 3× the threshold.
+
+- **Badge:** at Comfortable and Standard density the badge shows the idle days (`Stale · 41d`).
+- **Meter:** where no badge is shown, for example in the Compact card layout, a one-to-three-bar meter at the start of the title marks the step.
+- **Never-moved cards** are measured from their creation date, as in the threshold rule above.
+- **Done columns:** cards there are never tinted or badged, and the `notify_stale_cards` digest skips them too, so you are never notified about finished work.
+- **API:** the card API's `is_stale` field is unchanged and still ignores columns; clients decide how to display it.
+
+See [Card aging tint](card-history.md#card-aging-tint).
 
 ### Running the stale check
 
-The command is idempotent — it won't create duplicate notifications if run multiple times in the same day:
+The command is idempotent: it won't create duplicate notifications if run multiple times in the same day.
 
 ```bash
 python manage.py notify_stale_cards
 ```
 
-It runs daily at 08:00 UTC once the shipped scheduler is turned on. See
-[Scheduled Jobs](../administration/scheduled-jobs.md) for Docker Compose,
-Kubernetes, and host-cron setup.
+It runs daily at 08:00 UTC once the shipped scheduler is turned on. See [Scheduled Jobs](../administration/scheduled-jobs.md) for Docker Compose, Kubernetes, and host-cron setup.
 
 ## Notification retention
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Notifications are kept until they are pruned. The `prune_notifications`
-management command deletes notifications, read or unread, older than
-`NOTIFICATION_RETENTION_DAYS` (default **90**, minimum **14**; on Helm, set the
-window with `scheduledJobs.pruneNotifications.args: ["--days", "N"]`). It only runs
-when you schedule it: the shipped scheduler has it **off** by default, so an
-existing install keeps every notification until you turn the prune on.
+Notifications are kept until they are pruned. The `prune_notifications` management command deletes notifications, read or unread, older than `NOTIFICATION_RETENTION_DAYS` (default **90**, minimum **14**; on Helm, set the window with `scheduledJobs.pruneNotifications.args: ["--days", "N"]`). It only runs when you schedule it: the shipped scheduler has it **off** by default, so an existing install keeps every notification until you turn the prune on.
 
 ```bash
 python manage.py prune_notifications --dry-run   # preview
@@ -180,16 +172,13 @@ python manage.py prune_notifications             # default window
 python manage.py prune_notifications --days 180  # override
 ```
 
-The 14-day minimum is deliberate. The scheduled scans use existing
-notifications as their record of what they have already sent, so pruning more
-aggressively would make them send the same notification again.
+The 14-day minimum is deliberate. The scheduled scans use existing notifications as their record of what they have already sent, so pruning more aggressively would make them send the same notification again.
 
 ## Email notifications
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Team members who are not watching the board all day can have notifications
-delivered to their email address as well as the bell. Five events support it:
+Team members who are not watching the board all day can have notifications delivered to their email address as well as the bell. Five events support it:
 
 | Event | Email preference |
 |---|---|
@@ -203,10 +192,7 @@ delivered to their email address as well as the bell. Five events support it:
 
 Two things have to be true before any email is sent:
 
-1. **An administrator has configured outgoing email** — either the `EMAIL_*`
-   environment variables or **Admin → Settings → Email**. See
-   [Configuration](../administration/configuration.md#email-smtp). Nothing is
-   sent, and nothing is queued, if email is unconfigured.
+1. **An administrator has configured outgoing email** — either the `EMAIL_*` environment variables or **Admin → Settings → Email**. See [Configuration](../administration/configuration.md#email-smtp). Nothing is sent, and nothing is queued, if email is unconfigured.
 2. **You turned the event's email toggle on** in **Settings → Notifications**.
 
 !!! warning "Email is off by default, deliberately"
@@ -217,32 +203,23 @@ Two things have to be true before any email is sent:
 
 ### Email rides on the in-app notification
 
-An email is a copy of the in-app notification, sent when that notification is
-created. So the in-app toggle for an event gates both: with the in-app
-notification off there is no notification to copy, and the email toggle is inert.
-The settings UI disables it and says so rather than letting you turn on something
-that would quietly do nothing.
+An email is a copy of the in-app notification, sent when that notification is created. So the in-app toggle for an event gates both: with the in-app notification off there is no notification to copy, and the email toggle is inert. The settings UI disables it and says so rather than letting you turn on something that would quietly do nothing.
 
 ### What an email contains
 
-Plain text only — no HTML part, no tracking, no images. The subject is the board
-name followed by the same sentence the bell shows. The body repeats it, names the
-board and card, and links straight to the card (the same deep link the bell uses,
-so both land in the same place). A footer links to your notification settings,
-and the message carries a `List-Unsubscribe` header pointing there.
+Plain text only: no HTML part, no tracking, no images.
 
-Mail is sent from the address configured as the sender (`DEFAULT_FROM_EMAIL`, or
-the sender set in the admin UI). There is no separate notification sender.
+- **Subject:** the board name followed by the same sentence the bell shows.
+- **Body:** repeats it, names the board and card, and links straight to the card (the same deep link the bell uses, so both land in the same place).
+- **Footer:** links to your notification settings, and the message carries a `List-Unsubscribe` header pointing there.
+- **Sender:** the address configured as the sender (`DEFAULT_FROM_EMAIL`, or the sender set in the admin UI). There is no separate notification sender.
 
 ### Who does not receive email
 
 - Users with no email address on their account
 - Deactivated users — their notification history is kept, their mail is not
 - Deactivated users also get no new notification row; none is created for them
-- Users whose address is unconfirmed, **when** the instance sets
-  `EMAIL_VERIFICATION=mandatory`. Under the default `optional` policy unverified
-  addresses are normal — the same instance already sends password-reset mail to
-  them — so they still receive notification mail.
+- Users whose address is unconfirmed, **when** the instance sets `EMAIL_VERIFICATION=mandatory`. Under the default `optional` policy unverified addresses are normal — the same instance already sends password-reset mail to them — so they still receive notification mail.
 
     Two things follow from that default, and they are the reason to consider
     `mandatory` on a public instance. Notification mail carries board content
@@ -256,32 +233,19 @@ the sender set in the admin UI). There is no separate notification sender.
 
 ### When mail fails
 
-A delivery failure never breaks the action that caused it. Notifications are
-created inside the request's transaction; once it commits, the messages are
-handed to a background thread that sends them over a single connection with a
-socket timeout (`NOTIFICATION_EMAIL_TIMEOUT`, default 10 seconds). If the SMTP
-server is unreachable, misconfigured or rejects the credentials, the card update
-still succeeds, the in-app notification is still created, and the failure is
-logged with a sanitized error code. Logs never contain a recipient address.
+A delivery failure never breaks the action that caused it. Notifications are created inside the request's transaction; once it commits, the messages are handed to a background thread that sends them over a single connection with a socket timeout (`NOTIFICATION_EMAIL_TIMEOUT`, default 10 seconds). If the SMTP server is unreachable, misconfigured or rejects the credentials:
 
-The send runs on a thread rather than inline because the timeout is applied per
-socket operation, not as a wall-clock total — a tarpitting relay can spend it
-again at every step of the conversation, which inline would mean a card
-assignment or drag-and-drop appearing to hang. The trade-off is that delivery is
-explicitly **best-effort**: restarting or recycling a worker mid-send drops that
-batch. Set `NOTIFICATION_EMAIL_ASYNC=false` to send inline instead.
+- the card update still succeeds;
+- the in-app notification is still created;
+- the failure is logged with a sanitized error code. Logs never contain a recipient address.
 
-There is no retry and no queue: a notification email is only useful promptly, and
-a durable queue is not a dependency the OSS core takes on. If mail is failing, fix
-the SMTP configuration — **Admin → Settings → Email** has a **Send test email**
-button.
+The send runs on a thread rather than inline because the timeout is applied per socket operation, not as a wall-clock total. A tarpitting relay can spend it again at every step of the conversation, which inline would mean a card assignment or drag-and-drop appearing to hang. The trade-off is that delivery is explicitly **best-effort**: restarting or recycling a worker mid-send drops that batch. Set `NOTIFICATION_EMAIL_ASYNC=false` to send inline instead.
+
+There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — **Admin → Settings → Email** has a **Send test email** button.
 
 ### Extending delivery
 
-Notification creation fires a `post_notification_created` signal, which is a
-stable extension point: additional delivery backends attach to it without
-modifying any file in this repository. See
-[Open core boundary](../architecture/open-core-boundary.md#oss-extension-points-implementation-status).
+Notification creation fires a `post_notification_created` signal, which is a stable extension point: additional delivery backends attach to it without modifying any file in this repository. See [Open core boundary](../architecture/open-core-boundary.md#oss-extension-points-implementation-status).
 
 ---
 

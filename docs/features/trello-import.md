@@ -1,13 +1,19 @@
-# Import from Trello
+# Import a Trello board in minutes
 
-> **Added in 1.2**
+<a id="import-from-trello"></a>
 
-Bring a Trello board into Visiban in a few minutes. You export the board from Trello as a JSON file, upload it, review a preview, and Visiban creates a **new board** from it.
+<span class="vb-version" title="Added in 1.2">1.2+</span>
+
+Export the board from Trello as JSON, click **Import** on the Dashboard or a group page, then **Import a Trello export**. Review the preview, and Visiban creates a **new board** from it.
+
+**Why it matters:** Lists, cards, labels, checklists, comments, and attachment links come across, and a preview shows how they map before anything is created.
 
 !!! note "What is not supported"
     - Importing into an **existing** board. The import always creates a new board.
     - Attachment files. Only attachment links are imported.
     - Jira or other tools. Only Trello JSON exports are supported.
+
+**By the numbers:** files up to 25 MB by default (administrators can change this with `IMPORT_MAX_SIZE_BYTES`), 5,000 cards, 10 imports per hour. See [Limits](#limits).
 
 ## Export your board from Trello
 
@@ -50,7 +56,9 @@ The review step shows what the import will create. Change any option you like. T
 
 **Members.** See [Member matching and privacy](#member-matching-and-privacy).
 
-Click **Create board**. You see an upload progress bar, then **Creating board…**. Keep the window open until it finishes. The import runs while you wait (there is no background job yet), so very large boards can take a minute.
+Click **Create board**. You see an upload progress bar, then **Creating board…**.
+
+**Watch out:** keep the window open until it finishes. The import runs while you wait (there is no background job yet), so very large boards can take a minute.
 
 ## What gets imported
 

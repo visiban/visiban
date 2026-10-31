@@ -1,18 +1,26 @@
-# Keyboard shortcuts
+# Drive the board from the keyboard
 
-> **Added in 1.1**
+<a id="keyboard-shortcuts"></a>
 
-Visiban ships with a keyboard-first control scheme so power users can drive the board without moving their hands from the home row. **Why it matters:** for someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
-Shortcuts are platform-aware: macOS renders them as glyphs (⌘, ⇧, ⌥); Linux / Windows renders them as named chords (`Ctrl`, `Shift`, `Alt`).
+Press `?` on any board (or use the avatar menu → **Keyboard shortcuts**) to open the shortcuts overlay.
 
-Open the shortcuts overlay from any board by pressing `?`, or from the avatar menu → **Keyboard shortcuts**.
+**Why it matters:** For someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.
 
-## Safety rule — shortcuts never fire while typing
+**How it works:** shortcuts are platform-aware. macOS renders glyphs (⌘, ⇧, ⌥); Linux and Windows render named chords (`Ctrl`, `Shift`, `Alt`).
 
-Single-letter shortcuts are suppressed whenever the focused element is an input, textarea, select, or rich-text editor. Type `b` in the search box without switching to the Board view, or `y` in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\\) fire everywhere, because the modifier makes the intent unambiguous.
+**Watch out:** single-letter shortcuts never fire while you type; see the rule below.
 
-## Navigation — works on every authenticated page
+<a id="safety-rule-shortcuts-never-fire-while-typing"></a>
+
+## Shortcuts never fire while typing
+
+Single-letter shortcuts are suppressed when focus is in an input, textarea, select, or rich-text editor. Type `b` in the search box without switching to the Board view, or `y` in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\\) fire everywhere, because the modifier makes the intent unambiguous.
+
+<a id="navigation-works-on-every-authenticated-page"></a>
+
+## Navigation: every authenticated page
 
 | Shortcut | Action |
 |---|---|
@@ -21,13 +29,11 @@ Single-letter shortcuts are suppressed whenever the focused element is an input,
 | <kbd>⌘,</kbd> / <kbd>Ctrl+,</kbd> | Open board settings (admins only) |
 | <kbd>G</kbd> then <kbd>U</kbd> | Open the user menu |
 
-The command palette is the single cross-route entry point: type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the current surface — on a board it searches cards; on the Dashboard it jumps to a board; on Settings / Admin it lists navigation targets.
+- **Command palette:** the single cross-route entry point. Type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the surface: it searches cards on a board, jumps to a board on the Dashboard, and lists navigation targets on Settings / Admin.
+- **Empty query:** the default list starts with your starred boards (alphabetical), then your most recent visits, so a blank `⌘K` → `Enter` jumps into the workspace you care about most.
+- **`G` then `U`** is a chord, not a combo: press and release `G`, then press `U` within one second, to open the [user menu](navigation.md) from anywhere in the authenticated app.
 
-Open the palette with an empty query and the default board list starts with your starred boards (alphabetical), rounded out by your most recent visits — a blank `⌘K` → `Enter` jumps straight into the workspace you care about most.
-
-`G` then `U` is a chord, not a combo: press and release `G`, then press `U` within one second, to open the [user menu](navigation.md) from anywhere in the authenticated app.
-
-## Board view — switch the active sub-tab
+## Board view: switch the active sub-tab
 
 | Shortcut | Action |
 |---|---|
@@ -37,7 +43,7 @@ Open the palette with an empty query and the default board list starts with your
 | <kbd>A</kbd> | Switch to **Analytics** view |
 | <kbd>L</kbd> | Switch to the [Issue Board Lens](issue-board-lens.md) view (only when a lens is configured on the board) |
 
-View-tab shortcuts only fire while you are on a board route (`/boards/<id>`). They write to the `?view=` URL param with replace-history semantics so the browser Back button skips tab transitions.
+View-tab shortcuts fire only on a board route (`/boards/<id>`). They write to the `?view=` URL param with replace-history semantics, so the browser Back button skips tab transitions.
 
 ## History view
 
@@ -45,7 +51,7 @@ View-tab shortcuts only fire while you are on a board route (`/boards/<id>`). Th
 |---|---|
 | <kbd>↑</kbd> / <kbd>↓</kbd> | Move between rows (only while focus is on the table; they do nothing in the filter controls or the detail panel) |
 | <kbd>Enter</kbd> | Open the detail panel for the focused row |
-| <kbd>Esc</kbd> | Close an open filter menu, then the detail panel, then return to the board — one level per press |
+| <kbd>Esc</kbd> | Close an open filter menu, then the detail panel, then return to the board, one level per press |
 
 The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focus to the row that opened it, so <kbd>Enter</kbd> reopens it.
 
@@ -64,9 +70,8 @@ The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focu
 | <kbd>Space + drag</kbd> | Pan the board with the mouse |
 | <kbd>Tab</kbd> | Move between filter chips; <kbd>Delete</kbd> or <kbd>Backspace</kbd> to remove |
 
-`E` mirrors the toolbar's split-button primary action: if anything is expanded, it collapses everything; otherwise it expands everything. The split button's menu still offers granular "Hide all swimlanes / columns" options.
-
-`F` and `⌘⇧L` / `Ctrl+Shift+L` also work on the [Issue Board Lens](issue-board-lens.md) tab, since the lens shares the board's toolbar and its filter-row and card-layout shortcuts.
+- **`E`** mirrors the toolbar's split-button primary action: if anything is expanded, it collapses everything; otherwise it expands everything. The split button's menu still offers granular "Hide all swimlanes / columns" options.
+- **`F` and `⌘⇧L` / `Ctrl+Shift+L`** also work on the [Issue Board Lens](issue-board-lens.md) tab, since the lens shares the board's toolbar and its filter-row and card-layout shortcuts.
 
 ## Help
 
@@ -77,4 +82,4 @@ The rows are a single <kbd>Tab</kbd> stop. Closing the detail panel returns focu
 
 ## Accessibility
 
-Every toolbar affordance with a single-key or single-modifier shortcut carries an `aria-keyshortcuts` attribute, so screen readers announce the binding when the control gains focus. Two-modifier chords (like <kbd>⌘⇧L</kbd>) stay in this overlay and the tooltip only — exposing every chord via ARIA would overwhelm assistive technology without adding value.
+Every toolbar affordance with a single-key or single-modifier shortcut carries an `aria-keyshortcuts` attribute, so screen readers announce the binding when the control gains focus. Two-modifier chords (like <kbd>⌘⇧L</kbd>) stay in this overlay and the tooltip only, because exposing every chord via ARIA would overwhelm assistive technology without adding value.

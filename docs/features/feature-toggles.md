@@ -1,16 +1,12 @@
-# Feature Toggles
+# Switch features on or off for the whole instance
+
+<a id="feature-toggles"></a>
 
 > **Added in 1.0**
 
-Site admins can enable or disable specific features across the entire instance from the admin panel. Toggling a feature never deletes or alters existing data — it only gates access to that functionality going forward.
+Site admins flip a toggle at **/admin → Settings → Features**. It takes effect within about 60 seconds, with no restart.
 
-## Managing toggles
-
-1. Go to `/admin` (accessible via the **Site Admin** link in the sidebar).
-2. Click the **Settings** tab.
-3. Find the feature under the **Features** section and flip the toggle.
-
-Changes take effect within about 60 seconds due to server-side caching. No restart needed.
+**Why it matters:** Toggling never deletes or alters existing data. It only gates access going forward. Use toggles to disable a feature during an incident, roll out new functionality gradually, or restrict capabilities for compliance.
 
 ## Available toggles
 
@@ -18,15 +14,23 @@ Changes take effect within about 60 seconds due to server-side caching. No resta
 |---|---|---|
 | **File uploads** | On | All users, including board admins, receive `403 Forbidden` when attempting to upload an attachment. Existing attachments are preserved and remain viewable and downloadable. |
 
-Additional toggles will appear in this table as new gated features are introduced.
+New gated features will be added to this table.
 
-## Who can change toggles
+<a id="who-can-change-toggles"></a>
 
-Only users with site admin status (`is_site_admin`) can access the admin panel Settings tab. Board admins and members have no visibility into instance-level feature toggles.
+## Managing toggles
+
+1. Go to `/admin` (the **Site Admin** link in the sidebar).
+2. Click the **Settings** tab.
+3. Find the feature under **Features** and flip the toggle.
+
+Changes take effect within about 60 seconds due to server-side caching. No restart needed.
+
+**Who can change them:** only users with site admin status (`is_site_admin`). Board admins and members can't see instance-level toggles.
 
 ## Effect on existing data
 
-Disabling a feature never removes data created while it was active. Re-enabling it restores full access to that data. For example, disabling file uploads doesn't delete existing card attachments — it just blocks new uploads until re-enabled.
+Disabling a feature never removes data created while it was active, and re-enabling restores full access to it. For example, disabling file uploads keeps existing card attachments and just blocks new uploads.
 
 !!! tip
     Use feature toggles to roll out new functionality gradually, to disable a feature during an incident, or to restrict capabilities on instances with specific compliance requirements.

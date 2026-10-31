@@ -1,8 +1,12 @@
-# Personal Access Tokens
+# Call the API without sharing your password
+
+<a id="personal-access-tokens"></a>
 
 > **Added in 1.0**
 
-Personal Access Tokens (PATs) authenticate API requests from scripts, CI pipelines, and integrations without sharing your password or relying on a browser session cookie. Each token acts on your behalf, limited to your own access rights and further narrowed by its [scopes](#scopes).
+Open **Settings → Access Tokens**, fill in the **New token** form, and click **Generate token**. Then send it as `Authorization: Token vbn_...` on API requests.
+
+**Why it matters:** Each token acts on your behalf, limited to your own access rights and narrowed by its [scopes](#scopes). Scripts, CI pipelines, and integrations never need your password or a browser session cookie.
 
 **When to use a PAT:**
 
@@ -11,16 +15,18 @@ Personal Access Tokens (PATs) authenticate API requests from scripts, CI pipelin
 - **Integrations** — connect external tools that call the Visiban API directly
 - **Local development** — test API calls quickly without maintaining a session
 
-In a browser, session-based login is used automatically — no token needed.
+In a browser, session-based login is used automatically; no token needed.
+
+**Watch out:** the full token value is shown **only once**. Copy it before leaving the page.
 
 ---
 
 ## Create a token
 
-1. Open your avatar menu (top-right) and select **Settings**.
+1. Open your avatar menu (top right) and select **Settings**.
 2. Go to **Access Tokens** in the left sidebar.
 3. Use the **New token** form above the token list.
-4. Enter a descriptive name — for example, `deploy-script` or `ci-pipeline`.
+4. Enter a descriptive name, for example `deploy-script` or `ci-pipeline`.
 5. Optionally set an expiry date (see [Expiry](#expiry) below).
 6. Choose the token's [scopes](#scopes). `read` and `write` are pre-checked, so leaving them alone gives the default token. Tick `mcp:read` (and `mcp:write` for write tools) to make a token an MCP client can use, or untick `read` and `write` if the token is only for MCP. At least one scope is required. `admin` is offered to site administrators only.
 7. Click **Generate token**.
@@ -36,7 +42,7 @@ Tokens are prefixed with `vbn_` so they're easy to spot in logs and configuratio
 
 ## Identifying tokens after creation
 
-Since the full value is shown only once, the Access Tokens list identifies each token by its **prefix** — the first 8 characters (e.g. `vbn_a3f1...`). Combined with the token's name and its **last used** timestamp, that's usually enough to tell tokens apart.
+Since the full value is shown only once, the Access Tokens list identifies each token by its **prefix** (the first 8 characters, for example `vbn_a3f1...`). Together with the token's name and its **last used** timestamp, that usually tells tokens apart.
 
 **Last used** shows when the token last authenticated a request; tokens never used show "Never".
 
@@ -44,9 +50,9 @@ Since the full value is shown only once, the Access Tokens list identifies each 
 
 ## Scopes
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Every token created from version 1.2 onward carries an explicit list of **scopes** — the operations it's allowed to perform. This is what lets you give a script, a CI pipeline, or an AI agent a credential less powerful than your own account.
+Every token created from version 1.2 onward carries an explicit list of **scopes**: the operations it's allowed to perform. Scopes let you give a script, a CI pipeline, or an AI agent a credential less powerful than your own account.
 
 | Scope | Grants |
 |---|---|
@@ -69,19 +75,19 @@ This is the most important thing to know about them, and it is deliberate:
 
 ### Default scopes
 
-A token created without specific scopes gets `read` and `write` — enough for the scripting and CI use cases PATs were built for, and nothing more. `admin` and the `mcp:*` scopes must always be requested explicitly.
+A token created without specific scopes gets `read` and `write`: enough for the scripting and CI use cases PATs were built for, and nothing more. `admin` and the `mcp:*` scopes must always be requested explicitly.
 
 ### Tokens created before 1.2
 
-Tokens that already existed when your instance upgraded to 1.2 have **no scopes recorded**. They keep working exactly as before across the whole REST API, including the admin endpoints if you're a site administrator — upgrading doesn't break a running integration.
+Tokens that already existed when your instance upgraded to 1.2 have **no scopes recorded**. They keep working exactly as before across the whole REST API, including the admin endpoints if you're a site administrator, so upgrading doesn't break a running integration.
 
-They are, however, refused by the MCP server: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with `mcp:read` (tick it in Settings > Access Tokens, or use `POST /api/v1/auth/tokens/` with `"scopes": ["mcp:read"]`; see [MCP Server](mcp-server.md#generating-a-bearer-token)).
+The MCP server refuses them: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with `mcp:read` (tick it in Settings > Access Tokens, or use `POST /api/v1/auth/tokens/` with `"scopes": ["mcp:read"]`; see [MCP Server](mcp-server.md#generating-a-bearer-token)).
 
 Replace pre-1.2 tokens with scoped ones as you rotate them.
 
 ### What a scope cannot do
 
-Scopes are a ceiling, never a floor — they narrow a token's authority and never widen it. Every request is still subject to the same board membership and role checks as a browser session. A token scoped `admin` on a non-administrator account reaches nothing new.
+Scopes are a ceiling, never a floor: they narrow a token's authority and never widen it. Every request is still subject to the same board membership and role checks as a browser session. A token scoped `admin` on a non-administrator account reaches nothing new.
 
 ---
 

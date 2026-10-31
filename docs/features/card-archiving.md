@@ -1,24 +1,30 @@
-# Card Archiving
+# Hide finished cards without losing them
+
+<a id="card-archiving"></a>
 
 > **Added in 1.0**
 
-Archiving is a soft-delete for cards — an archived card is hidden from the active board but its history is preserved and it can be unarchived at any time.
+Click **Archive card** in the card detail panel to hide a card from the board. Its history stays, and you can unarchive it any time.
 
-## Archiving a card
+**Why it matters:** Archiving is a soft-delete and is reversible; deletion is not. Archive a card that is complete or on hold but may be referenced later. Delete a card you no longer need at all.
 
-Open the card detail panel and click **Archive card** in the footer. A confirmation dialog appears before the card is removed from the board. Archived cards are immediately hidden from the board grid and DnD.
+**The big picture:** archived cards vanish from the board grid and drag-and-drop but still count in analytics for the period they were active.
 
-**Permission:** member role or higher. Viewers and collaborators cannot archive cards.
+**Watch out:** deleting a column, swimlane, or board also deletes the archived cards in it. See [Column and swimlane deletion](#column-and-swimlane-deletion).
 
-## Viewing archived cards
+<a id="archiving-a-card"></a>
+<a id="viewing-archived-cards"></a>
+<a id="unarchiving-a-card"></a>
 
-Click **Archived** in the board toolbar to open the archived cards panel. The panel lists all archived cards for the board, showing the card title, column and swimlane it was in, and the date it was archived.
+## Archive and unarchive
 
-## Unarchiving a card
+| Action | How | Result |
+|---|---|---|
+| Archive | Open the card, click **Archive card** in the footer, confirm | Card is immediately hidden from the board |
+| View | Click **Archived** in the board toolbar | Panel lists each archived card's title, its column and swimlane, and the date archived |
+| Unarchive | Click **Unarchive** next to a card in that panel | Card returns to its original column and swimlane position |
 
-In the archived cards panel, click **Unarchive** next to a card. The card returns to its original column and swimlane position and becomes active again on the board.
-
-**Permission:** member role or higher. Viewers and collaborators cannot unarchive cards.
+**Permission:** member role or higher, for both archiving and unarchiving. Viewers and collaborators cannot.
 
 ## Real-time sync
 
@@ -29,23 +35,28 @@ Archive and unarchive events are broadcast to all board members over WebSockets:
 | `card.archived` | Card is removed from the active board view |
 | `card.unarchived` | Card is added back to the board in its column/swimlane |
 
-## Relationship to deletion
-
-Archiving is reversible; deletion is not. Use archiving when a card is complete or on hold but may need to be referenced later. Use deletion when the card is no longer needed at all.
-
 ## Analytics and dwell time
 
-Archived cards are included in analytics for the period they were active. Dwell time in the final stage is calculated up to the archive timestamp, not the current date. See [Analytics & Summary](analytics.md#dwell-time-and-archived-cards) for details.
+Archived cards are included in analytics for the period they were active. Dwell time in the final stage is calculated up to the archive timestamp, not the current date. See [Analytics & Summary](analytics.md#dwell-time-and-archived-cards).
+
+## Relationship to deletion
+
+Archive when the card may be referenced later; delete when it is no longer needed at all (see the lede).
 
 ## Column and swimlane deletion
 
-Deleting a column or swimlane also deletes all cards in it — including archived cards that were in that column or swimlane at the time of archiving. Both confirmation dialogs warn that any archived cards will also be permanently deleted.
+!!! warning "Deleting a column or swimlane deletes its archived cards"
+    Deleting a column or swimlane also deletes all cards in it, including archived cards that were in it when archived. Both confirmation dialogs warn that archived cards will also be permanently deleted.
 
 ## Board deletion
 
-Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation — on the dashboard, in the board switcher, and in the **Danger Zone** of Board Settings — says so, and when the board has archived cards it tells you how many.
+Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation says so (on the dashboard, in the board switcher, and in the **Danger Zone** of Board Settings), and when the board has archived cards it tells you how many.
 
-Archived cards count toward the typed confirmation too: if a board holds any cards, active **or** archived, you must type the board's name before **Delete** is enabled. A board with no active cards but hundreds of archived ones can no longer be deleted with a single click. Only a board with no cards at all deletes without typing its name.
+Archived cards count toward the typed confirmation:
+
+- If a board holds any cards, active **or** archived, you must type the board's name before **Delete** is enabled.
+- A board with no active cards but hundreds of archived ones can no longer be deleted with a single click.
+- Only a board with no cards at all deletes without typing its name.
 
 > **Added in 1.2** (#1289)
 

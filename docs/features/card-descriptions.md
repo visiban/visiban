@@ -1,23 +1,27 @@
-# Card Descriptions
+# Format card descriptions with the toolbar or markdown
 
-Card descriptions support rich text formatting. You can write plain text, use the toolbar to apply formatting, or type markdown directly — the editor parses both.
+<a id="card-descriptions"></a>
+
+Click a card's description to edit it, using the toolbar or typed markdown. Click outside to save.
+
+**Why it matters:** There is no Save button. Changes are sent to the server on blur.
+
+**How it works:** the editor parses both toolbar formatting and typed markdown, and stores the result as markdown. Mentions notify the person you name. Admins and members can edit; viewers and collaborators can only read.
 
 ## Editing a description
 
-Click anywhere on the description area to enter edit mode. A toolbar appears at the top and the cursor is placed at the end of the existing text.
+Click anywhere on the description area. A toolbar appears and the cursor lands at the end of the existing text.
 
-If the description is empty, the placeholder "Add a description…" is shown in view mode. Click it to start writing.
-
-A **pencil icon (✎)** appears in the top-right corner of the description on hover — clicking it also enters edit mode.
-
-To save, click anywhere outside the description. The editor closes and the formatted result is displayed immediately. Changes are sent to the server on blur — there is no explicit Save button.
+- **Empty description:** view mode shows the placeholder "Add a description…". Click it to start writing.
+- **Pencil icon (✎):** appears at the top right on hover. Clicking it also enters edit mode.
+- **Save:** click anywhere outside the description. The editor closes and shows the formatted result immediately.
 
 !!! tip
-    The description area can be resized vertically by dragging its bottom edge. This is useful for longer descriptions that would otherwise require scrolling inside the editor.
+    Drag the description area's bottom edge to resize it vertically. This helps with long descriptions that would otherwise scroll inside the editor.
 
 ## Toolbar reference
 
-The toolbar provides one-click access to common formatting. All actions can also be triggered with keyboard shortcuts.
+Every toolbar action is one click. The table lists the Bold and Italic shortcuts; the editor (Tiptap StarterKit, with no custom bindings in Visiban) also binds its own default shortcuts for the other formats.
 
 | Button | Format | Keyboard shortcut |
 |---|---|---|
@@ -30,19 +34,19 @@ The toolbar provides one-click access to common formatting. All actions can also
 | " | Blockquote | — |
 | **A** | Text color | — |
 
-Active formatting is highlighted in the toolbar. Clicking an active button removes the formatting.
+Active formatting is highlighted. Clicking an active button removes the formatting.
 
 ### Text color
 
-The **A** button in the toolbar opens a color picker with nine options: Default (reset), White, Red, Orange, Yellow, Green, Blue, Purple, and Pink. Select text first, then click a color swatch to apply it. The toolbar button shows an underline in the currently active color.
+The **A** button opens a picker with nine options: Default (reset), White, Red, Orange, Yellow, Green, Blue, Purple, and Pink.
 
-To remove a color, select the colored text and click the **Default** swatch. This resets the text to the standard description color.
-
-Text colors are stored as inline HTML spans inside the markdown content. They render correctly in both the editor and the read-only view.
+- **Apply:** select text, then click a swatch. The button shows an underline in the active color.
+- **Remove:** select the colored text and click the **Default** swatch.
+- **Storage:** colors are inline HTML spans inside the markdown. They render in both the editor and the read-only view.
 
 ## Supported markdown syntax
 
-Descriptions are stored as markdown. You can type markdown directly in the editor without using the toolbar:
+Type markdown directly; no toolbar needed. Pasted markdown is parsed automatically.
 
 | Syntax | Result |
 |---|---|
@@ -55,20 +59,20 @@ Descriptions are stored as markdown. You can type markdown directly in the edito
 | `> quote` | Blockquote |
 | ` ```code block``` ` | Code block |
 
-Pasted markdown is parsed automatically — paste a formatted document and it renders correctly.
-
 ## @mentions
 
-Type `@` followed by a username or display name to mention a board member in a description. An autocomplete dropdown appears as you type, filtered by the characters after `@`. Use the arrow keys and Enter to select a member, or press Escape to dismiss the dropdown.
+Type `@` plus a username or display name to mention a board member. An autocomplete dropdown filters as you type: use the arrow keys and Enter to select, or Escape to dismiss.
 
-Mentions are highlighted in blue in both the editor and the rendered view. When you save a description that contains a new @mention, the mentioned user receives an in-app notification — the same notification behavior as @mentions in comments. Editing an existing mention does not send a duplicate notification.
+- Mentions are highlighted in blue in the editor and the rendered view.
+- Saving a description with a new @mention sends that user an in-app notification, the same as @mentions in comments.
+- Editing an existing mention does not send a duplicate.
 
 !!! tip
-    The autocomplete list shows up to six matching members. If you do not see the person you are looking for, type more characters to narrow the results.
+    The autocomplete list shows up to six matching members. If you don't see the person, type more characters to narrow the results.
 
 ## View mode
 
-When you are not editing, the description renders as formatted text. Bold, italic, headings, lists, code, code blocks, blockquotes, and links are all displayed.
+Outside edit mode, the description renders bold, italic, headings, lists, code, code blocks, blockquotes, and links.
 
 ## Permissions
 
@@ -79,4 +83,4 @@ When you are not editing, the description renders as formatted text. Bold, itali
 | Viewer | ✅ | ❌ |
 | Collaborator | ✅ | ❌ |
 
-Viewers and collaborators see the rendered description with no edit affordance — no hover border, no pencil icon, and clicking does not enter edit mode.
+**Yes, but:** viewers and collaborators get no edit affordance at all: no hover border, no pencil icon, and clicking does not enter edit mode.

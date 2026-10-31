@@ -1,6 +1,10 @@
-# Managing Roles
+# Assign, change, and revoke roles
 
-How to assign, change, and revoke group, board, and site admin roles via the UI or API.
+<a id="managing-roles"></a>
+
+Board admins add, change, or remove members in the board settings panel or the API; group and site admin roles work the same way below.
+
+**Why it matters:** Roles determine what each person can do on a group, board, or the whole site.
 
 ## Board membership
 
@@ -17,24 +21,36 @@ Valid board roles: `admin`, `member`, `collaborator`, `viewer`
 
 ### Inviting someone by email
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 To add someone who isn't on Visiban yet — or whose account you can't find — open **Board Settings → Members**. Under **Invite by email**, enter their address, pick a **Role** (Member, Collaborator or Viewer — never Admin) and when the invite **Expires** (1, 7 or 30 days), and select **Send invite**. If a search in **Add member** finds no one for an email address, **Invite by email** next to "No results" fills the form for you.
 
-Visiban emails a single-use link. Following it shows what the invite grants; the recipient signs in (or creates an account, where the site allows it) and lands on the board with a "You've joined" notice. **Pending invites** lists what you have sent, newest first, with who sent each and when — Visiban doesn't store the address an invite went to, so tell them apart by date. The invite works only for an account with the address you sent it to: Visiban keeps a keyed fingerprint of the address and checks it when the invite is used. Someone signed in with a different account is refused, and the invite stays unused (see [Site admins](../../administration/site-admins.md)). Where the site requires email verification, a person who creates an account from the invite joins the board once they verify the invited address; until then the invite stays pending. Revoke an invite you no longer want; used, expired and revoked invites sit under **Show past invites**. An **Existing accounts only** tag means a new person couldn't create an account from that invite on this site right now (see [Site admins](../../administration/site-admins.md)).
+**How it works:**
+
+- Visiban emails a single-use link. Following it shows what the invite grants; the recipient signs in (or creates an account, where the site allows it) and lands on the board with a "You've joined" notice.
+- **Pending invites** lists what you have sent, newest first, with who sent each and when. Visiban doesn't store the address an invite went to, so tell them apart by date.
+- The invite works only for an account with the address you sent it to: Visiban keeps a keyed fingerprint of the address and checks it when the invite is used. Someone signed in with a different account is refused, and the invite stays unused (see [Site admins](../../administration/site-admins.md)).
+- Where the site requires email verification, a person who creates an account from the invite joins the board once they verify the invited address; until then the invite stays pending.
+- Revoke an invite you no longer want. Used, expired and revoked invites sit under **Show past invites**.
+- An **Existing accounts only** tag means a new person couldn't create an account from that invite on this site right now (see [Site admins](../../administration/site-admins.md)).
 
 !!! note "An explicit board role replaces a group role"
     A direct board membership **overrides** the role someone inherits from the board's group — it does not add to it. That is why redeeming an invite never touches an existing board membership and never lowers anyone: a group admin who follows a viewer invite stays an admin. Invites only create a membership for someone with no access, or whose inherited role is lower than the invite's. The same trap applies when you set roles by hand: giving a group admin a direct **Viewer** role on a board makes them a viewer there. The exception is a site admin: a direct role added by a caller who is not a site admin never gives a site admin less than the access they already have on the board.
 
 ### Sharing an invite link
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-To invite several people at once — or anyone you can reach in a chat channel — select **New link** next to **Pending invites**. Pick a **Role** (Member, Collaborator or Viewer), when it **Expires** (1, 7 or 30 days; an invite link always expires), optionally a name and **Single use**, and select **Create link**. Copy the link straight away: it is shown **once**, and Visiban keeps only a fingerprint of it. Anyone holding it can join the board after signing in, until it expires or you revoke it (a shareable link is not tied to an address); **1-use** links stop after the first person joins. A board can have up to 5 active invite links (emailed invites don't count).
+To invite several people at once — or anyone you can reach in a chat channel — select **New link** next to **Pending invites**. Pick a **Role** (Member, Collaborator or Viewer), when it **Expires** (1, 7 or 30 days; an invite link always expires), optionally a name and **Single use**, and select **Create link**.
 
-An invite link is not the board's **Share link** (Settings → Sharing), which lets anyone *view* the board without signing in. Whether a newcomer can create an account from an invite link depends on the site: on an open site they sign up and then join; on an invite-only or closed site only people who already have an account can use it, and the form tells you so.
+**Watch out:** copy the link straight away. It is shown **once**, and Visiban keeps only a fingerprint of it.
 
-A board invite never adds the person to the board's group. The emailed invite needs working outbound email (`INVITE_EMAIL_ENABLED`); the API is documented in [Boards API — Board invites](../../api/boards.md#board-invites).
+- Anyone holding it can join the board after signing in, until it expires or you revoke it (a shareable link is not tied to an address). **1-use** links stop after the first person joins.
+- A board can have up to 5 active invite links (emailed invites don't count).
+- An invite link is not the board's **Share link** (Settings → Sharing), which lets anyone *view* the board without signing in.
+- Whether a newcomer can create an account from an invite link depends on the site. On an open site they sign up and then join; on an invite-only or closed site only people who already have an account can use it, and the form tells you so.
+- A board invite never adds the person to the board's group.
+- The emailed invite needs working outbound email (`INVITE_EMAIL_ENABLED`); the API is documented in [Boards API — Board invites](../../api/boards.md#board-invites).
 
 ## Group membership
 
@@ -49,7 +65,7 @@ DELETE /api/v1/groups/{group_id}/members/42/
 
 Valid group roles: `admin`, `member`, `collaborator`, `viewer`
 
-Group admins can also invite members without knowing their username in advance (invite links), delegate group ownership. The default member role setting is deprecated and has no effect (group members keep their group role on every group board). See [Groups](../groups.md#invite-links), [Groups — Transferring group ownership](../groups.md#transferring-group-ownership), and [Groups — Group board defaults](../groups.md#group-board-defaults).
+Group admins can also invite members without knowing their username in advance (invite links) and delegate group ownership. The default member role setting is deprecated and has no effect (group members keep their group role on every group board). See [Groups](../groups.md#invite-links), [Groups — Transferring group ownership](../groups.md#transferring-group-ownership), and [Groups — Group board defaults](../groups.md#group-board-defaults).
 
 ## Granting site admin
 

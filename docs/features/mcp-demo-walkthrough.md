@@ -1,8 +1,12 @@
-# Ask Your Own Agent About the Demo Data
+# Ask your own agent about the demo data
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-This walkthrough points your own AI agent at a **local** Visiban instance loaded with the generic "Visiban Demo Board" from `seed_demo_data`, using a read-only token, so you can ask it questions about a realistic board. It takes about ten minutes. For the full MCP reference, see [MCP Server](mcp-server.md).
+Point your own AI agent at a **local** Visiban instance with a read-only `mcp:read` token and ask it questions about the generic "Visiban Demo Board" from `seed_demo_data`. It takes about ten minutes.
+
+**Why it matters:** You can ask an agent questions about a realistic board, with a read-only token.
+
+**Go deeper:** for the full MCP reference, see [MCP Server](mcp-server.md).
 
 !!! note "Why this runs locally and not on try.visiban.com"
     The hosted demo does not expose MCP and does not let visitors create tokens. This is by design: publishing a credential on a public site is a security decision we chose not to make. The steps below give you the same kind of experience on your own machine, with the generic demo board rather than the hosted showcase boards (those need `--demo-site`, which requires `DEMO_MODE=true`, and that mode blocks creating tokens), where the token is yours alone.
@@ -36,7 +40,7 @@ In a second terminal:
 docker compose exec backend python manage.py seed_demo_data
 ```
 
-This creates the "Visiban Demo Board" (five columns, ten swimlanes, about 80 cards, with movement history, checklists, and comments). `DEBUG=true` in `.env.example` satisfies the command's production guard. See [Demo Data](../administration/demo-data.md) for what the seed creates.
+This creates the "Visiban Demo Board": five columns, ten swimlanes, about 80 cards, with movement history, checklists, and comments. `DEBUG=true` in `.env.example` satisfies the command's production guard. See [Demo Data](../administration/demo-data.md) for what the seed creates.
 
 ## 3. Sign in and mint a read-only token
 
@@ -64,7 +68,7 @@ The seeded `demo1` to `demo5` accounts have unusable passwords, so use the site 
 
     The response's `token` field is the `vbn_...` value. Copy it now; it is shown once.
 
-This step uses the API so the walkthrough is scriptable; in the web app you would tick **mcp:read** under Settings > Access Tokens instead (see the [API Reference](../api/mcp.md)).
+**Yes, but:** this step uses the API so the walkthrough is scriptable. In the web app you would tick **mcp:read** under Settings > Access Tokens instead (see the [API Reference](../api/mcp.md)).
 
 A token with only `mcp:read` can list and read boards, columns, swimlanes, cards, and card history. Calling a write tool (`create_card`, `move_card`, `update_card`, `archive_card`) fails with a structured error. Scopes are not hierarchical; see [Personal Access Tokens](personal-access-tokens.md#scopes).
 
@@ -100,7 +104,7 @@ Try questions like these:
 - "Which boards can you see, and how many cards are on the Visiban Demo Board?"
 - "What is sitting in the Backlog column, highest priority first?"
 - "Which cards have been in progress the longest?"
-- "Show me the movement history of the card about <topic> and tell me who moved it last."
+- "Show me the movement history of the card about a topic you pick and tell me who moved it last."
 - "Summarize the comments on the cards assigned to demo2."
 
 Then try to break the read-only promise, to see the guardrail: "Create a card called Test in Backlog." The agent should report a permission error, and the board does not change.

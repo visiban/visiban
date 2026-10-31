@@ -1,6 +1,10 @@
-# Roles & Permissions
+# Check what each role can and can't touch
 
-Visiban has five roles that control access at the group, board, and site level. **Why it matters:** this page is the single source of truth for what each role can and can't touch — check it before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.
+<a id="roles-permissions"></a>
+
+Five roles control access at the group, board, and site level; the tables below are the single source of truth.
+
+**Why it matters:** Check this page before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.
 
 ## Role hierarchy
 
@@ -112,11 +116,19 @@ Site admins can't be demoted or removed by anyone but another site admin. A role
 
 > **Added in 1.2**
 
-The board **Members** settings follow the same rule: for a board admin who is not a site admin, a member with `is_site_admin=True` and a membership on the board (a row with a numeric `id`) shows their role as plain text, with no role dropdown and no remove button. For that board admin, members who belong through the board's group, and a board owner without a membership, are editable even when their row carries `is_site_admin=True`, because the server accepts a role change for a user with no membership on the board: the first role change creates a board membership for them. The lock keys on a membership-backed row plus the site-admin flag, so it does not depend on which readers receive the flag. Which readers get the instance-wide roster is unchanged: a reader with `can_access_all_content` already resolves to the `site_admin` board role and gets it, as does a reader with `is_site_admin`. From then on that row carries the member's site-admin flag, and if they are a site admin it is locked for that board admin like any other site-admin membership.
+The board **Members** settings follow the same rule, for a board admin who is not a site admin:
+
+- A member with `is_site_admin=True` and a membership on the board (a row with a numeric `id`) shows their role as plain text, with no role dropdown and no remove button.
+- Members who belong through the board's group, and a board owner without a membership, are editable even when their row carries `is_site_admin=True`, because the server accepts a role change for a user with no membership on the board: the first role change creates a board membership for them.
+- The lock keys on a membership-backed row plus the site-admin flag, so it does not depend on which readers receive the flag.
+- Which readers get the instance-wide roster is unchanged: a reader with `can_access_all_content` already resolves to the `site_admin` board role and gets it, as does a reader with `is_site_admin`.
+- From then on that row carries the member's site-admin flag, and if they are a site admin it is locked for that board admin like any other site-admin membership.
 
 > **Added in 1.2**
 
-The board member list shows the board's own members: direct members, members inherited from the board's group, and the owner. A site admin (or a user with `can_access_all_content`) viewing the board also sees every user with `can_access_all_content` who has no other role on it, listed with the **Site admin** board role; such a user can still be assigned a board role, but their effective access stays full for as long as they have `can_access_all_content`. Anyone on the board can still @mention such a user by typing their username.
+The board member list shows the board's own members: direct members, members inherited from the board's group, and the owner.
+
+A site admin (or a user with `can_access_all_content`) viewing the board also sees every user with `can_access_all_content` who has no other role on it, listed with the **Site admin** board role; such a user can still be assigned a board role, but their effective access stays full for as long as they have `can_access_all_content`. Anyone on the board can still @mention such a user by typing their username.
 
 **Watch out:** manage `is_site_admin` and `can_access_all_content` together (the `set_site_admin` command does this for you). Separate them only when you have a specific reason — see the tip below.
 

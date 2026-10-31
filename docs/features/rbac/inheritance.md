@@ -1,6 +1,12 @@
-# Group Inheritance
+# Add someone once, get access everywhere below
 
-Group roles are inherited through the group ancestry chain. A user with a role in a parent group automatically has that same role on all sub-groups and boards within it. **Why it matters:** add someone to a parent group once, and they get the right access everywhere below it — no per-board setup.
+<a id="group-inheritance"></a>
+
+A user with a role in a parent group automatically has that same role on all sub-groups and boards within it.
+
+**Why it matters:** Add someone to a parent group once, and they get the right access everywhere below it, with no per-board setup.
+
+**The big picture:** group roles are inherited through the group ancestry chain.
 
 All four non-admin roles — `admin`, `member`, `collaborator`, and `viewer` — are valid at both the group and board level. An explicit `BoardMembership` record can override the inherited role for a specific board.
 
