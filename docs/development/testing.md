@@ -336,49 +336,29 @@ SQLite has no row locks, so a `select_for_update()` can be deleted without faili
 
 - Backend tests run in the `backend-test` job (8 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
   - Shards are time-balanced by `pytest-split` from the committed `backend/.test_durations` file. Shards never write it (concurrent shards would overwrite each other's slice). Refresh it occasionally, e.g. after a large batch of new tests: `cd backend && pytest --store-durations --durations-path .test_durations`, then commit the file. A stale file only degrades balance, never correctness.
-- `backend-benchmark` is a **manual** job (#1341) that runs
-  `python manage.py benchmark --fail-on-budget`. Trigger it from the pipeline page's manual-job
-  play button on an MR or `main` pipeline; it is `allow_failure: true` so an unrun job never
-  blocks a merge, and it never runs on schedules or tags. The command seeds its own throw-away
-  board (100 cards) and counts SQL queries for the card list, `full/`, and `summary/` against
-  committed budgets. It fails on a non-2xx response, on `DEBUG` being off, or on any endpoint
-  over budget. To run it locally: `cd backend && DEBUG=True python manage.py benchmark --fail-on-budget`.
-  **Why manual:** the same `benchmark --fail-on-budget` already runs on Postgres inside
-  `backend-test` on every backend MR via `BenchmarkCommandCiGateTests.test_within_budget_passes_with_fail_on_budget`,
-  so an automatic job would be near-redundant and cost a Postgres + Valkey pair per MR. Run on
-  demand it adds `DEBUG` taken from the environment, a run outside a `TestCase` transaction, and
-  a fresh `migrate`. Latency regressions that keep the query count identical are covered by
-  `nightly-load-test` ([nightly-load-test.md](nightly-load-test.md)). First measured on Postgres in
-  #1341: cards 9 (budget 12), `full/` 17 (budget 20), `summary/` 4 (budget 10).
-  **Budgets:** they partly overlap `backend/boards/tests/test_query_counts.py`. The benchmark's
-  cards check serializes `_card_queryset` directly (a subset of the endpoint), so its budget of
-  12 is intentionally different from `CardListQueryCountTests.BUDGET` (14); it is a coarser
-  check, not a replacement. `full/` (20) is deliberately 1 above `BoardFullQueryCountTests.BUDGET`
-  (19) and `summary/` (10) equals `SummaryQueryCountTests.BUDGET`; neither should exceed the
-  `test_query_counts.py` value plus that slack. When a budget legitimately changes, bump both
-  files together following
-  [perf-bench.md section 6](https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-bench.md).
-- Frontend unit tests run in `frontend-test`. Unlike `backend-schema-fuzz` below, a single
-  failed test retries once automatically under CI (`vitest.config.ts`'s `test.retry`, gated
-  on `process.env.CI` so local runs stay strict) before failing the job. The retry only
-  absorbs a one-off scheduler hiccup. Every occurrence that has been root-caused was a
-  component defect that failed on both attempts: a leaked post-save timer (#1319 occurrence 3)
-  and an effect-seeded input buffer racing the first edit (occurrence 4; occurrence 1 was
-  most likely the same race). So a red job whose test shows `(retry x1)` means a real bug:
-  investigate it, do not re-run the job until it passes. Do not raise the retry to 2 either.
-  A second retry would not have saved any of these, and it would hide the next one.
+- `backend-benchmark` is a **manual** job (#1341) that runs `python manage.py benchmark --fail-on-budget`.
+    - **Trigger:** use the pipeline page's manual-job play button on an MR or `main` pipeline. It is `allow_failure: true` so an unrun job never blocks a merge, and it never runs on schedules or tags.
+    - **What it does:** the command seeds its own throw-away board (100 cards) and counts SQL queries for the card list, `full/`, and `summary/` against committed budgets. It fails on a non-2xx response, on `DEBUG` being off, or on any endpoint over budget.
+    - **Locally:** `cd backend && DEBUG=True python manage.py benchmark --fail-on-budget`
+    - **Why manual:** the same `benchmark --fail-on-budget` already runs on Postgres inside `backend-test` on every backend MR via `BenchmarkCommandCiGateTests.test_within_budget_passes_with_fail_on_budget`, so an automatic job would be near-redundant and cost a Postgres + Valkey pair per MR. Run on demand it adds `DEBUG` taken from the environment, a run outside a `TestCase` transaction, and a fresh `migrate`.
+    - **Latency:** regressions that keep the query count identical are covered by `nightly-load-test` ([nightly-load-test.md](nightly-load-test.md)).
+    - **First measured** on Postgres in #1341: cards 9 (budget 12), `full/` 17 (budget 20), `summary/` 4 (budget 10).
+    - **Budgets** partly overlap `backend/boards/tests/test_query_counts.py`. The benchmark's cards check serializes `_card_queryset` directly (a subset of the endpoint), so its budget of 12 is intentionally different from `CardListQueryCountTests.BUDGET` (14); it is a coarser check, not a replacement. `full/` (20) is deliberately 1 above `BoardFullQueryCountTests.BUDGET` (19) and `summary/` (10) equals `SummaryQueryCountTests.BUDGET`. Neither should exceed the `test_query_counts.py` value plus that slack. When a budget legitimately changes, bump both files together following [perf-bench.md section 6](https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-bench.md).
+- Frontend unit tests run in `frontend-test`. Unlike `backend-schema-fuzz` below, a single failed test retries once automatically under CI (`vitest.config.ts`'s `test.retry`, gated on `process.env.CI` so local runs stay strict) before failing the job.
+    - The retry only absorbs a one-off scheduler hiccup.
+    - Every occurrence that has been root-caused was a component defect that failed on both attempts: a leaked post-save timer (#1319 occurrence 3) and an effect-seeded input buffer racing the first edit (occurrence 4; occurrence 1 was most likely the same race).
+    - **A red job whose test shows `(retry x1)` means a real bug.** Investigate it; do not re-run the job until it passes.
+    - Do not raise the retry to 2 either. A second retry would not have saved any of these, and it would hide the next one.
 - Playwright E2E runs in `playwright-e2e` — starts its own Vite dev server, no separate build step needed. It's `allow_failure: true` during rollout; promotion to blocking is tracked separately.
 - `backend-schema-validate` checks the generated OpenAPI document is well-formed;
   `backend-schema-fuzz` goes further and fuzzes a real, running instance with
   [schemathesis](https://schemathesis.readthedocs.io/) to catch a response that doesn't match
   its declared schema — see [`docs/api/openapi.md`](../api/openapi.md#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz).
-  Blocking (`allow_failure: false`) as of #1120; a handful of already-tracked
-  schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in
-  `backend/schemathesis-baseline.json` rather than blocking on them landing first; #1170
-  pruned the leftovers down to 12 entries (from two full-length runs, different seeds), each
-  now carrying a `"reason"` field. The
-  undocumented-`400` gap (#1124) is closed generically by `visiban/schema_hooks.py` (#1165).
-  A red run is a real defect, never a flake — do not retry it; see the
+  It is blocking (`allow_failure: false`) as of #1120.
+    - A handful of already-tracked schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in `backend/schemathesis-baseline.json` rather than blocking on them landing first.
+    - #1170 pruned the leftovers down to 12 entries (from two full-length runs, different seeds), each now carrying a `"reason"` field.
+    - The undocumented-`400` gap (#1124) is closed generically by `visiban/schema_hooks.py` (#1165).
+    - **A red run is a real defect, never a flake.** Do not retry it; see the
   [triage steps](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake)
 - `backend-schema-fuzz-git-lens` is the same fuzz with `GIT_LENS_ENABLED=True`, narrowed to
   the Issue Board Lens routes, with its own `backend/schemathesis-baseline-git-lens.json` and
@@ -388,27 +368,18 @@ SQLite has no row locks, so a `select_for_update()` can be deleted without faili
 
 ### SonarCloud coverage import (#1370)
 
-SonarCloud does not run tests; it imports the reports the `test` stage already
-produces, via `sonar.python.coverage.reportPaths` and
-`sonar.javascript.lcov.reportPaths` in `sonar-project.properties`. The nightly
-`sonar:scan` job consumes the `backend-test-coverage` artifact
-(`backend/coverage.xml`, Cobertura) and the `frontend-test` artifact
-(`frontend/coverage/lcov.info`; `lcov` is one of the vitest `coverage.reporter`
-formats alongside `text` and `cobertura`, which GitLab's coverage badge and
-`coverage_report` still depend on).
+SonarCloud does not run tests. It imports the reports the `test` stage already produces, via `sonar.python.coverage.reportPaths` and `sonar.javascript.lcov.reportPaths` in `sonar-project.properties`. The nightly `sonar:scan` job consumes:
 
-Neither report resolves from the repo root as emitted, so
-`scripts/sonar-scan.sh --prep-only` rewrites them into `backend/coverage.sonar.xml`
-(injects the `<source>` root) and `frontend/coverage/lcov.sonar.info` (prefixes
-`SF:src/` with `frontend/`). To reproduce the CI scan locally, generate both
-reports, then run `SONAR_TOKEN=... scripts/sonar-scan.sh`. `--prep-only` prints how many
-class entries and `SF:` files each rewritten report lists (and warns on zero), so the
-nightly log shows whether paths resolved. `scripts/sonar-scan.sh --self-test` fixtures
-both rewrites and runs in the `sonar-scan-selftest` CI job.
+- the `backend-test-coverage` artifact (`backend/coverage.xml`, Cobertura);
+- the `frontend-test` artifact (`frontend/coverage/lcov.info`). `lcov` is one of the vitest `coverage.reporter` formats alongside `text` and `cobertura`, which GitLab's coverage badge and `coverage_report` still depend on.
 
-Test code, migrations, repo tooling, and seed/factory modules are removed from the
-coverage denominator by `sonar.coverage.exclusions`; each entry is justified in
-the properties file, and nothing under product source is excluded.
+Neither report resolves from the repo root as emitted, so `scripts/sonar-scan.sh --prep-only` rewrites them into `backend/coverage.sonar.xml` (injects the `<source>` root) and `frontend/coverage/lcov.sonar.info` (prefixes `SF:src/` with `frontend/`).
+
+- **Reproduce the CI scan locally:** generate both reports, then run `SONAR_TOKEN=... scripts/sonar-scan.sh`.
+- **`--prep-only`** prints how many class entries and `SF:` files each rewritten report lists (and warns on zero), so the nightly log shows whether paths resolved.
+- **`scripts/sonar-scan.sh --self-test`** fixtures both rewrites and runs in the `sonar-scan-selftest` CI job.
+
+Test code, migrations, repo tooling, and seed/factory modules are removed from the coverage denominator by `sonar.coverage.exclusions`. Each entry is justified in the properties file, and nothing under product source is excluded.
 
 ### Mutation score (#1384)
 
@@ -433,35 +404,30 @@ Three different numbers apply. They measure different things; see
 | Frontend aggregate | Lines **83%**, statements **80%**, functions and branches **77%** | `coverage.thresholds` in `frontend/vitest.config.ts` |
 | Lines an MR adds or changes | **80%** | `backend-diff-coverage` and `frontend-diff-coverage` (see [Diff coverage](#diff-coverage-1076)) |
 
-The frontend thresholds are a floor that stops the aggregate from regressing; they are lower
-than the Sonar target. A change that leaves the frontend at its threshold can still pull
-Sonar's combined number under 85%, so aim higher on new code instead of treating the
-threshold as the goal. Raise a threshold when the aggregate has stayed comfortably above it;
-never lower one to make a pipeline pass.
+**Yes, but:** The frontend thresholds are a floor that stops the aggregate from regressing, and they are lower than the Sonar target. A change that leaves the frontend at its threshold can still pull Sonar's combined number under 85%, so aim higher on new code instead of treating the threshold as the goal.
+
+**Watch out:** Raise a threshold when the aggregate has stayed comfortably above it. Never lower one to make a pipeline pass.
 
 ### Diff coverage (#1076)
 
-`backend-test-coverage` and `frontend-test`'s vitest thresholds gate the *aggregate*
-coverage of the whole codebase. That number moves slowly — a large, well-tested
-codebase can absorb a fully untested new feature and barely notice. `backend-diff-coverage`
-and `frontend-diff-coverage` close that gap: they run only on MR pipelines (there's no
-diff to measure on `main`) and use [`diff-cover`](https://github.com/Bachmann1234/diff_cover)
-to measure coverage of only the lines the MR actually adds or changes, against the same
-`coverage.xml` / `cobertura-coverage.xml` the aggregate jobs already produce — no test
-re-run. Both are blocking at **80% of changed lines** and print the uncovered line numbers
-in the job log (`--show-uncovered`), not just a percentage.
+**Why it matters:** `backend-test-coverage` and `frontend-test`'s vitest thresholds gate the *aggregate* coverage of the whole codebase. That number moves slowly: a large, well-tested codebase can absorb a fully untested new feature and barely notice.
 
-Excluded from the diff denominator on both sides: backend `*/migrations/*` and `manage.py`
-(schema, not behavior — see the `backend-diff-coverage` job comment in `.gitlab-ci.yml` for
-why the aggregate run *does* count migrations but the diff gate doesn't), and frontend
-`src/test/*`, `*.test.*`, `*.spec.*` (already excluded from the coverage report itself by
-`vitest.config.ts`'s `coverage.exclude`; the CI job's `--exclude` is belt-and-suspenders).
+`backend-diff-coverage` and `frontend-diff-coverage` close that gap:
+
+- They run only on MR pipelines (there's no diff to measure on `main`).
+- They use [`diff-cover`](https://github.com/Bachmann1234/diff_cover) to measure coverage of only the lines the MR actually adds or changes, against the same `coverage.xml` / `cobertura-coverage.xml` the aggregate jobs already produce. No test re-run.
+- Both are blocking at **80% of changed lines** and print the uncovered line numbers in the job log (`--show-uncovered`), not just a percentage.
+
+Excluded from the diff denominator on both sides:
+
+- backend `*/migrations/*` and `manage.py` (schema, not behavior; see the `backend-diff-coverage` job comment in `.gitlab-ci.yml` for why the aggregate run *does* count migrations but the diff gate doesn't);
+- frontend `src/test/*`, `*.test.*`, `*.spec.*` (already excluded from the coverage report itself by `vitest.config.ts`'s `coverage.exclude`; the CI job's `--exclude` is belt-and-suspenders).
+
 Generated files, if any are ever introduced, should be added to the same exclude list.
 
 #### Diff coverage escape hatch
 
-An MR can legitimately fail this gate without meaning "add more tests" — a pure refactor
-that only moves lines, or a vendored file with no realistic local test. When that happens:
+An MR can legitimately fail this gate without meaning "add more tests": a pure refactor that only moves lines, or a vendored file with no realistic local test. When that happens:
 
 1. Say so explicitly in the MR description (a line under a `## Notes` heading is enough:
    *"backend-diff-coverage fails on moved-but-unchanged lines in `foo.py`; no new
@@ -469,66 +435,42 @@ that only moves lines, or a vendored file with no realistic local test. When tha
 2. A reviewer confirms the reasoning and re-runs the job manually with an adjusted
    understanding, or approves the MR with the failing job explicitly acknowledged.
 
-The override is always visible in the MR discussion and job history — never silence the
-gate by weakening the threshold or broadening `--exclude` to route around a single MR.
+**Watch out:** The override is always visible in the MR discussion and job history. Never silence the gate by weakening the threshold or broadening `--exclude` to route around a single MR.
 
 ### Added-file coverage guard (#1091)
 
-`diff-cover` has a blind spot that's the inverse of what you'd expect: a **brand-new**
-source file with zero tests never appears in `coverage.xml` / `cobertura-coverage.xml` at
-all, so `diff-cover` finds no rows for it and reports **100%** for that file — a file with
-*some* tests gets scrutinized, a file with *none* sails through. (The aggregate-coverage
-version of this same bug — an uninstrumented CI job reading as 0% — is #1090.)
+**Why it matters:** `diff-cover` has an inverted blind spot. A **brand-new** source file with zero tests never appears in `coverage.xml` / `cobertura-coverage.xml` at all, so `diff-cover` finds no rows for it and reports **100%** for that file. A file with *some* tests gets scrutinized; a file with *none* sails through. (The aggregate-coverage version of this same bug, an uninstrumented CI job reading as 0%, is #1090.)
 
-`added-files-coverage-check` closes this gap. It reuses the same `coverage.xml` /
-`cobertura-coverage.xml` artifacts as the diff-coverage jobs above (no test re-run):
-for every file *added* (not modified) since the MR's merge-base, filtered to
-`backend/*.py` and `frontend/src/*.ts(x)` and excluding whatever `backend/.coveragerc`'s
-`omit` list and `vitest.config.ts`'s `coverage.exclude` list already exclude (plus
-migrations and `manage.py`, same as the diff-coverage `--exclude`), it fails the build if
-the file has no `<class filename="...">` row in the report at all — naming the file and
-explaining what to do about it in the job log.
+`added-files-coverage-check` closes this gap. It reuses the same `coverage.xml` / `cobertura-coverage.xml` artifacts as the diff-coverage jobs above (no test re-run). For every file *added* (not modified) since the MR's merge-base, it checks:
 
-The script (`scripts/check-added-files-covered.mjs`) ships a `--self-test` mode, run in
-its own `added-files-coverage-check-self-test` CI job on the same `node:20-alpine` image as
-the real check: it builds a synthetic git repo and coverage fixtures in a temp directory
-(no network, no database, no changes to the real working tree) and asserts detection fires
-on a known-bad fixture and stays clean on a known-good one. This is the house pattern for
-bespoke gate scripts described in #1093.
+- the file is in scope: `backend/*.py` and `frontend/src/*.ts(x)`, excluding whatever `backend/.coveragerc`'s `omit` list and `vitest.config.ts`'s `coverage.exclude` list already exclude (plus migrations and `manage.py`, same as the diff-coverage `--exclude`);
+- the file has a `<class filename="...">` row in the report. If not, it fails the build, naming the file and explaining what to do about it in the job log.
+
+The script (`scripts/check-added-files-covered.mjs`) ships a `--self-test` mode, run in its own `added-files-coverage-check-self-test` CI job on the same `node:20-alpine` image as the real check. It builds a synthetic git repo and coverage fixtures in a temp directory (no network, no database, no changes to the real working tree) and asserts detection fires on a known-bad fixture and stays clean on a known-good one. This is the house pattern for bespoke gate scripts described in #1093.
 
 ### Stale dev venv
 
-Backend tests run against the venv in `backend/.venv`, which every `scripts/wt`
-worktree shares by symlink. If `backend/requirements.txt` moved since the venv was
-last synced, a clean branch can fail with a bare `ModuleNotFoundError` that reads like
-a regression (#1715: `mcp` 1.x installed against the `mcp==2.3.0` pin). Run
-`scripts/wt doctor` (also run by `scripts/wt new`): it warns, per drifted `==` pin,
-`<package>: requires X, installed Y`. Fix with
-`backend/.venv/bin/pip install -r backend/requirements.txt`. The check is covered by
-`scripts/tests/wt-doctor-drift.test.sh`.
+**Symptom:** a clean branch fails with a bare `ModuleNotFoundError` that reads like a regression (#1715: `mcp` 1.x installed against the `mcp==2.3.0` pin).
 
-Every `glab`/`gh` call in `scripts/wt` is bounded by `WT_FORGE_TIMEOUT` (a positive integer, default 20
-seconds). A stalled call degrades to a warning instead of hanging, and `scripts/wt release <issue>` clears a
-lock left behind. `scripts/tests/wt-forge-timeout.test.sh` covers this.
+**Cause:** backend tests run against the venv in `backend/.venv`, which every `scripts/wt` worktree shares by symlink, and `backend/requirements.txt` moved since the venv was last synced.
+
+**Fix:** run `scripts/wt doctor` (also run by `scripts/wt new`). It warns, per drifted `==` pin, `<package>: requires X, installed Y`. Then run `backend/.venv/bin/pip install -r backend/requirements.txt`. The check is covered by `scripts/tests/wt-doctor-drift.test.sh`.
+
+Every `glab`/`gh` call in `scripts/wt` is bounded by `WT_FORGE_TIMEOUT` (a positive integer, default 20 seconds). A stalled call degrades to a warning instead of hanging, and `scripts/wt release <issue>` clears a lock left behind. `scripts/tests/wt-forge-timeout.test.sh` covers this.
 
 ## Git hooks
 
-`scripts/wt` (see its `--help`) applies a `status::wip` GitLab label when you create a
-worktree with `wt new`/`wt claim`, so a parallel agent or teammate doesn't grab the same
-issue — but that lock only covers work that goes through `wt`. A plain
-`git checkout -b feat/N-something` bypasses it entirely, and the first sign of a
-collision is two merge requests solving the same issue.
+Run `scripts/setup-hooks.sh` once per clone to install the push-time collision check and the pre-commit secret scan.
 
-`scripts/check-issue-collision.sh` closes that gap at push time, regardless of how the
-branch was created. Install it once per clone:
+**Why it matters:** `scripts/wt` (see its `--help`) applies a `status::wip` GitLab label when you create a worktree with `wt new`/`wt claim`, so a parallel agent or teammate doesn't grab the same issue. That lock only covers work that goes through `wt`. A plain `git checkout -b feat/N-something` bypasses it entirely, and the first sign of a collision is two merge requests solving the same issue.
+
+`scripts/check-issue-collision.sh` closes that gap at push time, regardless of how the branch was created. Install it once per clone:
 
 ```bash
 scripts/setup-hooks.sh
 ```
 
-This installs a `pre-push` hook and a `pre-commit` hook (shared by every `scripts/wt`
-worktree of this clone, since hooks live in the git common dir — no need to re-run per
-worktree).
+This installs a `pre-push` hook and a `pre-commit` hook. Every `scripts/wt` worktree of this clone shares them, since hooks live in the git common dir, so there is no need to re-run per worktree.
 
 Before each push, on a branch named `(feat|fix|chore|docs)/<issue>-...`, the `pre-push`
 hook:
@@ -548,18 +490,11 @@ override a detected collision with:
 ALLOW_ISSUE_COLLISION=1 git push ...
 ```
 
-The `pre-commit` hook runs `scripts/gitleaks-precommit.sh`, blocking a commit that stages
-a hardcoded secret. It no-ops with a warning if `gitleaks` isn't installed locally — the
-merge-blocking `gitleaks-scan` CI job is the hard gate; this hook is just the earliest
-possible local catch. Install gitleaks with `brew install gitleaks` (or see
-[gitleaks releases](https://github.com/gitleaks/gitleaks/releases)).
+The `pre-commit` hook runs `scripts/gitleaks-precommit.sh`, blocking a commit that stages a hardcoded secret.
 
-`setup-hooks.sh` is idempotent and never clobbers a hook it doesn't manage (e.g. a
-hand-written lint hook) for either `pre-push` or `pre-commit` — it prints the line to add
-manually so the two can be chained instead. Run `scripts/check-issue-collision.sh
---self-test` to exercise the issue-collision check offline against stubbed forge
-responses.
+- It no-ops with a warning if `gitleaks` isn't installed locally. The merge-blocking `gitleaks-scan` CI job is the hard gate; this hook is just the earliest possible local catch.
+- Install gitleaks with `brew install gitleaks` (or see [gitleaks releases](https://github.com/gitleaks/gitleaks/releases)).
 
-Both hooks are local, best-effort checks — `gitleaks-scan` is the CI job that actually
-blocks a merge; `check-issue-collision.sh` has no CI counterpart (see
-[CI gate self-tests](ci-gates.md#known-gaps-and-deferred-work)).
+`setup-hooks.sh` is idempotent and never clobbers a hook it doesn't manage (e.g. a hand-written lint hook) for either `pre-push` or `pre-commit`. It prints the line to add manually so the two can be chained instead. Run `scripts/check-issue-collision.sh --self-test` to exercise the issue-collision check offline against stubbed forge responses.
+
+**Yes, but:** Both hooks are local, best-effort checks. `gitleaks-scan` is the CI job that actually blocks a merge; `check-issue-collision.sh` has no CI counterpart (see [CI gate self-tests](ci-gates.md#known-gaps-and-deferred-work)).
