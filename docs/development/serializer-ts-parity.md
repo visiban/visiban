@@ -1,8 +1,11 @@
 # Two CI checks keep TypeScript interfaces in step with serializers
+<a id="serializer-typescript-parity"></a>
 
-Add a serializer field and the matching TypeScript interface field in the same MR, or CI fails.
+Two CI checks enforce the parity rule `CLAUDE.md` states plainly, and each covers a different set of pairs.
 
-**Why it matters:** The checks cover different things, and a green run of one says nothing about the other. Two CI checks enforce the parity rule `CLAUDE.md` states plainly:
+**Watch out:** Read this section before assuming either one covers your change. A green run of one says nothing about the other, and some serializers aren't covered by either (see [What is not covered, and why](#what-is-not-covered-and-why)).
+
+**Why it matters:** The rule:
 
 > `Board`, `Card`, `User`, and related interfaces must match the backend serializer fields exactly — when a new serializer field is added, update the corresponding TypeScript interface in the same MR.
 

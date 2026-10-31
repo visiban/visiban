@@ -1,4 +1,5 @@
 # Which function each entry point calls to enforce a security rule
+<a id="authorization-entry-points"></a>
 
 A new view, consumer, or transport calls the shared function for each rule that applies to it, and a CI test fails if it doesn't.
 

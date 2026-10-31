@@ -1,4 +1,5 @@
 # Propose fast-path table edits from yield data
+<a id="kaizen-fast-path-proposal"></a>
 
 `scripts/kaizen_fastpath_proposal.py` reads the yield state and **proposes** fast-path table edits as a diff plus a ready-to-paste evidence section. It never edits the table.
 

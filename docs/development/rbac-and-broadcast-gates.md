@@ -1,4 +1,5 @@
 # Two CI jobs now check RBAC coverage and broadcast deferral
+<a id="rbac-and-broadcast-gates"></a>
 
 Run `python3 scripts/check-rbac-coverage.py` and `python3 scripts/check-broadcast-deferral.py` to run what `rbac-coverage` and `broadcast-deferral` run in CI. They assert statically what the `rbac-check` and `broadcast-check` agent gates previously asserted by reading the diff and reasoning about it (#1143).
 

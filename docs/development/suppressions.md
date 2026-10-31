@@ -1,4 +1,5 @@
 # Tag every temporary suppression with the issue that ends it
+<a id="suppression-markers"></a>
 
 Mark a temporary suppression with `SUPPRESSED-UNTIL(#N)`, and CI fails when issue `#N` closes. Mark a permanent one with a plain reason and no marker.
 
@@ -51,7 +52,7 @@ The same job also scans `backend/nightly-load-test-baseline.json` for pending bu
 - A missing or unparseable baseline file fails the check instead of reporting a clean scan.
 - When it fires, assign the budget and delete `pending_budget` in the whole-file NUC re-derivation, or re-point it at a new tracked issue.
 
-This job runs on **merge requests, `main`, and scheduled pipelines**, deliberately not MR-only. The triggering event is "an issue closed," not "a commit landed." The commit that added the marker may have merged long before the cited issue closes, so a job that only ran on that MR's pipeline would never fire again.
+This job runs on **merge requests, `main`, and scheduled pipelines**, deliberately not MR-only. The triggering event is "an issue closed," not "a commit landed." The commit that added the marker may have merged long before the cited issue closes, so a job that only ran on that MR's pipeline would never fire again. Running on `main` and on schedules is what makes the closed issue actually get caught.
 
 ```bash
 # Run it locally the same way CI does:
@@ -61,12 +62,12 @@ bash scripts/check-suppression-issues.sh
 **Authentication (#1694).** The lookup uses `GITLAB_API_TOKEN` if set, else `ISSUES_API_TOKEN`, else an anonymous request. This project is public, so an anonymous call already sees every non-confidential issue.
 
 - It **never** sends `CI_JOB_TOKEN`. The Issues API answers 401 to *any* job token, including a valid one, while the identical request with no auth header at all answers 200.
-- An earlier version sent `JOB-TOKEN` and had `curl -sf` silently swallow that 401 into the same "inconclusive" state as a genuinely unreachable tracker, so it had never blocked a closed-issue citation in CI.
+- An earlier version sent `JOB-TOKEN` and had `curl -sf` silently swallow that 401 into the same "inconclusive" state as a genuinely unreachable tracker, so it had never actually blocked a closed-issue citation in CI.
 - If a configured token *is* rejected (expired, wrong scope), the gate warns once and retries anonymously rather than treating the whole lookup as inconclusive.
 
 **Fail-open vs fail-closed.** This is a hygiene gate, not a security gate, and a false block on every pipeline would just teach people to ignore it.
 
-- It fails **open** only on a lookup that genuinely never got a usable response (network failure, every retry exhausted, a malformed body).
+- It fails **open** only on a lookup that genuinely never got a usable response (network failure, every retry exhausted, a malformed body), rather than blocking the pipeline on a lookup that didn't complete.
 - It fails **closed** on anything the tracker *did* answer conclusively: a confirmed closed issue, or a cited issue the tracker's response didn't contain.
 
 ### Self-test

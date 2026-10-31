@@ -1,8 +1,9 @@
 # Build every new index and constraint concurrently
+<a id="database-migrations"></a>
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Build every new index and constraint with `visiban.db_operations`, so `migrate` never blocks the product.
+Build every new index and constraint with `visiban.db_operations`, because `migrate` must never block the product.
 
 **Why it matters:** An index or constraint added the default Django way takes an `ACCESS EXCLUSIVE` lock on its table for the *entire* build. On `cards` — the table every board read and every card move goes through — that's a full outage lasting as long as the build takes, which on a large instance with trigram indexes is minutes, not milliseconds.
 
@@ -735,7 +736,7 @@ installs have already run them; these are documented instead.
   `users` in the same transaction as its column additions, so the UPDATE runs while
   `ACCESS EXCLUSIVE` is held. (`accounts/0036` is a standalone `RunPython` with no schema
   change; it only row-locks superuser rows, which is negligible.) Fine for typical sizes; see the
-  [upgrade guide](../administration/upgrade.md#upgrading-to-12x) for large installs.
+  [upgrade guide](../administration/upgrade.md#upgrading-to-12x) for very large installs.
 - **`boards/0054` overwrites system template columns** by slug, and its reverse restores
   constants rather than prior database values. See the upgrade guide.
 - **`accounts/0033` has an unneeded dependency** on `boards/0061` and `auth/0012` (an

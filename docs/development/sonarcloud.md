@@ -1,4 +1,5 @@
 # SonarCloud is an advisory second opinion that never blocks a merge
+<a id="sonarcloud"></a>
 
 [SonarCloud](https://sonarcloud.io/project/overview?id=visiban_visiban) gives a second, independent read of code quality: bugs, vulnerabilities, security hotspots, maintainability, duplication, and test coverage. It runs on a schedule and never blocks a merge request.
 

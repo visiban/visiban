@@ -1,6 +1,7 @@
 # Which tests would notice a broken line
+<a id="mutation-testing-baseline"></a>
 
-The weekly `backend-mutation` CI job gates the merged adjusted mutation score at 90% on the backend modules 1.2 changes the most. This page records the manual baseline behind it.
+This page records the manual mutation-testing baseline on the backend modules 1.2 changes the most. The weekly `backend-mutation` CI job runs those modules and reports the merged adjusted score against a 90% floor; until the follow-up on #1384 it is `allow_failure: true`, so it doesn't fail a pipeline yet.
 
 **Why it matters:** Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong.
 

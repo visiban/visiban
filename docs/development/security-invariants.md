@@ -1,4 +1,5 @@
 # Check every surface before you call a security fix done
+<a id="security-invariants-registry"></a>
 
 Some security rules apply on more than one transport. This page lists each rule and every surface that must enforce it.
 

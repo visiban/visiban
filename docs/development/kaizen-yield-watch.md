@@ -1,4 +1,5 @@
 # Find the CI gates that have stopped finding anything
+<a id="kaizen-yield-watch"></a>
 
 A scheduled job counts consecutive `0 findings` runs per gate and diff shape, and reports gates that hit 10 in a row (the yield watch, #1144).
 

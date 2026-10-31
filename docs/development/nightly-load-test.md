@@ -1,8 +1,9 @@
 # A nightly job fails the pipeline when an endpoint gets slower
+<a id="nightly-load-test"></a>
 
 `nightly-load-test` is a nightly, schedule-only CI job (`.gitlab-ci.yml`). It measures real wall-clock p50/p95/p99 latency against a large seeded fixture and fails the pipeline if any covered endpoint exceeds its committed budget.
 
-**Why it matters:** A query-count guard isn't a latency guard. `perf-check` (static N+1 review) and `perf-bench` (query counts on demand) both measure query *count*. A missing index, a data-volume change, or a query-plan flip can leave the query count and query text identical while making the same queries slower. Only this job sees that class of regression.
+**Why it matters:** A query-count guard isn't a latency guard. `perf-check` (static N+1 review) and `perf-bench` (query counts on demand) both measure query *count*. A missing index, a data-volume change, or a query-plan flip can leave the query count and query text identical while making the same queries slower. Neither of those gates can see that class of regression; this job can.
 
 **The default:** 40 timed requests per endpoint (after 5 warmup), p95 against a budget derived as `ceil(measured_p95_ms * 1.4 / 5) * 5`, on a `nuc`-tagged runner. See [Running it](#running-it) and [Budget derivation](#budget-derivation-the-rule).
 

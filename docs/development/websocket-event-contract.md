@@ -1,8 +1,9 @@
 # Add a WebSocket event without breaking the contract
+<a id="websocket-event-contract"></a>
 
 Add a board-channel or group-channel event name freely. Renaming or removing one, or removing a field from a payload, needs a major version bump.
 
-**Why it matters:** Visiban's `{event, data}` WebSocket envelope is a public API contract from 1.0, and a name that exists in only two of three places ships broken.
+**Why it matters:** Visiban's `{event, data}` WebSocket envelope is a public API contract from 1.0, and the `ws-event-reachability` CI job fails when a name is missing from any of the three places below.
 
 **The big picture:** Every event name lives in three places:
 

@@ -1,8 +1,9 @@
-# CI blocks any removal from the REST schema or env var names
+# See what changed in the REST schema and env var names since the last GA tag
+<a id="api-compatibility-gate"></a>
 
 Run `python3 scripts/check-api-compat.py` to see what the `api-compat-check` CI job (#1667) sees: it diffs the REST schema and the operator-facing environment variable names against the last GA tag on every MR and on `main`.
 
-**Why it matters:** Visiban 1.0+ treats both as a public contract (see "Backward compatibility" in `CLAUDE.md`), so a removal can no longer slip through on a green pipeline.
+**Why it matters:** Visiban 1.0+ treats the REST schema and the operator-facing environment variable names as a public contract (see "Backward compatibility" in `CLAUDE.md`). The job exists so a removal can no longer slip through on a green pipeline.
 
 **The big picture:** It's a sibling of `backend-schema-validate` (is the document well formed?) and `backend-schema-fuzz` (does the API match the document?). This job asks a third question: does today's contract still contain everything the last release promised?
 
