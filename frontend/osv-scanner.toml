@@ -1,21 +1,10 @@
 # OSV-Scanner config for frontend/package-lock.json (auto-discovered; see
 # scripts/osv-severity-gate.sh for the accepted-risk contract).
-
-[[IgnoredVulns]]
-id = "GHSA-vfj7-8cjw-p6xm"
-# braces <= 3.0.3: stack exhaustion (DoS) on deeply nested brace patterns.
-# No patched release exists yet (every published version, 3.0.3 included, is
-# affected), so there is nothing to bump. braces is a dev-only transitive of
-# tailwindcss (chokidar, micromatch) and only ever expands the repo's own
-# static glob patterns at build time; it is not shipped in the production
-# bundle and never sees user input. Re-check npm for a fixed braces release
-# and remove this entry when one lands (tracked in #1415; the Tailwind v4
-# migration in #1420 is the other way out, expiry tracked in #1778).
-# Re-checked 2026-10-19 (#1751): npm still resolves braces 3.0.3 as the newest
-# release and OSV lists no fixed version, so an overrides pin cannot help; the
-# ignore is extended to 2027-01-31 (about one quarter). Re-check before it expires (#1778).
-ignoreUntil = 2027-01-31
-reason = "No fixed braces release exists; dev-only build-time transitive of tailwindcss, never sees untrusted input"
+#
+# The braces GHSA-vfj7-8cjw-p6xm waiver
+# (#1415) was removed because the advisory was withdrawn upstream on
+# 2026-10-23; osv-scanner reported it as an unused ignore. Add entries below
+# as [[IgnoredVulns]] blocks with a reason and an ignoreUntil date.
 
 [[IgnoredVulns]]
 id = "GHSA-g3hv-75wg-m249"
