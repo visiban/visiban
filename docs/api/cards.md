@@ -314,7 +314,7 @@ A non-object value (other than `null`) returns
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/`
 Delete a card. Requires member or above. Returns `404 Not Found` if the card was deleted or archived concurrently; the request has no effect.
 
-> **Ownership gate:** as for PATCH, members may only delete cards they created; others need the `is_moderator` entitlement or board admin, or receive `403 Forbidden`.
+> **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 Deleting a card also deletes its [relations](#relations-since-12). Broadcasts
 `card.deleted`, plus `card.updated` for every card this one was actively
@@ -327,7 +327,7 @@ blocking, whose `blocker_count` drops as a result.
 ### `POST /api/v1/boards/{board_id}/cards/{id}/archive/`
 Soft-delete a card. Takes no body. Sets `archived_at` to now, removes the card from the active board view, and excludes it from WIP/weight counts. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently. If the delete lands after the archive committed, the archive stays applied but the response is still `404`, since no card is left to return (#1585).
 
-> **Ownership gate:** as for PATCH, members may only archive cards they created; others need the `is_moderator` entitlement or board admin, or receive `403 Forbidden`.
+> **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only archive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 If the card is already archived this is a no-op — `200 OK` is returned with the current card state.
 
@@ -338,7 +338,7 @@ Broadcasts `card.archived` to all board WebSocket subscribers. Also broadcasts `
 ### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
 Unarchive a card. Takes no request body (`force` is a query parameter, below). Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently (including a no-op restore of a card that vanished before the response was built, #1585); nothing is saved.
 
-> **Ownership gate:** as for PATCH, members may only unarchive cards they created; others need the `is_moderator` entitlement or board admin, or receive `403 Forbidden`.
+> **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only unarchive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 **Response** — full card object with `archived_at: null`.
 

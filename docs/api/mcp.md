@@ -12,7 +12,7 @@ MCP_SERVER_ENABLED=true   # backend environment; restart the backend
 
 **Watch out:** `/mcp` takes `Bearer`, while the REST API takes `Token`. Write tools also need the `mcp:write` scope. See [Authentication](#authentication).
 
-**Go deeper:** [Enabling the server](#enabling-the-server), [Connecting a client](#connecting-a-client), [Tools](#tools), [Resources](#resources), [Stability and versioning](#stability-and-versioning).
+**Go deeper:** [Enabling the server](#enabling-the-server), [Connecting a client](#connecting-a-client), [Tools](#tools), [Resources](#resources), [Stability and versioning](#stability-and-versioning) (the last section before the roadmap).
 
 **The big picture:** Visiban can expose its boards to AI agents over the [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to `/mcp`, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.
 
