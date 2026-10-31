@@ -2358,7 +2358,7 @@ self_test() {
     "10 demo unsafe-hosts opt-in guard removed|templates/_validate.tpl|s/{{- if .Values.backend.settings.allowUnsafeHosts -}}/{{- if false -}}/"
     # 15 (#1864): the guard stops covering postgresql.enabled, so the default
     # bundled StatefulSet accepts the placeholder password again.
-    "15 postgres password guard limited to the subchart|templates/_validate.tpl|s/{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not (and/{{- if and (or false .Values.postgresql.subchartEnabled) (not (and/"
+    "15 postgres password guard limited to the subchart|templates/_validate.tpl|s/{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret)/{{- if and (or false .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret)/"
   )
 
   for fixture in "${fixtures[@]}"; do
