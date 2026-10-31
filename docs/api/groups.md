@@ -1,8 +1,19 @@
-# Groups API
+# Organize boards into groups and subgroups
 
-`GET /api/v1/groups/` lists the groups you can reach, including navigation-only ancestors.
+Create a group with `POST /api/v1/groups/` and a `name`; list the groups you can reach with `GET /api/v1/groups/`.
+
+```bash
+curl -X POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name": "Engineering"}' http://localhost:8000/api/v1/groups/
+```
 
 **Why it matters:** group access decides which boards a user sees, and the default member role no longer has any effect.
+
+**By the numbers:** `GET /api/v1/groups/` is paginated: `?offset` defaults to `0`, `?page_size` defaults to `50` (max `200`). Subgroups nest at most 6 levels deep.
+
+**Yes, but:** the list can include groups you have no access to, returned navigation-only with their fields withheld. See [Ancestor groups](#ancestor-groups-navigation-only).
+
+**Go deeper:** [Members](#members), [Boards](#boards), [Invite links](#invite-links), [Shared labels](#group-shared-labels), [Board defaults](#board-defaults), [Join](#join-public).
 
 **The big picture:** groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is deprecated and has no effect ([#1430](https://gitlab.com/visiban/visiban/-/issues/1430)).
 

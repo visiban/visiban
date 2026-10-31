@@ -1,9 +1,11 @@
-# Version API
+# Check the server version with one authenticated GET
 
-A single endpoint that reports the running server's version string.
+`GET /api/v1/version/` returns `{ "version": "1.2.0" }` to any authenticated caller.
 
 **Why it matters:** it's the frozen 1.x contract clients rely on to check compatibility before
 calling anything else — see the stability commitment below.
+
+**Watch out:** an unauthenticated request gets `401 Unauthorized`, so send a session or token even for this call.
 
 ## `GET /api/v1/version/`
 
