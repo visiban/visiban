@@ -96,6 +96,12 @@ class NulQueryParamEndpointTests(TestCase):
         r = self._get(f"/api/v1/boards/{self.board.id}/cards/", {"search": NUL}, outsider)
         self.assertEqual(r.status_code, 404)
 
+    def test_detail_route_refuses_nul_search_too(self):
+        # CardViewSet.get_queryset() serves retrieve as well as list.
+        r = self._get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/", {"search": NUL}, self.user)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], CODE)
+
     def test_ordinary_values_behave_as_before(self):
         b = self.board.id
         r = self._get(f"/api/v1/boards/{b}/cards/", {"search": " findme "}, self.user)

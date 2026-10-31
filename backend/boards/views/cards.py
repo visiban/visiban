@@ -561,6 +561,10 @@ class CardViewSet(viewsets.ModelViewSet):
         # Server-side text search — applied only when the ?search= param is present and non-empty.
         # This intentionally does not use DRF SearchFilter or CardFilter so that the search param
         # remains distinct from the django-filters params and the filter logic is easy to trace.
+        # get_queryset() also serves retrieve/update/destroy, so a NUL in
+        # ?search= is a 400 there too (#1887). It was a Postgres 500 on every
+        # route before, and the board lookup above still answers a non-member
+        # with 404 first.
         q = query_text(self.request, "search").strip()
         if q:
             qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))

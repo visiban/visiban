@@ -274,8 +274,8 @@ class CardQueryFilter(django_filters.FilterSet):
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "`true` includes archived cards. Omitted, `false` or any other "
-                    "value excludes them (the default)."
+                    "`true` (case-insensitive) includes archived cards. Omitted, "
+                    "`false` or any other value excludes them (the default)."
                 ),
             ),
             OpenApiParameter(

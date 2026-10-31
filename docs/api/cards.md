@@ -614,6 +614,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 | Status | Description |
 |---|---|
 | `400 Bad Request` | `event_types` names a group not in the allowed set — `{"detail": "Invalid event_types: ... Valid groups: ...", "code": "invalid_query_param"}` (`code` added in 1.2) |
+| `400 Bad Request` | `offset` is above `2^62` — `{"detail": "offset must not exceed ...", "code": "invalid_query_param"}` |
 | `404 Not Found` | Requesting user has no access to the board |
 | `404 Not Found` | Card does not exist or does not belong to this board |
 
