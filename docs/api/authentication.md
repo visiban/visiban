@@ -1,8 +1,21 @@
-# API Authentication
+# Authenticate API requests with a token
 
-Send `Authorization: Token <value>` on every request, using a token from `POST /api/v1/auth/login/` or a Personal Access Token.
+Log in once, then send the returned `key` as `Authorization: Token <key>` on every request:
 
-**Why it matters:** a script with the wrong scheme gets `401`, and a leaked long-lived token stays valid until you revoke it.
+```bash
+curl -s -X POST http://localhost:8000/api/v1/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "your-password"}'
+# {"key": "9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"}
+
+curl -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b" http://localhost:8000/api/v1/boards/
+```
+
+**Why it matters:** an unauthenticated request gets `401 Unauthorized`, and a leaked long-lived token stays valid until you revoke it.
+
+**Yes, but:** for scripts, prefer a Personal Access Token (`vbn_` plus 40 hex characters) over a session token. Revoke one with `DELETE /api/v1/auth/tokens/{id}/`; a password change revokes them all.
+
+**Go deeper:** [Obtain a token](#1-obtain-a-token), [Personal Access Tokens](#personal-access-tokens), [Scopes](#scopes), [Session authentication](#session-authentication), [Common errors](#common-errors).
 
 **The big picture:** Visiban supports two authentication methods: **token** (recommended for scripts and API clients) and **session** (used by the browser SPA).
 

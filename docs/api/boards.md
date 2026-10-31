@@ -1,6 +1,15 @@
-# Boards API
+# Create and manage boards over the API
 
-`GET /api/v1/boards/` lists your boards; everything else here hangs off a board id.
+Create a board with `POST /api/v1/boards/` and a `name`; it answers `201`. Every other call here hangs off the returned board id.
+
+```bash
+curl -X POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name": "Sales Pipeline"}' http://localhost:8000/api/v1/boards/
+```
+
+Omit `template` and you get the `simple_kanban` column layout; omit `swimlane_name` and the board has no swimlane. List your boards with `GET /api/v1/boards/`.
+
+**Go deeper:** [Boards](#boards), [Templates](#templates), [Export & Import](#export-import), [Members](#members), [Board invites](#board-invites), [Board sharing](#board-sharing), [Columns](#columns), [Swimlanes](#swimlanes), [Labels](#labels), [Custom fields](#custom-fields-since-12), [Public share endpoint](#public-share-endpoint).
 
 **Why it matters:** columns, swimlanes, labels, membership, and sharing all enforce board roles, so check the role a call needs before you script it.
 
