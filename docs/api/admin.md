@@ -1,8 +1,17 @@
-# Admin API
+# Run the instance with the admin API
 
-Manage site settings, users, and invites with a site-admin token.
+Close self-registration with one site-admin `PATCH`:
+
+```bash
+curl -X PATCH -H "Authorization: Token $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"registration_mode": "invite_only"}' http://localhost:8000/api/v1/admin/settings/
+```
+
+Changes take effect within about 60 seconds, with no restart.
 
 **Why it matters:** every endpoint here changes the whole instance, so a non-admin call fails with `403 Forbidden`.
+
+**Go deeper:** [Site settings](#site-settings), [Action log](#action-log), [Email settings](#email-settings), [Maintenance mode](#maintenance-mode), [Users](#users), [Invite links](#invite-links), [Board invites](#board-invites).
 
 **The big picture:** site-wide settings, the action log, email configuration, maintenance mode, users, invite
 links, and board invites — administrative endpoints, restricted to site admins.

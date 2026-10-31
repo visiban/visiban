@@ -1,8 +1,14 @@
-# API Reference
+# Call the Visiban REST API
 
 Send authenticated JSON requests to `/api/v1`; start with [Authentication](authentication.md).
 
-**Why it matters:** every endpoint lives under the `/api/v1/` prefix and needs a valid token or session, so an unauthenticated request fails before it reaches any board data.
+```bash
+curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/boards/
+```
+
+**Why it matters:** versioned REST endpoints live under the `/api/v1/` prefix. Most need a valid token or session, and an unauthenticated request gets `401`; the health endpoints are the exception.
+
+**Go deeper:** the reference table below, [versioning policy](#versioning-policy), and [common conventions](#common-conventions) (errors, pagination, maintenance mode).
 
 **The big picture:** Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.
 

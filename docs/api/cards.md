@@ -1,6 +1,18 @@
-# Cards API
+# Create, move, and track cards
 
-`GET /api/v1/boards/{board_id}/cards/` lists a board's cards; `POST` to the same path creates one.
+Create a card with `POST /api/v1/boards/{board_id}/cards/`, sending a `title`, a `column`, and a `swimlane` (member role or above):
+
+```bash
+curl -X POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" \
+  -d '{"title": "Fix login bug", "column": 1, "swimlane": 2}' \
+  http://localhost:8000/api/v1/boards/3/cards/
+```
+
+List a board's cards with `GET` on the same path.
+
+**Yes, but:** the target column must have `allow_card_creation` enabled, and WIP or weight limits can answer `409`. See [create](#post-apiv1boardsboard_idcards) and [WIP and weight limit enforcement](#wip-weight-limit-enforcement).
+
+**Go deeper:** [Cards](#cards), [Archive](#archive), [Move](#move), [History](#history), [Timeline](#timeline), [Comments](#comments), [Attachments](#attachments), [Relations](#relations-since-12), [Checklist](#checklist).
 
 **Why it matters:** card writes appear in activity history and reach connected clients over WebSockets, so a script's moves are visible to the team.
 

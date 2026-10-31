@@ -1,8 +1,19 @@
-# WebSocket API
+# Get live board updates over a WebSocket
 
-Connect to a board channel to receive live mutation events for that board.
+From a browser, open `ws://localhost:8000/ws/boards/42/` with your session cookie. From a script, trade a token for a one-time ticket first:
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/auth/ws-ticket/ -H "Authorization: Token $TOKEN"
+# then connect to: ws://localhost:8000/ws/boards/42/?ticket=<ticket>
+```
+
+Every frame arrives as `{ "event": "card.moved", "data": { ... }, "event_id": 84213 }`.
 
 **Why it matters:** a handler written against these events also serves the [change feed](events.md), which carries the same payloads.
+
+**Watch out:** a ticket is consumed by the upgrade, so get a new one for every connection attempt, including every reconnect. A failed handshake closes with `4001` (not authenticated) or `4003` (not a board member).
+
+**Go deeper:** [Ticket authentication](#ticket-authentication-since-12), [Event reference](#event-reference), [Delivery guarantees](#delivery-guarantees), [Client example](#client-example-javascript).
 
 **The big picture:** Visiban uses WebSockets to push real-time updates to all connected clients. Two channels are available:
 
