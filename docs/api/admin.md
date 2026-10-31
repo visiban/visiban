@@ -1,8 +1,17 @@
-# Admin API
+# Run the instance with the admin API
 
-Manage site settings, users, and invites with a site-admin token.
+Close self-registration with one site-admin `PATCH`:
+
+```bash
+curl -X PATCH -H "Authorization: Token $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"registration_mode": "invite_only"}' http://localhost:8000/api/v1/admin/settings/
+```
+
+Changes take effect within about 60 seconds, with no restart.
 
 **Why it matters:** every endpoint here changes the whole instance, so a non-admin call fails with `403 Forbidden`.
+
+**Go deeper:** [Site settings](#site-settings), [Action log](#action-log), [Email settings](#email-settings), [Maintenance mode](#maintenance-mode), [Users](#users), [Invite links](#invite-links), [Board invites](#board-invites).
 
 **The big picture:** site-wide settings, the action log, email configuration, maintenance mode, users, invite
 links, and board invites — administrative endpoints, restricted to site admins.
@@ -434,7 +443,7 @@ Returns `201 Created` with the new user object. The response does **not** includ
 
 > **Added in 1.2**
 
-The account creation is recorded in the [admin action log](#action-log) as `user.password_set` with `source` `admin_api` and the acting admin. The entry is saved in the same transaction as the account, so the account exists only if the entry is saved. It names the new account (`target_id`, `target_username`); the password and its hash are never stored.
+The account creation is recorded in the [admin action log](#action-log) as `user.password_set` with `source` `admin_api` and the acting admin. The entry is saved in the same transaction as the account, so the account exists only if the entry does. It names the new account (`target_id`, `target_username`); the password and its hash are never stored.
 
 ### `PATCH /api/v1/admin/users/{id}/`
 Update a user's account flags. Site admin only.
@@ -478,7 +487,7 @@ Deactivation also deletes the user's personal access tokens and API auth token, 
 
 **Permission:** `IsSiteAdmin`. Cannot deactivate your own account. Only a superuser can deactivate a superuser account (`400`).
 
-If the target user owns one or more boards, you must supply a `transfers` list mapping each owned board to an eligible recipient. The recipient must have access to the board — either as a direct board member or through group membership. Group-inherited access is accepted. If any owned board has no eligible transfer targets (i.e. the user is the sole member with no group-inherited members either), the request returns `400 Bad Request` with details.
+If the target user owns boards, you must supply a `transfers` list mapping each owned board to an eligible recipient, who needs access to the board as a direct member or through group membership (group-inherited access is accepted). If any owned board has no eligible target (the user is its sole member, with no group-inherited members either), the request returns `400 Bad Request` with details.
 
 **Request body**
 
@@ -533,7 +542,7 @@ If a `transfers` item is malformed (missing or non-integer `board_id` or `transf
 
 ### `POST /api/v1/admin/users/{id}/clear-lockout/`
 
-Clear the target user's per-account login lockout early (#1203). The per-account `login_failed` lockout (5 failed login or password-change attempts / 5 minutes — see [Rate limiting](../architecture/deployment.md#rate-limiting)) normally expires on its own; this endpoint gives a site admin a way to lift it immediately, for the case where a user can't wait it out and either can't complete a password reset (the other early-recovery path, which clears the lockout automatically) or hasn't needed to change their password at all.
+Clear the target user's per-account login lockout early (#1203). The `login_failed` lockout (5 failed login or password-change attempts / 5 minutes; see [Rate limiting](../architecture/deployment.md#rate-limiting)) normally expires on its own. This endpoint lets a site admin lift it at once, for a user who can't wait and either can't complete a password reset (the other early-recovery path, which clears it automatically) or has no need to change their password.
 
 **Permission:** `IsSiteAdmin`. Only a superuser can clear the lockout of a superuser account (`400` otherwise).
 
@@ -632,7 +641,7 @@ Create a new invite link.
 
 **Response** `201 Created`
 
-The response includes a one-time `raw_token` field. Note that the [group](groups.md#post-apiv1groupsidinvite-links) and [board](boards.md#post-apiv1boardsidinvite-links) invite-link create responses return the same kind of secret as `token`, not `raw_token`. The names differ across the three endpoints for historical reasons and are frozen by the 1.0 contract; none is renamed before a major version. A consistent alias is planned for the next major version (tracked in #1255); until then each endpoint keeps its current name for 1.0 API compatibility. **Store or share it immediately — it cannot be retrieved again.** All other fields are identical to the list response.
+The response includes a one-time `raw_token` field. Note that the [group](groups.md#post-apiv1groupsidinvite-links) and [board](boards.md#post-apiv1boardsidinvite-links) invite-link create responses return the same kind of secret as `token`, not `raw_token`. The names differ across the three endpoints for historical reasons and are frozen by the 1.0 contract; none is renamed before a major version. A consistent alias is planned for the next major version (#1255). **Store or share it immediately — it cannot be retrieved again.** All other fields are identical to the list response.
 
 ```json
 {
@@ -798,7 +807,7 @@ Every board's [invites](boards.md#board-invites) — emailed invites and shareab
 The token and the address an invite was emailed to are never returned.
 
 !!! note "Stored status, not the creator check"
-    This list reports each invite's **stored** status and does **not** apply the check the board's own list and the join endpoints apply — that the creator is still active and still an admin of the board. An invite whose creator was demoted can therefore show **pending** here while the board's own list shows it as `revoked` and joins with it are refused (`410 revoked`). (Deactivating an account revokes that user's pending invites outright, so those do show `revoked`.) Revoke such an invite here to make it permanent. `can_register` is advisory for the same reason.
+    This list reports each invite's **stored** status and does **not** apply the check that the board's own list and the join endpoints apply: that the creator is still active and still an admin of the board. An invite whose creator was demoted can therefore show **pending** here while the board's own list shows `revoked` and joins are refused (`410 revoked`). (Deactivating an account revokes that user's pending invites outright, so those do show `revoked`.) Revoke such an invite here to make it permanent. `can_register` is advisory for the same reason.
 
 **Errors**
 

@@ -1,6 +1,18 @@
-# Cards API
+# Create, move, and track cards
 
-`GET /api/v1/boards/{board_id}/cards/` lists a board's cards; `POST` to the same path creates one.
+Create a card with `POST /api/v1/boards/{board_id}/cards/`, sending a `title`, a `column`, and a `swimlane` (member role or above):
+
+```bash
+curl -X POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" \
+  -d '{"title": "Fix login bug", "column": 1, "swimlane": 2}' \
+  http://localhost:8000/api/v1/boards/3/cards/
+```
+
+List a board's cards with `GET` on the same path.
+
+**Yes, but:** the target column must have `allow_card_creation` enabled, and WIP or weight limits can answer `409`. See [create](#post-apiv1boardsboard_idcards) and [WIP and weight limit enforcement](#wip-weight-limit-enforcement).
+
+**Go deeper:** [Cards](#cards), [Archive](#archive), [Move](#move), [History](#history), [Timeline](#timeline), [Comments](#comments), [Attachments](#attachments), [Relations](#relations-since-12), [Checklist](#checklist).
 
 **Why it matters:** card writes appear in activity history and reach connected clients over WebSockets, so a script's moves are visible to the team.
 
@@ -76,18 +88,18 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 ### `GET /api/v1/boards/{board_id}/cards/`
 List the board's active (non-archived) cards, optionally filtered. Returns at most 200 cards per request.
 
-> **Response shape:** This endpoint returns a bare JSON array (`[ {...}, {...} ]`), not the standard `{count, offset, page_size, results}` pagination envelope used by other list endpoints, and not the `{results, next_cursor}` shape of the cross-board `GET /api/v1/cards/` above. Generic API clients that assume a pagination envelope must special-case this endpoint. The board UI bulk-loads cards via `GET /api/v1/boards/{board_id}/full/` (no cap); this endpoint is for targeted lookups such as search.
+> **Response shape:** a bare JSON array (`[ {...}, {...} ]`), not the standard `{count, offset, page_size, results}` envelope of other list endpoints, and not the `{results, next_cursor}` shape of the cross-board `GET /api/v1/cards/` above. Generic clients that assume an envelope must special-case it. The board UI bulk-loads cards via `GET /api/v1/boards/{board_id}/full/` (no cap); use this endpoint for targeted lookups such as search.
 
 **200-card cap and truncation headers** (since 1.2)
 
-Without `limit`/`offset` the response is the first 200 matching cards, exactly as before. Every `200` response also carries two headers so a client can tell whether it got everything:
+Without `limit`/`offset` the response is the first 200 matching cards, as before. Every `200` response also carries two headers that tell a client whether it got everything:
 
 | Header | Value |
 |---|---|
 | `X-Total-Count` | Number of active cards matching the filters, ignoring `limit`/`offset` |
 | `X-Truncated` | `true` when more matching cards exist after the returned ones, otherwise `false` |
 
-Both headers are listed in the server's CORS exposed headers, so cross-origin browser clients can read them. Before 1.2 a board with more than 200 matching cards was truncated with no signal.
+Both headers are CORS-exposed, so cross-origin browser clients can read them. Before 1.2 a board with more than 200 matching cards was truncated with no signal.
 
 To walk past the cap, page with `limit` and `offset` (offset paging, not the cursor paging of `GET /api/v1/cards/`):
 
@@ -97,7 +109,7 @@ GET /api/v1/boards/4/cards/?limit=200&offset=200   -> X-Total-Count: 450, X-Trun
 GET /api/v1/boards/4/cards/?limit=200&offset=400   -> X-Total-Count: 450, X-Truncated: false
 ```
 
-Rows are ordered by `ordering` with the card ID as a tiebreaker, so a walk over an unchanged board returns every card exactly once. Cards created, moved or archived between requests can still shift rows across a page boundary; for a feed under concurrent writes use the cursor-paginated `GET /api/v1/cards/?board=<id>`.
+Rows are ordered by `ordering` with the card ID as tiebreaker, so a walk over an unchanged board returns every card exactly once. Cards created, moved or archived mid-walk can still shift rows across a page boundary; for a feed under concurrent writes use the cursor-paginated `GET /api/v1/cards/?board=<id>`.
 
 **Query parameters**
 
@@ -140,11 +152,11 @@ Since 1.2, a create returns `404 Not Found` (nothing is written) when its target
 ```
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/`
-Get a single card. The response includes a `uid` field — a stable 16-character hex identifier that does not change when the card is renamed, moved, or reassigned. The `uid` is read-only. The response also includes a `version` integer that increments on every mutation; clients may pass this value back on the [move endpoint](#move) as an optimistic concurrency token.
+Get a single card. The response includes a read-only `uid` (a stable 16-character hex identifier that survives rename, move, and reassignment) and a `version` integer that increments on every mutation; clients may pass `version` back on the [move endpoint](#move) as an optimistic concurrency token.
 
 **Card response field table**
 
-The following fields are returned for every card object in this endpoint, `POST /cards/`, `PATCH /cards/{id}/`, `GET /cards/`, and all mutation responses (archive, unarchive, move).
+Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /cards/{id}/`, `GET /cards/`, and all mutation responses (archive, unarchive, move).
 
 | Field | Type | Read-only | Nullable | Description |
 |---|---|---|---|---|
@@ -218,27 +230,24 @@ The following fields are returned for every card object in this endpoint, `POST 
 ```
 
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/`
-Update card fields. Requires member or above. Returns `404 Not Found` if the card was deleted concurrently; nothing is saved. A PATCH/PUT racing an archive or move of the same card is evaluated against the card's state at the moment it is written, not when the request began: it returns `404 Not Found` if the card was archived concurrently (as for any archived card), and a concurrent move is kept — only the submitted fields change, and echoing the card's pre-move `column`/`swimlane`/`position` is rejected with `use_move_endpoint` (see below).
+Update card fields. Requires member or above. Returns `404 Not Found` if the card was deleted concurrently; nothing is saved. A PATCH/PUT racing an archive or move is evaluated against the card's state when written, not when the request began: it returns `404 Not Found` if the card was archived concurrently (as for any archived card), and a concurrent move is kept. Only the submitted fields change, and echoing the pre-move `column`/`swimlane`/`position` is rejected with `use_move_endpoint` (see below).
 
 > **Ownership gate:** Members may only edit cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 **Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `custom_field_values`, `external_ref`
 
-> **Weight limit:** raising `weight` in a column with a `weight_limit`, on a board with `enforce_weight_limits` on, returns `409` with `weight_limit_exceeded` (same body as a [move](#wip-weight-limit-enforcement)) when the column's total would exceed the limit; a board admin may override with the optional `?force=true` query parameter. Lowering `weight`, leaving it unchanged, or editing any other field is never blocked — even in a column that is already over its WIP or weight limit. The WIP limit is not checked here, since the column's card count does not change. *Changed in 1.2 (#1428).*
+> **Weight limit:** raising `weight` in a column with a `weight_limit`, on a board with `enforce_weight_limits` on, returns `409` with `weight_limit_exceeded` (same body as a [move](#wip-weight-limit-enforcement)) when the column's total would exceed the limit; a board admin may override with the optional `?force=true` query parameter. Lowering `weight`, leaving it unchanged, or editing any other field is never blocked, even in a column already over its WIP or weight limit. The WIP limit is not checked, since the column's card count does not change. *Changed in 1.2 (#1428).*
 
 #### Custom field values (since 1.2)
 
-`custom_field_values` is read and written in the same shape, so the representation the API
-returned can be sent straight back:
+`custom_field_values` reads and writes in the same shape, so a returned representation can be sent straight back:
 
 ```json
 { "custom_field_values": [{ "field_definition": 12, "value": "raid10" }] }
 ```
 
-- **Only the fields named in the payload are touched** — a PATCH naming one field leaves
-  every other value on the card alone.
-- **Sending `""` or `null` clears a field**, removing its value entirely rather than
-  storing a blank one. A cleared field is absent from subsequent responses.
+- **Only the fields named in the payload are touched.** A PATCH naming one field leaves every other value alone.
+- **Sending `""` or `null` clears a field**, removing its value rather than storing a blank. A cleared field is absent from later responses.
 - Values are validated and normalized per the definition's `field_type`: a `number` must
   parse as a finite decimal, a `date` must be `YYYY-MM-DD`, a `dropdown` value must be one
   of the definition's current `choices`, and a `checkbox` accepts `true`/`false`, `"true"`/
@@ -252,21 +261,15 @@ returned can be sent straight back:
   rejected, not truncated.
 - A `field_definition` id that does not belong to this card's board is rejected with `400`,
   as is the same field appearing twice in one payload.
-- Setting a value is a card edit: it goes through the same role allow-list and ownership
-  gate as any other field, bumps `version`, and is included in the `card.updated`
-  WebSocket payload.
+- Setting a value is a card edit: it uses the same role allow-list and ownership gate as any other field, bumps `version`, and appears in the `card.updated` WebSocket payload.
 - `is_required` is **not enforced** in this release.
 
 **Errors:**
-- `400 Bad Request` with the message on `custom_field_values` for any of the above. The
-  whole card update is rolled back — a card is never left half-updated because one value
-  failed validation.
+- `400 Bad Request` with the message on `custom_field_values` for any of the above. The whole update is rolled back, so one failed value never leaves a card half-updated.
 
 #### External ref (since 1.2)
 
-`external_ref` links a card to the merge request, pull request, or issue that implements it.
-It is also accepted on `POST /api/v1/boards/{board_id}/cards/`. The shape is the same on read
-and write:
+`external_ref` links a card to the merge request, pull request, or issue that implements it. It is also accepted on `POST /api/v1/boards/{board_id}/cards/`. Read and write share one shape:
 
 ```json
 {
@@ -284,21 +287,14 @@ and write:
 | `ref` | string | 1-255 characters. Surrounding whitespace is trimmed; no inner whitespace, control, or invisible Unicode formatting characters (e.g. zero-width space, bidi overrides). Freeform, e.g. `owner/repo#123` or `group/proj!45` |
 | `url` | string | At most 2048 characters. Must be an absolute `http` or `https` URL with a host. Surrounding whitespace is trimmed; embedded whitespace, control, or invisible formatting characters are rejected, as are backslashes and a percent-encoded host |
 
-- **Omitting the key leaves the link untouched.** Sending `null` removes it. Sending an object
-  replaces the whole link, and all three keys are required even on PATCH — a partial object
-  is a `400`.
+- **Omitting the key leaves the link untouched.** Sending `null` removes it. Sending an object replaces the whole link; all three keys are required even on PATCH, and a partial object is a `400`.
 - The response always includes the key; it is `null` when no link is set.
 - `javascript:`, `data:`, `ftp:`, protocol-relative, and relative URLs are rejected, as are
   URLs that embed credentials (`user:pass@host`). The host is not checked against `provider`,
   so self-hosted GitLab and GitHub Enterprise URLs are accepted.
-- Setting the link is a card edit: it uses the same role allow-list and ownership gate as any
-  other field (viewers receive `403`), bumps `version`, and is included in the `card.updated`
-  WebSocket payload. No activity-history entry is written in this release.
-- Not included on the anonymous public share-link payload, because a ref can reveal private
-  repository names.
-- The field names and value rules above are a stable public contract. The same rules are
-  enforced by the model's `full_clean()`, so an integration that writes the table directly
-  must call it (or go through the API).
+- Setting the link is a card edit: it uses the same role allow-list and ownership gate as any other field (viewers receive `403`), bumps `version`, and appears in the `card.updated` WebSocket payload. This release writes no activity-history entry.
+- Not included in the anonymous public share-link payload, because a ref can reveal private repository names.
+- The field names and value rules above are a stable public contract. The model's `full_clean()` enforces the same rules, so an integration that writes the table directly must call it (or use the API).
 
 **Errors:** `400 Bad Request` with the error nested under `external_ref`, keyed by sub-field:
 
@@ -309,7 +305,7 @@ and write:
 A non-object value (other than `null`) returns
 `{ "external_ref": { "non_field_errors": ["..."] } }`.
 
-> **`column`, `swimlane`, and `position` cannot be changed via PATCH/PUT.** These fields are present in the serializer response, and echoing back the card's *current* `column`/`swimlane`/`position` value is accepted (so a PUT client that round-trips the full representation still works). Submitting a *different* value — same board or another board — is rejected with `400` and body `{"code": "use_move_endpoint", "detail": "..."}`. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`, which enforces WIP/weight limits and writes the `CardMovement` audit trail.
+> **`column`, `swimlane`, and `position` cannot be changed via PATCH/PUT.** Echoing the card's *current* value is accepted, so a PUT client that round-trips the full representation still works. Submitting a *different* value, on the same board or another, is rejected with `400` and body `{"code": "use_move_endpoint", "detail": "..."}`. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`, which enforces WIP/weight limits and writes the `CardMovement` audit trail.
 
 > `column` and `swimlane` are also rejected on **create** (`POST`) when they reference a column/swimlane belonging to a different board — `400`, not `404`.
 
@@ -318,7 +314,7 @@ A non-object value (other than `null`) returns
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/`
 Delete a card. Requires member or above. Returns `404 Not Found` if the card was deleted or archived concurrently; the request has no effect.
 
-> **Ownership gate:** Members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
+> **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 Deleting a card also deletes its [relations](#relations-since-12). Broadcasts
 `card.deleted`, plus `card.updated` for every card this one was actively
@@ -329,9 +325,9 @@ blocking, whose `blocker_count` drops as a result.
 ## Archive
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/archive/`
-Soft-delete a card. Takes no request body. Sets `archived_at` to the current timestamp. The card is removed from the active board view and excluded from WIP/weight counts. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently. If the delete lands after the archive committed, the archive stays applied but the response is still `404`, since there is no card left to return (#1585).
+Soft-delete a card. Takes no body. Sets `archived_at` to now, removes the card from the active board view, and excludes it from WIP/weight counts. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently. If the delete lands after the archive committed, the archive stays applied but the response is still `404`, since no card is left to return (#1585).
 
-> **Ownership gate:** Members may only archive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
+> **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only archive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 If the card is already archived this is a no-op — `200 OK` is returned with the current card state.
 
@@ -342,7 +338,7 @@ Broadcasts `card.archived` to all board WebSocket subscribers. Also broadcasts `
 ### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
 Unarchive a card. Takes no request body (`force` is a query parameter, below). Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently (including a no-op restore of a card that vanished before the response was built, #1585); nothing is saved.
 
-> **Ownership gate:** Members may only unarchive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
+> **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only unarchive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 **Response** — full card object with `archived_at: null`.
 
@@ -373,7 +369,7 @@ List all archived cards for the board, newest archived first. Available to all b
 ```
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/status/`
-Check whether a card exists and whether it is archived. Used by the deep-link handler (`?card=`) to display a contextual message when the target card is not visible in the active board view.
+Check whether a card exists and is archived. The deep-link handler (`?card=`) uses it to explain why a target card is not in the active board view.
 
 **Permissions:** any board member (viewer and above).
 
@@ -480,9 +476,9 @@ When `enforce_wip_hard` is not enabled, board admins may override the limit by a
 POST /api/v1/boards/1/cards/42/move/?force=true
 ```
 
-`?force=true` only takes effect when the move would otherwise be blocked by an actual WIP or weight limit breach — sending it on a move that doesn't hit a limit is a no-op and succeeds normally regardless of role. A non-admin whose move *does* hit a limit and who sends `?force=true` receives `403 Forbidden`.
+`?force=true` only matters when the move would otherwise be blocked by a real WIP or weight breach; on a move that hits no limit it is a no-op that succeeds for any role. A non-admin whose move *does* hit a limit and sends `?force=true` receives `403 Forbidden`.
 
-The `*_uid` fields in the movement record are permanent — they remain set even after the referenced column or swimlane is deleted (the FK `*_id` field becomes `null` at that point, but the UID is preserved). See [Stable UIDs](../features/stable-uids.md).
+The `*_uid` fields in the movement record are permanent: they stay set after the referenced column or swimlane is deleted (the FK `*_id` becomes `null`, the UID is preserved). See [Stable UIDs](../features/stable-uids.md).
 
 ---
 
@@ -525,7 +521,7 @@ Activity log (field changes, comments, attachments, checklist events).
 ### `GET /api/v1/boards/{board_id}/cards/{id}/timeline/`
 Unified, paginated timeline that merges card movements and field-change activities into a single chronological feed, sorted newest-first. **Minimum role: any board member (viewer and above).**
 
-Use this endpoint when you need a single list combining moves, comments, field edits, checklist events, attachments, and system events — rather than fetching `movements/` and `activities/` separately and merging client-side.
+Use it for one list combining moves, comments, field edits, checklist events, attachments, and system events, instead of fetching `movements/` and `activities/` separately and merging client-side.
 
 **Query parameters**
 
@@ -643,7 +639,7 @@ Add a comment. **Minimum role: Collaborator.** Returns `404 Not Found` if the ca
 **Request** `{ "body": "Looking into this now." }` — returns the new comment, with `imported_from_username: null`. The field is read-only and ignored if sent.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/comments/{comment_id}/`
-Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete their own comments. Members with the `is_moderator` entitlement (or admin role) may delete any comment. Collaborators cannot delete others' comments regardless of `is_moderator`. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
+Delete a comment. **Minimum role: Collaborator.** Collaborators may delete only their own comments, regardless of `is_moderator`. Members with the `is_moderator` entitlement (or admin role) may delete any comment. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 ---
 
@@ -652,7 +648,7 @@ Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/attachments/`
 List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `url` (absolute URL — scheme + host + path, built from the request), `uploaded_by` (user object, or `null` if the uploader has since been deleted), `uploaded_at`.
 
-To download an attachment file, fetch its `url` URL with the same `Authorization` header used for API requests — attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests return `401 Unauthorized`; requests from users without board membership return `404 Not Found`.
+To download a file, fetch its `url` with the same `Authorization` header as API requests; attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests return `401 Unauthorized`; users without board membership get `404 Not Found`.
 
 ```bash
 curl -O -J http://localhost:8000/media/attachments/abc123.pdf \
@@ -711,7 +707,7 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 ```
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
-Delete an attachment. **Minimum role: Collaborator.** Collaborators may only delete their own attachments. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of `is_moderator`. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
+Delete an attachment. **Minimum role: Collaborator.** Collaborators may delete only their own attachments, regardless of `is_moderator`. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 ---
 
@@ -855,7 +851,7 @@ Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 
 > **Ownership gate:** Collaborators and members may only edit items they created. Admins and moderators may edit any item. Items with no recorded creator (created before the `created_by` field existed in migration 0044, or whose creator's account was deleted) can be edited only by admins and moderators, the same as comments and attachments. Non-moderator callers who did not create the item receive `403 Forbidden` with `{"detail": "You can only edit checklist items you created."}`.
 
-> **`position` cannot be changed via PATCH.** The field is present in the response, and echoing back the item's *current* `position` value is accepted (so a PUT-style client that round-trips the full representation still works). Submitting a *different* value is rejected with `400` and body `{"position": ["Changing a checklist item's position via PATCH is not allowed — ..."]}`. To reorder checklist items, use `POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/` (since 1.2, #1292).
+> **`position` cannot be changed via PATCH.** Echoing the item's *current* `position` is accepted, so a PUT-style client that round-trips the full representation still works. Submitting a *different* value is rejected with `400` and body `{"position": ["Changing a checklist item's position via PATCH is not allowed — ..."]}`. To reorder checklist items, use `POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/` (since 1.2, #1292).
 
 **Request** `{ "is_checked": true }`
 
@@ -863,9 +859,9 @@ Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 Delete a checklist item. **Minimum role: Collaborator.** Same ownership gate as `PATCH` above. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/checklist/reorder/`
-Reorder checklist items on a card. **Minimum role: Collaborator.** Not ownership-gated — unlike `PATCH`/`DELETE` on a single item, reordering changes the whole list's display order rather than one item's content, so any collaborator+ may reorder regardless of who created each item. *(Since 1.2, #1292.)* Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
+Reorder checklist items on a card. **Minimum role: Collaborator.** Not ownership-gated: unlike `PATCH`/`DELETE` on one item, reordering changes the whole list's display order, not one item's content, so any collaborator+ may reorder whoever created each item. *(Since 1.2, #1292.)* Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
-**Request** `{ "order": [17, 21, 19] }` — `order` must be **exactly** this card's current checklist item IDs: every item once, no duplicates, and no ID from another card. A partial list, a duplicate ID, an ID belonging to a different card, or (on a card that has items) an empty list are all rejected with `400` and body `{"order": ["..."]}` rather than partially applied. Returns the reordered list (same shape as `GET`).
+**Request** `{ "order": [17, 21, 19] }`. `order` must be **exactly** this card's current checklist item IDs: every item once, no duplicates, no ID from another card. A partial list, a duplicate, a foreign ID, or (on a card that has items) an empty list is rejected with `400` and body `{"order": ["..."]}`, never partially applied. Returns the reordered list (same shape as `GET`).
 
 **Checklist item response shape**
 

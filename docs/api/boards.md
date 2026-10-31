@@ -1,10 +1,19 @@
-# Boards API
+# Create and manage boards over the API
 
-`GET /api/v1/boards/` lists your boards; everything else here hangs off a board id.
+Create a board with `POST /api/v1/boards/` and a `name`; it answers `201`. Every other call here hangs off the returned board id.
+
+```bash
+curl -X POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name": "Sales Pipeline"}' http://localhost:8000/api/v1/boards/
+```
+
+Omit `template` for the `simple_kanban` layout; omit `swimlane_name` for no swimlane. List boards with `GET /api/v1/boards/`.
+
+**Go deeper:** [Boards](#boards), [Templates](#templates), [Export & Import](#export-import), [Members](#members), [Board invites](#board-invites), [Board sharing](#board-sharing), [Columns](#columns), [Swimlanes](#swimlanes), [Labels](#labels), [Custom fields](#custom-fields-since-12), [Public share endpoint](#public-share-endpoint).
 
 **Why it matters:** columns, swimlanes, labels, membership, and sharing all enforce board roles, so check the role a call needs before you script it.
 
-**The big picture:** boards, columns, swimlanes, labels, custom fields, membership, sharing, and export/import — everything you do with a board short of the cards inside it (see [Cards API](cards.md)).
+**The big picture:** everything you do with a board short of the cards inside it (see [Cards API](cards.md)).
 
 ## Boards
 
@@ -34,8 +43,8 @@ Create a board.
 |---|---|---|
 | `name` | ✓ | Board name |
 | `description` | | Board description (default: `""`) |
-| `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/v1/boards/templates/` for available slugs. Omitting the field (or sending `""`/`null`) uses the default; sending a non-blank slug that doesn't match an active template returns `400` — see **Errors** below. |
-| `swimlane_name` | | Name for the first swimlane. Omitting it (or sending blank) creates the board with **no** swimlane at all — no template currently supplies a non-empty default. Contrast with [`POST /groups/{id}/boards/`](groups.md#boards), which defaults an omitted value to `"General"`. |
+| `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/v1/boards/templates/` for available slugs. Omit it (or send `""`/`null`) for the default; a non-blank slug that matches no active template returns `400` (see **Errors**). |
+| `swimlane_name` | | Name for the first swimlane. Omit it (or send blank) and the board gets **no** swimlane; no template supplies a default. By contrast, [`POST /groups/{id}/boards/`](groups.md#boards), defaults an omitted value to `"General"`. |
 | `group` | | Integer group ID — assigns the board to this group at creation time. Since 1.2 the caller must be an admin of the group or of one of its ancestor groups (or a site admin with all-content access), the same rule as [`POST /groups/{id}/boards/`](groups.md#boards). `null` or omitted creates a personal board. |
 
 Since 1.2, a non-string `swimlane_name` returns `400 Bad Request` with the error keyed to `swimlane_name` (it returned `500` before).
@@ -44,8 +53,8 @@ Since 1.2, a non-string `swimlane_name` returns `400 Bad Request` with the error
 
 | Status | Body | Condition |
 |---|---|---|
-| `400 Bad Request` | `{"code": "unknown_template", "detail": "Unknown board template: '...'."}` (both plain strings, #1660) | `template` was sent as a non-blank value that doesn't match an active template's slug. This is deliberately distinct from a generic per-field validation error — a stale or mistyped `template` value previously created a `simple_kanban` board with a `201` instead of surfacing the mistake (#1115). |
-| `400 Bad Request` | `{"group": ["Unknown group, or you are not an admin of it."]}` | `group` names a group that does not exist, or one the caller does not administer. Both cases return the same body. |
+| `400 Bad Request` | `{"code": "unknown_template", "detail": "Unknown board template: '...'."}` (both plain strings, #1660) | `template` was sent as a non-blank value that doesn't match an active template's slug. Deliberately distinct from a per-field validation error: a stale or mistyped `template` once created a `simple_kanban` board with a `201` and hid the mistake (#1115). |
+| `400 Bad Request` | `{"group": ["Unknown group, or you are not an admin of it."]}` | `group` names a group that does not exist or that the caller does not administer. Both return the same body. |
 
 ### `GET /api/v1/boards/{id}/`
 Get board summary. Response includes:
@@ -74,14 +83,14 @@ Get board summary. Response includes:
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
-Update board fields. Both `PUT` and `PATCH` are accepted — all fields are optional in either case. Requires board admin.
+Update board fields. `PUT` and `PATCH` are both accepted, and every field is optional in either. Requires board admin.
 
-**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`, `show_row_chip_field_names`, `group` (see below; since 1.2, changing it to a different group also requires admin of that group). The entire request requires board admin (or site admin) — there is no tier of fields a non-admin member can edit; a non-admin PATCHing even a single field like `description` receives `403 Forbidden`.
+**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, `card_density`, `show_wip_at_limit`, `show_row_chip_field_names`, `group` (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field `description` PATCH from a non-admin gets `403 Forbidden`.
 
-**`group` on update:** [`POST /api/v1/boards/{id}/move-group/`](#post-apiv1boardsidmove-group) is the preferred way to change it. Since 1.2, setting `group` to a different group requires the caller to be an admin of that group or of one of its ancestor groups (or a site admin with all-content access); otherwise, or when the group does not exist, the request returns `400` with `{"group": ["Unknown group, or you are not an admin of it."]}` and nothing is changed. The check is made against the board's group at the time the update is applied. Sending the board's current `group` unchanged (for example in a `PUT` that echoes the board back) and setting it to `null` (detach to a personal board) need only board admin. Since 1.2, a `group` change made this way sends the same [group-channel events](websockets.md#group-channel-since-11) as move-group: `board.deleted` to the old group and `board.created` to the new one.
+**`group` on update:** [`POST /api/v1/boards/{id}/move-group/`](#post-apiv1boardsidmove-group) is the preferred way to change it. Since 1.2, setting `group` to a different group requires admin of that group or of one of its ancestor groups (or a site admin with all-content access). Otherwise, or if the group does not exist, the request returns `400` with `{"group": ["Unknown group, or you are not an admin of it."]}` and changes nothing. The check runs against the board's group when the update is applied. Sending the current `group` unchanged (for example in an echoing `PUT`) or `null` (detach to a personal board) needs only board admin. Since 1.2, a `group` change made this way sends the same [group-channel events](websockets.md#group-channel-since-11) as move-group: `board.deleted` to the old group and `board.created` to the new one.
 
 ### `DELETE /api/v1/boards/{id}/`
-Delete board. Requires board owner or site admin. Deletes every card on the board, **including archived cards** — see `archived_card_count` above.
+Delete a board. Requires board owner or site admin. Deletes every card, **including archived cards** (see `archived_card_count` above).
 
 Since 1.2, if cards keep being created in, or moved into, the board while it is being deleted, the delete gives up after a bounded number of internal retries and returns `409 Conflict` with `{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}`. Nothing is deleted; retry the request (#1602). A create or move that targets the board while it is being deleted waits for the delete and then returns `404`. Other requests that write to the board while it is being deleted also wait for the delete and then return `404` with nothing written: board `PATCH`/`PUT`, share link enable and revoke, move-group, column and swimlane create, update, reorder and set-collapsed, card and swimlane custom-field definition create, update and delete, label create, update and delete, saved-filter create, star and unstar, member add, role change and removal, and invite link create and send. A delete of a board, column or swimlane that waits behind another delete of the same object also waits and then returns `404`; the deletion event is sent once. A `PATCH` of a board that waits behind another write to the same board (for example a share link change or a move to a group) applies only the fields it sends: the fields it did not send keep the other request's committed values. While a column or swimlane is being deleted, an update of that column or swimlane waits and then returns `404`; other column and swimlane requests wait for it and then proceed (a column reorder that still lists the deleted column returns `400`).
 
@@ -101,10 +110,10 @@ Since 1.2, also includes `custom_field_definitions` (the board's card custom fie
 
 **`members` is the effective roster, not membership rows.** It lists everyone who can act on the board: direct members, members inherited from the board's group (and its ancestors), and the board owner. For a site-admin requester (board role `site_admin`, or an instance site admin) it also lists every user with all-content access who holds no other role on the board, so they appear in @mention autocomplete and member management; for every other requester it lists the board's own members only (since 1.2, #1714). Mentioning a user with all-content access by typing their `@username` notifies them either way. Only direct members have a `BoardMembership` row on the board, so for the other rows `id` is `null`; all-content rows carry `role: "site_admin"`, which is not a membership role. In the OpenAPI schema this is the `EffectiveBoardMember` component (role enum `EffectiveBoardRoleEnum`), distinct from the strict `BoardMembership` component returned by `POST /api/v1/boards/{id}/members/`, whose `id` is never `null` and whose `role` never includes `site_admin`. Since 1.2 the schema documents `/full/` as its own `BoardFull` component; before that it was mis-documented as `Board` (#1137), a schema-only correction that did not change the response body.
 
-**`?expand=group` parameter:** when `?expand=group` is appended, the `group_detail` field in the response is populated with a `GroupBrief` object containing `id`, `name`, `parent` (parent group FK ID or `null`), `parent_name` (parent group display name or `null`), and `ancestors` (root-first `[{ id, name }]` chain). Without this parameter `group_detail` is `null`.
+**`?expand=group`:** populates `group_detail` with a `GroupBrief` object: `id`, `name`, `parent` (parent group FK ID or `null`), `parent_name` (or `null`), and `ancestors` (root-first `[{ id, name }]`). Without it, `group_detail` is `null`.
 
 ### `GET /api/v1/boards/{id}/events/`
-Board change feed — committed board mutations in ascending `id` order, so an out-of-process consumer can resume after a dropped WebSocket instead of re-fetching `/full/`. Added in 1.2.
+Board change feed: committed board mutations in ascending `id` order, so a consumer can resume after a dropped WebSocket instead of re-fetching `/full/`. Added in 1.2.
 
 **Query parameters:** `after` (cursor — the last event `id` processed; default `0`) and `limit` (`1`–`500`, default `100`). Both are validated, not clamped; an out-of-range or malformed value returns `400`.
 
@@ -125,7 +134,7 @@ Board change feed — committed board mutations in ascending `id` order, so an o
 See [Change Feed](events.md) for the full contract, retention, and the reconnect flow.
 
 ### `POST /api/v1/boards/{id}/star/`
-Star (favorite) a board. Takes no request body. Returns `200 OK` with the updated board object (whether or not the board was already starred).
+Star (favorite) a board. Takes no body. Returns `200 OK` with the updated board object, whether or not it was already starred.
 
 **Permissions:** requires authentication and board access (any role). Sends `board.star_changed` to the requesting user's own WebSocket sessions only (#1677).
 
@@ -167,7 +176,7 @@ A move-group, board `PATCH`/`PUT` that sets `group`, board create with a `group`
 
 Read-only endpoints behind the **Start from a sample** gallery on the Import Board screen. They need the same access as importing (authentication, no pending password or username change) and, for a personal access token, the `read` scope. Both set `Cache-Control: private, max-age=3600`.
 
-The files are shipped inside the backend image, so a sample always matches the importer of the same release. To use one, fetch it and post it to [`POST /api/v1/boards/import/`](#post-apiv1boardsimport) like any other export file; group access and the import rate limit are enforced there.
+The files ship in the backend image, so a sample always matches the same release's importer. To use one, fetch it and post it to [`POST /api/v1/boards/import/`](#post-apiv1boardsimport) like any other export file; group access and the import rate limit are enforced there.
 
 ### `GET /api/v1/boards/samples/`
 List the sample boards in gallery order.
@@ -216,7 +225,7 @@ Return one sample as the raw Visiban JSON export (`Content-Type: application/jso
 ### `GET /api/v1/boards/templates/`
 List all active board templates. Requires authentication. Used by the board creation modal to populate the template picker.
 
-This endpoint and board creation (`POST /api/v1/boards/`, `POST /api/v1/groups/{id}/boards/`) read the same `BoardTemplate` database table — a template's listed columns are exactly the columns a board created with it will get (#1115).
+This endpoint and board creation (`POST /api/v1/boards/`, `POST /api/v1/groups/{id}/boards/`) read the same `BoardTemplate` table, so a template's listed columns are exactly the columns a new board gets (#1115).
 
 **Response**
 ```json
@@ -255,10 +264,10 @@ This endpoint and board creation (`POST /api/v1/boards/`, `POST /api/v1/groups/{
 
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Content Production**, **Hiring & Recruiting**, **Legal & Compliance**, **Infrastructure & DevOps**, **Blank Board**.
 
-**Registering additional templates.** An installed package (not just enterprise) can register more templates without an OSS code change or migration via `boards.hooks.TEMPLATE_PROVIDERS` — see that module for the callable signature and conflict policy (new slugs only; an existing row, built-in or provider-registered, is never overwritten by the sync). See [`docs/architecture/open-core-boundary.md`](../architecture/open-core-boundary.md) for how this fits the OSS extension-point conventions.
+**Registering additional templates.** Any installed package (not just enterprise) can register templates, with no OSS code change or migration, via `boards.hooks.TEMPLATE_PROVIDERS` — see that module for the callable signature and conflict policy (new slugs only; the sync never overwrites an existing built-in or provider-registered row). See [`docs/architecture/open-core-boundary.md`](../architecture/open-core-boundary.md) for the OSS extension-point conventions.
 
 ### `GET /api/v1/boards/{id}/summary/`
-Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses 1–4 aggregate queries regardless of board size (1 unconditionally, plus up to 3 more only when the board has at least one done column).
+Board health summary: per-swimlane card counts, stage distribution, and velocity. Uses 1–4 aggregate queries regardless of board size (1 always, plus up to 3 more only when the board has a done column).
 
 **Response shape:**
 
@@ -298,7 +307,7 @@ Board health summary — per-swimlane card counts, stage distribution, and veloc
 
 > **Added in 1.2** (#1770)
 
-Each entry of `extension_panels` comes from an `ANALYTICS_EXTENSIONS` callable (`boards/hooks.py`) and is returned after JSON normalization by the API encoder: tuples become lists, date, time and UUID values become strings, and `Decimal` values become numbers. The web UI renders two panel types, `stats` and `table`. This shape is a public contract: existing types only ever gain optional fields, and an incompatible shape gets a new `type` name. There is no version field.
+Each `extension_panels` entry comes from an `ANALYTICS_EXTENSIONS` callable (`boards/hooks.py`), normalized by the API encoder: tuples become lists, date, time and UUID values become strings, and `Decimal` values become numbers. The web UI renders two panel types, `stats` and `table`. The shape is a public contract: existing types only gain optional fields, and an incompatible shape gets a new `type` name. There is no version field.
 
 | Field | Required | Rule |
 |---|---|---|
@@ -341,7 +350,7 @@ Example:
 
 > **Changed in 1.2** (#1826)
 
-The summary is returned to every member who can read the board, viewers included, so each `ANALYTICS_EXTENSIONS` callable declares the lowest board role that may see its panel, as a `min_role` attribute on the callable:
+The summary goes to every member who can read the board, viewers included, so each `ANALYTICS_EXTENSIONS` callable sets a `min_role` attribute naming the lowest board role that may see its panel:
 
 ```python
 def delivery_risk(board, request):
@@ -359,11 +368,11 @@ ANALYTICS_EXTENSIONS.append(delivery_risk)
 | `"admin"` | Board admins, including the owner |
 | `"site_admin"` | Users with all-content access only |
 
-- The summary resolves the caller's board role the same way it authorizes the request (all-content access, then owner, then explicit membership, then the nearest group membership) and drops every panel above that role **before calling any panel**. A dropped panel's callable is never invoked.
+- The summary resolves the caller's board role the way it authorizes the request (all-content access, then owner, then explicit membership, then the nearest group membership) and drops every panel above that role **before calling any panel**. A dropped panel's callable is never invoked.
 - **Fail closed:** a callable with no `min_role` (or `None`) is admin-only, and so is one with an invalid value (unknown, miscased or not a string), which also logs a server warning naming the callable. Panels registered before 1.2 are therefore admin-only until their author sets `min_role`.
 - A callable class can set `min_role` as a class attribute. For a bound method, set it on the function in the class body; a bound method object does not accept new attributes.
-- A panel can still narrow what it returns by checking `request.user`, but it no longer needs to gate access itself.
-- Nothing about a dropped panel appears in the response: it is absent from `extension_panels`, the same as when no panel is registered.
+- A panel can still narrow its output by checking `request.user`, but needn't gate access itself.
+- A dropped panel leaves no trace: it is absent from `extension_panels`, as if none were registered.
 
 ---
 
@@ -440,7 +449,7 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 ---
 
 ### `GET /api/v1/boards/{id}/movements/`
-Board-level movement history for all cards on the board, sorted newest first. Requires any board membership (viewer and above).
+Board-level movement history for all cards, sorted newest first.
 
 **Permissions:** any board member (`viewer` and above).
 
@@ -460,7 +469,7 @@ Board-level movement history for all cards on the board, sorted newest first. Re
 
 `export_min_role` also applies to movement exports requested with `?export=<format>`: a caller below the threshold receives the same `403` with `code: "export_restricted"` as the board export, and each successful export is recorded in the [export history](#get-apiv1boardsidexport-history). Movement exports share the board export rate limit (20 exports/hour per authenticated user, scope `board_export`; `429 Too Many Requests` when exceeded). Ordinary movement reads are not rate limited by it.
 
-When neither `moved_after` nor `moved_before` is specified, the full movement history is returned (no default date cutoff). Results are always paginated to `page_size: 50` so the absence of a date window does not cause runaway queries.
+With neither `moved_after` nor `moved_before`, the full history is returned (no default date cutoff). Results are always paginated to `page_size: 50`, so a missing date window can't cause a runaway query.
 
 *(1.2+)* A `moved_after` or `moved_before` that is not a valid date (`YYYY-MM-DD`), or a `swimlane_id`, `to_column_id` or `moved_by_id` that is not an integer (or is outside the signed 64-bit range), returns `400 Bad Request` with `{"detail": "...", "code": "invalid_query_param"}`. Earlier releases answered `500` for non-integer ids and unparseable dates; an id outside the signed 64-bit range matched nothing or errored, depending on the database. Values that were accepted before, such as an id of `0` (which matches nothing), are still accepted.
 
@@ -521,7 +530,7 @@ Each result object fields:
 
 ## Saved Filters
 
-Saved filters are user-scoped filter presets on a board. Any board member (including viewers) can save and restore their own filter presets. Filters are private — users cannot see or modify other users' presets.
+Saved filters are per-user filter presets on a board. Any board member (including viewers) can save and restore their own. Filters are private: no user can see or modify another's.
 
 ### `GET /api/v1/boards/{id}/saved-filters/`
 List all saved filters belonging to the requesting user on this board.
@@ -560,7 +569,7 @@ Create a new saved filter preset.
 
 #### `state_json` shape
 
-Top-level keys are validated server-side. Unknown keys are rejected; each known key is type-checked but its values are not semantically validated (the frontend remains responsible for confirming, e.g., that an `assigneeId` corresponds to a real user):
+The server rejects unknown top-level keys and type-checks each known key, but does not validate values semantically (the frontend must confirm, for example, that an `assigneeId` is a real user):
 
 | Key | Type | Notes |
 |---|---|---|
@@ -575,14 +584,18 @@ All keys are optional. The total serialized size of `state_json` must not exceed
 **Errors:** `400 Bad Request` if name is empty, exceeds 100 characters, a filter with the same name already exists for this user on this board, `state_json` contains unknown keys or wrong-typed values, or `state_version` is not an integer between 1 and 32767.
 
 ### `DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/`
-Delete a saved filter preset. Only the owning user can delete their own filters — attempting to delete another user's filter returns `404 Not Found`.
+Delete a saved filter preset. Only its owner can delete it; deleting another user's filter returns `404 Not Found`.
 
 ---
 
 ## Export & Import
 
 ### `GET /api/v1/boards/{id}/export/`
-Export the board. CSV is the default; append `?format=json` for a JSON dump. `?format=csv` is also accepted and returns the same CSV bytes as omitting `format` whenever the request's `Accept` header is absent or allows `application/json` or `*/*`. Under `format=csv` and `format=json`, error responses (`401`, `403`, `404`, `406`, `429`) are JSON. A request with `Accept: text/csv` alone returns `406 Not Acceptable` on the CSV paths, with or without `format`, because no renderer serves `text/csv`; send `*/*` or omit `Accept`. With `format` omitted and a browser `Accept` (`text/html`), or with `format=api`, errors render as HTML from the browsable API.
+Export the board. CSV is the default; append `?format=json` for a JSON dump. `?format=csv` returns the same CSV bytes as omitting `format` whenever `Accept` is absent or allows `application/json` or `*/*`.
+
+- Under `format=csv` and `format=json`, error responses (`401`, `403`, `404`, `406`, `429`) are JSON.
+- `Accept: text/csv` alone returns `406 Not Acceptable` on the CSV paths, with or without `format`, because no renderer serves `text/csv`. Send `*/*` or omit `Accept`.
+- With `format` omitted and a browser `Accept` (`text/html`), or with `format=api`, errors render as HTML from the browsable API.
 
 **Query parameters**
 
@@ -594,61 +607,38 @@ Both formats are file downloads (`Content-Disposition: attachment`): CSV as `tex
 
 **Rate limit:** 20 exports/hour per authenticated user (scope: `board_export`). Exceeding the limit returns `429 Too Many Requests`.
 
-Requires board membership — callers with no access to the board receive `404 Not Found`, the same as for a board that does not exist. If the caller is a member but their role is below the board's `export_min_role` threshold, returns `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
+Requires board membership; a caller with no access gets `404 Not Found`, as for a missing board. A member whose role is below the board's `export_min_role` gets `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
 
 `Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`. Since 1.2, a record created by a board import with history has `<moved_by>` followed by ` (imported, originally <name>)`, or ` (imported)` when the import file named nobody. Any `|`, `;` or line break in that source name is written as a space, so the record keeps its four parts.
 
-Since 1.2, one further column is **appended** per [custom field](#custom-fields-since-12)
-defined on the board, in the fields' display order, headed `Custom: <field name>`. The
-fixed columns above keep their positions, so a consumer reading by index is unaffected.
-The prefix keeps a field named e.g. `Title` from colliding with a built-in header.
-A [multi-select](#multi-select-fields) value is written as its entries joined with `"; "`.
+Since 1.2, one column is **appended** per [custom field](#custom-fields-since-12) on the board, in display order, headed `Custom: <field name>`. The fixed columns keep their positions, so index-based consumers are unaffected, and the prefix keeps a field named `Title` from colliding with a built-in header. A [multi-select](#multi-select-fields) value is written as its entries joined with `"; "`.
 
-Also since 1.2, one further column is appended per [swimlane custom
-field](#swimlane-custom-fields-since-12) defined on the board, after the `Custom: ` block,
-headed `Swimlane Custom: <field name>`. A row field's value is repeated on every card row
-belonging to that swimlane, so the CSV stays one row per card. The distinct `Swimlane
-Custom: ` prefix (rather than reusing `Custom: `) is required, not cosmetic: a card field
-and a row field may legally share a `name` on the same board, and sharing the prefix would
-produce two identical headers. A field with `is_admin_only: true` produces no column at all
-for an exporter below `admin` — its existence is not disclosed, the same rule
-`contact_email`/`notes` already follow in this export.
+Also since 1.2, one column is appended per [swimlane custom field](#swimlane-custom-fields-since-12), after the `Custom: ` block, headed `Swimlane Custom: <field name>`. A row field's value repeats on every card row of its swimlane, so the CSV stays one row per card. The distinct `Swimlane Custom: ` prefix (rather than reusing `Custom: `) is required: a card field and a row field may share a `name`, and a shared prefix would produce identical headers. A field with `is_admin_only: true` produces no column for an exporter below `admin`, so its existence is not disclosed (the rule `contact_email`/`notes` already follow in this export).
 
 ### `GET /api/v1/boards/{id}/export/?format=json`
-Export the board as JSON. Returns `application/json`. Same permission rules as the CSV variant: requires board membership and meeting the `export_min_role` threshold. Owners and site admins always bypass.
+Export the board as JSON (`application/json`). Same permissions as the CSV variant: board membership and the `export_min_role` threshold. Owners and site admins always bypass.
 
 **Rate limit:** 20 exports/hour per authenticated user (scope: `board_export`). Exceeding the limit returns `429 Too Many Requests`.
 
 **Response shape:**
 
-The top-level `schema_version` field is always `2` in 1.1+ exports. The importer understands versions 0 (pre-1.0, no field present), 1, and 2. Version 2 adds `archived_at` per card, `movement_type`, movement `notes`, and comment `created_at`.
+The top-level `schema_version` is always `2` in 1.1+ exports. The importer reads versions 0 (pre-1.0, no field present), 1, and 2. Version 2 adds `archived_at` per card, `movement_type`, movement `notes`, and comment `created_at`.
 
-Each card also carries its own `movements` (`{from_column, to_column, from_swimlane, to_swimlane, moved_by, moved_at, notes, movement_type}`, one per `CardMovement`) and `activities` (`{event_type, from_value, to_value, actor, created_at}`, one per `CardActivity`) arrays, mirroring the [movements](cards.md#history) and [activities](cards.md#history) endpoints. As with the rest of this export, `moved_by`/`actor` are usernames rather than user objects, and `null` when the acting user has since been deleted. Since 1.2 both also carry `imported_from_username` (additive; `schema_version` stays `2`): `null` for history recorded on the board, and the source username for a row that came from an earlier import. Each card's `comments` (`{author, body, created_at}`) carry it too since 1.2, with the same meaning (#1702).
+Each card also carries `movements` (`{from_column, to_column, from_swimlane, to_swimlane, moved_by, moved_at, notes, movement_type}`, one per `CardMovement`) and `activities` (`{event_type, from_value, to_value, actor, created_at}`, one per `CardActivity`) arrays, mirroring the [movements](cards.md#history) and [activities](cards.md#history) endpoints. `moved_by`/`actor` are usernames, not user objects, and `null` once the acting user is deleted. Since 1.2 both also carry `imported_from_username` (additive; `schema_version` stays `2`): `null` for history recorded on the board, and the source username for a row that came from an earlier import. Each card's `comments` (`{author, body, created_at}`) carry it too since 1.2, with the same meaning (#1702).
 
-On import with `history` on, every movement and activity entry is recorded under the importing user and keeps the file's time. Its source name is kept as text in `imported_from_username` — the entry's own `imported_from_username` when the file has one (a re-exported import), otherwise its `moved_by` / `actor`, or `""` when there is neither. Source names are never resolved to accounts; only `assignee` is. `imported_from_username` must be a string or `null`, at most 150 characters, with no NUL characters.
+On import with `history` on, every movement and activity entry is recorded under the importing user and keeps the file's time. Its source name is kept as text in `imported_from_username`: the entry's own value when the file has one (a re-exported import), otherwise its `moved_by` / `actor`, or `""`. Only `assignee` is resolved to an account; source names never are. `imported_from_username` must be a string or `null`, at most 150 characters, with no NUL characters.
 
 Since 1.2 (#1906), import also restores each card's `created_at` from the file, whatever the `history` option. It is used when it is not in the future and, with `history` on, not later than the card's first imported history entry (movement, activity or comment). Otherwise, or when the field is absent or unusable, the card is dated to the import. A bad `created_at` does not reject the file.
 
-Comments (with `comments` on) work the same way since 1.2: each is posted under the importing user, keeps the file's `created_at`, and keeps its source name in `imported_from_username` — the comment's own `imported_from_username` when the file has one, otherwise its `author` (a string; any other value is ignored, as before), or `""`. A comment's `author` is never resolved to an account, and an `author` longer than 150 characters is cut to 150. The same `imported_from_username` validation applies.
+Comments (with `comments` on) work the same way since 1.2: each is posted under the importing user, keeps the file's `created_at`, and keeps its source name in `imported_from_username`: the comment's own value when the file has one, otherwise its `author` (a string; any other value is ignored, as before), or `""`. An `author` is never resolved to an account, and one over 150 characters is cut to 150. The same `imported_from_username` validation applies.
 
-Since 1.2 the payload also carries the board's `custom_fields` schema and each card's
-`custom_field_values`, keyed by field name. Both are **additive**, so `schema_version`
-stays at `2` and an existing consumer is unaffected. JSON import restores both (see
-[Custom fields on import](#custom-fields-on-import)).
+Since 1.2 the payload also carries the board's `custom_fields` schema and each card's `custom_field_values`, keyed by field name. Both are **additive**: `schema_version` stays `2`. JSON import restores both (see [Custom fields on import](#custom-fields-on-import)).
 
 Also since 1.2, each card carries `external_ref` (`{ provider, ref, url }`, or `null` when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.
 
-Also since 1.2, each swimlane object carries its own `custom_field_values` (keyed by
-[swimlane custom field](#swimlane-custom-fields-since-12) name), and a top-level
-`swimlane_custom_fields` array carries that schema — the row-level counterpart to
-`custom_fields`/`custom_field_values`, kept as separate keys rather than merged into the
-card ones because they are independent per-board sets attached to different objects.
-Both are additive, and JSON import restores them, same as the card-level pair. A definition with
-`is_admin_only: true`, and any value under it, is omitted from the export entirely for a
-caller below `admin` — the same role gate this export already applies to a swimlane's
-`contact_email` and `notes`.
+Also since 1.2, each swimlane object carries `custom_field_values` (keyed by [swimlane custom field](#swimlane-custom-fields-since-12) name), and a top-level `swimlane_custom_fields` array carries that schema. These are separate keys from the card-level pair because they are independent per-board sets on different objects. Both are additive, and JSON import restores them. A definition with `is_admin_only: true`, and any value under it, is omitted for a caller below `admin`, the same gate this export applies to a swimlane's `contact_email` and `notes`.
 
 ```json
 {
@@ -704,7 +694,7 @@ caller below `admin` — the same role gate this export already applies to a swi
 ```
 
 ### `GET /api/v1/boards/{id}/export-history/`
-Return recent successful board exports for audit purposes (#842). Requires board `admin` or `site_admin` role — the board owner always resolves to `admin` even with no explicit membership row, so only `member`, `collaborator`, and `viewer` roles are actually turned away, with `403 Forbidden` and body `{"detail": "Export history is restricted to board admins."}`. Failed exports (permission denied, rate limited) are not logged.
+Return recent successful board exports for audit (#842). Requires board `admin` or `site_admin`; the owner always resolves to `admin`. A `member`, `collaborator`, or `viewer` gets `403 Forbidden` with body `{"detail": "Export history is restricted to board admins."}`. Failed exports (permission denied, rate limited) are not logged.
 
 **Query parameters:** `offset` (default `0`) and `page_size` (default `50`, max `200`).
 
@@ -737,7 +727,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
 | `created_at` | ISO 8601 timestamp. |
 
 ### `POST /api/v1/boards/import/`
-Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, an optional `group_id` field to place the imported board into a group, and an optional `options` field to choose what to import. Creates a new board atomically.
+Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field and optional `name` (board name override), `group_id` (place the board in a group), and `options` (choose what to import) fields. Creates a new board atomically.
 
 **Permission:** authenticated user. When `group_id` is set, since 1.2 the caller must be an admin of that group or of one of its ancestor groups (or a site admin with all-content access), the same rule as `POST /api/v1/groups/{id}/boards/`. A group the caller can see but does not administer returns `403 Forbidden`; a group that does not exist or is not visible returns `404 Not Found`.
 
@@ -745,7 +735,7 @@ Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-d
 
 **Import limits:** up to 500 cards, 50 columns, and 100 swimlanes per import. Payloads exceeding these limits return `400 Bad Request`.
 
-A JSON import also caps its child collections (#1507). The caps sit well above what a real board carries, but they are hard limits: a file over any of them, including a board's own export, is refused with `400 Bad Request`.
+A JSON import also caps its child collections (#1507). The caps sit well above a real board, but are hard limits: a file over any of them, including a board's own export, is refused with `400 Bad Request`.
 
 | Collection | Limit |
 |---|---|
@@ -758,7 +748,7 @@ A JSON import also caps its child collections (#1507). The caps sit well above w
 | Distinct usernames referenced (`assignee`, movement `moved_by`, activity `actor`) | 1,000 |
 | Rows written by the whole import (see below) | 50,000 |
 
-The whole-import limit is an upper bound on every row the import inserts, counted from the file before anything is written and regardless of the import options, so no import writes more than 50,000 rows. It counts 3 for the board itself (the board, your membership, and its `board.created` event); one per column, swimlane, label, and custom field definition; one per swimlane custom field value; and, for each card, 1 for the card, 1 for its MR/PR link, one per custom field value, one per comment, movement, activity, and label name, two per checklist item (the item and its "checklist item added" entry), and 2 for the "label added" and "weight changed" entries the importer may add.
+The whole-import limit caps every row the import inserts. It is counted from the file before anything is written, regardless of the import options, so no import writes more than 50,000 rows. It counts 3 for the board itself (the board, your membership, and its `board.created` event); one per column, swimlane, label, and custom field definition; one per swimlane custom field value; and, for each card, 1 for the card, 1 for its MR/PR link, one per custom field value, one per comment, movement, activity, and label name, two per checklist item (the item and its "checklist item added" entry), and 2 for the "label added" and "weight changed" entries the importer may add.
 
 **Malformed values in a JSON file** return `400 Bad Request` naming the item and key, and nothing is created. Since 1.2 (#1507) this covers:
 
@@ -770,13 +760,13 @@ The whole-import limit is an upper bound on every row the import inserts, counte
 - Dates and timestamps (`due_date`, `archived_at`, and comment, movement, and activity timestamps) must be strings that name a real date or time; a number such as `20200101`, an impossible value such as `2024-02-30` or `T25:00:00`, or a time whose UTC equivalent falls outside years 1–9999 (such as `9999-12-31T23:59:59-12:00`) is rejected.
 - A file that cannot be parsed, including one with an integer literal of more than 4,300 digits or nesting too deep to parse, returns `{"detail": "The uploaded file is not valid JSON."}`.
 
-Error messages quote at most a short, truncated part of any value from the file. A value that passes these checks but still cannot be stored returns `400` with `{"detail": "The import file contains a value that cannot be stored."}`. Every file the exporter produces imports unchanged as long as it is within the caps above; a board too large for them must be split before it can be re-imported.
+Error messages quote only a short, truncated part of any file value. A value that passes these checks but cannot be stored returns `400` with `{"detail": "The import file contains a value that cannot be stored."}`. Every exported file imports unchanged within the caps above; a board too large for them must be split before re-import.
 
 **Request** (`multipart/form-data`)
 
 | Field | Required | Description |
 |---|---|---|
-| `file` | ✓ | The JSON or CSV export file. The file is treated as JSON if its name ends in `.json` **or** its content type contains `json`; otherwise as CSV if its name ends in `.csv` or its content type contains `csv`; anything else is rejected. The JSON check runs first, so a `.csv` file uploaded with a JSON content type is parsed as JSON. |
+| `file` | ✓ | The JSON or CSV export file. Treated as JSON if its name ends in `.json` **or** its content type contains `json`; otherwise as CSV if its name ends in `.csv` or its content type contains `csv`; anything else is rejected. JSON is checked first, so a `.csv` file sent with a JSON content type is parsed as JSON. |
 | `name` | | Board name to use, exactly as given — no prefix and no duplicate suffix. When omitted, the board is named by the rule in [Default board name](#default-board-name). |
 | `group_id` | | Place the imported board into this group. Requires group admin. |
 | `options` | | A JSON object, sent as a string, choosing what to import. Omit it to import everything. See [Import options](#import-options). |
@@ -790,7 +780,7 @@ Without a `name` field, both formats name the new board `Imported: <name>`:
 - **JSON** — `<name>` is the `name` field in the file.
 - **CSV** — a CSV carries no board name, so `<name>` is the uploaded filename without its extension (`Q3 plan.csv` → `Imported: Q3 plan`). An empty filename stem falls back to `Board`.
 
-If a board with that exact name already exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on; a gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise every board you can access (your own or shared with you) that is not in a group — the boards listed under **My Boards** on the dashboard. The name is truncated to the 255-character limit so the prefix and number always fit. Board names are not unique, so two imports running at the same moment can occasionally receive the same name.
+If a board with that exact name exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise every ungrouped board you can access (the boards under **My Boards** on the dashboard). The name is truncated to the 255-character limit so the prefix and number always fit. Names are not unique, so two simultaneous imports can occasionally get the same name.
 
 #### Import options
 
@@ -806,11 +796,7 @@ Board structure (name, columns, swimlanes) is always imported. Every option is a
 | `checklist` | Card checklist items, and the "checklist item added" activity entries the importer records for them. Requires `cards`. | JSON |
 | `history` | Card movements, the card `activities` from the file, and the "weight changed" activity entry the importer records for a non-default weight. Requires `cards`. | JSON |
 
-The importer writes its own "label added", "checklist item added" and "weight changed"
-entries only for history the file does not already record: with `history` on, a card whose
-`activities` already contain that event type keeps the file's entries (with their original
-timestamp and source name, recorded under the importing user) and gets no synthetic copy, so re-importing an export does not double
-its history.
+The importer writes its own "label added", "checklist item added" and "weight changed" entries only for history the file does not already record. With `history` on, a card whose `activities` already contain that event type keeps the file's entries (original timestamp and source name, recorded under the importing user) and gets no synthetic copy, so re-importing an export does not double its history.
 
 Three more options are not include flags. They move the file's dates (see [Date shifting](#date-shifting)):
 
@@ -826,14 +812,14 @@ A CSV import rejects all three as unknown options: dates in a CSV are always imp
 
 > **Added in 1.2** (#1452; the file's own anchor, `shift_dates` and `shift_dates_to` since #1949)
 
-The shipped [sample boards](../getting-started/sample-boards.md) are generated around a fixed day, so imported as written most of their cards would be overdue. Each sample file carries that day as a top-level `"date_anchor": "YYYY-MM-DD"` key, and the importer resolves the shift like this:
+The shipped [sample boards](../getting-started/sample-boards.md) are generated around a fixed day, so imported as written most cards would be overdue. Each sample file carries that day as a top-level `"date_anchor": "YYYY-MM-DD"` key. The importer resolves the shift like this:
 
 1. `shift_dates` is `false`: nothing moves.
 2. Otherwise the source day is `shift_dates_from` when sent. An explicit option always wins over the file.
 3. Otherwise it is the file's `date_anchor`, when the file has one.
 4. With no source day, nothing moves. A file without `date_anchor`, which includes every board export, imports exactly as in earlier releases.
 
-Dates then move by the whole days from the source day to `shift_dates_to`, or to today's UTC date when it is not sent. The importer, not the web client, reads the file's anchor, so the import dialog, a `curl` upload of a downloaded sample, and any API client get the same board from the same file. When the file's anchor was used, `options_applied.shift_dates_from` reports it.
+Dates then move by the whole days from the source day to `shift_dates_to`, or to today's UTC date when it is not sent. The importer, not the web client, reads the anchor, so the import dialog, a `curl` upload, and any API client get the same board from the same file. When the file's anchor was used, `options_applied.shift_dates_from` reports it.
 
 Only a string counts as an anchor: a `date_anchor` that is `null`, a number, a list, or an object is ignored, and the file imports unshifted. A string `date_anchor` the importer would use is validated like `shift_dates_from`. One that is not a real `YYYY-MM-DD` date, or is out of range, returns `400 Bad Request`, for example `The file's 'date_anchor' is invalid: date_anchor cannot be in the future. Send the import option shift_dates as false to import its dates as written.` With `shift_dates: false`, or an explicit `shift_dates_from`, the key is not read.
 
@@ -875,20 +861,10 @@ curl -X POST https://visiban.example.com/api/v1/boards/import/ \
 
 > **Added in 1.2**
 
-A JSON file's `custom_fields` and `swimlane_custom_fields` definitions are restored with the
-board's structure, in list order, whatever the `options`. Each is validated exactly as the
-[custom field](#custom-fields-since-12) and
-[swimlane custom field](#swimlane-custom-fields-since-12) APIs validate a new definition, and
-the per-board limits apply to the list as a whole: at most 30 card fields (2 shown on the
-card) and 15 swimlane fields (8 shown on the row), with unique names. A definition that
-fails returns `400 Bad Request` and creates nothing — for example
+A JSON file's `custom_fields` and `swimlane_custom_fields` definitions are restored with the board's structure, in list order, whatever the `options`. Each is validated as the [custom field](#custom-fields-since-12) and [swimlane custom field](#swimlane-custom-fields-since-12) APIs validate a new definition, and the per-board limits apply to the whole list: at most 30 card fields (2 shown on the card) and 15 swimlane fields (8 shown on the row), with unique names. A failing definition returns `400 Bad Request` and creates nothing, for example
 `'custom_fields' entry at index 1: 'choices': …` or `Duplicate swimlane_custom_fields names: Owner`.
 
-Values (`custom_field_values` on each card and each swimlane, keyed by field name) go
-through the same normalizer as `PATCH`. A value naming no imported field, or one its field's
-type refuses, is dropped and the rest of the import proceeds. Card values follow the
-`cards` option; swimlane values are structure and always import. Values exported by
-Visiban are already in stored form and round-trip unchanged.
+Values (`custom_field_values` on each card and swimlane, keyed by field name) go through the same normalizer as `PATCH`. A value naming no imported field, or one its field's type refuses, is dropped and the import proceeds. Card values follow the `cards` option; swimlane values are structure and always import. Values exported by Visiban are already in stored form and round-trip unchanged.
 
 #### Custom fields in a CSV import
 
@@ -922,14 +898,7 @@ export writes, so card and swimlane field values survive a CSV round trip.
 
 <a id="csv-cell-limits"></a>
 
-**Cell limits (since 1.2, #1512).** The importer checks every row before it creates anything.
-A violation returns `400 Bad Request` as `Row N: <field> ...` and creates nothing. N counts
-data rows from 2 (the first data row is row 2), so it can differ from the physical line number
-when a quoted cell spans several lines. Any value echoed back is truncated. Only cells the
-import actually writes are checked: with `cards` set to `false` the `Title`, `Description`,
-`Assignee` and `Weight` cells are not checked, and with `labels` set to `false` neither is
-`Labels`. Columns the importer ignores (`Priority`, `Card ID`, unknown headers and so on) are
-never checked.
+**Cell limits (since 1.2, #1512).** The importer checks every row before creating anything. A violation returns `400 Bad Request` as `Row N: <field> ...` and creates nothing. N counts data rows from 2 (the first data row is row 2), so it can differ from the physical line number when a quoted cell spans several lines. Echoed values are truncated. Only cells the import writes are checked: with `cards` set to `false` the `Title`, `Description`, `Assignee` and `Weight` cells are skipped, and with `labels` set to `false` so is `Labels`. Ignored columns (`Priority`, `Card ID`, unknown headers and so on) are never checked.
 
 | Field | Limit |
 |---|---|
@@ -955,7 +924,7 @@ import, `[]` when nothing was dropped). It holds at most 20 entries followed by 
 
 **Response** `201 Created`
 
-Returns the newly created board object, using the same shape as `GET /api/v1/boards/{id}/`, plus an `import_summary` object. In the OpenAPI document this is the named `BoardImportResponse` component.
+Returns the new board in the shape of `GET /api/v1/boards/{id}/`, plus an `import_summary` object (the `BoardImportResponse` component in the OpenAPI document).
 
 ```json
 {
@@ -1005,9 +974,9 @@ The `board.created` event for the new board carries the resolved options as an a
 
 > **Added in 1.2** (#456)
 
-Import a Trello JSON export (Trello: **Menu → Print, export, and share → Export as JSON**) into a new board. The flow is stateless and has two steps: call with `?dry_run=true` to get a preview of exactly what will be created, then re-upload the same file with `?confirm=true` to create the board. Both modes run the same parsing and mapping code, so the preview is what the confirmed import does.
+Import a Trello JSON export (Trello: **Menu → Print, export, and share → Export as JSON**) into a new board. The flow is stateless and has two steps: call with `?dry_run=true` for a preview of exactly what will be created, then re-upload the same file with `?confirm=true` to create the board. Both modes run the same parsing and mapping code, so the preview is what the import does.
 
-The import is **synchronous**: the board exists when the `201` returns. It is bounded by the upload size cap, the count caps below, and the rate limits. Imported content does not send notifications (no @mention, assignment, or card-moved notifications), and no movement history is recorded for imported cards.
+The import is **synchronous**: the board exists when the `201` returns, bounded by the upload size cap, the count caps below, and the rate limits. Imported content sends no notifications (no @mention, assignment, or card-moved) and records no movement history for imported cards.
 
 **Permission:** authenticated user. When `group_id` is set, the caller must be an admin of that group or of one of its ancestor groups (or a site admin with all-content access) in **both** modes, so a preview cannot be used to probe a group the caller could not import into. The caller becomes the board's owner and admin.
 
@@ -1054,7 +1023,7 @@ Sending neither, or both, returns `400 Bad Request` (`"Specify exactly one of ?d
 
 A Trello member matches a Visiban user when the Trello **username** equals the Visiban username exactly, ignoring case. Display and full names are never used.
 
-Matching only considers users the caller can already see: co-members of the caller's boards, co-members of the caller's groups, and members and owner of the target group. Site admins can match any active user. This keeps a crafted file from being used to check whether an arbitrary username exists. The response reports only a **count** of matches, never which accounts matched.
+Matching considers only users the caller can already see: co-members of the caller's boards and groups, and members and owner of the target group. Site admins can match any active user. This stops a crafted file from probing whether a username exists. The response reports only a **count** of matches, never which accounts.
 
 - `add_matched_members: false` (default): matched users are not added to the board and cards are left unassigned.
 - `add_matched_members: true`: matched users are added to the board with the `member` role and assigned to their cards (the first matched Trello member on each card). Adding members sends no notification.
@@ -1085,7 +1054,7 @@ Unmatched members are listed in the preview by their Trello name (from the uploa
 | `dry_run=true` | `board_import_preview` | 60/hour per authenticated user |
 | `confirm=true` | `board_import` | 10/hour per authenticated user, **shared** with [`POST /api/v1/boards/import/`](#post-apiv1boardsimport) |
 
-Exceeding either limit returns `429 Too Many Requests`. Previews are throttled separately so that re-previewing while adjusting the mapping does not consume the import budget.
+Exceeding either limit returns `429 Too Many Requests`. Previews are throttled separately, so re-previewing while you adjust the mapping does not use up the import budget.
 
 **Response** `200 OK` (`dry_run=true`) — the preview:
 
@@ -1202,7 +1171,7 @@ In `mapping.columns`, `position` is `null` for a list that will not be imported 
 
 **Response** `201 Created` (`confirm=true`)
 
-Unlike [`POST /api/v1/boards/import/`](#post-apiv1boardsimport), which returns the board object at the top level (with an added `import_summary`), this endpoint wraps the board together with a summary. `board` has the same shape as `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`. The OpenAPI document names these `TrelloImportPreview` (the `dry_run=true` 200) and `TrelloImportConfirm` (this 201). The two import envelopes differ today; aligning them additively, and adding an error `code`, is tracked in #1903. Error bodies on both carry `detail` only, with no `code`.
+Unlike [`POST /api/v1/boards/import/`](#post-apiv1boardsimport), which returns the board at the top level (plus `import_summary`), this endpoint wraps the board with a summary. `board` has the shape of `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`. The OpenAPI document names these `TrelloImportPreview` (the `dry_run=true` 200) and `TrelloImportConfirm` (this 201). The two envelopes differ today; aligning them additively, and adding an error `code`, is tracked in #1903. Error bodies on both carry `detail` only, with no `code`.
 
 ```json
 {
@@ -1256,7 +1225,9 @@ Creating the board broadcasts `board.created` on the same channels as the native
 ## Members
 
 ### `POST /api/v1/boards/{id}/members/`
-Add or update a board member. Requires board admin. A caller with no access to the board gets `404`; a member below admin gets `403`. Cannot modify the existing board membership of a site admin (same restriction as `DELETE` below); a user with no membership on the board, a site admin included, is added like any other active user. For a caller who is not a site admin, the response (and the `member.added` / `member.updated` event) omits `is_site_admin` for every target, and when the target is a site admin with no direct membership, the stored role is the higher of the requested role and the role the user already holds on the board through a group, so the new membership never lowers it (any other user's new direct membership keeps its ordinary precedence over a group-inherited role). `is_site_admin` is therefore optional in this response (it is not in the OpenAPI `required` list): a site-admin caller gets it, other callers do not.
+Add or update a board member. Requires board admin: a caller with no access gets `404`, a member below admin gets `403`. Cannot modify a site admin's existing board membership (the same restriction as `DELETE` below); a site admin with no membership on the board is added like any other active user.
+
+For a caller who is not a site admin, the response (and the `member.added` / `member.updated` event) omits `is_site_admin` for every target. When the target is a site admin with no direct membership, the stored role is the higher of the requested role and the role the user already holds through a group, so the new membership never lowers it (any other user's new direct membership keeps its ordinary precedence over a group-inherited role). `is_site_admin` is therefore optional here (not in the OpenAPI `required` list): a site-admin caller gets it, others do not.
 
 Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (it returned `500` before). Since 1.2 a `user_id` that is present but not an integer, or is beyond the 64-bit integer range, is a `400` too: a non-integer value used to answer `404` and an out-of-range one `500`. An omitted `user_id` still answers `404`.
 
@@ -1341,7 +1312,7 @@ The second invite was sent by an account that has since been deleted, so it list
 ### `POST /api/v1/boards/{id}/invite-links/`
 > **Added in 1.2**
 
-Create a **shareable invite link** (`delivery: "link"`). Requires board admin — the same permission matrix as the list (`403` for a caller who can see the board but is not a board admin, `404` for a missing board or a caller with no access to it, `401` unauthenticated).
+Create a **shareable invite link** (`delivery: "link"`). Requires board admin, with the list's permission matrix: `403` for a caller who can see the board but is not a board admin, `404` for a missing board or no access, `401` unauthenticated.
 
 **Request** `{ "role": "viewer", "expiry_days": 7, "single_use": false, "name": "Contractors" }`
 
@@ -1352,7 +1323,7 @@ Create a **shareable invite link** (`delivery: "link"`). Requires board admin �
 | `single_use` | | `false` (default): anyone holding the link can join until it expires or is revoked. `true`: the first redemption consumes it. |
 | `name` | | Up to 100 characters, to tell links apart. Leading and trailing whitespace is trimmed. Default empty. |
 
-**Response** `201 Created` — the list row above plus `token`, the raw `vbnb_` token. The field is named `token` here and on the [group invite-link create response](groups.md#post-apiv1groupsidinvite-links), but `raw_token` on the [site invite-link create response](admin.md#post-apiv1admininvite-links). The names differ for historical reasons and are frozen by the 1.0 contract: no rename before a major version. A consistent alias is planned for the next major version (tracked in #1255); until then each endpoint keeps its current name for 1.0 API compatibility. (`can_register: true` in the example below is for an `open` site; on an `invite_only` or `closed` site it is `false` for every shareable link.) **This is the only time the token is returned**; only its SHA-256 hash is stored. The join URL is `<site>/join/<token>`.
+**Response** `201 Created` — the list row above plus `token`, the raw `vbnb_` token. The field is named `token` here and on the [group invite-link create response](groups.md#post-apiv1groupsidinvite-links), but `raw_token` on the [site invite-link create response](admin.md#post-apiv1admininvite-links). The names differ for historical reasons and are frozen by the 1.0 contract: no rename before a major version. A consistent alias is planned for the next major version (#1255); until then each endpoint keeps its name. (`can_register: true` in the example below is for an `open` site; on an `invite_only` or `closed` site it is `false` for every shareable link.) **This is the only time the token is returned**; only its SHA-256 hash is stored. The join URL is `<site>/join/<token>`.
 
 ```json
 {
@@ -1403,7 +1374,7 @@ The cap is checked under a lock on the board row, so concurrent requests cannot 
 | `invite_only` | **Never**, whoever created the link. Only an emailed single-use invite sent by a site admin admits a new account (see [Authentication](authentication.md#invite-only-mode)). | Joins. |
 | `closed` | Never. | Joins. |
 
-A multi-use link increments `use_count` once per person who redeems it and never sets `used_at`; a single-use link is consumed by its first redemption. Redemption follows the access rules under `POST /api/v1/boards/join/{token}/` below — it never changes an existing membership and never grants the board's group.
+A multi-use link increments `use_count` once per person who redeems it and never sets `used_at`; a single-use link is consumed by its first redemption. Redemption follows the access rules under `POST /api/v1/boards/join/{token}/` below: it never changes an existing membership and never grants the board's group.
 
 ### `POST /api/v1/boards/{id}/invite-links/send/`
 Email one invite. Requires board admin. Same contract as the [group send endpoint](groups.md): the response is identical whether the address belongs to a member, another user, or nobody, and the email is always sent.
@@ -1439,14 +1410,14 @@ Revoke a pending invite, emailed or shareable. Requires board admin; any board a
 
 The [site-admin board-invite revoke](admin.md#delete-apiv1adminboard-invite-linksid) behaves identically: `204` on success, `400` for a used invite, `404` for an unknown or already-revoked one.
 
-The one exception in the invite family is the site invite-link revoke, [`DELETE /api/v1/admin/invite-links/{id}/`](admin.md#delete-apiv1admininvite-linksid): it keeps its 1.1 contract (`200` with the revoked link, `400` on a repeat revoke) for all of 1.x (#1912).
+The exception in the invite family is the site invite-link revoke, [`DELETE /api/v1/admin/invite-links/{id}/`](admin.md#delete-apiv1admininvite-linksid), which keeps its 1.1 contract (`200` with the revoked link, `400` on a repeat revoke) for all of 1.x (#1912).
 
 Creating, sending and revoking publish `invite_link.created` / `invite_link.revoked` on the board's [WebSocket channel](websockets.md#invite-events-since-12) with just `{ "id": <int> }`.
 
 ### `GET /api/v1/boards/join/{token}/`
 Public preview of an invite — no authentication. Returns `{ "board_id", "board_name", "role", "can_register" }`.
 
-The **board name is disclosed to anyone holding the token**. That is deliberate and matches the group join preview (#801): the token is a 160-bit capability, so whoever holds it may see what it grants before signing in. `can_register` is the same advisory bit as on the list.
+The **board name is disclosed to anyone holding the token**, deliberately and as in the group join preview (#801): the token is a 160-bit capability, so its holder may see what it grants before signing in. `can_register` is the same advisory bit as on the list.
 
 | Status | Body | When |
 |---|---|---|
@@ -1463,19 +1434,19 @@ Redeem an invite as the signed-in user. Returns `{ "board_id", "board_name", "ro
 | `403 Forbidden` | The account must change its password or username first (`must_change_password` / `must_change_username`), or a personal access token lacks the `write` scope. |
 | `403 Forbidden` | *(1.2+, #1678)* `{"code": "invite_recipient_mismatch", "detail": "This invite was sent to a different email address. ..."}`: an emailed invite, and none of the caller's addresses is the one it was sent to. Under `EMAIL_VERIFICATION=mandatory` only verified addresses count; under `optional` or `none` the account's `email` counts too. Matching ignores case and surrounding spaces. Nothing is written and the invite is not consumed. The response never names the invited address. Shareable links and emailed invites sent before upgrading to this version are not checked. A consumed invite followed again by the person who redeemed it is not checked either. |
 
-What redeeming does depends on the access you already have, because an explicit board membership **replaces** any role you inherit from the board's group rather than adding to it:
+Redeeming depends on the access you already have, because an explicit board membership **replaces** any role inherited from the board's group rather than adding to it:
 
 - **No access** → you become a board member with the invite's role (`created: true`).
 - **Only a group-inherited role ranked below the invite's** (for example a group viewer redeeming a member invite) → an explicit membership with the invite's role is created (`created: true`).
 - **An equal or higher inherited role, an explicit board membership of any role, board ownership or all-content access** → nothing changes (`created: false`). A group admin who redeems a viewer invite is **not** downgraded to viewer.
 
-A redeemed single-use invite is consumed either way. Redeeming it again as the person who already has access returns `200` with nothing changed (`created` reports whether this invite created your membership — `true` after signing up from it); anyone else gets `410 {"code": "used"}`. When a membership is created, the board's `member.added` event carries an extra `invite: { "id", "created_by_id" }` key for `admin` and `site_admin` recipients, on the WebSocket and in the [change feed](events.md); other recipients get the event without it.
+A redeemed single-use invite is consumed either way. Redeeming it again as the person who already has access returns `200` with nothing changed (`created` reports whether this invite created your membership, `true` after signing up from it); anyone else gets `410 {"code": "used"}`. When a membership is created, the board's `member.added` event carries an extra `invite: { "id", "created_by_id" }` key for `admin` and `site_admin` recipients, on the WebSocket and in the [change feed](events.md); other recipients get the event without it.
 
 > **Added in 1.2**
 
 A join that arrives while the board is being deleted waits for the delete to finish and then answers `404`, with nothing written (#1631).
 
-Both join endpoints share the per-IP `join_group` throttle (10/hour) with the [group join endpoints](groups.md) — board and group join attempts from one address draw from one budget.
+Both join endpoints share the per-IP `join_group` throttle (10/hour) with the [group join endpoints](groups.md): board and group join attempts from one address draw from one budget.
 
 Signing up with a board invite on an invite-only site is covered in [Authentication](authentication.md#invite-only-mode).
 
@@ -1488,7 +1459,7 @@ Site admins can list and revoke every board's invites with the [admin board invi
 ### `POST /api/v1/boards/{id}/share/`
 Generate (or regenerate) a public share token for the board. Requires board admin.
 
-If a token already exists, calling this endpoint immediately invalidates the previous one and returns a new UUID. Any existing share links stop working as soon as the new token is issued. This is how a link is **rotated**.
+If a token exists, this call invalidates it immediately and returns a new UUID, so existing share links stop working. This is how a link is **rotated**.
 
 *(1.2+, #1935)* This response is where clients should read the token: show it (or `share_url`) to the admin now. The `share_token` field on [`GET /api/v1/boards/{id}/full/`](#get-apiv1boardsidfull) is deprecated and will be removed in 2.0; to tell later whether a link is set, read `share_link_active` there.
 
@@ -1521,7 +1492,7 @@ If a token already exists, calling this endpoint immediately invalidates the pre
 **Errors:** `403 Forbidden` if the caller can see the board but is not a board admin, including a caller whose admin role was removed while the request was waiting on a concurrent change to the board; `404 Not Found` if the caller has no access to it. `400 Bad Request` if `expires_in_days` is not one of the allowed values.
 
 ### `DELETE /api/v1/boards/{id}/share/`
-Revoke the public share token for the board. Requires board admin. All existing share links immediately return `404 Not Found` after revocation. Both the token and any TTL are cleared.
+Revoke the board's public share token. Requires board admin. Existing share links immediately return `404 Not Found`. The token and any TTL are cleared.
 
 **Permissions:** board `admin` or `site_admin` only.
 
@@ -1540,12 +1511,12 @@ Revoke the public share token for the board. Requires board admin. All existing 
 
 ## Columns
 
-Column objects include a `uid` field — a stable 16-character hex identifier that does not change when the column is renamed or reordered. The `uid` is read-only; any `uid` value sent in a request body is ignored.
+Column objects include a read-only `uid`, a stable 16-character hex identifier that survives rename and reorder. Any `uid` sent in a request body is ignored.
 
 ### `GET /api/v1/boards/{id}/columns/`
 List all columns on the board in position order. Available to all board members.
 
-Paginated: returns the standard [envelope](index.md#pagination) `{ "count", "offset", "page_size", "results" }` and accepts `?offset` and `?page_size` (default `50`, max `200`).
+Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "page_size", "results" }`, with `?offset` and `?page_size` (default `50`, max `200`).
 
 ### `GET /api/v1/boards/{id}/columns/{col_id}/`
 Get a single column. Available to all board members.
@@ -1582,18 +1553,14 @@ Update a column. Requires board admin.
 ### `DELETE /api/v1/boards/{id}/columns/{col_id}/`
 Delete a column. Requires board admin.
 
-Since 1.2, if cards keep being created in, or moved into, the column while it is being deleted, the delete gives up after a bounded number of internal retries and returns `409 Conflict` with `{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}`. Nothing is deleted; retry the request (#1602). A create or move that targets the column while it is being deleted waits for the delete and then returns `404`.
+Since 1.2, if cards keep being created in, or moved into, the column during the delete, it gives up after a bounded number of internal retries and returns `409 Conflict` with `{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}`. Nothing is deleted; retry (#1602). A create or move targeting the column mid-delete waits for the delete, then returns `404`.
 
 ### `POST /api/v1/boards/{id}/columns/reorder/`
 Reorder columns. Requires board admin.
 
 Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (it returned `500` before). Entries that are not integers were already a `400`; since 1.2 an entry beyond the 64-bit integer range is also a `400` (it returned `500` before).
 
-**Request** `{ "order": [3, 1, 4, 2] }` — `order` must be **exactly** this board's
-current column IDs: every column once, no duplicates, and no ID from another
-board. A partial list, a duplicate ID, an ID belonging to a different board, or
-(on a board that has columns) an empty list are all rejected with `400` and body
-`{"order": ["..."]}` rather than partially applied. *(Since 1.2, #1302 — same
+**Request** `{ "order": [3, 1, 4, 2] }`. `order` must be **exactly** this board's current column IDs: every column once, no duplicates, no ID from another board. A partial list, a duplicate, a foreign ID, or (on a board that has columns) an empty list is rejected with `400` and body `{"order": ["..."]}`, never partially applied. *(Since 1.2, #1302 — same
 rule as checklist-item reorder, #1292.)*
 
 ---
@@ -1604,12 +1571,12 @@ Swimlane objects include a `uid` field — stable across renames, read-only.
 
 **Role-gated fields:** `contact_email` and `notes` are only included in responses for `admin` and `site_admin` role members. `member`, `collaborator`, and `viewer` roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, `GET /api/v1/boards/{id}/full/`, and WebSocket broadcast events.
 
-**`custom_field_values` visibility (since 1.2):** unlike `contact_email`/`notes`, visibility of a row's custom field values is gated **per definition**, not per role. Every board role receives `custom_field_values`, but each entry is present only if its [definition](#swimlane-custom-fields-since-12) has `is_admin_only: false` — the default is `true`. Board admins and site admins always see every value regardless of `is_admin_only`. A share-link visitor (`GET /api/share/{token}/`) never receives `custom_field_values` at all — see [Public share endpoint](#public-share-endpoint).
+**`custom_field_values` visibility (since 1.2):** unlike `contact_email`/`notes`, a row's custom field values are gated **per definition**, not per role. Every board role receives `custom_field_values`, but an entry appears only if its [definition](#swimlane-custom-fields-since-12) has `is_admin_only: false` (the default is `true`). Board admins and site admins see every value. A share-link visitor (`GET /api/share/{token}/`) never receives `custom_field_values`; see [Public share endpoint](#public-share-endpoint).
 
 ### `GET /api/v1/boards/{id}/swimlanes/`
 List all swimlanes on the board in position order. Available to all board members. `admin` and `site_admin` roles see `contact_email` and `notes`; all other roles receive swimlane objects without those fields.
 
-Paginated: returns the standard [envelope](index.md#pagination) `{ "count", "offset", "page_size", "results" }` and accepts `?offset` and `?page_size` (default `50`, max `200`).
+Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "page_size", "results" }`, with `?offset` and `?page_size` (default `50`, max `200`).
 
 ### `GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Get a single swimlane. Same role-gated field rules as the list endpoint.
@@ -1644,7 +1611,7 @@ Update a swimlane. Requires board admin.
 
 > Swimlane names are unique per board. Renaming a swimlane to a name that already exists on the same board returns `400 Bad Request`.
 
-`custom_field_values` writes are also accepted on `PATCH`. Send only the entries you want to change — a swimlane custom field not named in the list keeps its current value. Send `{"field_definition": <id>, "value": ""}` to clear (and delete) a value. At most one entry per `field_definition` per request; a `field_definition` id from another board is rejected with `400 Bad Request`. Since writes to this endpoint are already admin-only, an admin may write a value for an `is_admin_only` field — that is the expected case, not an escalation. There is no separate values endpoint; values are always written through this one.
+`PATCH` accepts `custom_field_values` writes too. Send only the entries you want to change; a swimlane custom field not named keeps its value. Send `{"field_definition": <id>, "value": ""}` to clear (and delete) a value. At most one entry per `field_definition` per request; a `field_definition` id from another board is rejected with `400 Bad Request`. Writes here are admin-only, so an admin may write an `is_admin_only` field's value; that is expected, not an escalation. There is no separate values endpoint.
 
 !!! note
     The `PUT`/`PATCH` HTTP response always includes `contact_email`, `notes`, and every
@@ -1658,12 +1625,12 @@ Update a swimlane. Requires board admin.
 ### `DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Delete a swimlane. Requires board admin.
 
-Since 1.2, if cards keep being created in, or moved into, the swimlane while it is being deleted, the delete gives up after a bounded number of internal retries and returns `409 Conflict` with `{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}`. Nothing is deleted; retry the request (#1602). A create or move that targets the swimlane while it is being deleted waits for the delete and then returns `404`.
+Since 1.2, if cards keep being created in, or moved into, the swimlane during the delete, it gives up after a bounded number of internal retries and returns `409 Conflict` with `{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}`. Nothing is deleted; retry (#1602). A create or move targeting the swimlane mid-delete waits for the delete, then returns `404`.
 
 ### `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/set-collapsed/`
-Toggle the default collapsed state of a swimlane. Requires admin or site admin role — members, collaborators, and viewers are rejected.
+Toggle a swimlane's default collapsed state. Requires admin or site admin; members, collaborators, and viewers are rejected.
 
-This sets the board-wide default for all users — it is a board structure preference, not a per-user setting.
+This sets the board-wide default for all users: a board structure preference, not a per-user setting.
 
 **Minimum role:** admin or site admin
 
@@ -1694,13 +1661,9 @@ A `swimlane.updated` WebSocket event is broadcast to all connected board clients
 ### `POST /api/v1/boards/{id}/swimlanes/reorder/`
 Reorder swimlanes. Requires board admin.
 
-Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (it returned `500` before). Entries that are not integers were already a `400`; since 1.2 an entry beyond the 64-bit integer range is also a `400` (it returned `500` before).
+Since 1.2, a request body that is not a JSON object returns `400 Bad Request`, and since 1.2 so does an entry beyond the 64-bit integer range (each returned `500` before); non-integer entries were already a `400`.
 
-**Request** `{ "order": [2, 1, 3] }` — `order` must be **exactly** this board's
-current swimlane IDs: every swimlane once, no duplicates, and no ID from another
-board. A partial list, a duplicate ID, an ID belonging to a different board, or
-(on a board that has swimlanes) an empty list are all rejected with `400` and
-body `{"order": ["..."]}` rather than partially applied. *(Since 1.2, #1302 —
+**Request** `{ "order": [2, 1, 3] }`. `order` must be **exactly** this board's current swimlane IDs: every swimlane once, no duplicates, no ID from another board. A partial list, a duplicate, a foreign ID, or (on a board that has swimlanes) an empty list is rejected with `400` and body `{"order": ["..."]}`, never partially applied. *(Since 1.2, #1302 —
 same rule as checklist-item reorder, #1292.)*
 
 ---
@@ -1712,7 +1675,7 @@ Label objects include a `uid` field — stable across renames, read-only.
 ### `GET /api/v1/boards/{id}/labels/`
 List board labels. Available to all board members.
 
-Paginated: returns the standard [envelope](index.md#pagination) `{ "count", "offset", "page_size", "results" }` and accepts `?offset` and `?page_size` (default `50`, max `200`).
+Paginated: the standard [envelope](index.md#pagination) `{ "count", "offset", "page_size", "results" }`, with `?offset` and `?page_size` (default `50`, max `200`).
 
 ### `GET /api/v1/boards/{id}/labels/{label_id}/`
 Get a single label. Available to all board members.
@@ -1734,11 +1697,7 @@ Delete a label. Requires board admin.
 
 ## Custom fields (since 1.2)
 
-Typed, per-board metadata fields that cards can carry — where a label is an untyped tag,
-a custom field is a named key with a type. A board's definitions are also returned on
-`GET /api/v1/boards/{id}/full/` as `custom_field_definitions`, so a client has the schema
-on board load. Card **values** are read and written through the
-[card endpoints](cards.md), not here.
+Typed, per-board metadata fields that cards can carry: a label is an untyped tag, a custom field is a named key with a type. A board's definitions also come back on `GET /api/v1/boards/{id}/full/` as `custom_field_definitions`, so a client has the schema on board load. Card **values** are read and written through the [card endpoints](cards.md), not here.
 
 Definition objects include a `uid` field — stable across renames, read-only.
 
@@ -1767,9 +1726,7 @@ errors below.
 
 #### URL fields
 
-A `"url"` field stores a web address. It applies to card and swimlane custom fields alike,
-and is text-backed like every other type — the value is the stored string, with no extra
-columns or structure.
+A `"url"` field stores a web address, on card and swimlane custom fields alike. Like every type it is text-backed: the value is the stored string.
 
 - **Validated on write**, through the same rule as a card's
   [external ref](cards.md#external-ref-since-12) URL: the value must be an absolute
@@ -1784,9 +1741,7 @@ columns or structure.
   UI does that before it sends the value.
 - `choices` is rejected for a `"url"` field, as for every type that cannot carry choices
   (anything but `"dropdown"` and `"multi_select"`).
-- **Clients that do not recognize `"url"`** should fall back to rendering the value as
-  plain text — the value is always a string. A client that renders it as a link must
-  still check the scheme at render time and use `rel="noopener noreferrer"`.
+- **Clients that do not recognize `"url"`** should render the value as plain text (it is always a string). A client that renders a link must still check the scheme at render time and use `rel="noopener noreferrer"`.
 - Enterprise `CUSTOM_FIELD_VALIDATORS` hooks receive `"url"` as the `field_type` and run
   after this validation.
 
@@ -1794,10 +1749,7 @@ columns or structure.
 
 > **Added in 1.2**
 
-A `"multi_select"` field holds any number of the definition's `choices`. It
-applies to card and swimlane custom fields alike, and is text-backed like every other type:
-**the `value` on the wire is still a string** — a JSON array encoded as a string, never a
-JSON array.
+A `"multi_select"` field holds any number of the definition's `choices`, on card and swimlane custom fields alike. It is text-backed like every type: **the `value` on the wire is still a string**, a JSON array encoded as a string, never a JSON array.
 
 ```json
 { "field_definition": 14, "value": "[\"web\",\"ios\"]" }
@@ -1849,10 +1801,7 @@ JSON array.
 
 > **Added in 1.2**
 
-Three optional, **display-only** settings on a `"number"` definition, on card
-and swimlane custom fields alike. They change how a client renders a value, never the
-value: the `value` on the wire, in exports, and in filters stays the plain number string
-the user entered.
+Three optional, **display-only** settings on a `"number"` definition, on card and swimlane custom fields alike. They change how a client renders a value, never the value: on the wire, in exports, and in filters it stays the plain number string the user entered.
 
 ```json
 { "name": "Budget", "field_type": "number", "number_prefix": "$", "number_suffix": " USD", "number_decimals": 2 }
@@ -1898,10 +1847,7 @@ the user entered.
 
 > **Added in 1.2**
 
-An optional, **display-only** color per choice on a `"dropdown"` or
-`"multi_select"` definition, on card and swimlane custom fields alike. `choices` is
-unchanged — still a plain list of strings — and the colors live beside it in a separate
-map keyed by the choice text. Values are never touched.
+An optional, **display-only** color per choice on a `"dropdown"` or `"multi_select"` definition, on card and swimlane custom fields alike. `choices` stays a plain list of strings; the colors live in a separate map keyed by choice text. Values are never touched.
 
 ```json
 { "name": "Severity", "field_type": "dropdown", "choices": ["Low", "High"], "choice_colors": { "High": "red" } }
@@ -1949,9 +1895,7 @@ map keyed by the choice text. Values are never touched.
   definition, so `choice_colors` arrives with them (an additive field).
 
 ### `GET /api/v1/boards/{id}/custom-fields/`
-List the board's custom field definitions, in `position` order. Available to **all board
-members, including viewers** — a reader needs the schema to make sense of the values they
-can already see. Paginated with the project-wide offset pagination.
+List the board's custom field definitions in `position` order. Available to **all board members, including viewers**, who need the schema to read the values they already see. Paginated with the project-wide offset pagination.
 
 ### `GET /api/v1/boards/{id}/custom-fields/{field_id}/`
 Get a single definition. Available to all board members.
@@ -1988,12 +1932,7 @@ Update a definition. Requires board admin.
 > choice may be re-written on the same card (kept alongside other edits) but not added
 > anywhere else — see [Multi-select fields](#multi-select-fields).
 
-> **Since 1.2:** `field_type` is frozen once any card holds a value for this field — a
-> stale `CustomFieldValue` is never revalidated or migrated against a new type, so changing
-> it out from under existing data would corrupt it silently. Delete and recreate the field
-> to change its type once it has values. A field with zero values may still have its type
-> changed freely. There is no `text` → `dropdown` (or any other) conversion path in this
-> release.
+> **Since 1.2:** `field_type` is frozen once any card holds a value for the field, because a stale `CustomFieldValue` is never revalidated or migrated against a new type and a change would corrupt it silently. Delete and recreate the field to change its type once it has values. A field with zero values may still change type freely. This release has no `text` → `dropdown` (or any other) conversion path.
 
 **Errors:**
 - `400 Bad Request` if `field_type` is changed on a definition that already has at least
@@ -2011,11 +1950,9 @@ Delete a definition. Requires board admin. **Every card's value for that field i
 with it.**
 
 ### `POST /api/v1/boards/{id}/custom-fields/reorder/`
-Reorder definitions. Requires board admin. `POST` only, matching the column and swimlane
-reorder actions; since 1.2 (#1868) `PUT` returns `405 Method Not Allowed`. (`PUT` was only
-briefly accepted during the 1.2 pre-releases and never shipped in a GA release.)
+Reorder definitions. Requires board admin. `POST` only, like the column and swimlane reorder actions; since 1.2 (#1868) `PUT` returns `405 Method Not Allowed`. (`PUT` was accepted briefly in the 1.2 pre-releases and never shipped in a GA release.)
 
-Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (it returned `500` before). Entries that are not integers were already a `400`; since 1.2 an entry beyond the 64-bit integer range is also a `400` (it returned `500` before).
+Since 1.2, a request body that is not a JSON object returns `400 Bad Request`, and since 1.2 so does an entry beyond the 64-bit integer range (each returned `500` before); non-integer entries were already a `400`.
 
 **Request** `{ "order": [3, 1, 2] }` — custom field IDs in the new order. IDs belonging to
 another board are ignored.
@@ -2126,14 +2063,11 @@ Delete a definition. Requires board admin. **Every swimlane's value for that fie
 deleted with it.**
 
 ### `POST /api/v1/boards/{id}/swimlane-custom-fields/reorder/`
-Reorder definitions. Requires board admin. `POST` only, matching the column, swimlane, and
-card-custom-field reorder actions; since 1.2 (#1868) `PUT` returns `405 Method Not Allowed`.
-(`PUT` was only briefly accepted during the 1.2 pre-releases and never shipped in a GA release.)
+Reorder definitions. Requires board admin. `POST` only, like the column, swimlane, and card-custom-field reorder actions; since 1.2 (#1868) `PUT` returns `405 Method Not Allowed`. (`PUT` was accepted briefly in the 1.2 pre-releases and never shipped in a GA release.)
 
-Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (it returned `500` before). Entries that are not integers were already a `400`; since 1.2 an entry beyond the 64-bit integer range is also a `400` (it returned `500` before).
+Since 1.2, a request body that is not a JSON object returns `400 Bad Request`, and since 1.2 so does an entry beyond the 64-bit integer range (each returned `500` before); non-integer entries were already a `400`.
 
-**Request** `{ "order": [5, 3, 4] }` — swimlane custom field IDs in the new order. IDs
-belonging to another board are silently ignored rather than reordered or exposed.
+**Request** `{ "order": [5, 3, 4] }`: swimlane custom field IDs in the new order. IDs from another board are silently ignored, neither reordered nor exposed.
 
 **Response** the full list in the new order.
 
@@ -2150,7 +2084,7 @@ Returns a read-only board payload identified by its UUID share token. No authent
 
 **Errors:**
 - `404 Not Found` if the token is invalid, has been revoked, or does not exist. *(1.2+, #1865)* Also when the admin who enabled the link is no longer active or no longer an admin of the board; the link is cleared on that read and does not come back if the account regains admin. This is checked before the expiry, so such a link answers `404` even after its expiry has passed. *(1.2+, #1939)* Also when the link has no recorded enabler (enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier)), with the same response; the link is cleared on that read.
-- `410 Gone` if the token's TTL has elapsed (admin set an expiry at enable time and that timestamp has passed). The token is *not* auto-rotated — an admin must disable and re-enable sharing to get a fresh link. Body: `{"detail": "This share link has expired."}`. Added in 1.1 (#804).
+- `410 Gone` if the token's TTL has elapsed (an admin set an expiry at enable time and it has passed). The token is *not* auto-rotated: an admin must disable and re-enable sharing for a fresh link. Body: `{"detail": "This share link has expired."}`. Added in 1.1 (#804).
 
 **Response**
 ```json
@@ -2209,6 +2143,6 @@ Response fields:
 | `cards` | array | Active (non-archived) card objects |
 | `labels` | array | Label objects |
 
-Card objects in the public payload use `uid` as the identifier (not `id`) and do not include a database `id`. The `assignee` field contains `display_name` only (email, username, and avatar are omitted), or `null` for an unassigned card. Comments and checklist item text are not included; only `checklist_total` and `checklist_done` counts are present. The `is_stale` field is `true` when the card has not moved within the board's `staleness_threshold_days` window. `is_stale` ignores the card's column, so a Done-column card can be `true`; clients decide display. The stale-card notification digest, by contrast, skips Done-column cards.
+Public card objects use `uid` as the identifier and carry no database `id`. `assignee` holds `display_name` only (email, username, and avatar are omitted), or `null` for an unassigned card. Comments and checklist item text are excluded; only the `checklist_total` and `checklist_done` counts appear. The `is_stale` field is `true` when the card has not moved within the board's `staleness_threshold_days` window. `is_stale` ignores the card's column, so a Done-column card can be `true`; clients decide display. The stale-card notification digest, by contrast, skips Done-column cards.
 
 `blocker_count` (since 1.2) is the number of active cards blocking this one — see [Card relations](cards.md#relations-since-12). The count is included, but the relation list is not: relations are same-board only, so every blocker is a card this payload already carries, whereas the relation rows themselves carry the creating user and a timestamp that this payload deliberately excludes.

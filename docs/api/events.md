@@ -1,36 +1,27 @@
-# Board Change Feed API
+# Replay missed board changes with one cursor request
 
-Read what happened on a board with a cursor, instead of holding a WebSocket open.
+`GET /api/v1/boards/{id}/events/?after=<last event_id>` returns what happened on a board since your last event, in order.
 
-**Why it matters:** a consumer that drops offline can resume from its last cursor and miss nothing.
+```bash
+curl -H "Authorization: Token $TOKEN" \
+  "http://localhost:8000/api/v1/boards/3/events/?after=84200"
+# 200 {"results": [{"id": 84213, "event": "card.moved", ...}], "next_cursor": 84213, "next": 84213}
+```
+
+**Why it matters:** a consumer that drops offline can resume from its last cursor and miss nothing, without re-fetching the whole board.
 
 **How it works:** every board mutation is appended to a durable, ordered feed that a consumer outside the
 Django process — a second front end, a CRM sync job, the MCP REST client — can read with a
 cursor instead of holding a WebSocket open and hoping it never drops.
 
+**Yes, but:** history is bounded by an operator-set retention window, so handle `410 Gone` by re-fetching `GET /api/v1/boards/{id}/full/`. See [Retention](#retention).
+
+**Go deeper:** [the endpoint](#get-apiv1boardsidevents), [stability guarantees](#stability-and-versioning) (the last section), [what each reader sees](#fields-that-depend-on-who-is-reading).
+
 !!! info "Since 1.2"
     The change feed is new in Visiban 1.2.
 
-The feed does not replace the [WebSocket API](websockets.md); it completes it.
-The socket is how you learn about a change *now*; the feed is how you find out
-what happened while you were not listening. Both carry the same payloads, so one
-handler serves both.
-
----
-
-## Stability and versioning
-
-> **Added in 1.2**
-
-The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
-
-- **The endpoint, its `after` and `limit` parameters, and the response envelope** (`results`, `next_cursor`, and the deprecated `next`) are never removed or renamed in a minor or patch release. The cursor semantics (`after` is exclusive, ordering is by `id`, `next_cursor` is `null` once a page comes back short) and the `400`, `404`, and `410` error behavior described below do not change.
-- **Row fields** (`id`, `event`, `data`, `actor_id`, `actor`, `created_at`) only gain fields; an existing field keeps its name and type and is never removed.
-- **Event types and payloads** carry the same `{event, data}` payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in [Retiring an event](../development/websocket-event-contract.md#retiring-an-event).
-- **Per-reader fields are the exception.** The fields documented under [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading) are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.
-- **`next_cursor` is the cursor; `next` is deprecated.** `next_cursor` is the documented cursor field. `next` was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read `next_cursor`. `next` is removed only at a major version bump. See [Pagination shapes](#pagination-shapes).
-- A part of the feed that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
-- **Not covered:** how long history is kept. The retention window is an operator setting (`BOARD_EVENT_RETENTION_DAYS`), so a consumer must handle `410 Gone` rather than assume any particular depth of history. See [Retention](#retention).
+The feed completes the [WebSocket API](websockets.md) rather than replacing it. The socket tells you about a change *now*; the feed tells you what happened while you were not listening. Both carry the same payloads, so one handler serves both.
 
 ---
 
@@ -45,8 +36,7 @@ The change feed is a public contract from 1.2 and follows the same compatibility
    window. Re-fetch `GET /api/v1/boards/{id}/full/`, then resume from the newest
    `event_id` you see after that.
 
-A consumer with no socket at all can poll the feed on its own schedule — the
-cursor makes repeat reads exact rather than approximate.
+A consumer with no socket can poll the feed on its own schedule; the cursor makes repeat reads exact.
 
 ---
 
@@ -69,12 +59,7 @@ which match what the WebSocket sends that reader.
 | `after` | `0` | Return only events with an `id` strictly greater than this. Pass the last `id` you processed. `0` (or omitted) starts at the oldest retained event. |
 | `limit` | `100` | Maximum events to return. Must be between `1` and `500`. |
 
-Both parameters are validated rather than clamped. A malformed `after` is a
-`400`, not a silent restart from the beginning of the feed, because a consumer
-that quietly replayed history it had already processed would have no way to
-notice. A `limit` outside the range is a `400` for the same reason: a consumer
-that asked for `10000` and silently received `500` would read
-`len(results) < limit` as "caught up" and stop paging with events still unread.
+Both parameters are validated, not clamped. A malformed `after` is a `400`, not a silent restart from the start of the feed, because a consumer that quietly replayed processed history would never notice. A `limit` outside the range is a `400` for the same reason: a consumer that asked for `10000` and silently got `500` would read `len(results) < limit` as "caught up" and stop paging with events unread.
 
 **Response**
 
@@ -113,16 +98,11 @@ curl -s -H "Authorization: Token vbn_..." \
   "http://localhost:8000/api/v1/boards/42/events/?after=0&limit=200"
 ```
 
-Keep calling with `after` set to the previous response's `next_cursor` until
-`next_cursor` is `null`. Order is by `id`, which is the commit order — never re-sort by
-`created_at`, since two events can share a timestamp.
+Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`, the commit order. Never re-sort by `created_at`: two events can share a timestamp.
 
 ### Pagination shapes
 
-Besides the standard offset envelope (`{count, offset, page_size, results}`) and bare
-arrays for small bounded lists, the API has three cursor/link shapes. See
-[Pagination](index.md#pagination) for the full list. The three differ on purpose, and
-each is frozen by the release that introduced it (decision recorded for #1869):
+Besides the standard offset envelope (`{count, offset, page_size, results}`) and bare arrays for small bounded lists, the API has three cursor/link shapes (see [Pagination](index.md#pagination) for the full list). They differ on purpose, and each is frozen by the release that introduced it (decision recorded for #1869):
 
 | Endpoint | Shape | Why it stays |
 |---|---|---|
@@ -130,8 +110,7 @@ each is frozen by the release that introduced it (decision recorded for #1869):
 | Cross-board `GET /cards/` | `{results, next_cursor: string \| null}` | The cursor is an opaque string the server may re-encode, so clients must not parse it. |
 | Card timeline (1.1) | `limit`/`offset` with `next` / `previous` as URL strings | A limit/offset shape, not a cursor. Frozen in 1.1; a field cannot be renamed or retyped without a major bump. |
 
-New cursor-paginated endpoints should name the response key `next_cursor`, but must document their own request parameter and cursor type; a client cannot reuse the feed's `after` for `/cards/`, nor `cursor` for the feed (the feed ignores an unknown `cursor` and would return page 1 again). The feed's earlier `next` key
-(1.2.0-beta.1) is kept as a deprecated duplicate so the rename is not a breaking change.
+New cursor-paginated endpoints should name the response key `next_cursor` but document their own request parameter and cursor type. A client cannot reuse the feed's `after` for `/cards/`, nor `cursor` for the feed (the feed ignores an unknown `cursor` and returns page 1 again). The feed's earlier `next` key (1.2.0-beta.1) stays as a deprecated duplicate, so the rename is not breaking.
 
 ### Errors
 
@@ -143,11 +122,7 @@ New cursor-paginated endpoints should name the response key `next_cursor`, but m
 | `410 Gone` | `{"detail": "...", "code": "cursor_expired", "resync_url": "http://.../api/v1/boards/42/full/"}` | The cursor has been pruned and newer events exist, so continuity cannot be proven. Re-sync via `resync_url` and resume from the newest `event_id` seen after that. |
 
 !!! note "410 is deliberately narrow"
-    A pruned cursor returns `410` only when there are newer events the consumer
-    might have skipped past. A cursor that was pruned with *nothing newer behind
-    it* returns an ordinary empty page — a consumer that has simply been idle
-    longer than the retention window has missed nothing, and does not need to
-    re-sync.
+    A pruned cursor returns `410` only when newer events exist that the consumer might have skipped. A cursor pruned with *nothing newer behind it* returns an ordinary empty page: a consumer idle longer than the retention window has missed nothing and need not re-sync.
 
 ---
 
@@ -224,14 +199,7 @@ Two consequences worth knowing:
 
 ## Retention
 
-Events are kept for `BOARD_EVENT_RETENTION_DAYS` days (default `30`) and removed
-by a management command. Nothing expires on its own — **an install that never
-runs the pruner grows the `board_events` table forever**. Retention bounds how
-much history the feed returns: any reader with access to the board receives
-every retained row for it, whenever they joined, each filtered for that reader
-by the rules in
-[Fields that depend on who is reading](#fields-that-depend-on-who-is-reading).
-Run the pruner on a schedule:
+Events are kept for `BOARD_EVENT_RETENTION_DAYS` days (default `30`) and removed by a management command. Nothing expires on its own: **an install that never runs the pruner grows the `board_events` table forever**. Retention bounds how much history the feed returns: any reader with access to the board receives every retained row for it, whenever they joined, each filtered by the rules in [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading). Run the pruner on a schedule:
 
 ```bash
 # See what would go, without deleting anything
@@ -244,10 +212,7 @@ python manage.py prune_board_events
 python manage.py prune_board_events --days 7
 ```
 
-Schedule it nightly. Both deployment paths ship an opt-in scheduler with this
-job **off** by default. To turn it on, set `SCHEDULE_PRUNE_BOARD_EVENTS=03:00`
-in `.env` for the Compose `scheduler` profile, or set
-`scheduledJobs.pruneBoardEvents.enabled=true` in Helm. You can also use host cron:
+Schedule it nightly. Both deployment paths ship an opt-in scheduler with this job **off** by default. Turn it on with `SCHEDULE_PRUNE_BOARD_EVENTS=03:00` in `.env` for the Compose `scheduler` profile, or `scheduledJobs.pruneBoardEvents.enabled=true` in Helm. Host cron also works:
 
 ```
 0 3 * * * docker compose run --rm backend python manage.py prune_board_events
@@ -255,8 +220,7 @@ in `.env` for the Compose `scheduler` profile, or set
 
 See [Scheduled Jobs](../administration/scheduled-jobs.md).
 
-Deletion happens in batches (`--batch-size`, default `5000`) so a large cleanup
-does not hold locks against concurrent writers for the length of the run.
+Deletion runs in batches (`--batch-size`, default `5000`), so a large cleanup does not hold locks against concurrent writers for the whole run.
 
 See [Configuration](../administration/configuration.md) for
 `BOARD_EVENT_RETENTION_DAYS`.
@@ -265,7 +229,20 @@ See [Configuration](../administration/configuration.md) for
 
 ## Sizing the window
 
-Pick a retention window longer than the longest outage a consumer is expected to
-survive. A consumer offline for longer than the window is not broken by it — it
-gets a `410` and re-syncs — but every such re-sync is a full `/full/` fetch, so a
-window that is too short turns routine restarts into expensive ones.
+Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: it gets a `410` and re-syncs. But every re-sync is a full `/full/` fetch, so a too-short window makes routine restarts expensive.
+
+---
+
+## Stability and versioning
+
+> **Added in 1.2**
+
+The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
+
+- **The endpoint, its `after` and `limit` parameters, and the response envelope** (`results`, `next_cursor`, and the deprecated `next`) are never removed or renamed in a minor or patch release. The cursor semantics (`after` is exclusive, ordering is by `id`, `next_cursor` is `null` once a page comes back short) and the `400`, `404`, and `410` error behavior described on this page do not change.
+- **Row fields** (`id`, `event`, `data`, `actor_id`, `actor`, `created_at`) only gain fields; an existing field keeps its name and type and is never removed.
+- **Event types and payloads** carry the same `{event, data}` payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in [Retiring an event](../development/websocket-event-contract.md#retiring-an-event).
+- **Per-reader fields are the exception.** The fields documented under [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading) are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.
+- **`next_cursor` is the cursor; `next` is deprecated.** `next_cursor` is the documented cursor field. `next` was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read `next_cursor`. `next` is removed only at a major version bump. See [Pagination shapes](#pagination-shapes).
+- A part of the feed that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
+- **Not covered:** how long history is kept. The retention window is an operator setting (`BOARD_EVENT_RETENTION_DAYS`), so a consumer must handle `410 Gone` rather than assume any particular depth of history. See [Retention](#retention).

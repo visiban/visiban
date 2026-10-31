@@ -1,8 +1,19 @@
-# Groups API
+# Organize boards into groups and subgroups
 
-`GET /api/v1/groups/` lists the groups you can reach, including navigation-only ancestors.
+Create a group with `POST /api/v1/groups/` and a `name`; list the groups you can reach with `GET /api/v1/groups/`.
+
+```bash
+curl -X POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name": "Engineering"}' http://localhost:8000/api/v1/groups/
+```
 
 **Why it matters:** group access decides which boards a user sees, and the default member role no longer has any effect.
+
+**By the numbers:** `GET /api/v1/groups/` is paginated: `?offset` defaults to `0`, `?page_size` defaults to `50` (max `200`). Subgroups nest at most 6 levels deep.
+
+**Yes, but:** the list can include groups you have no access to, returned navigation-only with their fields withheld. See [Ancestor groups](#ancestor-groups-navigation-only).
+
+**Go deeper:** [Members](#members), [Boards](#boards), [Invite links](#invite-links), [Shared labels](#group-shared-labels), [Board defaults](#board-defaults), [Join](#join-public).
 
 **The big picture:** groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is deprecated and has no effect ([#1430](https://gitlab.com/visiban/visiban/-/issues/1430)).
 
@@ -42,7 +53,7 @@ List all groups accessible to the current user: groups they belong to, their sub
 ```
 
 !!! note "Response shape differs from `GET /api/v1/groups/{id}/`"
-    The list endpoint uses a leaner `GroupSerializer` that **does not** include the `ancestors` field — only the single-object retrieve endpoint (`GET /api/v1/groups/{id}/`) returns `ancestors`. Clients iterating the list and reading `entry.ancestors` will get `undefined`. Fetch the single group if you need the ancestor chain.
+    The list endpoint uses a leaner `GroupSerializer` that **omits** `ancestors`; only the single-object retrieve (`GET /api/v1/groups/{id}/`) returns it, so reading `entry.ancestors` from the list gives `undefined`. Fetch the single group for the ancestor chain.
 
 ### `POST /api/v1/groups/`
 Create a group. Any authenticated user may create a top-level group. Creating a subgroup requires admin of the parent (directly or through an ancestor group). The endpoint returns the same `400 Bad Request` for an unknown `parent` id and for a parent the caller does not administer: `{"parent": ["Select a parent group you administer."]}`, the same body `PATCH` uses. *(1.2+)* A subgroup that would sit more than 6 levels deep is refused with `400 Bad Request`: `{"parent": ["Groups can be nested at most 6 levels deep."]}`, the same limit and message a `PATCH` parent change uses. A parent exactly 5 levels deep accepts a new subgroup (level 6); a parent 6 levels deep does not. Existing deeper trees are not changed.
@@ -334,7 +345,7 @@ A create that arrives while the group is being deleted waits for the delete to f
 **Response (create only)** — the raw secret is returned once and never again, in a field named `token`:
 
 !!! note "Field name differs from site invite links"
-    Group and [board](boards.md#board-invites) invite-link create responses name the secret `token`. The site-wide [`POST /api/v1/admin/invite-links/`](admin.md#post-apiv1admininvite-links) response names the same kind of value `raw_token`. The names differ for historical reasons and are frozen by the 1.0 API contract: both are stable and will not be renamed before a major version. Read the field that matches the endpoint you called. A consistent alias is planned for the next major version (tracked in #1255); until then each endpoint keeps its current name for 1.0 API compatibility. The field is present only on this create response, never on list responses.
+    Group and [board](boards.md#board-invites) invite-link create responses name the secret `token`. The site-wide [`POST /api/v1/admin/invite-links/`](admin.md#post-apiv1admininvite-links) response names the same kind of value `raw_token`. The names differ for historical reasons and are frozen by the 1.0 API contract: both are stable and will not be renamed before a major version. Read the field that matches the endpoint you called. A consistent alias is planned for the next major version (#1255). The field is present only on this create response, never on list responses.
 
 ```json
 {
@@ -417,7 +428,7 @@ The server mints a link with `single_use: true` and `delivery: "email"`, then se
 { "detail": "Invite sent", "sent_to": "new.person@example.org" }
 ```
 
-The response is identical whether the address belongs to an existing member, an existing user who is not a member, or nobody — and the email is always sent — so this endpoint cannot be used to discover which addresses have accounts. The raw token is **never** returned; it exists only in the email. Under `DEBUG` with console mail delivery the response also carries `"delivery": "console"`.
+The response is identical whether the address belongs to a member, a non-member user, or nobody, and the email is always sent, so the endpoint cannot reveal which addresses have accounts. The raw token is **never** returned; it exists only in the email. Under `DEBUG` with console mail delivery the response also carries `"delivery": "console"`.
 
 **Errors**
 
@@ -568,7 +579,7 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 | `role` | string | Role granted on join: `admin` / `member` / `collaborator` / `viewer` |
 | `can_register` | boolean | **Added in 1.2** (#1481). Whether [`POST /api/v1/auth/registration/`](authentication.md) would accept this link as `invite_token` under the current registration mode: always `true` in `"open"` mode, always `false` in `"closed"` mode, and in `"invite_only"` mode `true` only for an unused, unexpired emailed single-use invite whose sender is still an active site admin and group admin while email invites are enabled. The value is the same for anonymous and authenticated callers. It is a bare boolean — the reason a link does not qualify is never disclosed. **Advisory only:** it can go stale before the registration request (the sender can lose site admin, the invite can be consumed, the mode can change), and registration re-checks and stays the enforcer. Clients should treat a missing field (older servers) as unknown, not `false`. |
 
-**Disclosure:** `can_register` is visible to anyone holding the token, and its value can narrow down whether the site is closed, whether the link is an emailed single-use invite, and whether its sender still has admin rights. This is accepted under the token-as-capability model of this endpoint (#801): a token holder could learn the same thing by attempting registration with it. No reason, registration mode, delivery type or sender is ever returned.
+**Disclosure:** `can_register` is visible to anyone holding the token, and its value can hint whether the site is closed, whether the link is an emailed single-use invite, and whether its sender still has admin rights. This is accepted under the endpoint's token-as-capability model (#801): a token holder could learn the same by attempting registration. No reason, registration mode, delivery type or sender is ever returned.
 
 `can_register` is present only on `200` responses, never on `404` / `410` bodies. A member previewing their own consumed single-use invite (below) gets `can_register: false` in `"invite_only"` mode. Site invite links (`vbnl_`) are out of scope: they are not group tokens, and the SPA routes them to the registration form without calling this endpoint.
 

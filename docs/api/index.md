@@ -1,8 +1,14 @@
-# API Reference
+# Call the Visiban REST API
 
 Send authenticated JSON requests to `/api/v1`; start with [Authentication](authentication.md).
 
-**Why it matters:** every endpoint lives under the `/api/v1/` prefix and needs a valid token or session, so an unauthenticated request fails before it reaches any board data.
+```bash
+curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/boards/
+```
+
+**Why it matters:** versioned REST endpoints live under the `/api/v1/` prefix. Most need a valid token or session, and an unauthenticated request gets `401`; the health endpoints are the exception.
+
+**Go deeper:** the reference table below, [versioning policy](#versioning-policy), and [common conventions](#common-conventions) (errors, pagination, maintenance mode).
 
 **The big picture:** Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.
 
@@ -50,7 +56,7 @@ All messages from the server use the following shape:
 { "event": "<event_type>", "data": { ... }, "event_id": 84213 }
 ```
 
-The `data` object contains the serialized resource (card, column, swimlane, etc.) relevant to the event. `event_id` (since 1.2) is the frame's id in the [change feed](events.md) — keep the last one you processed and resume from it after a reconnect.
+`data` holds the serialized resource (card, column, swimlane, etc.) for the event. `event_id` (since 1.2) is the frame's id in the [change feed](events.md): keep the last one you processed and resume from it after a reconnect.
 
 ### Event types
 
@@ -60,7 +66,7 @@ Every event follows the `{ "event": "<event_type>", "data": { ... } }` envelope 
 
 ## Versioning policy
 
-All REST endpoints are served under the `/api/v1/` prefix. This is a literal path segment — the version string is not a header or query parameter. An unsupported version prefix (e.g. `/api/v2/`) returns `406 Not Acceptable`.
+All REST endpoints are served under the `/api/v1/` prefix, a literal path segment (not a header or query parameter). An unsupported version prefix (e.g. `/api/v2/`) returns `406 Not Acceptable`.
 
 The `/api/v1/` surface is the stable 1.x contract. Breaking changes (field removals, type changes, endpoint removals) will be introduced under `/api/v2/` with at least one minor-release deprecation notice. Additive changes (new optional response fields, new optional request parameters, new endpoints) are non-breaking and may appear in any 1.x patch or minor release.
 
@@ -210,7 +216,7 @@ The snake_case path remains routable through every 1.x release. It will be remov
 
 ### Expanding foreign-key fields
 
-Endpoints that return a foreign key as an integer id may also support a nested companion field gated on the `?expand=<name>` query parameter. The default response shape is unchanged; passing `expand` adds a parallel `_detail` field populated with a minimal nested object.
+Endpoints that return a foreign key as an integer id may support a nested companion field behind the `?expand=<name>` query parameter. The default shape is unchanged; `expand` adds a parallel `_detail` field holding a minimal nested object.
 
 | Endpoint | Expandable field | Query | Default shape | Expanded shape |
 |---|---|---|---|---|
@@ -221,4 +227,4 @@ Endpoints that return a foreign key as an integer id may also support a nested c
 
 Multiple expansions may be combined with a comma, e.g. `?expand=group,members`. Unknown values are silently ignored. The original FK id fields (`group`, `group_name`) always remain in the response for backward compatibility.
 
-The `ancestors` field on the expanded `group_detail` payload is root-first and excludes the group itself (callers already have that in `name`). Useful for rendering breadcrumbs without a follow-up request. Added in 1.1 (#845).
+The `ancestors` field on the expanded `group_detail` payload is root-first and excludes the group itself (already in `name`), which lets you render breadcrumbs without a follow-up request. Added in 1.1 (#845).
