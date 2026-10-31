@@ -13,7 +13,10 @@
     "measure:mdx": "node scripts/measure-mdx-parse.mjs",
     "measure:anchors": "node scripts/measure-anchor-drift.mjs",
     "check:version-anchors": "node scripts/check-version-anchors.mjs",
-    "test:versions": "node scripts/test-version-slugs.mjs"
+    "test:versions": "node scripts/test-version-slugs.mjs",
+    "test:anchors": "node scripts/test-anchor-model.mjs",
+    "test:facts": "node scripts/test-rewrite-facts.mjs",
+    "test": "node scripts/test-version-slugs.mjs && node scripts/test-anchor-model.mjs && node scripts/test-rewrite-facts.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "0.41.3",

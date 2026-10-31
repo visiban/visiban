@@ -33,7 +33,7 @@ for (const f of files) {
   for (const h of headings(text.split('\n'), { h1: /^#\s+(.*)$/m.exec(text)?.[1] })) {
     total++
     if (h.mkdocs === h.astro) continue
-    if (/_\d+$/.test(h.mkdocs)) {
+    if (h.dup) {
       dups++
       dupFiles.add(f)
     } else punct++

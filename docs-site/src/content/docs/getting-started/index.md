@@ -32,7 +32,7 @@ Install, log in once as the admin, mark your Done columns, then invite people. D
 Work through these five steps after your first successful login:
 
 1. **Change the default admin password.** You're prompted on first login. Confirm it's done before you go on.
-2. **Choose a registration mode.** Go to **Admin → Settings** and pick Open, Invite-only, or Closed. Invite-only is the right choice for most teams. See [Inviting your team](/getting-started/first-boot/#inviting-your-team).
+2. **Configure registration mode.** Go to **Admin → Settings** and pick Open, Invite-only, or Closed. Invite-only is the right choice for most teams. See [Inviting your team](/getting-started/first-boot/#inviting-your-team).
 3. **Mark your Done column(s).** On each column where work finishes, open the header's overflow menu → **Edit** → check **Mark as done column**. Without this, the analytics heatmap counts finished work and dwell times are wrong. See [Marking the Done column](/getting-started/board-setup/#marking-the-done-column).
 4. **Invite your team.** In Invite-only mode, go to **Admin → Invite Links** to create links and share them. See [Inviting your team](/getting-started/first-boot/#inviting-your-team).
 5. **Import a sample board.** Samples cover sales (including enterprise overlay coverage), support, hiring, and more. Each comes with custom fields, movement history, and analytics data already filled in. The backend image ships the JSON files; the CSVs are only in the repository. See [where to get the files](/getting-started/sample-boards/#where-to-get-the-files).

@@ -30,14 +30,37 @@ export function mkdocsSlug(v) {
     .replace(/[-\s]+/g, '-')
 }
 
-/** Heading text as rendered: code ticks, link syntax, emphasis and escapes removed. */
-export const headingText = (h) =>
-  h
-    .replace(/`/g, '')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/[*_]/g, '')
-    .replace(/\\(.)/g, '$1')
-    .trim()
+/**
+ * The heading's text as rendered, which is what both slugifiers see:
+ * Python-Markdown's toc takes the heading element's text, and Astro takes the
+ * heading node's text. So code spans keep their content verbatim (underscores
+ * included: `## DJANGO_SECRET_KEY` publishes #django_secret_key), links and
+ * inline HTML keep their text, images contribute nothing, emphasis markers go
+ * but intraword underscores stay, backslash escapes yield the character, and
+ * entities are decoded.
+ */
+export function headingText(src) {
+  const held = []
+  const hold = (t) => `\u0000${held.push(t) - 1}\u0000`
+  let s = src
+  s = s.replace(/(`+)\s?(.+?)\s?\1/g, (_, _t, code) => hold(code))
+  s = s.replace(/\\([\\`*_{}\[\]()#+\-.!<>|~"])/g, (_, c) => hold(c))
+  s = s.replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+  s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1')
+  s = s.replace(/<\/?[A-Za-z][^>]*>/g, '')
+  s = s.replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, '$2')
+  s = s.replace(/\*(?=\S)(.+?)(?<=\S)\*/g, '$1')
+  s = s.replace(/(^|[^\w])_(?=\S)(.+?)(?<=\S)_(?!\w)/g, '$1$2')
+  s = s
+    .replace(/&nbsp;/g, '\u00a0')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+  s = s.replace(/\u0000(\d+)\u0000/g, (_, n) => held[n])
+  return s.trim()
+}
 
 /**
  * Every H2-H6 heading outside code fences, with its line index and both ids.
@@ -67,7 +90,10 @@ export function headings(lines, { h1 } = {}) {
     const m = /^(#{2,6})\s+(.*?)\s*#*\s*$/.exec(line)
     if (!m) return
     const text = headingText(m[2])
-    out.push({ line: i, text, mkdocs: unique(mkdocsSlug(text)), astro: slugger.slug(text) })
+    const base = mkdocsSlug(text)
+    const mkdocs = unique(base)
+    // dup: a repeated heading, whose mkdocs id carries the _N suffix.
+    out.push({ line: i, text, mkdocs, astro: slugger.slug(text), dup: mkdocs !== base })
   })
   return out
 }

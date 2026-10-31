@@ -17,7 +17,7 @@
 #
 # Aliases. Today `latest` is mike's default and means the newest GA release,
 # not main; keep that meaning by pointing it at the newest GA version (move it
-# when a new minor is cut). `next` is mike's newest pre-release; this prototype
+# when a new minor is cut; npm run test:versions fails until you do). `next` is mike's newest pre-release; this prototype
 # serves main at the root, so `next` goes there. What the root itself should
 # serve (newest GA, or main) is an open decision; see SPIKE-FINDINGS.md and #2019.
 /latest/*            /v1.2/:splat    302

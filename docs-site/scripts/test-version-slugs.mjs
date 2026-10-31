@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { SLUG_PATTERN, assertVersions } from './version-slugs.mjs'
+import { versions } from '../docs-versions.mjs'
 
 let passed = 0
 const t = (name, fn) => {
@@ -59,14 +60,31 @@ t('compares numerically, not as strings (the #1270 sort bug)', () => {
   assert.throws(() => assertVersions(v('v1.9', 'v1.10')), /newest first/)
 })
 
-t('astro.config.mjs uses this module and its list passes', () => {
+t('astro.config.mjs applies the guard to docs-versions.mjs, and that list passes', () => {
   const config = readFileSync(new URL('../astro.config.mjs', import.meta.url), 'utf8')
   assert.match(config, /from '\.\/scripts\/version-slugs\.mjs'/)
+  assert.match(config, /from '\.\/docs-versions\.mjs'/)
   assert.match(config, /assertVersions\(versions\)/)
-  const block = /const versions = \[([\s\S]*?)\n\]/.exec(config)?.[1] ?? ''
-  const list = [...block.matchAll(/\{ slug: '([^']+)'/g)].map((m) => m[1])
-  assert.ok(list.length > 0)
-  assertVersions(v(...list))
+  assert.ok(versions.length > 0)
+  assertVersions(versions)
+  for (const { slug, tag } of versions) assert.match(tag, /^v\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$/, `${slug} needs its git tag`)
+})
+
+// /latest/ meant "newest GA release" under mike. It is a hand-written rule in
+// public/_redirects, so cutting a new minor without moving it would silently
+// keep sending /latest/ to the old one.
+const newestGA = (list) => list.find(({ slug }) => /^v\d+\.\d+$/.test(slug))?.slug
+const latestTarget = (text) => /^\/latest\/\*\s+\/([^/\s]+)\/:splat\s/m.exec(text)?.[1]
+
+t('public/_redirects sends /latest/ to the newest GA version', () => {
+  const redirects = readFileSync(new URL('../public/_redirects', import.meta.url), 'utf8')
+  assert.equal(latestTarget(redirects), newestGA(versions))
+})
+
+t('the /latest/ check fails when a new minor is cut without moving it (negative control)', () => {
+  const cut = [{ slug: 'v1.3', label: 'v1.3', tag: 'v1.3.0' }, ...versions]
+  assertVersions(cut)
+  assert.notEqual(latestTarget('/latest/*            /v1.2/:splat    302\n'), newestGA(cut))
 })
 
 console.log(`${passed} tests passed`)

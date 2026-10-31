@@ -46,10 +46,10 @@ Until at least one column is marked as done, the dwell-time heatmap includes all
 - the heatmap shows those columns as bottlenecks even though the work is finished
 - velocity counts in the Summary view stay at zero
 
-**How it works:** A done column is:
+**How it works:** Marking a column done tells Visiban to:
 
-- **left out of the dwell-time heatmap**, so completed work doesn't inflate time-in-stage figures for active stages
-- **counted as completed work** when cards move into it, which powers the 7-day and 30-day velocity figures in the Summary view
+- **Exclude it from the dwell-time heatmap**, so completed work doesn't inflate time-in-stage figures for active stages
+- **Count movements into it as completed work**, which powers the 7-day and 30-day velocity figures in the Summary view
 
 Archived cards use their archive timestamp as the exit time, so they don't accumulate dwell time after archiving.
 

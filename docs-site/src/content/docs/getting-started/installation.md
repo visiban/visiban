@@ -509,27 +509,27 @@ sudo systemctl stop nginx apache2   # or whichever service holds port 80
 
 **The Live dot stays yellow (Reconnecting) or never turns green.** The toolbar indicator shows the WebSocket connection to `/ws/boards/{id}/`. If it stays yellow after the page loads, work down this list:
 
-1. **The backend isn't ready.** WebSocket connections are rejected until daphne has fully started:
+1. **Backend not ready.** WebSocket connections are rejected until daphne has fully started:
    ```bash
    docker compose -f docker-compose.prod.yml logs backend | tail -20
    ```
    Wait for a line containing `daphne` before reloading the page.
 
-2. **Valkey is unavailable.** Django Channels needs Valkey for the channel layer. Without it, the backend accepts the WebSocket upgrade and then closes it immediately. Edits still save, but their live updates are dropped, and the backend logs a `board broadcast dropped` warning for each one. Once Valkey is back, an open board catches up when its socket reconnects, when its tab next regains focus, or when you choose **Refresh board** in the connection popover. API clients can replay missed board events from the [change feed](https://docs.visiban.com/latest/api/events/).
+2. **Valkey unavailable.** Django Channels needs Valkey for the channel layer. Without it, the backend accepts the WebSocket upgrade and then closes it immediately. Edits still save, but their live updates are dropped, and the backend logs a `board broadcast dropped` warning for each one. Once Valkey is back, an open board catches up when its socket reconnects, when its tab next regains focus, or when you choose **Refresh board** in the connection popover. API clients can replay missed board events from the [change feed](https://docs.visiban.com/latest/api/events/).
    ```bash
    docker compose -f docker-compose.prod.yml logs valkey
    docker compose -f docker-compose.prod.yml exec backend python manage.py shell -c "from django.core.cache import cache; cache.set('healthcheck', 'ok'); print(cache.get('healthcheck'))"
    ```
 
-3. **`ALLOWED_HOSTS` is missing your domain.** A handshake is refused with `403` if its `Origin` matches neither `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` nor an exact host in `ALLOWED_HOSTS`. Confirm `ALLOWED_HOSTS=yourdomain.com` is set in `.env`. If `ALLOWED_HOSTS` uses `*` or a leading-dot entry, list your public origin in `CORS_ALLOWED_ORIGINS` instead.
+3. **`ALLOWED_HOSTS` missing your domain.** A handshake is refused with `403` if its `Origin` matches neither `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` nor an exact host in `ALLOWED_HOSTS`. Confirm `ALLOWED_HOSTS=yourdomain.com` is set in `.env`. If `ALLOWED_HOSTS` uses `*` or a leading-dot entry, list your public origin in `CORS_ALLOWED_ORIGINS` instead.
 
-4. **nginx isn't proxying `/ws/`.** Confirm the nginx container started cleanly and that its config has the WebSocket location block:
+4. **Nginx not proxying `/ws/`.** Confirm the nginx container started cleanly and that its config has the WebSocket location block:
    ```bash
    docker compose -f docker-compose.prod.yml logs nginx
    docker compose -f docker-compose.prod.yml exec nginx nginx -T | grep "location /ws"
    ```
 
-5. **An upstream proxy strips the upgrade headers.** If Visiban sits behind another reverse proxy (a CDN or load balancer), confirm that proxy forwards the `Upgrade` and `Connection` headers and doesn't terminate WebSocket connections.
+5. **Upstream proxy stripping upgrade headers.** If Visiban sits behind another reverse proxy (a CDN or load balancer), confirm that proxy forwards the `Upgrade` and `Connection` headers and doesn't terminate WebSocket connections.
 
 ## Environment variables
 
@@ -553,7 +553,7 @@ sudo systemctl stop nginx apache2   # or whichever service holds port 80
 | `EMAIL_VERIFICATION` | No | Email verification mode: `optional` (default: sends a verification email but allows login without it), `none` (no verification; works without SMTP), or `mandatory` (blocks login until the email is verified). The old alias `ACCOUNT_EMAIL_VERIFICATION` was removed in 1.1; use `EMAIL_VERIFICATION` only. |
 | `SECURE_HSTS_SECONDS` | No | HTTP Strict-Transport-Security max-age in seconds. Defaults: `0` in development; `31536000` (1 year) in production when `DEBUG=false`. **In the production Compose stack this value also drives the header `init-prod.sh` renders into nginx**, and nginx is the only thing that sends the header there (see [TLS modes](#tls-modes)). With `TLS_MODE=letsencrypt` and the value unset, nginx sends `63072000` (2 years), the value existing installs already got. With `TLS_MODE=selfsigned`, nginx sends no header unless you set this. For the Compose stack the value must be `0` or a positive integer with **no leading zero** and at most 10 digits (e.g. `300`, not `0300`); `init-prod.sh` fails closed with an error rather than guess at a malformed value. Django's own parsing elsewhere is more lenient. **Warning:** a wrong value locks browsers into HTTPS for the full duration, with no easy rollback. Start small (e.g. `300`) when you first enable HTTPS, then raise it once everything works. |
 | `DJANGO_ADMIN_ALLOWED_IPS` | No | Comma-separated IPs and/or CIDR ranges (e.g. `10.0.0.0/8`) allowed to reach `/admin/`. In production the default is loopback only (`127.0.0.1`, `::1`). Setting this **replaces** that default, so include `127.0.0.1,::1` if you still need loopback access. Also covered in [Secret Rotation](https://docs.visiban.com/latest/administration/secret-rotation/). |
-| `OIDC_CLIENT_ID` | No | OIDC provider client ID, for generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three `OIDC_*` connection vars must be set together to enable OIDC login. See [OAuth and SSO](/getting-started/oauth/). |
+| `OIDC_CLIENT_ID` | No | OIDC provider client ID, for generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three `OIDC_*` vars must be set together to enable OIDC login. See [OAuth and SSO](/getting-started/oauth/). |
 | `OIDC_CLIENT_SECRET` | No | OIDC provider client secret. The old alias `OIDC_SECRET` was removed in 1.1; only `OIDC_CLIENT_SECRET` is read. |
 | `OIDC_SERVER_URL` | No | OIDC issuer URL, e.g. `https://idp.example.com/realms/my-realm`. Must be the issuer root: allauth appends `.well-known/openid-configuration` to discover endpoints. |
 | `OIDC_PROVIDER_NAME` | No | Label on the OIDC login button (default: `SSO`). |

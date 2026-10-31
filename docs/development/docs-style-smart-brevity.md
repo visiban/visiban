@@ -15,11 +15,18 @@ Before you call a rewrite done, diff the old and new pages for:
 - every code block (each command must still be there, unchanged unless it was wrong)
 - every env var, Helm key, and file path
 - every callout, by severity (see [Callouts](#callouts)), and every blockquote callout label (`> **Added in 1.2**`, `> **Visiban Enterprise**`)
-- every version note ("Added in 1.2", "since 1.2", "Changed in 1.2", "(1.2+)")
+- every version note ("Added in 1.2", "since 1.2", "Changed in 1.2", "(1.2+)", "*(1.2)*", "*(1.2, off by default)*")
 - every link, external and internal (page and `#anchor`)
 - every heading anchor the old page published (see [Headings and links](#headings-and-links))
+- every bullet's bold lead term (`- **Invite links** …`): keep the term itself, and reword what follows it
+- every number in a list item or table row ("five roles", "10 MB")
 
-`docs-site/scripts/check-rewrite-facts.mjs` checks every item on this list. Version notes are matched as phrases, so a reworded note can pass while saying something different; read those yourself. For a rewrite done in place in `docs/`, compare against the branch point; no build is needed:
+`docs-site/scripts/check-rewrite-facts.mjs` checks each of these mechanically. Its header comment (`scripts/rewrite-facts.mjs`) says exactly how. Mechanical matching has two blind spots, so a human still has to read for them:
+
+- **A fact stated only in plain prose.** If it isn't code, a link, a callout, a bold bullet term, a version note, or a number in a list or table, the check can't see it. Rewording it into something false, or dropping it, passes.
+- **A version note that keeps its number but changes its meaning.**
+
+For a rewrite done in place in `docs/`, compare against the branch point; no build is needed:
 
 ```bash
 cd docs-site && npm ci
@@ -110,7 +117,7 @@ in analytics views. You can mark multiple columns as done (for example, both "Cl
 and "Closed Lost").
 ```
 
-**After** (161 words, counting the anchor shim):
+**After** (160 words, counting the anchor shim):
 
 ```markdown
 ## Marking the Done column
@@ -122,11 +129,11 @@ Mark every column where work finishes (for example "Done", "Closed", or "Release
     Until at least one column is marked as done, the dwell-time heatmap includes all
     columns: closed work stays in the data and distorts stage timing.
 
-**How it works:** A done column is:
+**How it works:** Marking it tells Visiban to:
 
-- **left out of the dwell-time heatmap**, so completed work doesn't inflate time-in-stage
-  figures for active stages
-- **counted as completed work** when cards move into it, which feeds the 7-day and 30-day
+- **Exclude it from the dwell-time heatmap**, so completed work doesn't inflate
+  time-in-stage figures for active stages
+- **Count movements into it as completed work**, which feeds the 7-day and 30-day
   velocity in the **Summary** view
 
 <a id="steps"></a>
@@ -151,7 +158,8 @@ What changed, and why:
 ## Checklist for a rewrite MR
 
 - [ ] Every page has a lede sentence and a **Why it matters:** line.
-- [ ] `check-rewrite-facts.mjs --base origin/main <section>` reports `problems 0`. That means no code block, inline-code token, external or internal link, callout (per severity), blockquote label, version note, or published anchor was lost. Any reworded version notes were also read by hand.
+- [ ] `check-rewrite-facts.mjs --base origin/main <section>` reports `problems 0`. That means no code block, inline-code token, external or internal link, callout (per severity), blockquote label, bullet lead term, list or table number, version note, or published anchor was lost.
+- [ ] A reviewer read the old and new pages side by side for facts stated only in prose, which the check can't see.
 - [ ] Every warning and danger is still a callout of the same severity.
 - [ ] No "Coming in X" or "Ships in X" wording for a version that has shipped. CI's `docs-version-accuracy` job fails on it.
 - [ ] Every page is written in US English.
