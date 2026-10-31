@@ -4120,7 +4120,9 @@
 
 
 <h1 id="board-change-feed-api">Board Change Feed API<a class="headerlink" href="#board-change-feed-api" title="Permanent link">&para;</a></h1>
-<p>Every board mutation is appended to a durable, ordered feed that a consumer outside the
+<p>Read what happened on a board with a cursor, instead of holding a WebSocket open.</p>
+<p><strong>Why it matters:</strong> a consumer that drops offline can resume from its last cursor and miss nothing.</p>
+<p><strong>How it works:</strong> every board mutation is appended to a durable, ordered feed that a consumer outside the
 Django process — a second front end, a CRM sync job, the MCP REST client — can read with a
 cursor instead of holding a WebSocket open and hoping it never drops.</p>
 <div class="admonition info">

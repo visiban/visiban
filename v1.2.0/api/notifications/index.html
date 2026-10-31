@@ -4048,7 +4048,9 @@
 
 
 <h1 id="notifications-api">Notifications API<a class="headerlink" href="#notifications-api" title="Permanent link">&para;</a></h1>
-<p>Visiban creates notifications for board members when:</p>
+<p>Read and clear your notifications over REST; toggle each type with <code>PATCH /api/v1/auth/me/</code>.</p>
+<p><strong>Why it matters:</strong> each notification type has its own preference, so a missing notification is usually a toggle, not a bug.</p>
+<p><strong>The big picture:</strong> Visiban creates notifications for board members when:</p>
 <ul>
 <li>A card is assigned to them (<code>notif_card_assigned</code>)</li>
 <li>They are @mentioned in a comment or card description (<code>notif_mentioned</code>)</li>

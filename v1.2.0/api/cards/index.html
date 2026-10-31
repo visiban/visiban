@@ -4532,7 +4532,9 @@
 
 
 <h1 id="cards-api">Cards API<a class="headerlink" href="#cards-api" title="Permanent link">&para;</a></h1>
-<p>Cards and everything attached to one — moves, comments, attachments, checklists, relations, and activity history.</p>
+<p><code>GET /api/v1/boards/{board_id}/cards/</code> lists a board's cards; <code>POST</code> to the same path creates one.</p>
+<p><strong>Why it matters:</strong> card writes appear in activity history and reach connected clients over WebSockets, so a script's moves are visible to the team.</p>
+<p><strong>The big picture:</strong> cards and everything attached to one — moves, comments, attachments, checklists, relations, and activity history.</p>
 <h2 id="cross-board-card-query">Cross-board card query<a class="headerlink" href="#cross-board-card-query" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1cards"><code>GET /api/v1/cards/</code><a class="headerlink" href="#get-apiv1cards" title="Permanent link">&para;</a></h3>
 <blockquote>

@@ -3951,7 +3951,9 @@
 
 
 <h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
-<p>Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.</p>
+<p>Send authenticated JSON requests to <code>/api/v1</code>; start with <a href="authentication/">Authentication</a>.</p>
+<p><strong>Why it matters:</strong> every endpoint lives under the <code>/api/v1/</code> prefix and needs a valid token or session, so an unauthenticated request fails before it reaches any board data.</p>
+<p><strong>The big picture:</strong> Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.</p>
 <p><strong>Base URL:</strong> <code>http://localhost:8000/api/v1</code> (dev) or <code>https://&lt;your-domain&gt;/api/v1</code> (production)</p>
 <table>
 <thead>

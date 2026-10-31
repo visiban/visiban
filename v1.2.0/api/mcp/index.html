@@ -4403,7 +4403,9 @@
 
 
 <h1 id="mcp-server">MCP Server<a class="headerlink" href="#mcp-server" title="Permanent link">&para;</a></h1>
-<p>Visiban can expose its boards to AI agents over the <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a> (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to <code>/mcp</code>, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.</p>
+<p>Set <code>MCP_SERVER_ENABLED=true</code>, then point an MCP client at <code>/mcp</code> with a Personal Access Token.</p>
+<p><strong>Why it matters:</strong> the server is off by default, and <code>/mcp</code> returns <code>404 Not Found</code> until you enable it.</p>
+<p><strong>The big picture:</strong> Visiban can expose its boards to AI agents over the <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a> (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to <code>/mcp</code>, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.</p>
 <p>The feature is flag-gated: <code>/mcp</code> returns <code>404 Not Found</code> unless the server is started with <code>MCP_SERVER_ENABLED=true</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

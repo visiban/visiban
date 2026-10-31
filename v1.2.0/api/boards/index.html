@@ -5140,7 +5140,9 @@
 
 
 <h1 id="boards-api">Boards API<a class="headerlink" href="#boards-api" title="Permanent link">&para;</a></h1>
-<p>Boards, columns, swimlanes, labels, custom fields, membership, sharing, and export/import — everything you do with a board short of the cards inside it (see <a href="../cards/">Cards API</a>).</p>
+<p><code>GET /api/v1/boards/</code> lists your boards; everything else here hangs off a board id.</p>
+<p><strong>Why it matters:</strong> columns, swimlanes, labels, membership, and sharing all enforce board roles, so check the role a call needs before you script it.</p>
+<p><strong>The big picture:</strong> boards, columns, swimlanes, labels, custom fields, membership, sharing, and export/import — everything you do with a board short of the cards inside it (see <a href="../cards/">Cards API</a>).</p>
 <h2 id="boards">Boards<a class="headerlink" href="#boards" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boards"><code>GET /api/v1/boards/</code><a class="headerlink" href="#get-apiv1boards" title="Permanent link">&para;</a></h3>
 <p>List all boards accessible to the current user.</p>
@@ -6368,7 +6370,7 @@ caller below <code>admin</code> — the same role gate this export already appli
 </tr>
 <tr>
 <td><code>export_format</code></td>
-<td><code>"csv"</code> or <code>"json"</code> for board exports; <code>"movements_&lt;format&gt;"</code> (lowercased, at most 20 characters) for movement history exports. The web UI renders <code>movements_&lt;format&gt;</code> as "Movements (<FORMAT>)".</td>
+<td><code>"csv"</code> or <code>"json"</code> for board exports; <code>"movements_&lt;format&gt;"</code> (lowercased, at most 20 characters) for movement history exports. The web UI renders <code>movements_&lt;format&gt;</code> as <code>Movements (&lt;FORMAT&gt;)</code>.</td>
 </tr>
 <tr>
 <td><code>row_count</code></td>

@@ -4637,7 +4637,9 @@
 
 
 <h1 id="api-authentication">API Authentication<a class="headerlink" href="#api-authentication" title="Permanent link">&para;</a></h1>
-<p>Visiban supports two authentication methods: <strong>token</strong> (recommended for scripts and API clients) and <strong>session</strong> (used by the browser SPA).</p>
+<p>Send <code>Authorization: Token &lt;value&gt;</code> on every request, using a token from <code>POST /api/v1/auth/login/</code> or a Personal Access Token.</p>
+<p><strong>Why it matters:</strong> a script with the wrong scheme gets <code>401</code>, and a leaked long-lived token stays valid until you revoke it.</p>
+<p><strong>The big picture:</strong> Visiban supports two authentication methods: <strong>token</strong> (recommended for scripts and API clients) and <strong>session</strong> (used by the browser SPA).</p>
 <p>Token authentication covers two token types that share the same <code>Authorization: Token &lt;value&gt;</code> header scheme:</p>
 <ul>
 <li><strong>Session tokens</strong> — short-lived tokens issued by <code>POST /api/v1/auth/login/</code>. Invalidated on logout or password change.</li>
@@ -5767,7 +5769,7 @@ actually bootstraps from) returns the identical shape — both are served by
 </tbody>
 </table>
 <h3 id="delete-apiv1authmepending-connect"><code>DELETE /api/v1/auth/me/pending-connect/</code><a class="headerlink" href="#delete-apiv1authmepending-connect" title="Permanent link">&para;</a></h3>
-<p>Dismiss the one-time "Connect {Provider}?" prompt: clears <code>pending_connect_provider</code> for this session. Added in 1.2 (#1314).</p>
+<p>Dismiss the one-time <code>Connect {Provider}?</code> prompt: clears <code>pending_connect_provider</code> for this session. Added in 1.2 (#1314).</p>
 <p><strong>Permission:</strong> Requires authentication. Acts only on the caller's own session.</p>
 <p><strong>Request body:</strong> none.</p>
 <p><strong>Response</strong> <code>204 No Content</code> — no body. Re-fetch the profile with <a href="#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a> or <code>GET /api/v1/auth/user/</code>, or set both <code>pending_connect_provider</code> and <code>pending_connect_identity</code> to <code>null</code>, to show the new state. Idempotent. Before 1.2.0 GA this returned <code>200</code> with the updated profile; it was changed to <code>204</code> to match the other 1.2 revoke endpoints (#2005).</p>

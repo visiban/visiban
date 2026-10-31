@@ -4298,7 +4298,9 @@
 
 
 <h1 id="admin-api">Admin API<a class="headerlink" href="#admin-api" title="Permanent link">&para;</a></h1>
-<p>Site-wide settings, the action log, email configuration, maintenance mode, users, invite
+<p>Manage site settings, users, and invites with a site-admin token.</p>
+<p><strong>Why it matters:</strong> every endpoint here changes the whole instance, so a non-admin call fails with <code>403 Forbidden</code>.</p>
+<p><strong>The big picture:</strong> site-wide settings, the action log, email configuration, maintenance mode, users, invite
 links, and board invites — administrative endpoints, restricted to site admins.</p>
 <p>All endpoints below require <strong>site admin</strong> authentication; non-admin users receive <code>403 Forbidden</code>.</p>
 <p>See <a href="../../administration/admin-panel/">Admin Panel</a> for the equivalent UI and <a href="../../administration/site-admins/">Site Admins</a> for first-boot setup.</p>
