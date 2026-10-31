@@ -2,7 +2,7 @@
 
 Find every secret, credential, and environment variable Visiban needs in local development, the GitLab CI pipeline, and production.
 
-**Why it matters:** A missing or wrong value is the usual reason a first boot fails or a pipeline goes red. In production, `DJANGO_SECRET_KEY`, `DB_PASSWORD`, `REDIS_PASSWORD`, and `APP_VERSION` are required.
+**Why it matters:** In production, `DB_PASSWORD`, `REDIS_PASSWORD`, and `APP_VERSION` are required, and `DJANGO_SECRET_KEY` must be unique and kept secret.
 
 **The big picture:** start with your environment ([local development](#local-development), [GitLab CI pipeline](#gitlab-ci-pipeline), [production](#production-deployment)), then the feature sections: [reverse proxies](#reverse-proxies-and-the-client-ip), [optional features](#optional-features-off-by-default), [import limits](#import-limits), [email](#email-smtp), [demo mode](#demo-mode), [health checks](#health-check-endpoints), [deprecated names](#deprecated-environment-variable-names).
 

@@ -4,7 +4,7 @@
 
 Since 1.2, deleting a card keeps its movement history (#1469). A superuser erases it on request with the `purge_card_history` management command.
 
-**Why it matters:** the history keeps incident retrospectives honest, but it also means a deleted card's title lives on. Know what remains, who can see it, and what the command does and does not erase.
+**Why it matters:** a deleted card's title and moves persist. Know what remains, who can see it, and what the command does and does not erase.
 
 **The big picture:** this page covers what that history keeps, who can see it, how long it lasts, and how to purge it.
 

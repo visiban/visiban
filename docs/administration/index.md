@@ -2,7 +2,7 @@
 
 Find the guide for the admin task in front of you: configure, upgrade, secure, schedule, or demo.
 
-**Why it matters:** most tasks have a single page. Start from the table, then follow the **Go deeper** links on each page.
+**Why it matters:** start from the table below, then follow the **Go deeper** links on each page.
 
 **Go deeper:** upgrading? Start with [Upgrading](upgrade.md). First install or secrets? Start with [Configuration](configuration.md).
 

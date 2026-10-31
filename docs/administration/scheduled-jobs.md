@@ -1,6 +1,6 @@
 # Schedule the four maintenance commands Visiban needs
 
-Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so notifications fire and old data gets pruned.
+Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so the notification scans run. The two prune jobs stay off until you enable each one.
 
 **Why it matters:** Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications.
 

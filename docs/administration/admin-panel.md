@@ -2,7 +2,7 @@
 
 The admin panel at `/admin` is where site admins manage users, registration, invites, and instance settings.
 
-**Why it matters:** Most day-to-day admin work (adding a user, closing sign-ups, revoking a leaked invite, turning on maintenance mode) takes a click here, with no restart and no shell.
+**Why it matters:** Most day-to-day admin work (adding a user, closing sign-ups, revoking a leaked invite, turning on maintenance mode) happens here without a shell.
 
 **The big picture:** The panel has four tabs: **Settings**, **Users**, **Invite Links**, and **Board Invites**. It is accessible to site admins only.
 

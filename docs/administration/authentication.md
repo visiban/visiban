@@ -2,7 +2,7 @@
 
 Visiban signs users in with a password, Google, GitHub, GitLab, or any OIDC provider out of the box. SAML and SCIM need the enterprise edition.
 
-**Why it matters:** The sign-in method decides who can reach your instance and how they recover access. Password, OAuth, and OIDC users share one password policy and one reset flow.
+**Why it matters:** The sign-in method decides who can reach your instance and how they recover access. Accounts with a password share one password policy and one self-service reset flow.
 
 **The big picture:** Some methods are available in the OSS edition; others require the enterprise edition.
 

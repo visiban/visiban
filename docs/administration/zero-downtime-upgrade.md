@@ -4,7 +4,7 @@
 
 Run `helm upgrade` with the new image tags and let Kubernetes roll the backend one pod at a time. Old pods keep serving while new pods migrate.
 
-**Why it matters:** the schema each migration leaves behind is safe for both the old and new backend code, so a rolling upgrade needs no maintenance window. Back up first, and verify the rollout before it finishes.
+**Why it matters:** the schema each migration leaves behind is safe for both the old and new backend code, so a rolling upgrade needs no maintenance window unless the release notes call for one. Back up first, and verify the rollout before it finishes.
 
 !!! tip "Docker Compose or a single server?"
     This playbook is for a **Helm / Kubernetes** deployment with more than one backend

@@ -1,4 +1,4 @@
-# Rotate your secrets with only a backend restart
+# Rotate your secrets without downtime beyond a backend restart
 
 Rotate Visiban's three most critical secrets (`DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS`) without downtime beyond a backend restart.
 

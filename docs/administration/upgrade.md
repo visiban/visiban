@@ -1,4 +1,4 @@
-# Upgrade Visiban in four commands, without downtime
+# Upgrade Visiban without downtime
 
 !!! note "Available from 1.0"
     Covers upgrades from Visiban 1.0 onward. Migrating from a pre-1.0 release? Follow the [1.0 release notes](#upgrading-to-100) below first.
