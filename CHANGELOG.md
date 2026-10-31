@@ -10,6 +10,91 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [1.2.0] — 2026-10-31
+
+**Visiban 1.2 in short.** Replace the spreadsheet, see the work, ask your own agent about it, with every move on the record. This summary covers everything new since 1.1.0. Upgrade urgency: recommended for all 1.1.x installs. It is a zero-downtime minor upgrade and most changes are additive, but Helm and Compose operators should read the action items below first.
+
+### Replace the spreadsheet
+- **Custom fields** on cards and on swimlane rows: text, number (with prefix, suffix and formatting), date, dropdown and multi-select (with per-choice colors), URL, and checkbox. Admins define, reorder and pin up to two fields to the card face. JSON import and export round-trip fields and values; CSV import restores values.
+- **Card relations:** link cards as blocks, blocked by, or relates to. Blocked cards carry a red indicator on the card face.
+- **Import and templates:** Trello board import with a preview wizard, an Include list to leave parts of a Visiban export out, and a "Start from a sample" gallery of ready-made boards, also available over the API.
+- **Pull request links:** attach a GitHub, GitLab or other URL to a card and see it as a badge on the card face.
+
+### See the work
+- A redesigned filter row, an optional at-limit WIP indicator on columns, and a per-user card density that overrides the board's setting.
+- **Graduated card aging:** cards tint yellow, orange, red and deep red as they sit idle, in multiples of the board's staleness threshold. A bar meter and the idle-day count mean the signal never depends on color alone (WCAG 1.4.1). Hovering a card no longer shifts the board.
+- **Issue Board Lens (experimental):** connect a public GitHub or GitLab repository and view its issues as a read-only board, including a derived Backlog, To Do, Doing, Review, Done pipeline view, filters, and shareable URLs.
+- A pluggable grid overlay slot and `ANALYTICS_EXTENSIONS` panels on the Summary tab, for extensions to build on.
+
+### Ask your own agent
+- **MCP server** at `/mcp` (Streamable HTTP): board, column, swimlane and card tools, plus `board://` and `card://` resources that return a full snapshot or a card's audit history in one read.
+- **Scoped personal access tokens** (`read`, `write`, and opt-in `mcp:read`, `mcp:write`), creatable from Settings. Visiban ships the interface, not a model: bring your own agent and token, and no data leaves your install.
+- **A more accurate API contract:** the OpenAPI schema is checked against the code in CI and diffed against the 1.1.0 baseline, coded `{detail, code}` 400 responses, `GET /api/v1/cards/` for cross-board filtered queries, and short-lived tickets for authenticating WebSockets.
+
+### On the record
+- A **resumable board change feed** (`GET /api/v1/boards/{id}/events/`) so an outside consumer can replay what it missed, including custom-field events and the acting user.
+- An **admin action log** of instance-wide setting changes, plus password changes and account creation by management commands and the Django admin; a `purge_card_history` command to erase the history a deleted card leaves behind.
+- Deleting a card now also removes its attachment files from media storage, with a documented sweep for files orphaned earlier.
+
+### Invites, email and administration
+- Board and group **invite links**, including single-use links emailed to people who have no account yet.
+- **Transactional email:** site admins configure SMTP from Admin → Settings → Email with a test button, and users can get email notifications for assignments, @mentions, due-soon cards, stale cards and comments on watched cards.
+- **Maintenance mode** (instance-wide read-only for upgrades), group ownership transfer, a restart-onboarding-tour action, and notification retention with scheduled prune jobs.
+
+### Running it
+- **Helm:** a values schema that rejects misspelled keys, a `helm test` hook, dev and prod overlays, a Cosign-signed chart at `oci://ghcr.io/visiban/charts`, Valkey authentication, and a public demo mode.
+- **Images and CI:** arm64 images, a drilled Docker Compose production path, and a release guard that publishes a tag's images, chart and GitHub release only if that commit's `main` pipeline passed.
+- A hosted demo at try.visiban.com.
+
+### What changed from 1.1 to 1.2
+Existing behavior that works differently now. None of it removes an API field or endpoint.
+
+- **Valkey replaces Redis** as the WebSocket and cache backend in Compose and Helm (the in-cluster service is `<release>-valkey-primary`). The PostgreSQL driver is now psycopg 3; `DATABASE_URL` and settings are unchanged.
+- **`docker-compose.prod.yml` no longer defaults `APP_VERSION` to `latest`.** Pin the version you intend to run. The GitLab registry's `:latest` tag now moves only on stable releases.
+- **Limits and reordering are enforced on every write path.** Column WIP and weight limits now apply to card creates, restores and the Django admin, not only moves (board import and seed commands are exempt). A `PATCH` or `PUT` that changes `position` on a card, column, swimlane or checklist item now returns `400`; use the reorder endpoints.
+- **History survives deletes.** Card movement history is kept when a card, or its column or swimlane, is deleted. Deleting a card also removes its attachment files.
+- **Sharing is tighter.** Public board share links are stored as hashes, and a link turned on before the enabling admin was recorded stops opening until it is turned on again. New links default to a 30-day expiry, and a link turns off when its enabling admin is deactivated or loses admin rights. Group invite links can no longer grant `admin` and always expire; unused admin links from 1.1 are revoked on upgrade, and unused never-expiring ones get a 7-day expiry. Emailed invites are bound to the address they were sent to.
+- **Account security:** changing an email address needs the current password and an interactive session; changing a username, setting a first password on a provider-only account, and disconnecting a sign-in provider need an interactive session or a recent provider sign-in. Deactivating an account revokes its API token, operator password resets revoke tokens, and password changes are rate-limited and count toward lockout. The server-rendered password-reset pages now redirect to the app's pages; links already sent keep working.
+- **Access rules are consistent across REST and WebSocket:** group access inherits downward only, moving or importing a board into a group needs group admin, group owners and the last active admin cannot be removed or demoted, groups nest at most 6 levels deep, and notifications go only to current members. WebSocket handshakes validate the `Origin` header, and `*` or leading-dot `ALLOWED_HOSTS` entries no longer count for that check; list your public origin in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`.
+- **Headers:** the bundled nginx templates and the Helm frontend send a Content-Security-Policy whose `connect-src` is scoped to your own origin, and `X-Frame-Options: DENY`.
+- **Existing superusers** are set to site admin with all-content access on upgrade.
+- **Smaller API changes:** a JSON board import without a `name` is named "Imported: <name from the file>"; `POST /auth/registration/verify-email/` answers `409 email_in_use` when another account already verified the address; client-error bodies for bad query parameters carry `{detail, code}`.
+- **Deprecated, still returned through 1.x:** `Group.default_board_member_role` (it never affected access), `next` on the board change feed (use `next_cursor`), and the `maintenance_*` and `demo_*` fields on `/auth/user/` (read them from `/auth/site-config/`).
+- **Supply chain:** release images are Cosign-signed with SBOM attestations on both registries, secret, SAST and container scans now block the pipeline, and dependencies were bumped for several advisories, including Django REST framework 3.18.
+- **Contributions** are accepted under Apache 2.0 inbound=outbound; the CLA is gone.
+
+### Action required
+- **Helm:** `helm upgrade` now fails while the bundled PostgreSQL uses an empty or placeholder password (back up and rotate in the order the upgrade guide gives). A leftover 1.1 `redis:` values key must move to `valkey:` (`redis.enabled` still works as a deprecated alias). `NUM_PROXIES` is now 2 behind the chart's Ingress, which can change `/admin/` allowlist behavior. The default `ALLOWED_HOSTS` no longer includes `localhost`, and catch-all or loopback `allowedHosts` entries fail the render (opt out with `backend.settings.allowUnsafeHosts=true`). Upgrade the chart and the images together.
+- **Compose:** check `ALLOWED_HOSTS` and `DOMAIN` before upgrading.
+- **Tokens and MCP:** personal access tokens now carry scopes, and MCP tools need an `mcp:read` or `mcp:write` token. MCP tool errors now return `isError: true`.
+- **API clients:** several OpenAPI component names changed (for example `User` is now `CurrentUser` on `/auth/user/`). No wire field is removed or renamed, but clients regenerated from the schema see renamed types. The 1.1 to 1.2 mapping is in the upgrade guide.
+- **After upgrading:** run `clear_viewer_assignees` once (preview with `--dry-run`) to clear assignees who are no longer assignable.
+- Details for each: [Upgrading to 1.2.x](https://docs.visiban.com/latest/administration/upgrade/#upgrading-to-12x).
+
+Full detail: [CHANGELOG.md](https://gitlab.com/visiban/visiban/-/blob/main/CHANGELOG.md).
+
+
+### Changed
+- A release tag's pipeline no longer publishes images, image signatures, the Helm chart or the GitHub release unless the tagged commit's own `main` pipeline passed. Before, the tag pipeline's image pushes waited only on one test job each, so all of these could ship while `playwright-e2e`, `migration-check` or a security gate was red on that commit. A new `release-main-pipeline-guard` job now runs first in every `v*` tag pipeline and every publish job waits on it. It checks each job in that commit's `main` pipeline, not the pipeline's overall status, so a failed `allow_failure` job also blocks the release. If it cannot find or read that pipeline, it refuses. This also covers tags pushed by hand, which `scripts/release.sh`'s own pre-tag check does not see. Not covered: the versioned docs for a release are still deployed by `main`'s `docs-deploy` when the release merge lands, before the tag exists, so they go live whatever the guard decides (#1154)
+- Removed the withdrawn braces GHSA-vfj7-8cjw-p6xm accepted-risk waiver from the frontend OSV-Scanner config (#1415)
+- The frontend image's default nginx config sends the same Content-Security-Policy, X-Frame-Options and X-Content-Type-Options response headers as the bundled nginx templates and the Helm chart. Parity is checked by `scripts/helm-structure-check.sh` and the backend config tests.
+- An open board or group WebSocket whose access re-check cannot complete, for example during a brief database outage, now closes with the standard reconnectable code `1011` instead of `4003`. The frame that triggered the check is still not delivered. With database-backed sessions (the default), `4003` now means the user has no access (or their credential was revoked), and clients still treat it as final; with a cache-only session backend a cache outage still closes with `4003` (#2014). Before, the two cases shared `4003`, so a server hiccup took the web app's board and group tabs offline until the page was reloaded; they now show the reconnecting state and reconnect on their own once the server recovers. The web app reconnects after its fixed 3-second delay. API clients that handle close codes should reconnect on `1011` (#2003)
+- MCP tool errors now come back with `isError: true`. In the 1.2 pre-releases, a `{"error": {"code": ...}}` result (a WIP limit, a permission or scope denial, a not-found id, a validation error, a throttle denial) came back with `isError: false`, so an agent framework that checks `isError` treated every one of these failures as a success. The error payload is unchanged: it is still in `structuredContent.result` and in the single JSON text block, with the same `code` and fields, and the tools' `outputSchema` is unchanged. A client that reads `structuredContent.result.error` needs no change. A client that treated `isError: true` as "no structured payload" should now read `structuredContent` on errors, but must still allow for an `isError: true` result without it (an input-schema rejection or an unexpected server error). Also, `create_card` and `update_card` no longer list the `assignee_email` argument in their input schema. For clients of v1.2.0-beta.2 through rc.1 nothing else changes: a non-null value (including `""`) is still rejected with a `validation_error` and changes nothing, now as an `isError: true` result, and an explicit `null` is still ignored. For clients of v1.2.0-beta.1 and earlier, where `assignee_email` was the working email-based assignee lookup, that lookup is gone; send `assignee` (a username). See the MCP API reference, "Result envelope" (#2004)
+- Three revoke-style endpoints that are new in 1.2 now answer `204 No Content` with no body, like the other 1.2 revoke endpoints: `DELETE /api/v1/auth/me/pending-email/` (cancel a pending email change), `DELETE /api/v1/auth/me/pending-connect/` (dismiss the "Connect {Provider}?" prompt), and `DELETE /api/v1/auth/me/connected-accounts/{provider}/` (disconnect a sign-in provider). In 1.2 pre-releases the first two answered `200` with the updated profile and the third answered `200` with the refreshed connected-accounts list. None of them existed in 1.1, so no 1.1 client is affected. A client that used the returned body should re-fetch `GET /api/v1/auth/user/` or `GET /api/v1/auth/me/connected-accounts/` instead; the bundled web app does (#2005)
+
+### Fixed
+- Helm: the 1.1 `redis.enabled` values key is honored as a deprecated alias for `valkey.enabled` (so `redis.enabled: false` with `externalRedis.url` no longer fails the schema check or silently deploys a bundled Valkey), any other leftover `redis.*` key now fails the render with a message naming the rename to `valkey:`, and the 1.1 to 1.2 upgrade notes no longer say no change is needed (#2002).
+- Helm: a 1.1 values file that sets `backend.email.host`/`user`/`password` without `backend.email.backend` keeps authenticating to SMTP after upgrade. The chart now renders `EMAIL_HOST_PASSWORD` (and the `email-password` Secret key) when `backend` is `smtp` or empty with `host` set, while `EMAIL_BACKEND` stays unset so Admin -> Settings -> Email keeps working; the changed default is documented in the 1.1 to 1.2 upgrade notes (#2016).
+- Hovering a card no longer makes the whole board jump: the metadata row's hover expansion used to grow the card in place, which grew its cell and every cell in that swimlane row. The expanded card is now an overlay that covers its cell-mates and stays inside the cell's bounds, so nothing around it moves. While a card is expanded, the other cards in its cell are blurred and faded to near-invisible
+
+### Security
+- Accept the twisted.names DNS spoofing advisory GHSA-jj36-9pvh-vj5r (fixed only in the 26.10.0rc1 prerelease) with an expiring dependency-scan ignore; Visiban never uses the twisted.names DNS client.
+- Confirmed in testing that nginx (the bundled Compose and Helm frontend nginx, and nginx 1.25.5 as shipped in the ingress-nginx v1.12.1 image, not the full controller) does not forward a bare CR or LF in a request header value to daphne in the tested cases. This narrows the exposure from GHSA-q7qq-6mhp-9rc4 (twisted.web) to deployments that reach daphne without nginx in front. The advisory stays ignored until a stable twisted 26.10.0 or later is available.
+- Raise the autobahn dependency floor to >=26.10.1 (locked at 26.10.2) to fix CVE-2026-116579 / GHSA-pjh6-c8mg-3x7m, a moderate advisory in the transitive daphne dependency.
+- A group invite sent by email can no longer grant the `admin` role: `POST /api/v1/groups/{id}/invite-links/send/` now answers `400` for `role: "admin"`, matching shareable links (#1727). An emailed admin invite sent before this fix is refused at preview, join and registration instead of granting admin; resend it as `member` and promote the person after they join.
+- An unused emailed admin invite sent earlier now reports `status: "revoked"` in `GET /api/v1/groups/{id}/invite-links/` while `is_active` stays `true`, the panel shows it as Revoked, and it no longer counts toward the 50-pending emailed cap, so a script filtering on `status == "pending"` will see those rows drop out.
+- Group invite redemption (`JoinGroupView.post`) now refuses a stored link role outside the group role enum, as registration already did, instead of copying it into the new membership.
+- Bump the `follow-redirects` npm override from 1.16.1 to 1.16.2 to fix GHSA-mrwp-f3q8-3g9p, where cross-realm `sensitiveHeaders` arrays were discarded and custom credentials could follow cross-origin redirects.
 ## [1.2.0-rc.1] — 2026-10-26
 
 

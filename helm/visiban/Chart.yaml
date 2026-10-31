@@ -3,7 +3,7 @@ name: visiban
 description: Open-source Kanban board where every row is an entity and every move is on the record
 type: application
 version: 0.7.0
-appVersion: "1.2.0-rc.1"
+appVersion: "1.2.0"
 
 dependencies:
   - name: postgresql
