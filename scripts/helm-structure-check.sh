@@ -511,6 +511,10 @@ check_spa_cache_policy() {
   [ "$bad" -eq 0 ] && pass "nginx: /assets/ 404s, index.html is no-cache, hashed assets are immutable"
 }
 
+# Known limits: this is a conservative line scan, not an nginx parser. It can
+# flag an add_header that only appears in a comment inside a location, or on a
+# line after a closed one-line location; and it does not detect an add_header
+# when `location` and its opening `{` are on separate lines.
 # Succeeds when any nginx `location` block declares its own add_header (which
 # drops every inherited server-level header). Tracks brace depth so the
 # one-line form `location / { add_header X 1; }` is caught as well as the
@@ -2395,11 +2399,11 @@ self_test() {
   # IMAGE_CHECK_ROOT, and require the check to fail. The undamaged copy must pass.
   local ic="$tmp/image-check" ic_ok=1 ic_case ic_prog ic_rc
   local ic_cases=(
-    "csp img-src widened|s/img-src 'self' data: blob:/img-src * data: blob:/"
-    "x-frame-options weakened|s/X-Frame-Options           \"DENY\"/X-Frame-Options           \"SAMEORIGIN\"/"
-    "x-content-type-options removed|s/add_header X-Content-Type-Options /add_header X-Removed /"
-    "one-line location add_header|s/index  index.html index.htm;/index index.html; add_header X-Loc 1;/"
-    "dockerfile stops installing config|DOCKERFILE"
+    "img-src differs from template|s/img-src 'self' data: blob:/img-src * data: blob:/"
+    "x-frame-options differs from template|s/X-Frame-Options           \"DENY\"/X-Frame-Options           \"SAMEORIGIN\"/"
+    "x-content-type-options absent|s/add_header X-Content-Type-Options /add_header X-Removed /"
+    "location-level add_header present|s/index  index.html index.htm;/index index.html; add_header X-Loc 1;/"
+    "Dockerfile COPY absent|DOCKERFILE"
   )
   for ic_case in "control|" "${ic_cases[@]}"; do
     rm -rf "$ic"; mkdir -p "$ic/frontend" "$ic/nginx"
@@ -2421,7 +2425,7 @@ self_test() {
     fi
   done
   if [ "$ic_ok" -eq 1 ]; then
-    echo "  ✓ frontend image config: undamaged copy passes; drifted headers, a location add_header and a missing Dockerfile COPY are rejected"
+    echo "  ✓ frontend image config: undamaged copy passes; header differences, a location-level add_header and an absent Dockerfile COPY are rejected"
     passes=$((passes + 1))
   else
     echo "  ✗ SELF-TEST FAIL: check_frontend_image_headers did not behave on the image-config cases" >&2
