@@ -1,8 +1,10 @@
-# RBAC and broadcast gates
+# Two CI jobs now check RBAC coverage and broadcast deferral
 
-Two CI jobs, `rbac-coverage` and `broadcast-deferral`, assert statically what the
-`rbac-check` and `broadcast-check` agent gates previously asserted by reading the diff and
-reasoning about it (#1143).
+`rbac-coverage` and `broadcast-deferral` assert statically what the `rbac-check` and `broadcast-check` agent gates previously asserted by reading the diff and reasoning about it (#1143).
+
+**Why it matters:** They run on every push, in well under a second, instead of when someone remembers to invoke an agent.
+
+**Yes, but:** The scripts cover the mechanical conditions **only**. Judgment calls stay with the agents; see [What still belongs to the agents](#what-still-belongs-to-the-agents).
 
 | Job | Script | Asserts |
 |---|---|---|
@@ -10,7 +12,7 @@ reasoning about it (#1143).
 | `broadcast-deferral` | `scripts/check-broadcast-deferral.py` | Every board/group-scoped write broadcasts; every raw broadcast is deferred to `transaction.on_commit()`; no commit hook holds an ORM row; no emit call sits in a loop over rows of one channel |
 
 Both run in the `test` stage with `needs: []`, take well under a second on the whole
-backend, and — like every bespoke gate here — run their own `--self-test` immediately
+backend, and, like every bespoke gate here, run their own `--self-test` immediately
 before the real invocation (see [CI gate self-tests](ci-gates.md)).
 
 ## Why these two, and not the agents

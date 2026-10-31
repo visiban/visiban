@@ -1,7 +1,13 @@
-# Backend Dependency Lock
+# Edit requirements.txt, then regenerate the lock
 
 The backend images install from `backend/requirements.lock`, a fully resolved,
 hash-pinned file, not from `backend/requirements.txt`.
+
+**Why it matters:** Pip never runs a package's `setup.py` and rejects any file whose hash is not in the lock, so a tampered or surprise dependency cannot reach a shipped image.
+
+**How it works:** Edit `backend/requirements.txt`, run `scripts/lock-backend-requirements.sh`, commit the result. See [Regenerating the lock](#regenerating-the-lock).
+
+**Watch out:** Never edit `backend/requirements.lock` by hand.
 
 | File | Role |
 |---|---|
@@ -10,13 +16,12 @@ hash-pinned file, not from `backend/requirements.txt`.
 | `backend/requirements.lock` | Generated. Every direct and transitive package pinned with `sha256` hashes for all platforms (including linux x86_64 and aarch64). Never edit by hand. |
 
 Both `backend/Dockerfile` and `backend/Dockerfile.prod` install with
-`--only-binary :all: --require-hashes`. Pip therefore never runs a package's
-`setup.py` and rejects any file whose hash is not in the lock (SonarCloud
-`docker:S8541` / `docker:S8544`, #1378).
+`--only-binary :all: --require-hashes`. That satisfies SonarCloud
+`docker:S8541` / `docker:S8544` (#1378).
 
 ## Regenerating the lock
 
-After any change to `backend/requirements.txt`:
+Run this after any change to `backend/requirements.txt`:
 
 ```bash
 pip install --require-hashes -r scripts/uv-requirements.txt   # pinned uv; or brew install uv at the same version
@@ -32,15 +37,13 @@ forces a change; to pick up newer transitive versions, delete
 `backend/requirements.lock` and rerun the script.
 
 The `backend-lock-check` CI job runs `scripts/lock-backend-requirements.sh
---check` (after a network-free `--self-test`) on any MR touching `requirements.txt`, the locks or the script and fails when they
-disagree.
+--check` (after a network-free `--self-test`) on any MR touching `requirements.txt`, the locks, or the script. It fails when they disagree.
 
 ## The dj-rest-auth sdist exception
 
-`dj-rest-auth` publishes only a source distribution on PyPI (re-checked for
-7.1.1; it is the only such package). The Dockerfiles pass
+`dj-rest-auth` is the only dependency that publishes only a source distribution on PyPI (re-checked for 7.1.1). The Dockerfiles pass
 `--no-binary dj-rest-auth`, which overrides `--only-binary :all:` for that single
-package and builds it into a wheel in the builder stage. Exactly what is and is
+package and builds it into a wheel in the builder stage. What is and is
 not verified:
 
 - Verified: every wheel and the `dj-rest-auth` sdist against their `sha256` in
@@ -90,7 +93,7 @@ location carries a comment saying so. Bump the floor in three places together:
 
 ## CI test jobs
 
-Test jobs still `pip install -r backend/requirements.txt`. They do not build
+Test jobs `pip install -r backend/requirements.txt`. They do not build
 images, so by design they track the latest compatible releases and catch
 upstream breakage early; only the shipped images install from the lock.
 

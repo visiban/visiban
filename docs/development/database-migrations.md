@@ -1,16 +1,12 @@
-# Database migrations
+# Build every new index and constraint concurrently
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Visiban's migration rules exist for one reason: `migrate` must never block the product.
-Everything below follows from that.
+Build every new index and constraint with `visiban.db_operations`, so `migrate` never blocks the product.
 
-An index or constraint added the default Django way takes an `ACCESS EXCLUSIVE` lock on its
-table for the *entire* build. On `cards` — the table every board read and every card move goes
-through — that is a full outage lasting as long as the build takes, which on a large instance
-with trigram indexes is minutes, not milliseconds.
+**Why it matters:** An index or constraint added the default Django way takes an `ACCESS EXCLUSIVE` lock on its table for the *entire* build. On `cards` — the table every board read and every card move goes through — that is a full outage lasting as long as the build takes, which on a large instance with trigram indexes is minutes, not milliseconds.
 
-PostgreSQL offers a way out, and Visiban requires it.
+**The big picture:** PostgreSQL offers a way out, and Visiban requires it. Everything below follows from the rule that `migrate` must never block the product.
 
 !!! info "Related rules"
     This covers **index and constraint** safety only. The adjacent column rules — every new

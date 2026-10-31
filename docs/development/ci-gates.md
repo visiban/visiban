@@ -1,17 +1,16 @@
-# CI gate self-tests
+# Every CI gate script proves it can fail
 
-A bespoke CI gate that stops detecting anything does not fail — it goes **green**,
-permanently, and looks exactly like a codebase with no violations. There is no signal
-distinguishing "the check passed" from "the check is broken." This is the house rule that
-closes that gap, and the record of which scripts follow it.
+Every bespoke gate script under `scripts/` ships a `--self-test` mode, and CI runs it right before the real check.
+
+**Why it matters:** A bespoke CI gate that stops detecting anything does not fail. It goes **green**, permanently, and looks exactly like a codebase with no violations. Nothing distinguishes "the check passed" from "the check is broken." This page is the house rule that closes that gap, and the record of which scripts follow it.
 
 ## The rule
 
 **Every bespoke gate script under `scripts/` ships a `--self-test` mode** that constructs a
 known-bad input, runs its own detection logic against it, and asserts the detection fires.
-CI runs `<script> --self-test` on the same image, immediately before the real invocation, so
-a change that silently broke detection (a tooling upgrade, a refactor, a BusyBox-vs-GNU
-behavior difference) is caught before its verdict is trusted on that same run.
+CI runs `<script> --self-test` on the same image, immediately before the real invocation. A
+change that silently broke detection (a tooling upgrade, a refactor, a BusyBox-vs-GNU
+behavior difference) is then caught before its verdict is trusted on that same run.
 
 ```bash
 # The shape every wired gate follows, e.g. dep-scan-osv:
@@ -25,10 +24,10 @@ non-blocking `2` the real gate uses for a MEDIUM/LOW warning.
 
 ## The meta-gate: `gate-selftest-parity`
 
-Nothing above is self-enforcing on its own — a new script can be added to `.gitlab-ci.yml`
+The rule does not enforce itself. A new script can be added to `.gitlab-ci.yml`
 without a self-test, or a self-test can be written and never wired into the job that would
-run it (exactly what happened to `migration-numbering-check` before #1093: the script had a
-working `--self-test`, but the job never called it with that flag).
+run it. That is exactly what happened to `migration-numbering-check` before #1093: the script had a
+working `--self-test`, but the job never called it with that flag.
 
 `scripts/check-gate-selftest-parity.sh` closes that gap. It derives its list of gate scripts
 by scanning `.gitlab-ci.yml` **at run time** for every literal `scripts/<name>.(sh|py|mjs)`

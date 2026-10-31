@@ -1,11 +1,10 @@
-# WebSocket event contract
+# Add a WebSocket event without breaking the contract
 
-Visiban's `{event, data}` WebSocket envelope is a public API contract from 1.0. A
-board-channel or group-channel event name may be **added** freely; renaming or removing
-one, or removing a field from a payload, is a breaking change that requires a major
-version bump.
+Add a board-channel or group-channel event name freely. Renaming or removing one, or removing a field from a payload, needs a major version bump.
 
-Every event name lives in three places:
+**Why it matters:** Visiban's `{event, data}` WebSocket envelope is a public API contract from 1.0, and a name that exists in only two of three places ships broken.
+
+**The big picture:** Every event name lives in three places:
 
 | Place | Where |
 |---|---|

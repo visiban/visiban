@@ -1,14 +1,10 @@
-# Authorization Entry Points
+# Which function each entry point calls to enforce a security rule
 
-Visiban can be reached over several transports: the REST API, the MCP server,
-the board and group WebSocket consumers, invite links and the allauth OAuth
-adapter. Some security rules apply on all of them. This page says which shared
-function each entry point calls, and how the test that enforces it works, so a
-new view, consumer or transport knows what to call before it merges.
+A new view, consumer, or transport calls the shared function for each rule that applies to it, and a CI test fails if it does not.
 
-The rules themselves, and the surfaces each one covers, are listed in the
-[Security Invariants Registry](security-invariants.md). This page covers the
-code you call to apply them.
+**Why it matters:** Visiban can be reached over several transports: the REST API, the MCP server, the board and group WebSocket consumers, invite links and the allauth OAuth adapter. Some security rules apply on all of them, so this page says what to call before you merge.
+
+**Go deeper:** The rules themselves, and the surfaces each one covers, are in the [Security Invariants Registry](security-invariants.md). This page covers the code you call to apply them.
 
 ## Why one function per rule
 

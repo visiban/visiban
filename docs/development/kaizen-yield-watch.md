@@ -1,14 +1,12 @@
-# Kaizen yield watch
+# Find the CI gates that have stopped finding anything
 
-`/kaizen` (#1094) reads the MR `## Gates` ledger and computes per-gate yield, but only when
-someone remembers to run it. The yield watch (#1144) makes that signal continuous: a scheduled
-job keeps a running count and reports gates that have stopped finding anything. It is the same
-problem the memory-discipline rules describe: a signal that only has value if someone
-remembers to read it.
+A scheduled job counts consecutive `0 findings` runs per gate and diff shape, and reports gates that hit 10 in a row (the yield watch, #1144).
 
-It changes nothing on its own. It never edits `CLAUDE.md` or the fast-path table; that stays a
-reviewed change. [Kaizen fast-path proposal](kaizen-fastpath-proposal.md) (#1145) turns this
-state into a proposed table diff with cited evidence for that review.
+**Why it matters:** `/kaizen` (#1094) reads the MR `## Gates` ledger and computes per-gate yield, but only when someone remembers to run it. This is the same problem the memory-discipline rules describe: a signal that only has value if someone remembers to read it. The watch makes it continuous.
+
+**Watch out:** It changes nothing on its own. It never edits `CLAUDE.md` or the fast-path table; that stays a reviewed change.
+
+**Go deeper:** [Kaizen fast-path proposal](kaizen-fastpath-proposal.md) (#1145) turns this state into a proposed table diff with cited evidence for that review.
 
 ## What it counts
 
@@ -69,7 +67,9 @@ which the consolidated Nightly schedule does (#1383; see
 [Scheduled pipelines](ci-gates.md#scheduled-pipelines)). Daily is more often than it needs,
 but it is one small job in a pipeline that runs anyway; a separate weekly schedule would
 spawn a whole extra full pipeline just for this report. Each run folds only MRs past the
-committed watermark, so a daily cadence never double counts. It is `allow_failure: true` and **fails open**: an
+committed watermark, so a daily cadence never double counts.
+
+The job is `allow_failure: true` and **fails open**: an
 inconclusive GitLab API lookup is a warning and exit 0, matching
 `scripts/check-suppression-issues.sh`.
 

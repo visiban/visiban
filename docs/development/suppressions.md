@@ -1,12 +1,10 @@
-# Suppression markers
+# Tag every temporary suppression with the issue that ends it
 
-A suppression — `pytest.mark.skip`, `eslint-disable`, a coverage `omit`, an excluded a11y
-rule — is added for a reason that is true *today*. Left alone, it stays true forever: nothing
-ever revisits the suppression, so it silently outlives its reason and the gate it disables
-stays green while hiding a real failure.
+Mark a temporary suppression with `SUPPRESSED-UNTIL(#N)`, and CI fails when issue `#N` closes.
 
-`#1090` is the concrete cost: `git_lens` code read as 0% covered for months because a job was
-uninstrumented, and nothing flagged that the coverage number had stopped meaning anything.
+**Why it matters:** A suppression (`pytest.mark.skip`, `eslint-disable`, a coverage `omit`, an excluded a11y rule) is added for a reason that is true *today*. Left alone, it stays true forever: nothing revisits it, so it silently outlives its reason and the gate it disables stays green while hiding a real failure.
+
+**The big picture:** `#1090` is the concrete cost. `git_lens` code read as 0% covered for months because a job was uninstrumented, and nothing flagged that the coverage number had stopped meaning anything.
 
 ## The convention
 

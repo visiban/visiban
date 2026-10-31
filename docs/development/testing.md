@@ -1,6 +1,8 @@
-# Testing
+# Run the test layer that matches your change
 
-Visiban ships three layers of automated tests. Run the one that matches what you're changing, and add coverage in the same merge request as the behavior change — not in a follow-up.
+Visiban ships three layers of automated tests. Run the one that matches what you're changing.
+
+**Why it matters:** Add coverage in the same merge request as the behavior change, not in a follow-up.
 
 | Layer | Location | Runner | When to add |
 |---|---|---|---|

@@ -1,14 +1,10 @@
-# SonarCloud
+# SonarCloud is an advisory second opinion that never blocks a merge
 
-Visiban uses [SonarCloud](https://sonarcloud.io/project/overview?id=visiban_visiban) as a
-second, independent read of code quality: bugs, vulnerabilities, security hotspots,
-maintainability, duplication, and test coverage. It is advisory tooling that runs on a
-schedule. It never blocks a merge request.
+[SonarCloud](https://sonarcloud.io/project/overview?id=visiban_visiban) gives a second, independent read of code quality: bugs, vulnerabilities, security hotspots, maintainability, duplication, and test coverage. It runs on a schedule and never blocks a merge request.
 
-This page is for contributors and maintainers who need to understand what Sonar checks, how
-coverage gets to it, and what the quality policy is. For the operational side (the token, the
-pipeline schedule, and what to do when the nightly run breaks), see the
-[SonarCloud maintainer runbook](../maintainers/sonarcloud.md).
+**Why it matters:** Contributors and maintainers need to know what Sonar checks, how coverage gets to it, and what the quality policy is.
+
+**Go deeper:** For the operational side (the token, the pipeline schedule, and what to do when the nightly run breaks), see the [SonarCloud maintainer runbook](../maintainers/sonarcloud.md).
 
 ## What runs and when
 

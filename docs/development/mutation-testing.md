@@ -1,4 +1,8 @@
-# Mutation Testing Baseline
+# Which tests would notice a broken line
+
+Mutation testing makes one small change at a time and counts how many your tests catch (the kill rate). This page records the baseline on the backend modules 1.2 changes the most, and the weekly CI job that now gates it.
+
+**Why it matters:** Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong.
 
 !!! note "Baseline is manual; a weekly CI job also runs"
     The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, `backend-mutation`, runs every one of these modules on the Weekly mutation testing schedule (Sundays, 06:00 ET), publishes a score artifact and gates the merged score at 90%. Until the follow-up on #1384 it is `allow_failure: true`, so it does not fail a pipeline yet. See [Weekly CI job](#weekly-ci-job-backend-mutation).

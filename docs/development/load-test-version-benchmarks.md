@@ -1,11 +1,8 @@
-# Load-test version benchmarks
+# Read-path latency held steady from 1.0 to 1.2-dev
 
-A point-in-time comparison of API read-path latency across Visiban 1.0, 1.1, and current
-`main` (pre-alpha, tracked here as "1.2-dev"), plus a search for the card/swimlane count at
-which the board stops feeling responsive. This is a one-off benchmarking pass, not a CI gate —
-for the gate that gets its numbers from a controlled fixture on every scheduled pipeline run,
-see [Nightly Load Test](nightly-load-test.md). Don't substitute these numbers for that job's
-committed budget file.
+A point-in-time comparison of API read-path latency across Visiban 1.0, 1.1, and current `main` (pre-alpha, tracked here as "1.2-dev"), plus a search for the card/swimlane count at which the board stops feeling responsive.
+
+**Why it matters:** This is a one-off benchmarking pass, **not** a CI gate. Don't substitute these numbers for the committed budget file of the gate that gets its numbers from a controlled fixture on every scheduled pipeline run; see [Nightly Load Test](nightly-load-test.md).
 
 !!! warning "Read the caveats before quoting a number from this page"
     Every measurement here was taken on a shared development machine with other active Claude

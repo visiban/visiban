@@ -1,10 +1,8 @@
-# Security Invariants Registry
+# Check every surface before you call a security fix done
 
-Some security rules apply on more than one transport. A fix on one transport
-(for example REST) is incomplete until every other surface that must enforce
-the same rule has been checked. This page lists each rule and every surface that
-must enforce it, so a reviewer of a change that touches a rule can walk the
-whole row instead of only the surface in the diff.
+Some security rules apply on more than one transport. This page lists each rule and every surface that must enforce it.
+
+**Why it matters:** A fix on one transport (for example REST) is incomplete until every other surface that must enforce the same rule has been checked. A reviewer of a change that touches a rule can walk the whole row instead of only the surface in the diff.
 
 The `security-review`, `rbac-check`, `completeness-check` and `architect` agents
 read this page. For any diff that touches a listed rule, they verify every

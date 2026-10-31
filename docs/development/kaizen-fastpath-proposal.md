@@ -1,18 +1,12 @@
-# Kaizen fast-path proposal
+# Propose fast-path table edits from yield data
 
-The fast-path table (which change class runs which gates) used to change only when someone
-noticed a pattern by hand: the "Settings sub-page wiring" row exists because kaizen finding
-#682 showed `architect` and `ux-design` finding nothing on repeated form-to-serializer
-sub-pages. Since the [yield watch](kaizen-yield-watch.md) (#1144) keeps a running
-per-gate, per-diff-shape streak of `0 findings` runs, the table's evidence can come from that
-data instead of from memory (#1145).
+`scripts/kaizen_fastpath_proposal.py` reads the yield state and **proposes** fast-path table edits as a diff plus a ready-to-paste evidence section. It never edits the table.
 
-`scripts/kaizen_fastpath_proposal.py` reads the yield state and **proposes** table edits. It
-never edits the table. It prints a unified diff and a ready-to-paste evidence section. The
-table is a local file (see below), so the diff is meant to be reviewed and then applied with
-`patch` by the table's owner, and the evidence section pasted into whatever issue or MR records
-the change (the repository that carries the table, if there is one). This changes where the
-table's evidence comes from, not who decides on a table change.
+**Why it matters:** The fast-path table (which change class runs which gates) used to change only when someone noticed a pattern by hand: the "Settings sub-page wiring" row exists because kaizen finding #682 showed `architect` and `ux-design` finding nothing on repeated form-to-serializer sub-pages. Since the [yield watch](kaizen-yield-watch.md) (#1144) keeps a running per-gate, per-diff-shape streak of `0 findings` runs, the table's evidence can come from that data instead of from memory (#1145).
+
+**How it works:** The table is a local file (see below). The table's owner reviews the diff and applies it with `patch`, and pastes the evidence section into whatever issue or MR records the change (the repository that carries the table, if there is one).
+
+**Yes, but:** This changes where the table's evidence comes from, not who decides on a table change.
 
 ## Running it
 
