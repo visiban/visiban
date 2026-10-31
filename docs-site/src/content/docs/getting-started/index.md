@@ -25,6 +25,8 @@ Install, log in once as the admin, mark your Done columns, then invite people. D
 - **Want Google, GitHub, GitLab, or OIDC login?** See [OAuth and SSO](/getting-started/oauth/).
 - **Wondering what new users see?** See the [onboarding tour](/getting-started/onboarding-tour/).
 
+<a id="quick-start-checklist"></a>
+
 ## Before you share the instance
 
 Work through these five steps after your first successful login:

@@ -1,8 +1,48 @@
-# GitLab Pages redirects (#1271 spike). Not deployed.
+# GitLab Pages redirects from mike's published URLs (#1271 spike). Not deployed.
 #
-# mike serves the default version under the `latest` alias and pre-releases
-# under `next`. starlight-versions serves the current version at the root, so
-# those two aliases become redirects. Versioned paths (/v1.2/, /v1.1/, ...)
-# need no rule: the version slugs in astro.config.mjs reuse mike's paths.
-/latest/* /:splat 301
-/next/* /:splat 302
+# mike published 22 version directories on gh-pages (see its versions.json)
+# plus four aliases. mkdocs-material's version dropdown links to the
+# full-version directories (/v1.2.0/, /v1.1.0/, ...), so those are the URLs
+# people bookmarked, not just the aliases.
+#
+# Covered without a rule (same path on both sites):
+#   /v1.2/, /v1.1/          mike's minor aliases = the starlight-versions slugs
+#   /v1.2.0-alpha.1/        kept as an archived version in this prototype
+#
+# Splat rules keep the rest of the path, so a deep link lands on the same page
+# in the matching version. 301 where the target is the permanent home of that
+# release's docs; 302 where it is a stand-in that may change (aliases that
+# follow the newest docs, and v1.0, which this prototype does not backfill).
+
+# Aliases: the current version is served at the root.
+/latest/*            /:splat         301
+/next/*              /:splat         302
+
+# 1.2 line -> /v1.2/
+/v1.2.0/*            /v1.2/:splat    301
+/v1.2.0-rc.1/*       /v1.2/:splat    301
+/v1.2.0-beta.3/*     /v1.2/:splat    301
+/v1.2.0-beta.2/*     /v1.2/:splat    301
+/v1.2.0-beta.1/*     /v1.2/:splat    301
+/v1.2.0-alpha.4/*    /v1.2/:splat    301
+/v1.2.0-alpha.3/*    /v1.2/:splat    301
+/v1.2.0-alpha.2/*    /v1.2/:splat    301
+
+# 1.1 line -> /v1.1/
+/v1.1.0/*            /v1.1/:splat    301
+/v1.1.0-rc.3/*       /v1.1/:splat    301
+/v1.1.0-rc.2/*       /v1.1/:splat    301
+/v1.1.0-rc.1/*       /v1.1/:splat    301
+
+# 1.0 line: no v1.0 snapshot in this prototype, so send it to the current
+# docs for now. Backfill v1.0 (npm run snapshot -- v1.0.0 v1.0) and point
+# these at /v1.0/:splat with 301 if 1.0 docs should stay reachable (#2019).
+/v1.0.0/*            /:splat         302
+/v1.0.0-rc.11/*      /:splat         302
+/v1.0.0-rc.10/*      /:splat         302
+/v1.0.0-rc.9/*       /:splat         302
+/v1.0.0-rc.8/*       /:splat         302
+/v1.0.0-rc.6/*       /:splat         302
+/v1.0.0-rc.5/*       /:splat         302
+/v1.0.0-rc.4/*       /:splat         302
+/v1.0.0-rc.3/*       /:splat         302

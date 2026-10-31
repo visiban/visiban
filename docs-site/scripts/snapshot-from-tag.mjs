@@ -223,6 +223,20 @@ function convert(src) {
   lines = mapProse(lines, (s) => s.replace(/\]\(([^)\s]+)\)/g, (_, t) => `](${rewriteLink(t, src)})`))
 
   const mdx = state.tabs
+  if (!mdx) {
+    // A whole-line HTML comment is valid Markdown but not valid MDX, and
+    // starlight-versions parses .md as MDX when it cuts a version. Turn it into
+    // a link-reference definition, which renders nothing in either.
+    // Likewise a bare placeholder such as `<sample title>` in prose: Markdown
+    // treats it as an unknown HTML tag (so it renders as nothing at all) and
+    // MDX rejects it as an unclosed element. Escape it so it renders as text.
+    const html = new Set(['a', 'abbr', 'b', 'br', 'code', 'details', 'div', 'em', 'i', 'img', 'kbd', 'li', 'ol', 'p', 'span', 'strong', 'sub', 'summary', 'sup', 'table', 'td', 'th', 'tr', 'ul'])
+    lines = mapProse(lines, (s) =>
+      s
+        .replace(/^\s*<!--\s*(.*?)\s*-->\s*$/, (_, c) => `[//]: # "${c.replace(/"/g, "'")}"`)
+        .replace(/<([a-z][\w-]*)([^<>]*)>/gi, (m, tag, rest) => (html.has(tag.toLowerCase()) ? m : `\\<${tag}${rest}\\>`)),
+    )
+  }
   if (mdx) {
     const generated = /^<\/?(Tabs|TabItem)\b/
     // Single-line HTML comments only (the only kind the in-scope pages use).

@@ -14,9 +14,12 @@ Before you call a rewrite done, diff the old and new pages for:
 
 - every code block (each command must still be there, unchanged unless it was wrong)
 - every env var, Helm key, and file path
-- every `!!! warning` / `!!! danger` (or `:::caution` / `:::danger`)
+- every callout, by severity (see [Callouts](#callouts))
 - every version note ("Added in 1.2", "since 1.2", "Changed in 1.2")
 - every link
+- every heading anchor the old page published (see [Headings and links](#headings-and-links))
+
+`docs-site/scripts/check-rewrite-facts.mjs` checks all of these except version notes mechanically. It compares code blocks, inline code, external links, callout counts per severity, and published anchors. Run it, and paste its summary line in the MR.
 
 ## Page anatomy
 
@@ -46,7 +49,9 @@ Each page follows this order. Skip a part only if it would be empty or padded.
 
 ## Callouts
 
-Keep the callout's severity. Use a callout only for a fact a reader could be hurt by missing, not for asides.
+**A callout keeps its callout and its severity.** Never flatten a `!!! warning` or `!!! danger` into prose, a bold label, or the lede. A reader scanning for warnings looks for the callout box, so a warning that isn't in one has been deleted as far as that reader is concerned. The lede may restate the action a warning asks for, but the callout stays. A rewrite must have at least as many callouts of each severity as the page it replaces.
+
+Use a *new* callout only for a fact a reader could be hurt by missing, not for asides.
 
 | mkdocs (today, `docs/`) | Starlight (`docs-site/`) | Use for |
 |---|---|---|
@@ -61,7 +66,7 @@ Write the callout title as the takeaway, not a category. "Back up first: this de
 ## Headings and links
 
 - **Write headings as tasks or answers.** "Retrieve the admin password" beats "Retrieving the password".
-- **Don't silently break an anchor that is linked to.** Before you rename a `##`/`###` heading, grep for its anchor across `docs/`, `frontend/src`, `backend`, `helm`, and `README.md`. If something links to it, keep the heading text, or leave the old anchor in place with `<a id="old-anchor"></a>` right above the new heading.
+- **Never break a published anchor.** Every `##`–`######` heading on a page that has been published is a URL someone may have bookmarked or linked, from places no grep can reach. If you rename, merge, or remove a heading, keep its old anchor resolving: leave `<a id="old-anchor"></a>` right above wherever that content now lives. mkdocs anchors are the heading lowercased, punctuation removed, and runs of spaces and hyphens collapsed to one `-`. A repeated heading gets `_1`, `_2`, and so on. `check-rewrite-facts.mjs` lists any that no longer resolve.
 - **Link once per page, where the reader needs it.** Don't add a "Related" section that repeats links already in the body. Put new links under **Go deeper:** instead.
 
 ## Before and after
@@ -98,40 +103,48 @@ in analytics views. You can mark multiple columns as done (for example, both "Cl
 and "Closed Lost").
 ```
 
-**After** (139 words):
+**After** (161 words, counting the anchor shim):
 
 ```markdown
 ## Marking the Done column
 
-Mark every column where work finishes as **done**, before your team moves its first card.
+Mark every column where work finishes (for example "Done", "Closed", or "Released") as
+**done**, before your team moves its first card.
 
-**Why it matters:** Until one column is marked done, the dwell-time heatmap counts finished
-work as if it were still in flight. Closed cards look like bottlenecks, and velocity stays at zero.
+!!! warning "Required for accurate analytics"
+    Until at least one column is marked as done, the dwell-time heatmap includes all
+    columns: closed work stays in the data and distorts stage timing.
 
 **How it works:** A done column is:
 
-- **left out of the dwell-time heatmap**, so finished work doesn't inflate time-in-stage
-- **counted as completed work**, which feeds the 7-day and 30-day velocity in **Summary**
+- **left out of the dwell-time heatmap**, so completed work doesn't inflate time-in-stage
+  figures for active stages
+- **counted as completed work** when cards move into it, which feeds the 7-day and 30-day
+  velocity in the **Summary** view
 
-**To mark it:** open the column's **⋯** header menu (it appears on hover) → **Edit** → check
-**Mark as done column** → **Save**.
+<a id="steps"></a>
 
-**Yes, but:** nothing changes on the board itself. The flag shows up only in analytics.
-You can mark more than one column, for example both "Closed Won" and "Closed Lost".
+**To mark it:** open the column's **⋯** header menu (it appears on hover) → **Edit** →
+check **Mark as done column** → **Save**.
+
+**Yes, but:** the column label doesn't change on the board. The "done" flag shows up only
+in analytics views. You can mark more than one column, for example both "Closed Won" and
+"Closed Lost".
 ```
 
 What changed, and why:
 
-- **The warning became the lede.** It was the one thing a reader must do, so it now comes first instead of sitting in a callout.
-- **The consequence moved into "Why it matters"** and absorbed two facts from a later section ("bottlenecks" and "velocity stays at zero") that repeated the same idea.
+- **The action became the lede.** "Mark it before your team moves its first card" is the one thing a reader must do, so it comes first. The example names ("Done", "Closed", "Released") moved into the lede with it.
+- **The warning kept its callout and its severity.** The lede restates its action; the callout still carries the consequence, where a reader scanning for warnings will find it. Only the sentence the lede now says was removed from it.
 - **The four-step list became one line**, because each step is one click. Use a numbered list when a step takes more than one action or can fail.
+- **The removed `### Steps` heading left its anchor behind** as `<a id="steps"></a>`, so `board-setup/#steps` still resolves.
 - **The surprise went under "Yes, but".** The board doesn't visibly change, which a reader might take as a sign the setting didn't save.
-- **No facts were dropped.** That includes the hover menu, both velocity windows, multiple done columns, and the example names.
+- **No facts were dropped.** That covers the hover menu, both velocity windows, the Summary view, multiple done columns, and all five example names.
 
 ## Checklist for a rewrite MR
 
 - [ ] Every page has a lede sentence and a **Why it matters:** line.
-- [ ] The old page and new page were diffed for commands, env vars, warnings, version notes, and links (see "The one rule").
-- [ ] Every renamed heading that is linked from somewhere keeps its old anchor.
+- [ ] `check-rewrite-facts.mjs` reports `problems 0`: no code block, inline-code token, external link, callout (per severity), or published anchor lost. Version notes were checked by hand.
+- [ ] Every warning and danger is still a callout of the same severity.
 - [ ] No "Coming in X" or "Ships in X" wording for a version that has shipped. CI's `docs-version-accuracy` job fails on it.
 - [ ] Every page is written in US English.

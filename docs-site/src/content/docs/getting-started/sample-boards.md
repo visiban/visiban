@@ -36,7 +36,9 @@ In the app, open **Import** on the Dashboard and pick a board under **Start from
 
 ### From the app
 
-> **Added in 1.2:** the sample gallery in the Import Board dialog.
+:::note[Added in 1.2]
+The sample gallery in the Import Board dialog.
+:::
 
 1. Log in to your Visiban instance.
 2. From the **Dashboard** (or a group page), click **Import**.
@@ -83,7 +85,9 @@ cd visiban && git sparse-checkout set backend/boards/sample_boards
 
 Visiban moves a sample's dates so the board looks current. The CSV files are the exception.
 
-> **Changed in 1.2:** Before #1949, only the in-app gallery moved a sample's dates. A sample file chosen from disk or downloaded with `curl` kept the dates it was generated with (around March 2026).
+:::note[Changed in 1.2]
+Before #1949, only the in-app gallery moved a sample's dates. A sample file chosen from disk or downloaded with `curl` kept the dates it was generated with (around March 2026).
+:::
 
 **How it works:** The samples are generated around a fixed day, and each sample file records that day as its `date_anchor`. On import, Visiban moves every date in the board forward by the number of days between that anchor and today, keeping their spacing. That covers due dates, date custom fields, card creation, comments, moves, and history. It happens however the JSON reaches Visiban: the gallery, **Import** with a downloaded file, or an API upload.
 

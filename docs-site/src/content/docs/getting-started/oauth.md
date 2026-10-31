@@ -86,6 +86,8 @@ OIDC_PROVIDER_NAME=SSO        # optional — controls the login button label
 The first `oidc` is allauth's `OPENID_CONNECT_URL_PREFIX` (its default). The second is Visiban's fixed `provider_id` for the generic OIDC provider. `OIDC_PROVIDER_NAME` changes only the button label, not this path.
 :::
 
+<a id="testing-oidc-locally"></a>
+
 ## Test OIDC locally
 
 `docker-compose.oidc.yml` starts a pre-seeded Keycloak alongside the main stack. You can exercise the full OIDC login flow without a real identity provider:

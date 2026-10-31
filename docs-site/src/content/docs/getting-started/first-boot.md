@@ -9,6 +9,8 @@ On first start, Visiban creates an `admin` account and writes its one-time passw
 
 **Why it matters:** The password is written once and never printed to the logs. If the container is recreated before you read the file, the file is gone and you'll need to reset the password instead.
 
+<a id="automatic-admin-bootstrap"></a>
+
 **How it works:**
 
 - **When no site admin exists,** `ensure_site_admin` creates one and writes the password to `/tmp/visiban_admin_password` by default.
@@ -29,6 +31,8 @@ What stdout shows:
   You will be required to change it on first login.
 ============================================================
 ```
+
+<a id="retrieving-the-password"></a>
 
 ## Retrieve the password
 
@@ -90,9 +94,11 @@ kubectl exec -it -n visiban $(kubectl get pods -n visiban -l app.kubernetes.io/c
 
 ## No password file? Reset the password
 
+:::note[Password file not found?]
 The admin was already created on an earlier boot, and the password is written only once.
 
 **Why it happens even on a "fresh" start:** The database lives in a named Docker volume that survives `docker compose down`, `up --build`, and image rebuilds. `/tmp` inside the `backend` container doesn't. Any time the container is recreated after the admin's first boot (a rebuild, a `down`/`up` cycle, or anything else that gives you a new container), `ensure_site_admin` finds the admin already in Postgres, does nothing, and never writes the file again. That file can't be recovered.
+:::
 
 Reset the password:
 
@@ -124,7 +130,8 @@ with transaction.atomic():
 "
 ```
 
-**Lost the temporary password before changing it?** Reset it the same way from the Django shell:
+:::caution[Lost the temporary password before changing it?]
+Reset it the same way from the Django shell:
 
 ```python
 from django.db import transaction
@@ -138,12 +145,17 @@ with transaction.atomic():
     u.save()
     revoke_credentials_after_operator_reset(u)
 ```
+:::
+
+<a id="changing-the-password"></a>
 
 ## Change the password
 
 On first login you get a password change screen. You can't use the application until you set a new password of at least 12 characters, and you can't reuse the temporary one.
 
 **After that:** Once SMTP is configured, any user (not just admins) can reset their own password with **Forgot password?** on the login page. No administrator is needed. For SMTP setup notes, see [Authentication: Forgot password](https://docs.visiban.com/latest/administration/authentication/#forgot-password-self-service-password-reset).
+
+<a id="customizing-the-bootstrap-account"></a>
 
 ## Customize the bootstrap account
 
@@ -153,6 +165,8 @@ Set these **before** the first boot:
 DJANGO_SUPERUSER_USERNAME=admin
 DJANGO_SUPERUSER_EMAIL=admin@example.com
 ```
+
+<a id="subsequent-boots"></a>
 
 **On later boots:** `ensure_site_admin` still runs every time. Once a site admin exists the bootstrap does nothing, and credentials are never printed again. The command also re-syncs the Sites framework's domain from `SITE_DOMAIN` on every run, so a changed `SITE_DOMAIN` takes effect as soon as you restart the backend, with no extra step.
 
@@ -167,6 +181,8 @@ Choose how people join **before** you share the URL. Go to **Admin → Settings*
 | **Closed** | Self-registration is off. Site admins create accounts by hand under **Admin → Users → Add user**. |
 
 **How it works:** The change applies immediately, with no restart. Existing sessions and OAuth-linked accounts are never affected.
+
+<a id="generating-invite-links-invite-only-mode"></a>
 
 ### Generate invite links (Invite-only mode)
 
@@ -189,7 +205,11 @@ To create a link:
 | Expired | Past the expiry date |
 | Revoked | Manually invalidated by a site admin |
 
-**By the numbers:** At most 50 active (pending, unexpired) shareable invite links can exist per instance; revoke unused ones to stay under the limit. Invite links sent by email (new in 1.2, via `POST /api/v1/admin/invite-links/send/`) don't count toward it. They have a separate limit of 200 pending.
+:::note[By the numbers: 50 shareable links per instance]
+At most 50 active (pending, unexpired) shareable invite links can exist per instance; revoke unused ones to stay under the limit. Invite links sent by email (new in 1.2, via `POST /api/v1/admin/invite-links/send/`) don't count toward it. They have a separate limit of 200 pending.
+:::
+
+<a id="creating-accounts-manually-closed-mode"></a>
 
 ### Create accounts by hand (Closed mode)
 
@@ -198,5 +218,7 @@ Use **Admin → Users → Add user**. Set a temporary password and turn on **For
 :::caution[Copy the temporary password before you close the dialog]
 The Create User dialog doesn't show it again. Send it to the new user over a secure channel.
 :::
+
+<a id="loading-sample-data"></a>
 
 **Next:** [Set up your first board](/getting-started/board-setup/). For a fully populated board to explore first, import a [sample board](/getting-started/sample-boards/). The backend image ships the JSON files, so **Import** on the dashboard → **Start from a sample** works without a download. To import a file yourself, or to get the CSVs (which are repo-only), download them from [`backend/boards/sample_boards/` on GitLab](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) (or the [GitHub mirror](https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards)) and use **Dashboard → Import**.

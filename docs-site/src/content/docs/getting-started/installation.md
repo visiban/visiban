@@ -13,7 +13,9 @@ To try Visiban, run `docker compose up --build`. To run it for real, use `init-p
 
 - **Try it locally:** four containers, a dev server, and `localhost` defaults. This takes about five minutes.
 - **Run it in production:** released images pinned by `APP_VERSION`, nginx, and Let's Encrypt or your own TLS. Three steps.
-- **On Kubernetes?** Skip this page and use [Kubernetes (Helm)](/getting-started/kubernetes/). The chart has been deployed and verified on a live cluster. Install values and upgrade steps are in [Deployment: Kubernetes / Helm](https://docs.visiban.com/latest/architecture/deployment/#kubernetes-helm).
+- <a id="kubernetes-helm"></a>**On Kubernetes?** Skip this page and use [Kubernetes (Helm)](/getting-started/kubernetes/). The chart has been deployed and verified on a live cluster. Install values and upgrade steps are in [Deployment: Kubernetes / Helm](https://docs.visiban.com/latest/architecture/deployment/#kubernetes-helm).
+
+<a id="hardware-requirements"></a>
 
 ## Size the host
 
@@ -29,10 +31,14 @@ To try Visiban, run `docker compose up --build`. To run it for real, use `init-p
 
 **Disk:** Image pulls and build cache take about 3–4 GB on their own. The main open-ended cost is file attachments: each card attachment can be up to 10 MB. The figures above assume light-to-moderate attachment use. If your team attaches a lot, plan for more storage or configure S3-compatible object storage.
 
+<a id="prerequisites"></a>
+
 **You need:**
 
 - Docker and Docker Compose, **or** Python 3.12+ and Node.js 18+ to run from source
 - Valkey 8, the Redis-compatible, BSD-licensed fork. Docker Compose and Helm include it automatically. Real-time WebSocket updates require it.
+
+<a id="docker-recommended"></a>
 
 ## Try it locally
 
@@ -76,6 +82,8 @@ Behind nginx in production, the frontend and backend share one origin. There, `C
 :::
 
 **This stack is for local development only.** The Vite dev server isn't suitable for production. For a server, see [Production deployment](#production-deployment).
+
+<a id="troubleshooting"></a>
 
 ### When the local stack won't start
 
@@ -125,6 +133,8 @@ Then restart the backend:
 docker compose restart backend
 ```
 
+<a id="compose-project-names"></a>
+
 ### Compose project names: keep dev and prod apart
 
 **Why it matters:** If the two stacks resolve to the same Compose project, they share one database volume.
@@ -155,6 +165,8 @@ docker compose up -d                     # creates visiban-dev_pgdata
 `scripts/wt` exports `COMPOSE_PROJECT_NAME=visiban-dev` for the same reason. An exported variable overrides every `name:` pin, so worktrees share one development stack while staying clear of production.
 :::
 
+<a id="running-two-visiban-stacks-side-by-side"></a>
+
 ### Run two Visiban stacks side by side
 
 **Why it matters:** A second checkout, or any other Compose project on the same default ports, fights over `5432`, `8000`, and `5173` on the host. `docker-compose.yml` reads host ports and the project name from `.env`, so a second checkout can coexist without source changes.
@@ -183,7 +195,9 @@ VITE_API_URL=http://localhost:8001
 
 **How it works:** Inside the Compose network, containers always listen on the canonical ports (`5432`, `8000`, `5173`, `8080`). Only the host-side mapping changes. Vite's HMR client port follows `FRONTEND_PORT` automatically, so hot reload keeps working.
 
-**Yes, but: four URL vars need explicit values.** `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `SITE_DOMAIN`, and `VITE_API_URL` can't be `${FRONTEND_PORT}`-style interpolations, because Compose's `env_file:` directive does **not** expand variables. An interpolated value would reach the Django container as the literal string `${FRONTEND_PORT}` and silently break allauth redirects, OAuth callbacks, and CORS. It's a bit more typing, but it works in every dev path: Compose, native Python, and Helm.
+:::note[Why aren't the URL vars interpolated from the port vars?]
+`FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `SITE_DOMAIN`, and `VITE_API_URL` need explicit values. They can't be `${FRONTEND_PORT}`-style interpolations, because Compose's `env_file:` directive does **not** expand variables. An interpolated value would reach the Django container as the literal string `${FRONTEND_PORT}` and silently break allauth redirects, OAuth callbacks, and CORS. Four vars, four explicit updates: it's a bit more typing, but it works in every dev path (Compose, native Python, and Helm).
+:::
 
 ## Production deployment
 
@@ -204,6 +218,8 @@ Run `init-prod.sh` once and it obtains a certificate, starts the stack, and tell
 > **Added in 1.2**
 
 **Verify the images:** The `backend` and `frontend` images this stack pulls are cosign-signed, and each carries a per-architecture CycloneDX SBOM. Verify them before deploying: see [Verifying release images](https://docs.visiban.com/latest/administration/image-verification/). The stack's other images (`postgres`, `valkey`, `nginx`, `certbot`) are upstream images that Visiban does not sign.
+
+<a id="prerequisites_1"></a>
 
 **You need:**
 
@@ -298,6 +314,8 @@ CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alert
 APP_VERSION=v1.2.0
 ```
 
+<a id="pre-flight-security-checklist"></a>
+
 **Pre-flight check:** The backend refuses to start if any of these are wrong. That's intentional.
 
 | Variable | Requirement |
@@ -362,7 +380,11 @@ When it finishes you'll see this (`http://` for `TLS_MODE=none`):
   Visiban is live at https://yourdomain.com
 ```
 
-**Coming from `init-letsencrypt.sh`?** It still works. It prints a deprecation warning and hands off to `init-prod.sh` with `TLS_MODE=letsencrypt`. Existing deployments need no action, but new installs should call `init-prod.sh` directly.
+:::note[Migrating from `init-letsencrypt.sh`]
+The old `init-letsencrypt.sh` still works. It prints a deprecation warning and hands off to `init-prod.sh` with `TLS_MODE=letsencrypt`. Existing deployments need no action, but new installs should call `init-prod.sh` directly.
+:::
+
+<a id="step-3-verify"></a>
 
 ### Step 3: verify and log in
 
@@ -379,15 +401,23 @@ On first boot the backend writes a one-time admin password to `/tmp/visiban_admi
 docker compose -f docker-compose.prod.yml exec backend cat /tmp/visiban_admin_password
 ```
 
-**No password file?** The admin account was already created on an earlier boot; the password is written only once. Reset it:
+:::note[Password file not found?]
+The admin account was already created on an earlier boot; the password is written only once. Reset it:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec backend python manage.py changepassword admin
 ```
+:::
 
-**Go deeper:** [First boot](/getting-started/first-boot/) covers the password, registration modes, and inviting your team. For a populated board to explore, see [Sample boards](/getting-started/sample-boards/): the backend image ships the sample JSON files, so **Import** on the dashboard → **Start from a sample** works without a download. Or download a file from [`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) and use **Dashboard → Import**.
+**Go deeper:** [First boot](/getting-started/first-boot/) covers the password, registration modes, and inviting your team.
+
+:::tip[Sample data]
+The backend image ships the sample board JSON files. To try Visiban with a populated board, use **Import** on the dashboard and pick one under **Start from a sample**, or download a file from [`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) and use **Dashboard → Import**. See [Sample boards](/getting-started/sample-boards/).
+:::
 
 ## Keep it running
+
+<a id="subsequent-deploys"></a>
 
 **Subsequent deploys:** The production stack runs the released images named by `APP_VERSION` in `.env`. It builds nothing locally, and `git pull` doesn't change `.env`.
 
@@ -459,6 +489,8 @@ docker compose -f docker-compose.prod.yml down
 # Start again (no rebuild needed unless code changed)
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+<a id="troubleshooting_1"></a>
 
 ## When production misbehaves
 
@@ -534,6 +566,8 @@ sudo systemctl stop nginx apache2   # or whichever service holds port 80
 | `GIT_LENS_ENABLED` | No | Set `true` to turn on the [Issue Board Lens](https://docs.visiban.com/latest/features/issue-board-lens/) (default: `false`). See [Optional features](https://docs.visiban.com/latest/administration/configuration/#optional-features-off-by-default). |
 | `MCP_SERVER_ENABLED` | No | Set `true` to serve the [MCP server](https://docs.visiban.com/latest/features/mcp-server/) at `/mcp` (default: `false`). Also configurable: `MCP_ALLOWED_HOSTS`, and the `MCP_THROTTLE_READ_RATE`, `MCP_THROTTLE_COMPUTE_RATE`, and `MCP_THROTTLE_PREAUTH_RATE` limits. See [Optional features](https://docs.visiban.com/latest/administration/configuration/#optional-features-off-by-default). |
 | `IMPORT_MAX_SIZE_BYTES` | No | Maximum Trello JSON export size for the [Trello import wizard](https://docs.visiban.com/latest/features/trello-import/), in bytes (default: `26214400`, 25 MB). Your reverse proxy must accept bodies at least this large; see [Import limits](https://docs.visiban.com/latest/administration/configuration/#import-limits). The 1.2 pre-release name `VISIBAN_IMPORT_MAX_SIZE` still works as a deprecated alias. |
+
+<a id="local-development"></a>
 
 ## Run from source
 

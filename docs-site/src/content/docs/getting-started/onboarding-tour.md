@@ -24,6 +24,8 @@ Every new user gets an 8-step guided tour the first time they open any board. It
 | 7 | Live indicator | Real-time connection status; changes from teammates appear instantly |
 | 8 | *(full-screen)* | Space + drag to pan across a wide board |
 
+<a id="behavior"></a>
+
 ## How it behaves
 
 - **When it shows:** whenever the user's `has_completed_tour` flag is `false`, on any board they open. There's no minimum swimlane or card count.
@@ -31,6 +33,8 @@ Every new user gets an 8-step guided tour the first time they open any board. It
 - **Moving through it:** **Next** advances a step. **Done** on the last step completes the tour.
 - **Dismissing it:** **Skip tour** at any step, or **Escape**, dismisses the tour immediately.
 - **It never comes back on its own.** Any dismissal (skip, complete, or Escape) sends `PATCH /api/v1/auth/me/` with `has_completed_tour: true`.
+
+<a id="resetting-the-tour"></a>
 
 ## Replay the tour
 

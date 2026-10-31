@@ -11,11 +11,16 @@ One `helm install` brings up Visiban with its bundled PostgreSQL and Valkey. The
 
 **Why it matters:** The chart runs migrations safely across replicas, hardens every pod by default, and ships as a signed OCI artifact. You don't have to assemble any of that yourself.
 
+:::tip[Single server? Use Docker Compose]
+If you are deploying to a single server, the [Docker Compose installation](/getting-started/installation/) is simpler. This page is for Kubernetes clusters.
+:::
+
 **The big picture:**
 
-- **Single server?** The [Docker Compose installation](/getting-started/installation/) is simpler. This page is for Kubernetes clusters.
 - **Five steps:** get the chart, write a secrets file, install, retrieve the admin password, and verify.
 - **Then tune:** TLS, external databases, Valkey auth, network policies, scaling, and scheduled jobs.
+
+<a id="prerequisites"></a>
 
 **You need:**
 

@@ -34,7 +34,13 @@ Columns are the stages in your pipeline, for example Backlog, In Progress, Revie
 
 Mark every column where work finishes as **done** (for example "Done", "Closed", or "Released") before your team moves its first card.
 
-**Why it matters:** Until one column is marked done, the dwell-time heatmap includes every column, so closed work stays in the data and distorts stage timing. Without it:
+:::caution[Required for accurate analytics]
+Until at least one column is marked as done, the dwell-time heatmap includes all columns: closed work stays in the data and distorts stage timing. Mark your completion column before your team starts moving cards.
+:::
+
+<a id="why-this-matters"></a>
+
+**Why it matters:** Without a marked done column:
 
 - completed cards keep accumulating dwell time in their current column
 - the heatmap shows those columns as bottlenecks even though the work is finished
@@ -46,6 +52,8 @@ Mark every column where work finishes as **done** (for example "Done", "Closed",
 - **counted as completed work** when cards move into it, which powers the 7-day and 30-day velocity figures in the Summary view
 
 Archived cards use their archive timestamp as the exit time, so they don't accumulate dwell time after archiving.
+
+<a id="steps"></a>
 
 **To mark it:**
 
@@ -60,6 +68,10 @@ Archived cards use their archive timestamp as the exit time, so they don't accum
 Open the Analytics view. A note below the heatmap shows how many done columns are excluded from the calculation.
 :::
 
+<a id="demo-board"></a>
+
 **Want a reference board?** If you seeded the instance with demo data (`python manage.py seed_demo_data`), the demo board already has `is_done` set on its terminal column. Inspect it before configuring your own.
+
+<a id="next-steps"></a>
 
 **Next:** [Invite your team](/getting-started/first-boot/#inviting-your-team) with invite links or a registration mode. **Go deeper:** [Analytics](https://docs.visiban.com/latest/features/analytics/) covers the dwell-time heatmap, stalled cards, and CSV export.
