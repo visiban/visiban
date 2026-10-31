@@ -127,7 +127,7 @@ export default function SwimlaneFieldsPopover({
       key={def.id}
       className={`px-3 py-1.5 flex items-start gap-2 ${i > 0 ? "border-t border-line/60" : ""}`}
     >
-      <span className="text-xs text-fg-muted shrink-0 w-20 truncate" title={def.name}>{def.name}</span>
+      <span className="text-xs text-fg-tertiary shrink-0 w-20 truncate" title={def.name}>{def.name}</span>
       <CustomFieldValueDisplay
         definition={def}
         value={value}
@@ -152,7 +152,7 @@ export default function SwimlaneFieldsPopover({
       // `top` before the browser paints, so this never flashes.
       style={{ top: top ?? 0, left, visibility: top === null ? "hidden" : undefined }}
     >
-      <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Fields</p>
+      <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-tertiary">Fields</p>
       <div className="relative">
         <div
           ref={listRef}
@@ -168,7 +168,7 @@ export default function SwimlaneFieldsPopover({
         >
           {offRow.map((entry, i) => renderEntry(entry, i))}
           {offRow.length > 0 && onRow.length > 0 && (
-            <p className="px-3 pt-2.5 pb-1 border-t border-line text-xs font-semibold uppercase tracking-wide text-fg-muted">On row</p>
+            <p className="px-3 pt-2.5 pb-1 border-t border-line text-xs font-semibold uppercase tracking-wide text-fg-tertiary">On row</p>
           )}
           {onRow.map((entry, i) => renderEntry(entry, i))}
         </div>

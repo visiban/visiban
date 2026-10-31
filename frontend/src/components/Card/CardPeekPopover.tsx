@@ -119,7 +119,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
             <span
               className={
                 card.checklist_done === card.checklist_total
-                  ? "line-through text-fg-muted"
+                  ? "line-through text-fg-tertiary"
                   : "text-fg-secondary"
               }
             >
@@ -185,7 +185,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
         const shown = overflow ? populated.slice(0, 5) : populated;
         const hidden = overflow ? populated.slice(5) : [];
         return (
-          <p className="mt-3 text-xs text-fg-muted" data-testid="card-peek-custom-fields">
+          <p className="mt-3 text-xs text-fg-tertiary" data-testid="card-peek-custom-fields">
             {hasPinned && (
               <span className="font-medium text-fg-tertiary">Other fields — </span>
             )}
@@ -226,12 +226,12 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
         if (card.external_ref) parts.push(`${PROVIDER_LABELS[card.external_ref.provider] ?? card.external_ref.provider} ${card.external_ref.ref}`);
         if (parts.length === 0) return null;
         return (
-          <p className="mt-3 text-xs text-fg-muted">{parts.join(" · ")}</p>
+          <p className="mt-3 text-xs text-fg-tertiary">{parts.join(" · ")}</p>
         );
       })()}
 
       {/* Footer */}
-      <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-xs text-fg-muted">
+      <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-xs text-fg-tertiary">
         <span>
           {lastActivityText
             ? lastActivityUser

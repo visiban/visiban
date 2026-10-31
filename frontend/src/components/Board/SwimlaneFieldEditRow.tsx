@@ -37,7 +37,7 @@ export default function SwimlaneFieldEditRow({ definition, value, onChange, onIn
   return (
     <div>
       {!isCheckbox && (
-        <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5 flex items-center gap-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary mb-1.5 flex items-center gap-1.5">
           {definition.name}
           {definition.is_admin_only && <AdminOnlyFieldGlyph />}
         </p>
@@ -56,7 +56,7 @@ export default function SwimlaneFieldEditRow({ definition, value, onChange, onIn
         userDateFormat={userDateFormat}
       />
       {!isCheckbox && definition.help_text && (
-        <p className="text-xs text-fg-muted mt-1">{definition.help_text}</p>
+        <p className="text-xs text-fg-tertiary mt-1">{definition.help_text}</p>
       )}
     </div>
   );
