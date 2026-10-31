@@ -930,6 +930,24 @@ class AdminUsersView(APIView):
     pagination_class = AdminUserPagination
 
     @extend_schema(
+        # An APIView pages by hand, so no paginator publishes these (#1975).
+        parameters=[
+            OpenApiParameter(
+                "search", str, required=False,
+                description="Filter by username, display name, or email (partial, case-insensitive).",
+            ),
+            OpenApiParameter(
+                "offset", int, required=False,
+                description="Zero-based row offset (default 0).",
+            ),
+            OpenApiParameter(
+                "page_size", int, required=False,
+                description=(
+                    f"Rows per page (default {AdminUserPagination.default_limit}, "
+                    f"max {AdminUserPagination.max_limit})."
+                ),
+            ),
+        ],
         responses=inline_serializer(
             name="AdminUserList",
             fields={

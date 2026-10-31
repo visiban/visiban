@@ -119,13 +119,13 @@ Rows are ordered by `ordering` with the card ID as tiebreaker, so a walk over an
 | `?offset=<n>` | Number of matching cards to skip. Default `0`. An offset past the end returns `[]`. A blank value means the default; a negative or non-integer value is treated as `0`, as on every other endpoint (*Changed in 1.2, #1823*). Only a value above 2^62 returns `400`, with `{"detail": "...", "code": "invalid_query_param"}` like a bad `limit` |
 | `?search=<q>` | Filter by title and description (partial, case-insensitive) |
 | `?assignee=<id>` | Filter by assignee user ID |
-| `?unassigned=true` | Return only cards with no assignee |
+| `?unassigned=true` | Return only cards with no assignee (`false` returns only assigned cards) |
 | `?priority=<value>` | Filter by priority (`low`, `medium`, `high`, `urgent`) |
 | `?column=<id>` | Filter by column ID |
 | `?swimlane=<id>` | Filter by swimlane ID |
 | `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
-| `?overdue=true` | Cards past their due date (due date is set and is before today) |
+| `?overdue=true` | Cards past their due date (due date is set and is before today). `false` returns the rest: cards with no due date or a due date of today or later |
 | `?ordering=<field>` | Sort results. Prefix with `-` for descending. Allowed fields: `position` (default), `due_date`, `created_at`, `priority`. Example: `?ordering=-due_date` |
 
 A filter value that fails its type check returns `400` with the field-keyed body this endpoint has returned since 1.1, plus `detail` and `code` (*added in 1.2, #1832*): `?assignee=x` gives `{"assignee": ["Enter a number."], "detail": "assignee: Enter a number.", "code": "invalid_query_param"}`. Branch on `code`. See [Error responses](index.md#error-responses).
@@ -527,7 +527,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0`. |
+| `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0` and a non-integer value as the default. |
 | `offset` | integer | `0` | Zero-based page offset. A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. |
 | `event_types` | string | _(all)_ | Comma-separated filter groups. Valid values: `move`, `comment`, `field`, `checklist`, `attachment`, `system`. Omit to include all event types. |
 
