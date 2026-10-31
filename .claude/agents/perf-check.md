@@ -66,6 +66,10 @@ When a view creates an object and immediately serializes it (e.g. `Movement.obje
 
 Also check annotated queryset serializers. When a `SerializerMethodField` uses annotation-based fallback queries (i.e., reads `getattr(obj, 'annotated_field', None)` and falls back to a DB query when the annotation is absent), verify the calling view always provides the annotation. A bare FK traversal on a non-annotated instance silently issues a per-row query.
 
+**Per-object helper calls in loops.** Look for any per-object permission, role or access helper (anything that takes one board, group or card and issues its own query) called inside a loop, comprehension or filter over a result set. If a batch variant exists (grep the helper's module for a plural form), the loop is a defect; if not, flag it. This is invisible to a single-object test and scales with the number of distinct parents, typically on polled endpoints such as notification or unread-count views.
+
+**Prefetching history to read one row.** For every `Prefetch` of a growing child table (movements, activities, comments, events), check what the serializer actually reads. If it only reads the newest row or an aggregate, loading every row is a latency and memory defect that query-count guards cannot see (the count stays flat while rows grow with history). Prefer an annotation or subquery for the latest row, and drop `select_related` joins the serializer never reads.
+
 ### 4. Check transaction boundaries
 
 - Are bulk operations (reorders, multi-card updates) wrapped in `@transaction.atomic`?
