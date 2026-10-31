@@ -68,7 +68,7 @@ page; treat it as opaque.
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
 | `?updated_since=<ISO 8601 datetime>` | Cards updated at or after this timestamp — the incremental-sync filter. A UTC offset of 16 hours or more returns `400` |
 | `?include_archived=true` | Include archived cards. Omit or `false` to exclude them (the default, matching the endpoints below) |
-| `?search=<q>` | Filter by title and description (partial, case-insensitive) |
+| `?search=<q>` | Filter by title and description (partial, case-insensitive). A value containing a NUL (0x00) character returns `400` with `{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}` (*Changed in 1.3, #1887*; it was a `500` on PostgreSQL) |
 | `?ordering=<field>` | Sort results. Allowed values: `updated_at` (default: `-updated_at`, i.e. most recently updated first), `-updated_at`, `created_at`, `-created_at`. Every value is a 2-tuple with an `id` tiebreaker under the hood, so cursor pagination stays stable when many cards share the same timestamp. An unrecognized value falls back to the default rather than erroring. `due_date` is deliberately not an ordering option — it is nullable, and a nullable cursor field can silently skip or duplicate rows across a page boundary. |
 | `?cursor=<opaque>` | Page cursor from a previous response's `next_cursor`. A cursor that cannot be decoded, or whose position is not a timestamp Postgres can store (not a valid date and time, or a UTC offset of 16 hours or more), returns `400` with `{"detail": "cursor is not a valid page cursor.", "code": "invalid_query_param"}` |
 | `?page_size=<n>` | Rows per page (default 50, max 200) |
@@ -117,15 +117,15 @@ Rows are ordered by `ordering` with the card ID as tiebreaker, so a walk over an
 |---|---|
 | `?limit=<n>` | Maximum cards to return. Default and maximum `200`; a larger value is clamped to `200`. `0` returns `[]` with the headers set (a count-only request). A blank value means the default; a negative or non-integer value returns `400` with `{"detail": "...", "code": "invalid_query_param"}` |
 | `?offset=<n>` | Number of matching cards to skip. Default `0`. An offset past the end returns `[]`. A blank value means the default; a negative or non-integer value is treated as `0`, as on every other endpoint (*Changed in 1.2, #1823*). Only a value above 2^62 returns `400`, with `{"detail": "...", "code": "invalid_query_param"}` like a bad `limit` |
-| `?search=<q>` | Filter by title and description (partial, case-insensitive) |
+| `?search=<q>` | Filter by title and description (partial, case-insensitive). A value containing a NUL (0x00) character returns `400` with `{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}` (*Changed in 1.3, #1887*; it was a `500` on PostgreSQL) |
 | `?assignee=<id>` | Filter by assignee user ID |
-| `?unassigned=true` | Return only cards with no assignee |
+| `?unassigned=true` | Return only cards with no assignee (`false` returns only assigned cards) |
 | `?priority=<value>` | Filter by priority (`low`, `medium`, `high`, `urgent`) |
 | `?column=<id>` | Filter by column ID |
 | `?swimlane=<id>` | Filter by swimlane ID |
 | `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
-| `?overdue=true` | Cards past their due date (due date is set and is before today) |
+| `?overdue=true` | Cards past their due date (due date is set and is before today). `false` returns the rest: cards with no due date or a due date of today or later |
 | `?ordering=<field>` | Sort results. Prefix with `-` for descending. Allowed fields: `position` (default), `due_date`, `created_at`, `priority`. Example: `?ordering=-due_date` |
 
 A filter value that fails its type check returns `400` with the field-keyed body this endpoint has returned since 1.1, plus `detail` and `code` (*added in 1.2, #1832*): `?assignee=x` gives `{"assignee": ["Enter a number."], "detail": "assignee: Enter a number.", "code": "invalid_query_param"}`. Branch on `code`. See [Error responses](index.md#error-responses).
@@ -527,7 +527,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0`. |
+| `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0` and a non-integer value as the default. |
 | `offset` | integer | `0` | Zero-based page offset. A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. |
 | `event_types` | string | _(all)_ | Comma-separated filter groups. Valid values: `move`, `comment`, `field`, `checklist`, `attachment`, `system`. Omit to include all event types. |
 
@@ -614,6 +614,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 | Status | Description |
 |---|---|
 | `400 Bad Request` | `event_types` names a group not in the allowed set — `{"detail": "Invalid event_types: ... Valid groups: ...", "code": "invalid_query_param"}` (`code` added in 1.2) |
+| `400 Bad Request` | `offset` is above `2^62` — `{"detail": "offset must not exceed ...", "code": "invalid_query_param"}` |
 | `404 Not Found` | Requesting user has no access to the board |
 | `404 Not Found` | Card does not exist or does not belong to this board |
 

@@ -22,7 +22,7 @@ from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
 from accounts.permissions import TokenHasScope
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
-from visiban.request_shape import MAX_OFFSET, parse_offset
+from visiban.request_shape import MAX_OFFSET, OFFSET_QUERY_PARAMETER, parse_offset, query_text
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -194,17 +194,37 @@ def _validate_upload_mime(file) -> str | None:
 class CardFilter(django_filters.FilterSet):
     """django-filters FilterSet for cards; supports priority, assignee, column, swimlane, and due-date filters."""
 
-    priority = django_filters.CharFilter(field_name="priority", lookup_expr="exact")
+    # help_text is the parameter description drf-spectacular publishes (#1887);
+    # keep it in step with the query parameter table in docs/api/cards.md.
+    priority = django_filters.CharFilter(
+        field_name="priority", lookup_expr="exact",
+        help_text="Filter by priority (`low`, `medium`, `high`, `urgent`).",
+    )
     # BoundedIdFilter, not a bare NumberFilter (#1120) — see its docstring:
     # an out-of-64-bit-range id value crashes with an uncaught OverflowError
     # otherwise.
-    assignee = BoundedIdFilter(field_name="assignee__id")
-    unassigned = django_filters.BooleanFilter(field_name="assignee", lookup_expr="isnull")
-    column = BoundedIdFilter(field_name="column__id")
-    swimlane = BoundedIdFilter(field_name="swimlane__id")
-    due_before = django_filters.DateFilter(field_name="due_date", lookup_expr="lte")
-    due_after = django_filters.DateFilter(field_name="due_date", lookup_expr="gte")
-    overdue = django_filters.BooleanFilter(method="filter_overdue")
+    assignee = BoundedIdFilter(field_name="assignee__id", help_text="Filter by assignee user ID.")
+    unassigned = django_filters.BooleanFilter(
+        field_name="assignee", lookup_expr="isnull",
+        help_text="`true` returns only cards with no assignee; `false` only assigned cards.",
+    )
+    column = BoundedIdFilter(field_name="column__id", help_text="Filter by column ID.")
+    swimlane = BoundedIdFilter(field_name="swimlane__id", help_text="Filter by swimlane ID.")
+    due_before = django_filters.DateFilter(
+        field_name="due_date", lookup_expr="lte",
+        help_text="Cards with a due date on or before this date (`YYYY-MM-DD`).",
+    )
+    due_after = django_filters.DateFilter(
+        field_name="due_date", lookup_expr="gte",
+        help_text="Cards with a due date on or after this date (`YYYY-MM-DD`).",
+    )
+    overdue = django_filters.BooleanFilter(
+        method="filter_overdue",
+        help_text=(
+            "`true` returns cards whose due date is before today; `false` returns "
+            "cards with no due date or a due date of today or later."
+        ),
+    )
 
     def filter_overdue(self, queryset, name, value):
         today = datetime.date.today()
@@ -312,6 +332,15 @@ _CARD_LIST_SCHEMA = extend_schema(
                 'A value above 2^62 is a 400 with `{"detail": ..., "code": "invalid_query_param"}`.'
             ),
         ),
+        # Parsed by hand in get_queryset(), so no filter backend publishes it
+        # (#1887). The CardFilter parameters come from the filter backend.
+        OpenApiParameter(
+            name="search",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="Filter by title and description (partial, case-insensitive).",
+        ),
         OpenApiParameter(
             name=CARD_LIST_TOTAL_HEADER,
             type=OpenApiTypes.INT,
@@ -337,7 +366,8 @@ _CARD_LIST_SCHEMA = extend_schema(
             description=(
                 "Every 400 is the coded "
                 '`{"detail": ..., "code": "invalid_query_param"}` (#1832): a bad '
-                "`limit` (negative or not an integer), an `offset` above 2^62, and a "
+                "`limit` (negative or not an integer), an `offset` above 2^62, a "
+                "`search` containing a NUL (0x00) character, and a "
                 "filter value that fails its type check, such as `assignee` or "
                 "`due_before`. A filter error also keeps the field-keyed entry it "
                 "has had since 1.1 next to `detail` and `code` "
@@ -518,13 +548,24 @@ class CardViewSet(viewsets.ModelViewSet):
         ]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            # Schema generation has no board_pk (#1887). Without this guard the
+            # board lookup below raised KeyError, drf-spectacular could not
+            # resolve the view's model, and its django-filter extension
+            # silently dropped every CardFilter parameter from the published
+            # schema of GET /boards/{id}/cards/. Never true on a request.
+            return Card.objects.none()
         # Exclude archived cards from all standard list/detail endpoints.
         # Archived cards are accessible via the separate /archived/ action.
         qs = _card_queryset(Card.objects.filter(board=self._board(), archived_at__isnull=True))
         # Server-side text search — applied only when the ?search= param is present and non-empty.
         # This intentionally does not use DRF SearchFilter or CardFilter so that the search param
         # remains distinct from the django-filters params and the filter logic is easy to trace.
-        q = self.request.query_params.get("search", "").strip()
+        # get_queryset() also serves retrieve/update/destroy, so a NUL in
+        # ?search= is a 400 there too (#1887). It was a Postgres 500 on every
+        # route before, and the board lookup above still answers a non-member
+        # with 404 first.
+        q = query_text(self.request, "search").strip()
         if q:
             qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
         return qs
@@ -762,6 +803,9 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="List archived cards for a board with offset pagination",
+        # Paged by hand with a fixed page size, so offset is the only
+        # parameter and no paginator publishes it (#1975).
+        parameters=[OFFSET_QUERY_PARAMETER],
         responses={
             200: inline_serializer(
                 name="ArchivedCardsPage",
@@ -1080,9 +1124,38 @@ class CardViewSet(viewsets.ModelViewSet):
         "attachment": ["attachment_added", "attachment_deleted"],
         "system": ["archived", "reactivated"],
     }
+    # Every group timeline() accepts, as published in the schema (#1975).
+    # Derived from the map above so the enum cannot drift from the validation.
+    _TIMELINE_EVENT_GROUPS = ["move", *_TIMELINE_ACTIVITY_GROUPS]
 
     @extend_schema(
         summary="Unified, paginated timeline of card movements and field-change activities",
+        # All three are parsed by hand in timeline() below (#1975).
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "Page size (default 50). Values above 200 are clamped to 200, a "
+                    "negative value is treated as 0, and a non-integer value as the default."
+                ),
+            ),
+            OFFSET_QUERY_PARAMETER,
+            OpenApiParameter(
+                name="event_types",
+                type={"type": "array", "items": {"type": "string", "enum": _TIMELINE_EVENT_GROUPS}},
+                location=OpenApiParameter.QUERY,
+                required=False,
+                style="form",
+                explode=False,
+                description=(
+                    "Comma-separated filter groups. Omit to include every event type. "
+                    "An unknown group is a 400."
+                ),
+            ),
+        ],
         responses={
             200: inline_serializer(
                 name="CardTimelinePage",

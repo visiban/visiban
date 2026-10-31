@@ -25,7 +25,8 @@ from rest_framework import mixins, serializers, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import UserRateThrottle
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 
 from accounts.permissions import TokenHasScope
 from accounts.serializers import BoardUserSerializer
@@ -36,6 +37,7 @@ from visiban.permissions import (
 from visiban.exceptions import INVALID_QUERY_PARAM_SCHEMA
 from visiban.filters import CodedDjangoFilterBackend
 from visiban.pagination import CardQueryCursorPagination
+from visiban.request_shape import query_text
 
 from ..models import Card
 from ..serializers import (
@@ -218,16 +220,33 @@ class CardQueryFilter(django_filters.FilterSet):
     # BoundedIdFilter, not a bare NumberFilter (#1120) — see its docstring in
     # ._helpers: an out-of-64-bit-range id value (e.g. ?column=1.03e34)
     # crashes with an uncaught OverflowError otherwise.
-    board = BoundedIdFilter(field_name="board_id")
-    swimlane = BoundedIdFilter(field_name="swimlane_id")
-    column = BoundedIdFilter(field_name="column_id")
-    assignee = BoundedIdFilter(field_name="assignee_id")
-    label = BoundedIdFilter(field_name="labels__id")
-    priority = django_filters.CharFilter(field_name="priority", lookup_expr="exact")
-    due_before = django_filters.DateFilter(field_name="due_date", lookup_expr="lte")
-    due_after = django_filters.DateFilter(field_name="due_date", lookup_expr="gte")
+    # help_text is the parameter description drf-spectacular publishes (#1887);
+    # keep it in step with the query parameter table in docs/api/cards.md.
+    board = BoundedIdFilter(field_name="board_id", help_text="Restrict to one board (board ID).")
+    swimlane = BoundedIdFilter(field_name="swimlane_id", help_text="Filter by swimlane ID.")
+    column = BoundedIdFilter(field_name="column_id", help_text="Filter by column ID.")
+    assignee = BoundedIdFilter(field_name="assignee_id", help_text="Filter by assignee user ID.")
+    label = BoundedIdFilter(field_name="labels__id", help_text="Filter by label ID.")
+    priority = django_filters.CharFilter(
+        field_name="priority", lookup_expr="exact",
+        help_text="Filter by priority (`low`, `medium`, `high`, `urgent`).",
+    )
+    due_before = django_filters.DateFilter(
+        field_name="due_date", lookup_expr="lte",
+        help_text="Cards with a due date on or before this date (`YYYY-MM-DD`).",
+    )
+    due_after = django_filters.DateFilter(
+        field_name="due_date", lookup_expr="gte",
+        help_text="Cards with a due date on or after this date (`YYYY-MM-DD`).",
+    )
     # BoundedDateTimeFilter (#1120): an out-of-range UTC offset otherwise 500s on Postgres.
-    updated_since = BoundedDateTimeFilter(field_name="updated_at", lookup_expr="gte")
+    updated_since = BoundedDateTimeFilter(
+        field_name="updated_at", lookup_expr="gte",
+        help_text=(
+            "Cards updated at or after this ISO 8601 timestamp (the incremental-sync "
+            "filter). A UTC offset of 16 hours or more is a 400."
+        ),
+    )
 
     # include_archived is intentionally NOT a FilterSet field: django-filter's
     # method= filters only run when the query param is present, so they can't
@@ -245,11 +264,34 @@ class CardQueryFilter(django_filters.FilterSet):
 
 @extend_schema_view(
     list=extend_schema(
+        # The two parameters get_queryset() parses by hand (#1887). The
+        # CardQueryFilter ones come from the filter backend, and cursor,
+        # page_size and ordering from CardQueryCursorPagination.
+        parameters=[
+            OpenApiParameter(
+                name="include_archived",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "`true` (case-insensitive) includes archived cards. Omitted, "
+                    "`false` or any other value excludes them (the default)."
+                ),
+            ),
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by title and description (partial, case-insensitive).",
+            ),
+        ],
         responses={
             200: CardQuerySerializer(many=True),
             400: OpenApiResponse(
                 description=(
-                    "A malformed `cursor`, or a filter value that fails its type check "
+                    "A malformed `cursor`, a `search` containing a NUL (0x00) character, "
+                    "or a filter value that fails its type check "
                     '(`{"detail": ..., "code": "invalid_query_param"}`; a filter error also '
                     "keeps its field-keyed entry, e.g. `updated_since`)."
                 ),
@@ -304,6 +346,13 @@ class CardQueryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     pagination_class = CardQueryCursorPagination
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            # Schema generation runs with an AnonymousUser and no real request
+            # (#1887). Without this guard get_accessible_boards_queryset()
+            # raised, drf-spectacular could not resolve the view's model, and
+            # its django-filter extension silently dropped every CardQueryFilter
+            # parameter from the published schema. Never true on a request.
+            return Card.objects.none()
         user = self.request.user
         # Evaluate the accessible board ids up front (one small query) and pass
         # them as a literal list. Do not hand the queryset itself to
@@ -334,7 +383,7 @@ class CardQueryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         if self.request.query_params.get("include_archived", "").lower() != "true":
             qs = qs.filter(archived_at__isnull=True)
         qs = _card_queryset(qs)
-        search = self.request.query_params.get("search", "").strip()
+        search = query_text(self.request, "search").strip()
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
         return qs

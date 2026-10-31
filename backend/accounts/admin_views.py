@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.throttling import UserRateThrottle
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
 from visiban.pagination import OffsetCountPagination
+from visiban.request_shape import query_text
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -930,19 +931,46 @@ class AdminUsersView(APIView):
     pagination_class = AdminUserPagination
 
     @extend_schema(
-        responses=inline_serializer(
-            name="AdminUserList",
-            fields={
-                "count": drf_serializers.IntegerField(),
-                "offset": drf_serializers.IntegerField(),
-                "page_size": drf_serializers.IntegerField(),
-                "results": AdminUserSerializer(many=True),
-            },
-        ),
+        # An APIView pages by hand, so no paginator publishes these (#1975).
+        parameters=[
+            OpenApiParameter(
+                "search", str, required=False,
+                description="Filter by username, display name, or email (partial, case-insensitive).",
+            ),
+            OpenApiParameter(
+                "offset", int, required=False,
+                description="Zero-based row offset (default 0).",
+            ),
+            OpenApiParameter(
+                "page_size", int, required=False,
+                description=(
+                    f"Rows per page (default {AdminUserPagination.default_limit}, "
+                    f"max {AdminUserPagination.max_limit})."
+                ),
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="AdminUserList",
+                fields={
+                    "count": drf_serializers.IntegerField(),
+                    "offset": drf_serializers.IntegerField(),
+                    "page_size": drf_serializers.IntegerField(),
+                    "results": AdminUserSerializer(many=True),
+                },
+            ),
+            400: OpenApiResponse(
+                description=(
+                    '`search` contains a NUL (0x00) character (`{"detail": ..., '
+                    '"code": "invalid_query_param"}`).'
+                ),
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+        },
     )
     def get(self, request):
         qs = User.objects.all().order_by("username")
-        search = request.query_params.get("search", "").strip()
+        search = query_text(request, "search").strip()
         if search:
             qs = qs.filter(
                 Q(display_name__icontains=search)

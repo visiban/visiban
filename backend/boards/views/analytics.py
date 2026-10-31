@@ -8,6 +8,7 @@ import statistics
 from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery, Window
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -18,7 +19,7 @@ from ..models import BoardExportLog, CardMovement
 from ..serializers import CardMovementSerializer
 from .. import hooks
 from ..permissions import analytics_extensions_for_role
-from visiban.request_shape import parse_offset
+from visiban.request_shape import OFFSET_QUERY_PARAMETER, parse_offset, query_text
 from ._helpers import get_board_for_user
 
 _logger = logging.getLogger(__name__)
@@ -127,7 +128,8 @@ _ANALYTICS_400 = OpenApiResponse(
 _MOVEMENTS_400 = OpenApiResponse(
     description=(
         "`moved_after` or `moved_before` is not an ISO date, `swimlane_id`, `to_column_id` or "
-        "`moved_by_id` is not an integer, or `offset` is above 2^62 (`code: invalid_query_param`)."
+        "`moved_by_id` is not an integer, `exclude_type` contains a NUL (0x00) character, or "
+        "`offset` is above 2^62 (`code: invalid_query_param`)."
     ),
     response=_BAD_QUERY_PARAM_SERIALIZER,
 )
@@ -665,6 +667,39 @@ class BoardAnalyticsMixin:
 
     @extend_schema(
         summary="List board-level movement history with filtering and offset pagination",
+        # Every filter is parsed by hand in movements() below (#1975).
+        parameters=[
+            *(
+                OpenApiParameter(
+                    name=name, type={"type": "integer", "format": "int64"},
+                    location=OpenApiParameter.QUERY, required=False, description=description,
+                )
+                for name, description in (
+                    ("swimlane_id", "Filter by the card's current swimlane ID."),
+                    ("to_column_id", "Filter by destination column ID."),
+                    ("moved_by_id", "Filter by the ID of the user who performed the move."),
+                )
+            ),
+            OpenApiParameter(
+                name="moved_after", type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY, required=False,
+                description="Include movements on or after this date (`YYYY-MM-DD`).",
+            ),
+            OpenApiParameter(
+                name="moved_before", type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY, required=False,
+                description="Include movements on or before this date (`YYYY-MM-DD`).",
+            ),
+            OpenApiParameter(
+                name="exclude_type", type={"type": "array", "items": {"type": "string"}},
+                location=OpenApiParameter.QUERY, required=False, style="form", explode=False,
+                description=(
+                    "Comma-separated `movement_type` values to exclude (`move`, `archived`, "
+                    "`unarchived`); `archived,unarchived` hides system events."
+                ),
+            ),
+            OFFSET_QUERY_PARAMETER,
+        ],
         responses={
             200: inline_serializer(
                 name="BoardMovementsPage",
@@ -758,7 +793,8 @@ class BoardAnalyticsMixin:
                     return _invalid_query_param(f"{param} must be a positive integer.")
                 qs = qs.filter(**{lookup: parsed})
 
-        exclude_type = request.query_params.get("exclude_type")
+        # NUL-checked (#1887): movement_type__in with a NUL is a DataError (500).
+        exclude_type = query_text(request, "exclude_type")
         if exclude_type:
             exclude_types = [t.strip() for t in exclude_type.split(",") if t.strip()]
             qs = qs.exclude(movement_type__in=exclude_types)

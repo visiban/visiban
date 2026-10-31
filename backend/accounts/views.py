@@ -19,7 +19,7 @@ from allauth.account.views import EmailView as AllauthEmailView
 from allauth.account.views import SignupView as AllauthSignupView
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.registration.views import VerifyEmailView as DjRestAuthVerifyEmailView
-from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers
 from dj_rest_auth.views import LoginView as DjRestAuthLoginView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
@@ -38,7 +38,8 @@ from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
 )
-from visiban.request_shape import require_json_object
+from visiban.exceptions import INVALID_QUERY_PARAM_SCHEMA
+from visiban.request_shape import query_text, require_json_object
 from rest_framework import status
 from rest_framework.exceptions import NotAuthenticated, PermissionDenied
 from .permissions import TokenHasScope
@@ -318,8 +319,36 @@ class UserSearchView(APIView):
     ]
     throttle_classes = [UserSearchRateThrottle]
 
+    @extend_schema(
+        # Parsed by hand below, so nothing published it (#1887). The 200 was
+        # "No response body" only because an APIView declares no serializer.
+        # Pinned: a many=True response makes drf-spectacular infer
+        # "api_v1_users_list", which would rename this operation in every
+        # generated client.
+        operation_id="api_v1_users_retrieve",
+        parameters=[
+            OpenApiParameter(
+                "search", str, required=False,
+                description=(
+                    "Search term, at least 2 characters after trimming; partial match "
+                    "on username and display name. A shorter term returns `[]`."
+                ),
+            ),
+        ],
+        responses={
+            200: PublicUserSerializer(many=True),
+            400: OpenApiResponse(
+                description=(
+                    '`search` contains a NUL (0x00) character (`{"detail": ..., '
+                    '"code": "invalid_query_param"}`).'
+                ),
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+        },
+    )
     def get(self, request):
-        query = request.query_params.get("search", "").strip()
+        # query_text(): a NUL in an icontains lookup is a PostgreSQL 500 (#1887).
+        query = query_text(request, "search").strip()
         if len(query) < 2:
             return Response([])
         users = (

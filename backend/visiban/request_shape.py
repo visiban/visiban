@@ -6,6 +6,7 @@ lookup turns a well-formed-but-wrong-shaped request (a JSON array or scalar
 body, ``"abc"`` where an id belongs) into an unhandled 500 (#1136, #1669).
 These helpers keep the rejection in one place and always a 400.
 """
+from drf_spectacular.utils import OpenApiParameter
 from rest_framework.exceptions import ParseError, ValidationError
 
 from visiban.exceptions import INVALID_QUERY_PARAM, CodedValidationError
@@ -99,3 +100,37 @@ def parse_offset(request, param="offset"):
     if value > MAX_OFFSET:
         raise CodedValidationError(INVALID_QUERY_PARAM, f"{param} must not exceed {MAX_OFFSET}.")
     return value
+
+
+def query_text(request, param):
+    """Return the free-text query param ``param`` (``""`` when absent), or raise a 400.
+
+    PostgreSQL cannot store or compare a NUL (0x00) in a text value: a lookup
+    such as ``title__icontains="a\\x00"`` raises ``DataError``, an unhandled
+    500. Body fields already refuse NUL (#1184); a free-text query parameter
+    that reaches an ORM lookup is refused here with the bad-query-param 400
+    (``{detail, code: "invalid_query_param"}``, #1832). Found when #1887/#1975
+    published ``search`` and ``exclude_type``, which put them in front of
+    ``backend-schema-fuzz``. The value is returned unstripped, so each caller
+    keeps its own whitespace handling.
+    """
+    value = request.query_params.get(param, "")
+    if "\x00" in value:
+        raise CodedValidationError(INVALID_QUERY_PARAM, f"{param} must not contain NUL (0x00) characters.")
+    return value
+
+
+# The OpenAPI declaration of an ``offset`` read by parse_offset() (#1975), for
+# views that page by hand and so get no parameter from a DRF paginator. Kept
+# beside parse_offset() so the documented leniency and bound match the parse.
+OFFSET_QUERY_PARAMETER = OpenApiParameter(
+    name="offset",
+    type={"type": "integer", "minimum": 0, "maximum": MAX_OFFSET},
+    location=OpenApiParameter.QUERY,
+    required=False,
+    description=(
+        "Zero-based row offset (default 0). A negative or non-integer value is "
+        "treated as 0. A value above 2^62 is a 400 with "
+        '`{"detail": ..., "code": "invalid_query_param"}`.'
+    ),
+)

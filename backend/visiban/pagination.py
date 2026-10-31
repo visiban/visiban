@@ -136,6 +136,32 @@ class CardQueryCursorPagination(CursorPagination):
             return self._ALLOWED_ORDERINGS[requested]
         return self.ordering
 
+    def get_schema_operation_parameters(self, view):
+        """DRF's ``cursor``/``page_size``, plus the ``ordering`` this class parses (#1887).
+
+        ``ordering`` is read here, not by an ``OrderingFilter`` (see the class
+        docstring), so no filter backend publishes it; the enum is the
+        allowlist above.
+        """
+        params = super().get_schema_operation_parameters(view)
+        for param in params:
+            if param["name"] == self.page_size_query_param:
+                param["description"] = (
+                    f"Rows per page (default {self.page_size}, max {self.max_page_size})."
+                )
+        params.append({
+            "name": "ordering",
+            "required": False,
+            "in": "query",
+            "description": (
+                "Sort order, with an `id` tiebreaker in the same direction. Default "
+                "`-updated_at` (most recently updated first). An unrecognized value "
+                "falls back to the default rather than erroring."
+            ),
+            "schema": {"type": "string", "enum": list(self._ALLOWED_ORDERINGS)},
+        })
+        return params
+
     def get_paginated_response(self, data):
         next_cursor = None
         next_link = self.get_next_link()
