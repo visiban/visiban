@@ -1,13 +1,12 @@
-# Container image retention
+# Make sure registry cleanup never deletes a released image
 
 > **Added in 1.2** (#1074)
 
-Visiban publishes `backend` and `frontend` images to **two** registries on every release:
-the GitLab container registry (`${CI_REGISTRY_IMAGE}`, i.e. `registry.gitlab.com/visiban/visiban`)
-and GHCR (`ghcr.io/visiban/visiban`). Both registries can run their own cleanup/retention
-policy, configured outside this repository — in the GitLab project settings UI, or (for
-GHCR, if ever added) a GitHub Actions workflow. Neither shows up in a diff, so a policy that
-deletes a released image is invisible until someone goes looking for the 404.
+Visiban publishes `backend` and `frontend` images to **two** registries on every release: the GitLab container registry (`${CI_REGISTRY_IMAGE}`, i.e. `registry.gitlab.com/visiban/visiban`) and GHCR (`ghcr.io/visiban/visiban`). Run `:latest` or a pinned release tag (`:v1.2.0`) in production, or pin by [digest](#digest-pinning).
+
+**Why it matters:** Both registries can run their own cleanup/retention policy, configured outside this repository: in the GitLab project settings UI, or (for GHCR, if ever added) a GitHub Actions workflow. Neither shows up in a diff, so a policy that deletes a released image is invisible until someone goes looking for the 404.
+
+**The big picture:** this page records the live GitLab policy, the GHCR state, the scheduled check that watches both, and how to pin images by digest.
 
 ## Why this page exists
 
@@ -19,15 +18,9 @@ install of the current release was possible, and rollback was impossible. The pu
 had gone green; the policy that erased their output afterward lived entirely in the GitLab
 UI, asserted by nothing in the repo.
 
-Separately, Red-team finding M17 in the same audit was against TruePPM's own release path:
-its documented production compose defaulted `APP_VERSION` to `latest` — a mutable tag — while
-its release images were scanned, SBOM'd and signed by digest, so pulling `latest` in
-production could never be verified against that signature or rolled back to a specific
-artifact. Visiban's `APP_VERSION` half of the same gap is now closed — see
-[Upgrading → `APP_VERSION` is now required](upgrade.md#upgrading-to-12x). Since 1.2, Visiban's
-release images are also cosign-signed and carry a CycloneDX SBOM attestation per architecture
-(#1153) — see [Verifying release images](image-verification.md). Below covers the
-registry-retention half and digest pinning.
+Separately, Red-team finding M17 in the same audit was against TruePPM's own release path. Its documented production compose defaulted `APP_VERSION` to `latest`, a mutable tag, while its release images were scanned, SBOM'd and signed by digest. Pulling `latest` in production could therefore never be verified against that signature or rolled back to a specific artifact.
+
+Visiban's `APP_VERSION` half of the same gap is now closed; see [Upgrading → `APP_VERSION` is now required](upgrade.md#upgrading-to-12x). Since 1.2, Visiban's release images are also cosign-signed and carry a CycloneDX SBOM attestation per architecture (#1153); see [Verifying release images](image-verification.md). Below covers the registry-retention half and digest pinning.
 
 ## GitLab container registry
 
@@ -84,7 +77,7 @@ too. This protection was added by [#1541](https://gitlab.com/visiban/visiban/-/i
 it, these tags fell under the `keep_n: 10` / `older_than: 90d` sweep; no signed release had
 reached the 90-day mark by the time the keep-regex went live, so nothing was lost.
 
-#1541 is still open for its second acceptance criterion: the nightly
+**Yes, but:** #1541 is still open for its second acceptance criterion: the nightly
 `check-release-attestations` job must confirm that a signed release older than 90 days still
 verifies on the GitLab registry. The first signed release (`v1.2.0-beta.1`, 2026-10-12) reaches
 that age around 2027-01-10.
@@ -332,9 +325,7 @@ whenever the next release attempt failed to pull.
 - The probe itself uses `crane manifest <ref>` (no daemon, no image pull, no `docker:dind`) —
   consistent with the rest of this repo's kaniko-based, daemonless registry tooling.
 
-If this job goes red, it means a released, documented version is not pullable from the named
-registry. Check that registry's retention/cleanup policy first (see the sections above), then
-re-run the FULL tag pipeline's publish chain to restore the image: `backend-docker-push` /
+**If this job goes red,** a released, documented version is not pullable from the named registry. Check that registry's retention/cleanup policy first (see the sections above), then re-run the FULL tag pipeline's publish chain to restore the image: `backend-docker-push` /
 `frontend-docker-push` alone (amd64) is **not** sufficient — as of the 2026-09-28 #1084
 re-audit, those jobs only push `-amd64`-suffixed intermediate tags on a release tag, never the
 real `:<tag>` name directly. The real name is written exclusively by `backend-manifest` /
@@ -345,7 +336,7 @@ will not bring the tag back at all — all six jobs (`arm64-runner-preflight`,
 `frontend-docker-push-arm64`, and `backend-manifest` + `frontend-manifest`) must complete for
 the real, multi-arch tag to exist again.
 
-**Caution if you're restoring an OLD *stable* release's tag** (not the newest one): the
+**Watch out if you're restoring an OLD *stable* release's tag** (not the newest one): the
 manifest jobs pass `--tags latest,MAJOR.MINOR` to `manifest-tool` only for a stable
 (non-pre-release) tag, with no check that the stable tag being rebuilt is actually the newest
 release. Re-running the full chain for an old stable tag will move the real `:latest` (and
@@ -382,8 +373,7 @@ Apple Silicon runner (`Max1-Runner-Visiban`); that throughput cost has not been 
 (#1208), which is why `:main` remains amd64-only. If that changes, the fix is to run the arm64
 leg and manifest assembly on `main` merges by changing those jobs' `rules:` in `.gitlab-ci.yml`.
 
-**Guidance:** run `:latest` or a pinned release tag (`:v1.2.0`) in production. Anyone who was
-tracking GitLab `:latest` to follow `main` should switch to `:main`.
+**Guidance:** run `:latest` or a pinned release tag (`:v1.2.0`) in production. Anyone who was tracking GitLab `:latest` to follow `main` should switch to `:main`.
 
 ## Digest pinning
 
@@ -433,10 +423,9 @@ with:
 image: ghcr.io/visiban/visiban/backend@sha256:<digest>
 ```
 
-This intentionally opts out of `APP_VERSION` entirely for that service — you are now pinned
-to one specific, immutable artifact until you edit the file again for the next upgrade. Keep
-a note of which `vX.Y.Z` tag that digest corresponds to (e.g. in a comment on the same line)
-since `docker compose ps`/`images` will only show the digest, not the version.
+This intentionally opts out of `APP_VERSION` entirely for that service. You are now pinned to one specific, immutable artifact until you edit the file again for the next upgrade.
+
+**Tip:** keep a note of which `vX.Y.Z` tag that digest corresponds to (e.g. in a comment on the same line), since `docker compose ps`/`images` will only show the digest, not the version.
 
 ### Pinning the Helm chart by digest
 

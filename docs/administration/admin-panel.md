@@ -1,6 +1,12 @@
-# Admin Panel
+# Run your instance from one panel
 
-The admin panel at `/admin` is the primary interface for managing your Visiban instance. It is only accessible to site admins.
+The admin panel at `/admin` is where site admins manage users, registration, invites, and instance settings.
+
+**Why it matters:** Most day-to-day admin work (adding a user, closing sign-ups, revoking a leaked invite, turning on maintenance mode) takes a click here, with no restart and no shell.
+
+**The big picture:** The panel has four tabs: **Settings**, **Users**, **Invite Links**, and **Board Invites**. It is accessible to site admins only.
+
+**Go deeper:** Every operation also has a [CLI alternative](#cli-alternatives). For the two-flag admin model, see [Site Admins](site-admins.md).
 
 ## Settings tab
 
@@ -8,13 +14,15 @@ Controls instance-wide registration behavior and feature availability.
 
 ### Registration mode
 
+Set who can create an account. Changes take effect immediately, with no restart.
+
 | Mode | Who can create an account |
 |---|---|
 | **Open** | Anyone — no restriction |
 | **Invite-only** | Only users with a valid invite link can register — a site invite link, or *(1.2+)* a group invite a site admin emailed (see [Groups](../features/groups.md#new-users-on-invite-only-instances)) |
 | **Closed** | Nobody — all self-registration disabled |
 
-Changes take effect immediately with no restart required. Existing user sessions and OAuth-linked accounts are never affected — only new sign-ups are gated.
+**Yes, but:** only new sign-ups are gated. Existing user sessions and OAuth-linked accounts are never affected.
 
 ### Features
 
@@ -22,47 +30,42 @@ Changes take effect immediately with no restart required. Existing user sessions
 |---|---|---|
 | **File uploads** | On | When turned off, all users (including board admins) receive `403 Forbidden` when attempting to upload an attachment. Existing attachments are preserved and can still be viewed and downloaded. |
 
-Feature changes take effect within approximately 60 seconds due to server-side caching. Toggling a feature does not delete or alter any existing data.
+**By the numbers:** feature changes take effect within about 60 seconds because of server-side caching. Toggling a feature never deletes or alters existing data.
 
 ### Email
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Configure the SMTP server used for password-reset and email-verification messages, without editing environment variables or restarting the backend. Available only when the deployment has not pinned `EMAIL_BACKEND`/`backend.email.backend` to an explicit value. See [Configuring SMTP from the admin UI](../administration/configuration.md#configuring-smtp-from-the-admin-ui).
+Configure the SMTP server for password-reset and email-verification messages, without editing environment variables or restarting the backend.
+
+**Yes, but:** this is available only when the deployment has not pinned `EMAIL_BACKEND`/`backend.email.backend` to an explicit value. See [Configuring SMTP from the admin UI](../administration/configuration.md#configuring-smtp-from-the-admin-ui).
 
 ### Maintenance mode
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Puts the whole instance into **read-only mode** while you run an upgrade or a migration. It is
-off by default.
+Put the whole instance into **read-only mode** during an upgrade or migration. It is off by default.
 
 | Control | Effect |
 |---|---|
 | **Maintenance mode** toggle | When on, every write from a non-admin is rejected with `503 Service Unavailable`. Reads keep working. |
 | **Message** | Plain-text notice (max 1000 characters) shown to everyone while maintenance mode is on. Leave it blank to use the built-in default. |
 
-Site admins are exempt and keep full read/write access — signed in through the browser or
-using a personal access token — but still see the notice. The setting lives in the database,
-so it survives a restart, and it takes effect immediately for every worker.
+**How it works:** site admins are exempt and keep full read/write access (signed in through the browser or using a personal access token), but still see the notice. The setting lives in the database, so it survives a restart, and it takes effect immediately for every worker.
 
-See [Maintenance Mode](maintenance-mode.md) for the full runbook: what everyone else sees, the
-exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a
-known limitation on tabs left open in the background.
+**Go deeper:** [Maintenance Mode](maintenance-mode.md) is the full runbook: what everyone else sees, the exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a known limitation on tabs left open in the background.
 
 ### Change history
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Changes to the toggles on this tab — registration mode, file uploads, and maintenance mode —
-are recorded with the admin who made them and when. There is no UI for this yet; read the
-trail from [`GET /api/v1/admin/action-log/`](../api/admin.md#action-log). See
-[Who turned it on?](maintenance-mode.md#who-turned-it-on-the-action-log) for the incident-retro
-walkthrough.
+Changes to the toggles on this tab (registration mode, file uploads, and maintenance mode) are recorded with the admin who made them and when.
+
+**Yes, but:** there is no UI for this yet. Read the trail from [`GET /api/v1/admin/action-log/`](../api/admin.md#action-log). See [Who turned it on?](maintenance-mode.md#who-turned-it-on-the-action-log) for the incident-retro walkthrough.
 
 ## Users tab
 
-Lists all accounts on the instance, paginated 50 per page. Use the search bar to filter by username, display name, or email address.
+Lists all accounts on the instance, 50 per page. Use the search bar to filter by username, display name, or email address.
 
 ### User status badges
 
@@ -77,18 +80,20 @@ Lists all accounts on the instance, paginated 50 per page. Use the search bar to
 
 > **Changed in 1.2** — the less-frequent actions moved into a per-row overflow menu.
 
-Each row shows **Deactivate**/**Reactivate** and **Make admin**/**Demote admin** as inline
-text buttons — these are the actions admins reach for most often. The remaining, lower-frequency
-actions (**Grant all-content**/**Revoke all-content**, **Force password reset**, **Clear
-lockout**, and **Restart onboarding tour**, when each applies to that user) live behind the
-**More actions** (`⋮`) button at the end of the row. Open it with a click, or reach it with
-the keyboard (Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to
-close) — every item in the menu is a fully keyboard-navigable, screen-reader-labeled control,
-not just a mouse target.
+Each row shows **Deactivate**/**Reactivate** and **Make admin**/**Demote admin** as inline text buttons, the actions admins reach for most often.
+
+The lower-frequency actions live behind the **More actions** (`⋮`) button at the end of the row, when each applies to that user:
+
+- **Grant all-content**/**Revoke all-content**
+- **Force password reset**
+- **Clear lockout**
+- **Restart onboarding tour**
+
+Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is a fully keyboard-navigable, screen-reader-labeled control, not just a mouse target.
 
 #### Add user
 
-Creates a local account directly. Fields:
+Creates a local account directly.
 
 | Field | Notes |
 |---|---|
@@ -102,23 +107,31 @@ Creates a local account directly. Fields:
 
 #### Deactivate / Reactivate
 
-Deactivated accounts cannot log in. No data is deleted. Can be reversed at any time by clicking **Reactivate**. On a superuser account, **Deactivate** and **Reactivate** are available to superusers only.
+Deactivated accounts cannot log in. No data is deleted. Click **Reactivate** to reverse it at any time.
 
-You cannot deactivate your own account from this panel.
+- You cannot deactivate your own account from this panel.
+- On a superuser account, **Deactivate** and **Reactivate** are available to superusers only.
 
-**If the user owns any boards**, deactivation opens a **Transfer boards & deactivate**
-dialog first — you cannot deactivate a board owner without reassigning ownership.
-Search for a new owner per board (any existing member — a direct board member or one who
-has access through group membership both count) and confirm; deactivation and the ownership
-transfers happen together, atomically. Deactivating the account also revokes any invite links
-the departing user created — site invite links and, *(1.2+)*, the pending board invites they
-emailed (each board's admins see those invites move to **Revoked**) and their active, unused group invite links (each affected group's admins see them move to **Revoked**). Consumed single-use links are left as they are. *(1.2+)* It also turns off any public board share link the user turned on (links turned on before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier) record no admin and stop working at the upgrade instead; see the [upgrade notes](upgrade.md#upgrading-to-12x)); see [Board sharing](../features/board.md#when-a-share-link-ends-automatically).
+**If the user owns any boards**, deactivation opens a **Transfer boards & deactivate** dialog first. You cannot deactivate a board owner without reassigning ownership. Search for a new owner per board (any existing member counts: a direct board member or one who has access through group membership) and confirm. Deactivation and the ownership transfers happen together, atomically.
+
+**What else deactivation does:** it revokes any invite links the departing user created:
+
+- site invite links
+- *(1.2+)* the pending board invites they emailed (each board's admins see those invites move to **Revoked**)
+- their active, unused group invite links (each affected group's admins see them move to **Revoked**)
+
+Consumed single-use links are left as they are.
+
+*(1.2+)* It also turns off any public board share link the user turned on (links turned on before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier) record no admin and stop working at the upgrade instead; see the [upgrade notes](upgrade.md#upgrading-to-12x)); see [Board sharing](../features/board.md#when-a-share-link-ends-automatically).
 
 #### Make admin / Demote admin
 
-Grants or revokes site admin status. You cannot change your own admin status — ask another site admin. **Demote admin** is not shown for an account that is still a superuser (the API refuses it); remove superuser status in the Django admin first. *(1.2+)* **Demote admin** also revokes the unused site invite links that user created; only an active site admin's site invite links create accounts.
+Grants or revokes site admin status.
 
-The last active site admin on the instance cannot be demoted.
+- You cannot change your own admin status. Ask another site admin.
+- **Demote admin** is not shown for an account that is still a superuser (the API refuses it). Remove superuser status in the Django admin first.
+- *(1.2+)* **Demote admin** also revokes the unused site invite links that user created; only an active site admin's site invite links create accounts.
+- The last active site admin on the instance cannot be demoted.
 
 #### Grant all-content / Revoke all-content
 
@@ -130,40 +143,42 @@ Controls the `can_access_all_content` flag independently of admin status (for ac
 - **Grant all-content** and **Revoke all-content** on a superuser account are available to superusers only.
 - **Revoke all-content** removes that access. The user will only see boards and groups they are explicitly a member of. It is not shown for a superuser account, because superuser status implies all-content access (the API refuses it); remove superuser status in the Django admin first.
 
-These two flags — `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) — are independent for accounts that are not superusers (a superuser always has both). See [Site Admins](site-admins.md) for a detailed explanation of the two-flag model and examples of common configurations.
+**The big picture:** `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) are independent for accounts that are not superusers. A superuser always has both. See [Site Admins](site-admins.md) for a detailed explanation of the two-flag model and examples of common configurations.
 
 !!! tip
     The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel toggles described here, or edit the user directly in the [Django admin](django-admin.md) at `/admin/accounts/user/`.
 
 #### Force password reset
 
-Sets `must_change_password = true` on the user. The next time they log in, they are presented with a password-change dialog before accessing the application. Useful after a suspected credential compromise. On a superuser account it is available to superusers only.
+Sets `must_change_password = true` on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to superusers only.
 
 #### Restart onboarding tour
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Clears `has_completed_tour` for a user, so they see the [onboarding tour](../getting-started/onboarding-tour.md) again the next time they open a board — the admin-initiated equivalent of the self-service **Restart onboarding tour** button in Settings → Behavior. Only shown when the user has already completed the tour — there is nothing to reset otherwise. No data is changed beyond the flag.
+Clears `has_completed_tour` for a user, so they see the [onboarding tour](../getting-started/onboarding-tour.md) again the next time they open a board. It is the admin-initiated equivalent of the self-service **Restart onboarding tour** button in Settings → Behavior.
+
+It is shown only when the user has already completed the tour, since there is nothing to reset otherwise. No data is changed beyond the flag.
 
 #### Clear lockout
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Clears the per-account login lockout (on a superuser account this is available to superusers only; 5 failed login or password-change attempts within 5 minutes — see [Rate limiting](../architecture/deployment.md#rate-limiting)) immediately, letting the user log in again without waiting out the rest of the 5-minute window.
+Clears the per-account login lockout immediately, so the user can log in again without waiting out the rest of the 5-minute window. The lockout is 5 failed login or password-change attempts within 5 minutes; see [Rate limiting](../architecture/deployment.md#rate-limiting). On a superuser account this is available to superusers only.
 
-A successful password reset already clears this automatically, so **Clear lockout** is for the case where that isn't an option — for example the user contacts support directly instead of using the reset-password flow, or reset emails aren't reaching them. It is safe to click at any time: if the account isn't currently locked out, nothing happens.
+**Yes, but:** a successful password reset already clears the lockout automatically. Use **Clear lockout** when that isn't an option, for example the user contacts support directly instead of using the reset-password flow, or reset emails aren't reaching them. It is safe to click at any time: if the account isn't currently locked out, nothing happens.
 
 ## Invite Links tab
 
 > **Added in 1.0**
 
-The **Invite Links** tab lets site admins create and manage invite links for instance-wide registration. Invite links are only relevant when the instance registration mode is set to **Invite-only** (see [Settings tab](#settings-tab)), but links can be created regardless of the current mode and activated later.
+Create and manage invite links for instance-wide registration. Links matter only when registration mode is **Invite-only** (see [Settings tab](#settings-tab)), but you can create them in any mode and activate them later.
 
 Invite links work for both password-based and OAuth registration (Google, GitHub, GitLab, OIDC). When a new user follows a join link and chooses OAuth, the token is carried through the IdP redirect automatically and consumed on successful signup.
 
 ### Link list
 
-Each row in the list shows:
+Each row shows:
 
 | Column | Description |
 |---|---|
@@ -177,14 +192,14 @@ Links that Visiban emailed (see [Inviting by email](#inviting-by-email)) carry a
 
 ### Creating a new invite link
 
-Click **New invite link** to open the creation dialog. Fields:
+Click **New invite link** to open the creation dialog.
 
 | Field | Notes |
 |---|---|
 | **TTL** | Time-to-live for the link — choose from preset durations (1 hour, 24 hours, 7 days, 30 days) or enter a custom value |
 | **Single-use** | When enabled, the link is automatically revoked after the first successful registration |
 
-After clicking **Create**, the full join URL (`/join/<token>`) is displayed **once** in the dialog. Copy it immediately — it is not shown again. The token prefix remains visible in the list for reference.
+After you click **Create**, the dialog shows the full join URL (`/join/<token>`) **once**. Copy it immediately. The token prefix stays visible in the list for reference.
 
 !!! warning
     The full join URL is only revealed at creation time. If you close the dialog without copying it, you must revoke the link and create a new one.
@@ -193,9 +208,11 @@ After clicking **Create**, the full join URL (`/join/<token>`) is displayed **on
 
 > **Added in 1.2** (#731)
 
-Above the link list, the **Invite by email** section lets you have Visiban email an invite straight to an address: enter it and select **Send invite**. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored. Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See [Site Admins](site-admins.md) for the API and rate-limit details.
+In the **Invite by email** section above the link list, enter an address and select **Send invite**. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored.
 
-When emailing isn't possible, the section is replaced by a note that points to **Settings → Email** (select it to open the Settings tab) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
+Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See [Site Admins](site-admins.md) for the API and rate-limit details.
+
+**Yes, but:** when emailing isn't possible, the section is replaced by a note. It points to **Settings → Email** (select it to open the Settings tab) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
 
 ### Revoking a link
 
@@ -203,19 +220,28 @@ Click **Revoke** on any active link to invalidate it immediately. Revoked links 
 
 ## Board Invites tab
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-The **Board Invites** tab lists the invites of **every board** on the instance — invites board admins emailed and shareable invite links they created — so you can audit them or revoke a leaked link without being a member of the board. Board admins manage their own board's invites from **Board Settings → Members**.
+Audit the invites of **every board** on the instance, or revoke a leaked link, without being a member of the board. The tab lists invites board admins emailed and shareable invite links they created. Board admins manage their own board's invites from **Board Settings → Members**.
 
-Pick a **Status** (Pending, the default; Used; Expired; Revoked; or All). Each row shows the board, the role the invite grants, how it was delivered (**Email** or **Link**), its status, when it expires, and who created it (**—** when that account was removed). An **Existing accounts only** tag means a new person couldn't create an account from the invite on this site right now — always the case for a shareable link on an invite-only site. The list shows 50 invites per page.
+Pick a **Status** (Pending, the default; Used; Expired; Revoked; or All). Each row shows:
 
-The tab shows each invite's **stored** status. Unlike the board's own list, it does not check whether the invite's creator is still an admin of the board: an invite whose creator was demoted can show **Pending** here while the board's list shows it as revoked and nobody can join with it. Revoke it here to make that permanent. The **Existing accounts only** tag is likewise a best-effort hint; registration re-checks everything.
+- the board
+- the role the invite grants
+- how it was delivered (**Email** or **Link**)
+- its status
+- when it expires
+- who created it (**—** when that account was removed)
 
-Select **Revoke** on a pending invite and then **Confirm** to stop it working immediately. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in [Admin API — Board invites](../api/admin.md#board-invites).
+An **Existing accounts only** tag means a new person couldn't create an account from the invite on this site right now. That is always the case for a shareable link on an invite-only site. The list shows 50 invites per page.
+
+To stop an invite immediately, select **Revoke** on a pending invite and then **Confirm**. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in [Admin API — Board invites](../api/admin.md#board-invites).
+
+**Yes, but:** the tab shows each invite's **stored** status. Unlike the board's own list, it does not check whether the invite's creator is still an admin of the board. An invite whose creator was demoted can show **Pending** here while the board's list shows it as revoked and nobody can join with it. Revoke it here to make that permanent. The **Existing accounts only** tag is likewise a best-effort hint; registration re-checks everything.
 
 ## CLI alternatives
 
-All admin-panel operations are also available via management commands for scripting and automation:
+All admin-panel operations are also available via management commands, for scripting and automation.
 
 ```bash
 # Grant site admin

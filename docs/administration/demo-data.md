@@ -1,6 +1,14 @@
-# Demo Data
+# Seed a demo board in one command
 
-`seed_demo_data` populates a board with realistic fake data for local development, staging demos, and CI. **Why it matters:** never point it at a database with real data — see the guard below.
+Run `python manage.py seed_demo_data` to populate a board with realistic fake data for local development, staging demos, and CI.
+
+**Why it matters:** never point it at a database with real data. See the guard below.
+
+**The big picture:** the command has three levels.
+
+- **Default:** one "Visiban Demo Board" (see [Overview](#overview)).
+- **`--demo-site`:** the showcase content for a public demo (see [Hosted demo instance](#hosted-demo-instance)).
+- **Helm:** a supported public deployment (see [Public demo mode (Helm)](#public-demo-mode-helm)).
 
 > **Warning: development and staging only.** The command is guarded against running when `DEBUG=False` without `--force`, but `--force` must never be used on a live database. Demo boards, demo users, and dummy cards are indistinguishable from real data at the database level — there is no `is_demo` flag and no automated cleanup. See [Cleaning up accidental seeding](#cleaning-up-accidental-seeding) if this happens.
 
@@ -59,7 +67,7 @@ python manage.py seed_demo_data --force
 python manage.py seed_demo_data --wipe --force
 ```
 
-Even with the guard in place, do not expose `manage.py` on production servers in ways that allow arbitrary command execution, and ensure your deployment runbooks do not include `seed_demo_data` in any production provisioning step.
+**Watch out:** even with the guard in place, do not expose `manage.py` on production servers in ways that allow arbitrary command execution. Make sure your deployment runbooks do not include `seed_demo_data` in any production provisioning step.
 
 ## Demo user accounts
 
@@ -73,7 +81,7 @@ The seed command creates five user accounts with unusable passwords (they cannot
 | `demo4` | `demo4@visiban.example` |
 | `demo5` | `demo5@visiban.example` |
 
-The `@visiban.example` domain is deliberately not a real domain. If you need to use demo accounts for OAuth testing, you will need to adjust these emails to match your OAuth provider's allowed domains.
+**Yes, but:** the `@visiban.example` domain is deliberately not a real domain. To use demo accounts for OAuth testing, adjust these emails to match your OAuth provider's allowed domains.
 
 ## Hosted demo instance
 
@@ -132,7 +140,16 @@ It creates, alongside the normal demo board:
 
 It also turns file uploads off and sets registration to **closed**.
 
-Passwords come only from the environment and are re-applied on every run. For an account that already exists, a re-seed also revokes its personal access tokens and DRF auth token (a fresh account has none, and `--reset-database` recreates the accounts, so nothing is revoked there). The command refuses to run unless `DEMO_MODE=true` and `DEMO_LOGIN_PASSWORD`, `DEMO_ADMIN_PASSWORD` and `DEMO_MEMBER_PASSWORD` are all set, refuses an admin password equal to the published one, refuses a `DEMO_LOGIN_USERNAME` that names another seeded account, and cannot be combined with `--scale`. The onboarding tour is marked **completed** for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.
+Passwords come only from the environment and are re-applied on every run. For an account that already exists, a re-seed also revokes its personal access tokens and DRF auth token (a fresh account has none, and `--reset-database` recreates the accounts, so nothing is revoked there).
+
+**The command refuses to run when:**
+
+- `DEMO_MODE=true` is not set, or `DEMO_LOGIN_PASSWORD`, `DEMO_ADMIN_PASSWORD` or `DEMO_MEMBER_PASSWORD` is missing
+- the admin password equals the published one
+- `DEMO_LOGIN_USERNAME` names another seeded account
+- it is combined with `--scale`
+
+**Onboarding tour:** it is marked **completed** for the published visitor on every run. Finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.
 
 ### Resetting the whole database
 
@@ -152,7 +169,7 @@ See [Demo mode](configuration.md#demo-mode) for the settings, and [Public demo m
 
 > **Added in 1.2** (#1179).
 
-A public demo publishes a working login. Everything that account can do, the whole internet can do, and it can do it to every other visitor. Two facts shape the design:
+A public demo publishes a working login. Everything that account can do, the whole internet can do, and it can do it to every other visitor. Three facts shape the design:
 
 - **Role is not a control.** `POST /api/v1/boards/` and `POST /api/v1/groups/{id}/boards/` make *any* authenticated caller the ADMIN of the board they create. A published credential of any role is therefore one request away from owning something. Seeding a harmless role cannot hold.
 - **The guarantee is a deployment mode.** With `DEMO_MODE=true`, `DemoModeMiddleware` refuses every request whose method is not `GET`, `HEAD` or `OPTIONS` — including `TRACE` and unknown verbs — for **every caller**, a site admin and anonymous clients included, unless it is on a short, pinned allowlist. A route added in a later release is refused by construction until someone deliberately adds it. The same rule covers allauth's `/accounts/` tree, `/admin/`, and `/mcp` (every MCP write tool is refused).
@@ -210,7 +227,18 @@ helm test visiban-demo -n visiban-demo --logs
 | `demo.resourceQuota.*` | off | A ResourceQuota and a LimitRange for the release's namespace, for a demo that shares a node. Only use it in a namespace dedicated to the demo. |
 | `backend.settings.numProxies` | *required, ≥ 1* | `NUM_PROXIES`, [the client-IP depth](configuration.md#reverse-proxies-and-the-client-ip). `values-demo.yaml` sets `2` for a Cloudflare Tunnel. |
 
-The chart **refuses to render** a demo that could publish a credential, reach out, or leave its per-visitor rate limits keyed on a shared address. It fails when `loginHint` is set while the demo is off, when a `loginHint` half is missing or outside its character set, when SSO/OAuth or real SMTP is configured, when the media PVC is enabled, when `backend.settings.debug` is anything django-environ's parser treats as true — not just the literal `true`, but also `on`/`ok`/`y`/`yes` and any nonzero integer string like `1` or `-1` — when `networkPolicy.enabled` is off, when the bundled PostgreSQL or Valkey is replaced by an external one, when `backend.settings.numProxies` is unset or below `1`, when `backend.settings.allowUnsafeHosts` is `true` (a public demo never needs a catch-all or loopback `ALLOWED_HOSTS` entry, #1360), when the schedule is one the backend cannot evaluate, and when `demo.throttle.userRate` is malformed.
+The chart **refuses to render** a demo that could publish a credential, reach out, or leave its per-visitor rate limits keyed on a shared address. It fails when:
+
+- `loginHint` is set while the demo is off, or a `loginHint` half is missing or outside its character set
+- SSO/OAuth or real SMTP is configured
+- the media PVC is enabled
+- `backend.settings.debug` is anything django-environ's parser treats as true: not just the literal `true`, but also `on`/`ok`/`y`/`yes` and any nonzero integer string like `1` or `-1`
+- `networkPolicy.enabled` is off
+- the bundled PostgreSQL or Valkey is replaced by an external one
+- `backend.settings.numProxies` is unset or below `1`
+- `backend.settings.allowUnsafeHosts` is `true` (a public demo never needs a catch-all or loopback `ALLOWED_HOSTS` entry, #1360)
+- the schedule is one the backend cannot evaluate
+- `demo.throttle.userRate` is malformed
 
 ### What the chart guarantees, and what it does not
 
@@ -308,7 +336,7 @@ The board import endpoint (`POST /api/v1/boards/import/`) accepts the same JSON 
 - **Imported records are not tagged as test data** — they are real database rows with no provenance marker
 - **Column, swimlane, and label names drive the import** — duplicate names within the same file are merged into a single object; the card's `column` and `swimlane` fields must match a name defined in the file's `columns`/`swimlanes` arrays
 
-If you are using the import endpoint to load test data, clean it up explicitly after the test. There is no bulk-delete-by-source-file operation; you will need to delete the board that was created.
+**Watch out:** if you use the import endpoint to load test data, clean it up explicitly after the test. There is no bulk-delete-by-source-file operation; you need to delete the board that was created.
 
 ### Identifying test boards in development
 
@@ -318,4 +346,4 @@ If your development workflow involves creating many imported boards for testing,
 Board.objects.filter(name__startswith="TEST:").delete()
 ```
 
-This is a convention, not an enforced constraint, and relies on the person creating the test data using the prefix consistently.
+**Yes, but:** this is a convention, not an enforced constraint. It relies on the person creating the test data using the prefix consistently.

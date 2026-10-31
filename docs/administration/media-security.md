@@ -1,9 +1,10 @@
-# Media Storage Security
+# Keep attachments private, on disk or in a bucket
 
-Visiban validates every attachment before it's written to storage and serves
-downloads through an authenticated view, not a public file mount. Below:
-both controls, plus what to configure if you move attachment storage to S3,
-GCS, or Azure Blob.
+Visiban validates every attachment before it's written to storage and serves downloads through an authenticated view, not a public file mount. If you move attachment storage to S3, GCS, or Azure Blob, keep the bucket private.
+
+**Why it matters:** attachments hold sensitive user content. The board-membership check in `ServeMediaView` is the primary access control, and bucket hardening is defense-in-depth.
+
+**The big picture:** this page covers upload validation, authenticated serving, external object storage hardening, and cleaning up orphaned files.
 
 ---
 
@@ -53,11 +54,7 @@ links as defense-in-depth.
 
 ### Authenticated serving, not a bare static-file mount
 
-`/media/` is **not** a raw Nginx file mount — that would serve any
-attachment to anyone who guessed its URL. Every download is proxied through
-Django's `ServeMediaView`, which checks board membership before serving the
-file, then hands off delivery one of two ways controlled by
-`USE_X_ACCEL_REDIRECT`:
+`/media/` is **not** a raw Nginx file mount, which would serve any attachment to anyone who guessed its URL. Every download is proxied through Django's `ServeMediaView`, which checks board membership before serving the file. It then hands off delivery one of two ways, controlled by `USE_X_ACCEL_REDIRECT`:
 
 - **On** (production default): Django returns an `X-Accel-Redirect` header
   and Nginx streams the file itself from the internal-only
@@ -75,11 +72,9 @@ A request that can't be matched to a real, permitted attachment gets `404`
 
 ## External object storage (S3, GCS, Azure Blob)
 
-Visiban stores attachments on the local filesystem (`MEDIA_ROOT`) by
-default — there is no `django-storages` (or equivalent) dependency in the
-shipped image, and `STORAGES` in `backend/visiban/settings.py` is hardcoded
-to `FileSystemStorage`. Moving to S3-compatible storage is a supported
-customization, not a built-in toggle: see
+Visiban stores attachments on the local filesystem (`MEDIA_ROOT`) by default. There is no `django-storages` (or equivalent) dependency in the shipped image, and `STORAGES` in `backend/visiban/settings.py` is hardcoded to `FileSystemStorage`.
+
+**Yes, but:** moving to S3-compatible storage is a supported customization, not a built-in toggle. See
 [Scaling → Attachment storage](../architecture/scaling.md#attachment-storage)
 for the `django-storages` install and settings override, which you need
 before running more than one backend replica.

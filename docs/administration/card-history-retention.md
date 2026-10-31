@@ -1,8 +1,12 @@
-# Card History Retention
+# Keep deleted cards' history, or erase it on request
 
 > **Added in 1.2** (#1797)
 
-Since 1.2, deleting a card keeps its movement history (#1469). This page covers what that history keeps, who can see it, how long it lasts, and how a superuser erases it on request with the `purge_card_history` management command.
+Since 1.2, deleting a card keeps its movement history (#1469). A superuser erases it on request with the `purge_card_history` management command.
+
+**Why it matters:** the history keeps incident retrospectives honest, but it also means a deleted card's title lives on. Know what remains, who can see it, and what the command does and does not erase.
+
+**The big picture:** this page covers what that history keeps, who can see it, how long it lasts, and how to purge it.
 
 ## What a deleted card leaves behind
 
@@ -13,7 +17,10 @@ Each movement record of a deleted card keeps:
 
 While the card exists, its history is shown under its current title. Once it is deleted, each movement is shown under the title recorded with it, so a card that was renamed before deletion appears in the board's **History** view under each of its earlier titles. This is intended: it is what the card was called when each move happened.
 
-Two exceptions. Movements recorded before the 1.2 upgrade, and imported ones, carry the title as of the upgrade or the import, which can differ from what the card was called at that move. A movement written by the previous release while an upgrade was rolling out has no title stored until `backfill_card_movement_snapshots` runs or the card is deleted, either of which fills in the card's title at that point (see [Upgrading](upgrade.md)).
+**Yes, but:** two exceptions.
+
+- Movements recorded before the 1.2 upgrade, and imported ones, carry the title as of the upgrade or the import, which can differ from what the card was called at that move.
+- A movement written by the previous release while an upgrade was rolling out has no title stored until `backfill_card_movement_snapshots` runs or the card is deleted. Either fills in the card's title at that point (see [Upgrading](upgrade.md)).
 
 **Who can see it:** every member of the board, through the board's **History** view; users with [`can_access_all_content`](../features/permissions.md), who can open every board; and Django admin users with permission to view card movements (read-only).
 
@@ -23,7 +30,7 @@ See [Card History](../features/card-history.md#deleted-cards-keep-their-history)
 
 ### Other places a deleted card's title can remain
 
-`purge_card_history` erases movement records only. A deleted card's title can also remain in the places below, and the command does not touch any of them.
+**Watch out:** `purge_card_history` erases movement records only. A deleted card's title can also remain in the places below, and the command does not touch any of them.
 
 - **The board [change feed](../api/events.md)** (`GET /api/v1/boards/{id}/events/`). Each event stores its broadcast payload verbatim. `card.created` and `card.updated` events, and the `card` object inside `card.moved`, hold the full card as it was at that moment: title, description, custom field values and external reference; `card.moved` also holds the movement's notes. Events are not tied to the board by a foreign key, so they remain even after the board is deleted. The command does not remove change-feed events; covering them is tracked in #1816. The current mitigation is the [`prune_board_events`](scheduled-jobs.md) job, which deletes events older than its retention window (30 days by default). The job is **off** by default (`SCHEDULE_PRUNE_BOARD_EVENTS`), so unless you have enabled it or run the command yourself, change-feed events are never removed.
 - **The Django admin log** (`django_admin_log`). Any change made to a card in the Django admin, including deleting it there, records the card's title (`object_repr`) in the admin's own history. Visiban does not prune this table.

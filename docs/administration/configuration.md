@@ -1,6 +1,16 @@
 # Required credentials reference
 
-Every secret and credential Visiban needs, across its three environments: local development, the GitLab CI pipeline, and production.
+Find every secret, credential, and environment variable Visiban needs in local development, the GitLab CI pipeline, and production.
+
+**Why it matters:** A missing or wrong value is the usual reason a first boot fails or a pipeline goes red. In production, `DJANGO_SECRET_KEY`, `DB_PASSWORD`, `REDIS_PASSWORD`, and `APP_VERSION` are required.
+
+**The big picture:** Start with the section for your environment, then jump to the feature-specific sections below.
+
+- [Local development](#local-development) and [GitLab CI pipeline](#gitlab-ci-pipeline)
+- [Production deployment](#production-deployment) for Docker Compose and Helm
+- [Reverse proxies and the client IP](#reverse-proxies-and-the-client-ip), [Optional features](#optional-features-off-by-default), [Import limits](#import-limits)
+- [Email (SMTP)](#email-smtp), [Demo mode](#demo-mode), [Health check endpoints](#health-check-endpoints)
+- [Deprecated environment variable names](#deprecated-environment-variable-names)
 
 ---
 
@@ -20,7 +30,7 @@ Copy `.env.example` to `.env` in the repository root and fill in the values belo
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of origins allowed to make API requests. Must match the exact origin your browser uses (scheme + host + port). Defaults to `http://localhost:5173`. Also controls `CSRF_TRUSTED_ORIGINS` unless that is set separately. | `http://localhost:5173` |
 | `VITE_API_URL` | Frontend env var for `npm run dev` — create `frontend/.env.local` (gitignored) and set to `http://localhost:8000`. Leave empty for Docker builds; the frontend falls back to `window.location.origin` and relies on nginx to proxy `/api/` and `/ws/`. | `http://localhost:8000` |
 
-Valkey has no authentication in development — no variable needed.
+Valkey has no authentication in development, so no variable is needed.
 
 ### Frontend local override
 
@@ -30,13 +40,15 @@ When running the Vite dev server directly (`npm run dev`), create `frontend/.env
 VITE_API_URL=http://localhost:8000
 ```
 
-This file is gitignored and excluded from Docker builds via `frontend/.dockerignore`. **Never set `VITE_API_URL` to a `localhost` value in a Docker image** — it will be baked into the JS bundle and break WebSocket connections for any client accessing from a non-localhost address. The correct value for all Docker builds (dev compose, prod compose, Helm) is an empty string, which makes the frontend resolve the API relative to `window.location.origin`.
+This file is gitignored and excluded from Docker builds via `frontend/.dockerignore`.
+
+**Watch out:** never set `VITE_API_URL` to a `localhost` value in a Docker image. It is baked into the JS bundle and breaks WebSocket connections for any client accessing from a non-localhost address. The correct value for all Docker builds (dev compose, prod compose, Helm) is an empty string, which makes the frontend resolve the API relative to `window.location.origin`.
 
 ---
 
 ## GitLab CI pipeline
 
-Add these in **Settings → CI/CD → Variables**. The pipeline will fail or produce SAST warnings if any are missing.
+Add these in **Settings → CI/CD → Variables**. **Watch out:** the pipeline fails or produces SAST warnings if any are missing.
 
 | Variable | Used by | Masked | Notes |
 |---|---|---|---|
@@ -88,7 +100,7 @@ Pass sensitive values via a gitignored `values.secret.yaml` file — **never via
 
 An example file is included at `helm/visiban/values.secret.yaml.example`. Copy it to `values.secret.yaml`, fill in values, and pass it with `-f`:
 
-For production clusters, you can bring your own Kubernetes Secret instead of having the chart create one. Set `secret.existingSecret` to the Secret name and the chart will reference it directly. See [Deployment — Using an existing Kubernetes Secret](../architecture/deployment.md#using-an-existing-kubernetes-secret).
+**Tip:** for production clusters, bring your own Kubernetes Secret instead of having the chart create one. Set `secret.existingSecret` to the Secret name and the chart will reference it directly. See [Deployment — Using an existing Kubernetes Secret](../architecture/deployment.md#using-an-existing-kubernetes-secret).
 
 | Key | Description |
 |---|---|
@@ -131,12 +143,19 @@ Per-IP rate limits (the login throttle, the anonymous request ceiling, allauth's
 |---|---|---|
 | `NUM_PROXIES` | `1` | Number of reverse proxies in front of the backend that append to `X-Forwarded-For`. The default of `1` counts this chart's own frontend nginx, which is correct for Docker Compose and for a Helm install with the ingress disabled and nothing else in front of the frontend Service. The Helm chart renders `2` instead when `ingress.enabled` is true, `frontend.service.type` is `ClusterIP` and `backend.settings.numProxies` is unset; an explicit value always wins. A non-negative integer. Anything else refuses to start. Helm: `backend.settings.numProxies`. |
 
-Set it to the real depth of your proxy chain:
+**Watch out:** set it to the real depth of your proxy chain.
 
 - **Too low**: every client appears to come from the nearest proxy. One client exhausts the login and anonymous throttles for everyone.
 - **Too high**: a client can choose its own address by sending its own `X-Forwarded-For`, and so escape per-IP limits.
 
-**Behind an ingress controller, `1` is too low.** The Helm chart therefore renders `2` by default when its Ingress is enabled and the frontend Service is `ClusterIP` (if the frontend Service is exposed directly, only one hop applies; set `backend.settings.numProxies` to override; an additional proxy in front of the ingress, such as a CDN, needs an explicit value). This chart's frontend nginx always appends one hop (`proxy_add_x_forwarded_for`); an ingress controller in front of it appends its own, so the real chain is two hops deep, not one. Count every proxy between the internet and the frontend Service, including the frontend nginx itself. The value must equal the number of trusted proxy hops that append to `X-Forwarded-For`, and each proxy (including the ingress controller) must be configured to preserve and append the upstream header; check your controller's forwarded-header settings in its documentation.
+**Behind an ingress controller, `1` is too low.** The Helm chart therefore renders `2` by default when its Ingress is enabled and the frontend Service is `ClusterIP` (if the frontend Service is exposed directly, only one hop applies; set `backend.settings.numProxies` to override; an additional proxy in front of the ingress, such as a CDN, needs an explicit value).
+
+**How to count:**
+
+- This chart's frontend nginx always appends one hop (`proxy_add_x_forwarded_for`). An ingress controller in front of it appends its own, so the real chain is two hops deep, not one.
+- Count every proxy between the internet and the frontend Service, including the frontend nginx itself.
+- The value must equal the number of trusted proxy hops that append to `X-Forwarded-For`.
+- Each proxy (including the ingress controller) must be configured to preserve and append the upstream header; check your controller's forwarded-header settings in its documentation.
 
 The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visitor, then the frontend nginx appends the tunnel pod). See [Public demo mode](demo-data.md#public-demo-mode-helm).
 
@@ -144,7 +163,11 @@ The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visi
 
 ## Optional features (off by default)
 
-Two features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`). Turning `GIT_LENS_ENABLED` on adds the `git_lens` app and its tables, so a migration must run; in the production stack the `backend-init` service does that on `up -d`. Helm support for these flags is tracked in #1835. All names are stable: a rename keeps the old name as a deprecated alias for at least one minor release.
+Two features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`).
+
+- **Migration:** turning `GIT_LENS_ENABLED` on adds the `git_lens` app and its tables, so a migration must run. In the production stack the `backend-init` service does that on `up -d`.
+- **Helm:** support for these flags is tracked in #1835.
+- **Names are stable:** a rename keeps the old name as a deprecated alias for at least one minor release.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -166,7 +189,7 @@ Rates use the DRF form `<count>/<period>` with `sec`, `min`, `hour` or `day`. Se
 |---|---|---|
 | `IMPORT_MAX_SIZE_BYTES` | Maximum size, **in bytes**, of a Trello JSON export accepted by the [Trello import wizard](../features/trello-import.md). Oversized uploads get `413`. Separate from `MAX_UPLOAD_SIZE_BYTES`, which caps attachments and native board imports. Helm: `backend.settings.importMaxSizeBytes`. Deprecated alias: `VISIBAN_IMPORT_MAX_SIZE` (see [Deprecated names](#deprecated-environment-variable-names)). *(new in 1.2)* | `26214400` (25 MB) |
 
-The import runs synchronously inside the request, so every hop in front of
+**Watch out:** the import runs synchronously inside the request, so every hop in front of
 Django must accept a body this large and wait long enough for the board to be
 created:
 
@@ -189,17 +212,15 @@ created:
 
 Visiban uses Django's email backend for password resets, email verification and — since 1.2 — [notification email](../features/notifications.md#email-notifications).
 
-There are two ways to configure it, and **exactly one of them is in effect at a time** —
-settings are never merged across the two:
+There are two ways to configure it, and **exactly one of them is in effect at a time**.
+Settings are never merged across the two:
 
 1. **Environment variables** (below) — the default, and unchanged from earlier releases.
 2. **The admin UI** — *new in 1.2.* **Admin → Settings → Email** stores the same settings
    in the database, so you can configure and test SMTP without shell access or a restart.
    See [Configuring SMTP from the admin UI](#configuring-smtp-from-the-admin-ui).
 
-An instance uses environment variables until an admin explicitly switches the source to
-the stored configuration, so **upgrading changes nothing** about how your instance sends
-mail.
+**Yes, but:** an instance uses environment variables until an admin explicitly switches the source to the stored configuration, so **upgrading changes nothing** about how your instance sends mail.
 
 ### Environment variables
 
@@ -357,17 +378,13 @@ For external load balancers (AWS ALB, HAProxy, etc.), point your health check at
 
 ## Deprecated environment variable names
 
-Environment variable names are a public contract: once a name has shipped, it keeps working.
-When a name is changed, the old one stays as a **deprecated alias**. It is still read, and
-setting it logs a startup warning naming its replacement. Each alias works for at least one
-minor release after its deprecation, and its removal is announced in the
-[upgrade guide](upgrade.md) first.
+Once an environment variable name has shipped, it keeps working. When a name is changed, the old one stays as a **deprecated alias**.
 
-If both names are set, the new name wins whenever it has a non-empty value. An install that
-sets only the old name behaves exactly as before.
+- **How it behaves:** the alias is still read, and setting it logs a startup warning naming its replacement.
+- **How long:** each alias works for at least one minor release after its deprecation, and its removal is announced in the [upgrade guide](upgrade.md) first.
+- **If both names are set,** the new name wins whenever it has a non-empty value. An install that sets only the old name behaves exactly as before.
 
-The Helm chart sets the new names, so it needs a backend image from the same release. See the
-[1.2 upgrade notes](upgrade.md#upgrading-to-12x).
+**Watch out:** the Helm chart sets the new names, so it needs a backend image from the same release. See the [1.2 upgrade notes](upgrade.md#upgrading-to-12x).
 
 | Deprecated name | Use instead | Deprecated in | Notes |
 |---|---|---|---|

@@ -1,6 +1,10 @@
-# Authentication
+# Pick how your users sign in
 
-Visiban supports several authentication methods. Some are available in the OSS edition; others require the enterprise edition.
+Visiban signs users in with a password, Google, GitHub, GitLab, or any OIDC provider out of the box. SAML and SCIM need the enterprise edition.
+
+**Why it matters:** The sign-in method decides who can reach your instance and how they recover access. Password, OAuth, and OIDC users share one password policy and one reset flow.
+
+**The big picture:** Some methods are available in the OSS edition; others require the enterprise edition.
 
 | Method | OSS | Enterprise |
 |---|---|---|
@@ -14,29 +18,35 @@ Visiban supports several authentication methods. Some are available in the OSS e
 
 ## Password policy
 
-Every password must be at least **12 characters** long and pass Django's standard checks: not
-too similar to the user's username, email, or name; not a commonly used password; and not
-entirely numeric. The same policy applies on every path that sets a password — registration and
-invite-link sign-up, the password-reset link, both change-password API endpoints, admin-created
-accounts, the Django admin, and the interactive `createsuperuser` / `changepassword` management commands (`createsuperuser` still offers its own "bypass validation" prompt). Creating an account with `createsuperuser` and a password, or through the admin users API, is recorded in the [admin action log](../api/admin.md).
+Every password must be at least **12 characters** long and pass Django's standard checks:
 
-The policy is checked only when a password is set. Accounts created before 1.2, when some of
-these paths accepted 8 characters, keep working and are asked for a 12-character password the
-next time they change it.
+- not too similar to the user's username, email, or name
+- not a commonly used password
+- not entirely numeric
 
-Changing a password — through either `POST /api/v1/auth/change-password/` or
-`POST /api/v1/auth/password/change/` — requires the current password (except for OAuth-only
-accounts setting their first one, which needs an interactive session: a request authenticated
-with a token alone is refused), revokes all of the user's
-[personal access tokens](../features/personal-access-tokens.md) and the API token issued at
-login (a caller that authenticated with that token receives a replacement in the response; see
-[API token on password change](../api/authentication.md#api-token-on-password-change)), and
-clears a pending "must change password" flag set by an administrator. The browser session
-stays signed in.
+**Where it applies:** every path that sets a password:
+
+- registration and invite-link sign-up
+- the password-reset link
+- both change-password API endpoints
+- admin-created accounts
+- the Django admin
+- the interactive `createsuperuser` / `changepassword` management commands (`createsuperuser` still offers its own "bypass validation" prompt)
+
+Creating an account with `createsuperuser` and a password, or through the admin users API, is recorded in the [admin action log](../api/admin.md).
+
+**Yes, but:** the policy is checked only when a password is set. Accounts created before 1.2, when some of these paths accepted 8 characters, keep working and are asked for a 12-character password the next time they change it.
+
+**What a password change does:** changing a password, through either `POST /api/v1/auth/change-password/` or `POST /api/v1/auth/password/change/`:
+
+- requires the current password (except for OAuth-only accounts setting their first one, which needs an interactive session: a request authenticated with a token alone is refused)
+- revokes all of the user's [personal access tokens](../features/personal-access-tokens.md) and the API token issued at login (a caller that authenticated with that token receives a replacement in the response; see [API token on password change](../api/authentication.md#api-token-on-password-change))
+- clears a pending "must change password" flag set by an administrator
+- leaves the browser session signed in
 
 ## Forgot password (self-service password reset)
 
-Users with a password-based account can reset their own password from the login page without administrator intervention.
+Users with a password-based account can reset their own password from the login page, with no administrator needed.
 
 1. The user clicks **Forgot password?** on the login page and enters their email address.
 2. Visiban sends a reset link to the address. The link expires after 3 days (Django's default `PASSWORD_RESET_TIMEOUT`).
@@ -49,9 +59,9 @@ Users with a password-based account can reset their own password from the login 
 
 **Older reset links and allauth's pages** — *Changed in 1.2 (#1554).* The server-rendered password-reset pages under `/accounts/password/reset/` (request, done, link, and link-done) now redirect to the app's `/forgot-password` page, so password reset has one implementation. A reset link already sitting in an inbox, which has the form `/accounts/password/reset/key/<uid>-<key>/`, redirects to the app's reset page with the same uid and key and keeps working until it expires; a malformed link under `/accounts/password/reset/key/` redirects to `/forgot-password`. The other pages under `/accounts/` stay mounted on purpose: `login/`, `login/code/confirm/`, `logout/`, `inactive/` and `reauthenticate/` (sign-in, sign-out and the inactive-account flow), `signup/`, `email/` and `confirm-email/` (project overrides or redirects to the app), and the social pages (`3rdparty/*`, its `social/*` aliases, and each configured provider's login and callback routes), which SSO needs. Nothing changes for SSO sign-in or the reset email sent from the app.
 
-**Rate limiting** — the reset-request endpoint (`POST /api/v1/auth/password/reset/`) is rate-limited per IP to prevent it from being used as a bulk email-sending vector.
+**Rate limiting:** the reset-request endpoint (`POST /api/v1/auth/password/reset/`) is rate-limited per IP, so it can't be used as a bulk email-sending vector.
 
-**SMTP requirement** — password reset emails require outbound email to be configured. See `EMAIL_HOST` and related settings in [Configuration](configuration.md). If email is not configured, reset emails are silently dropped (no error is shown to the user). In that case, administrators can reset passwords manually:
+**Watch out: SMTP requirement.** Password reset emails require outbound email to be configured. See `EMAIL_HOST` and related settings in [Configuration](configuration.md). If email is not configured, reset emails are silently dropped (no error is shown to the user). In that case, administrators can reset passwords manually:
 
 ```bash
 docker compose exec backend python manage.py changepassword <username>
@@ -101,15 +111,15 @@ The same five-minute provider sign-in applies when a user without a password add
 !!! note "Keycloak default port"
     Keycloak's default HTTP port is **8080**. Visiban's backend also defaults to port **8000** in the development Docker Compose setup — there is no conflict. When running the local OIDC dev stack (`docker compose -f docker-compose.yml -f docker-compose.oidc.yml up`), Keycloak is available at `http://localhost:8080` and the app at `http://localhost:5173` (frontend) / `http://localhost:8000` (API).
 
-Generic OIDC is available in the OSS edition via `allauth.socialaccount.providers.openid_connect`, which is already included in the `django-allauth` dependency. No additional packages are required.
+Use generic OIDC when your identity provider supports standard OIDC but is not one of the pre-configured providers (Google, GitHub, GitLab). Common examples: Keycloak, Authentik, Dex, Okta, and any other OIDC-compliant IdP.
+
+It is available in the OSS edition via `allauth.socialaccount.providers.openid_connect`, which is already included in the `django-allauth` dependency. No additional packages are required.
 
 The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the `oidc-smoke` job. See `docker-compose.oidc.yml` for local development with Keycloak.
 
-Use this when your identity provider supports standard OIDC but is not one of the pre-configured providers (Google, GitHub, GitLab). Common examples: Keycloak, Authentik, Dex, Okta, and any other OIDC-compliant IdP.
-
 ### Configuration via environment variables (recommended)
 
-Set all three of the following environment variables. The provider is only registered when all three are present — leaving any one blank disables OIDC entirely, preventing startup errors from partial configuration.
+Set all three required variables. The provider registers only when all three are present. Leaving any one blank disables OIDC entirely, which prevents startup errors from partial configuration.
 
 | Variable | Required | Description |
 |---|---|---|
@@ -182,7 +192,9 @@ Existing users can log in via OAuth regardless of the registration mode setting.
 
 ### Disabling password login when OIDC is active
 
-Setting OIDC env vars makes the OIDC login button appear alongside existing username/password and OAuth options — it does not disable them. A future release will add an admin toggle to disable password authentication entirely when SSO is configured. Until then, you can enforce OIDC-only access at the IdP level by issuing credentials only to users who should have access.
+Setting OIDC env vars adds the OIDC login button alongside the existing username/password and OAuth options. It does not disable them.
+
+**Yes, but:** a future release will add an admin toggle to disable password authentication entirely when SSO is configured. Until then, enforce OIDC-only access at the IdP level by issuing credentials only to users who should have access.
 
 ## SAML 2.0 / ADFS
 

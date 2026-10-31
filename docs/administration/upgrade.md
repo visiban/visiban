@@ -1,9 +1,13 @@
-# Upgrading Visiban
+# Upgrade Visiban in four commands, without downtime
 
 !!! note "Available from 1.0"
     Covers upgrades from Visiban 1.0 onward. Migrating from a pre-1.0 release? Follow the [1.0 release notes](#upgrading-to-100) below first.
 
-Upgrade a self-hosted Visiban instance between releases with zero downtime, using the standard steps below.
+Back up the database, point `APP_VERSION` at the new release, run `migrate`, and restart. That is the [standard path](#standard-upgrade-steps) for a self-hosted Visiban instance, with zero downtime.
+
+**Why it matters:** the migration rules below keep the old code safe against the new schema, so you can migrate while the instance is live. Release-specific notes list the changes that need an operator action.
+
+**Go deeper:** running Helm with more than one backend replica? Use the [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md). Need to undo an upgrade? See [Rollback guidance](#rollback-guidance).
 
 ## Version compatibility quick-reference
 
@@ -12,9 +16,18 @@ Upgrade a self-hosted Visiban instance between releases with zero downtime, usin
 | Any pre-1.0 beta or RC | 1.0.x | **No — maintenance window required** | Run the `groups/0003_placeholder` SQL fix first; `boards/0005` and `groups/0012` both require stopping backends before migration. See [Upgrading to 1.0.0](#upgrading-to-100). |
 | 1.0.x | 1.0.x (patch) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). |
 | 1.0.x | 1.1.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). Check the [release-specific notes](#release-specific-upgrade-notes) for any migration-window exceptions. |
-| 1.1.x | 1.2.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). See [Upgrading to 1.2.x](#upgrading-to-12x) — most changes are additive and need no operator action, but read the `!!!` callouts (Compose `ALLOWED_HOSTS`/`DOMAIN`, Helm `NUM_PROXIES` is now 2 behind the chart's Ingress (can change `/admin/` access if only the ingress range was allowlisted), Helm `ALLOWED_HOSTS` no longer includes `localhost`, Helm catch-all/loopback `allowedHosts` entries fail the render (**this one can stop `helm upgrade`**; opt out with `backend.settings.allowUnsafeHosts=true`), Helm values-schema validation, PAT scopes and the MCP server). |
+| 1.1.x | 1.2.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). See [Upgrading to 1.2.x](#upgrading-to-12x) — most changes are additive and need no operator action, but read the `!!!` callouts listed below the table. |
 
-Skipping minor versions (e.g. 1.0 → 1.2 directly) is supported — run all intermediate migrations in sequence. The standard upgrade command (`manage.py migrate`) handles this automatically. The standard path is: pull the new image, run database migrations, restart. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
+**Watch out:** for 1.1.x → 1.2.x, read these `!!!` callouts in [Upgrading to 1.2.x](#upgrading-to-12x):
+
+- Compose `ALLOWED_HOSTS`/`DOMAIN`
+- Helm `NUM_PROXIES` is now 2 behind the chart's Ingress (can change `/admin/` access if only the ingress range was allowlisted)
+- Helm `ALLOWED_HOSTS` no longer includes `localhost`
+- Helm catch-all/loopback `allowedHosts` entries fail the render (**this one can stop `helm upgrade`**; opt out with `backend.settings.allowUnsafeHosts=true`)
+- Helm values-schema validation
+- PAT scopes and the MCP server
+
+**Yes, but:** skipping minor versions (e.g. 1.0 → 1.2 directly) is supported. Run all intermediate migrations in sequence; the standard upgrade command (`manage.py migrate`) handles this automatically. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
 
 ---
 
@@ -31,20 +44,18 @@ These steps apply to a single-server Docker Compose deployment.
 
 ### 1. Back up the database
 
-Always take a snapshot before upgrading. If a migration fails partway through, you will need this to recover.
+Take a snapshot before every upgrade. If a migration fails partway through, you need it to recover.
 
 ```bash
 docker compose -f docker-compose.prod.yml exec -T db \
   pg_dump -U visiban visiban > visiban-backup-$(date +%Y%m%d%H%M%S).sql
 ```
 
-Store the backup outside the container. A local file on the host is sufficient for most deployments; offsite storage is recommended for production.
+**Tip:** store the backup outside the container. A local file on the host is sufficient for most deployments; offsite storage is recommended for production.
 
 ### 2. Point `APP_VERSION` at the new release and pull it
 
-The production stack runs the released images named by `APP_VERSION` in `.env`
-and builds nothing locally, so changing that line is what selects the new
-version — without it, `pull` fetches the version you already run.
+The production stack runs the released images named by `APP_VERSION` in `.env` and builds nothing locally. Changing that line selects the new version. Without it, `pull` fetches the version you already run.
 
 ```bash
 # In .env: APP_VERSION=vX.Y.Z   (the release you are upgrading to)
@@ -57,7 +68,9 @@ docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml run --rm backend python manage.py migrate
 ```
 
-This starts a one-off container, applies all pending migrations, and exits. The running backend container is not restarted yet, so the old code is still serving traffic while migrations run. Because Visiban enforces additive-only migration rules (see [Zero-downtime migration rules](#zero-downtime-migration-rules) below), the old code is safe to run against the new schema during this window.
+This starts a one-off container, applies all pending migrations, and exits. The running backend container is not restarted yet, so the old code is still serving traffic while migrations run.
+
+**Why it's safe:** Visiban enforces additive-only migration rules (see [Zero-downtime migration rules](#zero-downtime-migration-rules) below), so the old code is safe to run against the new schema during this window.
 
 ### 4. Restart the services
 
@@ -76,7 +89,7 @@ scheduler running against the new API. Nginx and the database are unaffected.
 docker compose -f docker-compose.prod.yml logs backend --tail 40
 ```
 
-Look for the `daphne` startup line. An `ImproperlyConfigured` or migration error here means the new container did not start cleanly — check the logs for the specific error before proceeding.
+Look for the `daphne` startup line. **Watch out:** an `ImproperlyConfigured` or migration error here means the new container did not start cleanly. Check the logs for the specific error before proceeding.
 
 Check migration status:
 
@@ -103,19 +116,17 @@ If you put your own reverse proxy or CDN in front of Visiban:
 - Pass the `Cache-Control` header through unchanged, and do not rewrite `404` responses for
   `/assets/*` into the SPA fallback.
 
-A blank page after a deploy with a console error such as "Failed to load module script ...
-MIME type of text/html" means a cached `index.html` is pointing at assets from the previous
-build. A hard reload fixes it for that visitor; the headers above prevent it for everyone else.
+**Fix a blank page after a deploy:** a console error such as "Failed to load module script ... MIME type of text/html" means a cached `index.html` is pointing at assets from the previous build. A hard reload fixes it for that visitor; the headers above prevent it for everyone else.
 
 ---
 
 ## Zero-downtime migration rules
 
-Visiban enforces strict migration authoring rules that make the upgrade sequence above safe. Understanding these rules helps you evaluate whether a third-party migration or a local customization is safe to run without downtime.
+Visiban enforces strict migration authoring rules that make the upgrade sequence above safe. Use them to evaluate whether a third-party migration or a local customization is safe to run without downtime.
 
 ### Why these rules exist
 
-During the upgrade window (between step 3 and step 4 above), two versions of the application code are running against the same database schema: the old code reading the migrated schema, and the new code starting up against it. For zero-downtime upgrades to work, the schema after migration must be fully compatible with both versions simultaneously.
+Between step 3 and step 4 above, two versions of the application code run against the same database schema: the old code reading the migrated schema, and the new code starting up against it. For zero-downtime upgrades to work, the schema after migration must be fully compatible with both versions simultaneously.
 
 Four patterns break this compatibility — or block the upgrade outright — and are therefore prohibited:
 
@@ -157,10 +168,7 @@ Renaming a column in a single migration causes the old code to fail on every que
 The first three rules keep the *schema* compatible across the upgrade window. This one keeps
 `migrate` itself from being the outage.
 
-A plain `CREATE INDEX` or `ALTER TABLE ... ADD CONSTRAINT` holds an `ACCESS EXCLUSIVE` lock on
-its table for the entire build — every read and every write to that table blocks until it
-finishes. On `cards` that is the whole product, and on a large instance an index build is
-minutes, not milliseconds.
+A plain `CREATE INDEX` or `ALTER TABLE ... ADD CONSTRAINT` holds an `ACCESS EXCLUSIVE` lock on its table for the entire build. Every read and every write to that table blocks until it finishes. On `cards` that is the whole product, and on a large instance an index build is minutes, not milliseconds.
 
 Since 1.2, every index Visiban adds is built with `CREATE INDEX CONCURRENTLY` and every check
 constraint is added `NOT VALID` and validated separately. Neither takes a lock that blocks
@@ -354,6 +362,8 @@ The Deployment is named `<fullname>-backend`; `<fullname>` is the release name (
 ---
 
 ## Release-specific upgrade notes
+
+Read the notes for every version between your current release and the target before you upgrade. Each callout is a change an operator may need to act on: a changed default, a renamed setting, or a new requirement.
 
 ### Upgrading to 1.2.x
 
@@ -1340,15 +1350,15 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
       `helm install` and `helm upgrade` carries a deprecation warning while
       `redis` is set. The alias is **deprecated in 1.2 and removed no earlier
       than 1.3**; switch to `valkey.enabled` now.
-    - **Any other `redis.*` key fails the render** (`auth`, `image`, `master`,
+    - **Any other key under `redis` fails the render**: every `redis.*` key (`auth`, `image`, `master`,
       `architecture`, `commonConfiguration`, and so on). They configured the old
       Redis subchart and nothing reads them now, so ignoring them would silently
       drop a password or an image pin. The error names the rename. Move the
       settings you still need under `valkey:` (see `helm/visiban/values.yaml` for
       the supported keys); an external instance is configured with
       `externalRedis`.
-    - **`redis.enabled: true` together with an explicit `valkey.enabled: false`
-      fails the render** as a contradiction. Remove `redis.enabled`.
+    - **`redis.enabled: true` together with an explicit `valkey.enabled: false` fails the render**
+      as a contradiction. Remove `redis.enabled`.
     - **`redis.enabled: false` wins over `valkey.enabled`**, both when
       `valkey.enabled` is left at its default and when you set it to `true`
       explicitly (as `values-prod.yaml` does). The chart cannot tell an untouched

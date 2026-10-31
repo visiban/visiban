@@ -1,6 +1,10 @@
-# Site Admins
+# Grant admin access without granting every board
 
-Two flags, independent for accounts that are not superusers, control what a "site admin" can do on your instance: who can manage it, and who can see every board and group on it.
+Two flags control what a "site admin" can do on your instance: who can manage it, and who can see every board and group on it. They are independent for accounts that are not superusers.
+
+**Why it matters:** You can give a support engineer visibility into every board without instance-settings access, or give an admin the settings panel without reading every board.
+
+**Go deeper:** Day-to-day actions live in the [Admin Panel](admin-panel.md).
 
 ## What is a site admin?
 
@@ -11,7 +15,7 @@ Two flags, independent for accounts that are not superusers, control what a "sit
 | `is_site_admin` | Access to the `/admin` admin panel and admin API (`/api/v1/admin/*`). Required to manage users, settings, and instance configuration. |
 | `can_access_all_content` | Read/write access to **every board and group** on the instance, regardless of membership. This is the "omniscient" content access. |
 
-Before Visiban 1.0.0 these two were coupled — `is_site_admin` implied content access. They are now independent for accounts that are not superusers (see the note below), so operators can grant admin panel access without also granting board/group omniscience, and vice versa.
+**Yes, but:** before Visiban 1.0.0 these two were coupled, and `is_site_admin` implied content access. They are now independent for accounts that are not superusers (see the note below), so operators can grant admin panel access without also granting board/group omniscience, and vice versa.
 
 !!! note
     Existing site admins are **automatically migrated**: the database migration sets `can_access_all_content=True` for every row where `is_site_admin=True`, so no access is lost on upgrade.
@@ -109,11 +113,27 @@ The change takes effect immediately — no restart required.
 
 **Inviting users when invite-only is on:**
 
-Go to **Site Admin → Invite Links** to generate a new invite link. Send the link to the prospective user — they can follow it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once. *(1.2+)* A site invite link creates accounts only while the admin who created it is still an active site admin. Deactivating or deleting that admin (by any means, including the Django admin's **Active** checkbox), or removing their site admin status (**Demote admin** in the admin panel, `set_site_admin --revoke`, or removing their superuser status in the Django admin), stops their links from working, and **Site Admin → Invite Links** then lists those links as **Revoked** and no longer counts them toward the 50-link limit. **Demote admin**, `set_site_admin --revoke`, removing superuser status and deactivation from the admin panel also mark the pending links revoked. A link shown as **Revoked** only because its creator lost standing is not permanently revoked: if the creator's standing is restored, it becomes usable again. To retire such a link for good, revoke it explicitly while its creator is in good standing (the **Revoke** action is shown only for pending links), or at any time through `DELETE /api/v1/admin/invite-links/{id}/` (see the [Admin API](../api/admin.md)).
+Go to **Site Admin → Invite Links** to generate a new invite link. Send the link to the prospective user, who follows it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.
+
+*(1.2+)* A site invite link creates accounts only while the admin who created it is still an active site admin. These stop their links from working:
+
+- deactivating or deleting that admin (by any means, including the Django admin's **Active** checkbox)
+- removing their site admin status (**Demote admin** in the admin panel, `set_site_admin --revoke`, or removing their superuser status in the Django admin)
+
+**Site Admin → Invite Links** then lists those links as **Revoked** and no longer counts them toward the 50-link limit. **Demote admin**, `set_site_admin --revoke`, removing superuser status and deactivation from the admin panel also mark the pending links revoked.
+
+**Yes, but:** a link shown as **Revoked** only because its creator lost standing is not permanently revoked. If the creator's standing is restored, it becomes usable again. To retire such a link for good, revoke it explicitly while its creator is in good standing (the **Revoke** action is shown only for pending links), or at any time through `DELETE /api/v1/admin/invite-links/{id}/` (see the [Admin API](../api/admin.md)).
 
 > **Added in 1.2**
 
-**Who can admit new accounts on an invite-only instance:** only site admins. Besides site invite links, an invite a **site admin** emails from a group's invite panel lets its recipient create an account (password or OAuth) and joins them to that group with the invite's role. It is single-use and expires in 7 days by default. It stops creating accounts if its sender is deactivated, is no longer a site admin, or is no longer an admin of the group, and when email invites are turned off (`INVITE_EMAIL_ENABLED=false`, see [Configuration](configuration.md)) — including invites already sent. Emailed invites from group admins who are not site admins, and every shareable group link, only work for people who already have an account; the group panel tells those senders so. See [Groups](../features/groups.md#new-users-on-invite-only-instances).
+**Who can admit new accounts on an invite-only instance:** only site admins. Besides site invite links, an invite a **site admin** emails from a group's invite panel lets its recipient create an account (password or OAuth) and joins them to that group with the invite's role. It is single-use and expires in 7 days by default.
+
+It stops creating accounts when:
+
+- its sender is deactivated, is no longer a site admin, or is no longer an admin of the group
+- email invites are turned off (`INVITE_EMAIL_ENABLED=false`, see [Configuration](configuration.md)), including invites already sent
+
+Emailed invites from group admins who are not site admins, and every shareable group link, only work for people who already have an account; the group panel tells those senders so. See [Groups](../features/groups.md#new-users-on-invite-only-instances).
 
 > **Added in 1.2**
 
@@ -125,7 +145,7 @@ Go to **Site Admin → Invite Links** to generate a new invite link. Send the li
 
 > **Added in 1.2**
 
-**Emailed group and board invites work only for the address they were sent to.** When an admin emails a group or board invite, Visiban stores a keyed fingerprint of the address (an HMAC keyed from `DJANGO_SECRET_KEY`), never the address itself, and checks it every time the invite is used (#1678):
+**Emailed group and board invites work only for the address they were sent to.** Visiban stores a keyed fingerprint of the address (an HMAC keyed from `DJANGO_SECRET_KEY`), never the address itself, and checks it every time the invite is used (#1678):
 
 - **Joining with an existing account:** the account must have the invited address. Under `EMAIL_VERIFICATION=mandatory` that means a verified address on the account (a pending, unconfirmed address change does not count). Under `optional` or `none`, the account's email address also counts. Those modes never ask anyone to prove an address, so there the check is only as strong as the verification setting. Capitalization and surrounding spaces don't matter; `+tags` and dots do.
 - **Creating an account from the invite** (invite-only instances, see above): the sign-up address, or the address the OAuth provider reports, must be the invited one. The new account still goes through the normal email-verification setting.
@@ -146,6 +166,15 @@ Go to **Site Admin → Invite Links** to generate a new invite link. Send the li
 
 > **Added in 1.2**
 
-Site admins can also have Visiban **email an invite** straight to an address: under **Site Admin → Invite Links**, enter the address in **Invite by email** and select **Send invite** (also available as `POST /api/v1/admin/invite-links/send/`; see the [Admin API](../api/admin.md)). If emailing isn't available — email isn't set up, or `INVITE_EMAIL_ENABLED` is off — the section points you to **Settings → Email** instead; on a demo site it just says email invites are disabled. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. Emailed links have their own limit — 200 pending — and don't count against the 50 shareable links. The address is not stored; the `202` response includes `already_registered`, saying whether it already belongs to an account (the email is sent either way), and never the raw token. If the mail server rejects the message, the endpoint returns `502` with a sanitized error `code` and revokes the link automatically. `invite_email_available` on `GET /api/v1/auth/site-config/` tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with `INVITE_EMAIL_ENABLED=false` (see [Configuration](configuration.md)). The invite is bound to the address you entered: only a sign-up with that address (capitalization and surrounding spaces ignored) can use it. Following the link does not verify the recipient's address — registration still follows the normal email-verification setting.
+Site admins can also have Visiban **email an invite** straight to an address. Under **Site Admin → Invite Links**, enter the address in **Invite by email** and select **Send invite** (also available as `POST /api/v1/admin/invite-links/send/`; see the [Admin API](../api/admin.md)).
+
+- **What it creates:** a single-use link that expires in 7 days (the API also accepts 1 or 30), sent from the instance's sender address.
+- **Limits:** emailed links have their own limit of 200 pending, and don't count against the 50 shareable links.
+- **What's stored:** the address is not stored. The `202` response includes `already_registered`, saying whether it already belongs to an account (the email is sent either way), and never the raw token.
+- **On failure:** if the mail server rejects the message, the endpoint returns `502` with a sanitized error `code` and revokes the link automatically.
+- **Availability:** `invite_email_available` on `GET /api/v1/auth/site-config/` tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with `INVITE_EMAIL_ENABLED=false` (see [Configuration](configuration.md)). If emailing isn't available (email isn't set up, or `INVITE_EMAIL_ENABLED` is off), the section points you to **Settings → Email** instead; on a demo site it just says email invites are disabled.
+- **Binding:** the invite is bound to the address you entered. Only a sign-up with that address (capitalization and surrounding spaces ignored) can use it.
+
+**Yes, but:** following the link does not verify the recipient's address. Registration still follows the normal email-verification setting.
 
 See [First Boot](../getting-started/first-boot.md) for a full walkthrough of the invite link workflow, and [Admin Panel](admin-panel.md) for the user management interface.

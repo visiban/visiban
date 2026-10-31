@@ -1,12 +1,22 @@
-# Secret Rotation
+# Rotate your secrets with only a backend restart
 
-Rotate Visiban's three most critical secrets — `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS` — without downtime beyond a backend restart.
+Rotate Visiban's three most critical secrets (`DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS`) without downtime beyond a backend restart.
+
+**Why it matters:** rotating `DJANGO_SECRET_KEY` logs every user out and can silently break outbound email and pending invites. Know the side effects before you start.
+
+**Go deeper:** [Admin interface access](#admin-interface-access) covers restricting `/admin/` by IP.
 
 ---
 
 ## DJANGO_SECRET_KEY
 
-Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links. *(1.2+)* It also makes pending **emailed site, group and board invites** unusable: each stores a fingerprint of its recipient's address keyed from `SECRET_KEY`, and that fingerprint no longer matches after a key change, so resend those invites (see [Site admins](site-admins.md)). Visiban has no environment variable for keeping an old key around. If you set Django's `SECRET_KEY_FALLBACKS` in your own settings override, invites made under a key listed there keep matching. Shareable invite links are not affected.
+Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links.
+
+*(1.2+)* It also makes pending **emailed site, group and board invites** unusable. Each stores a fingerprint of its recipient's address keyed from `SECRET_KEY`, and that fingerprint no longer matches after a key change, so resend those invites (see [Site admins](site-admins.md)).
+
+- Visiban has no environment variable for keeping an old key around.
+- If you set Django's `SECRET_KEY_FALLBACKS` in your own settings override, invites made under a key listed there keep matching.
+- Shareable invite links are not affected.
 
 !!! note "Key strength is now a confidentiality control, not only an integrity one"
     Before Visiban stored secrets at rest, `SECRET_KEY` protected session and CSRF
@@ -107,7 +117,7 @@ invalidating stored secrets.
 
 ## DB_PASSWORD
 
-The database password is used by the Django backend to connect to PostgreSQL. Rotating it requires a coordinated update of both the database and the application config.
+The Django backend uses the database password to connect to PostgreSQL. **Watch out:** rotating it requires a coordinated update of both the database and the application config.
 
 ### Steps
 
@@ -172,7 +182,7 @@ The database password is used by the Django backend to connect to PostgreSQL. Ro
     docker compose -f docker-compose.prod.yml up -d backend
     ```
 
-No user action is required — CORS policy is enforced per-request, not per-session.
+**Yes, but:** no user action is required. CORS policy is enforced per-request, not per-session.
 
 ---
 

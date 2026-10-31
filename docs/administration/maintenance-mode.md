@@ -1,24 +1,18 @@
-# Maintenance Mode
+# Freeze writes during an upgrade without taking the instance down
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Maintenance mode puts a Visiban instance into **read-only mode** for the duration of an
-upgrade or a migration. It exists so an operator can stop concurrent writes without stopping
-the instance — reads, and the operator's own access, keep working throughout.
+Turn on maintenance mode to put a Visiban instance into **read-only mode** for the duration of an upgrade or a migration. Reads, and the operator's own access, keep working throughout.
 
-For the API shape, see [Maintenance mode](../api/admin.md#maintenance-mode) in the API reference.
+**Why it matters:** an operator can stop concurrent writes without stopping the instance.
+
+**Go deeper:** for the API shape, see [Maintenance mode](../api/admin.md#maintenance-mode) in the API reference.
 
 ## When to use it
 
-Reach for maintenance mode when the thing you want to prevent is **concurrent writes**, not
-the upgrade itself — for example, running a data-integrity script, or a migration that is
-technically zero-downtime-safe but you'd rather nobody move a card while it runs. It is the
-softer alternative to taking the instance fully offline.
+Reach for maintenance mode when the thing you want to prevent is **concurrent writes**, not the upgrade itself. Examples: running a data-integrity script, or a migration that is technically zero-downtime-safe but you'd rather nobody move a card while it runs. It is the softer alternative to taking the instance fully offline.
 
-If you're following the [Standard upgrade steps](upgrade.md#standard-upgrade-steps) or the
-[Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md), most 1.x releases don't need a
-maintenance window at all — Visiban's migrations are additive-only by rule. Turn maintenance
-mode on only when you specifically want to freeze writes, and off again once you're done.
+**Yes, but:** if you're following the [Standard upgrade steps](upgrade.md#standard-upgrade-steps) or the [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md), most 1.x releases don't need a maintenance window at all, because Visiban's migrations are additive-only by rule. Turn maintenance mode on only when you specifically want to freeze writes, and off again once you're done.
 
 ## Turning it on
 
@@ -67,23 +61,18 @@ for every worker — there is no need to restart the service or wait for a cache
 
 ## Known limitation: an already-open tab can lag behind
 
-Nothing pushes maintenance state to a browser tab that is already open — there is no
-WebSocket event for it. A tab only learns the instance is in maintenance mode in one of two
-ways:
+**Yes, but:** nothing pushes maintenance state to a browser tab that is already open. There is no WebSocket event for it. A tab only learns the instance is in maintenance mode in one of two ways:
 
 - **It tries to write.** The `503` response tells the client immediately, and the banner
   appears at that point.
 - **It regains focus.** Coming back to a tab re-checks the instance settings (`/auth/site-config/`), throttled to at most
   once every 30 seconds, so a tab that was in the background picks up the change on refocus.
 
-A user who is idling on an open tab — not writing, not switching away — will not see the
-banner appear or disappear the instant you flip the toggle. Don't assume every open session
-updates the moment you act; if you need everyone to see the notice immediately, say so in
-another channel (chat, status page) rather than relying on the banner alone.
+**Watch out:** a user who is idling on an open tab (not writing, not switching away) will not see the banner appear or disappear the instant you flip the toggle. Don't assume every open session updates the moment you act. If you need everyone to see the notice immediately, say so in another channel (chat, status page) rather than relying on the banner alone.
 
 ## Who turned it on? — the action log
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Every flip of the maintenance mode toggle is recorded, so an incident retrospective can
 answer "who put us into maintenance, and when did it end?" without guesswork. Each entry

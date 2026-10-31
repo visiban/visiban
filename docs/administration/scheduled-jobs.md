@@ -1,12 +1,15 @@
-# Scheduled Jobs
+# Schedule the four maintenance commands Visiban needs
+
+Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so notifications fire and old data gets pruned.
+
+**Why it matters:** Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications.
 
 !!! note "Added in 1.2"
     Before 1.2, Visiban documented these commands but shipped nothing to run
     them — each needed a hand-written host cron line. 1.2 ships an opt-in
     scheduler for Docker Compose and native CronJobs for Kubernetes.
 
-Visiban has four maintenance commands that must run on a schedule. None of them
-runs on a web request, and Visiban has no task queue. If nothing schedules them:
+**The big picture:** Visiban has four maintenance commands that must run on a schedule. If nothing schedules them:
 
 - users who turn on **Due date approaching** or **Card has gone stale** in
   their notification preferences never receive those notifications, in the bell
@@ -20,16 +23,9 @@ runs on a web request, and Visiban has no task queue. If nothing schedules them:
 | `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | No |
 | `prune_notifications` | **Deletes** notifications, read or unread, older than the retention window (default 90 days) | 03:30 | No |
 
-**The scheduler is off by default on both deployment paths**, so upgrading
-changes nothing until you turn it on. Once it is on, the two notification scans
-run, and they only act for users who switched the matching preference on. The
-two prune jobs delete data, so each one stays off until you enable it on its own.
+**Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. The two prune jobs delete data, so each one stays off until you enable it on its own.
 
-All four commands are idempotent, so running one twice in a day does no harm.
-**Running two copies at the same moment is different.** If you already run any
-of these from host cron, remove that cron line before you enable the shipped
-scheduler. Two notification scans that start in the same minute can both pass
-the "already notified" check and notify the same user twice.
+**Watch out:** all four commands are idempotent, so running one twice in a day does no harm. **Running two copies at the same moment is different.** If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.
 
 ## Docker Compose
 
@@ -53,7 +49,7 @@ docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml logs -f scheduler
 ```
 
-A `--profile` flag on the command line **replaces** `COMPOSE_PROFILES` rather
+**Watch out:** a `--profile` flag on the command line **replaces** `COMPOSE_PROFILES` rather
 than adding to it (verified with Docker Compose v5.3). `init-prod.sh` starts the
 stack with `--profile letsencrypt` when `TLS_MODE=letsencrypt`, so that run does
 not start the scheduler. Run the plain `up -d` above afterwards, or pass both
@@ -182,12 +178,9 @@ The Helm chart does not set either variable on its pods, so on Helm you set the
 window with the job's `args`. A retention window only takes effect once its
 prune job is scheduled. Until then, nothing is deleted.
 
-`prune_notifications` refuses a window shorter than 14 days. The notification
-rows are also the scans' record of what they have already sent: pruning them
-too soon would make `notify_due_soon` and `notify_stale_cards` notify, and
-email, the same card again. The retention window must also stay **longer than**
-any `--days` you pass to `notify_due_soon`. That command logs a warning when it
-does not.
+`prune_notifications` refuses a window shorter than 14 days. The notification rows are also the scans' record of what they have already sent. Pruning them too soon would make `notify_due_soon` and `notify_stale_cards` notify, and email, the same card again.
+
+The retention window must also stay **longer than** any `--days` you pass to `notify_due_soon`. That command logs a warning when it does not.
 
 Before you enable a prune job on an existing install, preview what its first
 run would delete:

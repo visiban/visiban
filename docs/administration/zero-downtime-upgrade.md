@@ -1,6 +1,10 @@
-# Zero-Downtime Upgrade Playbook
+# Upgrade a multi-replica Helm deployment with no downtime
 
 > **Added in 1.2** (#860)
+
+Run `helm upgrade` with the new image tags and let Kubernetes roll the backend one pod at a time. Old pods keep serving while new pods migrate.
+
+**Why it matters:** the schema each migration leaves behind is safe for both the old and new backend code, so a rolling upgrade needs no maintenance window. Back up first, and verify the rollout before it finishes.
 
 !!! tip "Docker Compose or a single server?"
     This playbook is for a **Helm / Kubernetes** deployment with more than one backend
@@ -9,19 +13,11 @@
     instead — that path already applies while the old container keeps serving traffic
     during migration, but there is no second replica to roll traffic across.
 
-Roll a **1.x → 1.(x+1) minor or patch** upgrade across a multi-replica Helm deployment with no
-downtime window: pre-flight checks, the rolling deploy itself, and how to roll back if
-something goes wrong mid-rollout. It assumes the install path in
-[Kubernetes (Helm)](../getting-started/kubernetes.md) and a `backendReplicaCount` of 2 or
-more (the `values-prod.yaml` overlay default).
+**The big picture:** this playbook rolls a **1.x → 1.(x+1) minor or patch** upgrade across a multi-replica Helm deployment with no downtime window. It covers pre-flight checks, the rolling deploy itself, and how to roll back if something goes wrong mid-rollout. It assumes the install path in [Kubernetes (Helm)](../getting-started/kubernetes.md) and a `backendReplicaCount` of 2 or more (the `values-prod.yaml` overlay default).
 
-**Out of scope:** major version upgrades (`1.x → 2.0`) — those are covered per-release in the
-[Release-specific upgrade notes](upgrade.md#release-specific-upgrade-notes) — and
-multi-region coordination.
+**Out of scope:** major version upgrades (`1.x → 2.0`), which are covered per-release in the [Release-specific upgrade notes](upgrade.md#release-specific-upgrade-notes), and multi-region coordination.
 
-The migration-safety rules this playbook relies on — nullable-first columns, add-then-drop
-column removal, add+copy+drop renames, concurrently-built indexes — are the same rules every
-Visiban code change follows. They are documented in full in
+**How it works:** the migration-safety rules this playbook relies on (nullable-first columns, add-then-drop column removal, add+copy+drop renames, concurrently-built indexes) are the same rules every Visiban code change follows. They are documented in full in
 [Zero-downtime migration rules](upgrade.md#zero-downtime-migration-rules) and enforced on every
 migration by the `migration-check` CI job (see
 [Database migrations](../development/database-migrations.md)). The release contract behind
@@ -121,20 +117,16 @@ version old enough to have used it.) Each new pod the rolling update creates —
 in sequence — runs three init containers in order before its `backend` container starts:
 `migrate`, `collectstatic`, then `bootstrap`.
 
-Because `backendReplicaCount` can be more than 1, more than one new pod's `migrate` init
-container can start around the same time. `manage.py migrate_with_lock` (not a plain
-`manage.py migrate`) is what keeps that safe: it takes a session-scoped PostgreSQL advisory
-lock before migrating. The first replica to acquire it runs the real migration; every other
-replica blocks on the lock and, once it acquires it, runs `migrate` again — a no-op, since
-`django_migrations` already records what the winner applied. No pod's `backend` container ever
-starts against a schema that's still being changed.
+Because `backendReplicaCount` can be more than 1, more than one new pod's `migrate` init container can start around the same time. `manage.py migrate_with_lock` (not a plain `manage.py migrate`) keeps that safe: it takes a session-scoped PostgreSQL advisory lock before migrating.
 
-Two tunables, both in seconds: `backend.migrate.connectTimeout` (default `300`) bounds how
-long a pod waits for the database to accept a connection at all — generous, since on a fresh
-install PostgreSQL may still be starting. `backend.migrate.lockTimeout` (default `900`) bounds
-how long a replica waits for another replica's in-flight migration to finish before giving up.
-Raise `lockTimeout` if your largest migration (an index build on `cards`, for example) can
-plausibly run longer than 15 minutes.
+- The first replica to acquire it runs the real migration.
+- Every other replica blocks on the lock and, once it acquires it, runs `migrate` again. That is a no-op, since `django_migrations` already records what the winner applied.
+- No pod's `backend` container ever starts against a schema that's still being changed.
+
+**By the numbers:** two tunables, both in seconds.
+
+- `backend.migrate.connectTimeout` (default `300`) bounds how long a pod waits for the database to accept a connection at all. It is generous, since on a fresh install PostgreSQL may still be starting.
+- `backend.migrate.lockTimeout` (default `900`) bounds how long a replica waits for another replica's in-flight migration to finish before giving up. Raise it if your largest migration (an index build on `cards`, for example) can plausibly run longer than 15 minutes.
 
 Because the schema each `migrate` run leaves behind is safe for both the old and new backend
 code to read (that's the whole point of the
