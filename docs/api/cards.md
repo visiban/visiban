@@ -764,10 +764,17 @@ within each group.
 | Field | Type | Description |
 |---|---|---|
 | `id` | integer | Relation PK — pass to the delete endpoint |
-| `relation_type` | string | `blocks` or `relates_to` — the stored type |
-| `direction` | string | `blocks`, `blocked_by`, or `relates_to` — the type as read from the card in the URL |
+| `relation_type` | string (enum) | `blocks` or `relates_to` — the **stored** type, identical from both ends of the relation |
+| `direction` | string (enum) | `blocks`, `blocked_by`, or `relates_to` — the type as read from the card in the URL |
 | `card` | object | The card at the other end — `{ id, uid, title, column, archived }` |
 | `created_at` | string | ISO 8601 timestamp of when the relation was created |
+
+!!! warning "Read `direction`, not `relation_type`"
+    `relation_type` is the stored type and does not change with the viewer. From
+    the blocked card's side a row reads `relation_type: "blocks"` with
+    `direction: "blocked_by"`; a client that reads `relation_type` alone gets
+    the wrong sentence. Always render from `direction`. Both fields are
+    published as enums in the OpenAPI schema (`RelationTypeEnum`, `DirectionEnum`).
 
 `card.archived` is `true` when the linked card has been archived. Such a
 relation is still listed so it can be found and removed, but an archived
