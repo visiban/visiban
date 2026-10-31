@@ -63,7 +63,8 @@ export function agingStage(ratio: number, warningPct: number): AgingStage {
  * tokens (`fg-tertiary`, `fg-muted`, `fg-faint`, `info`, `danger`, `success`) to on-tint
  * values for that subtree, because each of them falls below 4.5:1 on at least
  * one tinted stage. `fg-muted` is already 3.07:1 on an untinted dark card, so
- * no overlay alpha or body opacity could fix it; only the text tone can.
+ * no overlay alpha or body opacity could fix it; only the text tone can. Since
+ * #1862 the untinted row uses `fg-tertiary` for that text instead.
  */
 export const AGING_STAGE_CLASSES: Record<AgingStage, { overlayClass: string | null; bodyOpacityClass: string; metaClass: string }> = {
   none: { overlayClass: null, bodyOpacityClass: "", metaClass: "" },

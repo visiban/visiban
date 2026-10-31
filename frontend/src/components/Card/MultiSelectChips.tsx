@@ -55,7 +55,7 @@ export default function MultiSelectChips({ entries, definition, max, wrap = fals
         );
       })}
       {hidden > 0 && (
-        <span className="text-fg-muted text-xs shrink-0" title={entries.join(", ")}>
+        <span className="text-fg-tertiary text-xs shrink-0" title={entries.join(", ")}>
           +{hidden}
         </span>
       )}

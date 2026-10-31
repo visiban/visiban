@@ -273,7 +273,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                     aria-expanded={fieldsPopoverRect !== null}
                     // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
                     aria-label={`${triggerLabel}: Show all ${rowFieldEntries.length} field values for ${swimlane.name}`}
-                    className="inline-flex items-center min-h-6 text-xs px-1.5 py-0.5 rounded border border-line text-fg-muted hover:text-fg-secondary hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="inline-flex items-center min-h-6 text-xs px-1.5 py-0.5 rounded border border-line text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     {triggerLabel}
                   </button>

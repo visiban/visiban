@@ -132,7 +132,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h2 className="text-sm font-medium text-fg">
-            Archived cards{total > 0 && <span className="ml-2 text-fg-muted font-normal">({total})</span>}
+            Archived cards{total > 0 && <span className="ml-2 text-fg-tertiary font-normal">({total})</span>}
           </h2>
           <button
             onClick={onClose}
@@ -145,7 +145,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading && (
-            <div className="flex items-center justify-center py-8 text-fg-muted text-sm">Loading…</div>
+            <div className="flex items-center justify-center py-8 text-fg-tertiary text-sm">Loading…</div>
           )}
           {!loading && loadError && cards.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
@@ -172,11 +172,11 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                     className="bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1.5"
                   >
                     <span className="text-sm text-fg font-medium">{card.title}</span>
-                    <span className="text-xs text-fg-muted">
+                    <span className="text-xs text-fg-tertiary">
                       {columnName(card.column)} · {swimlaneName(card.swimlane)}
                     </span>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-fg-muted">
+                      <span className="text-xs text-fg-tertiary">
                         {card.archived_at
                           ? `Archived ${formatDate(card.archived_at, currentUser)}`
                           : ""}

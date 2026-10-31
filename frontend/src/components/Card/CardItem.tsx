@@ -571,7 +571,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         {hasMetadataRow && (
           // metaClass (#1844): on a tinted card, `card-aging-meta` rescopes every
           // metadata text token in this row to its on-tint value, so the row
-          // clears 4.5:1 on every aging stage. Empty on an untinted card.
+          // clears 4.5:1 on every aging stage. Empty on an untinted card, where
+          // the row's quietest text is fg-tertiary (#1862): fg-muted and fg-faint
+          // are below 4.5:1 on bg-surface in dark mode, so they are not used here.
           <div
             data-testid="card-metadata-row"
             className={`flex items-center gap-1 mt-1.5 ${expanded ? "flex-wrap overflow-visible" : "overflow-hidden"} ${card.assignee ? "min-h-5 pr-7" : ""}${metaClass ? ` ${metaClass}` : ""}`}
@@ -678,7 +680,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       aria-label={`${externalRef.ref}, ${label}`}
                       title={`${label} ${externalRef.ref}`}
                       // Same shrink-0-is-intentional note as the <a> branch above.
-                      className="inline-flex items-center gap-1 text-xs text-fg-muted shrink-0 max-w-[10rem] min-w-0 overflow-hidden"
+                      className="inline-flex items-center gap-1 text-xs text-fg-tertiary shrink-0 max-w-[10rem] min-w-0 overflow-hidden"
                     >
                       {content}
                     </span>
@@ -687,7 +689,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
                 {/* Description indicator — dense only */}
                 {showDescriptionIndicator && card.description && (
-                  <svg className="w-2.5 h-2.5 text-fg-muted shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
+                  <svg className="w-2.5 h-2.5 text-fg-tertiary shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
                     <title>Has description</title>
                     <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
                   </svg>
@@ -785,7 +787,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           }
                         } : undefined}
                         aria-label={interactive ? `${def.name}: not set. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
-                        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-dashed border-line overflow-hidden min-w-[3.5rem] max-w-[10rem] text-fg-faint ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
+                        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-dashed border-line overflow-hidden min-w-[3.5rem] max-w-[10rem] text-fg-tertiary ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
                         title={`${def.name}: not set`}
                       >
                         <span className="truncate min-w-0">{def.name}</span>
@@ -829,7 +831,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     >
                       {dot}
                       {/* #1391: on a multi-select chip the name yields width before the value chips do. */}
-                      <span className="text-fg-muted truncate min-w-0 shrink-[3]">{def.name}:</span>
+                      <span className="text-fg-tertiary truncate min-w-0 shrink-[3]">{def.name}:</span>
                       {/* Firm VoC requirement — the editable-badge affordance
                           (dotted underline) stays visible at rest, never
                           hover-reveal-only, so an occasional user can
@@ -913,7 +915,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
             {/* Last-moved text label — dense only (≥24h ago) */}
             {!compact && movedLabel && (
-              <span className="text-xs text-fg-muted shrink-0">{movedLabel}</span>
+              <span className="text-xs text-fg-tertiary shrink-0">{movedLabel}</span>
             )}
 
             {/* Priority badge — dense only. At lower densities the priority is

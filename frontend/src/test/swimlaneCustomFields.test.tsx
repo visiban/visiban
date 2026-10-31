@@ -138,6 +138,8 @@ describe('SwimlaneRow — pinned row field chips (#1140)', () => {
       [def]
     )
     expect(screen.getByLabelText('Admin-only field')).toBeInTheDocument()
+    // #1862: a meaningful glyph needs 3:1; fg-faint was 1.93 dark, fg-tertiary is 5.71.
+    expect(screen.getByLabelText('Admin-only field')).toHaveClass('text-fg-tertiary')
   })
 
   it('renders no padlock for a public field', () => {
@@ -374,14 +376,14 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     renderRow(laneWith('J. Rivera'), [owner])
     const label = screen.getByText('Owner:')
     expect(label).not.toHaveClass('sr-only')
-    expect(label).toHaveClass('text-fg-muted')
+    expect(label).toHaveClass('text-fg-tertiary') // #1862: fg-muted is sub-AA on bg-surface in dark
   })
 
   it('drops the visible name but keeps it for screen readers and in the title when hidden', () => {
     renderRow(laneWith('J. Rivera'), [owner], false, { hideRowChipFieldNames: true })
     const label = screen.getByText('Owner:')
     expect(label).toHaveClass('sr-only')
-    expect(label).not.toHaveClass('text-fg-muted')
+    expect(label).not.toHaveClass('text-fg-tertiary')
     expect(screen.getByText('J. Rivera')).toBeInTheDocument()
     expect(screen.getByTitle('Owner: J. Rivera')).toBeInTheDocument()
   })
@@ -420,6 +422,9 @@ describe('SwimlaneRow — hidden field names on row chips (#1418)', () => {
     expect(trigger).toHaveTextContent('All fields')
     expect(trigger).toHaveAccessibleName(/^All fields: Show all 2 field values for Acme Corp$/)
     expect(trigger).toHaveClass('min-h-6')
+    // #1862: same untinted floor as the row chips beside it; fg-muted is 3.07:1 on bg-surface in dark.
+    expect(trigger).toHaveClass('text-fg-tertiary', 'hover:text-fg-secondary')
+    expect(trigger).not.toHaveClass('text-fg-muted')
     await user.click(trigger)
     const text = screen.getByRole('dialog', { name: 'Field values for Acme Corp' }).textContent ?? ''
     for (const s of ['Owner', 'J. Rivera', 'Region', 'EMEA']) expect(text).toContain(s)

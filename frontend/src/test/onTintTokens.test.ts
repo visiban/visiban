@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import tw from '../../tailwind.config.js?raw'
 import { describe, expect, it } from 'vitest'
 import { INVITE_STATUS_STYLES } from '../constants/invites'
-import { AGING_STAGE_CLASSES } from '../utils/agingTint'
+import { AGING_STAGE_CLASSES, staleBadgeToneClass, urgencyBadgeToneClass } from '../utils/agingTint'
 import { CHOICE_COLORS } from '../constants/choiceColors'
 
 // #1550: every on-tint text token must be declared in both theme blocks of index.css and exposed
@@ -147,6 +147,17 @@ describe('card aging ramp contrast (#1841)', () => {
 })
 
 
+// CardItem plus every component it mounts inside the metadata row (nested ones included:
+// MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
+const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue']
+// `text-<x>` utilities that are not a color: size, alignment, wrap and overflow.
+const NOT_COLOR = new Set([
+  'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
+  'left', 'center', 'right', 'justify', 'start', 'end',
+  'ellipsis', 'clip', 'wrap', 'nowrap', 'balance', 'pretty',
+])
+const TEXT_UTILITY = /\btext-(\[[^\]]*\]|[a-z0-9][a-z0-9-]*)(\/\d+)?/g
+
 // #1844: metadata text on a tinted card face. CardItem puts AGING_STAGE_CLASSES[stage].metaClass
 // (`card-aging-meta`) on the metadata row; index.css rescopes the row's text tokens to on-tint values
 // there. Everything below is derived from the real CSS and stage classes, and the ratios are the ones
@@ -162,9 +173,6 @@ describe('card metadata on an aging tint (#1844)', () => {
   // mounts there (CustomFieldLink, MultiSelectChips). The source scan below keeps this list honest.
   const META = ['fg-secondary', 'fg-tertiary', 'fg-muted', 'fg-faint', 'info', 'danger', 'success']
   const TINTED = ['warning', 'stale', 'stale2x', 'stale3x'] as const
-  // CardItem plus every component it mounts inside the metadata row (nested ones included:
-  // MultiSelectChips mounts ChoiceValue). The import guard below keeps this list complete.
-  const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue']
   // Sibling components CardItem imports that never render inside the row: they are portaled.
   const PORTALED = ['CardPeekPopover', 'CustomFieldQuickEditPopover']
   const themes = [
@@ -227,6 +235,8 @@ describe('card metadata on an aging tint (#1844)', () => {
     expect(metaRatio(lightBlock, 'stale3x', rgbOf(lightBlock, 'fg-tertiary'))).toBeCloseTo(3.88, 2)
   })
 
+  // Still true of the token (#1862 changed the card face, not the token): this is why the row's
+  // untinted text moved to fg-tertiary rather than the tint being retuned.
   it('fg-muted is already sub-AA on an untinted dark card, so no overlay or opacity tuning could fix it', () => {
     expect(ratio(rgbOf(darkBlock, 'fg-muted'), rgbOf(darkBlock, 'surface'))).toBeCloseTo(3.07, 2)
   })
@@ -263,11 +273,6 @@ describe('card metadata on an aging tint (#1844)', () => {
   // and an opacity modifier (`text-fg-muted/60`) on any text color is rejected: the pinned ratios
   // assume full-opacity text.
   it('every text color on the card face is covered by the rescope or listed with a reason', () => {
-    const notColor = new Set([
-      'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
-      'left', 'center', 'right', 'justify', 'start', 'end',
-      'ellipsis', 'clip', 'wrap', 'nowrap', 'balance', 'pretty',
-    ])
     const allowed = new Set([
       ...META,
       'fg', // card title and the aging tooltip (bg-sunken); pinned in the #1841 ramp test above
@@ -275,9 +280,9 @@ describe('card metadata on an aging tint (#1844)', () => {
     ])
     for (const f of CARD_FACE_FILES) {
       const src = readFileSync(`src/components/Card/${f}.tsx`, 'utf8')
-      for (const m of src.matchAll(/\btext-(\[[^\]]*\]|[a-z0-9][a-z0-9-]*)(\/\d+)?/g)) {
+      for (const m of src.matchAll(TEXT_UTILITY)) {
         const [whole, name, alpha] = m
-        if (notColor.has(name)) continue
+        if (NOT_COLOR.has(name)) continue
         expect(alpha, `${f}.tsx uses ${whole}: no opacity modifier on card-face text`).toBeUndefined()
         if (name.endsWith('-on-tint')) continue // explicit on-tint token, as the urgency badge uses
         expect(allowed.has(name), `${f}.tsx uses ${whole}`).toBe(true)
@@ -300,6 +305,117 @@ describe('card metadata on an aging tint (#1844)', () => {
       const src = readFileSync(`src/components/Card/${f}.tsx`, 'utf8')
       for (const [cls] of src.matchAll(re)) expect(intended.has(cls), `${f}.tsx uses ${cls}`).toBe(true)
     }
+  })
+})
+
+// #1862: the same card face with no tint, where every text element sits directly on bg-surface.
+// fg-muted (3.07:1 dark) and the dense empty-field ghost's fg-faint (1.93 dark / 2.56 light) were
+// below 4.5:1 there, so those elements moved to fg-tertiary, and so did the sibling surfaces that
+// carry the same metadata or the same custom-field names:
+// - CustomFieldValueDisplay: its chip and row-chip variants are the same chip on the swimlane label
+//   panel. AdminOnlyFieldGlyph: the row chip mounts it.
+// - CardPeekPopover: at comfortable density it carries the metadata moved off the face.
+// - SwimlaneFieldsPopover, SwimlaneFieldEditRow: the swimlane field names outside the row chip.
+// - ArchivedCardsPanel: archived cards are bg-sunken rows inside a bg-surface panel.
+// Each file lists every background its text sits on; the check takes the worst. The values are the
+// ones recorded in frontend/CLAUDE.md § Card aging ramp. LensIssueCard is deferred to #2030 (its
+// hover:bg-surface-hover puts even fg-tertiary at 4.04:1 dark, so it needs a design call).
+describe('untinted card face text (#1862)', () => {
+  const FILES: Record<string, string[]> = {
+    ...Object.fromEntries(CARD_FACE_FILES.map((f) => [`Card/${f}`, ['surface']])),
+    'Card/CustomFieldValueDisplay': ['surface'],
+    'Common/AdminOnlyFieldGlyph': ['surface'],
+    'Card/CardPeekPopover': ['surface'],
+    'Board/SwimlaneFieldsPopover': ['surface'],
+    'Board/SwimlaneFieldEditRow': ['surface'],
+    'Board/ArchivedCardsPanel': ['surface', 'surface-sunken'],
+  }
+  // A token that may sit below 4.5:1 on its file's backgrounds, with its reason.
+  const EXEMPT: Record<string, string> = {
+    'on-primary': 'selection checkbox tick on its solid bg-primary-emphasis fill, not on bg-surface',
+    success: '#2029: light green-600 is 3.30:1 on white (the checklist-complete count)',
+    warning: '#2029: light orange-600 is 3.56:1 on white (the due-soon urgency badge)',
+  }
+  // Exact non-text elements cut out of a file before it is scanned, each with its reason. Only the
+  // matched element is exempt; every other class in the file is still checked.
+  const NON_TEXT: Record<string, [element: string, reason: string]> = {
+    'Board/ArchivedCardsPanel': ['<span className="text-fg-faint text-2xl">📦</span>', 'empty-state emoji, which paints its own colors'],
+  }
+  const read = (f: string) => readFileSync(`src/components/${f}.tsx`, 'utf8')
+  const used = new Map<string, Set<string>>(Object.keys(FILES).map((f) => [f, new Set<string>()]))
+  for (const f of Object.keys(FILES)) {
+    const src = NON_TEXT[f] ? read(f).replace(NON_TEXT[f][0], '') : read(f)
+    for (const [, name] of src.matchAll(TEXT_UTILITY)) if (!NOT_COLOR.has(name)) used.get(f)!.add(name)
+  }
+  // Tones CardItem gets from utils, not class literals: the untinted urgency badge, and the stale
+  // badge tone (which only renders on a tint, but is checked on bare surface too).
+  const strip = (cls: string) => cls.replace(/^text-/, '')
+  for (const tone of ['danger', 'warning', 'info'] as const) used.get('Card/CardItem')!.add(strip(urgencyBadgeToneClass(tone, 'none')))
+  used.get('Card/CardItem')!.add(strip(staleBadgeToneClass('none')))
+  const allUsed = new Set([...used.values()].flatMap((s) => [...s]))
+  const onBg = (block: string, t: string, bg = 'surface') => ratio(rgbOf(block, t), rgbOf(block, bg))
+
+  it('each non-text exemption matches exactly one element, and is the only fg-faint in its file', () => {
+    for (const [f, [element]] of Object.entries(NON_TEXT)) {
+      const src = read(f)
+      expect(src.split(element).length - 1, `${f}: ${element}`).toBe(1)
+      expect(src.match(/\btext-fg-faint\b/g), `${f}: fg-faint outside ${element}`).toHaveLength(1)
+    }
+  })
+
+  it('never uses fg-muted or fg-faint for text', () => {
+    for (const [f, tokens] of used) {
+      expect(tokens.has('fg-muted'), `${f} uses text-fg-muted`).toBe(false)
+      expect(tokens.has('fg-faint'), `${f} uses text-fg-faint`).toBe(false)
+    }
+    // The ratios the issue reported, which is why: the tokens themselves are unchanged.
+    expect(onBg(darkBlock, 'fg-muted')).toBeCloseTo(3.07, 2)
+    expect(onBg(darkBlock, 'fg-muted', 'surface-sunken')).toBeCloseTo(3.75, 2)
+    expect(onBg(darkBlock, 'fg-faint')).toBeCloseTo(1.93, 2)
+    expect(onBg(lightBlock, 'fg-faint')).toBeCloseTo(2.56, 2)
+  })
+
+  it('feeds both util tones to the guard', () => {
+    expect(staleBadgeToneClass('none')).toBe('text-warning-on-tint')
+    expect(onBg(darkBlock, 'warning-on-tint')).toBeCloseTo(8.67, 2)
+    expect(onBg(lightBlock, 'warning-on-tint')).toBeCloseTo(7.31, 2)
+    expect(used.get('Card/CardItem')!.has('warning-on-tint')).toBe(true)
+  })
+
+  // Worst: light danger on bg-sunken (ArchivedCardsPanel) 4.62; dark danger on bg-surface 5.29.
+  it.each([
+    ['dark', darkBlock, 5.29],
+    ['light', lightBlock, 4.62],
+  ])('%s theme: every other text token used holds >= 4.5:1 on each of its backgrounds', (_n, block, floor) => {
+    const ratios: number[] = []
+    for (const [f, tokens] of used) {
+      for (const t of tokens) {
+        if (t in EXEMPT) continue
+        for (const bg of FILES[f]) {
+          const r = onBg(block, t, bg)
+          expect(r, `${f}: ${t} on ${bg}`).toBeGreaterThanOrEqual(4.5)
+          ratios.push(r)
+        }
+      }
+    }
+    expect(allUsed).toContain('fg-tertiary')
+    expect(Math.min(...ratios)).toBeCloseTo(floor, 2)
+  })
+
+  it('fg-tertiary, the tone the muted and ghost text moved to, is 5.71 / 7.58 on surface and 6.96 / 7.24 on sunken', () => {
+    expect(onBg(darkBlock, 'fg-tertiary')).toBeCloseTo(5.71, 2)
+    expect(onBg(lightBlock, 'fg-tertiary')).toBeCloseTo(7.58, 2)
+    expect(onBg(darkBlock, 'fg-tertiary', 'surface-sunken')).toBeCloseTo(6.96, 2)
+    expect(onBg(lightBlock, 'fg-tertiary', 'surface-sunken')).toBeCloseTo(7.24, 2)
+  })
+
+  // When this fails, #2029 has fixed the light success/warning tokens: drop the exemptions above and
+  // the matching note in frontend/CLAUDE.md.
+  it('the success and warning exemptions are still needed: both are sub-AA on white in light mode', () => {
+    expect(allUsed.has('success')).toBe(true)
+    expect(allUsed.has('warning')).toBe(true)
+    expect(onBg(lightBlock, 'success')).toBeCloseTo(3.30, 2)
+    expect(onBg(lightBlock, 'warning')).toBeCloseTo(3.56, 2)
   })
 })
 

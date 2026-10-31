@@ -14,7 +14,9 @@
 export default function AdminOnlyFieldGlyph({ className }: { className?: string }) {
   return (
     <svg
-      className={className ?? "w-3 h-3 text-fg-faint shrink-0"}
+      // fg-tertiary, not fg-faint (#1862): the padlock carries meaning (the value
+      // is hidden from the team), so it needs at least 3:1; fg-faint is 1.93 dark.
+      className={className ?? "w-3 h-3 text-fg-tertiary shrink-0"}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"

@@ -224,8 +224,10 @@ body {
   exception, frontend/CLAUDE.md § Card aging ramp). Each referenced token flips with [data-theme], so no
   light-mode copy is needed. Untinted cards never get the class.
   onTintTokens.test.ts parses this block and pins the resulting ratios.
-  fg-faint is the dense empty-field ghost (a field name, and a button for
-  checkbox/dropdown fields); its dashed border and dash still mark it as unset.
+  Since #1862 the row itself never uses fg-muted or fg-faint (both are sub-AA
+  on an untinted dark card; the dense empty-field ghost is fg-tertiary). Their
+  entries stay so the scope keeps mapping every fg tone below fg-secondary to
+  muted-on-tint, whatever a child component inherits.
 */
 .card-aging-meta {
   --fg-tertiary: var(--muted-on-tint);

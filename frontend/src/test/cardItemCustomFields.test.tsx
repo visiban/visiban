@@ -514,7 +514,7 @@ describe("CardItem — chip clipping, not overlap, when the card face is narrow 
       />
     );
     const chip = screen.getByTitle("Sprint: Reporter count");
-    const nameSpan = chip.querySelector("span.text-fg-muted")!;
+    const nameSpan = chip.querySelector("span.text-fg-tertiary")!;
     const valueSpan = screen.getByText("Reporter count");
     expect(nameSpan).toHaveClass("truncate", "min-w-0");
     expect(valueSpan).toHaveClass("truncate", "min-w-0");
