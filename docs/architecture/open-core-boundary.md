@@ -6,7 +6,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 
 **Guiding principle:** "Can a small team work together effectively without this?" If no → OSS core. If yes → enterprise candidate.
 
-**Why it matters:** A feature's tier is decided once, here. Check the [Classification table](#classification-table) before building or documenting anything that might be Enterprise.
+**Why it matters:** this page records each feature's classification and its rulings. Check the [Classification table](#classification-table) before building or documenting anything that might be Enterprise.
 
 **Go deeper:** [Detailed rulings](#detailed-rulings) for split features, [OSS extension points](#oss-extension-points-implementation-status) for what Enterprise plugs into.
 
@@ -78,9 +78,9 @@ The OSS vs enterprise classification for every feature area where the boundary h
 
 ### OIDC authentication (OSS) vs SAML / SCIM (Enterprise)
 
-**Decided — #714.** Generic OIDC via `allauth.socialaccount.providers.openid_connect` is OSS. It is an extension of the Google/GitHub/GitLab OAuth stack already in the codebase; the library (`django-allauth`) is already a dependency, so no new package is required. Keeping OIDC in OSS was confirmed as the right boundary before 1.0 — removing it post-1.0 would be a breaking API change.
+**Decided — #714.** Generic OIDC via `allauth.socialaccount.providers.openid_connect` is OSS. It extends the Google/GitHub/GitLab OAuth stack already in the codebase, and `django-allauth` is already a dependency, so no new package is needed. Confirmed as the right boundary before 1.0: removing it post-1.0 would be a breaking API change.
 
-SAML and ADFS require a separate library (e.g. `python3-saml` or `djangosaml2`) and serve organizations with centralized IdP-managed identity. SCIM 2.0 directory sync and JIT provisioning are the additional enterprise identity differentiators — they handle automatic account lifecycle management at scale, which invite-link-based onboarding covers sufficiently for small teams in OSS.
+SAML and ADFS need a separate library (e.g. `python3-saml` or `djangosaml2`) and serve organizations with centralized IdP-managed identity. SCIM 2.0 directory sync and JIT provisioning are the other enterprise identity differentiators: they automate account lifecycle at scale, which invite-link onboarding covers for small teams in OSS.
 
 | Method | Classification | Status | Library |
 |---|---|---|---|
@@ -91,7 +91,7 @@ SAML and ADFS require a separate library (e.g. `python3-saml` or `djangosaml2`) 
 | SAML 2.0 / ADFS | Enterprise | Planned | separate library required |
 | SCIM directory sync / JIT | Enterprise | Planned | separate library required |
 
-> **OIDC note.** The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349). The boundary ruling is final; see [Authentication docs](../administration/authentication.md) for details.
+> **OIDC note.** The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. CI validates the end-to-end login flow against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end; report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349). The boundary ruling is final; see [Authentication docs](../administration/authentication.md) for details.
 
 **Issues:** #349 (OIDC implementation), #714 (boundary decision), enterprise #4 (SAML), enterprise — (SCIM)
 
@@ -103,22 +103,22 @@ The audit log is split across OSS and enterprise by scope:
 
 **OSS — card-level activity**
 
-`CardMovement` and `CardActivity` record what happened to individual cards. This is a core collaborative feature that teams rely on daily. It exists in the OSS codebase and will stay there.
+`CardMovement` and `CardActivity` record what happened to individual cards. Teams rely on this daily, and it stays in OSS.
 
 **OSS — feature-scoped security logs**
 
-Two further OSS tables each record a *fixed, enumerable* set of privileged actions, narrow to a single feature rather than a general-purpose audit product:
+Two further OSS tables each record a *fixed, enumerable* set of privileged actions. Each is narrow to one feature, not a general-purpose audit product:
 
-- **`AdminActionLog`** (#1126) records instance-wide admin control-plane actions — maintenance mode enabled/disabled, the maintenance notice changed, registration mode changed, uploads enabled/disabled, email settings changes, and password events (set or disabled for another account in the Django admin, and passwords set by the `ensure_site_admin`, `changepassword` and `provision_fuzz_token` management commands, source `cli`). Read-only via `GET /api/v1/admin/action-log/`, restricted to site admins (`_ADMIN_PERMISSIONS`); there is no write or delete endpoint. There is deliberately no retention pruner — the table grows by a handful of rows a month — and no configurable retention, arbitrary per-object diffing, or SIEM export. See the "Scope — deliberately narrow" section of the model docstring (`backend/accounts/models.py`).
-- **`BoardExportLog`** (#842) records successful board exports for a single board — actor, role held at export time, export format, row count, and timestamp. Read-only via `GET /api/v1/boards/{id}/export-history/`, restricted to board admins (and site admins). `AdminActionLog` explicitly reuses this table's shape, lifted to instance scope (see its docstring).
+- **`AdminActionLog`** (#1126) records instance-wide admin control-plane actions: maintenance mode enabled/disabled, the maintenance notice changed, registration mode changed, uploads enabled/disabled, email settings changes, and password events (set or disabled for another account in the Django admin, and passwords set by the `ensure_site_admin`, `changepassword` and `provision_fuzz_token` management commands, source `cli`). It is read-only via `GET /api/v1/admin/action-log/`, restricted to site admins (`_ADMIN_PERMISSIONS`), with no write or delete endpoint. There is deliberately no retention pruner (the table grows by a handful of rows a month), and no configurable retention, arbitrary per-object diffing, or SIEM export. See the "Scope — deliberately narrow" section of the model docstring (`backend/accounts/models.py`).
+- **`BoardExportLog`** (#842) records successful board exports for a single board: actor, role held at export time, export format, row count, and timestamp. It is read-only via `GET /api/v1/boards/{id}/export-history/`, restricted to board admins (and site admins). `AdminActionLog` reuses this table's shape, lifted to instance scope (see its docstring).
 
-Both exist to answer "who did this privileged thing, and when?" for a specific, bounded action — not to serve as a general compliance audit trail. Neither table takes configuration, diffs arbitrary objects, or exports anywhere; that is what keeps them in OSS rather than the enterprise product below.
+Both answer "who did this privileged thing, and when?" for a bounded action, not as a general compliance audit trail. Neither takes configuration, diffs arbitrary objects, or exports anywhere, which keeps them in OSS rather than the enterprise product below.
 
 **Enterprise — system-wide compliance audit log**
 
-A compliance audit log records board lifecycle events (created, deleted, archived), membership changes, and admin actions **beyond the closed set `AdminActionLog` already covers in OSS** — configurable per the operator's compliance policy rather than a fixed enum. It may export to a SIEM and enforce configurable retention policies. This serves security and compliance buyers, not small teams.
+A compliance audit log records board lifecycle events (created, deleted, archived), membership changes, and admin actions **beyond the closed set `AdminActionLog` already covers in OSS**, configurable per the operator's compliance policy rather than a fixed enum. It may export to a SIEM and enforce configurable retention. It serves security and compliance buyers, not small teams.
 
-> **Reconciling with `AdminActionLog` / `BoardExportLog` (#1248).** "Admin actions" in the paragraph above describes the enterprise product's *configurable, system-wide* scope, not a rule that any record of an admin action belongs in enterprise. The two OSS tables above are deliberately narrow — a closed set of control-plane toggles, and board exports, respectively — with no retention configuration and no SIEM export; that narrowness, not the mere existence of an admin-action record, is what keeps them in OSS. If either table ever grows configurable retention, arbitrary diffing, or SIEM export, revisit this ruling — until then they are the OSS side of the split this section describes, not candidates for it.
+> **Reconciling with `AdminActionLog` / `BoardExportLog` (#1248).** "Admin actions" in the paragraph above describes the enterprise product's *configurable, system-wide* scope. It is not a rule that any record of an admin action belongs in enterprise. The two OSS tables are deliberately narrow (a closed set of control-plane toggles, and board exports) with no retention configuration and no SIEM export. That narrowness keeps them in OSS. If either ever grows configurable retention, arbitrary diffing, or SIEM export, revisit this ruling; until then they are the OSS side of the split, not candidates for it.
 
 **OSS extension points required** (before the enterprise audit log can be built; none of the signals or the setting below exist in `boards/signals.py` or settings yet):
 
@@ -138,9 +138,7 @@ A `VISIBAN_AUDIT_BACKEND` setting (defaulting to `NullAuditBackend`) is planned 
 
 ### WIP enforcement (OSS)
 
-WIP limits (`wip_limit` field on Column) exist in OSS. The enforcement mode — soft (advisory toast) vs hard (blocked move) — is a board-level setting that belongs in OSS. A small team using WIP limits cannot manage capacity effectively with soft-only enforcement.
-
-The board setting `enforce_wip_hard` (boolean, default `false`) toggles between modes. No enterprise extension point is needed.
+WIP limits (`wip_limit` on Column) and the enforcement mode, soft (advisory toast) vs hard (blocked move), are OSS. A small team cannot manage capacity with soft-only enforcement. The board setting `enforce_wip_hard` (boolean, default `false`) toggles the mode. No enterprise extension point is needed.
 
 **Issue:** #344. Note: enterprise repo issue #9 was closed as a duplicate; work belongs here.
 
@@ -148,7 +146,7 @@ The board setting `enforce_wip_hard` (boolean, default `false`) toggles between 
 
 ### Movement history: view (OSS) vs export (Enterprise)
 
-The board-level movement history view — filterable by swimlane, column, date range, and assignee — is OSS. Without it, teams cannot query their own audit trail.
+The board-level movement history view, filterable by swimlane, column, date range, and assignee, is OSS: without it, teams cannot query their own audit trail.
 
 Structured delivery report export (CSV/PDF, formatted for client or QBR presentation) is enterprise. The OSS view exposes the `MOVEMENT_EXPORT_BACKENDS` hook list (`boards/hooks.py`) so enterprise can attach export formatters without modifying OSS view code.
 
@@ -158,13 +156,11 @@ Structured delivery report export (CSV/PDF, formatted for client or QBR presenta
 
 ### Per-swimlane analytics: basic (OSS) vs advanced (Enterprise)
 
-Basic per-swimlane analytics — cards in flight, average cycle time, cards moved to Done in the last 30 days — is OSS. Teams managing work per client/swimlane need row-level visibility.
-
-Advanced analytics (velocity trends over time, bottleneck detection, historical period comparisons, exportable reports) are enterprise.
+Basic per-swimlane analytics (cards in flight, average cycle time, cards moved to Done in the last 30 days) are OSS, since teams managing work per client/swimlane need row-level visibility. Advanced analytics (velocity trends over time, bottleneck detection, historical period comparisons, exportable reports) are enterprise.
 
 The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (`boards/hooks.py`) so enterprise can add panels without modifying OSS view files. The summary returns the panels in `extension_panels`, and the Summary tab renders `stats` and `table` panels below the swimlane table (see the [payload contract](../api/boards.md#extension-panel-payload)).
 
-Authorization is OSS's job, not each panel's (#1826). A panel declares the lowest board role that may see it with a `min_role` attribute on the callable, and the summary drops every panel above the caller's role before calling any panel, so a panel that forgets a role check cannot leak to viewers. **Behavior change for extension authors in 1.2:** a panel with no `min_role`, or an invalid one, is admin-only (fail closed). Enterprise panels registered before 1.2 must set `min_role` to stay visible to non-admin members. See [panel visibility by role](../api/boards.md#panel-visibility-by-role) and [Security Invariants](../development/security-invariants.md) Rule 12.
+**Authorization is OSS's job, not each panel's (#1826).** A panel declares the lowest board role that may see it with a `min_role` attribute on the callable. The summary drops every panel above the caller's role before calling any panel, so a panel that forgets a role check cannot leak to viewers. **Behavior change for extension authors in 1.2:** a panel with no `min_role`, or an invalid one, is admin-only (fail closed). Enterprise panels registered before 1.2 must set `min_role` to stay visible to non-admin members. See [panel visibility by role](../api/boards.md#panel-visibility-by-role) and [Security Invariants](../development/security-invariants.md) Rule 12.
 
 **Issue:** #341
 
@@ -174,9 +170,9 @@ Authorization is OSS's job, not each panel's (#1826). A panel declares the lowes
 
 > **Status.** The OSS ruling is decided, but the feature is **planned and not yet implemented**: #863 is open on the 1.3 milestone and no webhook model, view, or dispatch command exists in the codebase.
 
-Basic outgoing webhooks are OSS: per-board subscriptions, HMAC-signed, delivered in order from the [board change feed](../api/events.md) by a scheduled command, with best-effort retry. This reverses the original Enterprise ruling. On 2026-04-15 enterprise #39 was closed in favor of an OSS implementation (#740, consolidated into #863 on 2026-09-14). Webhooks are the minimum integration surface a team tool is evaluated on, and self-hosted alternatives commonly ship them free.
+Basic outgoing webhooks are OSS: per-board subscriptions, HMAC-signed, delivered in order from the [board change feed](../api/events.md) by a scheduled command, with best-effort retry. This reverses the original Enterprise ruling: on 2026-04-15 enterprise #39 was closed in favor of an OSS implementation (#740, consolidated into #863 on 2026-09-14). Webhooks are the minimum integration surface a team tool is evaluated on, and self-hosted alternatives commonly ship them free.
 
-The operations layer is Enterprise: guaranteed delivery on a durable queue, a delivery log with replay, account-wide subscriptions, and a delivery audit trail. These make webhooks supportable at hosted or large-operator scale. A small team works without them, and consumers that need exact delivery can poll the change feed directly.
+The operations layer is Enterprise: guaranteed delivery on a durable queue, a delivery log with replay, account-wide subscriptions, and a delivery audit trail. They make webhooks supportable at hosted or large-operator scale. A small team works without them, and consumers needing exact delivery can poll the change feed directly.
 
 **OSS extension points:**
 
@@ -191,11 +187,11 @@ The earlier design, `post_card_created/moved/closed/updated` signals plus a `VIS
 
 ### PATs (OSS) vs service account tokens (Enterprise)
 
-OSS Personal Access Tokens are user-tied and limited to 10 per user. Since 1.2 they also carry [scopes](../features/personal-access-tokens.md#scopes) (`read`, `write`, `admin`, `mcp:read`, `mcp:write`), so a token can be issued with less authority than its owner. They are sufficient for small teams doing CI/CD automation and for granting an AI agent least-privilege access.
+OSS Personal Access Tokens are user-tied and limited to 10 per user. Since 1.2 they also carry [scopes](../features/personal-access-tokens.md#scopes) (`read`, `write`, `admin`, `mcp:read`, `mcp:write`), so a token can have less authority than its owner. That suffices for small teams doing CI/CD automation and for giving an AI agent least-privilege access.
 
-Scoped tokens moved into OSS with #1110 and are no longer an enterprise differentiator. The project's own test decides it: the MCP server is OSS, agent credentials are issued against OSS PATs, and least privilege for a credential a user is *told* to hand to an agent is necessary rather than premium. Withholding it would have meant shipping an OSS feature that can only be used unsafely.
+Scoped tokens moved into OSS with #1110 and are no longer an enterprise differentiator. The MCP server is OSS and agent credentials are issued against OSS PATs, so least privilege for a credential a user is *told* to hand to an agent is necessary, not premium. Withholding it would have shipped an OSS feature that can only be used unsafely.
 
-Enterprise service account tokens remain distinct on the axis that actually separates them: they are **not tied to a real user account**, so they survive offboarding, do not inherit a person's board memberships, and are intended for strict security environments where personal-credential use in automation is prohibited. Enterprise may also add **per-board** scoping; OSS scopes constrain the kind of operation, not the set of boards.
+Enterprise service account tokens differ on the axis that actually separates them: they are **not tied to a real user account**. They survive offboarding, do not inherit a person's board memberships, and suit strict security environments that prohibit personal credentials in automation. Enterprise may also add **per-board** scoping; OSS scopes constrain the kind of operation, not the set of boards.
 
 **Boundary documentation:** see [Personal Access Tokens](../features/personal-access-tokens.md) for OSS PAT scope. The service-account distinction must be documented in the enterprise repo before enterprise #17 is implemented.
 
@@ -203,11 +199,9 @@ Enterprise service account tokens remain distinct on the axis that actually sepa
 
 ### Transactional email notifications (OSS) vs channel integrations (Enterprise)
 
-SMTP delivery of in-app notification events (card assigned, @mention, due date, card moved) is OSS. Teams with members who are not watching the board all day need email delivery to collaborate effectively.
+SMTP delivery of in-app notification events (card assigned, @mention, due date, card moved) is OSS: teams with members who aren't watching the board all day need email. Slack/Teams channel delivery and other third-party integrations are enterprise.
 
-Slack/Teams channel delivery and other third-party integrations are enterprise.
-
-**OSS extension point:** `post_notification_created` (`boards/signals.py`), shipped in 1.2 — enterprise subscribes additional delivery backends (Slack, Teams, richer email templates) without modifying OSS files. Every notification creation path in OSS routes through `boards.services.notifications.create_notifications`, which is what makes the seam complete: three of the six creation sites use `bulk_create`, which sends no `post_save`, so a per-model signal would have silently skipped them. A test in `boards/tests/test_extensibility.py` fails if a new creation site bypasses the funnel.
+**OSS extension point:** `post_notification_created` (`boards/signals.py`), shipped in 1.2 lets enterprise subscribe additional delivery backends (Slack, Teams, richer email templates) without modifying OSS files. Every OSS notification creation path routes through `boards.services.notifications.create_notifications`, which makes the seam complete: three of the six creation sites use `bulk_create`, which sends no `post_save`, so a per-model signal would have silently skipped them. A test in `boards/tests/test_extensibility.py` fails if a new creation site bypasses the funnel.
 
 **Issue:** OSS transactional email tracked in #356. Enterprise channel delivery in enterprise #34.
 
@@ -215,7 +209,7 @@ Slack/Teams channel delivery and other third-party integrations are enterprise.
 
 ### Data retention (split)
 
-Manual card archiving is OSS (existing feature). Automated retention policies (auto-archive or delete cards older than an admin-configured threshold) are enterprise compliance tooling.
+Manual card archiving is OSS. Automated retention policies (auto-archive or delete cards older than an admin-configured threshold) are enterprise compliance tooling.
 
 **Issue:** enterprise #19.
 
@@ -223,7 +217,7 @@ Manual card archiving is OSS (existing feature). Automated retention policies (a
 
 ### Issue Board Lens (OSS)
 
-The [Issue Board Lens](../features/issue-board-lens.md) — a read-only kanban view of a public GitHub or GitLab repository's issues, pivoted onto columns and swimlanes — is OSS. Per this doc's guiding principle, a small team needs visibility into the external work (issues, PRs) it tracks outside Visiban to work together effectively; that is a core day-to-day workflow concern, not an advanced add-on. The feature is flag-gated (`GIT_LENS_ENABLED`, off by default) and strictly read-only — no sync, no webhooks, no write-back to the provider — which keeps it a bounded visibility feature rather than an integration platform.
+The [Issue Board Lens](../features/issue-board-lens.md) (a read-only kanban view of a public GitHub or GitLab repository's issues, pivoted onto columns and swimlanes) is OSS. Per the guiding principle, a small team needs visibility into the external work (issues, PRs) it tracks outside Visiban: a core day-to-day concern, not an advanced add-on. It is flag-gated (`GIT_LENS_ENABLED`, off by default) and strictly read-only, with no sync, no webhooks, and no write-back to the provider, which keeps it a bounded visibility feature rather than an integration platform.
 
 **Issue:** #1062 (tracking issue — "Classified OSS (enterprise-check)"; base lens shipped via MR !842 and follow-ups).
 

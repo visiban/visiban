@@ -2,13 +2,13 @@
 
 # Which API constraint fields the server actually enforces
 
-Some API fields read as rules rather than values: `wip_limit`, `allowed_priorities`, `default_board_member_role`, `is_required`. A client that reads one of them will assume the server enforces it. Since 1.2 some of those clients are AI agents talking to the [MCP server](../features/mcp-server.md), and an agent cannot notice that a rule is only advisory. It reads the schema and acts on it.
+Some API fields read as rules: `wip_limit`, `allowed_priorities`, `default_board_member_role`, `is_required`. A client that reads one assumes the server enforces it. Since 1.2 some of those clients are AI agents talking to the [MCP server](../features/mcp-server.md). An agent cannot notice that a rule is only advisory: it reads the schema and acts on it.
 
-**Why it matters:** Do not assume a field that reads as a rule is enforced. Check its class (binding, advisory, or scaffold) in [The three classes](#the-three-classes) and the tables below.
+**Why it matters:** Don't assume a rule-like field is enforced. Check its class in [The three classes](#the-three-classes).
 
 > **Added in 1.2** (#1077)
 
-This page classifies every constraint-shaped field in the OSS models and serializers, and records what each one actually binds.
+This page classifies every constraint-shaped field in the OSS models and serializers and records what each one binds.
 
 ## The three classes
 
@@ -18,13 +18,13 @@ This page classifies every constraint-shaped field in the OSS models and seriali
 | **Advisory** | Stored and returned, and may shape a default or the UI, but no write is ever rejected for violating it |
 | **Scaffold** | Stored and editable, but no code path reads it yet |
 
-Any field that is not binding on every write path says so in its OpenAPI description, starting with the token `Enforcement: binding`, `Enforcement: advisory`, or `Enforcement: scaffold`. The strings live in `backend/visiban/field_enforcement.py` and are attached at the serializer layer. `backend/boards/tests/test_field_enforcement_schema.py` checks that every string starts with its token and pins it to every schema component that carries the field.
+A field that is not binding on every write path says so in its OpenAPI description, which starts with `Enforcement: binding`, `Enforcement: advisory`, or `Enforcement: scaffold`. The strings live in `backend/visiban/field_enforcement.py` and attach at the serializer layer. `backend/boards/tests/test_field_enforcement_schema.py` checks that every string starts with its token and pins it to every schema component that carries the field.
 
-Out of scope: enterprise code, env-var settings, and plain values that do not read as rules, such as `name`, `color`, `position`, `card_density`, or `staleness_threshold_days`. `Board.show_wip_at_limit` is display-only, and its description already says so.
+Out of scope: enterprise code, env-var settings, and plain values that don't read as rules, such as `name`, `color`, `position`, `card_density`, or `staleness_threshold_days`. `Board.show_wip_at_limit` is display-only, and its description already says so.
 
 ## Gaps and scaffolds
 
-These fields are the reason this page exists. Each gap and scaffold has a tracking issue; the `Card.version` row and the board-import exemption of the WIP and weight rows are by design.
+These fields are why this page exists. Each gap and scaffold has a tracking issue; the `Card.version` row and the board-import exemption of the WIP and weight rows are by design.
 
 | Field | Class | What it promises | What actually happens | Tracking |
 |---|---|---|---|---|
@@ -42,7 +42,7 @@ These fields are the reason this page exists. Each gap and scaffold has a tracki
 
 ## Binding fields
 
-Classified from a review of the code on 2026-10-04; see the tracking issues for known gaps. Each row names where the main check lives.
+Classified from a code review on 2026-10-04; see the tracking issues for known gaps. Each row names where the main check lives.
 
 | Field | Enforced at | Notes |
 |---|---|---|
@@ -70,12 +70,10 @@ Classified from a review of the code on 2026-10-04; see the tracking issues for 
 
 ## Fields that do not exist
 
-One candidate named in #1077 needed no classification:
-
-- **`Column.automation_skip`** was proposed in #201 and never landed. When it does, it must ship either binding or with an `Enforcement: scaffold` description.
+- **`Column.automation_skip`** (named in #1077) was proposed in #201 and never landed. When it does, it must ship binding or with an `Enforcement: scaffold` description.
 
 ## Keeping this page true
 
-- **New constraint-shaped field:** it ships binding on every path, or it ships with an `Enforcement:` description in `backend/visiban/field_enforcement.py`, a row on this page, and a tracking issue.
+- **New constraint-shaped field:** it ships binding on every path, or with an `Enforcement:` description in `backend/visiban/field_enforcement.py`, a row on this page, and a tracking issue.
 - **Closing a gap:** update the description constant, this page, and the behavioral pin in `test_field_enforcement_schema.py` in the same MR. `WipEnforcementBehaviorTests` is the example: it pinned the WIP gap until #1428 closed it, and was inverted in the same change.
-- **Put descriptions on the serializer, not the model.** A model `help_text` change generates an `AlterField` migration for what is a documentation-only change.
+- **Put descriptions on the serializer, not the model.** A model `help_text` change generates an `AlterField` migration for a documentation-only change.

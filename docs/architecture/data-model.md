@@ -2,12 +2,17 @@
 
 # Data model: who owns which tables
 
-Three Django apps own the schema: `accounts` (users, tokens, site settings, admin audit),
-`boards` (boards, cards, and everything on them), `groups` (the folder hierarchy boards sit
-in). A fourth, `git_lens`, adds one model but is off by default — see
-[Issue Board Lens](#git_lens-app-off-by-default) at the bottom of this page.
+Three Django apps own the schema:
 
-**Why it matters:** `CardMovement` is the audit trail, and it is append-only. Read [Key design decisions](#key-design-decisions) before writing code that touches cards, columns, or tokens.
+- `accounts`: users, tokens, site settings, admin audit
+- `boards`: boards, cards, and everything on them
+- `groups`: the folder hierarchy boards sit in
+
+A fourth, `git_lens`, adds one model but is off by default (see [Issue Board Lens](#git_lens-app-off-by-default) at the bottom of this page).
+
+**Why it matters:** `CardMovement` is the audit trail, and it is append-only. See [Key design decisions](#key-design-decisions).
+
+**Go deeper:** [Core entities](#core-entities) is the field-by-field tree; [Entity details](#entity-details) explains the non-obvious ones.
 
 ## Core entities
 
@@ -179,53 +184,82 @@ Notification
 
 ### User
 
-The `is_site_admin` flag grants access to the Visiban admin panel (user management, site settings). It does **not** grant access to boards or groups. The separate `can_access_all_content` flag grants read/write access to every board and group on the instance regardless of membership. For accounts that are not superusers the two flags are independent and can be combined; superuser status implies both.
+- **`is_site_admin`** grants access to the Visiban admin panel (user management, site settings). It does **not** grant access to boards or groups.
+- **`can_access_all_content`** grants read/write access to every board and group regardless of membership.
 
-`theme` (`system` / `dark` / `light`, default `system`) is the per-user dark-mode preference; `avatar_url` and `display_name` are both optional and blank by default. `avatar_url` uses `""` rather than `null` as its "no avatar" sentinel — a 1.0 API contract that cannot change without a major version bump.
+For accounts that are not superusers the two flags are independent and can be combined. Superuser status implies both.
 
-`default_board` is a foreign key to `Board` with `on_delete=SET_NULL`. After login, the frontend redirects to this board if set. The frontend verifies access before redirecting to prevent an IDOR leak via a stale FK.
+`theme` (`system` / `dark` / `light`, default `system`) is the per-user dark-mode preference. `avatar_url` and `display_name` are optional and blank by default. `avatar_url` uses `""` rather than `null` as its "no avatar" sentinel, a 1.0 API contract that cannot change without a major version bump.
 
-`close_editor_on_enter` controls whether pressing Enter in the new-card inline editor submits and closes the editor (default true). Shift+Enter always inserts a newline regardless of this setting.
+`default_board` is a foreign key to `Board` with `on_delete=SET_NULL`. After login the frontend redirects to it if set, verifying access first to prevent an IDOR leak via a stale FK.
 
-The `notif_*` boolean fields store per-user notification preferences. Each flag maps to one `action_type` on the `Notification` model. Defaults follow the principle of least surprise: events directly targeting the user (`card_assigned`, `mentioned`, `board_invite`) are on by default; ambient events (`due_soon`, `card_moved`, `comment_added`) are off by default to avoid noise. Users can change preferences from their profile settings page.
+`close_editor_on_enter` (default true) makes Enter submit and close the new-card inline editor. Shift+Enter always inserts a newline.
 
-`has_completed_tour` is set to true the first time the onboarding tour completes. The frontend reads this field on login and skips the tour for returning users.
+The `notif_*` booleans store per-user notification preferences; each maps to one `action_type` on `Notification`. Events that directly target the user (`card_assigned`, `mentioned`, `board_invite`) default on. Ambient events (`due_soon`, `card_moved`, `comment_added`) default off to avoid noise. Users change them from their profile settings page.
+
+`has_completed_tour` is set to true when the onboarding tour first completes. The frontend reads it on login and skips the tour for returning users.
 
 ### PersonalAccessToken
 
-Named, revocable API tokens (`vbn_` prefix), capped at 10 per user. Only a SHA-256 hash of the raw value is stored — the plaintext is shown exactly once, at creation. Since 1.2 (#1110) a token also carries `scopes`: a JSON list drawn from `read`, `write`, `admin`, `mcp:read`, `mcp:write`, non-hierarchical (holding `admin` does not imply `read`). `scopes=None` marks a legacy pre-1.2 token, which carries its owner's full REST authority but can never satisfy an `mcp:*` requirement; `scopes=[]` is an explicit grant of nothing. A new token always gets an explicit list — `read` + `write` by default when the caller omits `scopes`. All of a user's tokens are deleted when their password changes.
+Named, revocable API tokens (`vbn_` prefix), capped at 10 per user. Only a SHA-256 hash of the raw value is stored; the plaintext is shown exactly once, at creation. All of a user's tokens are deleted when their password changes.
+
+Since 1.2 (#1110) a token also carries `scopes`: a JSON list drawn from `read`, `write`, `admin`, `mcp:read`, `mcp:write`. Scopes are non-hierarchical (holding `admin` does not imply `read`).
+
+- `scopes=None`: a legacy pre-1.2 token. It carries its owner's full REST authority but can never satisfy an `mcp:*` requirement.
+- `scopes=[]`: an explicit grant of nothing.
+- A new token always gets an explicit list: `read` + `write` by default when the caller omits `scopes`.
 
 ### SiteSetting / SiteEmailSetting
 
-Two accounts-app singletons (always `pk=1`, fetched via `.get()`), split so a value that must never reach the audit log — the SMTP password — cannot live next to values that always do. `SiteSetting` holds `registration_mode` (open / invite_only / closed), `uploads_enabled`, and instance-wide `maintenance_mode` plus its notice; both are read on nearly every request through a 60-second cache invalidated on write. `SiteEmailSetting` holds outbound SMTP configuration, gated by `config_source` (`env` or `database`) — the two sources are never merged field-by-field, only switched wholesale, so a half-filled database row cannot silently blend with environment variables.
+Two accounts-app singletons (always `pk=1`, fetched via `.get()`), split so a value that must never reach the audit log (the SMTP password) cannot live next to values that always do.
+
+- `SiteSetting` holds `registration_mode` (open / invite_only / closed), `uploads_enabled`, and instance-wide `maintenance_mode` plus its notice. Both are read on nearly every request through a 60-second cache invalidated on write.
+- `SiteEmailSetting` holds outbound SMTP configuration, gated by `config_source` (`env` or `database`). The sources are never merged field-by-field, only switched wholesale, so a half-filled database row cannot silently blend with environment variables.
 
 ### AdminActionLog
 
-Append-only record of a fixed, enumerable set of instance-wide admin actions (#1126): maintenance mode toggled, the maintenance notice changed, registration mode changed, uploads toggled, outbound-email configuration changes, and password events (set or disabled for another account in the Django admin, and passwords set by the `ensure_site_admin`, `changepassword` and `provision_fuzz_token` management commands, source `cli`), and card-history purges (`card_history.purged`, written by the `purge_card_history` management command with the `--actor` superuser as actor; #1797). `actor_id` and `actor_username` are plain columns, not a foreign key — a FK's `on_delete=SET_NULL` would let deleting a user erase who performed a privileged action, which is the one thing this table exists to answer. There is deliberately no retention pruner; volume is a handful of rows a month. See [Open-core boundary § Audit log](open-core-boundary.md#audit-log-split) for why this stays in OSS rather than the enterprise compliance audit log.
+Append-only record of a fixed set of instance-wide admin actions (#1126):
+
+- maintenance mode toggled, the maintenance notice changed
+- registration mode changed, uploads toggled
+- outbound-email configuration changes
+- password events: set or disabled for another account in the Django admin, and passwords set by the `ensure_site_admin`, `changepassword` and `provision_fuzz_token` management commands (source `cli`)
+- card-history purges (`card_history.purged`, written by the `purge_card_history` management command with the `--actor` superuser as actor; #1797)
+
+`actor_id` and `actor_username` are plain columns, not a foreign key. A FK's `on_delete=SET_NULL` would let deleting a user erase who performed a privileged action, the one thing this table exists to answer. There is deliberately no retention pruner; volume is a handful of rows a month. See [Open-core boundary § Audit log](open-core-boundary.md#audit-log-split) for why this stays in OSS rather than the enterprise compliance audit log.
 
 ### Board
 
-`enforce_wip_limits` (default true) blocks moving, creating, or restoring a card into a column that is at or over its WIP limit with a 409 response (board import is exempt). Board admins can override with `?force=true`. When `enforce_wip_hard` is also true, the limit becomes a hard stop for all roles including admins — no override is possible.
+- **`enforce_wip_limits`** (default true) blocks moving, creating, or restoring a card into a column at or over its WIP limit with a 409 (board import is exempt). Board admins can override with `?force=true`. When `enforce_wip_hard` is also true, the limit is a hard stop for all roles including admins, with no override.
+- **`enforce_weight_limits`** (default true) blocks moving, creating, or restoring a card into a column that would exceed its weight budget, and raising a card's weight past it. Board admins can override unless hard mode is active.
 
-`enforce_weight_limits` (default true) blocks moving, creating, or restoring a card into a column that would exceed its weight budget, and raising a card's weight past it. Like WIP limits, board admins can override unless hard mode is active.
+`stale_warning_pct` (default 50, range 0--100) is the percentage of `staleness_threshold_days` a card has used before it is flagged as approaching stale. It drives the yellow warning band in the analytics heatmap (yellow at this percentage, red at 100%) and the yellow step of the card [aging tint](../features/card-history.md#card-aging-tint). `0` turns the warning step off. The tint's further steps at 2× and 3× the threshold are fixed in the frontend and not stored.
 
-`stale_warning_pct` (default 50, range 0--100) is the percentage of `staleness_threshold_days` a card has used before it is flagged as approaching stale. It drives both the yellow warning band in the analytics heatmap (a cell turns yellow at this percentage and red at 100%) and the yellow step of the card [aging tint](../features/card-history.md#card-aging-tint). `0` turns the warning step off. The card tint's further steps at 2× and 3× the threshold are fixed in the frontend and are not stored.
+`allowed_priorities` is a JSON list of intended priority values; an empty list means all (`low`, `medium`, `high`, `urgent`). It is a **scaffold**: stored and returned, but card create and update accept any priority. See [Field Enforcement](field-enforcement.md) (#1429).
 
-`allowed_priorities` is a JSON list of the priority values intended for cards on this board; an empty list means all priorities (`low`, `medium`, `high`, `urgent`). It is a **scaffold**: stored and returned, but card create and update accept any priority regardless of it — see [Field Enforcement](field-enforcement.md) (#1429).
+**Public sharing:**
 
-`share_token` is a UUID generated when a board admin enables public sharing. When set, the board is accessible at `/share/:token` as a read-only view with no login required. Setting the token to null disables sharing immediately. The share endpoint resolves a presented token by `share_token_hash`, the SHA-256 of the token (the same scheme invite links use), and never by the stored token, which is kept for the admin-only `share_token` API field; the two are always set and cleared together (#1880). That API field on `GET /boards/{id}/full/` is deprecated since 1.2 (#1935): clients read the token from the share action's response, once, and `share_link_active` tells an admin whether a link is set. The field and then the stored column are removed in 2.0 (#1936), the column in a separate migration after the code stops referencing it. Links enabled before the column existed get their hash from migration `0088`. `share_token_expires_at` (nullable) optionally bounds that link: past the timestamp the share endpoint returns `410 Gone` rather than auto-rotating the token. `share_enabled_by` (nullable, since 1.2) records the admin who enabled the current link; the link is cleared when that account is deactivated or deleted, or is no longer a board admin or site admin on the board (#1865). It is null for links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier); such a link does not resolve, reads as no link in the admin share fields of `/full/`, and is cleared when opened, until a board admin enables sharing again (#1939). It is never returned by the API.
+- `share_token` is a UUID generated when a board admin enables public sharing. While set, the board is readable at `/share/:token` with no login. Setting it to null disables sharing immediately.
+- The share endpoint resolves a presented token by `share_token_hash`, the SHA-256 of the token (the scheme invite links use), never by the stored token, which is kept for the admin-only `share_token` API field. The two are always set and cleared together (#1880). Links enabled before the column existed get their hash from migration `0088`.
+- **Deprecated since 1.2 (#1935):** the `share_token` API field on `GET /boards/{id}/full/`. Clients read the token from the share action's response, once, and `share_link_active` tells an admin whether a link is set. The field, and then the stored column in a separate migration after the code stops referencing it, are removed in 2.0 (#1936).
+- `share_token_expires_at` (nullable) optionally bounds the link: past the timestamp the share endpoint returns `410 Gone` rather than auto-rotating the token.
+- `share_enabled_by` (nullable, since 1.2) records the admin who enabled the current link. The link is cleared when that account is deactivated or deleted, or is no longer a board admin or site admin on the board (#1865). It is never returned by the API.
+- **Yes, but:** `share_enabled_by` is null for links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier). Such a link does not resolve, reads as no link in the admin share fields of `/full/`, and is cleared when opened, until a board admin enables sharing again (#1939).
 
-`export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. It limits only the export action and file formats, not ordinary reads. `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face. `show_wip_at_limit` is purely ambient — it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement. `show_row_chip_field_names` (default `true`, with a database default too) is display-only as well: when off, pinned swimlane row chips drop their visible `{name}:` label (checkbox fields excepted); card-face chips are unaffected.
+- `export_min_role` (default `viewer`) sets the minimum `BoardMembership.Role` required to export the board; owners and site admins always bypass it. It limits only the export action and file formats, not ordinary reads.
+- `card_density` (`comfortable` / `standard` / `dense`, default `comfortable` for new boards) controls how much metadata renders on the card face.
+- `show_wip_at_limit` is purely ambient: it swaps a column's card count for a "WIP n/n" indicator once the count exactly equals the limit, and does not affect move enforcement.
+- `show_row_chip_field_names` (default `true`, with a database default too) is display-only: when off, pinned swimlane row chips drop their visible `{name}:` label (checkbox fields excepted). Card-face chips are unaffected.
 
 ### Column
 
-`is_done` marks a column as a terminal/completion column (e.g. "Done", "Closed Won"). Columns marked as done are excluded from analytics dwell-time calculations — a card's clock stops when it enters a done column. Multiple done columns per board are supported.
+`is_done` marks a terminal/completion column (e.g. "Done", "Closed Won"). Done columns are excluded from analytics dwell-time calculations: a card's clock stops when it enters one. Multiple done columns per board are supported.
 
 ### Card
 
-`archived_at` is a nullable datetime used for soft-delete. When set, the card is hidden from the board view and drag-and-drop but can be restored from the Archived panel. Analytics uses `archived_at` as the terminal timestamp so dwell time reflects only the active period. Archived cards are excluded from WIP and weight counts.
+`archived_at` is a nullable datetime used for soft-delete. When set, the card is hidden from the board view and drag-and-drop but can be restored from the Archived panel. Analytics uses it as the terminal timestamp, so dwell time reflects only the active period. Archived cards are excluded from WIP and weight counts.
 
-`mentioned_user_ids` is a JSON list of user PKs. It serves as a re-notification guard for `@mention` references in the card description — when the description is edited, only newly mentioned users receive a notification. This prevents duplicate notifications when an existing mention is left in place. The list holds only users who actually received a notification, so a user skipped at the time is still notified by a later mention.
+`mentioned_user_ids` is a JSON list of user PKs that guards against re-notification for `@mention` references in the description: when the description is edited, only newly mentioned users are notified. The list holds only users who actually received a notification, so a user skipped at the time is still notified by a later mention.
 
 ### CardMovement
 
@@ -239,12 +273,7 @@ History consumers can filter out system events to focus on workflow transitions.
 
 ### CustomFieldDefinition / CustomFieldValue
 
-Per-board typed metadata on cards (#371), where a `Label` is an untyped tag. A
-`CustomFieldDefinition` is the board-scoped schema — a name, a `field_type` of `text` /
-`number` / `date` / `dropdown` / `checkbox` / `url` / `multi_select`, and for dropdowns and
-multi-selects a `choices_json` list;
-a `CustomFieldValue` is one card's value for one definition, unique per
-`(card, field_definition)`.
+Per-board typed metadata on cards (#371); a `Label` is an untyped tag. A `CustomFieldDefinition` is the board-scoped schema: a name, a `field_type` of `text` / `number` / `date` / `dropdown` / `checkbox` / `url` / `multi_select`, and for dropdowns and multi-selects a `choices_json` list. A `CustomFieldValue` is one card's value for one definition, unique per `(card, field_definition)`.
 
 Three decisions worth knowing before changing either model:
 
@@ -267,108 +296,140 @@ Three decisions worth knowing before changing either model:
 `is_required` exists as a column but is **not enforced**; turning it on would make
 previously valid card writes fail, so it needs a release note, not a quiet change.
 
-Both definition models also carry three display-only number-format columns (#1391):
-`number_prefix` and `number_suffix` (`varchar(10)`, default `""`) and `number_decimals`
-(`smallint` with a `>= 0` check, nullable; `NULL` = "as typed", the API caps it at 10).
-They are typed columns on the *definition*, not on the value — the value stays the plain
-number string, so exports, filtering and the value index are unaffected. They mean
-something only when `field_type` is `number`; the serializer rejects them on any other
-type and resets them when a definition is retyped away from `number` (migration `0065`).
+Both definition models also carry three display-only number-format columns (#1391): `number_prefix` and `number_suffix` (`varchar(10)`, default `""`) and `number_decimals` (`smallint` with a `>= 0` check, nullable; `NULL` = "as typed", the API caps it at 10).
 
-Both definition models also carry `choice_colors` (`jsonb`, `NOT NULL`, default `'{}'`,
-#1391, migration `0066`): a `{choice text: palette key}` map giving dropdown and
-multi-select choices an optional display color. It is a separate column rather than
-objects inside `choices_json`, so `choices` stays the plain string list every client,
-export and template already reads. Values are palette *keys* (`slate`, `blue`, `green`,
-`amber`, `red`, `violet`, `pink`, `teal` — `CHOICE_COLOR_KEYS` in
-`boards/custom_field_types.py`), never hex, so the frontend owns light/dark rendering and
-contrast. The serializer prunes keys that are no longer choices on every write (renaming
-a choice drops its color) and clears the map when a definition is retyped away from a
-choice type.
+- They live on the *definition*, not the value. The value stays the plain number string, so exports, filtering and the value index are unaffected.
+- They mean something only when `field_type` is `number`. The serializer rejects them on any other type and resets them when a definition is retyped away from `number` (migration `0065`).
 
-The same shape exists one level up, for swimlanes rather than cards: `SwimlaneCustomFieldDefinition` / `SwimlaneCustomFieldValue` (#1140), capped at 15 definitions and 3 pinned per board — a swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a `target_type` discriminator on the card-level models, so that existing 1.0 response shapes (`BoardFullSerializer`, the CSV export header, the per-board cap count) never have to filter for scope. `is_admin_only` (default `true`) restricts a row field's values to board admins, reusing the existing `SwimlaneSerializer` / `SwimlaneAdminSerializer` split.
+Both definition models also carry `choice_colors` (`jsonb`, `NOT NULL`, default `'{}'`, #1391, migration `0066`): a `{choice text: palette key}` map giving dropdown and multi-select choices an optional display color.
+
+- It is a separate column rather than objects inside `choices_json`, so `choices` stays the plain string list every client, export and template already reads.
+- Values are palette *keys* (`slate`, `blue`, `green`, `amber`, `red`, `violet`, `pink`, `teal`; `CHOICE_COLOR_KEYS` in `boards/custom_field_types.py`), never hex, so the frontend owns light/dark rendering and contrast.
+- The serializer prunes keys that are no longer choices on every write (renaming a choice drops its color) and clears the map when a definition is retyped away from a choice type.
+
+The same shape exists for swimlanes: `SwimlaneCustomFieldDefinition` / `SwimlaneCustomFieldValue` (#1140), capped at 15 definitions and 3 pinned per board. A swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a `target_type` discriminator, so existing 1.0 response shapes (`BoardFullSerializer`, the CSV export header, the per-board cap count) never filter for scope. `is_admin_only` (default `true`) restricts a row field's values to board admins, reusing the `SwimlaneSerializer` / `SwimlaneAdminSerializer` split.
 
 ### CardRelation
 
-A typed, directional link between two cards on the same board (#449): `blocks` or `relates_to`. Only one row is stored per pair — `outgoing_relations` reads it forwards ("blocks"), `incoming_relations` reads it backwards ("blocked by") — rather than two mirrored rows, so the pair cannot drift out of sync. `relates_to` is symmetric and normalized at write time (lower card id becomes `from_card`) so `unique_together` actually dedupes it. Same-board-only is enforced in the view, not the database (a `CheckConstraint` cannot span a join); a database `CheckConstraint` does block self-relations. Longer cycles (A→B→C→A) are deliberately not detected — nothing in v1 walks the graph as an ordering.
+A typed, directional link between two cards on the same board (#449): `blocks` or `relates_to`.
+
+- One row per pair: `outgoing_relations` reads it forwards ("blocks"), `incoming_relations` backwards ("blocked by"). Two mirrored rows could drift out of sync.
+- `relates_to` is symmetric and normalized at write time (lower card id becomes `from_card`) so `unique_together` dedupes it.
+- Same-board-only is enforced in the view, not the database (a `CheckConstraint` cannot span a join). A database `CheckConstraint` does block self-relations.
+- Longer cycles (A→B→C→A) are deliberately not detected: nothing in v1 walks the graph as an ordering.
 
 ### CardExternalRef
 
-A card's one-to-one link to a merge request or pull request on an external forge (#352): `provider` (`gitlab` / `github` / `other`), a freeform `ref` (e.g. `group/proj!45`), and a validated `url`. The API shape `external_ref: {provider, ref, url} | null` is a stable public contract from 1.2 — the enterprise auto-link integration reads and writes it. `url` accepts only absolute `http`/`https` URLs with no embedded credentials and no backslashes (browsers treat `\` as `/` in a URL while Python's parser does not, which would otherwise let one host be stored and a different one rendered).
+A card's one-to-one link to a merge request or pull request on an external forge (#352): `provider` (`gitlab` / `github` / `other`), a freeform `ref` (e.g. `group/proj!45`), and a validated `url`. The API shape `external_ref: {provider, ref, url} | null` is a stable public contract from 1.2; the enterprise auto-link integration reads and writes it. `url` accepts only absolute `http`/`https` URLs with no embedded credentials and no backslashes (browsers treat `\` as `/` while Python's parser does not, which would let one host be stored and a different one rendered).
 
 ### BoardEvent
 
-An append-only, cursor-resumable feed of every committed board mutation (#1114), read via `GET /api/v1/boards/{id}/events/`. A row is written inside the same transaction as the mutation it describes, so a rolled-back write produces no event. `data` is the WebSocket broadcast payload verbatim — a consumer can switch between polling the feed and holding a socket open without reconciling two representations. `board_id` and `actor_id` are plain columns, not foreign keys, so deleting a board or a user cannot rewrite history a consumer is mid-read of; `board.deleted` is itself an event this table must be able to persist. This is the delivery source for OSS webhooks — see [Open-core boundary § Outgoing webhooks](open-core-boundary.md#outgoing-webhooks-oss-vs-webhook-operations-enterprise).
+An append-only, cursor-resumable feed of every committed board mutation (#1114), read via `GET /api/v1/boards/{id}/events/`.
+
+- A row is written in the same transaction as its mutation, so a rolled-back write produces no event.
+- `data` is the WebSocket broadcast payload verbatim, so a consumer can switch between polling and holding a socket open without reconciling two representations.
+- `board_id` and `actor_id` are plain columns, not foreign keys, so deleting a board or user cannot rewrite history a consumer is mid-read of. `board.deleted` is itself an event this table must persist.
+
+This is the delivery source for OSS webhooks — see [Open-core boundary § Outgoing webhooks](open-core-boundary.md#outgoing-webhooks-oss-vs-webhook-operations-enterprise).
 
 ### BoardExportLog
 
-Records a successful board export (#842): actor, the role they held at export time, format, and row count. Only successful exports are logged — a denied attempt never reached the data. `actor` is `SET_NULL` so the row survives the user's later deactivation, but `role_at_export` is captured verbatim at write time so a later role change doesn't rewrite history.
+Records a successful board export (#842): actor, the role they held at export time, format, and row count. Only successful exports are logged; a denied attempt never reached the data. `actor` is `SET_NULL` so the row survives the user's later deactivation, and `role_at_export` is captured verbatim so a later role change doesn't rewrite history.
 
 ### BoardTemplate
 
-Templates are pre-configured board layouts seeded via a data migration. They are not user-editable. When a user creates a board and selects a template, the template's columns are created and the user is prompted to name the first swimlane using the template's `lane_label` and `lane_placeholder`.
+Pre-configured board layouts seeded via a data migration; not user-editable. Selecting one at board creation creates its columns and prompts the user to name the first swimlane using the template's `lane_label` and `lane_placeholder`.
 
 ### SavedFilter
 
-Saved filters are private to the owning user — there is no sharing across board members. Each filter stores the full frontend `FilterState` object as JSON. The schema is intentionally unvalidated at the model layer; the frontend validates on load.
+Saved filters are private to the owning user; there is no sharing across board members. Each stores the full frontend `FilterState` object as JSON. The schema is intentionally unvalidated at the model layer; the frontend validates on load.
 
 ### Notification
 
-Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite, due date approaching, comment added). The `verb` field stores a human-readable summary. The `actor` and `action_type` fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.
+The backend creates notifications on card assignment, @mention, card move, stale card detection, board invite, due date approaching, and comment added. `verb` stores a human-readable summary; `actor` and `action_type` give structured data for grouping, filtering, and future i18n. Clicking one opens the relevant board, and the card detail panel when it is tied to a card.
 
-The `board_invite` action type is created only when a board admin adds a user directly through `POST /api/v1/boards/{id}/members/` (and only for a new membership, not a role change). Joining through an invite link creates no notification — neither a group invite nor *(1.2+)* a board invite redemption; the joiner is the one acting. The notification links to the board rather than a card; the `card` FK is null for this action type.
+The `board_invite` action type is created only when a board admin adds a user directly through `POST /api/v1/boards/{id}/members/`, and only for a new membership, not a role change. Joining through an invite link creates no notification, neither a group invite nor *(1.2+)* a board invite redemption; the joiner is the one acting. It links to the board rather than a card, so the `card` FK is null for this action type.
 
-Every notification is created through `boards.services.notifications.create_notifications`,
-which after the transaction commits delivers OSS email for the five events that support it
-and then sends the `post_notification_created` signal once per row. The funnel exists
-because three of the creation sites use `bulk_create`, which sends no `post_save` — so a
-per-model signal would have been invisible to half the events. The funnel also skips inactive recipients, so no row is created for them. See
+Every notification is created through `boards.services.notifications.create_notifications`. After the transaction commits it delivers OSS email for the five events that support it, then sends the `post_notification_created` signal once per row. The funnel exists because three creation sites use `bulk_create`, which sends no `post_save`, so a per-model signal would have missed half the events. It also skips inactive recipients, so no row is created for them. See
 [Open core boundary](open-core-boundary.md#oss-extension-points-implementation-status).
 
 ### InviteLink
 
-Site-level registration invite links live in the accounts app and are distinct from `GroupInviteLink` (which controls group membership). The raw token value is generated once and never stored — only a SHA-256 hash is persisted. The raw value is returned exactly once at creation.
+Site-level registration invite links live in the accounts app and are distinct from `GroupInviteLink` (group membership). The raw token is generated once, returned exactly once at creation, and never stored; only a SHA-256 hash is persisted.
 
-Single-use links are consumed atomically via `select_for_update()` at registration time to prevent race-condition double-use. A soft cap of 50 active shareable links (`delivery = link`) per instance prevents token flood from a compromised admin account. Emailed links (`delivery = email`, #731) are single-use, always expire, and have their own cap of 200 pending per instance; the group equivalent is 5 active shareable links plus 50 pending emailed links per group. The recipient address of an emailed link is never stored.
+**By the numbers:**
 
-An emailed site invite is bound to its address the same way as board and group invites: `recipient_hash` is an HMAC of the normalized address keyed from `SECRET_KEY` (`visiban/invite_recipient.py`, #1703), checked inside `consume_invite_token` on the locked row before the invite is consumed. It is NULL for shareable links and for emailed invites minted before the column existed, which redeem as before.
+- Single-use links are consumed atomically via `select_for_update()` at registration time, preventing double-use races.
+- A soft cap of 50 active shareable links (`delivery = link`) per instance limits token flood from a compromised admin account.
+- Emailed links (`delivery = email`, #731) are single-use, always expire, and are capped at 200 pending per instance. The group equivalent is 5 active shareable links plus 50 pending emailed links per group.
+- The recipient address of an emailed link is never stored.
 
-A multi-use link needs its own guard against repeat redemption by the same person: `InviteLinkRedemption` (#925) stores a SHA-256 hash of the normalized email per `(invite_link, email_hash)`, enforced with a unique constraint. Single-use links don't need it — the existing `used_at` flag already blocks re-use. Storage is hash-only, so an operator investigating "who redeemed this link" sees hashes, not addresses.
+An emailed site invite is bound to its address like board and group invites: `recipient_hash` is an HMAC of the normalized address keyed from `SECRET_KEY` (`visiban/invite_recipient.py`, #1703), checked inside `consume_invite_token` on the locked row before the invite is consumed. It is NULL for shareable links and for emailed invites minted before the column existed, which redeem as before.
+
+A multi-use link guards against repeat redemption by the same person with `InviteLinkRedemption` (#925): a SHA-256 hash of the normalized email per `(invite_link, email_hash)`, under a unique constraint. Single-use links don't need it, since `used_at` already blocks re-use. Storage is hash-only, so an operator asking "who redeemed this link" sees hashes, not addresses.
 
 ### BoardInviteLink *(1.2+)*
 
-Board-scoped invites (`vbnb_` tokens, #1444) live in the boards app beside `BoardMembership`. Like the other two invite kinds, only the SHA-256 of the token is stored. The address an emailed invite went to is not stored either. Instead, an emailed board or group invite keeps `recipient_hash`, an HMAC of the normalized address keyed from `SECRET_KEY` (`visiban/invite_recipient.py`, #1678). Every redemption path compares it with the redeeming account's addresses on the locked invite row, before the invite is consumed. It is NULL for shareable links and for emailed invites minted before the column existed, which redeem as before, and it is never serialized. An invite can grant only `member`, `collaborator` or `viewer` (`BoardInviteLink.GRANTABLE_ROLES`, enforced by `generate()` and again at redemption), never `admin` or the moderator flag, and never group membership. Under `EMAIL_VERIFICATION=mandatory`, a group or board invite used to register with an address that is not yet verified records the new account in `reserved_for` (nullable, partial index, #1704) instead of granting; the membership is granted, and the invite consumed, when that account confirms the invited address.
+Board-scoped invites (`vbnb_` tokens, #1444) live in the boards app beside `BoardMembership`.
 
-Redemption is serialized by `select_for_update()` on the invite row — in the join view and in the registration validator — and it never edits an existing explicit `BoardMembership`, because an explicit membership overrides an inherited group role rather than adding to it (see [Permissions](../features/permissions.md)). A pending invite whose sender has been deleted or is no longer a board admin is unusable: the join endpoints answer `410 revoked` and the admin list reports it as `revoked`, without writing to the row. Because nothing is written, the state is reversible — if the sender regains board admin the invite is pending and redeemable again until it expires. An admin who wants it gone for good revokes it with `DELETE /boards/{id}/invite-links/{link_id}/`, which accepts it since `revoked_at` is still NULL.
+**Storage:**
 
-`delivery` is `email` for an emailed invite (always single-use, capped at 50 pending per board) or `link` for a shareable link (#439: optionally multi-use, capped at 5 active per board, and always given an `expires_at` by the API even though the column is nullable). Both caps are checked under a `select_for_update()` on the board row. A multi-use link increments `use_count` once per redeeming user — on the first `BoardInviteRedemption` row for that user — and never stamps `used_at` — the `board_invite_link_used_at_requires_single_use` check constraint forbids it. A shareable link never authorizes a new account on an invite-only site (`board_link_registration_refusal`).
+- Only the SHA-256 of the token is stored, as for the other two invite kinds. The address an emailed invite went to is not stored either.
+- An emailed board or group invite keeps `recipient_hash`, an HMAC of the normalized address keyed from `SECRET_KEY` (`visiban/invite_recipient.py`, #1678). Every redemption path compares it with the redeeming account's addresses on the locked invite row, before the invite is consumed. It is NULL for shareable links and for emailed invites minted before the column existed, which redeem as before. It is never serialized.
 
-`BoardInviteRedemption` records who redeemed which invite, what it granted, and whether a membership was created. It is the durable provenance record — the `member.added` change-feed row also names the invite, but the change feed is pruned after 30 days.
+**Grants:**
+
+- An invite can grant only `member`, `collaborator` or `viewer` (`BoardInviteLink.GRANTABLE_ROLES`, enforced by `generate()` and again at redemption). Never `admin`, the moderator flag, or group membership.
+- Under `EMAIL_VERIFICATION=mandatory`, a group or board invite used to register with a not-yet-verified address records the new account in `reserved_for` (nullable, partial index, #1704) instead of granting. The membership is granted, and the invite consumed, when that account confirms the invited address.
+
+**Redemption:**
+
+- It is serialized by `select_for_update()` on the invite row, in the join view and in the registration validator.
+- It never edits an existing explicit `BoardMembership`: an explicit membership overrides an inherited group role rather than adding to it (see [Permissions](../features/permissions.md)).
+- A pending invite whose sender has been deleted or is no longer a board admin is unusable. The join endpoints answer `410 revoked` and the admin list reports it as `revoked`, without writing to the row. Because nothing is written, it is reversible: if the sender regains board admin, the invite is pending and redeemable again until it expires.
+- To remove it for good, an admin revokes it with `DELETE /boards/{id}/invite-links/{link_id}/`, which accepts it since `revoked_at` is still NULL.
+
+**`delivery`:**
+
+- `email`: always single-use, capped at 50 pending per board.
+- `link` (#439): a shareable link, optionally multi-use, capped at 5 active per board, and always given an `expires_at` by the API even though the column is nullable. A multi-use link increments `use_count` once per redeeming user (on the first `BoardInviteRedemption` row for that user) and never stamps `used_at`; the `board_invite_link_used_at_requires_single_use` check constraint forbids it. A shareable link never authorizes a new account on an invite-only site (`board_link_registration_refusal`).
+- Both caps are checked under a `select_for_update()` on the board row.
+
+`BoardInviteRedemption` records who redeemed which invite, what it granted, and whether a membership was created. It is the durable provenance record; the `member.added` change-feed row also names the invite, but the change feed is pruned after 30 days.
 
 ### GroupLabel
 
-A group-level label library (name, color) copied onto every new board created under that group, so related boards start with a consistent label set instead of each admin recreating one. Distinct from a board's own `Label` rows, which a board can add to independently after creation.
+A group-level label library (name, color) copied onto every new board created under that group, so related boards start with a consistent label set. Distinct from a board's own `Label` rows, which a board can add to independently afterward.
 
 ## `git_lens` app (off by default)
 
-A fourth Django app, `git_lens`, is registered only when `GIT_LENS_ENABLED=true` (default `false`) — its tables, routes, and one model, `LensConnection`, stay entirely dormant otherwise. `LensConnection` is a one-to-one link from a `Board` to an external GitHub or GitLab repository (`provider`, `repo_slug`, plus `column_dim` / `swimlane_dim` for how issues map onto the board's grid), backing the [Issue Board Lens](../features/issue-board-lens.md) feature: a shareable, read-only board derived from a repo's issues and merge/pull request state. It reuses the host board's RBAC rather than defining its own.
+A fourth Django app, `git_lens`, is registered only when `GIT_LENS_ENABLED=true` (default `false`). Otherwise its tables, routes, and one model, `LensConnection`, stay dormant. `LensConnection` is a one-to-one link from a `Board` to an external GitHub or GitLab repository (`provider`, `repo_slug`, plus `column_dim` / `swimlane_dim` for how issues map onto the board's grid). It backs the [Issue Board Lens](../features/issue-board-lens.md): a shareable, read-only board derived from a repo's issues and merge/pull request state. It reuses the host board's RBAC.
 
 ## Key design decisions
 
-**CardMovement is append-only.** Every time a card changes column or swimlane a new `CardMovement` row is created. Application code never edits what a movement records and never deletes one (the only updates are bookkeeping: filling the board and card snapshot columns, re-pointing `board` when the admin moves a card, and nulling `card` when a card is deleted), providing a full audit trail: since 1.2 (#1469) `CardMovement.save()` refuses to rewrite an existing row, `delete()` on a row always refuses, and the Django admin shows movements read-only. This is a guard against accidental writes, not tamper-proofing — a queryset `update()`/`delete()` or raw SQL bypasses it.
+**CardMovement is append-only.** Every column or swimlane change creates a new `CardMovement` row, giving a full audit trail. Application code never edits what a movement records and never deletes one. The only updates are bookkeeping: filling the board and card snapshot columns, re-pointing `board` when the admin moves a card, and nulling `card` when a card is deleted.
 
-**A card's movements outlive the card; a board's do not.** `CardMovement.card` is `on_delete=SET_NULL` (#1469): hard-deleting a card (directly, or by deleting the column or swimlane it is in) keeps its movements, with `card` set to `NULL`. Each row also carries `board` (the board it happened on, `on_delete=CASCADE`) and `card_uid` / `card_title` (the card's uid and title when the row was recorded; rows from before the 1.2 upgrade and imported rows carry them as of the upgrade or import), so a deleted card's history stays on its board's History view under its original uid and title. Deleting the whole board is the explicit destructive act that removes every movement on it, through `board`. The one other way a movement leaves is the superuser-run `purge_card_history` management command (#1797), which deletes matching rows (by default only deleted cards') with a queryset delete and writes a `card_history.purged` `AdminActionLog` entry in the same transaction; see [Card History Retention](../administration/card-history-retention.md).
+Since 1.2 (#1469) `CardMovement.save()` refuses to rewrite an existing row, `delete()` on a row always refuses, and the Django admin shows movements read-only. **Yes, but:** this guards against accidental writes, not tampering. A queryset `update()`/`delete()` or raw SQL bypasses it.
 
-**BoardMembership is explicit per board.** A user can have different roles on different boards. Group membership is inherited automatically (see [Group Inheritance](../features/rbac/inheritance.md)) but can be overridden by an explicit `BoardMembership` row.
+**A card's movements outlive the card; a board's do not.** `CardMovement.card` is `on_delete=SET_NULL` (#1469): hard-deleting a card (directly, or by deleting the column or swimlane it is in) keeps its movements, with `card` set to `NULL`. Each row also carries `board` (where it happened, `on_delete=CASCADE`) and `card_uid` / `card_title` (the card's uid and title when the row was recorded; rows from before the 1.2 upgrade and imported rows carry them as of the upgrade or import). A deleted card's history therefore stays on its board's History view under its original uid and title.
+
+A movement leaves in two ways:
+
+- Deleting the whole board, the explicit destructive act, removes every movement on it through `board`.
+- The superuser-run `purge_card_history` management command (#1797) deletes matching rows (by default only deleted cards') with a queryset delete and writes a `card_history.purged` `AdminActionLog` entry in the same transaction.
+
+See [Card History Retention](../administration/card-history-retention.md).
+
+**BoardMembership is explicit per board.** A user can have different roles on different boards. Group membership is inherited automatically (see [Group Inheritance](../features/rbac/inheritance.md)), but an explicit `BoardMembership` row overrides it.
 
 **Column positions use a two-pass update.** To avoid `unique_together(board, position)` conflicts when reordering, columns are first shifted to high temporary positions, then assigned final positions.
 
 **Card positions are per-cell.** Position is scoped to `(board, column, swimlane)`. When a card moves cells, siblings in both source and target cells are renumbered.
 
-**UIDs are stable external identifiers.** Boards, columns, swimlanes, labels, and cards each carry a `uid` field — a 16-character random hex string assigned at creation and never changed or reused. UIDs survive renames and are preserved in `CardMovement` records even after the referenced column or swimlane is deleted. They are intended as the canonical key for integrations and webhooks that need to reference Visiban objects durably. See [Stable UIDs](../features/stable-uids.md).
+**UIDs are stable external identifiers.** Boards, columns, swimlanes, labels, and cards each carry a `uid`: a 16-character random hex string assigned at creation and never changed or reused. UIDs survive renames and are preserved in `CardMovement` records after the referenced column or swimlane is deleted. They are the canonical key for integrations and webhooks that reference Visiban objects durably. See [Stable UIDs](../features/stable-uids.md).
 
-**Soft-delete via `archived_at`.** Cards are never hard-deleted from the board view. Archiving sets `archived_at` and hides the card; restoring clears it. Both operations create a `CardMovement` record with the appropriate `movement_type` so the archive/restore event appears in the card's history.
+**Soft-delete via `archived_at`.** Cards are never hard-deleted from the board view. Archiving sets `archived_at` and hides the card; restoring clears it. Both create a `CardMovement` record with the matching `movement_type`, so the event appears in the card's history.
 
-**Denormalized names and UIDs on CardMovement.** The `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name` fields (and their `*_uid` counterparts) are written at move time. This preserves human-readable and machine-readable history even after the referenced column or swimlane is deleted (`on_delete=SET_NULL` on the FK). `card_uid` and `card_title` do the same for the card (#1469); the API serves them only once the card itself is gone.
+**Denormalized names and UIDs on CardMovement.** The `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name` fields (and their `*_uid` counterparts) are written at move time, preserving readable history after the referenced column or swimlane is deleted (`on_delete=SET_NULL` on the FK). `card_uid` and `card_title` do the same for the card (#1469); the API serves them only once the card itself is gone.
 
-**InviteLink is hash-only.** Both `InviteLink` (site-level) and `PersonalAccessToken` store only a SHA-256 hash of the raw token. The raw value is returned exactly once at creation and never persisted, following the same pattern as GitHub PATs.
+**InviteLink is hash-only.** `InviteLink` (site-level) and `PersonalAccessToken` store only a SHA-256 hash of the raw token. The raw value is returned exactly once at creation and never persisted, like GitHub PATs.

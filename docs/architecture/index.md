@@ -4,9 +4,7 @@
 
 Technical documentation for developers and self-hosters.
 
-**Why it matters:** Start with the right page and skip the rest. Contributors need the overview and service layer; self-hosters need deployment and scaling.
-
-**Go deeper:** pick a document.
+**Why it matters:** these pages are for developers and self-hosters; the table below says what each covers.
 
 | Document | Description |
 |---|---|
