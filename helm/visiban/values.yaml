@@ -281,10 +281,14 @@ postgresql:
     database: visiban
     username: visiban
     # Name of a pre-existing Secret containing the password (key: "password").
-    # When set, the chart skips creating its own PostgreSQL Secret.
+    # When set, the chart skips creating its own PostgreSQL Secret, and the
+    # backend reads the same password from it (DATABASE_URL_PASSWORD, #1910).
+    # Not combined with secret.existingSecret's database-url, which wins and
+    # must then carry the password itself.
     existingSecret: ""
-    # Only used when existingSecret is empty. "visiban" is a placeholder: the
-    # render refuses it (#1864), so set your own password.
+    # Used (to build the chart-managed database-url) only when existingSecret is
+    # empty. "visiban" is a placeholder: the render refuses it (#1864), so set
+    # your own password. Ignored, and not checked, when existingSecret is set.
     password: "visiban"
   primary:
     persistence:

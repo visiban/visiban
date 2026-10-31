@@ -106,7 +106,7 @@ The `cd` matters: the script only reads paths under the repository, the system t
 | `NOTIFICATION_EMAIL_TIMEOUT` | mirrors Django's `EMAIL_TIMEOUT` (seconds) |
 | `EMAIL_TIMEOUT`, `EMAIL_USE_SSL`, `NUM_PROXIES` | upstream Django/DRF names |
 | `GIT_LENS_OUTBOUND_LOG_LEVEL`, `MCP_ALLOWED_HOSTS` | `<FEATURE>_<NOUN>` |
-| `REDIS_URL_PASSWORD` | `<FEATURE>_<NOUN>`: credential for an external service, so no reserved prefix |
+| `REDIS_URL_PASSWORD`, `DATABASE_URL_PASSWORD` | `<FEATURE>_<NOUN>`: credential for an external service, so no reserved prefix |
 | `MCP_THROTTLE_READ_RATE`, `MCP_THROTTLE_COMPUTE_RATE`, `MCP_THROTTLE_PREAUTH_RATE` | `<FEATURE>_THROTTLE_<SCOPE>_RATE` |
 | `DEMO_MODE` | named instance mode, ends in `_MODE` |
 | `DEMO_LOGIN_USERNAME`, `DEMO_RESET_SCHEDULE` | `<FEATURE>_<NOUN>` |

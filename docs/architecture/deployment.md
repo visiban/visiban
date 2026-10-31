@@ -234,8 +234,8 @@ helm install visiban helm/visiban \
 | `backend.mediaPersistence.size` | `5Gi` | Size of the media PVC |
 | `secret.existingSecret` | `""` | Name of a pre-existing K8s Secret — when set, the chart does not create its own |
 | `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` (ignored when `existingSecret` is set) |
-| `postgresql.auth.existingSecret` | `""` | Name of a pre-existing K8s Secret for the PG password (key: `password`) |
-| `postgresql.auth.password` | `visiban` | Database password (ignored when `existingSecret` is set). The default is a placeholder: the render fails until you set your own password (`postgresql.auth.existingSecret` clears it only together with `secret.existingSecret` supplying a matching `database-url`, #1910) |
+| `postgresql.auth.existingSecret` | `""` | Name of a pre-existing K8s Secret for the PG password (key: `password`). The bundled PostgreSQL and the backend (via `DATABASE_URL_PASSWORD`) both read the password from it (#1910) |
+| `postgresql.auth.password` | `visiban` | Database password. The default is a placeholder: the render fails until you set your own password, unless `postgresql.auth.existingSecret` supplies it |
 | `backend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Backend image tag — bumped by `scripts/release.sh` on every release |
 | `frontend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Frontend image tag — bumped by `scripts/release.sh` on every release |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |

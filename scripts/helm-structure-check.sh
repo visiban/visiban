@@ -2018,7 +2018,6 @@ check_postgres_password_guard() {
   local must_fail=(
     "placeholder|--set-string postgresql.auth.password=visiban"
     "empty password|--set-string postgresql.auth.password="
-    "placeholder with only postgresql.auth.existingSecret|--set-string postgresql.auth.password=visiban --set postgresql.auth.existingSecret=my-pg-secret"
     "placeholder with only secret.existingSecret|--set-string postgresql.auth.password=visiban --set secret.existingSecret=my-secret"
   )
   for case_ in "${must_fail[@]}"; do
@@ -2034,6 +2033,8 @@ check_postgres_password_guard() {
   done
   # Must render: name|flags
   local must_pass=(
+    "a real password with only postgresql.auth.existingSecret (backward compatible, #1910)|--set-string postgresql.auth.password=a-real-looking-password --set postgresql.auth.existingSecret=my-pg-secret"
+    "the placeholder password with postgresql.auth.existingSecret (the password is unused, #1910)|--set-string postgresql.auth.password=visiban --set postgresql.auth.existingSecret=my-pg-secret"
     "both existing Secrets set|--set-string postgresql.auth.password=visiban --set postgresql.auth.existingSecret=my-pg-secret --set secret.existingSecret=my-secret"
     "external database|--set-string postgresql.auth.password=visiban --set postgresql.enabled=false"
     "a real password|--set-string postgresql.auth.password=a-real-looking-password"
@@ -2046,9 +2047,57 @@ check_postgres_password_guard() {
       bad=1
     fi
   done
+  # postgresql.auth.existingSecret feeds the BACKEND too (#1910): every
+  # backend-image container gets DATABASE_URL_PASSWORD via a secretKeyRef to
+  # that Secret's "password" key, and the chart Secret's database-url carries no
+  # password (settings.py fills it in). Without existingSecret, or with
+  # secret.existingSecret supplying the whole URL, the variable is absent and
+  # database-url is the password-bearing URL it always was.
+  local rendered n_with n_total
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set postgresql.auth.existingSecret=my-pg-secret 2>"$errf")" \
+    || { fail "render with postgresql.auth.existingSecret failed: $(head -2 "$errf" | tr '\n' ' ')"; bad=1; rendered=""; }
+  if [ -n "$rendered" ]; then
+    n_total="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$"))) | .spec.template.spec | (.containers + .initContainers)[] | .name' <<< "$rendered" | { grep -vE '^(---)?$' || true; } | wc -l | tr -d ' ')"
+    n_with="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$"))) | .spec.template.spec | (.containers + .initContainers)[] | select(.env[]? | select(.name == "DATABASE_URL_PASSWORD" and .valueFrom.secretKeyRef.name == "my-pg-secret" and .valueFrom.secretKeyRef.key == "password")) | .name' <<< "$rendered" | { grep -vE '^(---)?$' || true; } | wc -l | tr -d ' ')"
+    if [ "$n_with" -lt 1 ] || [ "$n_with" -ne "$n_total" ]; then
+      fail "with postgresql.auth.existingSecret, $n_with of $n_total backend containers read DATABASE_URL_PASSWORD from my-pg-secret/password -- all of them must"
+      bad=1
+    fi
+    if ! yq 'select(.kind == "Secret" and (.stringData."database-url" != null)) | .stringData."database-url"' <<< "$rendered" | grep -qE '^postgres://visiban@[^:@]+-postgresql:5432/visiban$'; then
+      fail "with postgresql.auth.existingSecret, the chart Secret's database-url is not the password-free postgres://visiban@<release>-postgresql:5432/visiban"
+      bad=1
+    fi
+  fi
+  # NOTES.txt only asks for postgresql.auth.password when it is used.
+  local notes
+  if ! notes="$(render_notes "$CHART_UNDER_TEST" --set postgresql.auth.existingSecret=my-pg-secret 2>"$errf")" \
+     || grep -qF -- '--set postgresql.auth.password=' <<< "$notes"; then
+    fail "NOTES.txt still tells the operator to set postgresql.auth.password although postgresql.auth.existingSecret supplies it"
+    bad=1
+  fi
+  if ! notes="$(render_notes "$CHART_UNDER_TEST" 2>"$errf")" || ! grep -qF -- '--set postgresql.auth.password=' <<< "$notes"; then
+    fail "NOTES.txt no longer tells the operator to set postgresql.auth.password without postgresql.auth.existingSecret"
+    bad=1
+  fi
+  local nowire
+  for nowire in "" "--set postgresql.auth.existingSecret=my-pg-secret --set secret.existingSecret=my-secret" "--set postgresql.enabled=false"; do
+    # shellcheck disable=SC2086
+    rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" $nowire 2>"$errf")" \
+      || { fail "render ($nowire) failed: $(head -2 "$errf" | tr '\n' ' ')"; bad=1; continue; }
+    if grep -q 'DATABASE_URL_PASSWORD' <<< "$rendered"; then
+      fail "DATABASE_URL_PASSWORD is rendered for '${nowire:-the default}' -- it must only appear for postgresql.auth.existingSecret without secret.existingSecret"
+      bad=1
+    fi
+  done
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" 2>/dev/null || true)"
+  if ! yq 'select(.kind == "Secret" and (.stringData."database-url" != null)) | .stringData."database-url"' <<< "$rendered" | grep -qE '^postgres://visiban:structure-check-not-a-real-password@'; then
+    fail "without existingSecret the chart Secret's database-url no longer carries the password (byte-for-byte compatibility)"
+    bad=1
+  fi
+
   rm -f "$errf"
 
-  [ "$bad" -eq 0 ] && pass "the placeholder PostgreSQL password (and an empty one) fails the render with the default bundled StatefulSet; only a real password, both existing Secrets, or an external database clear it"
+  [ "$bad" -eq 0 ] && pass "the placeholder PostgreSQL password (and an empty one) fails the render with the default bundled StatefulSet; postgresql.auth.existingSecret (the password is unused) clears it and feeds the backend via DATABASE_URL_PASSWORD (#1910); otherwise only a real password, both existing Secrets, or an external database clear it"
 }
 
 # ---------------------------------------------------------------------------
@@ -2309,7 +2358,7 @@ self_test() {
     "10 demo unsafe-hosts opt-in guard removed|templates/_validate.tpl|s/{{- if .Values.backend.settings.allowUnsafeHosts -}}/{{- if false -}}/"
     # 15 (#1864): the guard stops covering postgresql.enabled, so the default
     # bundled StatefulSet accepts the placeholder password again.
-    "15 postgres password guard limited to the subchart|templates/_validate.tpl|s/{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not (and/{{- if and (or false .Values.postgresql.subchartEnabled) (not (and/"
+    "15 postgres password guard limited to the subchart|templates/_validate.tpl|s/{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret)/{{- if and (or false .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret)/"
   )
 
   for fixture in "${fixtures[@]}"; do

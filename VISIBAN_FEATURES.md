@@ -458,7 +458,7 @@ Helm chart under `helm/visiban/`. Bundles a PostgreSQL 17 StatefulSet (using off
 | **Chart-managed Secret** | Set `secret.djangoSecretKey` (and OAuth credentials) in a gitignored `values.secret.yaml` file; chart creates the Secret automatically |
 | **External / pre-existing Secret** | Create the K8s Secret yourself (via Vault, Sealed Secrets, ESO, etc.) and set `secret.existingSecret: <name>`; the chart references it without creating its own |
 
-The same `existingSecret` pattern applies to the PostgreSQL password (`postgresql.auth.existingSecret`), making the chart compatible with external secrets managers at every credential boundary.
+The same `existingSecret` pattern applies to the PostgreSQL password (`postgresql.auth.existingSecret`), making the chart compatible with external secrets managers. The backend reads the PostgreSQL password from `postgresql.auth.existingSecret` too (`DATABASE_URL_PASSWORD`), unless a `secret.existingSecret` `database-url` supplies the whole URL.
 
 - `values.secret.yaml.example` ships in the repo as a template for the gitignored secrets file approach
 - `backend.oauth.*` block — per-provider `clientId`/`clientSecret` fields; leave empty to disable a provider

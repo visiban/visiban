@@ -25,6 +25,13 @@ Invocation: {{ include "visiban.backendEnv" . }}
     secretKeyRef:
       name: {{ $secret }}
       key: database-url
+{{- if include "visiban.databasePasswordFromSecret" $ctx }}
+- name: DATABASE_URL_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "visiban.postgresql.secretName" $ctx }}
+      key: password
+{{- end }}
 - name: DEBUG
   value: {{ $ctx.Values.backend.settings.debug | quote }}
 {{- /*
