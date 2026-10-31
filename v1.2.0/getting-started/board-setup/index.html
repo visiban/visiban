@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/version-badge.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#board-setup" class="md-skip">
+        <a href="#mark-your-done-column-so-analytics-stay-honest" class="md-skip">
           Skip to content
         </a>
       
@@ -788,56 +790,6 @@
     <span class="md-ellipsis">
       
         Marking the Done column
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Marking the Done column">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Steps
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why this matters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#demo-board" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Demo board
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next steps
       
     </span>
   </a>
@@ -4080,58 +4032,61 @@
   
 
 
-<h1 id="board-setup">Board Setup<a class="headerlink" href="#board-setup" title="Permanent link">&para;</a></h1>
-<p>Complete these steps after <a href="../first-boot/">First Boot</a> and before inviting your team — they're what make analytics accurate from day one.</p>
+<h1 id="mark-your-done-column-so-analytics-stay-honest">Mark your Done column so analytics stay honest<a class="headerlink" href="#mark-your-done-column-so-analytics-stay-honest" title="Permanent link">&para;</a></h1>
+<p>Create a board from a template, adjust its columns, then mark every column where work finishes as <strong>done</strong>. Do it after <a href="../first-boot/">First boot</a> and before you invite your team.</p>
+<p><strong>Why it matters:</strong> These steps are what make analytics accurate from day one. Until a Done column is marked, finished work counts as work in progress.</p>
 <h2 id="create-your-first-board">Create your first board<a class="headerlink" href="#create-your-first-board" title="Permanent link">&para;</a></h2>
-<p>When you click <strong>+ New board</strong>, the Create Board modal offers 11 templates: 10 pre-built pipelines (Sales Pipeline, Customer Support, Product Roadmap, and more), each with columns and a first swimlane tailored to that workflow, plus <strong>Blank Board</strong> for the 11th. Blank Board starts with no columns or swimlanes at all — add your own from scratch.</p>
-<p>Templates are applied once at creation time — you can freely rename, reorder, add, or remove columns afterward. For the full list of available templates, see <a href="../../features/board/#board-creation">Board &amp; Cards — Board creation</a>.</p>
+<p>Click <strong>+ New board</strong>. The Create Board modal offers 11 templates:</p>
+<ul>
+<li><strong>10 pre-built pipelines</strong> (Sales Pipeline, Customer Support, Product Roadmap, and more), each with columns and a first swimlane tailored to that workflow</li>
+<li><strong>Blank Board</strong>, which starts with no columns or swimlanes at all, so you add your own</li>
+</ul>
+<p><strong>Yes, but:</strong> a template applies once, at creation. Afterward you can rename, reorder, add, or remove columns freely.</p>
+<p><strong>Go deeper:</strong> the full template list is in <a href="../../features/board/#board-creation">Board &amp; Cards: Board creation</a>.</p>
 <h2 id="customizing-columns">Customizing columns<a class="headerlink" href="#customizing-columns" title="Permanent link">&para;</a></h2>
-<p>Columns represent the stages in your pipeline (for example: Backlog, In Progress, Review, Done). If you used a template, you may already have the right columns in place — skip ahead to <a href="#marking-the-done-column">Marking the Done column</a> if so.</p>
-<p>To add a column, hover over the vertical separator between any two columns on the board — a blue <strong>+</strong> handle appears at the center. Click it to insert a new column to the right of that separator.</p>
-<p>To rename a column, click its name in the column header (Enter to confirm, Escape to cancel). For full column settings, open the column header overflow menu and choose <strong>Edit</strong>.</p>
-<p>See <a href="../../features/board/#columns">Board &amp; Cards — Columns</a> for the full list of column options including WIP limits and weight limits.</p>
+<p>Columns are the stages in your pipeline, for example Backlog, In Progress, Review, Done. If a template already gave you the right ones, skip to <a href="#marking-the-done-column">Marking the Done column</a>.</p>
+<ul>
+<li><strong>Add a column:</strong> hover over the vertical separator between two columns. A blue <strong>+</strong> handle appears at its center. Click it to insert a column to the right of that separator.</li>
+<li><strong>Rename a column:</strong> click its name in the header. Press Enter to confirm or Escape to cancel.</li>
+<li><strong>Everything else:</strong> open the header's overflow menu and choose <strong>Edit</strong>.</li>
+</ul>
+<p><strong>Go deeper:</strong> WIP limits, weight limits, and every other column option are in <a href="../../features/board/#columns">Board &amp; Cards: Columns</a>.</p>
 <h2 id="marking-the-done-column">Marking the Done column<a class="headerlink" href="#marking-the-done-column" title="Permanent link">&para;</a></h2>
+<p>Mark every column where work finishes as <strong>done</strong> (for example "Done", "Closed", or "Released") before your team moves its first card.</p>
 <div class="admonition warning">
 <p class="admonition-title">Required for accurate analytics</p>
-<p>Until at least one column is marked as done, the dwell-time heatmap includes all columns — closed work stays visible in the data and distorts stage timing. Mark your completion column before your team starts moving cards.</p>
+<p>Until at least one column is marked as done, the dwell-time heatmap includes all columns: closed work stays in the data and distorts stage timing. Mark your completion column before your team starts moving cards.</p>
 </div>
-<p>Every board should have at least one column designated as the completion point (for example, "Done", "Closed", or "Released"). Marking it tells Visiban to:</p>
+<p><a id="why-this-matters"></a></p>
+<p><strong>Why it matters:</strong> Without a marked done column:</p>
 <ul>
-<li><strong>Exclude it from the dwell-time heatmap</strong> — so completed work does not inflate time-in-stage figures for active stages</li>
-<li><strong>Count movements into it as completed work</strong> — powering the 7-day and 30-day velocity figures in the Summary view</li>
+<li>completed cards keep accumulating dwell time in their current column</li>
+<li>the heatmap shows those columns as bottlenecks even though the work is finished</li>
+<li>velocity counts in the Summary view stay at zero</li>
 </ul>
-<h3 id="steps">Steps<a class="headerlink" href="#steps" title="Permanent link">&para;</a></h3>
+<p><strong>How it works:</strong> Marking a column done tells Visiban to:</p>
+<ul>
+<li><strong>Exclude it from the dwell-time heatmap</strong>, so completed work doesn't inflate time-in-stage figures for active stages</li>
+<li><strong>Count movements into it as completed work</strong>, which powers the 7-day and 30-day velocity figures in the Summary view</li>
+</ul>
+<p>Archived cards use their archive timestamp as the exit time, so they don't accumulate dwell time after archiving.</p>
+<p><a id="steps"></a></p>
+<p><strong>To mark it:</strong></p>
 <ol>
-<li>Open the column header overflow menu on your Done column (the <strong>⋯</strong> icon that appears on hover).</li>
+<li>Open the header overflow menu on your Done column (the <strong>⋯</strong> icon that appears on hover).</li>
 <li>Choose <strong>Edit</strong>.</li>
 <li>Check <strong>Mark as done column</strong>.</li>
 <li>Save.</li>
 </ol>
-<p>The column label does not change on the board — the "done" designation is only reflected in analytics views. You can mark multiple columns as done (for example, both "Closed Won" and "Closed Lost").</p>
+<p><strong>Yes, but:</strong> the column label doesn't change on the board. The "done" designation shows up only in analytics views. You can mark more than one column as done, for example both "Closed Won" and "Closed Lost".</p>
 <div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>To verify the setting took effect, open the Analytics view. A note below the heatmap shows how many done columns are excluded from the calculation.</p>
+<p class="admonition-title">Check that it took</p>
+<p>Open the Analytics view. A note below the heatmap shows how many done columns are excluded from the calculation.</p>
 </div>
-<h2 id="why-this-matters">Why this matters<a class="headerlink" href="#why-this-matters" title="Permanent link">&para;</a></h2>
-<p>Without a marked done column:</p>
-<ul>
-<li>Cards that have been completed continue to accumulate dwell time in their current column</li>
-<li>The heatmap shows those columns as bottlenecks even though the work is finished</li>
-<li>Velocity counts in the Summary view stay at zero</li>
-</ul>
-<p>With a marked done column:</p>
-<ul>
-<li>The heatmap covers only active in-flight stages</li>
-<li>Archived cards use their archive timestamp as the exit time, so they do not accumulate dwell time after archiving</li>
-<li>Velocity counts reflect real throughput</li>
-</ul>
-<h2 id="demo-board">Demo board<a class="headerlink" href="#demo-board" title="Permanent link">&para;</a></h2>
-<p>If you seeded the instance with demo data (<code>python manage.py seed_demo_data</code>), the demo board comes pre-configured with <code>is_done</code> set correctly on its terminal column. You can inspect it as a reference before configuring your own boards.</p>
-<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../first-boot/#inviting-your-team">Invite your team</a> — generate invite links or set the registration mode</li>
-<li><a href="../../features/analytics/">Analytics</a> — full reference for the dwell-time heatmap, stalled cards, and CSV export</li>
-</ul>
+<p><a id="demo-board"></a></p>
+<p><strong>Want a reference board?</strong> If you seeded the instance with demo data (<code>python manage.py seed_demo_data</code>), the demo board already has <code>is_done</code> set on its terminal column. Inspect it before configuring your own.</p>
+<p><a id="next-steps"></a></p>
+<p><strong>Next:</strong> <a href="../first-boot/#inviting-your-team">Invite your team</a> with invite links or a registration mode. <strong>Go deeper:</strong> <a href="../../features/analytics/">Analytics</a> covers the dwell-time heatmap, stalled cards, and CSV export.</p>
 
 
 

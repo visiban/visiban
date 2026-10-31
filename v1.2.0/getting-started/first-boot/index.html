@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/version-badge.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#first-boot" class="md-skip">
+        <a href="#log-in-once-then-lock-the-door" class="md-skip">
           Skip to content
         </a>
       
@@ -706,22 +708,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#automatic-admin-bootstrap" class="md-nav__link">
+  <a href="#retrieve-the-password" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Automatic admin bootstrap
+        Retrieve the password
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Automatic admin bootstrap">
+    <nav class="md-nav" aria-label="Retrieve the password">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#retrieving-the-password" class="md-nav__link">
+  <a href="#docker-compose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Retrieving the password
+        Docker Compose
       
     </span>
   </a>
@@ -729,10 +731,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#kubernetes-helm" class="md-nav__link">
+  <a href="#local-development-bare-metal-or-venv" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Kubernetes / Helm
+        Local development (bare metal or venv)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubernetes-and-helm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kubernetes and Helm
       
     </span>
   </a>
@@ -745,10 +758,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#changing-the-password" class="md-nav__link">
+  <a href="#no-password-file-reset-the-password" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Changing the password
+        No password file? Reset the password
       
     </span>
   </a>
@@ -756,10 +769,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#customizing-the-bootstrap-account" class="md-nav__link">
+  <a href="#change-the-password" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Customizing the bootstrap account
+        Change the password
       
     </span>
   </a>
@@ -767,10 +780,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#subsequent-boots" class="md-nav__link">
+  <a href="#customize-the-bootstrap-account" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Subsequent boots
+        Customize the bootstrap account
       
     </span>
   </a>
@@ -790,10 +803,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#generating-invite-links-invite-only-mode" class="md-nav__link">
+  <a href="#generate-invite-links-invite-only-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Generating invite links (Invite-only mode)
+        Generate invite links (Invite-only mode)
       
     </span>
   </a>
@@ -801,10 +814,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#creating-accounts-manually-closed-mode" class="md-nav__link">
+  <a href="#create-accounts-by-hand-closed-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Creating accounts manually (Closed mode)
+        Create accounts by hand (Closed mode)
       
     </span>
   </a>
@@ -813,17 +826,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#loading-sample-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Loading sample data
-      
-    </span>
-  </a>
   
 </li>
       
@@ -4119,12 +4121,18 @@
   
 
 
-<h1 id="first-boot">First Boot<a class="headerlink" href="#first-boot" title="Permanent link">&para;</a></h1>
-<p>The first time Visiban starts, it creates a one-time admin password — retrieve it, log in, and set your own password before inviting anyone else.</p>
-<h2 id="automatic-admin-bootstrap">Automatic admin bootstrap<a class="headerlink" href="#automatic-admin-bootstrap" title="Permanent link">&para;</a></h2>
-<p>On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (<code>/tmp/visiban_admin_password</code> by default). The password is <strong>not</strong> printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.</p>
-<p>The file is created exclusively with mode <code>0600</code> and symlinks are never followed. If something other than a regular file you own already exists at that path, Visiban refuses to use it and prints the password to the command's stdout instead. Set <code>VISIBAN_ADMIN_PASSWORD_FILE</code> to use a private directory instead of <code>/tmp</code>.</p>
-<p>The stdout output looks like this:</p>
+<h1 id="log-in-once-then-lock-the-door">Log in once, then lock the door<a class="headerlink" href="#log-in-once-then-lock-the-door" title="Permanent link">&para;</a></h1>
+<p>On first start, Visiban creates an <code>admin</code> account and writes its one-time password to a file. Retrieve it, log in, set your own password, and choose a registration mode before you invite anyone.</p>
+<p><strong>Why it matters:</strong> The password is written once and never printed to the logs. If the container is recreated before you read the file, the file is gone and you'll need to reset the password instead.</p>
+<p><a id="automatic-admin-bootstrap"></a></p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li><strong>When no site admin exists,</strong> <code>ensure_site_admin</code> creates one and writes the password to <code>/tmp/visiban_admin_password</code> by default.</li>
+<li><strong>The password isn't printed to stdout,</strong> so it can't end up in a log aggregator such as CloudWatch, Datadog, or the Docker log driver.</li>
+<li><strong>The file is created exclusively, with mode <code>0600</code>, and symlinks are never followed.</strong> If something other than a regular file you own is already at that path, Visiban refuses to use it and prints the password to the command's stdout instead.</li>
+<li><strong>Set <code>VISIBAN_ADMIN_PASSWORD_FILE</code></strong> to use a private directory instead of <code>/tmp</code>.</li>
+</ul>
+<p>What stdout shows:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>============================================================
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  VISIBAN INITIAL ADMIN CREDENTIALS
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>============================================================
@@ -4135,86 +4143,93 @@
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  You will be required to change it on first login.
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>============================================================
 </code></pre></div>
-<h3 id="retrieving-the-password">Retrieving the password<a class="headerlink" href="#retrieving-the-password" title="Permanent link">&para;</a></h3>
-<p><strong>Docker Compose (development):</strong></p>
+<p><a id="retrieving-the-password"></a></p>
+<h2 id="retrieve-the-password">Retrieve the password<a class="headerlink" href="#retrieve-the-password" title="Permanent link">&para;</a></h2>
+<h3 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h3>
+<p><strong>Development:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
 </code></pre></div>
-<p><strong>Docker Compose (production):</strong></p>
+<p><strong>Production:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
 </code></pre></div>
-<p>Delete the file after retrieving it:</p>
+<p>Delete the file once you have the password:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>rm<span class="w"> </span>/tmp/visiban_admin_password
 </code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Password file not found?</p>
-<p>If the file does not exist, the admin account was already created on a previous boot (the password is only written once). This commonly happens even on what looks like a fresh start: the database lives in a named Docker volume that survives <code>docker compose down</code> / <code>up --build</code> / image rebuilds, but <code>/tmp</code> inside the <code>backend</code> container does not. So the moment the container is recreated for any reason after the admin's first boot — a rebuild, a <code>down</code>/<code>up</code> cycle, anything that gives you a new container instance — <code>ensure_site_admin</code> sees the admin already exists in Postgres, no-ops, and never writes the file again. There is no way to recover that specific file after the fact.</p>
-<p>Reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-<p>For production:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-<p>The reset revokes any personal access tokens and API auth token issued under the old password. It does not change whether the account must choose a new password. The temporary password that <code>ensure_site_admin</code> generates is the exception by design: it sets the forced-change flag because that password is written to a file.</p>
-<p><code>changepassword</code> prompts interactively and needs a real TTY (<code>docker compose exec</code> allocates one by default in an interactive terminal; scripts, CI, and some automation contexts do not and will fail with <code>EOFError</code>). In a non-interactive context, set the password directly instead:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="s2">from django.db import transaction</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s2">from accounts.credentials import lock_user_row, revoke_credentials_after_operator_reset</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="s2">from accounts.models import User</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="s2">with transaction.atomic():</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="s2">    u = lock_user_row(User.objects.get(username='admin'))</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="s2">    u.set_password('a-new-temporary-password')</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="s2">    u.must_change_password = True</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="s2">    u.save()</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="s2">    revoke_credentials_after_operator_reset(u)</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="s2">"</span>
-</code></pre></div>
-<p>Also double check the service name — it's <code>backend</code> in this project's compose files, not <code>api</code>.</p>
-</div>
-<p><strong>Local development (bare metal / venv):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>cat<span class="w"> </span>/tmp/visiban_admin_password
+<p><strong>Watch out:</strong> The service is named <code>backend</code> in this project's compose files, not <code>api</code>.</p>
+<h3 id="local-development-bare-metal-or-venv">Local development (bare metal or venv)<a class="headerlink" href="#local-development-bare-metal-or-venv" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cat<span class="w"> </span>/tmp/visiban_admin_password
 </code></pre></div>
 <div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The password is on its own line. If your shell displays a <code>%</code> immediately after it, that is a zsh prompt indicator — it is <strong>not</strong> part of the password. Copy only the characters before the <code>%</code>.</p>
+<p class="admonition-title">A <code>%</code> after the password isn't part of it</p>
+<p>The password is on its own line. If your shell shows a <code>%</code> right after it, that's a zsh prompt indicator. Copy only the characters before the <code>%</code>.</p>
 </div>
-<h3 id="kubernetes-helm">Kubernetes / Helm<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h3>
-<p><code>ensure_site_admin</code> runs automatically as a <code>bootstrap</code> init container on every deploy. The password is written to <code>/run/visiban/admin_password</code> inside a shared volume that persists into the running backend pod.</p>
-<p>Retrieve the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
+<p><a id="kubernetes-helm"></a></p>
+<h3 id="kubernetes-and-helm">Kubernetes and Helm<a class="headerlink" href="#kubernetes-and-helm" title="Permanent link">&para;</a></h3>
+<p><strong>How it works:</strong> <code>ensure_site_admin</code> runs as the <code>bootstrap</code> init container on every deploy. It writes the password to <code>/run/visiban/admin_password</code> on a shared volume that persists into the running backend pod.</p>
+<p>Retrieve it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
 </code></pre></div>
 <p>Delete it once you have it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>rm<span class="w"> </span>/run/visiban/admin_password
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>rm<span class="w"> </span>/run/visiban/admin_password
 </code></pre></div>
-<p>If the admin already exists (e.g. the pod restarted before you retrieved the password), reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
+<p>If the admin already exists (for example, the pod restarted before you retrieved the password), reset it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
 </code></pre></div>
-<h2 id="changing-the-password">Changing the password<a class="headerlink" href="#changing-the-password" title="Permanent link">&para;</a></h2>
-<p>On first login you will be shown a password change screen. You cannot access the application until a new password (minimum 12 characters) is set. The temporary password cannot be reused.</p>
-<p>Once SMTP is configured, regular users (not just admins) can reset their own passwords via <strong>Forgot password?</strong> on the login page — no administrator intervention required. See <a href="../../administration/authentication/#forgot-password-self-service-password-reset">Authentication — Forgot password</a> for SMTP setup notes.</p>
-<h2 id="customizing-the-bootstrap-account">Customizing the bootstrap account<a class="headerlink" href="#customizing-the-bootstrap-account" title="Permanent link">&para;</a></h2>
-<p>Set these environment variables <strong>before</strong> the first boot:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nv">DJANGO_SUPERUSER_USERNAME</span><span class="o">=</span>admin
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">DJANGO_SUPERUSER_EMAIL</span><span class="o">=</span>admin@example.com
-</code></pre></div>
-<h2 id="subsequent-boots">Subsequent boots<a class="headerlink" href="#subsequent-boots" title="Permanent link">&para;</a></h2>
-<p><code>ensure_site_admin</code> runs on every boot. Admin bootstrap is a no-op once a site admin exists — credentials are never printed again — but the command also re-syncs the Sites framework's domain from <code>SITE_DOMAIN</code> every time it runs, so changing <code>SITE_DOMAIN</code> and restarting the backend takes effect immediately, with no extra step.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you lose the temporary password before changing it, reset it via the Django shell:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.credentials</span><span class="w"> </span><span class="kn">import</span> <span class="n">lock_user_row</span><span class="p">,</span> <span class="n">revoke_credentials_after_operator_reset</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">with</span> <span class="n">transaction</span><span class="o">.</span><span class="n">atomic</span><span class="p">():</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">u</span> <span class="o">=</span> <span class="n">lock_user_row</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="s2">"admin"</span><span class="p">))</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">u</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="s2">"new-temporary-password"</span><span class="p">)</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">u</span><span class="o">.</span><span class="n">must_change_password</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>    <span class="n">u</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="n">revoke_credentials_after_operator_reset</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-</code></pre></div></p>
+<h2 id="no-password-file-reset-the-password">No password file? Reset the password<a class="headerlink" href="#no-password-file-reset-the-password" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Password file not found?</p>
+<p>The admin was already created on an earlier boot, and the password is written only once.</p>
+<p><strong>Why it happens even on a "fresh" start:</strong> The database lives in a named Docker volume that survives <code>docker compose down</code>, <code>up --build</code>, and image rebuilds. <code>/tmp</code> inside the <code>backend</code> container doesn't. Any time the container is recreated after the admin's first boot (a rebuild, a <code>down</code>/<code>up</code> cycle, or anything else that gives you a new container), <code>ensure_site_admin</code> finds the admin already in Postgres, does nothing, and never writes the file again. That file can't be recovered.</p>
 </div>
+<p>Reset the password:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
+</code></pre></div>
+<p>For production:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
+</code></pre></div>
+<p><strong>What a reset does:</strong> It revokes any personal access tokens and API auth token issued under the old password. It doesn't change whether the account must choose a new password. The exception, by design, is the temporary password <code>ensure_site_admin</code> generates. That one sets the forced-change flag, because it's written to a file.</p>
+<p><strong>Yes, but: <code>changepassword</code> needs a real TTY.</strong> It prompts interactively. <code>docker compose exec</code> allocates a TTY by default in an interactive terminal, but scripts, CI, and some automation don't, and they fail with <code>EOFError</code>. In a non-interactive context, set the password directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="s2">from django.db import transaction</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="s2">from accounts.credentials import lock_user_row, revoke_credentials_after_operator_reset</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="s2">from accounts.models import User</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="s2">with transaction.atomic():</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="s2">    u = lock_user_row(User.objects.get(username='admin'))</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="s2">    u.set_password('a-new-temporary-password')</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="s2">    u.must_change_password = True</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="s2">    u.save()</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="s2">    revoke_credentials_after_operator_reset(u)</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="s2">"</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Lost the temporary password before changing it?</p>
+<p>Reset it the same way from the Django shell:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.credentials</span><span class="w"> </span><span class="kn">import</span> <span class="n">lock_user_row</span><span class="p">,</span> <span class="n">revoke_credentials_after_operator_reset</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">with</span> <span class="n">transaction</span><span class="o">.</span><span class="n">atomic</span><span class="p">():</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">u</span> <span class="o">=</span> <span class="n">lock_user_row</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="s2">"admin"</span><span class="p">))</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">u</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="s2">"new-temporary-password"</span><span class="p">)</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">u</span><span class="o">.</span><span class="n">must_change_password</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="n">u</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="n">revoke_credentials_after_operator_reset</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+</code></pre></div>
+</div>
+<p><a id="changing-the-password"></a></p>
+<h2 id="change-the-password">Change the password<a class="headerlink" href="#change-the-password" title="Permanent link">&para;</a></h2>
+<p>On first login you get a password change screen. You can't use the application until you set a new password of at least 12 characters, and you can't reuse the temporary one.</p>
+<p><strong>After that:</strong> Once SMTP is configured, any user (not just admins) can reset their own password with <strong>Forgot password?</strong> on the login page. No administrator is needed. For SMTP setup notes, see <a href="../../administration/authentication/#forgot-password-self-service-password-reset">Authentication: Forgot password</a>.</p>
+<p><a id="customizing-the-bootstrap-account"></a></p>
+<h2 id="customize-the-bootstrap-account">Customize the bootstrap account<a class="headerlink" href="#customize-the-bootstrap-account" title="Permanent link">&para;</a></h2>
+<p>Set these <strong>before</strong> the first boot:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">DJANGO_SUPERUSER_USERNAME</span><span class="o">=</span>admin
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nv">DJANGO_SUPERUSER_EMAIL</span><span class="o">=</span>admin@example.com
+</code></pre></div>
+<p><a id="subsequent-boots"></a></p>
+<p><strong>On later boots:</strong> <code>ensure_site_admin</code> still runs every time. Once a site admin exists the bootstrap does nothing, and credentials are never printed again. The command also re-syncs the Sites framework's domain from <code>SITE_DOMAIN</code> on every run, so a changed <code>SITE_DOMAIN</code> takes effect as soon as you restart the backend, with no extra step.</p>
 <h2 id="inviting-your-team">Inviting your team<a class="headerlink" href="#inviting-your-team" title="Permanent link">&para;</a></h2>
-<p>Before inviting anyone, decide how new users can join the instance. Go to <strong>Admin → Settings</strong> and set the registration mode:</p>
+<p>Choose how people join <strong>before</strong> you share the URL. Go to <strong>Admin → Settings</strong> and set the registration mode:</p>
 <table>
 <thead>
 <tr>
@@ -4225,32 +4240,31 @@
 <tbody>
 <tr>
 <td><strong>Open</strong></td>
-<td>Anyone who reaches the login page can self-register — no action required from an admin</td>
+<td>Anyone who reaches the login page can self-register. No admin action needed.</td>
 </tr>
 <tr>
 <td><strong>Invite-only</strong></td>
-<td>New users must follow a valid invite link from a site admin — a site invite link, or <em>(1.2+)</em> a group invite a site admin emailed from a group's invite panel; attempts to register without one are rejected</td>
+<td>New users must follow a valid invite link from a site admin. That's a site invite link or <em>(1.2+)</em> a group invite that a site admin emailed from a group's invite panel. Registration attempts without one are rejected.</td>
 </tr>
 <tr>
 <td><strong>Closed</strong></td>
-<td>Self-registration is disabled entirely; site admins create accounts manually from <strong>Admin → Users → Add user</strong></td>
+<td>Self-registration is off. Site admins create accounts by hand under <strong>Admin → Users → Add user</strong>.</td>
 </tr>
 </tbody>
 </table>
-<p>The change takes effect immediately with no restart required. Existing sessions and OAuth-linked accounts are never affected.</p>
-<h3 id="generating-invite-links-invite-only-mode">Generating invite links (Invite-only mode)<a class="headerlink" href="#generating-invite-links-invite-only-mode" title="Permanent link">&para;</a></h3>
-<p>When registration mode is set to Invite-only, go to <strong>Admin → Invite Links</strong> to create links for new users.</p>
-<p>Invite links work for both password-based and OAuth registration. When a user follows an invite link and chooses to sign up via Google, GitHub, GitLab, or OIDC, the token is carried through the OAuth redirect and consumed on successful signup — no manual token entry required.</p>
-<p><strong>To create a link:</strong></p>
+<p><strong>How it works:</strong> The change applies immediately, with no restart. Existing sessions and OAuth-linked accounts are never affected.</p>
+<p><a id="generating-invite-links-invite-only-mode"></a></p>
+<h3 id="generate-invite-links-invite-only-mode">Generate invite links (Invite-only mode)<a class="headerlink" href="#generate-invite-links-invite-only-mode" title="Permanent link">&para;</a></h3>
+<p><strong>The big picture:</strong> Invite links work for both password and OAuth sign-up. If a user follows an invite link and signs up with Google, GitHub, GitLab, or OIDC, the token rides through the OAuth redirect and is consumed when sign-up succeeds. Nobody has to enter a token by hand.</p>
+<p>To create a link:</p>
 <ol>
 <li>Open the <strong>Admin</strong> panel (<code>/admin</code>) and go to the <strong>Invite Links</strong> tab.</li>
 <li>Click <strong>Generate invite link</strong>.</li>
-<li>Choose an expiry window: <strong>1 day</strong>, <strong>7 days</strong>, <strong>30 days</strong>, or <strong>Never expires</strong>.</li>
-<li>Optionally enable <strong>Single-use</strong> — the link is consumed after the first registration and cannot be reused.</li>
-<li>Copy the generated token and share it with the new user via a secure channel.</li>
+<li>Choose an expiry: <strong>1 day</strong>, <strong>7 days</strong>, <strong>30 days</strong>, or <strong>Never expires</strong>.</li>
+<li>Optionally turn on <strong>Single-use</strong>, which consumes the link on the first registration so it can't be reused.</li>
+<li>Copy the generated token and send it to the new user over a secure channel.</li>
 </ol>
-<p>The raw token value is shown only once at creation — it is not stored in plain text and cannot be retrieved later. If a link is lost before it is used, revoke it and generate a new one.</p>
-<p><strong>Link statuses:</strong></p>
+<p><strong>Watch out: you see the token once.</strong> It isn't stored in plain text and can't be retrieved later. If a link is lost before it's used, revoke it and generate a new one.</p>
 <table>
 <thead>
 <tr>
@@ -4278,22 +4292,18 @@
 </tbody>
 </table>
 <div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>A maximum of 50 active (pending, non-expired) shareable invite links can exist at one time per instance. Revoke unused links to stay below this limit. Invite links sent by email (new in 1.2, via <code>POST /api/v1/admin/invite-links/send/</code>) don't count toward it — they have a separate limit of 200 pending.</p>
+<p class="admonition-title">By the numbers: 50 shareable links per instance</p>
+<p>At most 50 active (pending, unexpired) shareable invite links can exist per instance; revoke unused ones to stay under the limit. Invite links sent by email (new in 1.2, via <code>POST /api/v1/admin/invite-links/send/</code>) don't count toward it. They have a separate limit of 200 pending.</p>
 </div>
-<h3 id="creating-accounts-manually-closed-mode">Creating accounts manually (Closed mode)<a class="headerlink" href="#creating-accounts-manually-closed-mode" title="Permanent link">&para;</a></h3>
-<p>When registration mode is Closed, use <strong>Admin → Users → Add user</strong> to create accounts directly. Set a temporary password and enable <strong>Force password reset</strong> so the user chooses their own password on first login.</p>
+<p><a id="creating-accounts-manually-closed-mode"></a></p>
+<h3 id="create-accounts-by-hand-closed-mode">Create accounts by hand (Closed mode)<a class="headerlink" href="#create-accounts-by-hand-closed-mode" title="Permanent link">&para;</a></h3>
+<p>Use <strong>Admin → Users → Add user</strong>. Set a temporary password and turn on <strong>Force password reset</strong> so the user picks their own password on first login.</p>
 <div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Copy the temporary password before closing the Create User dialog — it is not shown again. Share it with the new user via a secure channel.</p>
+<p class="admonition-title">Copy the temporary password before you close the dialog</p>
+<p>The Create User dialog doesn't show it again. Send it to the new user over a secure channel.</p>
 </div>
-<h2 id="loading-sample-data">Loading sample data<a class="headerlink" href="#loading-sample-data" title="Permanent link">&para;</a></h2>
-<p>To see a fully populated board before your team's real work arrives, import one of the
-sample boards. The backend image ships the JSON files, so <strong>Import</strong> on the dashboard and pick one under <strong>Start from a sample</strong> works without a
-download. To import a file yourself (or to get the CSVs, which are repo-only), download them from <a href="https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards"><code>backend/boards/sample_boards/</code> on GitLab</a>
-(or the <a href="https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards">GitHub mirror</a>), then
-use <strong>Dashboard → Import</strong>. See <a href="../sample-boards/">Sample Boards</a> for the list and for what
-each board demonstrates.</p>
+<p><a id="loading-sample-data"></a></p>
+<p><strong>Next:</strong> <a href="../board-setup/">Set up your first board</a>. For a fully populated board to explore first, import a <a href="../sample-boards/">sample board</a>. The backend image ships the JSON files, so <strong>Import</strong> on the dashboard → <strong>Start from a sample</strong> works without a download. To import a file yourself, or to get the CSVs (which are repo-only), download them from <a href="https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards"><code>backend/boards/sample_boards/</code> on GitLab</a> (or the <a href="https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards">GitHub mirror</a>) and use <strong>Dashboard → Import</strong>.</p>
 
 
 

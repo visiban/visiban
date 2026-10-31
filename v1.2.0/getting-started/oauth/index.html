@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/version-badge.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#oauth-setup" class="md-skip">
+        <a href="#let-people-sign-in-with-the-account-they-already-have" class="md-skip">
           Skip to content
         </a>
       
@@ -789,10 +791,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#testing-oidc-locally" class="md-nav__link">
+  <a href="#test-oidc-locally" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Testing OIDC locally
+        Test OIDC locally
       
     </span>
   </a>
@@ -4063,49 +4065,80 @@
   
 
 
-<h1 id="oauth-setup">OAuth Setup<a class="headerlink" href="#oauth-setup" title="Permanent link">&para;</a></h1>
-<p>Visiban supports Google, GitHub, and GitLab OAuth login. All three are optional — username/email + password login always works.</p>
+<h1 id="let-people-sign-in-with-the-account-they-already-have">Let people sign in with the account they already have<a class="headerlink" href="#let-people-sign-in-with-the-account-they-already-have" title="Permanent link">&para;</a></h1>
+<p>Each login provider is two environment variables plus a callback URL registered with the provider. All of them are optional: username/email and password login always works.</p>
+<p><strong>Why it matters:</strong> OAuth and OIDC login are in the free, open-source core. Your team signs in with the identity provider you already run.</p>
+<p><strong>The big picture:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Variables</th>
+<th>Scopes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#google">Google</a></td>
+<td><code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code></td>
+<td><code>profile</code>, <code>email</code> (requested)</td>
+</tr>
+<tr>
+<td><a href="#github">GitHub</a></td>
+<td><code>GITHUB_CLIENT_ID</code>, <code>GITHUB_CLIENT_SECRET</code></td>
+<td><code>read:user</code>, <code>user:email</code> (required)</td>
+</tr>
+<tr>
+<td><a href="#gitlab">GitLab</a></td>
+<td><code>GITLAB_CLIENT_ID</code>, <code>GITLAB_CLIENT_SECRET</code></td>
+<td><code>read_user</code>, <code>openid</code>, <code>email</code> (required)</td>
+</tr>
+<tr>
+<td><a href="#generic-oidc-openid-connect">Any OIDC provider</a></td>
+<td><code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, <code>OIDC_SERVER_URL</code>, optional <code>OIDC_PROVIDER_NAME</code></td>
+<td><code>openid</code>, <code>email</code>, <code>profile</code> (requested)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Watch out:</strong> The callback URLs below use <code>http://localhost:8000</code> for local development. In production, replace it with your public domain in every callback URL.</p>
 <h2 id="google">Google<a class="headerlink" href="#google" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Go to <a href="https://console.cloud.google.com/">Google Cloud Console</a> → APIs &amp; Services → Credentials</li>
-<li>Create an OAuth 2.0 client ID (Web application)</li>
-<li>Add <code>http://localhost:8000/accounts/google/login/callback/</code> to authorized redirect URIs</li>
+<li>Go to <a href="https://console.cloud.google.com/">Google Cloud Console</a> → APIs &amp; Services → Credentials.</li>
+<li>Create an OAuth 2.0 client ID (Web application).</li>
+<li>Add <code>http://localhost:8000/accounts/google/login/callback/</code> to the authorized redirect URIs.</li>
 <li>Add to <code>.env</code>:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>GOOGLE_CLIENT_ID=your-client-id
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>GOOGLE_CLIENT_SECRET=your-client-secret
 </code></pre></div>
-<p>Scopes requested: <code>profile</code>, <code>email</code></p>
 <h2 id="github">GitHub<a class="headerlink" href="#github" title="Permanent link">&para;</a></h2>
 <ol>
-<li>GitHub → Settings → Developer settings → OAuth Apps → New OAuth App</li>
-<li>Set callback URL to <code>http://localhost:8000/accounts/github/login/callback/</code></li>
+<li>GitHub → Settings → Developer settings → OAuth Apps → New OAuth App.</li>
+<li>Set the callback URL to <code>http://localhost:8000/accounts/github/login/callback/</code>.</li>
 <li>Add to <code>.env</code>:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GITHUB_CLIENT_ID=your-client-id
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>GITHUB_CLIENT_SECRET=your-client-secret
 </code></pre></div>
-<p>Scopes required: <code>read:user</code>, <code>user:email</code></p>
 <h2 id="gitlab">GitLab<a class="headerlink" href="#gitlab" title="Permanent link">&para;</a></h2>
 <ol>
-<li>GitLab → User Settings → Applications → Add new application</li>
-<li>Set redirect URI to <code>http://localhost:8000/accounts/gitlab/login/callback/</code></li>
+<li>GitLab → User Settings → Applications → Add new application.</li>
+<li>Set the redirect URI to <code>http://localhost:8000/accounts/gitlab/login/callback/</code>.</li>
 <li>Add to <code>.env</code>:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>GITLAB_CLIENT_ID=your-app-id
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>GITLAB_CLIENT_SECRET=your-app-secret
 </code></pre></div>
-<p>Scopes required: <code>read_user</code>, <code>openid</code>, <code>email</code></p>
 <h2 id="production-urls">Production URLs<a class="headerlink" href="#production-urls" title="Permanent link">&para;</a></h2>
-<p>Replace <code>http://localhost:8000</code> with your public domain in all callback URLs.</p>
+<p>Replace <code>http://localhost:8000</code> with your public domain in every callback URL.</p>
 <div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>OAuth callbacks are handled at <code>/accounts/...</code> paths (as shown above). Ensure your production nginx config proxies <code>/accounts/</code> to the backend — both <code>nginx/app.conf.template</code> (HTTPS) and <code>nginx/app-http.conf.template</code> (HTTP) already include this block.</p>
+<p class="admonition-title">nginx must proxy <code>/accounts/</code></p>
+<p>OAuth callbacks are handled under <code>/accounts/...</code> (as shown above). Make sure your production nginx config proxies <code>/accounts/</code> to the backend. Both <code>nginx/app.conf.template</code> (HTTPS) and <code>nginx/app-http.conf.template</code> (HTTP) already include this block.</p>
 </div>
 <h2 id="generic-oidc-openid-connect">Generic OIDC (OpenID Connect)<a class="headerlink" href="#generic-oidc-openid-connect" title="Permanent link">&para;</a></h2>
-<p>Visiban supports any standards-compliant OpenID Connect provider (Keycloak, Authentik, Dex, Azure AD, Okta, etc.) via the generic OIDC backend.</p>
+<p>Any standards-compliant OpenID Connect provider works through the generic OIDC backend. Examples include Keycloak, Authentik, Dex, Azure AD, and Okta.</p>
 <ol>
-<li>Create a confidential client in your identity provider with:</li>
+<li>In your identity provider, create a confidential client with:</li>
 <li>Grant type: <strong>Authorization Code</strong></li>
 <li>Redirect URI: <code>https://yourdomain.com/accounts/oidc/oidc/login/callback/</code> (replace with your domain; use <code>http://localhost:8000</code> for local dev)</li>
 <li>Add to <code>.env</code>:</li>
@@ -4115,18 +4148,19 @@
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>OIDC_SERVER_URL=https://idp.example.com/realms/my-realm
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>OIDC_PROVIDER_NAME=SSO        # optional — controls the login button label
 </code></pre></div>
-<p>All three of <code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, and <code>OIDC_SERVER_URL</code> must be set for OIDC to be enabled; setting only one or two has no effect.</p>
-<p><code>OIDC_SERVER_URL</code> must be the issuer root URL. Visiban appends <code>/.well-known/openid-configuration</code> to discover token and userinfo endpoints automatically.</p>
-<p>Scopes requested: <code>openid</code>, <code>email</code>, <code>profile</code>.</p>
+<p><strong>Watch out: set all three or nothing happens.</strong> OIDC is enabled only when <code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, and <code>OIDC_SERVER_URL</code> are all set. Setting one or two has no effect.</p>
+<p><strong>How it works:</strong> <code>OIDC_SERVER_URL</code> must be the issuer root URL. Visiban appends <code>/.well-known/openid-configuration</code> to discover the token and userinfo endpoints automatically.</p>
 <div class="admonition note">
-<p class="admonition-title">The doubled <code>oidc</code> segment in the callback URL is not a typo</p>
-<p>The first <code>oidc</code> is allauth's <code>OPENID_CONNECT_URL_PREFIX</code> (its default); the second is Visiban's fixed <code>provider_id</code> for the generic OIDC provider. <code>OIDC_PROVIDER_NAME</code> only changes the button label, not this path.</p>
+<p class="admonition-title">The doubled <code>oidc</code> in the callback URL isn't a typo</p>
+<p>The first <code>oidc</code> is allauth's <code>OPENID_CONNECT_URL_PREFIX</code> (its default). The second is Visiban's fixed <code>provider_id</code> for the generic OIDC provider. <code>OIDC_PROVIDER_NAME</code> changes only the button label, not this path.</p>
 </div>
-<h2 id="testing-oidc-locally">Testing OIDC locally<a class="headerlink" href="#testing-oidc-locally" title="Permanent link">&para;</a></h2>
-<p><code>docker-compose.oidc.yml</code> starts a pre-seeded Keycloak alongside the main stack, so you can exercise the full OIDC login flow without a real identity provider:</p>
+<p><a id="testing-oidc-locally"></a></p>
+<h2 id="test-oidc-locally">Test OIDC locally<a class="headerlink" href="#test-oidc-locally" title="Permanent link">&para;</a></h2>
+<p><code>docker-compose.oidc.yml</code> starts a pre-seeded Keycloak alongside the main stack. You can exercise the full OIDC login flow without a real identity provider:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>-f<span class="w"> </span>docker-compose.oidc.yml<span class="w"> </span>up
 </code></pre></div>
-<p>Log in at http://localhost:5173 with the <strong>Keycloak</strong> SSO button using <code>testuser</code> / <code>testpassword</code>. The Keycloak admin console is at http://localhost:8080 (<code>admin</code> / <code>admin</code>).</p>
+<p>Log in at http://localhost:5173 with the <strong>Keycloak</strong> SSO button as <code>testuser</code> / <code>testpassword</code>. The Keycloak admin console is at http://localhost:8080 (<code>admin</code> / <code>admin</code>).</p>
+<p><strong>Go deeper:</strong> Invite links carry through OAuth sign-up; see <a href="../first-boot/#inviting-your-team">Inviting your team</a>.</p>
 
 
 

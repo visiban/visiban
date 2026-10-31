@@ -27,7 +27,7 @@
     
     
       
-        <title>Getting Started - Visiban</title>
+        <title>From zero to a board your team trusts - Visiban</title>
       
     
     
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../stylesheets/version-badge.css">
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#getting-started" class="md-skip">
+        <a href="#from-zero-to-a-board-your-team-trusts" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Getting Started
+              From zero to a board your team trusts
             
           </span>
         </div>
@@ -3950,54 +3952,61 @@
   
 
 
-<h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
-<p>Everything you need to go from zero to a running Visiban instance.</p>
+<h1 id="from-zero-to-a-board-your-team-trusts">From zero to a board your team trusts<a class="headerlink" href="#from-zero-to-a-board-your-team-trusts" title="Permanent link">&para;</a></h1>
+<p>Install, log in once as the admin, mark your Done columns, then invite people. Do it in that order.</p>
+<p><strong>Why it matters:</strong> Two of those steps are easy to skip, and skipping them costs you later. If cards move before the Done column is marked, your analytics start out skewed.</p>
+<h2 id="the-path">The path<a class="headerlink" href="#the-path" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Guide</th>
-<th>Description</th>
+<th>Step</th>
+<th>Page</th>
+<th>You'll come away with</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="installation/">Installation</a></td>
-<td>Docker Compose setup, local dev, environment variables</td>
+<td>1. Decide</td>
+<td><a href="why-visiban/">Why Visiban</a></td>
+<td>Whether Visiban fits, and when to pick something else</td>
 </tr>
 <tr>
-<td><a href="kubernetes/">Kubernetes (Helm)</a></td>
-<td>Deploy to a Kubernetes cluster with the bundled Helm chart</td>
+<td>2. Install</td>
+<td><a href="installation/">Install with Docker Compose</a></td>
+<td>A running stack, local or production with TLS</td>
 </tr>
 <tr>
-<td><a href="first-boot/">First Boot</a></td>
-<td>Logging in for the first time, changing the generated password</td>
+<td>3. Log in</td>
+<td><a href="first-boot/">First boot</a></td>
+<td>Your own admin password and a registration mode</td>
 </tr>
 <tr>
-<td><a href="oauth/">OAuth Setup</a></td>
-<td>Configuring Google, GitHub, and GitLab OAuth login</td>
+<td>4. Set up a board</td>
+<td><a href="board-setup/">Board setup</a></td>
+<td>Columns, with Done marked so analytics stay accurate</td>
 </tr>
 <tr>
-<td><a href="board-setup/">Board Setup</a></td>
-<td>Configuring columns, marking done columns for accurate analytics</td>
-</tr>
-<tr>
-<td><a href="sample-boards/">Sample Boards</a></td>
-<td>Importing pre-built board templates with realistic data</td>
-</tr>
-<tr>
-<td><a href="onboarding-tour/">Onboarding Tour</a></td>
-<td>The guided walkthrough shown to new users on their first board visit</td>
+<td>5. Explore</td>
+<td><a href="sample-boards/">Sample boards</a></td>
+<td>A fully populated board to learn on</td>
 </tr>
 </tbody>
 </table>
-<h2 id="quick-start-checklist">Quick start checklist<a class="headerlink" href="#quick-start-checklist" title="Permanent link">&para;</a></h2>
-<p>After your first successful login, work through these four steps before sharing the instance with your team:</p>
+<p><strong>Branch to what you need:</strong></p>
+<ul>
+<li><strong>On Kubernetes?</strong> Use <a href="kubernetes/">Kubernetes (Helm)</a> instead of step 2.</li>
+<li><strong>Want Google, GitHub, GitLab, or OIDC login?</strong> See <a href="oauth/">OAuth and SSO</a>.</li>
+<li><strong>Wondering what new users see?</strong> See the <a href="onboarding-tour/">onboarding tour</a>.</li>
+</ul>
+<p><a id="quick-start-checklist"></a></p>
+<h2 id="before-you-share-the-instance">Before you share the instance<a class="headerlink" href="#before-you-share-the-instance" title="Permanent link">&para;</a></h2>
+<p>Work through these five steps after your first successful login:</p>
 <ol>
-<li><strong>Change the default admin password</strong> — you will be prompted automatically on first login, but confirm it is done before continuing.</li>
-<li><strong>Configure registration mode</strong> — go to <strong>Admin → Settings</strong> and choose Open, Invite-only, or Closed. Invite-only is recommended for most teams. See <a href="first-boot/#inviting-your-team">Inviting your team</a>.</li>
-<li><strong>Mark your Done column(s)</strong> — open the column header overflow menu on each terminal column, choose <strong>Edit</strong>, and check <strong>Mark as done column</strong>. Without this, the analytics heatmap includes completed work and dwell times are inaccurate. See <a href="board-setup/#marking-the-done-column">Board Setup</a>.</li>
-<li><strong>Invite your team</strong> — if using Invite-only mode, go to <strong>Admin → Invite Links</strong> to generate and share links with new users. See <a href="first-boot/#inviting-your-team">Inviting your team</a>.</li>
-<li><strong>Import a sample board</strong> — Visiban ships ready-to-import sample boards covering sales (including enterprise overlay coverage), support, hiring, and more. Import one to see a fully populated board with custom fields, movement history, and analytics data. The backend image ships the JSON files (the CSVs are repo-only): <a href="sample-boards/#where-to-get-the-files">get the files from the repository</a>.</li>
+<li><strong>Change the default admin password.</strong> You're prompted on first login. Confirm it's done before you go on.</li>
+<li><strong>Configure registration mode.</strong> Go to <strong>Admin → Settings</strong> and pick Open, Invite-only, or Closed. Invite-only is the right choice for most teams. See <a href="first-boot/#inviting-your-team">Inviting your team</a>.</li>
+<li><strong>Mark your Done column(s).</strong> On each column where work finishes, open the header's overflow menu → <strong>Edit</strong> → check <strong>Mark as done column</strong>. Without this, the analytics heatmap counts finished work and dwell times are wrong. See <a href="board-setup/#marking-the-done-column">Marking the Done column</a>.</li>
+<li><strong>Invite your team.</strong> In Invite-only mode, go to <strong>Admin → Invite Links</strong> to create links and share them. See <a href="first-boot/#inviting-your-team">Inviting your team</a>.</li>
+<li><strong>Import a sample board.</strong> Samples cover sales (including enterprise overlay coverage), support, hiring, and more. Each comes with custom fields, movement history, and analytics data already filled in. The backend image ships the JSON files; the CSVs are only in the repository. See <a href="sample-boards/#where-to-get-the-files">where to get the files</a>.</li>
 </ol>
 
 

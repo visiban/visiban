@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/version-badge.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installation" class="md-skip">
+        <a href="#get-visiban-running-locally-or-in-production" class="md-skip">
           Skip to content
         </a>
       
@@ -650,10 +652,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#hardware-requirements" class="md-nav__link">
+  <a href="#size-the-host" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Hardware requirements
+        Size the host
       
     </span>
   </a>
@@ -661,33 +663,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#try-it-locally" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        Try it locally
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#docker-recommended" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker (recommended)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Docker (recommended)">
+    <nav class="md-nav" aria-label="Try it locally">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
+  <a href="#when-the-local-stack-wont-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Troubleshooting
+        When the local stack won't start
       
     </span>
   </a>
@@ -695,10 +686,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#compose-project-names" class="md-nav__link">
+  <a href="#compose-project-names-keep-dev-and-prod-apart" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Compose project names
+        Compose project names: keep dev and prod apart
       
     </span>
   </a>
@@ -706,10 +697,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#running-two-visiban-stacks-side-by-side" class="md-nav__link">
+  <a href="#run-two-visiban-stacks-side-by-side" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Running two Visiban stacks side-by-side
+        Run two Visiban stacks side by side
       
     </span>
   </a>
@@ -718,67 +709,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#local-development" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local Development
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Local Development">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#backend" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Backend
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#frontend" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Frontend
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment Variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#kubernetes-helm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes / Helm
-      
-    </span>
-  </a>
   
 </li>
       
@@ -786,12 +716,12 @@
   <a href="#production-deployment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Production Deployment
+        Production deployment
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Production Deployment">
+    <nav class="md-nav" aria-label="Production deployment">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -806,32 +736,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#pre-flight-security-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pre-flight security checklist
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#prerequisites_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#step-1-clone-and-configure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1 — Clone and configure
+        Step 1: clone and configure
       
     </span>
   </a>
@@ -842,7 +750,7 @@
   <a href="#step-2-run-the-init-script" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2 — Run the init script
+        Step 2: run the init script
       
     </span>
   </a>
@@ -850,10 +758,38 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-3-verify" class="md-nav__link">
+  <a href="#step-3-verify-and-log-in" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 3 — Verify
+        Step 3: verify and log in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keep-it-running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keep it running
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Keep it running">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#updating-to-a-new-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Updating to a new version
       
     </span>
   </a>
@@ -861,10 +797,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#subsequent-deploys" class="md-nav__link">
+  <a href="#backing-up-and-restoring" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Subsequent deploys
+        Backing up and restoring
       
     </span>
   </a>
@@ -893,11 +829,50 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#updating-to-a-new-version" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-production-misbehaves" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Updating to a new version
+        When production misbehaves
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run from source
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Run from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
       
     </span>
   </a>
@@ -905,21 +880,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#backing-up-and-restoring" class="md-nav__link">
+  <a href="#frontend" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Backing up and restoring
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#troubleshooting_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
+        Frontend
       
     </span>
   </a>
@@ -4279,9 +4243,18 @@
   
 
 
-<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
-<p>Get Visiban running locally with Docker Compose, or follow the production steps below for a self-hosted deployment with TLS, environment configuration, and backups.</p>
-<h2 id="hardware-requirements">Hardware requirements<a class="headerlink" href="#hardware-requirements" title="Permanent link">&para;</a></h2>
+<h1 id="get-visiban-running-locally-or-in-production">Get Visiban running, locally or in production<a class="headerlink" href="#get-visiban-running-locally-or-in-production" title="Permanent link">&para;</a></h1>
+<p>To try Visiban, run <code>docker compose up --build</code>. To run it for real, use <code>init-prod.sh</code> and <code>docker-compose.prod.yml</code>. Those are two different stacks.</p>
+<p><strong>Why it matters:</strong> The local stack runs the Vite dev server and isn't safe for production. The production stack adds nginx, TLS, and startup guards that refuse to boot on unsafe settings.</p>
+<p><strong>The big picture:</strong></p>
+<ul>
+<li><strong>Try it locally:</strong> four containers, a dev server, and <code>localhost</code> defaults.</li>
+<li><strong>Run it in production:</strong> released images pinned by <code>APP_VERSION</code>, nginx, and Let's Encrypt or your own TLS. Three steps.</li>
+<li><a id="kubernetes-helm"></a><strong>On Kubernetes?</strong> Skip this page and use <a href="../kubernetes/">Kubernetes (Helm)</a>. The chart has been deployed and verified on a live cluster. Install values and upgrade steps are in <a href="../../architecture/deployment/#kubernetes-helm">Deployment: Kubernetes / Helm</a>.</li>
+</ul>
+<p><a id="hardware-requirements"></a></p>
+<h2 id="size-the-host">Size the host<a class="headerlink" href="#size-the-host" title="Permanent link">&para;</a></h2>
+<p><strong>By the numbers:</strong></p>
 <table>
 <thead>
 <tr>
@@ -4298,7 +4271,7 @@
 <td>2</td>
 <td>4 GB</td>
 <td>40 GB SSD</td>
-<td>≤10 users; comfortable for a first install</td>
+<td>Up to 10 users; comfortable for a first install</td>
 </tr>
 <tr>
 <td>Recommended (production)</td>
@@ -4312,20 +4285,22 @@
 <td>4</td>
 <td>8 GB</td>
 <td>40 GB free</td>
-<td>Docker Desktop on Mac/Windows needs at least 6–8 GB allocated to the VM; Vite dev server spikes on hot reload</td>
+<td>Docker Desktop on Mac/Windows needs at least 6–8 GB allocated to the VM; the Vite dev server spikes on hot reload</td>
 </tr>
 </tbody>
 </table>
-<p>The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne workers, and ~160 MB combined for Valkey, Nginx, and Docker overhead — leaving no safe margin on a 1 GB host. 4 GB is the minimum that provides headroom for startup, migrations, and WebSocket bursts without risking OOM.</p>
-<p><strong>Disk:</strong> Docker image pulls and build cache alone account for ~3–4 GB. The main unbounded variable is file attachments (cards support up to 10 MB each). The figures above assume light-to-moderate attachment use. Teams with heavy attachment activity should plan for additional storage or configure object storage (S3-compatible).</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p><strong>Why 4 GB is the floor:</strong> At idle, the production stack uses about 350 MB for PostgreSQL, 350 MB for the daphne workers, and 160 MB combined for Valkey, nginx, and Docker overhead. That leaves no safe margin on a 1 GB host. 4 GB gives headroom for startup, migrations, and WebSocket bursts without risking OOM kills.</p>
+<p><strong>Disk:</strong> Image pulls and build cache take about 3–4 GB on their own. The main open-ended cost is file attachments: each card attachment can be up to 10 MB. The figures above assume light-to-moderate attachment use. If your team attaches a lot, plan for more storage or configure S3-compatible object storage.</p>
+<p><a id="prerequisites"></a></p>
+<p><strong>You need:</strong></p>
 <ul>
-<li>Docker and Docker Compose <strong>or</strong> Python 3.12+ and Node.js 18+</li>
-<li>Valkey 8 (the Redis-compatible, BSD-licensed fork; included automatically in Docker Compose and Helm; required for WebSocket real-time updates)</li>
+<li>Docker and Docker Compose, <strong>or</strong> Python 3.12+ and Node.js 18+ to run from source</li>
+<li>Valkey 8, the Redis-compatible, BSD-licensed fork. Docker Compose and Helm include it automatically. Real-time WebSocket updates require it.</li>
 </ul>
-<h2 id="docker-recommended">Docker (recommended)<a class="headerlink" href="#docker-recommended" title="Permanent link">&para;</a></h2>
+<p><a id="docker-recommended"></a></p>
+<h2 id="try-it-locally">Try it locally<a class="headerlink" href="#try-it-locally" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p><strong>Tested:</strong> The Docker Compose development setup has been verified end-to-end. If something doesn't work, open an issue.</p>
+<p><strong>Tested:</strong> The Docker Compose development setup has been verified end to end. If something doesn't work, open an issue.</p>
 </blockquote>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.com/visiban/visiban.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>visiban
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
@@ -4334,10 +4309,9 @@
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title"><code>--build</code> is required on first install and after pulling updates</p>
-<p>The <code>--build</code> flag tells Docker Compose to build the images before starting containers. It is required the first time you run the stack (no pre-built images exist locally yet) and any time you pull code changes that affect the <code>Dockerfile</code> or frontend assets. Omitting it on a fresh clone will fail; omitting it after <code>git pull</code> may leave you running stale images.</p>
+<p><code>--build</code> builds the images before starting the containers. On a fresh clone no images exist locally yet, so omitting it fails. After a <code>git pull</code> that touches the <code>Dockerfile</code> or frontend assets, omitting it can leave you running stale images.</p>
 </div>
-<p>Docker Compose starts four services: <code>db</code> (Postgres 17), <code>valkey</code> (Valkey 8), <code>backend</code> (daphne/ASGI), and <code>frontend</code> (Vite dev server).</p>
-<p>This setup is for <strong>local development only</strong> — the Vite dev server is not suitable for production. See <a href="#production-deployment">Production Deployment</a> below for a production deployment.</p>
+<p><strong>What starts:</strong> four services. They are <code>db</code> (Postgres 17), <code>valkey</code> (Valkey 8), <code>backend</code> (daphne/ASGI), and <code>frontend</code> (the Vite dev server).</p>
 <table>
 <thead>
 <tr>
@@ -4372,50 +4346,49 @@
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Note:</strong> The schema endpoints are served by Django — access them on port 8000 directly. The Vite dev server on port 5173 does not proxy <code>/api/</code> requests, so <code>http://localhost:5173/api/schema/</code> will not work.</p>
-</blockquote>
-<p>On first boot the backend will print a one-time admin password — see <a href="../first-boot/">First Boot</a>.</p>
+<p><strong>Watch out:</strong> Django serves the schema endpoints, so use port 8000. The Vite dev server on 5173 doesn't proxy <code>/api/</code>, so <code>http://localhost:5173/api/schema/</code> won't work.</p>
+<p><strong>Next:</strong> On first boot the backend creates a one-time admin password. See <a href="../first-boot/">First boot</a> to retrieve it.</p>
 <div class="admonition warning">
-<p class="admonition-title">Accessing from a non-localhost address?</p>
-<p>The defaults in <code>.env.example</code> are configured for <code>localhost</code> only. If you access Visiban from a LAN IP address, hostname, or any address other than <code>127.0.0.1</code>, you must update two variables before starting the stack — otherwise API calls may fail and WebSocket connections will stay stuck on <strong>Reconnecting</strong>:</p>
+<p class="admonition-title">Accessing it from anything but localhost? Change two variables first</p>
+<p>The <code>.env.example</code> defaults only work on <code>localhost</code>. If you reach Visiban from a LAN IP, a hostname, or any address other than <code>127.0.0.1</code>, set these before starting the stack. Otherwise API calls may fail and WebSocket connections stay stuck on <strong>Reconnecting</strong>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span><span class="m">192</span>.168.1.100<span class="w">          </span><span class="c1"># or your LAN hostname</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>http://192.168.1.100:5173<span class="w">   </span><span class="c1"># must match the exact origin the browser uses</span>
 </code></pre></div>
-<p>For production deployments behind nginx (where the frontend and backend share the same origin), the <code>CORS_ALLOWED_ORIGINS</code> value should match the nginx-served origin (e.g. <code>http://192.168.1.100:8080</code>), not the Vite dev server port.</p>
+<p>Behind nginx in production, the frontend and backend share one origin. There, <code>CORS_ALLOWED_ORIGINS</code> must match the origin nginx serves (for example <code>http://192.168.1.100:8080</code>), not the Vite dev server port.</p>
 </div>
-<h3 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h3>
-<p><strong><code>db</code> container exits immediately / backend cannot connect</strong></p>
-<p>A common cause after pulling updates is a PostgreSQL major-version mismatch. The data volume was initialized by one major version (e.g. PG 16) and the image has been updated to a newer one (e.g. PG 17), which refuses to start:</p>
+<p><strong>This stack is for local development only.</strong> The Vite dev server isn't suitable for production. For a server, see <a href="#production-deployment">Production deployment</a>.</p>
+<p><a id="troubleshooting"></a></p>
+<h3 id="when-the-local-stack-wont-start">When the local stack won't start<a class="headerlink" href="#when-the-local-stack-wont-start" title="Permanent link">&para;</a></h3>
+<p><strong>The <code>db</code> container exits immediately, or the backend can't connect.</strong> After pulling updates, the usual cause is a PostgreSQL major-version mismatch. The data volume was initialized by one major version (for example PG 16), and the image moved to a newer one (for example PG 17), which refuses to start:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>db-1 | FATAL: database files are incompatible with server
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>db-1 | DETAIL: The data directory was initialized by PostgreSQL version 16, which is not compatible with this version 17.x.
 </code></pre></div>
-<blockquote>
-<p><strong>⚠ Destructive:</strong> The steps below delete all local database data. Back up anything you need to keep first (<code>docker compose exec db pg_dump -U visiban visiban &gt; backup.sql</code>).</p>
-</blockquote>
+<div class="admonition danger">
+<p class="admonition-title">Destructive: this deletes all local database data</p>
+<p>Back up anything you need first: <code>docker compose exec db pg_dump -U visiban visiban &gt; backup.sql</code>.</p>
+</div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>down<span class="w"> </span>-v<span class="w">          </span><span class="c1"># stop all containers and remove volumes</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build<span class="w">       </span><span class="c1"># recreate from scratch</span>
 </code></pre></div>
-<p>If the frontend container exits right after upgrading from a pre-1.2 checkout, the cause is a stale
-root-owned <code>node_modules</code> volume; see <a href="../../administration/upgrade/#upgrading-to-12x">Upgrading to 1.2.x</a>.</p>
 <p>After the containers start, run migrations and recreate the site admin account:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin
 </code></pre></div>
-<p><strong>API calls fail / browser shows a CORS error</strong></p>
-<p>If the browser console shows a CORS error (e.g. <code>Access to fetch at 'http://...' from origin '...' has been blocked</code>) it means the backend is rejecting cross-origin requests from the address the browser is using. This happens when you access Visiban from anything other than <code>http://localhost:5173</code> — a LAN IP, a VM hostname, a different port, etc.</p>
-<p>At startup, the backend logs the active CORS origins. Check what it has:</p>
+<p><strong>The frontend container exits right after upgrading from a pre-1.2 checkout.</strong> The cause is a stale, root-owned <code>node_modules</code> volume. See <a href="../../administration/upgrade/#upgrading-to-12x">Upgrading to 1.2.x</a>.</p>
+<p><strong>API calls fail, or the browser console shows a CORS error</strong> (for example <code>Access to fetch at 'http://...' from origin '...' has been blocked</code>). The backend is rejecting requests from the address the browser is using. This happens whenever you aren't on <code>http://localhost:5173</code>, for example from a LAN IP, a VM hostname, or a different port.</p>
+<p>The backend logs its active CORS origins at startup. Check them:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"CORS allowed origins"</span>
 </code></pre></div>
-<p>If the logged origin does not match what your browser shows in the address bar, update <code>.env</code>:</p>
+<p>If the logged origin doesn't match your browser's address bar, update <code>.env</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>http://192.168.1.100:5173<span class="w">   </span><span class="c1"># must be the exact origin the browser uses</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span><span class="m">192</span>.168.1.100<span class="w">                       </span><span class="c1"># must include the hostname/IP too</span>
 </code></pre></div>
 <p>Then restart the backend:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>restart<span class="w"> </span>backend
 </code></pre></div>
-<h3 id="compose-project-names">Compose project names<a class="headerlink" href="#compose-project-names" title="Permanent link">&para;</a></h3>
-<p>The development and production stacks pin <strong>different</strong> Compose project names, and they must stay different:</p>
+<p><a id="compose-project-names"></a></p>
+<h3 id="compose-project-names-keep-dev-and-prod-apart">Compose project names: keep dev and prod apart<a class="headerlink" href="#compose-project-names-keep-dev-and-prod-apart" title="Permanent link">&para;</a></h3>
+<p><strong>Why it matters:</strong> If the two stacks resolve to the same Compose project, they share one database volume.</p>
 <table>
 <thead>
 <tr>
@@ -4434,26 +4407,29 @@ root-owned <code>node_modules</code> volume; see <a href="../../administration/u
 </tr>
 <tr>
 <td><code>docker-compose.oidc.yml</code></td>
-<td><em>(none — it is an overlay, and a second file's <code>name:</code> would rename the stack it extends)</em></td>
+<td><em>(none: it's an overlay, and a second file's <code>name:</code> would rename the stack it extends)</em></td>
 </tr>
 </tbody>
 </table>
-<p>Both stacks declare a bare <code>pgdata:</code> volume and both define <code>db</code>, <code>valkey</code> and <code>backend</code>. If they resolve to the same project they share <code>&lt;project&gt;_pgdata</code> — and because Postgres applies <code>POSTGRES_PASSWORD</code> only on first init, whichever stack starts second meets the other's password, or the development <code>SECRET_KEY</code> lands on production data. Same-named services in one project also recreate each other's containers in place on <code>up</code>.</p>
+<p><strong>How it breaks:</strong> Both stacks declare a bare <code>pgdata:</code> volume, and both define <code>db</code>, <code>valkey</code>, and <code>backend</code>. In one project they share <code>&lt;project&gt;_pgdata</code>. Postgres applies <code>POSTGRES_PASSWORD</code> only on first init, so whichever stack starts second gets the other's password, or the development <code>SECRET_KEY</code> lands on production data. Same-named services in one project also recreate each other's containers in place on <code>up</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Upgrading from a checkout where dev defaulted to <code>visiban</code></p>
-<p>The development stack previously defaulted to the project name <code>visiban</code>, which is what <code>docker-compose.prod.yml</code> resolves to on a default clone. It now defaults to <code>visiban-dev</code>.</p>
-<p>Your <strong>production</strong> stack is unaffected — <code>visiban</code> is exactly what it already resolved to, so the new explicit pin is a no-op.</p>
-<p>Your <strong>development</strong> containers and volumes are namespaced under the old name, so the first <code>docker compose up</code> after this change starts an empty database. The old data is still there under <code>visiban_pgdata</code>; either re-seed (the usual choice for a dev database) or copy it across:</p>
+<p>The development stack used to default to the project name <code>visiban</code>, which is also what <code>docker-compose.prod.yml</code> resolves to on a default clone. It now defaults to <code>visiban-dev</code>.</p>
+<ul>
+<li><strong>Production is unaffected.</strong> <code>visiban</code> is what it already resolved to, so the new explicit pin changes nothing.</li>
+<li><strong>Development starts with an empty database</strong> the first time you <code>docker compose up</code> after this change, because your containers and volumes are under the old name. The old data is still in <code>visiban_pgdata</code>. Either re-seed (the usual choice for a dev database) or copy it across:</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>volume<span class="w"> </span>ls<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>pgdata<span class="w">          </span><span class="c1"># visiban_pgdata is the old one</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w">                     </span><span class="c1"># creates visiban-dev_pgdata</span>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># then restore a dump, or: docker run --rm -v visiban_pgdata:/from \</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1">#   -v visiban-dev_pgdata:/to alpine sh -c 'cp -a /from/. /to/'</span>
 </code></pre></div>
 <p><code>docker compose -p visiban up</code> still reaches the old stack if you need it.</p>
-<p><code>scripts/wt</code> exports <code>COMPOSE_PROJECT_NAME=visiban-dev</code> for the same reason — an exported variable overrides every <code>name:</code> pin, so worktrees share one development stack while staying clear of production.</p>
+<p><code>scripts/wt</code> exports <code>COMPOSE_PROJECT_NAME=visiban-dev</code> for the same reason. An exported variable overrides every <code>name:</code> pin, so worktrees share one development stack while staying clear of production.</p>
 </div>
-<h3 id="running-two-visiban-stacks-side-by-side">Running two Visiban stacks side-by-side<a class="headerlink" href="#running-two-visiban-stacks-side-by-side" title="Permanent link">&para;</a></h3>
-<p>If you have a second checkout of Visiban (or another Compose project that uses the same default ports), the two stacks will fight over <code>5432</code> / <code>8000</code> / <code>5173</code> on the host. The default <code>docker-compose.yml</code> reads host ports and the Compose project name from <code>.env</code> so a second checkout can coexist without changes to source.</p>
+<p><a id="running-two-visiban-stacks-side-by-side"></a></p>
+<h3 id="run-two-visiban-stacks-side-by-side">Run two Visiban stacks side by side<a class="headerlink" href="#run-two-visiban-stacks-side-by-side" title="Permanent link">&para;</a></h3>
+<p><strong>Why it matters:</strong> A second checkout, or any other Compose project on the same default ports, fights over <code>5432</code>, <code>8000</code>, and <code>5173</code> on the host. <code>docker-compose.yml</code> reads host ports and the project name from <code>.env</code>, so a second checkout can coexist without source changes.</p>
 <p>In the second checkout's <code>.env</code>, set:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">COMPOSE_PROJECT_NAME</span><span class="o">=</span>visiban-secondary<span class="w">    </span><span class="c1"># namespaces containers, networks, volumes</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">DB_PORT</span><span class="o">=</span><span class="m">5433</span>
@@ -4473,304 +4449,18 @@ root-owned <code>node_modules</code> volume; see <a href="../../administration/u
 <a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="c1"># Read by the frontend container and exposed to client code via import.meta.env.</span>
 <a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8001
 </code></pre></div>
-<p>Containers always listen on the canonical ports (<code>5432</code> / <code>8000</code> / <code>5173</code> / <code>8080</code>) on the internal Compose network — only the host-side mapping changes. Vite's HMR client port is wired to <code>FRONTEND_PORT</code> automatically so hot reload keeps working when the host port shifts.</p>
+<p><strong>How it works:</strong> Inside the Compose network, containers always listen on the canonical ports (<code>5432</code>, <code>8000</code>, <code>5173</code>, <code>8080</code>). Only the host-side mapping changes. Vite's HMR client port follows <code>FRONTEND_PORT</code> automatically, so hot reload keeps working.</p>
 <div class="admonition note">
 <p class="admonition-title">Why aren't the URL vars interpolated from the port vars?</p>
-<p><code>FRONTEND_URL</code>, <code>CORS_ALLOWED_ORIGINS</code>, <code>SITE_DOMAIN</code>, and <code>VITE_API_URL</code> are kept as separate explicit values rather than <code>${FRONTEND_PORT}</code>-style interpolation because Compose's <code>env_file:</code> directive does <strong>not</strong> expand variables — interpolated values would arrive at the Django container as literal <code>${FRONTEND_PORT}</code> strings and silently break allauth redirects, OAuth callbacks, and CORS. Four vars, four explicit updates: it's a bit more typing but it works in every dev path (Compose, native Python, Helm).</p>
+<p><code>FRONTEND_URL</code>, <code>CORS_ALLOWED_ORIGINS</code>, <code>SITE_DOMAIN</code>, and <code>VITE_API_URL</code> need explicit values. They can't be <code>${FRONTEND_PORT}</code>-style interpolations, because Compose's <code>env_file:</code> directive does <strong>not</strong> expand variables. An interpolated value would reach the Django container as the literal string <code>${FRONTEND_PORT}</code> and silently break allauth redirects, OAuth callbacks, and CORS. Four vars, four explicit updates: it's a bit more typing, but it works in every dev path (Compose, native Python, and Helm).</p>
 </div>
-<hr />
-<h2 id="local-development">Local Development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
-<h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">       </span><span class="c1"># Windows: .venv\Scripts\activate</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># Docker images install the hash-pinned backend/requirements.lock instead. If</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># you edit requirements.txt, run scripts/lock-backend-requirements.sh and commit</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># the regenerated lock (see docs/development/dependency-lock.md).</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="c1"># Re-run `pip install -r requirements.txt` after every pull that changes</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c1"># requirements.txt: a stale venv shows up as a bare ModuleNotFoundError (e.g.</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="c1"># mcp 1.x vs the 2.x pin), not as a clear "out of date" message. From a</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="c1"># checkout, `scripts/wt doctor` warns about any `==` pin that differs from</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="c1"># what is installed, naming the package and both versions.</span>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>cp<span class="w"> </span>../.env.example<span class="w"> </span>.env
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="c1"># Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite</span>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin<span class="w">   </span><span class="c1"># prints one-time password</span>
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>python<span class="w"> </span>manage.py<span class="w"> </span>runserver
-</code></pre></div>
-<h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>npm<span class="w"> </span>install
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
-</code></pre></div>
-<p><code>npm run dev</code> expects the backend to be reachable at <code>http://localhost:8000</code>. Create <code>frontend/.env.local</code> (gitignored — never commit it) to tell Vite where the API is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># frontend/.env.local — local dev only, never included in Docker builds</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
-</code></pre></div>
-<p>A template with comments is at <code>frontend/.env.local.example</code>.</p>
-<h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th style="text-align: center;">Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DJANGO_SECRET_KEY</code></td>
-<td style="text-align: center;">Yes</td>
-<td>Django secret key — generate with <code>python -c "import secrets; print(secrets.token_urlsafe(50))"</code></td>
-</tr>
-<tr>
-<td><code>DATABASE_URL</code></td>
-<td style="text-align: center;">Yes</td>
-<td>PostgreSQL DSN e.g. <code>postgres://user:pass@host:5432/dbname</code></td>
-</tr>
-<tr>
-<td><code>REDIS_URL</code></td>
-<td style="text-align: center;">Yes</td>
-<td>Valkey DSN for Channels / WebSocket (default: <code>redis://valkey:6379/0</code> in Docker Compose)</td>
-</tr>
-<tr>
-<td><code>REDIS_CACHE_URL</code></td>
-<td style="text-align: center;">No</td>
-<td>Valkey DSN for the Django cache — rate limiting, health checks (default: <code>redis://localhost:6379/1</code>). In Docker Compose this is set automatically. Use a different database index than <code>REDIS_URL</code> to avoid key collisions.</td>
-</tr>
-<tr>
-<td><code>FRONTEND_URL</code></td>
-<td style="text-align: center;">No</td>
-<td>Full URL of the React SPA (default: <code>http://localhost:5173</code>) — allauth redirects here after OAuth login/logout. <strong>Must be set in production.</strong></td>
-</tr>
-<tr>
-<td><code>DEBUG</code></td>
-<td style="text-align: center;">No</td>
-<td>Set <code>True</code> for local dev only</td>
-</tr>
-<tr>
-<td><code>ALLOWED_HOSTS</code></td>
-<td style="text-align: center;">No</td>
-<td>Comma-separated hostnames (default: <code>localhost,127.0.0.1</code>). <strong>Must be set to your actual domain in production</strong> — the default only permits loopback addresses and will cause Django to reject all requests from a real hostname.</td>
-</tr>
-<tr>
-<td><code>CORS_ALLOWED_ORIGINS</code></td>
-<td style="text-align: center;">No</td>
-<td>Comma-separated allowed frontend origins (default: <code>http://localhost:5173</code>). Also controls <code>CSRF_TRUSTED_ORIGINS</code> unless <code>CSRF_TRUSTED_ORIGINS</code> is set explicitly.</td>
-</tr>
-<tr>
-<td><code>CSRF_TRUSTED_ORIGINS</code></td>
-<td style="text-align: center;">No</td>
-<td>Override CSRF trusted origins independently of <code>CORS_ALLOWED_ORIGINS</code>. Defaults to <code>CORS_ALLOWED_ORIGINS</code>.</td>
-</tr>
-<tr>
-<td><code>SITE_DOMAIN</code></td>
-<td style="text-align: center;">No</td>
-<td>Public hostname used for OAuth callbacks (default: <code>localhost:8000</code>) — must match your OAuth app's redirect URI</td>
-</tr>
-<tr>
-<td><code>VITE_API_URL</code></td>
-<td style="text-align: center;">No</td>
-<td>Browser-facing backend URL (default: <code>http://localhost:8000</code>) — the frontend bundle calls the API at this origin. Must move with <code>BACKEND_PORT</code> when running side-by-side stacks; in production, set to your public backend origin (e.g. <code>https://api.yourdomain.com</code> or the same origin as the SPA when served behind a single proxy).</td>
-</tr>
-<tr>
-<td><code>DJANGO_SUPERUSER_USERNAME</code></td>
-<td style="text-align: center;">No</td>
-<td>Override bootstrap admin username (default: <code>admin</code>)</td>
-</tr>
-<tr>
-<td><code>DJANGO_SUPERUSER_EMAIL</code></td>
-<td style="text-align: center;">No</td>
-<td>Override bootstrap admin email (default: <code>admin@localhost</code>)</td>
-</tr>
-<tr>
-<td><code>EMAIL_VERIFICATION</code></td>
-<td style="text-align: center;">No</td>
-<td>Email verification mode: <code>optional</code> (default — sends verification email but allows login without it), <code>none</code> (no verification required, works without SMTP), or <code>mandatory</code> (blocks login until email is verified). The old alias <code>ACCOUNT_EMAIL_VERIFICATION</code> was removed in 1.1 — use <code>EMAIL_VERIFICATION</code> only.</td>
-</tr>
-<tr>
-<td><code>SECURE_HSTS_SECONDS</code></td>
-<td style="text-align: center;">No</td>
-<td>HTTP Strict-Transport-Security max-age in seconds (default: <code>0</code> in development, <code>31536000</code> — 1 year — in production when <code>DEBUG=false</code>). <strong>In the production Docker Compose stack, this value also drives the <code>Strict-Transport-Security</code> header <code>init-prod.sh</code> renders into nginx</strong> (<code>TLS_MODE=letsencrypt</code> defaults to <code>63072000</code> — 2 years — when unset, to preserve the header value existing installs already got; <code>TLS_MODE=selfsigned</code> sends no header unless you set this explicitly). Nginx is the only thing that actually sends the header in that stack — see <a href="#tls-modes">TLS modes</a>. For the Compose stack specifically, the value must be <code>0</code> or a positive integer with <strong>no leading zero</strong> and at most 10 digits (e.g. <code>300</code>, not <code>0300</code>) — <code>init-prod.sh</code> fails closed with an error rather than guessing at a malformed value; Django's own parsing elsewhere is more lenient. <strong>Warning:</strong> setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. <code>300</code>) when first enabling HTTPS, then increase once you confirm everything works.</td>
-</tr>
-<tr>
-<td><code>DJANGO_ADMIN_ALLOWED_IPS</code></td>
-<td style="text-align: center;">No</td>
-<td>Comma-separated list of IP addresses and/or CIDR ranges (e.g. <code>10.0.0.0/8</code>) allowed to access <code>/admin/</code>. In production the default is loopback only (<code>127.0.0.1</code>, <code>::1</code>); setting this <strong>replaces</strong> that default, so include <code>127.0.0.1,::1</code> if you still need loopback access. Also documented in <a href="../../administration/secret-rotation/">Secret Rotation</a>.</td>
-</tr>
-<tr>
-<td><code>OIDC_CLIENT_ID</code></td>
-<td style="text-align: center;">No</td>
-<td>OIDC provider client ID — required when using generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three <code>OIDC_*</code> vars must be set together to enable OIDC login. See <a href="../oauth/">OAuth Setup</a>.</td>
-</tr>
-<tr>
-<td><code>OIDC_CLIENT_SECRET</code></td>
-<td style="text-align: center;">No</td>
-<td>OIDC provider client secret. The old alias <code>OIDC_SECRET</code> was removed in 1.1 — only <code>OIDC_CLIENT_SECRET</code> is read.</td>
-</tr>
-<tr>
-<td><code>OIDC_SERVER_URL</code></td>
-<td style="text-align: center;">No</td>
-<td>OIDC issuer URL, e.g. <code>https://idp.example.com/realms/my-realm</code>. Must be the issuer root — allauth appends <code>.well-known/openid-configuration</code> to discover endpoints.</td>
-</tr>
-<tr>
-<td><code>OIDC_PROVIDER_NAME</code></td>
-<td style="text-align: center;">No</td>
-<td>Display name shown on the OIDC login button (default: <code>SSO</code>).</td>
-</tr>
-<tr>
-<td><code>TLS_MODE</code></td>
-<td style="text-align: center;">No</td>
-<td>TLS mode for the production Docker stack: <code>letsencrypt</code> (default), <code>selfsigned</code>, or <code>none</code>. See <a href="#tls-modes">TLS modes</a>.</td>
-</tr>
-<tr>
-<td><code>FORCE_INSECURE_COOKIES</code></td>
-<td style="text-align: center;">No</td>
-<td>Set <code>true</code> to disable <code>SESSION_COOKIE_SECURE</code> and <code>CSRF_COOKIE_SECURE</code> for plain-HTTP deployments. Automatically set by <code>init-prod.sh</code> when <code>TLS_MODE=none</code>. Default: <code>false</code>.</td>
-</tr>
-<tr>
-<td><code>MAX_UPLOAD_SIZE_BYTES</code></td>
-<td style="text-align: center;">No</td>
-<td>Maximum file size for card attachment uploads in bytes (default: <code>10485760</code> — 10 MB). Increase for teams with large attachment needs; decrease to limit storage use.</td>
-</tr>
-<tr>
-<td><code>BOARD_EVENT_RETENTION_DAYS</code></td>
-<td style="text-align: center;">No</td>
-<td>How long a board <a href="../../api/events/">change feed</a> event stays readable, in days (default: <code>30</code>). Nothing expires on its own — schedule <code>manage.py prune_board_events</code> (see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>) or the <code>board_events</code> table grows without bound. Set this longer than the longest outage a feed consumer is expected to survive.</td>
-</tr>
-<tr>
-<td><code>NOTIFICATION_RETENTION_DAYS</code></td>
-<td style="text-align: center;">No</td>
-<td>How long an in-app notification is kept, read or unread, in days (default: <code>90</code>, minimum <code>14</code>). Enforced only when <code>manage.py prune_notifications</code> is scheduled — see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>. Unscheduled, notifications are kept forever.</td>
-</tr>
-<tr>
-<td><code>SCHEDULE_NOTIFY_DUE_SOON</code>, <code>SCHEDULE_NOTIFY_STALE_CARDS</code>, <code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, <code>SCHEDULE_PRUNE_NOTIFICATIONS</code></td>
-<td style="text-align: center;">No</td>
-<td>Daily run time (<code>HH:MM</code>, UTC, or <code>off</code>) for each job of the opt-in Compose <code>scheduler</code> service. Defaults: <code>07:00</code>, <code>08:00</code>, <code>off</code>, <code>off</code>. Read only by <code>manage.py run_scheduler</code>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</td>
-</tr>
-<tr>
-<td><code>GIT_LENS_ENABLED</code></td>
-<td style="text-align: center;">No</td>
-<td>Set <code>true</code> to enable the <a href="../../features/issue-board-lens/">Issue Board Lens</a> (default: <code>false</code>). See <a href="../../administration/configuration/#optional-features-off-by-default">Optional features</a>.</td>
-</tr>
-<tr>
-<td><code>MCP_SERVER_ENABLED</code></td>
-<td style="text-align: center;">No</td>
-<td>Set <code>true</code> to serve the <a href="../../features/mcp-server/">MCP server</a> at <code>/mcp</code> (default: <code>false</code>). Also configurable: <code>MCP_ALLOWED_HOSTS</code> and the <code>MCP_THROTTLE_READ_RATE</code>, <code>MCP_THROTTLE_COMPUTE_RATE</code> and <code>MCP_THROTTLE_PREAUTH_RATE</code> limits. See <a href="../../administration/configuration/#optional-features-off-by-default">Optional features</a>.</td>
-</tr>
-<tr>
-<td><code>IMPORT_MAX_SIZE_BYTES</code></td>
-<td style="text-align: center;">No</td>
-<td>Maximum Trello JSON export size for the <a href="../../features/trello-import/">Trello import wizard</a>, in bytes (default: <code>26214400</code> — 25 MB). Your reverse proxy must accept bodies at least this large; see <a href="../../administration/configuration/#import-limits">Import limits</a>. The 1.2 pre-release name <code>VISIBAN_IMPORT_MAX_SIZE</code> still works as a deprecated alias.</td>
-</tr>
-</tbody>
-</table>
-<p>OAuth variables are documented in <a href="../oauth/">OAuth Setup</a>.</p>
-<h2 id="kubernetes-helm">Kubernetes / Helm<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h2>
+<h2 id="production-deployment">Production deployment<a class="headerlink" href="#production-deployment" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p><strong>Tested:</strong> The Helm chart has been deployed and verified on a live Kubernetes cluster.</p>
+<p><strong>Tested:</strong> The production Docker Compose stack has been verified end to end. If you hit a problem, open an issue.</p>
 </blockquote>
-<p>A Helm chart is included for Kubernetes deployments. See <a href="../../architecture/deployment/#kubernetes-helm">Deployment — Kubernetes / Helm</a> for install instructions, configuration values, and upgrade steps.</p>
-<h2 id="production-deployment">Production Deployment<a class="headerlink" href="#production-deployment" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Tested:</strong> The production Docker Compose stack has been verified end-to-end. If you encounter issues, open an issue.</p>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>The <code>backend</code> and <code>frontend</code> images this stack pulls are cosign-signed and carry
-a per-architecture CycloneDX SBOM. Verify them before deploying: see
-<a href="../../administration/image-verification/">Verifying release images</a>. The stack's other images
-(<code>postgres</code>, <code>valkey</code>, <code>nginx</code>, <code>certbot</code>) are upstream images that Visiban does not sign.</p>
-<h3 id="tls-modes">TLS modes<a class="headerlink" href="#tls-modes" title="Permanent link">&para;</a></h3>
-<p>The production stack supports three TLS modes, controlled by the <code>TLS_MODE</code> environment variable:</p>
-<table>
-<thead>
-<tr>
-<th>Mode</th>
-<th>Description</th>
-<th>Use case</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>letsencrypt</code></td>
-<td><strong>(default)</strong> Obtain and auto-renew a Let's Encrypt certificate</td>
-<td>Public-facing deployments with a DNS A record</td>
-</tr>
-<tr>
-<td><code>selfsigned</code></td>
-<td>Generate a self-signed certificate</td>
-<td>Staging, internal networks, or development</td>
-</tr>
-<tr>
-<td><code>none</code></td>
-<td>Serve over plain HTTP — no TLS</td>
-<td>Air-gapped networks or deployments behind an external load balancer that terminates TLS</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition warning">
-<p class="admonition-title">Security warnings for non-default modes</p>
-<p><strong><code>selfsigned</code></strong> — Browsers will show a certificate warning on every visit. HSTS is disabled by default to prevent browsers from permanently rejecting the self-signed cert — set <code>SECURE_HSTS_SECONDS</code> explicitly in <code>.env</code> if you want it anyway (e.g. a staging host with a long-lived trusted cert). Intended for internal or staging use only.</p>
-<p><strong><code>none</code></strong> — All traffic including session cookies and API calls is unencrypted. The init script automatically sets <code>FORCE_INSECURE_COOKIES=true</code> so Django does not require HTTPS for cookies. <strong>Do not use this for deployments reachable from the public internet.</strong></p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">HSTS is rendered by nginx, once</p>
-<p><code>init-prod.sh</code> writes the <code>Strict-Transport-Security</code> header directly into the active nginx
-config from <code>SECURE_HSTS_SECONDS</code> (<code>nginx/app.conf.template</code>), and every location that
-proxies to the backend hides Django's own copy of the same header
-(<code>proxy_hide_header</code>) so exactly one <code>Strict-Transport-Security</code> header ever reaches the
-browser, on every path — the SPA document included. After changing <code>SECURE_HSTS_SECONDS</code> in
-<code>.env</code>, re-run <code>./init-prod.sh</code> to re-render the template, then
-<code>docker compose -f docker-compose.prod.yml up -d --force-recreate nginx</code> — a plain <code>up -d</code>
-does not notice that the bind-mounted config file changed.</p>
-</div>
-<h3 id="pre-flight-security-checklist">Pre-flight security checklist<a class="headerlink" href="#pre-flight-security-checklist" title="Permanent link">&para;</a></h3>
-<p>Before starting the production stack, confirm each item below. The backend will refuse to start if any of these are wrong — this is intentional.</p>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Requirement</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DB_PASSWORD</code></td>
-<td>Must be set to a strong, unique password. Docker Compose <strong>will not start</strong> if this variable is missing — there is no insecure default.</td>
-</tr>
-<tr>
-<td><code>REDIS_PASSWORD</code></td>
-<td>Must be set to a strong, unique password. The production Valkey service starts with <code>--requirepass</code> and the backend URLs are built from this value. Docker Compose <strong>will not start</strong> if this variable is missing. Generate with: <code>openssl rand -hex 32</code> (not base64 — see the warning under Step 1)</td>
-</tr>
-<tr>
-<td><code>DJANGO_SECRET_KEY</code></td>
-<td>Must be a long random string. If left as <code>change-me-in-production</code> or empty, Django will raise <code>ImproperlyConfigured</code> at startup. Generate one with: <code>python -c "import secrets; print(secrets.token_hex(50))"</code></td>
-</tr>
-<tr>
-<td><code>CORS_ALLOWED_ORIGINS</code></td>
-<td>Must be set to your production frontend origin (e.g. <code>https://yourdomain.com</code>). The default <code>http://localhost:5173</code> is only suitable for local development.</td>
-</tr>
-<tr>
-<td><code>DEBUG</code></td>
-<td>Must be <code>false</code> in production. Running with <code>DEBUG=true</code> leaks stack traces to HTTP responses and disables the <code>DJANGO_SECRET_KEY</code> guard.</td>
-</tr>
-<tr>
-<td><code>ALLOWED_HOSTS</code></td>
-<td>Must include your domain name (e.g. <code>yourdomain.com</code>).</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition warning">
-<p class="admonition-title"><code>ALLOWED_HOSTS</code> must be set before going live</p>
-<p>The codebase default for <code>ALLOWED_HOSTS</code> is <code>localhost,127.0.0.1</code>. If you deploy without explicitly setting this variable to your real domain, Django will reject every inbound HTTP request with a <code>400 Bad Request</code> — the site will be unreachable. Set it to your public hostname before starting the production stack:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com
-</code></pre></div>
-<p>If you serve the application on a non-standard port or via a load balancer, include the hostname without the port. Django reads the <code>Host</code> header, not the port.</p>
-</div>
-<p>The production stack (<code>docker-compose.prod.yml</code>) replaces the Vite dev server with:</p>
+<p>Run <code>init-prod.sh</code> once and it obtains a certificate, starts the stack, and tells you the URL.</p>
+<p><strong>Why it matters:</strong> The production stack refuses to start on unsafe settings. Getting <code>.env</code> right the first time is most of the work.</p>
+<p><strong>What runs:</strong> <code>docker-compose.prod.yml</code> replaces the Vite dev server with:</p>
 <table>
 <thead>
 <tr>
@@ -4785,108 +4475,182 @@ does not notice that the bind-mounted config file changed.</p>
 </tr>
 <tr>
 <td><strong>Frontend build</strong></td>
-<td>The release image's pre-built SPA (compiled at image-build time) is copied into a shared volume at startup</td>
+<td>Copies the release image's pre-built SPA (compiled at image-build time) into a shared volume at startup</td>
 </tr>
 <tr>
 <td><strong>Certbot</strong></td>
-<td>(TLS_MODE=letsencrypt only) Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours</td>
+<td>(<code>TLS_MODE=letsencrypt</code> only) Obtains the Let's Encrypt certificate on first boot and renews it automatically every 12 hours</td>
 </tr>
 </tbody>
 </table>
-<h3 id="prerequisites_1">Prerequisites<a class="headerlink" href="#prerequisites_1" title="Permanent link">&para;</a></h3>
+<p><strong>Verify the images <span class="vb-version" title="Added in 1.2">1.2+</span>:</strong> The <code>backend</code> and <code>frontend</code> images this stack pulls are cosign-signed, and each carries a per-architecture CycloneDX SBOM. Verify them before deploying: see <a href="../../administration/image-verification/">Verifying release images</a>. The stack's other images (<code>postgres</code>, <code>valkey</code>, <code>nginx</code>, <code>certbot</code>) are upstream images that Visiban does not sign.</p>
+<p><a id="prerequisites_1"></a></p>
+<p><strong>You need:</strong></p>
 <ul>
-<li>A Linux server (VPS, cloud VM, bare metal)</li>
-<li><strong>Docker</strong> and <strong>Docker Compose</strong> (v2.21+ required for Compose profiles)</li>
+<li>A Linux server (VPS, cloud VM, or bare metal)</li>
+<li><strong>Docker</strong> and <strong>Docker Compose</strong> (v2.21+ is required for Compose profiles)</li>
 <li>For <code>TLS_MODE=letsencrypt</code>:<ul>
-<li>Ports <strong>80</strong> and <strong>443</strong> open in your firewall / security group</li>
-<li>A DNS <strong>A record</strong> pointing <code>yourdomain.com</code> → your server's public IP (Let's Encrypt verifies domain ownership before issuing a certificate)</li>
+<li>Ports <strong>80</strong> and <strong>443</strong> open in your firewall or security group</li>
+<li>A DNS <strong>A record</strong> pointing <code>yourdomain.com</code> at your server's public IP. Let's Encrypt verifies domain ownership before it issues a certificate.</li>
 </ul>
 </li>
-<li>For <code>TLS_MODE=selfsigned</code>: Port <strong>443</strong> open (and <strong>80</strong> for the HTTP→HTTPS redirect)</li>
-<li>For <code>TLS_MODE=none</code>: Port <strong>80</strong> open</li>
+<li>For <code>TLS_MODE=selfsigned</code>: port <strong>443</strong> open (and <strong>80</strong> for the HTTP→HTTPS redirect)</li>
+<li>For <code>TLS_MODE=none</code>: port <strong>80</strong> open</li>
 </ul>
-<h3 id="step-1-clone-and-configure">Step 1 — Clone and configure<a class="headerlink" href="#step-1-clone-and-configure" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.com/visiban/visiban.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>visiban
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<h3 id="tls-modes">TLS modes<a class="headerlink" href="#tls-modes" title="Permanent link">&para;</a></h3>
+<p>Set <code>TLS_MODE</code> to pick one:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>What it does</th>
+<th>Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>letsencrypt</code></td>
+<td><strong>(default)</strong> Obtains and auto-renews a Let's Encrypt certificate</td>
+<td>Public-facing deployments with a DNS A record</td>
+</tr>
+<tr>
+<td><code>selfsigned</code></td>
+<td>Generates a self-signed certificate</td>
+<td>Staging, internal networks, or development</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Serves plain HTTP, with no TLS</td>
+<td>Air-gapped networks, or behind an external load balancer that terminates TLS</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">The non-default modes trade away security</p>
+<p><strong><code>selfsigned</code>:</strong> Browsers show a certificate warning on every visit. HSTS is off by default so browsers don't permanently reject the self-signed cert. If you want it anyway (for example, a staging host with a long-lived trusted cert), set <code>SECURE_HSTS_SECONDS</code> explicitly in <code>.env</code>. Use this mode for internal or staging hosts only.</p>
+<p><strong><code>none</code>:</strong> All traffic, including session cookies and API calls, is unencrypted. The init script sets <code>FORCE_INSECURE_COOKIES=true</code> automatically so Django doesn't require HTTPS for cookies. <strong>Don't use this for a deployment reachable from the public internet.</strong></p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">nginx sends the HSTS header, exactly once</p>
+<p><code>init-prod.sh</code> writes the <code>Strict-Transport-Security</code> header from <code>SECURE_HSTS_SECONDS</code> directly into the active nginx config (<code>nginx/app.conf.template</code>). Every location that proxies to the backend hides Django's own copy of that header (<code>proxy_hide_header</code>). So exactly one <code>Strict-Transport-Security</code> header reaches the browser on every path, the SPA document included.</p>
+<p>After you change <code>SECURE_HSTS_SECONDS</code> in <code>.env</code>, re-run <code>./init-prod.sh</code> to re-render the template. Then run <code>docker compose -f docker-compose.prod.yml up -d --force-recreate nginx</code>. A plain <code>up -d</code> doesn't notice that the bind-mounted config file changed.</p>
+</div>
+<h3 id="step-1-clone-and-configure">Step 1: clone and configure<a class="headerlink" href="#step-1-clone-and-configure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.com/visiban/visiban.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>visiban
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
 </code></pre></div>
-<p>Open <code>.env</code> in a text editor and set the following values. Every line marked <strong>required</strong> must be changed before continuing.</p>
+<p>Open <code>.env</code> in an editor and set the values below. Change every line marked <strong>required</strong> before you continue.</p>
 <div class="admonition tip">
-<p class="admonition-title">Keeping secrets out of shell history</p>
-<p>Always edit secrets directly in the <code>.env</code> file — never pass them as command-line arguments (e.g. <code>DB_PASSWORD=hunter2 docker compose up</code>). Arguments appear in shell history, <code>/proc/*/cmdline</code>, and process listings.</p>
+<p class="admonition-title">Keep secrets out of shell history</p>
+<p>Edit secrets directly in <code>.env</code>. Never pass them as command-line arguments (for example <code>DB_PASSWORD=hunter2 docker compose up</code>), which show up in shell history, <code>/proc/*/cmdline</code>, and process listings.</p>
 <p>To generate and insert a secret in one step without it touching your history:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Replace KEY's line in .env, or append it if .env has none (DB_PASSWORD is</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># only a comment in .env.example, so a bare `sed` would silently change nothing).</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>set_env<span class="o">()</span><span class="w"> </span><span class="o">{</span><span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s2">"^</span><span class="nv">$1</span><span class="s2">="</span><span class="w"> </span>.env<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">"s|^</span><span class="nv">$1</span><span class="s2">=.*|</span><span class="nv">$1</span><span class="s2">=</span><span class="nv">$2</span><span class="s2">|"</span><span class="w"> </span>.env<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$1</span><span class="s2">=</span><span class="nv">$2</span><span class="s2">"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env<span class="p">;</span><span class="w"> </span><span class="o">}</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>set_env<span class="w"> </span>DJANGO_SECRET_KEY<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">'import secrets; print(secrets.token_urlsafe(50))'</span><span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>set_env<span class="w"> </span>DB_PASSWORD<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>set_env<span class="w"> </span>REDIS_PASSWORD<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Replace KEY's line in .env, or append it if .env has none (DB_PASSWORD is</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="c1"># only a comment in .env.example, so a bare `sed` would silently change nothing).</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>set_env<span class="o">()</span><span class="w"> </span><span class="o">{</span><span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s2">"^</span><span class="nv">$1</span><span class="s2">="</span><span class="w"> </span>.env<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">"s|^</span><span class="nv">$1</span><span class="s2">=.*|</span><span class="nv">$1</span><span class="s2">=</span><span class="nv">$2</span><span class="s2">|"</span><span class="w"> </span>.env<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$1</span><span class="s2">=</span><span class="nv">$2</span><span class="s2">"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env<span class="p">;</span><span class="w"> </span><span class="o">}</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>set_env<span class="w"> </span>DJANGO_SECRET_KEY<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">'import secrets; print(secrets.token_urlsafe(50))'</span><span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>set_env<span class="w"> </span>DB_PASSWORD<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>set_env<span class="w"> </span>REDIS_PASSWORD<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
 </code></pre></div>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Use hex, not base64, for <code>DB_PASSWORD</code> and <code>REDIS_PASSWORD</code></p>
-<p><code>docker-compose.prod.yml</code> places both passwords inside connection URLs
-(<code>postgres://visiban:&lt;DB_PASSWORD&gt;@db…</code>), and Compose cannot escape them. A
-<code>/</code>, <code>?</code>, <code>#</code>, <code>%</code>, <code>[</code>, <code>]</code> or space in either one breaks the URL and the backend
-refuses to start — and <code>openssl rand -base64</code> puts a <code>/</code> in about half of
-its outputs. <code>openssl rand -hex 32</code> is just as strong and URL-safe.
-<code>init-prod.sh</code> rejects an unsafe value before starting anything.</p>
+<p><code>docker-compose.prod.yml</code> puts both passwords inside connection URLs (<code>postgres://visiban:&lt;DB_PASSWORD&gt;@db…</code>), and Compose can't escape them. A <code>/</code>, <code>?</code>, <code>#</code>, <code>%</code>, <code>[</code>, <code>]</code>, or space in either one breaks the URL and the backend refuses to start. <code>openssl rand -base64</code> puts a <code>/</code> in about half its outputs. <code>openssl rand -hex 32</code> is just as strong and URL-safe. <code>init-prod.sh</code> rejects an unsafe value before it starts anything.</p>
 </div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Django</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="nv">DJANGO_SECRET_KEY</span><span class="o">=</span>&lt;long<span class="w"> </span>random<span class="w"> </span>string&gt;<span class="w">   </span><span class="c1"># required — generate: python -c "import secrets; print(secrets.token_urlsafe(50))"</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="nv">DEBUG</span><span class="o">=</span><span class="nb">false</span><span class="w">                              </span><span class="c1"># required — never run DEBUG=true in production</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com<span class="w">            </span><span class="c1"># required</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>https://yourdomain.com<span class="w">  </span><span class="c1"># required — must be your public domain, not localhost</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="nv">FRONTEND_URL</span><span class="o">=</span>https://yourdomain.com<span class="w">     </span><span class="c1"># required — allauth redirects here after OAuth login/logout</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="nv">SITE_DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">             </span><span class="c1"># required — used for OAuth callback URLs</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com<span class="w">  </span><span class="c1"># required on 1.1.x — the backend refuses to start</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">                                           </span><span class="c1"># while it is the example.com default (1.2+ only warns)</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="c1"># Database (Postgres runs inside Docker Compose). docker-compose.prod.yml builds</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="c1"># DATABASE_URL from DB_PASSWORD itself; there is nothing else to set.</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="nv">DB_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">           </span><span class="c1"># required — generate: openssl rand -hex 32</span>
-<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>
-<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="c1"># Valkey (runs inside Docker Compose)</span>
-<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">        </span><span class="c1"># required — generate: openssl rand -hex 32</span>
-<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.</span>
-<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="c1"># Only override here if you use an external Valkey or Redis-compatible instance.</span>
-<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a>
-<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
-<a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
-<a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a>
-<a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="c1"># Let's Encrypt (required only when TLS_MODE=letsencrypt)</span>
-<a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a><span class="nv">DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">                   </span><span class="c1"># required — must match your DNS A record</span>
-<a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="nv">CERTBOT_EMAIL</span><span class="o">=</span>admin@yourdomain.com<span class="w">     </span><span class="c1"># required — used for cert expiry alerts</span>
-<a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a>
-<a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="c1"># App version — pin to a release tag of the form vX.Y.Z (see CHANGELOG.md);</span>
-<a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="c1"># the bare X.Y.Z form is not published on GHCR and the pull will fail.</span>
-<a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="nv">APP_VERSION</span><span class="o">=</span>v1.2.0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Django</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nv">DJANGO_SECRET_KEY</span><span class="o">=</span>&lt;long<span class="w"> </span>random<span class="w"> </span>string&gt;<span class="w">   </span><span class="c1"># required — generate: python -c "import secrets; print(secrets.token_urlsafe(50))"</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="nv">DEBUG</span><span class="o">=</span><span class="nb">false</span><span class="w">                              </span><span class="c1"># required — never run DEBUG=true in production</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com<span class="w">            </span><span class="c1"># required</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>https://yourdomain.com<span class="w">  </span><span class="c1"># required — must be your public domain, not localhost</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="nv">FRONTEND_URL</span><span class="o">=</span>https://yourdomain.com<span class="w">     </span><span class="c1"># required — allauth redirects here after OAuth login/logout</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="nv">SITE_DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">             </span><span class="c1"># required — used for OAuth callback URLs</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com<span class="w">  </span><span class="c1"># required on 1.1.x — the backend refuses to start</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">                                           </span><span class="c1"># while it is the example.com default (1.2+ only warns)</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="c1"># Database (Postgres runs inside Docker Compose). docker-compose.prod.yml builds</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="c1"># DATABASE_URL from DB_PASSWORD itself; there is nothing else to set.</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="nv">DB_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">           </span><span class="c1"># required — generate: openssl rand -hex 32</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="c1"># Valkey (runs inside Docker Compose)</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">        </span><span class="c1"># required — generate: openssl rand -hex 32</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="c1"># Only override here if you use an external Valkey or Redis-compatible instance.</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="c1"># Let's Encrypt (required only when TLS_MODE=letsencrypt)</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="nv">DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">                   </span><span class="c1"># required — must match your DNS A record</span>
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="nv">CERTBOT_EMAIL</span><span class="o">=</span>admin@yourdomain.com<span class="w">     </span><span class="c1"># required — used for cert expiry alerts</span>
+<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>
+<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a><span class="c1"># App version — pin to a release tag of the form vX.Y.Z (see CHANGELOG.md);</span>
+<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a><span class="c1"># the bare X.Y.Z form is not published on GHCR and the pull will fail.</span>
+<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a><span class="nv">APP_VERSION</span><span class="o">=</span>v1.2.0
 </code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Using <code>TLS_MODE=none</code> behind an external load balancer</p>
-<p>If TLS is terminated by an upstream proxy (AWS ALB, Cloudflare, Traefik, etc.) that sets the <code>X-Forwarded-Proto: https</code> header, you do <strong>not</strong> need <code>FORCE_INSECURE_COOKIES=true</code>. Django reads the header and treats the request as secure. Set <code>CORS_ALLOWED_ORIGINS</code> and <code>FRONTEND_URL</code> to <code>https://...</code> as usual.</p>
-<p>Only set <code>FORCE_INSECURE_COOKIES=true</code> (done automatically by <code>init-prod.sh</code> for <code>TLS_MODE=none</code>) when there is genuinely no TLS anywhere in the request path.</p>
+<p><a id="pre-flight-security-checklist"></a></p>
+<p><strong>Pre-flight check:</strong> The backend refuses to start if any of these are wrong. That's intentional.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB_PASSWORD</code></td>
+<td>Set to a strong, unique password. Docker Compose <strong>won't start</strong> without it. There is no insecure default.</td>
+</tr>
+<tr>
+<td><code>REDIS_PASSWORD</code></td>
+<td>Set to a strong, unique password. The production Valkey starts with <code>--requirepass</code>, and the backend URLs are built from this value. Docker Compose <strong>won't start</strong> without it. Generate with <code>openssl rand -hex 32</code> (not base64; see the warning above).</td>
+</tr>
+<tr>
+<td><code>DJANGO_SECRET_KEY</code></td>
+<td>A long random string. Left as <code>change-me-in-production</code> or empty, Django raises <code>ImproperlyConfigured</code> at startup. Generate one with <code>python -c "import secrets; print(secrets.token_hex(50))"</code>.</td>
+</tr>
+<tr>
+<td><code>CORS_ALLOWED_ORIGINS</code></td>
+<td>Your production frontend origin (for example <code>https://yourdomain.com</code>). The default <code>http://localhost:5173</code> is only for local development.</td>
+</tr>
+<tr>
+<td><code>DEBUG</code></td>
+<td><code>false</code> in production. <code>DEBUG=true</code> leaks stack traces into HTTP responses and disables the <code>DJANGO_SECRET_KEY</code> guard.</td>
+</tr>
+<tr>
+<td><code>ALLOWED_HOSTS</code></td>
+<td>Must include your domain name (for example <code>yourdomain.com</code>).</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Set <code>ALLOWED_HOSTS</code> before going live, or the site is unreachable</p>
+<p>The codebase default is <code>localhost,127.0.0.1</code>. Deploy without setting it to your real domain and Django rejects every inbound request with <code>400 Bad Request</code>. Set it to your public hostname before starting the production stack:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com
+</code></pre></div>
+<p>On a non-standard port or behind a load balancer, give the hostname without the port. Django reads the <code>Host</code> header, not the port.</p>
 </div>
 <div class="admonition warning">
-<p class="admonition-title">CORS_ALLOWED_ORIGINS must not contain localhost in production</p>
-<p>Visiban refuses to start with <code>DEBUG=False</code> if <code>CORS_ALLOWED_ORIGINS</code> contains a
-<code>localhost</code> or <code>127.0.0.1</code> origin. This prevents a common misconfiguration where
-the default development value is left in place for a production deployment.</p>
+<p class="admonition-title"><code>CORS_ALLOWED_ORIGINS</code> must not contain localhost in production</p>
+<p>With <code>DEBUG=False</code>, Visiban refuses to start if <code>CORS_ALLOWED_ORIGINS</code> contains a <code>localhost</code> or <code>127.0.0.1</code> origin. This catches the common mistake of leaving the development value in place.</p>
 <p><strong>Correct:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>CORS_ALLOWED_ORIGINS=https://yourdomain.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>CORS_ALLOWED_ORIGINS=https://yourdomain.com
 </code></pre></div></p>
-<p><strong>Incorrect (will cause startup failure):</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>CORS_ALLOWED_ORIGINS=http://localhost:5173
+<p><strong>Incorrect (startup fails):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>CORS_ALLOWED_ORIGINS=http://localhost:5173
 </code></pre></div></p>
 </div>
-<blockquote>
-<p><strong>OAuth</strong> (Google, GitHub, GitLab) is optional. See <a href="../oauth/">OAuth Setup</a> if you want social login.</p>
-</blockquote>
-<h3 id="step-2-run-the-init-script">Step 2 — Run the init script<a class="headerlink" href="#step-2-run-the-init-script" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>init-prod.sh
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>./init-prod.sh
+<div class="admonition tip">
+<p class="admonition-title">Behind an external load balancer with <code>TLS_MODE=none</code></p>
+<p>If an upstream proxy (AWS ALB, Cloudflare, Traefik, etc.) terminates TLS and sets <code>X-Forwarded-Proto: https</code>, you do <strong>not</strong> need <code>FORCE_INSECURE_COOKIES=true</code>. Django reads the header and treats the request as secure. Set <code>CORS_ALLOWED_ORIGINS</code> and <code>FRONTEND_URL</code> to <code>https://...</code> as usual.</p>
+<p>Set <code>FORCE_INSECURE_COOKIES=true</code> only when there is genuinely no TLS anywhere in the request path. <code>init-prod.sh</code> sets it for you with <code>TLS_MODE=none</code>.</p>
+</div>
+<p><strong>Optional:</strong> Social login (Google, GitHub, GitLab) and OIDC are covered in <a href="../oauth/">OAuth and SSO</a>.</p>
+<h3 id="step-2-run-the-init-script">Step 2: run the init script<a class="headerlink" href="#step-2-run-the-init-script" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>init-prod.sh
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>./init-prod.sh
 </code></pre></div>
-<p>The script performs these steps automatically based on <code>TLS_MODE</code>:</p>
+<p><strong>How it works:</strong> The script follows <code>TLS_MODE</code>:</p>
 <table>
 <thead>
 <tr>
@@ -4905,19 +4669,19 @@ the default development value is left in place for a production deployment.</p>
 </tr>
 <tr>
 <td><code>none</code></td>
-<td>Sets <code>FORCE_INSECURE_COOKIES=true</code> in <code>.env</code>, selects the HTTP-only nginx config, starts the stack without certbot</td>
+<td>Sets <code>FORCE_INSECURE_COOKIES=true</code> in <code>.env</code>, selects the HTTP-only nginx config, and starts the stack without certbot</td>
 </tr>
 </tbody>
 </table>
-<p>When it finishes you will see:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>  Visiban is live at https://yourdomain.com
+<p>When it finishes you'll see this (<code>http://</code> for <code>TLS_MODE=none</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>  Visiban is live at https://yourdomain.com
 </code></pre></div>
-<p>(or <code>http://</code> for <code>TLS_MODE=none</code>)</p>
 <div class="admonition note">
 <p class="admonition-title">Migrating from <code>init-letsencrypt.sh</code></p>
-<p>The old <code>init-letsencrypt.sh</code> script still works — it prints a deprecation warning and delegates to <code>init-prod.sh</code> with <code>TLS_MODE=letsencrypt</code>. No action is required for existing deployments, but new installs should use <code>init-prod.sh</code> directly.</p>
+<p>The old <code>init-letsencrypt.sh</code> still works. It prints a deprecation warning and hands off to <code>init-prod.sh</code> with <code>TLS_MODE=letsencrypt</code>. Existing deployments need no action, but new installs should call <code>init-prod.sh</code> directly.</p>
 </div>
-<h3 id="step-3-verify">Step 3 — Verify<a class="headerlink" href="#step-3-verify" title="Permanent link">&para;</a></h3>
+<p><a id="step-3-verify"></a></p>
+<h3 id="step-3-verify-and-log-in">Step 3: verify and log in<a class="headerlink" href="#step-3-verify-and-log-in" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -4927,130 +4691,309 @@ the default development value is left in place for a production deployment.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>https://yourdomain.com</code> loads (or <code>http://</code> for <code>TLS_MODE=none</code>)</td>
-<td>React app renders and you can log in</td>
+<td><code>https://yourdomain.com</code> loads (<code>http://</code> for <code>TLS_MODE=none</code>)</td>
+<td>The React app renders and you can log in</td>
 </tr>
 <tr>
-<td><code>http://yourdomain.com</code> (when TLS is enabled)</td>
+<td><code>http://yourdomain.com</code> (when TLS is on)</td>
 <td>Redirects to HTTPS</td>
 </tr>
 <tr>
-<td>Green <strong>Live</strong> dot in toolbar</td>
-<td>WebSocket connected</td>
+<td>Green <strong>Live</strong> dot in the toolbar</td>
+<td>The WebSocket is connected</td>
 </tr>
 <tr>
 <td><code>https://yourdomain.com/admin/</code></td>
-<td>Returns 403 from the internet (restricted to loopback — access via SSH tunnel)</td>
+<td>Returns 403 from the internet (restricted to loopback; reach it over an SSH tunnel)</td>
 </tr>
 </tbody>
 </table>
-<p>The backend writes a one-time admin password to <code>/tmp/visiban_admin_password</code> on first boot. Retrieve it with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
+<p>On first boot the backend writes a one-time admin password to <code>/tmp/visiban_admin_password</code>. Retrieve it, then delete the file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
 </code></pre></div>
-<p>Delete the file after retrieving the password.</p>
 <div class="admonition note">
 <p class="admonition-title">Password file not found?</p>
-<p>If the file does not exist, the admin account was already created on a previous boot (the password is only written once). Reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
+<p>The admin account was already created on an earlier boot; the password is written only once. Reset it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
 </code></pre></div>
 </div>
-<p>See <a href="../first-boot/">First Boot</a> for full details.</p>
+<p><strong>Go deeper:</strong> <a href="../first-boot/">First boot</a> covers the password, registration modes, and inviting your team.</p>
 <div class="admonition tip">
 <p class="admonition-title">Sample data</p>
-<p>The backend image ships the sample board JSON files. To try Visiban with a
-populated board, use <strong>Import</strong> on the dashboard and pick one under <strong>Start from a sample</strong>, or download a file from
-<a href="https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards"><code>backend/boards/sample_boards/</code></a> and use
-<strong>Dashboard → Import</strong>. See <a href="../sample-boards/">Sample Boards</a>.</p>
+<p>The backend image ships the sample board JSON files. To try Visiban with a populated board, use <strong>Import</strong> on the dashboard and pick one under <strong>Start from a sample</strong>, or download a file from <a href="https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards"><code>backend/boards/sample_boards/</code></a> and use <strong>Dashboard → Import</strong>. See <a href="../sample-boards/">Sample boards</a>.</p>
 </div>
-<h3 id="subsequent-deploys">Subsequent deploys<a class="headerlink" href="#subsequent-deploys" title="Permanent link">&para;</a></h3>
-<p>The production stack runs the released images named by <code>APP_VERSION</code> in your
-<code>.env</code>; it builds nothing locally, and <code>git pull</code> does not change your <code>.env</code>.
-To move to a new release, see <a href="#updating-to-a-new-version">Updating to a new version</a>.</p>
-<h3 id="certificate-renewal">Certificate renewal<a class="headerlink" href="#certificate-renewal" title="Permanent link">&para;</a></h3>
-<p>The <code>certbot</code> container (active only with <code>TLS_MODE=letsencrypt</code>) calls <code>certbot renew</code> every 12 hours. Let's Encrypt certificates are valid for 90 days and are renewed automatically when fewer than 30 days remain. No manual action is required.</p>
-<p>For <code>TLS_MODE=selfsigned</code>, the self-signed certificate is valid for 365 days. To regenerate it, delete the certificate directory and re-run the init script:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>certbot/conf/live/yourdomain.com
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>./init-prod.sh
-</code></pre></div>
-<p>To check renewal status (Let's Encrypt only):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>certbot
-</code></pre></div>
-<h3 id="stopping-and-starting">Stopping and starting<a class="headerlink" href="#stopping-and-starting" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Stop all services (data volumes are preserved)</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>down
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># Start again (no rebuild needed unless code changed)</span>
-<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
-</code></pre></div>
+<h2 id="keep-it-running">Keep it running<a class="headerlink" href="#keep-it-running" title="Permanent link">&para;</a></h2>
+<p><a id="subsequent-deploys"></a></p>
+<p><strong>Subsequent deploys:</strong> The production stack runs the released images named by <code>APP_VERSION</code> in <code>.env</code>. It builds nothing locally, and <code>git pull</code> doesn't change <code>.env</code>. To move to a new release, see <a href="#updating-to-a-new-version">Updating to a new version</a>.</p>
 <h3 id="updating-to-a-new-version">Updating to a new version<a class="headerlink" href="#updating-to-a-new-version" title="Permanent link">&para;</a></h3>
 <p>Take a database backup first (see <a href="#backing-up-and-restoring">Backing up and restoring</a>), then:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="nb">cd</span><span class="w"> </span>visiban
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main<span class="w">                     </span><span class="c1"># updated compose file, nginx templates, scripts</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="c1"># Edit .env: set APP_VERSION to the new release tag (vX.Y.Z)</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>pull
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nb">cd</span><span class="w"> </span>visiban
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main<span class="w">                     </span><span class="c1"># updated compose file, nginx templates, scripts</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="c1"># Edit .env: set APP_VERSION to the new release tag (vX.Y.Z)</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>pull
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div>
-<p>Changing <code>APP_VERSION</code> is the step that actually upgrades: without it, <code>pull</code>
-fetches the version you already run. The <code>backend-init</code> service applies the
-new migrations before the new backend starts, and <code>frontend-build</code> copies the
-new SPA into place. See the <a href="../../administration/upgrade/">Upgrade guide</a> for
-version-specific notes and rollback. Check the backend logs after updating:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+<p><strong>Watch out:</strong> Changing <code>APP_VERSION</code> is the step that actually upgrades. Without it, <code>pull</code> fetches the version you already run.</p>
+<p><strong>How it works:</strong> The <code>backend-init</code> service applies the new migrations before the new backend starts, and <code>frontend-build</code> copies the new SPA into place. See the <a href="../../administration/upgrade/">Upgrade guide</a> for version-specific notes and rollback. Then check the backend logs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </code></pre></div>
 <h3 id="backing-up-and-restoring">Backing up and restoring<a class="headerlink" href="#backing-up-and-restoring" title="Permanent link">&para;</a></h3>
 <p><strong>Database backup:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>backup_<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.sql
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>backup_<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.sql
 </code></pre></div>
 <p><strong>Database restore:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>backup_20260308.sql
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>backup_20260308.sql
 </code></pre></div>
-<p><strong>Media files</strong> (card attachments) are stored in a Docker volume. Back them up with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">  </span>tar<span class="w"> </span>czf<span class="w"> </span>/tmp/media.tar.gz<span class="w"> </span>-C<span class="w"> </span>/app<span class="w"> </span>media/
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>cp<span class="w"> </span>backend:/tmp/media.tar.gz<span class="w"> </span>./media_backup.tar.gz
+<p><strong>Media files</strong> (card attachments) live in a Docker volume. Back them up with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span>tar<span class="w"> </span>czf<span class="w"> </span>/tmp/media.tar.gz<span class="w"> </span>-C<span class="w"> </span>/app<span class="w"> </span>media/
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>cp<span class="w"> </span>backend:/tmp/media.tar.gz<span class="w"> </span>./media_backup.tar.gz
 </code></pre></div>
-<h3 id="troubleshooting_1">Troubleshooting<a class="headerlink" href="#troubleshooting_1" title="Permanent link">&para;</a></h3>
-<p><strong><code>certbot: error: Could not bind to port 80</code></strong>
-Something else is already using port 80. Stop it before running the init script:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>nginx<span class="w"> </span>apache2<span class="w">   </span><span class="c1"># or whichever service holds port 80</span>
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>./init-prod.sh
-</code></pre></div></p>
-<p><strong><code>Challenge failed: DNS problem: NXDOMAIN</code></strong>
-Your DNS A record hasn't propagated yet. Check with <code>dig yourdomain.com</code> — it must return your server's IP before certbot can issue a certificate. Wait a few minutes and retry.</p>
-<p><strong>Let's Encrypt rate limit</strong>
-If you hit the issuance limit (5 certs per domain per week during testing), add <code>--staging</code> to the certbot command in <code>init-prod.sh</code> to use the Let's Encrypt staging environment. Remove it once you're ready for a real certificate.</p>
-<p><strong>Nginx <code>502 Bad Gateway</code></strong>
-The backend may still be starting up. Check: <code>docker compose -f docker-compose.prod.yml logs backend</code>. Wait for the <code>daphne</code> line to appear before reloading the page.</p>
-<p><strong>"Live" dot stays yellow (Reconnecting) or never turns green</strong></p>
-<p>The connection indicator in the toolbar reflects the WebSocket connection to <code>/ws/boards/{id}/</code>. If it stays yellow after the page loads, work through the following:</p>
+<h3 id="certificate-renewal">Certificate renewal<a class="headerlink" href="#certificate-renewal" title="Permanent link">&para;</a></h3>
+<p><strong>Let's Encrypt renews itself.</strong> The <code>certbot</code> container (active only with <code>TLS_MODE=letsencrypt</code>) runs <code>certbot renew</code> every 12 hours. Certificates are valid for 90 days and renew when fewer than 30 days remain. No manual action is needed. To check renewal status:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>certbot
+</code></pre></div>
+<p><strong>Self-signed certificates last 365 days.</strong> To regenerate one, delete the certificate directory and re-run the init script:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>certbot/conf/live/yourdomain.com
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>./init-prod.sh
+</code></pre></div>
+<h3 id="stopping-and-starting">Stopping and starting<a class="headerlink" href="#stopping-and-starting" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Stop all services (data volumes are preserved)</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>down
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1"># Start again (no rebuild needed unless code changed)</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p><a id="troubleshooting_1"></a></p>
+<h2 id="when-production-misbehaves">When production misbehaves<a class="headerlink" href="#when-production-misbehaves" title="Permanent link">&para;</a></h2>
+<p><strong><code>certbot: error: Could not bind to port 80</code>:</strong> Something else is using port 80. Stop it, then re-run the init script:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>nginx<span class="w"> </span>apache2<span class="w">   </span><span class="c1"># or whichever service holds port 80</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>./init-prod.sh
+</code></pre></div>
+<p><strong><code>Challenge failed: DNS problem: NXDOMAIN</code>:</strong> Your DNS A record hasn't propagated yet. Check with <code>dig yourdomain.com</code>; it must return your server's IP before certbot can issue a certificate. Wait a few minutes and retry.</p>
+<p><strong>You hit the Let's Encrypt rate limit</strong> (5 certificates per domain per week during testing): Add <code>--staging</code> to the certbot command in <code>init-prod.sh</code> to use the Let's Encrypt staging environment. Remove it once you're ready for a real certificate.</p>
+<p><strong>nginx returns <code>502 Bad Gateway</code>:</strong> The backend may still be starting. Check <code>docker compose -f docker-compose.prod.yml logs backend</code>, and wait for the <code>daphne</code> line before reloading the page.</p>
+<p><strong>The Live dot stays yellow (Reconnecting) or never turns green.</strong> The toolbar indicator shows the WebSocket connection to <code>/ws/boards/{id}/</code>. If it stays yellow after the page loads, work down this list:</p>
 <ol>
 <li>
-<p><strong>Backend not ready</strong> — WebSocket connections are rejected until daphne is fully started:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+<p><strong>Backend not ready.</strong> WebSocket connections are rejected until daphne has fully started:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </code></pre></div>
    Wait for a line containing <code>daphne</code> before reloading the page.</p>
 </li>
 <li>
-<p><strong>Valkey unavailable</strong> — Django Channels requires Valkey for the channel layer. If Valkey is down, the backend accepts the WebSocket upgrade but immediately closes the connection. Edits still save normally, but their live updates are dropped, and the backend logs a <code>board broadcast dropped</code> warning for each one. Once Valkey is back, an open board catches up when its socket reconnects, the next time its tab regains focus, or when you choose <strong>Refresh board</strong> in the connection popover. API clients can replay missed board events from the <a href="../../api/events/">change feed</a>:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>valkey
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from django.core.cache import cache; cache.set('healthcheck', 'ok'); print(cache.get('healthcheck'))"</span>
+<p><strong>Valkey unavailable.</strong> Django Channels needs Valkey for the channel layer. Without it, the backend accepts the WebSocket upgrade and then closes it immediately. Edits still save, but their live updates are dropped, and the backend logs a <code>board broadcast dropped</code> warning for each one. Once Valkey is back, an open board catches up when its socket reconnects, when its tab next regains focus, or when you choose <strong>Refresh board</strong> in the connection popover. API clients can replay missed board events from the <a href="../../api/events/">change feed</a>.
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>valkey
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from django.core.cache import cache; cache.set('healthcheck', 'ok'); print(cache.get('healthcheck'))"</span>
 </code></pre></div></p>
 </li>
 <li>
-<p><strong><code>ALLOWED_HOSTS</code> missing your domain</strong> — A handshake whose <code>Origin</code> matches neither <code>CORS_ALLOWED_ORIGINS</code> / <code>CSRF_TRUSTED_ORIGINS</code> nor an exact host in <code>ALLOWED_HOSTS</code> is refused with <code>403</code>. Confirm <code>ALLOWED_HOSTS=yourdomain.com</code> is set in <code>.env</code>. If <code>ALLOWED_HOSTS</code> uses <code>*</code> or a leading-dot entry, list your public origin in <code>CORS_ALLOWED_ORIGINS</code> instead.</p>
+<p><strong><code>ALLOWED_HOSTS</code> missing your domain.</strong> A handshake is refused with <code>403</code> if its <code>Origin</code> matches neither <code>CORS_ALLOWED_ORIGINS</code> / <code>CSRF_TRUSTED_ORIGINS</code> nor an exact host in <code>ALLOWED_HOSTS</code>. Confirm <code>ALLOWED_HOSTS=yourdomain.com</code> is set in <code>.env</code>. If <code>ALLOWED_HOSTS</code> uses <code>*</code> or a leading-dot entry, list your public origin in <code>CORS_ALLOWED_ORIGINS</code> instead.</p>
 </li>
 <li>
-<p><strong>Nginx not proxying <code>/ws/</code></strong> — Verify the nginx container started without errors and that its config includes the WebSocket location block:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>nginx
-<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nginx<span class="w"> </span>nginx<span class="w"> </span>-T<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"location /ws"</span>
+<p><strong>Nginx not proxying <code>/ws/</code>.</strong> Confirm the nginx container started cleanly and that its config has the WebSocket location block:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>nginx
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nginx<span class="w"> </span>nginx<span class="w"> </span>-T<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"location /ws"</span>
 </code></pre></div></p>
 </li>
 <li>
-<p><strong>Upstream proxy stripping upgrade headers</strong> — If Visiban sits behind another reverse proxy (CDN, load balancer), confirm that proxy forwards <code>Upgrade</code> and <code>Connection</code> headers and does not terminate WebSocket connections.</p>
+<p><strong>Upstream proxy stripping upgrade headers.</strong> If Visiban sits behind another reverse proxy (a CDN or load balancer), confirm that proxy forwards the <code>Upgrade</code> and <code>Connection</code> headers and doesn't terminate WebSocket connections.</p>
 </li>
 </ol>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<p><strong>The big picture:</strong> Only the first three are required. The rest default to safe local values, but production needs several of them set (see <a href="#step-1-clone-and-configure">Step 1</a>). OAuth variables are in <a href="../oauth/">OAuth and SSO</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th style="text-align: center;">Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DJANGO_SECRET_KEY</code></td>
+<td style="text-align: center;">Yes</td>
+<td>Django secret key. Generate with <code>python -c "import secrets; print(secrets.token_urlsafe(50))"</code>.</td>
+</tr>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td style="text-align: center;">Yes</td>
+<td>PostgreSQL DSN, e.g. <code>postgres://user:pass@host:5432/dbname</code>.</td>
+</tr>
+<tr>
+<td><code>REDIS_URL</code></td>
+<td style="text-align: center;">Yes</td>
+<td>Valkey DSN for Channels / WebSocket (default in Docker Compose: <code>redis://valkey:6379/0</code>).</td>
+</tr>
+<tr>
+<td><code>REDIS_CACHE_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>Valkey DSN for the Django cache, used for rate limiting and health checks (default: <code>redis://localhost:6379/1</code>). Docker Compose sets it automatically. Use a different database index than <code>REDIS_URL</code> to avoid key collisions.</td>
+</tr>
+<tr>
+<td><code>FRONTEND_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>Full URL of the React SPA (default: <code>http://localhost:5173</code>). allauth redirects here after OAuth login and logout. <strong>Must be set in production.</strong></td>
+</tr>
+<tr>
+<td><code>DEBUG</code></td>
+<td style="text-align: center;">No</td>
+<td>Set <code>True</code> for local development only.</td>
+</tr>
+<tr>
+<td><code>ALLOWED_HOSTS</code></td>
+<td style="text-align: center;">No</td>
+<td>Comma-separated hostnames (default: <code>localhost,127.0.0.1</code>). <strong>Must be set to your real domain in production.</strong> The default allows only loopback addresses, so Django rejects every request from a real hostname.</td>
+</tr>
+<tr>
+<td><code>CORS_ALLOWED_ORIGINS</code></td>
+<td style="text-align: center;">No</td>
+<td>Comma-separated allowed frontend origins (default: <code>http://localhost:5173</code>). Also controls <code>CSRF_TRUSTED_ORIGINS</code> unless that is set explicitly.</td>
+</tr>
+<tr>
+<td><code>CSRF_TRUSTED_ORIGINS</code></td>
+<td style="text-align: center;">No</td>
+<td>Overrides CSRF trusted origins independently of <code>CORS_ALLOWED_ORIGINS</code>. Defaults to <code>CORS_ALLOWED_ORIGINS</code>.</td>
+</tr>
+<tr>
+<td><code>SITE_DOMAIN</code></td>
+<td style="text-align: center;">No</td>
+<td>Public hostname used for OAuth callbacks (default: <code>localhost:8000</code>). Must match your OAuth app's redirect URI.</td>
+</tr>
+<tr>
+<td><code>VITE_API_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>Browser-facing backend URL (default: <code>http://localhost:8000</code>). The frontend bundle calls the API at this origin. Must move with <code>BACKEND_PORT</code> when running side-by-side stacks. In production, set it to your public backend origin (e.g. <code>https://api.yourdomain.com</code>, or the SPA's own origin behind a single proxy).</td>
+</tr>
+<tr>
+<td><code>DJANGO_SUPERUSER_USERNAME</code></td>
+<td style="text-align: center;">No</td>
+<td>Overrides the bootstrap admin username (default: <code>admin</code>).</td>
+</tr>
+<tr>
+<td><code>DJANGO_SUPERUSER_EMAIL</code></td>
+<td style="text-align: center;">No</td>
+<td>Overrides the bootstrap admin email (default: <code>admin@localhost</code>).</td>
+</tr>
+<tr>
+<td><code>EMAIL_VERIFICATION</code></td>
+<td style="text-align: center;">No</td>
+<td>Email verification mode: <code>optional</code> (default: sends a verification email but allows login without it), <code>none</code> (no verification; works without SMTP), or <code>mandatory</code> (blocks login until the email is verified). The old alias <code>ACCOUNT_EMAIL_VERIFICATION</code> was removed in 1.1; use <code>EMAIL_VERIFICATION</code> only.</td>
+</tr>
+<tr>
+<td><code>SECURE_HSTS_SECONDS</code></td>
+<td style="text-align: center;">No</td>
+<td>HTTP Strict-Transport-Security max-age in seconds. Defaults: <code>0</code> in development; <code>31536000</code> (1 year) in production when <code>DEBUG=false</code>. <strong>In the production Compose stack this value also drives the header <code>init-prod.sh</code> renders into nginx</strong>, and nginx is the only thing that sends the header there (see <a href="#tls-modes">TLS modes</a>). With <code>TLS_MODE=letsencrypt</code> and the value unset, nginx sends <code>63072000</code> (2 years), the value existing installs already got. With <code>TLS_MODE=selfsigned</code>, nginx sends no header unless you set this. For the Compose stack the value must be <code>0</code> or a positive integer with <strong>no leading zero</strong> and at most 10 digits (e.g. <code>300</code>, not <code>0300</code>); <code>init-prod.sh</code> fails closed with an error rather than guess at a malformed value. Django's own parsing elsewhere is more lenient. <strong>Warning:</strong> a wrong value locks browsers into HTTPS for the full duration, with no easy rollback. Start small (e.g. <code>300</code>) when you first enable HTTPS, then raise it once everything works.</td>
+</tr>
+<tr>
+<td><code>DJANGO_ADMIN_ALLOWED_IPS</code></td>
+<td style="text-align: center;">No</td>
+<td>Comma-separated IPs and/or CIDR ranges (e.g. <code>10.0.0.0/8</code>) allowed to reach <code>/admin/</code>. In production the default is loopback only (<code>127.0.0.1</code>, <code>::1</code>). Setting this <strong>replaces</strong> that default, so include <code>127.0.0.1,::1</code> if you still need loopback access. Also covered in <a href="../../administration/secret-rotation/">Secret Rotation</a>.</td>
+</tr>
+<tr>
+<td><code>OIDC_CLIENT_ID</code></td>
+<td style="text-align: center;">No</td>
+<td>OIDC provider client ID, for generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three <code>OIDC_*</code> vars must be set together to enable OIDC login. See <a href="../oauth/">OAuth and SSO</a>.</td>
+</tr>
+<tr>
+<td><code>OIDC_CLIENT_SECRET</code></td>
+<td style="text-align: center;">No</td>
+<td>OIDC provider client secret. The old alias <code>OIDC_SECRET</code> was removed in 1.1; only <code>OIDC_CLIENT_SECRET</code> is read.</td>
+</tr>
+<tr>
+<td><code>OIDC_SERVER_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>OIDC issuer URL, e.g. <code>https://idp.example.com/realms/my-realm</code>. Must be the issuer root: allauth appends <code>.well-known/openid-configuration</code> to discover endpoints.</td>
+</tr>
+<tr>
+<td><code>OIDC_PROVIDER_NAME</code></td>
+<td style="text-align: center;">No</td>
+<td>Label on the OIDC login button (default: <code>SSO</code>).</td>
+</tr>
+<tr>
+<td><code>TLS_MODE</code></td>
+<td style="text-align: center;">No</td>
+<td>TLS mode for the production Docker stack: <code>letsencrypt</code> (default), <code>selfsigned</code>, or <code>none</code>. See <a href="#tls-modes">TLS modes</a>.</td>
+</tr>
+<tr>
+<td><code>FORCE_INSECURE_COOKIES</code></td>
+<td style="text-align: center;">No</td>
+<td>Set <code>true</code> to turn off <code>SESSION_COOKIE_SECURE</code> and <code>CSRF_COOKIE_SECURE</code> for plain-HTTP deployments. <code>init-prod.sh</code> sets it automatically with <code>TLS_MODE=none</code>. Default: <code>false</code>.</td>
+</tr>
+<tr>
+<td><code>MAX_UPLOAD_SIZE_BYTES</code></td>
+<td style="text-align: center;">No</td>
+<td>Maximum card attachment size in bytes (default: <code>10485760</code>, 10 MB). Raise it for large attachments; lower it to limit storage use.</td>
+</tr>
+<tr>
+<td><code>BOARD_EVENT_RETENTION_DAYS</code></td>
+<td style="text-align: center;">No</td>
+<td>How long a board <a href="../../api/events/">change feed</a> event stays readable, in days (default: <code>30</code>). Nothing expires on its own: schedule <code>manage.py prune_board_events</code> (see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>) or the <code>board_events</code> table grows without bound. Set it longer than the longest outage a feed consumer must survive.</td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_RETENTION_DAYS</code></td>
+<td style="text-align: center;">No</td>
+<td>How long an in-app notification is kept, read or unread, in days (default: <code>90</code>, minimum <code>14</code>). Enforced only when <code>manage.py prune_notifications</code> is scheduled (see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>). Unscheduled, notifications are kept forever.</td>
+</tr>
+<tr>
+<td><code>SCHEDULE_NOTIFY_DUE_SOON</code>, <code>SCHEDULE_NOTIFY_STALE_CARDS</code>, <code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, <code>SCHEDULE_PRUNE_NOTIFICATIONS</code></td>
+<td style="text-align: center;">No</td>
+<td>Daily run time (<code>HH:MM</code> UTC, or <code>off</code>) for each job of the opt-in Compose <code>scheduler</code> service. Defaults: <code>07:00</code>, <code>08:00</code>, <code>off</code>, <code>off</code>. Read only by <code>manage.py run_scheduler</code>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</td>
+</tr>
+<tr>
+<td><code>GIT_LENS_ENABLED</code></td>
+<td style="text-align: center;">No</td>
+<td>Set <code>true</code> to turn on the <a href="../../features/issue-board-lens/">Issue Board Lens</a> (default: <code>false</code>). See <a href="../../administration/configuration/#optional-features-off-by-default">Optional features</a>.</td>
+</tr>
+<tr>
+<td><code>MCP_SERVER_ENABLED</code></td>
+<td style="text-align: center;">No</td>
+<td>Set <code>true</code> to serve the <a href="../../features/mcp-server/">MCP server</a> at <code>/mcp</code> (default: <code>false</code>). Also configurable: <code>MCP_ALLOWED_HOSTS</code>, and the <code>MCP_THROTTLE_READ_RATE</code>, <code>MCP_THROTTLE_COMPUTE_RATE</code>, and <code>MCP_THROTTLE_PREAUTH_RATE</code> limits. See <a href="../../administration/configuration/#optional-features-off-by-default">Optional features</a>.</td>
+</tr>
+<tr>
+<td><code>IMPORT_MAX_SIZE_BYTES</code></td>
+<td style="text-align: center;">No</td>
+<td>Maximum Trello JSON export size for the <a href="../../features/trello-import/">Trello import wizard</a>, in bytes (default: <code>26214400</code>, 25 MB). Your reverse proxy must accept bodies at least this large; see <a href="../../administration/configuration/#import-limits">Import limits</a>. The 1.2 pre-release name <code>VISIBAN_IMPORT_MAX_SIZE</code> still works as a deprecated alias.</td>
+</tr>
+</tbody>
+</table>
+<p><a id="local-development"></a></p>
+<h2 id="run-from-source">Run from source<a class="headerlink" href="#run-from-source" title="Permanent link">&para;</a></h2>
+<p><strong>For contributors:</strong> run the backend and frontend directly, without Docker.</p>
+<h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="nb">cd</span><span class="w"> </span>backend
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">       </span><span class="c1"># Windows: .venv\Scripts\activate</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="c1"># Docker images install the hash-pinned backend/requirements.lock instead. If</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="c1"># you edit requirements.txt, run scripts/lock-backend-requirements.sh and commit</span>
+<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="c1"># the regenerated lock (see docs/development/dependency-lock.md).</span>
+<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a><span class="c1"># Re-run `pip install -r requirements.txt` after every pull that changes</span>
+<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a><span class="c1"># requirements.txt: a stale venv shows up as a bare ModuleNotFoundError (e.g.</span>
+<a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a><span class="c1"># mcp 1.x vs the 2.x pin), not as a clear "out of date" message. From a</span>
+<a id="__codelineno-32-11" name="__codelineno-32-11" href="#__codelineno-32-11"></a><span class="c1"># checkout, `scripts/wt doctor` warns about any `==` pin that differs from</span>
+<a id="__codelineno-32-12" name="__codelineno-32-12" href="#__codelineno-32-12"></a><span class="c1"># what is installed, naming the package and both versions.</span>
+<a id="__codelineno-32-13" name="__codelineno-32-13" href="#__codelineno-32-13"></a>
+<a id="__codelineno-32-14" name="__codelineno-32-14" href="#__codelineno-32-14"></a>cp<span class="w"> </span>../.env.example<span class="w"> </span>.env
+<a id="__codelineno-32-15" name="__codelineno-32-15" href="#__codelineno-32-15"></a><span class="c1"># Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite</span>
+<a id="__codelineno-32-16" name="__codelineno-32-16" href="#__codelineno-32-16"></a>
+<a id="__codelineno-32-17" name="__codelineno-32-17" href="#__codelineno-32-17"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
+<a id="__codelineno-32-18" name="__codelineno-32-18" href="#__codelineno-32-18"></a>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin<span class="w">   </span><span class="c1"># prints one-time password</span>
+<a id="__codelineno-32-19" name="__codelineno-32-19" href="#__codelineno-32-19"></a>python<span class="w"> </span>manage.py<span class="w"> </span>runserver
+</code></pre></div>
+<h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>npm<span class="w"> </span>install
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
+</code></pre></div>
+<p><strong>Point Vite at the API:</strong> <code>npm run dev</code> expects the backend at <code>http://localhost:8000</code>. Create <code>frontend/.env.local</code> to tell Vite where the API is. The file is gitignored; never commit it.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># frontend/.env.local — local dev only, never included in Docker builds</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
+</code></pre></div>
+<p>A commented template is at <code>frontend/.env.local.example</code>.</p>
 
 
 
