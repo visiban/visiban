@@ -1,8 +1,19 @@
-# Issue Board Lens API
+# Mirror a public repo's issues onto a board, read-only
 
-Mirror public GitHub or GitLab issues onto a board, read-only.
+Start the server with `GIT_LENS_ENABLED=true`, then connect a board to a public repository with one `PUT`:
+
+```bash
+curl -X PUT -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" \
+  -d '{"provider": "github", "repo_slug": "acme/backend"}' \
+  http://localhost:8000/api/v1/git-lens/connections/12/
+# 200 OK, the saved LensConnection (column_dim defaults to "pipeline", swimlane_dim to "milestone")
+```
+
+Then read the grid with `GET /api/v1/git-lens/board/{board_id}/`. `PUT` needs board admin, board owner, or site admin.
 
 **Why it matters:** the REST endpoints are experimental and can change without notice, while the WebSocket events and `git_lens_enabled` are stable.
+
+**Go deeper:** [Endpoints](#endpoints), [Filtering](#filtering), [Refresh and rate limits](#refresh-and-rate-limits), [Admin usage](#admin-usage).
 
 **The big picture:** Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions.
 

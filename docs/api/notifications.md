@@ -1,10 +1,17 @@
-# Notifications API
+# Read and clear your notifications over REST
 
-Read and clear your notifications over REST; toggle each type with `PATCH /api/v1/auth/me/`.
+`GET /api/v1/notifications/` returns your 50 most recent unread notifications; `POST /api/v1/notifications/mark-read/` with `{ "all": true }` clears them.
+
+```bash
+curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/notifications/unread-count/
+# {"count": 5}
+```
 
 **Why it matters:** each notification type has its own preference, so a missing notification is usually a toggle, not a bug.
 
-**The big picture:** Visiban creates notifications for board members when:
+**By the numbers:** the list returns at most 50 notifications, unread only. Three endpoints, all authenticated: `GET /api/v1/notifications/`, `POST /api/v1/notifications/mark-read/`, and `GET /api/v1/notifications/unread-count/`.
+
+**How it works:** Visiban creates notifications for board members when:
 
 - A card is assigned to them (`notif_card_assigned`)
 - They are @mentioned in a comment or card description (`notif_mentioned`)

@@ -1,8 +1,18 @@
-# MCP Server
+# Let an AI agent read and write your boards over MCP
 
-Set `MCP_SERVER_ENABLED=true`, then point an MCP client at `/mcp` with a Personal Access Token.
+Set `MCP_SERVER_ENABLED=true`, create a Personal Access Token with the `mcp:read` scope, and point an MCP client at `/mcp`.
+
+```bash
+MCP_SERVER_ENABLED=true   # backend environment; restart the backend
+# client header:
+# Authorization: Bearer vbn_0123456789abcdef0123456789abcdef01234567
+```
 
 **Why it matters:** the server is off by default, and `/mcp` returns `404 Not Found` until you enable it.
+
+**Watch out:** `/mcp` takes `Bearer`, while the REST API takes `Token`. Write tools also need the `mcp:write` scope. See [Authentication](#authentication).
+
+**Go deeper:** [Enabling the server](#enabling-the-server), [Connecting a client](#connecting-a-client), [Tools](#tools), [Resources](#resources), [Stability and versioning](#stability-and-versioning).
 
 **The big picture:** Visiban can expose its boards to AI agents over the [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to `/mcp`, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.
 
@@ -10,21 +20,6 @@ The feature is flag-gated: `/mcp` returns `404 Not Found` unless the server is s
 
 !!! note
     This is the Phase 1 (OSS core) surface: board discovery, full card CRUD, and the `board://`/`card://` resources below. A full setup guide is tracked separately.
-
----
-
-## Stability and versioning
-
-> **Added in 1.2**
-
-The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
-
-- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
-- **Argument schemas** change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.
-- **Results and error payloads** only gain fields; existing fields keep their name and type. The error `code` values listed under [Tool errors](#tool-errors) are never removed.
-- A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
-- New tools, resources, optional arguments, and result fields can appear in any minor release, so clients should ignore fields they do not recognize.
-- The configuration names `MCP_SERVER_ENABLED`, `MCP_ALLOWED_HOSTS`, `MCP_THROTTLE_*_RATE`, and the `/mcp` path follow the environment-variable rules: they are not renamed, and a rename keeps the old name as a deprecated alias for at least one minor release.
 
 ---
 
@@ -500,6 +495,21 @@ Resources fail differently from tools. A tool that cannot complete returns a str
 That message is deliberately identical whether the id does not exist or exists on a board the caller cannot see — the same IDOR-prevention reasoning the `board_not_found`/`card_not_found` tool error codes already document above. There is no way to distinguish the two cases from the response, by design.
 
 The same "raise, don't return" rule applies to a throttled resource read — see [Throttled resource reads](#throttled-resource-reads) above.
+
+---
+
+## Stability and versioning
+
+> **Added in 1.2**
+
+The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
+
+- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
+- **Argument schemas** change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.
+- **Results and error payloads** only gain fields; existing fields keep their name and type. The error `code` values listed under [Tool errors](#tool-errors) are never removed.
+- A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
+- New tools, resources, optional arguments, and result fields can appear in any minor release, so clients should ignore fields they do not recognize.
+- The configuration names `MCP_SERVER_ENABLED`, `MCP_ALLOWED_HOSTS`, `MCP_THROTTLE_*_RATE`, and the `/mcp` path follow the environment-variable rules: they are not renamed, and a rename keeps the old name as a deprecated alias for at least one minor release.
 
 ---
 

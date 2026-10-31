@@ -1,10 +1,23 @@
-# Health Check API
+# Probe Visiban's health with two unauthenticated GETs
 
-`GET /api/health/liveness/` returns `{"status": "ok"}` with no authentication.
+Point your liveness probe at `/api/health/liveness/` and your readiness probe at `/api/health/readiness/`.
 
-**Why it matters:** a probe pointed at the wrong endpoint restarts healthy containers or routes traffic to unready ones.
+```bash
+curl -i http://localhost:8000/api/health/readiness/   # 200 {"status": "ok"}, or 503 when a dependency is down
+```
+
+**Why it matters:** the two probes answer different questions. A failed liveness probe means restart the container; a failed readiness probe means stop sending it traffic.
 
 **The big picture:** two unauthenticated endpoints for liveness and readiness probes — usable with Kubernetes, Docker Compose `healthcheck` directives, or any uptime monitoring tool.
+
+**By the numbers:**
+
+| Endpoint | Checks | Success | Failure |
+|---|---|---|---|
+| `GET /api/health/liveness/` | Process is running; no external checks | `200` | Restart the container |
+| `GET /api/health/readiness/` | Database and Valkey cache reachable | `200` | `503`; withhold traffic |
+
+**Go deeper:** the [Kubernetes example](#kubernetes-example) has both probes ready to paste.
 
 ## `GET /api/health/liveness/`
 
