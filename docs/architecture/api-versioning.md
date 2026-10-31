@@ -1,6 +1,12 @@
-# API Versioning
+<a id="api-versioning"></a>
+
+# The /api/v1/ contract: what never changes
 
 Visiban's REST API is a public contract from 1.0 onward: this page is the backward-compatibility policy that binds every change to it.
+
+**Why it matters:** Integrations built on `/api/v1/` keep working through every 1.x release. Deprecations get headers and at least one minor release of notice.
+
+**The big picture:** everything lives under `/api/v1/`, and only `v1` exists today.
 
 ## URL path versioning — `/api/v1/`
 

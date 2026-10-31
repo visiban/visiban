@@ -1,8 +1,14 @@
-# Open-Core Boundary
+<a id="open-core-boundary"></a>
+
+# What is OSS and what is Enterprise
 
 The OSS vs enterprise classification for every feature area where the boundary has been formally decided. This is the canonical reference — when a feature appears here, the ruling supersedes any informal discussion in issue comments.
 
 **Guiding principle:** "Can a small team work together effectively without this?" If no → OSS core. If yes → enterprise candidate.
+
+**Why it matters:** A feature's tier is decided once, here. Check the [Classification table](#classification-table) before building or documenting anything that might be Enterprise.
+
+**Go deeper:** [Detailed rulings](#detailed-rulings) for split features, [OSS extension points](#oss-extension-points-implementation-status) for what Enterprise plugs into.
 
 ---
 

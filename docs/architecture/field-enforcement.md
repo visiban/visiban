@@ -1,6 +1,10 @@
-# Field Enforcement
+<a id="field-enforcement"></a>
+
+# Which API constraint fields the server actually enforces
 
 Some API fields read as rules rather than values: `wip_limit`, `allowed_priorities`, `default_board_member_role`, `is_required`. A client that reads one of them will assume the server enforces it. Since 1.2 some of those clients are AI agents talking to the [MCP server](../features/mcp-server.md), and an agent cannot notice that a rule is only advisory. It reads the schema and acts on it.
+
+**Why it matters:** Do not assume a field that reads as a rule is enforced. Check its class (binding, advisory, or scaffold) in [The three classes](#the-three-classes) and the tables below.
 
 > **Added in 1.2** (#1077)
 
