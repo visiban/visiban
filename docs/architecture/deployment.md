@@ -4,20 +4,7 @@ Two supported paths: Docker Compose for a single server, Helm for Kubernetes. Bo
 
 **Why it matters:** Pick one path and stay on it. Compose is the default for self-hosting; Helm is for clusters.
 
-**The minimum (Compose):**
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Fill in `DJANGO_SECRET_KEY` and `DATABASE_URL` in `.env` first (leave the default for bundled Postgres). The full block is below.
-
-**Go deeper:** [Scaling](scaling.md) for load, [Rate limiting](#rate-limiting) for API limits.
-
-## Docker Compose (recommended for self-hosting)
-
-> **Tested:** The Docker Compose development stack has been verified end-to-end.
+**The minimum (Compose):** fill in `DJANGO_SECRET_KEY` and `DATABASE_URL` in `.env` (leave the default for bundled Postgres), then start the stack:
 
 ```bash
 cp .env.example .env
@@ -25,17 +12,28 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The `docker-compose.yml` starts four services: `db` (Postgres 17), `valkey` (Valkey 8), `backend` (daphne ASGI), and `frontend` (Vite dev server). The backend runs `migrate` and `ensure_site_admin` automatically on startup.
+**Yes, but:** this is the development stack. For production use `docker-compose.prod.yml` ([below](#docker-compose-recommended-for-self-hosting)) or Helm.
 
-> **Note:** The backend uses **daphne** (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.
+**Go deeper:** [Scaling](scaling.md) for load, [Rate limiting](#rate-limiting) for API limits.
 
-The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does **not** proxy `/api/` requests. Access the [OpenAPI schema](../api/openapi.md) at `http://localhost:8000/api/schema/swagger-ui/` — the schema endpoints require an authenticated session or PAT, to avoid exposing the full API surface to anonymous callers.
+## Docker Compose (recommended for self-hosting)
 
-For a production-oriented Docker Compose stack (nginx, TLS via certbot, a `scheduler` service for daily notification jobs, no bind-mounted source), see `docker-compose.prod.yml` and [Installation](../getting-started/installation.md).
+> **Tested:** The Docker Compose development stack has been verified end-to-end.
+
+**How it works:** `docker-compose.yml` starts four services:
+
+- `db`: Postgres 17
+- `valkey`: Valkey 8
+- `backend`: daphne ASGI, not gunicorn, so WebSocket connections work for real-time board updates. It runs `migrate` and `ensure_site_admin` on startup.
+- `frontend`: Vite dev server
+
+**Ports:** the backend (8000) is exposed directly. The Vite dev server on port 5173 does **not** proxy `/api/` requests. The [OpenAPI schema](../api/openapi.md) is at `http://localhost:8000/api/schema/swagger-ui/`; it requires an authenticated session or PAT, so anonymous callers can't see the full API surface.
+
+**Production:** `docker-compose.prod.yml` adds nginx, TLS via certbot, and a `scheduler` service for daily notification jobs, with no bind-mounted source. See [Installation](../getting-started/installation.md).
 
 ## Production Docker images
 
-Pre-built images are published to the GitLab container registry automatically by CI. `:latest` always means the newest **stable** release: it is written only by a stable release-tag pipeline, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (`-alpha`/`-beta`/`-rc`) publishes its own exact version tag and never touches `:latest`. Every merge to `main` pushes an amd64-only `:main` and short-SHA tag instead:
+CI publishes pre-built images to the GitLab container registry. `:latest` is the newest **stable** release: only a stable release-tag pipeline writes it, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (`-alpha`/`-beta`/`-rc`) publishes its own exact version tag and never touches `:latest`. Every merge to `main` pushes an amd64-only `:main` and short-SHA tag instead:
 
 | Image | Stable release (multi-arch) | Latest `main` build (amd64 only) |
 |---|---|---|
@@ -55,24 +53,22 @@ docker build -f frontend/Dockerfile -t registry.gitlab.com/visiban/visiban/front
 ```
 
 !!! note
-    The Helm chart runs the backend with **daphne** (ASGI server) by default — the same as the Docker Compose stack. WebSocket connections and all real-time features work out of the box in Kubernetes with no extra configuration required.
+    The Helm chart runs the backend with **daphne** (ASGI server) by default, like Compose. WebSockets and real-time features need no extra configuration in Kubernetes.
 
 ## Kubernetes / Helm
 
 > **Tested:** The Helm chart has been deployed and verified on a live Kubernetes cluster.
 
-A Helm chart is included under `helm/visiban/`. Images are pulled from the GitLab container registry — see [Production Docker images](#production-docker-images) above.
-
-The Helm chart bundles the following database and cache dependencies:
+The chart lives in `helm/visiban/` and pulls images from the GitLab container registry ([Production Docker images](#production-docker-images)). It bundles:
 
 | Component | Version | How deployed |
 |---|---|---|
 | PostgreSQL | 17 | Built-in StatefulSet using the official `postgres:17` image (default) |
 | Valkey | 8 | Built-in StatefulSet using the official `valkey/valkey:8-alpine` image (the same major as `docker-compose.prod.yml`) |
 
-> **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is disabled by default (`postgresql.subchartEnabled: false`) because Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart deploys PostgreSQL via its own StatefulSet instead. Set `postgresql.subchartEnabled: true` to revert to the Bitnami subchart if needed.
+> **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is off by default (`postgresql.subchartEnabled: false`): Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart's own StatefulSet deploys PostgreSQL instead. Set `postgresql.subchartEnabled: true` to revert.
 
-> **Note:** Both the Docker Compose and Kubernetes/Helm stacks run **PostgreSQL 17**. If you are migrating an existing deployment from an older release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
+> **Note:** Compose and Helm both run **PostgreSQL 17**. Coming from a release that used PostgreSQL 16, export your data first: major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
 
 ### Install
 
@@ -107,7 +103,7 @@ helm install visiban helm/visiban \
 !!! warning "Never pass secrets via `--set`"
     Using `--set secret.djangoSecretKey=...` exposes the value in shell history and the process list. Use a gitignored values file (`-f values.secret.yaml`) or a pre-created Kubernetes Secret (`secret.existingSecret`) instead.
 
-After the install, retrieve the one-time admin password:
+Then retrieve the one-time admin password:
 
 ```bash
 kubectl exec -n visiban \
@@ -117,7 +113,7 @@ kubectl exec -n visiban \
 
 ### Using an existing Kubernetes Secret
 
-For production clusters managed by Sealed Secrets, External Secrets Operator, or Vault, you can bring your own Secret instead of having the chart create one:
+With Sealed Secrets, External Secrets Operator, or Vault, bring your own Secret instead of letting the chart create one:
 
 ```bash
 # Create the Secret outside Helm (or via your secrets manager)
@@ -143,11 +139,11 @@ helm install visiban helm/visiban \
   --set backend.settings.siteDomain=boards.example.com
 ```
 
-The existing Secret must contain the same keys the chart expects: `django-secret-key`, `database-url`, plus OAuth provider keys (empty strings for unused providers). The PostgreSQL Secret must contain a `password` key.
+**Required keys:** `django-secret-key`, `database-url`, plus OAuth provider keys (empty strings for unused providers). The PostgreSQL Secret needs a `password` key.
 
 ### TLS with cert-manager
 
-If cert-manager and a `letsencrypt-prod` ClusterIssuer are installed, enable TLS:
+With cert-manager and a `letsencrypt-prod` ClusterIssuer installed:
 
 ```bash
 helm install visiban helm/visiban \
@@ -165,7 +161,7 @@ helm install visiban helm/visiban \
 
 ### TLS with self-signed certificates
 
-For staging or internal deployments, use cert-manager's built-in self-signed issuer:
+For staging or internal use, point cert-manager's self-signed issuer at the ingress:
 
 ```yaml
 # self-signed-issuer.yaml
@@ -196,7 +192,7 @@ helm install visiban helm/visiban \
 
 ### Deploying without TLS
 
-When TLS is terminated upstream (e.g. by a cloud load balancer) or not needed (air-gapped network), deploy with `ingress.tls.enabled=false` and enable insecure cookies:
+If TLS is terminated upstream (e.g. by a cloud load balancer) or not needed (air-gapped network), set `ingress.tls.enabled=false` and enable insecure cookies:
 
 ```bash
 helm install visiban helm/visiban \
@@ -315,11 +311,11 @@ See [First Boot](../getting-started/first-boot.md#kubernetes-helm) for details a
 
 ### Media persistence
 
-User-uploaded attachments are stored on a PersistentVolumeClaim (`<release>-visiban-media`). Both the backend pod (read-write) and the frontend nginx pod (read-only, for X-Accel-Redirect) mount this volume.
+Attachments live on a PersistentVolumeClaim (`<release>-visiban-media`). The backend pod mounts it read-write; the frontend nginx pod mounts it read-only (for X-Accel-Redirect).
 
-If the backend and frontend pods may run on different nodes, use a **ReadWriteMany (RWX)** storage class or add a pod affinity rule to co-locate them. With the default **ReadWriteOnce (RWO)**, both pods must land on the same node.
+**Watch out:** with the default **ReadWriteOnce (RWO)**, both pods must land on the same node. If they may run on different nodes, use a **ReadWriteMany (RWX)** storage class or add a pod affinity rule to co-locate them.
 
-To disable the PVC and use an emptyDir instead (data lost on pod restart):
+To use an emptyDir instead (data lost on pod restart):
 
 ```bash
 --set backend.mediaPersistence.enabled=false
@@ -327,7 +323,7 @@ To disable the PVC and use an emptyDir instead (data lost on pod restart):
 
 ### OpenAPI schema
 
-The nginx ingress proxies `/api/` to the backend, so the schema endpoints are accessible at your ingress host with no additional configuration — sign in first, since these endpoints require an authenticated session or PAT:
+The nginx ingress proxies `/api/` to the backend, so the schema endpoints work at your ingress host with no extra configuration. Sign in first: they require an authenticated session or PAT.
 
 ```
 https://<ingress-host>/api/schema/swagger-ui/
@@ -335,7 +331,7 @@ https://<ingress-host>/api/schema/redoc/
 https://<ingress-host>/api/schema/
 ```
 
-The backend port is **not** exposed outside the cluster. For direct backend access during debugging:
+The backend port is **not** exposed outside the cluster. To debug directly:
 
 ```bash
 kubectl port-forward -n visiban svc/<release-name>-backend 8000:8000
@@ -351,8 +347,8 @@ helm upgrade visiban helm/visiban -f my-values.yaml
 ```
 
 Pass your values file on each upgrade. `--reuse-values` starts from the previous
-release's stored values, so keys that a newer chart added are missing, and it
-cannot be used to move from the 1.1 chart (see below).
+release's stored values, which lack keys a newer chart added, so it cannot move
+you off the 1.1 chart (see below).
 
 An install that still uses the default PostgreSQL password (`visiban`, or an empty
 one) must change the database role's password and set `postgresql.auth.password`
@@ -370,7 +366,7 @@ values lack the keys 1.2 added, so the render fails. The 1.1
 
 ### Upgrading PostgreSQL major versions
 
-The bundled PostgreSQL subchart does not perform in-place major version upgrades. If you have an existing deployment on PostgreSQL 16 and are upgrading to a chart version that bundles PostgreSQL 17, you must migrate your data manually:
+The bundled PostgreSQL subchart does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data manually:
 
 1. **Export data from the running PostgreSQL 16 pod:**
    ```bash
@@ -405,31 +401,43 @@ The bundled PostgreSQL subchart does not perform in-place major version upgrades
 
 ## Scaling out
 
-When a single-server deployment starts to show latency under load, see [Scaling](scaling.md) for the recommended sequence — worker tuning, S3 for attachments, connection pooling, horizontal replicas, and read replicas — with concrete guidance on when each step is warranted.
+If a single server shows latency under load, follow the sequence in [Scaling](scaling.md): worker tuning, S3 for attachments, connection pooling, horizontal replicas, read replicas.
 
 ## Rate limiting
 
-In production (`DEBUG=False`), the API enforces the following request rate limits per client. In development (`DEBUG=True`), most scopes are raised to 9999/hour, which is a finite budget rather than true disabling; the public share-link scopes (`share_link`, `share_link_token`) have no development bypass. `VISIBAN_DISABLE_THROTTLING=True` is a CI-only switch (used by the schema-fuzz job) that lifts every throttle rate; it requires `DEBUG=True` and the app refuses to start otherwise.
+With `DEBUG=False` (production) the API enforces the per-client limits below.
+
+**By the numbers:**
+
+- **Development (`DEBUG=True`):** most scopes rise to 9999/hour, a finite budget rather than true disabling. The public share-link scopes (`share_link`, `share_link_token`) have no development bypass.
+- **`VISIBAN_DISABLE_THROTTLING=True`:** a CI-only switch (used by the schema-fuzz job) that lifts every throttle rate. It requires `DEBUG=True`; the app refuses to start otherwise.
 
 | Scope | Limit | Notes |
 |---|---|---|
 | Anonymous requests | 300 / hour | Applies to unauthenticated API calls |
 | Authenticated users | 5000 / hour | Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user can reach 500+ per hour |
-| Login (`/api/v1/auth/login/`) (1.1+) | 20 / hour per IP | This DRF throttle only wraps the SPA/API endpoint. Alongside it, allauth's own `login_failed` gate (`ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"`) applies to **both** `/api/v1/auth/login/` (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at `/accounts/login/` (which this DRF throttle does not wrap at all — the allauth gate is its only rate limit). That gate is two rates, both enforced everywhere it applies: 10 failed attempts / minute per IP (across any accounts), and 5 failed attempts / 5 min per account (across any IPs) |
+| Login (`/api/v1/auth/login/`) (1.1+) | 20 / hour per IP | This DRF throttle wraps only the SPA/API endpoint. The allauth `login_failed` gate below applies on top |
 | Password change (`/api/v1/auth/change-password/`, `/api/v1/auth/password/change/`) | 10 / hour per user | One `password_change` bucket shared by both endpoints. Failed current-password checks here also count toward the same per-account and per-IP `login_failed` budgets as sign-in |
 | User search (`/api/v1/users/search/`) | 30 / minute | Tighter limit to prevent username enumeration |
 | Invite link redemption (`/api/v1/groups/join/.../` and, 1.2+, `/api/v1/boards/join/.../`) | 10 / hour per IP | Low ceiling to prevent invite token brute-force scanning. One `join_group` bucket shared by group and board join requests, preview and redeem alike |
 
-Clients that exceed one of the DRF throttle scopes above receive `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set — clients should implement exponential backoff. Neither `login_failed` lockout above is a DRF throttle, and neither follows this shape: at login either one returns `HTTP 400 Bad Request` with `{"non_field_errors": ["Too many failed login attempts. Try again later."]}` — identical wording, so the response alone doesn't say which rate tripped. On the password-change endpoints, which draw on the same budgets, the lockout returns `HTTP 429 Too Many Requests`. See [API Authentication](../api/authentication.md#1-obtain-a-token) for the full set of login error responses.
+Exceeding a DRF throttle scope returns `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set, so clients should back off exponentially.
+
+**Login lockout (allauth `login_failed`):** `ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"`. It is not a DRF throttle and applies to **both** `/api/v1/auth/login/` (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at `/accounts/login/`, which the DRF throttle does not wrap at all. The gate is two rates, both enforced everywhere it applies:
+
+- 10 failed attempts / minute per IP (across any accounts)
+- 5 failed attempts / 5 min per account (across any IPs)
+
+**What the client sees:** at login either lockout returns `HTTP 400 Bad Request` with `{"non_field_errors": ["Too many failed login attempts. Try again later."]}`. The wording is identical, so the response doesn't say which rate tripped. The password-change endpoints draw on the same budgets and return `HTTP 429 Too Many Requests`. See [API Authentication](../api/authentication.md#1-obtain-a-token) for the full set of login error responses.
 
 !!! note
-    These limits are generous for normal interactive use. If you run a very large team or integrate Visiban with automation that makes frequent API calls, monitor your request volume and raise the `user` limit in `DEFAULT_THROTTLE_RATES` in `settings.py` if needed.
+    These limits suit normal interactive use. For a very large team or frequent automation, monitor request volume and raise the `user` limit in `DEFAULT_THROTTLE_RATES` in `settings.py`.
 
 !!! note
-    Because the per-IP `login_failed` rate (10 failed attempts/minute) is shared across every account attempted from that IP, a shared-NAT deployment (an office, a school, a carrier-grade NAT) can trip it on behalf of accounts that never failed a login themselves — a correct password from that IP is refused alongside the ones that were actually wrong, for up to the ~1-minute window. This is the tradeoff for closing the SPA credential-stuffing gap the per-account rate alone doesn't cover (many accounts, one IP); it is allauth's own default shape for this rate.
+    The per-IP `login_failed` rate (10 failed attempts/minute) is shared across every account tried from that IP. Behind a shared NAT (an office, a school, a carrier-grade NAT), it can trip for accounts that never failed a login: a correct password from that IP is refused for up to the ~1-minute window. The tradeoff closes the SPA credential-stuffing gap (many accounts, one IP) that the per-account rate alone doesn't cover. It is allauth's own default shape for this rate.
 
 !!! note
-    While the per-account login lockout is active, even the **correct** password is refused — the lockout is on the account, not on wrong guesses specifically, so a locked-out legitimate user must wait out the 5-minute window unless they use one of the two early-recovery paths below (#1203).
+    While the per-account lockout is active, even the **correct** password is refused: the lockout is on the account, not on wrong guesses. A locked-out user waits out the 5-minute window unless they use one of two early-recovery paths (#1203):
 
-    - **A successful password reset clears it.** Visiban's reset-confirm endpoint (dj-rest-auth's `PasswordResetConfirmSerializer`) doesn't go through allauth's own reset flow, so it doesn't get allauth's built-in lockout-clearing for free — Visiban's `VisibanPasswordResetConfirmSerializer` clears it explicitly after a successful reset instead. Since 1.2 (#1206), every attempt that names an existing account — by username or by email — counts against one lockout keyed on the account itself, and that is the bucket cleared; the username- and email-string buckets are cleared too, for identifiers that don't resolve to exactly one account and for lockouts recorded before the upgrade.
-    - **A site admin can clear it directly**, without the user needing to complete a reset at all — `POST /api/v1/admin/users/{id}/clear-lockout/` (site-admin only). See [API Authentication](../api/authentication.md#1-obtain-a-token) for the endpoint contract.
+    - **A successful password reset clears it.** The reset-confirm endpoint (dj-rest-auth's `PasswordResetConfirmSerializer`) bypasses allauth's own reset flow, so it gets no built-in lockout-clearing. Visiban's `VisibanPasswordResetConfirmSerializer` clears it explicitly. Since 1.2 (#1206), every attempt naming an existing account, by username or email, counts against one lockout keyed on the account, and that bucket is cleared. The username- and email-string buckets are cleared too, for identifiers that don't resolve to exactly one account and for lockouts recorded before the upgrade.
+    - **A site admin can clear it directly**, with no reset needed: `POST /api/v1/admin/users/{id}/clear-lockout/` (site-admin only). See [API Authentication](../api/authentication.md#1-obtain-a-token) for the endpoint contract.
