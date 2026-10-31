@@ -202,9 +202,11 @@ active schedule setting `VAR=true`, unless the variable is listed in
 !!! warning "The check only asserts anything when `GITLAB_API_TOKEN` is configured"
     A job's `CI_JOB_TOKEN` cannot read pipeline schedules. Without a `GITLAB_API_TOKEN` CI
     variable, the lookup is
-    inconclusive and the job **warns and passes**. As of #1383 no such variable exists on the
-    project or the group, so the check is currently a warning only. Until it is configured, a
-    schedule missing a variable goes unreported, which is the gap #1213 was filed over. Before
+    inconclusive and the job **warns and passes**, and a schedule missing a variable goes
+    unreported, which is the gap #1213 was filed over. The variable has existed on
+    `visiban/visiban` since 2026-10-31 (#1996), owned by a Maintainer bot, so the check now
+    asserts. If it is ever removed or its owner drops below Maintainer, the check either
+    falls back to warning or reports every schedule-only variable as `MISSING`. Before
     #1383 the script also stopped at the rejected job token instead of trying
     `GITLAB_API_TOKEN`. It now falls through to it. The variable is a personal access token
     with `read_api` scope. For this check its owner needs **Maintainer**, or must own the

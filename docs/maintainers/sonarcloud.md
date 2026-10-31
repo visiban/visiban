@@ -116,7 +116,7 @@ pipeline** on `main` with `SONAR_SCHEDULED=true`. Then:
     "true"` rule has no active schedule setting `VAR=true`. It can only read schedules when a
     `GITLAB_API_TOKEN` variable is configured; without one it warns and passes. See
     [CI Gate Self-Tests § Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines).
-    Do not rely on it to catch a deleted schedule until that token exists.
+    The token has existed since 2026-10-31 (#1996), so a deleted schedule is now caught.
 
 ## When the nightly `sonar:scan` is yellow
 
