@@ -85,17 +85,16 @@ manage the Secret in that case and cannot inspect its contents.
   published values.yaml is not a secret, and an empty value is no better, so
   the render refuses both.
 
-  The check is skipped only when BOTH postgresql.auth.existingSecret and
-  secret.existingSecret are set: visiban.databaseUrl always builds DATABASE_URL
-  from postgresql.auth.password, so auth.existingSecret alone would satisfy the
-  guard while the chart-managed database-url still carried the placeholder
-  (#1910 tracks making the chart read the Secret). Tightening this after GA
-  would itself break upgrades, so it is tight now.
+  With postgresql.auth.existingSecret the bundled PostgreSQL AND the backend
+  both read the password from that Secret (the backend via DATABASE_URL_PASSWORD,
+  #1910), so postgresql.auth.password is unused and the check is skipped. With
+  secret.existingSecret as well, the operator's own database-url is used and
+  the check is likewise skipped (as before #1910).
 */ -}}
 {{- $pgPw := toString .Values.postgresql.auth.password -}}
-{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not (and .Values.postgresql.auth.existingSecret .Values.secret.existingSecret)) }}
+{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret) }}
 {{- if or (eq $pgPw "visiban") (eq $pgPw "") }}
-{{- fail "\n\nVisiban: postgresql.auth.password is empty or set to the chart's placeholder \"visiban\".\nThe placeholder is the literal default in values.yaml, so it is not a secret.\n\nGenerate a strong password and pass it via:\n    --set-string postgresql.auth.password=<password>\nor in your values.secret.yaml file.\n\npostgresql.auth.existingSecret clears this check only together with secret.existingSecret supplying a matching database-url (tracked in #1910).\n\nExisting installs: set the password BEFORE upgrading. See \"Helm: the placeholder PostgreSQL password fails the render\" in docs/administration/upgrade.md.\n" -}}
+{{- fail "\n\nVisiban: postgresql.auth.password is empty or set to the chart's placeholder \"visiban\".\nThe placeholder is the literal default in values.yaml, so it is not a secret.\n\nGenerate a strong password and pass it via:\n    --set-string postgresql.auth.password=<password>\nor in your values.secret.yaml file.\n\npostgresql.auth.existingSecret clears this check: with it set, both PostgreSQL and the backend take the password from that Secret (key \"password\").\n\nExisting installs: set the password BEFORE upgrading. See \"Helm: the placeholder PostgreSQL password fails the render\" in docs/administration/upgrade.md.\n" -}}
 {{- end }}
 {{- end }}
 {{- include "visiban.legacyRedisGuards" . }}

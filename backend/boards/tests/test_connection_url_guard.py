@@ -1,4 +1,4 @@
-"""Startup guards for unparseable DATABASE_URL / REDIS_URL / REDIS_CACHE_URL.
+"""Startup guards for unparseable DATABASE_URL / REDIS_URL / REDIS_CACHE_URL (and DATABASE_URL_PASSWORD, #1910).
 
 docker-compose.prod.yml splices DB_PASSWORD and REDIS_PASSWORD into these URLs
 raw, and `openssl rand -base64` (which the install docs used to recommend) puts
@@ -52,15 +52,24 @@ print(settings.DATABASES["default"]["HOST"], settings.CACHES["default"]["LOCATIO
 print("CHANNELS=" + settings.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0])
 """
 
+_DB_PASSWORD_SCRIPT = """\
+import os
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "visiban.settings")
+import django
+django.setup()
+from django.conf import settings
+print("PASSWORD=" + settings.DATABASES["default"]["PASSWORD"])
+"""
+
 
 class ConnectionUrlGuardTests(SimpleTestCase):
     databases = []
 
-    def _load(self, **overrides):
+    def _load(self, script=_SETTINGS_SCRIPT, **overrides):
         backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         env = {**_BASE_ENV, **overrides, "PYTHONPATH": backend_dir}
         return subprocess.run(
-            [sys.executable, "-c", _SETTINGS_SCRIPT],
+            [sys.executable, "-c", script],
             env=env,
             capture_output=True,
             text=True,
@@ -108,6 +117,31 @@ class ConnectionUrlGuardTests(SimpleTestCase):
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertTrue(result.stdout.startswith("db "), msg=result.stdout)
+
+    def test_database_url_password_env_var_is_applied_at_import(self):
+        # Import-time wiring (#1910): the Helm chart passes DATABASE_URL without
+        # a password plus DATABASE_URL_PASSWORD from the existingSecret. The raw
+        # password, "$" prefix and reserved characters included, must reach
+        # DATABASES unchanged (read via os.environ, not django-environ).
+        password = f"$p{_SECRET_FRAGMENT}/@:%?#[] x"
+        result = self._load(
+            script=_DB_PASSWORD_SCRIPT,
+            DATABASE_URL="postgres://visiban@db:5432/visiban",
+            DATABASE_URL_PASSWORD=password,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.stdout.strip(), f"PASSWORD={password}")
+
+    def test_database_url_password_env_var_refuses_without_echoing_it(self):
+        for url in ("postgres://visiban:other@db:5432/visiban", f"postgres://visiban@Sek[{_SECRET_FRAGMENT}]x:5432/visiban"):
+            with self.subTest(url=url):
+                result = self._load(
+                    script=_DB_PASSWORD_SCRIPT, DATABASE_URL=url, DATABASE_URL_PASSWORD=_SECRET_FRAGMENT
+                )
+                self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+                self.assertIn("ImproperlyConfigured", result.stderr)
+                self.assertNotIn(_SECRET_FRAGMENT, result.stderr)
+                self.assertNotIn("other", result.stderr)
 
     def test_reserved_chars_in_redis_password_fail_closed_without_echoing_it(self):
         passwords = {
@@ -338,3 +372,42 @@ class ConnectionUrlGuardFunctionTests(SimpleTestCase):
                     settings_module._apply_redis_password("REDIS_CACHE_URL", url, "pw")
                 self.assertIn("REDIS_CACHE_URL has no host", str(ctx.exception))
                 self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+
+    # DATABASE_URL_PASSWORD (#1910): the Helm chart sets it from the Secret named
+    # by postgresql.auth.existingSecret and renders DATABASE_URL without a password.
+    def test_apply_database_password_is_a_noop_when_unset(self):
+        for url in ("postgres://visiban:pw@db:5432/visiban", "postgres://visiban@db:5432/visiban", "sqlite:///dev.db"):
+            with self.subTest(url=url):
+                self.assertEqual(settings_module._apply_database_password(url, ""), url)
+
+    def test_apply_database_password_round_trips_any_password(self):
+        # "/" "@" ":" "%" are the characters that split or mangle a raw URL.
+        for password in ("plain", f"{_SECRET_FRAGMENT}/x", "a@b", "a:b", "100%", "%2F", "/@:?#[] %+=\"'\\", "ü€", "$Sekrit"):
+            with self.subTest(password=password):
+                url = settings_module._apply_database_password(
+                    "postgres://visiban@rel-postgresql:5432/visiban", password
+                )
+                db = settings_module._load_database_url(url)
+                self.assertEqual(db["PASSWORD"], password)
+                self.assertEqual(db["USER"], "visiban")
+                self.assertEqual(db["HOST"], "rel-postgresql")
+                self.assertEqual(db["PORT"], 5432)
+                self.assertEqual(db["NAME"], "visiban")
+
+    def test_apply_database_password_refuses_a_url_that_already_has_one_without_leaking(self):
+        # Precedence: the chart never sets the variable alongside
+        # secret.existingSecret's own database-url; if both arrive anyway the
+        # misconfiguration is loud rather than one source silently winning.
+        for url in ("postgres://visiban:plainpw@db:5432/visiban", "postgres://visiban:@db:5432/visiban"):
+            with self.subTest(url=url):
+                with self.assertRaises(ImproperlyConfigured) as ctx:
+                    settings_module._apply_database_password(url, _SECRET_FRAGMENT)
+                self.assertIn("DATABASE_URL_PASSWORD is set, but DATABASE_URL already carries a password", str(ctx.exception))
+                self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+                self.assertNotIn("plainpw", str(ctx.exception))
+
+    def test_apply_database_password_refuses_a_hostless_url_without_leaking(self):
+        with self.assertRaises(ImproperlyConfigured) as ctx:
+            settings_module._apply_database_password("sqlite:///dev.db", _SECRET_FRAGMENT)
+        self.assertIn("DATABASE_URL has no host", str(ctx.exception))
+        self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))

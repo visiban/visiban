@@ -48,10 +48,10 @@ def _validate_redis_url(name: str, url: str) -> None:
         )
 
 
-def _apply_redis_password(name: str, url: str, password: str) -> str:
+def _apply_url_password(name: str, url: str, password: str, var: str) -> str:
     """Percent-encode `password` into `url`'s netloc; return `url` unchanged when it is empty.
 
-    Fed by REDIS_URL_PASSWORD, which the Helm chart sets from a Secret when
+    Fed by `var` (REDIS_URL_PASSWORD, or DATABASE_URL_PASSWORD, #1910), which the Helm chart sets from a Secret when
     valkey.auth.enabled is true (#1211), or for an external instance when
     externalRedis.existingSecret is set (#1361). The chart cannot encode the
     password itself when it comes from an operator-managed Secret — Helm
@@ -61,8 +61,8 @@ def _apply_redis_password(name: str, url: str, password: str) -> str:
     is correct for ANY password, and redis-py decodes it back on connect.
 
     A URL that already carries a password is refused only when
-    REDIS_URL_PASSWORD is ALSO set — never on its own. A credentialed URL
-    with no REDIS_URL_PASSWORD is how every Compose install and every
+    `var` is ALSO set — never on its own. A credentialed URL
+    with no `var` is how every Compose install and every
     pre-#1361 external-Redis Helm install connects, so it must keep working
     unchanged (the early return below). With both set there are two password
     sources for one connection; silently picking one would hide a
@@ -85,19 +85,38 @@ def _apply_redis_password(name: str, url: str, password: str) -> str:
         parsed = None
     if parsed is None or not parsed.netloc:
         raise ImproperlyConfigured(
-            f"REDIS_URL_PASSWORD is set, but {name} has no host to apply it to."
+            f"{var} is set, but {name} has no host to apply it to."
         )
     # rpartition: the host part never contains "@", so the LAST one ends the
     # userinfo even if a (mis-encoded) username contains another.
     userinfo, at, hostport = parsed.netloc.rpartition("@")
     if at and ":" in userinfo:
         raise ImproperlyConfigured(
-            f"REDIS_URL_PASSWORD is set, but {name} already carries a password. "
+            f"{var} is set, but {name} already carries a password. "
             "Set the password in one place only."
         )
     # userinfo is "" without an "@", else the URL's own (already encoded) username.
     netloc = f"{userinfo}:{quote(password, safe='')}@{hostport}"
     return parsed._replace(netloc=netloc).geturl()
+
+
+def _apply_redis_password(name: str, url: str, password: str) -> str:
+    """Apply REDIS_URL_PASSWORD to a Redis URL; see `_apply_url_password`."""
+    return _apply_url_password(name, url, password, "REDIS_URL_PASSWORD")
+
+
+def _apply_database_password(url: str, password: str) -> str:
+    """Apply DATABASE_URL_PASSWORD to DATABASE_URL; see `_apply_url_password` (#1910).
+
+    The Helm chart sets DATABASE_URL_PASSWORD from the Secret named by
+    postgresql.auth.existingSecret and renders DATABASE_URL without a password,
+    so the password the bundled PostgreSQL was initialized with is the one the
+    backend uses. When the operator supplies a complete database-url via
+    secret.existingSecret the chart does not set the variable; if both reach
+    the process anyway, the credentialed URL is refused rather than one source
+    silently winning. Unset (Compose, every pre-#1910 install) is a no-op.
+    """
+    return _apply_url_password("DATABASE_URL", url, password, "DATABASE_URL_PASSWORD")
 
 
 _DB_URL_ERROR = (
@@ -383,7 +402,11 @@ else:
 
 # Same failure class as the Redis URLs above, but louder — see
 # _load_database_url's docstring above.
-_DEFAULT_DB = _load_database_url(env("DATABASE_URL"))
+# os.environ, NOT env(), for the password: django-environ would substitute a
+# value starting with "$" (see REDIS_URL_PASSWORD above).
+_DEFAULT_DB = _load_database_url(
+    _apply_database_password(env("DATABASE_URL"), os.environ.get("DATABASE_URL_PASSWORD", ""))
+)
 
 DATABASES = {
     "default": _DEFAULT_DB,

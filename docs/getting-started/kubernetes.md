@@ -245,6 +245,9 @@ helm install visiban helm/visiban \
   ...
 ```
 
+!!! note "`postgresql.auth.existingSecret` supplies the backend's database password too"
+    With `postgresql.auth.existingSecret`, the bundled PostgreSQL starts with the `password` key of that Secret, and the backend reads the same key into `DATABASE_URL_PASSWORD`. The chart then renders `database-url` without a password, and the backend percent-encodes the password into it, so the password can contain any character and `postgresql.auth.password` is not used. If you also set `secret.existingSecret`, its `database-url` key is used as is and must carry the password itself (`postgres://<user>:<url-encoded-password>@<release>-postgresql:5432/<database>`); the chart then does not set `DATABASE_URL_PASSWORD`.
+
 The chart skips creating its own Secret when `existingSecret` is set. The Secret needs these keys:
 
 | Key | Description |

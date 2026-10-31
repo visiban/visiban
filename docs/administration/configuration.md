@@ -83,6 +83,7 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 | `DB_PASSWORD` | PostgreSQL password — required, no default; the compose file will error on startup if missing |
 | `REDIS_PASSWORD` | Valkey authentication password — required in production; the Valkey service starts with `--requirepass` and `REDIS_URL`/`REDIS_CACHE_URL` are built from this value. Generate with: `openssl rand -hex 32` (base64 output can contain `/`, which breaks the URL) |
 | `REDIS_URL_PASSWORD` | Not set under Compose, which puts the password into `REDIS_URL`/`REDIS_CACHE_URL` itself (from `REDIS_PASSWORD`). The Helm chart sets it from a Secret when `valkey.auth.enabled` is true or `externalRedis.existingSecret` is set. The backend percent-encodes it into both URLs, so any character is safe, and keeps a username in the URL (`redis://user@host:6379/0`, a Redis ACL user). It refuses to start if a URL already carries a password too, because the two would compete. |
+| `DATABASE_URL_PASSWORD` | Optional (#1910). Not set under Compose, or by default under Helm. The Helm chart sets it from the `password` key of the Secret named by `postgresql.auth.existingSecret`, and renders `DATABASE_URL` without a password. The backend percent-encodes it into `DATABASE_URL`, so any character is safe. The chart does not set it when `secret.existingSecret` supplies a complete `database-url`. It refuses to start if `DATABASE_URL` already carries a password too, because the two would compete. |
 | `DJANGO_SECRET_KEY` | Production Django signing key — must be unique and kept secret |
 | `DOMAIN` | Your domain name for Nginx and Certbot, e.g. `app.visiban.com` |
 | `CERTBOT_EMAIL` | Email address for Let's Encrypt expiry notifications |
@@ -100,8 +101,8 @@ An example file is included at `helm/visiban/values.secret.yaml.example`. Copy i
 |---|---|
 | `secret.existingSecret` | Name of a pre-existing K8s Secret — when set, the chart does not create its own |
 | `secret.djangoSecretKey` | Production Django signing key (ignored when `existingSecret` is set) |
-| `postgresql.auth.existingSecret` | Name of a pre-existing K8s Secret for the PG password (key: `password`) |
-| `postgresql.auth.password` | PostgreSQL password (ignored when `existingSecret` is set). An empty or placeholder (`visiban`) value fails the render; set your own password. `existingSecret` clears the check only together with `secret.existingSecret` supplying a matching `database-url` (#1910) |
+| `postgresql.auth.existingSecret` | Name of a pre-existing K8s Secret for the PG password (key: `password`). The bundled PostgreSQL and the backend (via `DATABASE_URL_PASSWORD`) both read the password from it, so `postgresql.auth.password` is unused (#1910) |
+| `postgresql.auth.password` | PostgreSQL password, used to build the chart-managed `database-url`. An empty or placeholder (`visiban`) value fails the render; set your own password. Not used, and not checked, when `postgresql.auth.existingSecret` is set |
 | `backend.settings.frontendUrl` | Full URL of the SPA — allauth redirects here after OAuth login/logout |
 | `backend.settings.siteDomain` | Public hostname for OAuth callback URLs |
 | `backend.oauth.google.*` | Google OAuth credentials |

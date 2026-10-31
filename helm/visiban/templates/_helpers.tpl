@@ -84,6 +84,19 @@ Uses an existing Secret if postgresql.auth.existingSecret is set.
 {{- end }}
 
 {{/*
+"true" when the backend takes the bundled PostgreSQL password from the Secret
+named by postgresql.auth.existingSecret (#1910): DATABASE_URL_PASSWORD via a
+secretKeyRef, percent-encoded into the password-free DATABASE_URL by settings.py
+(_apply_database_password) -- the same pattern as REDIS_URL_PASSWORD. Empty when
+secret.existingSecret is set: the operator's own database-url then wins, and the
+variable must not be set because a credentialed URL plus the variable is refused
+at startup. Key "password" is the one templates/postgresql.yaml reads.
+*/}}
+{{- define "visiban.databasePasswordFromSecret" -}}
+{{- if and .Values.postgresql.enabled .Values.postgresql.auth.existingSecret (not .Values.secret.existingSecret) -}}true{{- end -}}
+{{- end }}
+
+{{/*
 Database URL — built from postgresql subchart or externalDatabase values.
 
 The credentials are percent-encoded: a password containing "/", "?", "#", "["
@@ -99,7 +112,10 @@ unchanged.
 {{- end }}
 
 {{- define "visiban.databaseUrl" -}}
-{{- if .Values.postgresql.enabled }}
+{{- if and .Values.postgresql.enabled .Values.postgresql.auth.existingSecret }}
+{{- /* Password-free: the backend gets it from DATABASE_URL_PASSWORD (see visiban.databasePasswordFromSecret) and settings.py percent-encodes it in. #1910 */ -}}
+{{- printf "postgres://%s@%s-postgresql:5432/%s" (include "visiban.urlCredential" .Values.postgresql.auth.username) .Release.Name .Values.postgresql.auth.database }}
+{{- else if .Values.postgresql.enabled }}
 {{- printf "postgres://%s:%s@%s-postgresql:5432/%s" (include "visiban.urlCredential" .Values.postgresql.auth.username) (include "visiban.urlCredential" .Values.postgresql.auth.password) .Release.Name .Values.postgresql.auth.database }}
 {{- else }}
 {{- printf "postgres://%s:%s@%s:%d/%s" (include "visiban.urlCredential" .Values.externalDatabase.username) (include "visiban.urlCredential" .Values.externalDatabase.password) .Values.externalDatabase.host (.Values.externalDatabase.port | int) .Values.externalDatabase.database }}
