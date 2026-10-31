@@ -414,6 +414,23 @@ describe('InviteLinkPanel', () => {
     expect(screen.queryByText(/Maximum of 5 active invite links reached/)).not.toBeInTheDocument()
   })
 
+  it('links reporting revoked for an unusable role do not count against the cap (#2015)', async () => {
+    const unusable: GroupInviteLink[] = Array.from({ length: 5 }, (_, i) => ({
+      ...fakeExistingLink,
+      id: 400 + i,
+      prefix: `bad${i}`,
+      name: `Unusable ${i}`,
+      is_active: true,
+      used_at: null,
+      status: 'revoked' as const,
+    }))
+    mockListInviteLinks.mockResolvedValue(unusable)
+    render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
+    await screen.findByText('Unusable 0')
+    expect(screen.getByRole('button', { name: 'New link' })).toBeInTheDocument()
+    expect(screen.queryByText(/Maximum of 5 active invite links reached/)).not.toBeInTheDocument()
+  })
+
   it('5 shareable links still hit the cap when emailed links are also present (#731)', async () => {
     const mixed: GroupInviteLink[] = Array.from({ length: 7 }, (_, i) => ({
       ...fakeExistingLink,

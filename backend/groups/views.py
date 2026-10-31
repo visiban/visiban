@@ -1482,6 +1482,9 @@ class GroupViewSet(viewsets.ModelViewSet):
             active_count = GroupInviteLink.objects.filter(
                 group=group, is_active=True, used_at__isnull=True,
                 delivery=GroupInviteLink.Delivery.LINK,
+                # A link whose role can never redeem reports revoked and holds
+                # no slot (#2015).
+                role__in=GroupInviteLink.redeemable_roles(),
             ).count()
             if active_count >= 5:
                 return Response(
@@ -1554,14 +1557,16 @@ class GroupViewSet(viewsets.ModelViewSet):
             # 404, not a 500 from the invite's deferred foreign key (#1719).
             if Group.objects.select_for_update().filter(pk=group.pk).first() is None:
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-            # A pre-#2006 admin invite can never redeem, so it holds no slot.
+            # An invite whose role can never redeem (a pre-#2006 admin invite,
+            # or a role outside the enum, #2015) holds no slot.
             pending_emailed = GroupInviteLink.objects.filter(
                 group=group,
                 delivery=GroupInviteLink.Delivery.EMAIL,
                 is_active=True,
                 used_at__isnull=True,
                 expires_at__gt=timezone.now(),
-            ).exclude(role=GroupInviteLink.Role.ADMIN).count()
+                role__in=GroupInviteLink.redeemable_roles(),
+            ).count()
             if pending_emailed >= GROUP_MAX_PENDING_EMAILED_INVITES:
                 return Response(
                     {

@@ -433,11 +433,12 @@ export default function InviteLinkPanel({
   // Active links exclude consumed single-use links (they're dead weight against the cap)
   // and emailed links (#731), which the backend caps separately. Board rows
   // carry no is_active: the server's effective status already folds in
-  // revoked, used, expired and a sender who lost admin (#439).
+  // revoked, used, expired and a sender who lost admin (#439). A group link
+  // whose role can never redeem reports revoked and holds no slot (#2015).
   const activeCount = links.filter((l) =>
     isBoard
       ? effectiveStatus(l) === "pending" && l.delivery === "link"
-      : l.is_active && !l.used_at && l.delivery !== "email"
+      : l.is_active && !l.used_at && l.delivery !== "email" && effectiveStatus(l) !== "revoked"
   ).length;
   const atLimit = activeCount >= MAX_LINKS;
 

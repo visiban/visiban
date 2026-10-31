@@ -4,8 +4,11 @@
 hold a role that is not a group membership role. Redemption must refuse it
 (same 404 as an admin invite) and must not copy it into a membership.
 """
+from datetime import timedelta
+
 from django.core.cache import cache
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -88,3 +91,32 @@ class JoinGroupRoleValidationTests(TestCase):
         GroupInviteLink.objects.filter(pk=link.pk).update(role="superuser")
         link.refresh_from_db()
         self.assertEqual(group_link_registration_refusal(link), "invite_invalid")
+
+    def test_unusable_role_links_hold_no_shareable_cap_slot(self):
+        for i in range(5):
+            link, _raw = GroupInviteLink.generate(group=self.group, created_by=self.admin, expires_at=None)
+            GroupInviteLink.objects.filter(pk=link.pk).update(role="superuser" if i % 2 else "admin")
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        r = client.post(
+            f"/api/v1/groups/{self.group.pk}/invite-links/", {"role": "member", "expiry_days": 7}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+
+    def test_unusable_role_invites_hold_no_emailed_cap_slot(self):
+        from groups.views import GROUP_MAX_PENDING_EMAILED_INVITES
+
+        for i in range(GROUP_MAX_PENDING_EMAILED_INVITES):
+            link, _raw = GroupInviteLink.generate(
+                group=self.group, created_by=self.admin, single_use=True,
+                delivery=GroupInviteLink.Delivery.EMAIL, recipient_email=f"r{i}@acme.test",
+                expires_at=timezone.now() + timedelta(days=3),
+            )
+            GroupInviteLink.objects.filter(pk=link.pk).update(role="superuser")
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        r = client.post(
+            f"/api/v1/groups/{self.group.pk}/invite-links/send/",
+            {"email": "new@acme.test", "role": "member"}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.content)

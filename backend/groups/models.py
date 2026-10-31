@@ -505,6 +505,16 @@ class GroupInviteLink(models.Model):
     def is_expired(self):
         return self.expires_at is not None and self.expires_at < timezone.now()
 
+    @classmethod
+    def redeemable_roles(cls):
+        """Roles a link may hold and still redeem: the membership roles but admin.
+
+        The queryset twin of ``role_refusal``: the invite caps count only
+        links whose role is in this set, so a link that reports ``revoked``
+        for its role also frees its cap slot (#2006, #2015).
+        """
+        return [r for r in GroupMembership.Role.values if r != cls.Role.ADMIN]
+
     @property
     def role_refusal(self):
         """Why this link's stored role can never redeem: ``admin``, ``invalid_role`` or None.

@@ -295,7 +295,7 @@ Fetch the next page with `offset + page_size` until it reaches `count`.
 
 ## Invite links
 
-A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (`delivery: "email"`, below) are capped separately — up to 50 pending per group — and never count against the 5.
+A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (`delivery: "email"`, below) are capped separately — up to 50 pending per group — and never count against the 5. A link whose role can never redeem (see `status`) counts against neither cap.
 
 A link is revoked automatically (set inactive, freeing its slot, and announced as `invite_link.revoked`) when its creator is deactivated or deleted, loses group admin rights, or when a `parent` change moves the group so the creator no longer administers the link's group. Unused links only; a consumed single-use link is left alone. Join and preview independently refuse any link whose creator no longer qualifies, so nobody is admitted through a stale one.
 
@@ -384,7 +384,7 @@ A create that arrives while the group is being deleted waits for the delete to f
 | `created_by_username` | string / null | Username of the admin who created the link (#1008). `null` if the creator's account has since been anonymized. |
 | `single_use` | boolean | `true` if the link is consumed by the first redemption (cannot be reused). |
 | `used_at` | string / null | ISO 8601 timestamp of consumption (single-use links only); `null` for multi-use or unredeemed. |
-| `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). *(#2006)* An unused link with the `admin` role also reports `revoked`: it was minted before invites were capped below admin and can never be redeemed. |
+| `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). *(#2006)* An unused link whose role can never redeem also reports `revoked`: an `admin` link minted before invites were capped below admin, or *(#2015)* a link whose stored role is outside the group roles. Neither counts toward a cap. |
 | `delivery` | string | `link` (created here and shared by an admin) or `email` (sent to one address by `POST …/invite-links/send/`). Added in 1.2. |
 
 !!! note
@@ -420,7 +420,7 @@ The response is identical whether the address belongs to an existing member, an 
 | Status | Body | Reason |
 |---|---|---|
 | `400 Bad Request` | field errors | Invalid or missing `email`, address with a line break, `expiry_days` outside `1`–`30` or `null` |
-| `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused; *(#2006)* an unusable `admin` invite does not count) |
+| `400 Bad Request` | `{"code": "invite_email_cap_reached", ...}` | The group already has 50 pending emailed links (active, unexpired, unused; *(#2006)* an unusable `admin` invite, or *(#2015)* one whose stored role is outside the group roles, does not count) |
 | `403 Forbidden` | — | Caller is not a group admin |
 | `403 Forbidden` | `{"code": "invite_email_disabled", ...}` | `INVITE_EMAIL_ENABLED=false`, or the instance runs in demo mode |
 | `429 Too Many Requests` | — | Rate limit: 10 sends/hour per user, 30/day per group (shared by all its admins), 200/day instance-wide for group invites. Requests refused for another reason, and sends the mail server rejected, don't count |
