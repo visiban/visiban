@@ -100,6 +100,6 @@ Since 1.2, a body that is not a JSON object, an `ids` value that is not a list, 
 ### `GET /api/v1/notifications/unread-count/`
 Return the count of unread notifications for the current user. Used by the navbar bell badge. Requires authentication.
 
-The count is uncapped and covers every unread notification on a board you can still access (plus notifications with no board). It can exceed the 50 the list endpoint returns. Since 1.2 (#1959), rows on boards you have lost access to no longer reduce the count when they fall inside the newest 50.
+The count is uncapped and covers every unread notification on a board you can still access (plus notifications with no board). It can exceed the 50 the list endpoint returns. Since 1.3 (#1959), rows on boards you have lost access to no longer reduce the count when they fall inside the newest 50.
 
 **Response** `{ "count": 5 }`

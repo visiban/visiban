@@ -95,7 +95,7 @@ The large fixture is regenerated fresh in an ephemeral CI database on every run 
     - The `cards` table does grow by about 67% (about 3,980 cards in total), so those scenarios are expected, not proven, to be unaffected. [#1808](https://gitlab.com/visiban/visiban/-/issues/1808) re-derived the whole file from the first NUC run with this fixture (job 17348200339).
     - The job's `LOAD_TEST_EXTRA_BOARDS` variable sets the count. The script fails before timing anything if `demo3` can access fewer than `--min-multi-boards` boards (default 50). The CI job passes `LOAD_TEST_EXTRA_BOARDS + 1`, so a seed that silently shrinks fails.
     - The baseline's `fixture` block records `extra_board_count` and `multi_board_accessible_boards`.
-- **`--with-notifications`** seeds 60 unread `Notification` rows for the `demo2` user. That is more than the 50-row cap `NotificationListView` / `NotificationUnreadCountView` apply, so the job exercises the same "more unread than the cap" path a busy real inbox hits.
+- **`--with-notifications`** seeds 60 unread `Notification` rows for the `demo2` user. That is more than the 50-row cap `NotificationListView` applies (`NotificationUnreadCountView` is uncapped and counts all 60), so the job exercises the same "more unread than the cap" path a busy real inbox hits.
 - **A fixture size with no stated card/swimlane count is meaningless**: a p95 is only interpretable next to its data volume. `nightly-load-test-results.json` (the job's artifact) records the actual card and swimlane count with the timings, and `backend/nightly-load-test-baseline.json` records what the committed budgets were derived against.
 
 ## Auth
