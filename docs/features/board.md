@@ -1,6 +1,8 @@
-# Board & Cards
+# Work the board: grid, cards, and settings
 
-The kanban grid, its cards, and the settings that shape them — the core workspace for anyone who works a board day to day, from quick status checks to full admin control.
+Pick a template to create a board, then drag cards between cells; everything else on this page shapes that grid.
+
+**Why it matters:** This is the core workspace for anyone who works a board day to day, from quick status checks to full admin control.
 
 !!! note "Small screens"
     Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. On a touch screen, press and hold a card to drag it (see [Touch screens](#touch-screens)). Column/swimlane resizing is easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See [Navigation → Mobile behavior](navigation.md#mobile-behavior).
@@ -547,7 +549,7 @@ Click **Import** on the dashboard to create a new board from a previously export
 
 **CSV import** creates cards with their current field values only. Movement history and activity log are not restored.
 
-The new board is named **Imported: <name>** — the board name stored in a JSON file, or the filename without its extension for a CSV file (for example, `Q3 plan.csv` becomes **Imported: Q3 plan**). If a board with that name already exists in the same place (the group you import into, or — without a group — any board you can access that is not in a group, as listed under **My Boards**), a number is added: **Imported: Q3 plan - 1**, then **- 2**, and so on. To choose the name yourself, type it in **Board name** when importing; it is used exactly as typed.
+The new board is named **Imported: &lt;name&gt;**, where the name is the board name stored in a JSON file, or the filename without its extension for a CSV file (for example, `Q3 plan.csv` becomes **Imported: Q3 plan**). If a board with that name already exists in the same place (the group you import into, or — without a group — any board you can access that is not in a group, as listed under **My Boards**), a number is added: **Imported: Q3 plan - 1**, then **- 2**, and so on. To choose the name yourself, type it in **Board name** when importing; it is used exactly as typed.
 
 !!! note "Changed in 1.2"
     Earlier releases named a JSON import after the file's board name unchanged, and every CSV import **Imported Board**.

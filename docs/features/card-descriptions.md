@@ -1,6 +1,10 @@
-# Card Descriptions
+# Format card descriptions with the toolbar or markdown
 
-Card descriptions support rich text formatting. You can write plain text, use the toolbar to apply formatting, or type markdown directly — the editor parses both.
+Click a card's description to edit it; type markdown or use the toolbar, and click outside to save.
+
+**Why it matters:** There is no Save button. Changes are sent to the server on blur, so you can't lose work by forgetting to save.
+
+**The big picture:** Card descriptions support rich text formatting. The editor parses both toolbar formatting and typed markdown.
 
 ## Editing a description
 
@@ -8,9 +12,9 @@ Click anywhere on the description area to enter edit mode. A toolbar appears at 
 
 If the description is empty, the placeholder "Add a description…" is shown in view mode. Click it to start writing.
 
-A **pencil icon (✎)** appears in the top-right corner of the description on hover — clicking it also enters edit mode.
+A **pencil icon (✎)** appears in the top-right corner of the description on hover. Clicking it also enters edit mode.
 
-To save, click anywhere outside the description. The editor closes and the formatted result is displayed immediately. Changes are sent to the server on blur — there is no explicit Save button.
+To save, click anywhere outside the description. The editor closes and the formatted result is displayed immediately. Changes are sent to the server on blur; there is no explicit Save button.
 
 !!! tip
     The description area can be resized vertically by dragging its bottom edge. This is useful for longer descriptions that would otherwise require scrolling inside the editor.
@@ -55,13 +59,13 @@ Descriptions are stored as markdown. You can type markdown directly in the edito
 | `> quote` | Blockquote |
 | ` ```code block``` ` | Code block |
 
-Pasted markdown is parsed automatically — paste a formatted document and it renders correctly.
+Pasted markdown is parsed automatically: paste a formatted document and it renders correctly.
 
 ## @mentions
 
 Type `@` followed by a username or display name to mention a board member in a description. An autocomplete dropdown appears as you type, filtered by the characters after `@`. Use the arrow keys and Enter to select a member, or press Escape to dismiss the dropdown.
 
-Mentions are highlighted in blue in both the editor and the rendered view. When you save a description that contains a new @mention, the mentioned user receives an in-app notification — the same notification behavior as @mentions in comments. Editing an existing mention does not send a duplicate notification.
+Mentions are highlighted in blue in both the editor and the rendered view. When you save a description that contains a new @mention, the mentioned user receives an in-app notification, the same behavior as @mentions in comments. Editing an existing mention does not send a duplicate notification.
 
 !!! tip
     The autocomplete list shows up to six matching members. If you do not see the person you are looking for, type more characters to narrow the results.
@@ -79,4 +83,4 @@ When you are not editing, the description renders as formatted text. Bold, itali
 | Viewer | ✅ | ❌ |
 | Collaborator | ✅ | ❌ |
 
-Viewers and collaborators see the rendered description with no edit affordance — no hover border, no pencil icon, and clicking does not enter edit mode.
+**Yes, but:** viewers and collaborators see the rendered description with no edit affordance: no hover border, no pencil icon, and clicking does not enter edit mode.

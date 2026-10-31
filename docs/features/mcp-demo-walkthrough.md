@@ -1,8 +1,12 @@
-# Ask Your Own Agent About the Demo Data
+# Ask your own agent about the demo data
 
 > **Added in 1.2**
 
-This walkthrough points your own AI agent at a **local** Visiban instance loaded with the generic "Visiban Demo Board" from `seed_demo_data`, using a read-only token, so you can ask it questions about a realistic board. It takes about ten minutes. For the full MCP reference, see [MCP Server](mcp-server.md).
+Point your own AI agent at a **local** Visiban instance with a read-only `mcp:read` token and ask it questions about the generic "Visiban Demo Board" from `seed_demo_data`. It takes about ten minutes.
+
+**Why it matters:** You see what an agent can do with a realistic board before you connect it to real data.
+
+**Go deeper:** for the full MCP reference, see [MCP Server](mcp-server.md).
 
 !!! note "Why this runs locally and not on try.visiban.com"
     The hosted demo does not expose MCP and does not let visitors create tokens. This is by design: publishing a credential on a public site is a security decision we chose not to make. The steps below give you the same kind of experience on your own machine, with the generic demo board rather than the hosted showcase boards (those need `--demo-site`, which requires `DEMO_MODE=true`, and that mode blocks creating tokens), where the token is yours alone.
@@ -100,7 +104,7 @@ Try questions like these:
 - "Which boards can you see, and how many cards are on the Visiban Demo Board?"
 - "What is sitting in the Backlog column, highest priority first?"
 - "Which cards have been in progress the longest?"
-- "Show me the movement history of the card about <topic> and tell me who moved it last."
+- "Show me the movement history of the card about a topic you pick and tell me who moved it last."
 - "Summarize the comments on the cards assigned to demo2."
 
 Then try to break the read-only promise, to see the guardrail: "Create a card called Test in Backlog." The agent should report a permission error, and the board does not change.

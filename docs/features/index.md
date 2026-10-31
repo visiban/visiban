@@ -1,6 +1,8 @@
-# Features
+# Find the feature you need
 
 Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.
+
+**Go deeper:** each section below links to the full page.
 
 ---
 

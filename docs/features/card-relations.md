@@ -1,17 +1,17 @@
-# Card Relations
+# See what's stuck without opening a card
 
 > **Added in 1.2**
 
-Link two cards on the same board to record that one depends on the other. A card
-that something is waiting on carries a red indicator on the board, so you can see
-what is stuck without opening anything.
+Link two cards on the same board to record that one depends on the other; a blocked card shows a red indicator on the board.
 
-Three relation directions are available:
+**Why it matters:** You can see what is stuck without opening anything.
+
+**The big picture:** Three relation directions are available:
 
 | Direction | Meaning | Affects the board indicator |
 |---|---|---|
-| **Blocked by** | The other card has to land before this one can move | Yes — on this card |
-| **Blocks** | This card has to land before the other one can move | Yes — on the other card |
+| **Blocked by** | The other card has to land before this one can move | Yes, on this card |
+| **Blocks** | This card has to land before the other one can move | Yes, on the other card |
 | **Relates to** | The two cards are associated, with no ordering implied | No |
 
 **Blocks** and **Blocked by** are the same link seen from opposite ends. Record
@@ -98,7 +98,7 @@ its author would not protect anything.
 - **Relations are not carried by board export or import.** A board exported and
   re-imported loses its relations.
 - **Blockers are not cleared automatically.** Moving a blocking card to a done
-  column does not remove the relation or the indicator — archive the card, or
+  column does not remove the relation or the indicator. Archive the card, or
   remove the relation, when the dependency is resolved.
 
 ---

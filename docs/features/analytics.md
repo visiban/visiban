@@ -1,6 +1,10 @@
 # Analytics & Summary <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
 
-Two extra views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving individual cards. Switch to them with the toolbar toggle: **Board**, **Summary**, **Analytics**.
+Switch to **Summary** or **Analytics** with the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where cards stall and how fast work finishes.
+
+**Why it matters:** The two views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving individual cards.
+
+**Watch out:** mark your Done column first, or the data is wrong.
 
 !!! warning "Done columns must be marked before analytics data is accurate"
     The dwell-time heatmap excludes columns that are marked as done. If your "Done" or "Released" column is not marked, closed work continues to accumulate dwell cycles and distorts the heatmap.
@@ -14,12 +18,12 @@ Two extra views turn your board's movement history into bottleneck and velocity 
 Shows a table of all swimlanes with:
 
 - Total card count with an inline proportional bar
-- **7-day velocity** — cards that moved into any column marked `is_done = true` in the last 7 days
-- **30-day velocity** — same over 30 days
+- **7-day velocity**: cards that moved into any column marked `is_done = true` in the last 7 days
+- **30-day velocity**: same over 30 days
 
 Columns are marked as done in the **Edit Column** modal ("Mark as done column" checkbox). Multiple done columns are supported — for example, boards with both a "Done" and a "Released" column will count movements into either as completed. See [Board & Cards — Columns](board.md#columns).
 
-Useful for a quick health check across all active pipelines.
+Use it for a quick health check across all active pipelines.
 
 > **Added in 1.1**
 
@@ -111,7 +115,7 @@ The active mode is persisted per-board in localStorage (`board:{boardId}:analyti
 
 When **Throughput** mode is active, the column footer row shows the number of cards that contributed to each average (e.g. "5 cards"). Stages that had zero throughput in the period show a dash (`—`). The color thresholds (green/yellow/red) apply to both modes using the same `staleness_threshold_days` setting.
 
-Use **Age** when you want to find current bottlenecks. Use **Throughput** when you want to compare historical flow efficiency across periods.
+**Go deeper:** use **Age** to find current bottlenecks. Use **Throughput** to compare historical flow efficiency across periods.
 
 ### CSV export
 

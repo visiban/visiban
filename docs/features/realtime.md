@@ -1,6 +1,8 @@
-# Real-time Updates
+# Board changes appear instantly for everyone
 
-Visiban uses WebSockets (Django Channels + Valkey) to push board changes to all connected clients instantly — no polling required.
+WebSockets (Django Channels + Valkey) push every board change to all connected clients, with no polling.
+
+**Why it matters:** Open tabs and teammates stay in sync without a page refresh.
 
 ## How it works
 

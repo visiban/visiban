@@ -1,12 +1,16 @@
-# Notifications
+# Get told when a card needs you
 
-Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
+The bell in the navbar collects your in-app notifications; choose which ones you get in **Settings → Notifications**.
 
-Five of these events can also be **delivered by email** — see [Email notifications](#email-notifications) below.
+**Why it matters:** You hear about assignments and @mentions without watching the board.
+
+**The big picture:** Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
+
+**Go deeper:** five of these events can also be **delivered by email**; see [Email notifications](#email-notifications) below.
 
 ## Notification bell
 
-The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only **unread** notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.
+The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only **unread** notifications. Each notification is a deep link: clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.
 
 Click **Mark all read** to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.
 
@@ -39,13 +43,13 @@ Each user can enable or disable individual notification triggers in **Settings �
 
 When a card is assigned to a user by someone else, that user receives a notification:
 
-> "You were assigned to "{card title}""
+> "You were assigned to "\{card title\}""
 
 ## @mention notifications
 
 Typing `@username` in a card comment **or description** notifies the mentioned user:
 
-> "{author} mentioned you in "{card title}""
+> "\{author\} mentioned you in "\{card title\}""
 
 - Type `@` in the comment box or description field to open an inline autocomplete dropdown filtered by username and display name
 - Keyboard navigation: ↑↓ to move through suggestions, Enter or Tab to select, Escape to dismiss
@@ -59,7 +63,7 @@ Typing `@username` in a card comment **or description** notifies the mentioned u
 
 When a card's due date is approaching (within 24 hours by default), the assignee is notified:
 
-> ""{card title}" is due soon"
+> ""\{card title\}" is due soon"
 
 Recipients opt in with the **Due date approaching** preference. The scan runs from
 the `notify_due_soon` management command rather than on a request, so it has to
@@ -103,7 +107,7 @@ When a card is moved to a different column by another user, the card's assignee 
 
 When a user is added to a board (directly or via group membership), they receive a notification:
 
-> "You were added to "{board name}""
+> "You were added to "\{board name\}""
 
 This notification appears in the bell dropdown and includes a **View board →** link, making it clear that clicking will navigate to the board. Users can disable board invite notifications in **Settings → Notifications** by toggling the **Board invites** preference.
 
@@ -117,7 +121,7 @@ This notification appears in the bell dropdown and includes a **View board →**
 When someone comments on a card you are **watching**, you get a notification in
 the bell:
 
-> "{username} commented on "{card title}""
+> "\{username\} commented on "\{card title\}""
 
 For now, you are watching a card when you **created it** or **are assigned to
 it**. There is no separate watch or unwatch control yet, and commenting on a card

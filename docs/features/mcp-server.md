@@ -1,8 +1,14 @@
-# MCP Server
+# Connect an AI agent to your boards
 
 > **Added in 1.2**
 
-This guide connects an AI agent — Claude Desktop or any other [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP) client — to a self-hosted Visiban instance: enabling the server, issuing a credential, and wiring up the client. For the full tool/resource reference (argument and return shapes, error codes), see [API Reference — MCP Server](../api/mcp.md).
+Set `MCP_SERVER_ENABLED=true`, issue a scoped token, and point your MCP client at `/mcp`.
+
+**Why it matters:** An agent can answer questions about your pipeline and, with a suitably scoped credential, create, move, update, and archive cards on your behalf.
+
+**The big picture:** this guide connects an AI agent (Claude Desktop or any other [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP) client) to a self-hosted Visiban instance: enabling the server, issuing a credential, and wiring up the client.
+
+**Go deeper:** for the full tool/resource reference (argument and return shapes, error codes), see [API Reference — MCP Server](../api/mcp.md).
 
 ## What is the Visiban MCP server?
 

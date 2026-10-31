@@ -1,8 +1,10 @@
-# Import from Trello
+# Import a Trello board in minutes
 
 > **Added in 1.2**
 
-Bring a Trello board into Visiban in a few minutes. You export the board from Trello as a JSON file, upload it, review a preview, and Visiban creates a **new board** from it.
+Export the board from Trello as a JSON file, upload it, review a preview, and Visiban creates a **new board** from it.
+
+**Why it matters:** You keep your Trello history and structure without rebuilding the board by hand.
 
 !!! note "What is not supported"
     - Importing into an **existing** board. The import always creates a new board.

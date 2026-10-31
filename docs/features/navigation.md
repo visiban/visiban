@@ -1,6 +1,8 @@
-# Navigation
+# Jump between boards from the sidebar
 
-The application sidebar gives you persistent, at-a-glance access to your full group and board hierarchy. It lives on the left edge of every authenticated page, on desktop-sized viewports. **Why it matters:** with dozens of boards across several workstreams, the sidebar is how you jump between them without hunting through menus.
+The left sidebar shows your full group and board hierarchy on every authenticated page, on desktop-sized viewports.
+
+**Why it matters:** With dozens of boards across several workstreams, the sidebar is how you jump between them without hunting through menus.
 
 ## What the sidebar shows
 

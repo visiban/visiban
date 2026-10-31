@@ -1,8 +1,10 @@
-# Personal Access Tokens
+# Call the API without sharing your password
 
 > **Added in 1.0**
 
-Personal Access Tokens (PATs) authenticate API requests from scripts, CI pipelines, and integrations without sharing your password or relying on a browser session cookie. Each token acts on your behalf, limited to your own access rights and further narrowed by its [scopes](#scopes).
+Create a Personal Access Token (PAT) to authenticate API requests from scripts, CI pipelines, and integrations.
+
+**Why it matters:** Each token acts on your behalf, limited to your own access rights and further narrowed by its [scopes](#scopes), and never needs your password or a browser session cookie.
 
 **When to use a PAT:**
 

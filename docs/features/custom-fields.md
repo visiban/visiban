@@ -1,10 +1,14 @@
-# Custom Fields
+# Track your own fields on cards and swimlanes
 
 > **Added in 1.2**
 
-Board admins can define typed metadata fields scoped to a single board — where a label is an untyped tag, a custom field is a named key with a type. Use custom fields to track information specific to your workflow that doesn't fit the built-in card fields: sprint, budget, region, array type, anything.
+Board admins define typed fields in **Board Settings → Card fields** (or **Swimlane fields**); everyone then fills them in on the card or row.
 
-Custom fields come in two independent flavors, scoped to different objects on the board: **card fields**, described on the rest of this page, and **swimlane fields**, described in [Swimlane (row) custom fields](#swimlane-row-custom-fields) below. The two are separate per-board schemas — a board may define a card field and a swimlane field with the same name, and they are never merged or compared.
+**Why it matters:** Where a label is an untyped tag, a custom field is a named key with a type. Use it to track information that doesn't fit the built-in card fields: sprint, budget, region, array type, anything.
+
+**The big picture:** custom fields come in two independent flavors, scoped to different objects on the board: **card fields**, described on the rest of this page, and **swimlane fields**, described in [Swimlane (row) custom fields](#swimlane-row-custom-fields) below. The two are separate per-board schemas. A board may define a card field and a swimlane field with the same name, and they are never merged or compared.
+
+**Yes, but:** see [Limitations in this release](#limitations-in-this-release) before you plan around required fields or range filters.
 
 Seven field types are available:
 
@@ -29,7 +33,7 @@ A board can have up to **30 card fields**, and up to **2 of them pinned** to the
 
 Open **Board Settings** and select the **Card fields** tab (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields.
 
-The tab lists every field defined on the board in display order, showing the type glyph, name, type label, and pin state. Hover a row to reveal **✎ Edit** and **✕ Delete**. Drag the `⋮⋮` handle to reorder fields — the order here is the order fields appear in the card detail panel and, for pinned fields, on the card face.
+The tab lists every field defined on the board in display order, showing the type glyph, name, type label, and pin state. Hover a row to reveal **✎ Edit** and **✕ Delete**. Drag the `⋮⋮` handle to reorder fields. The order here is the order fields appear in the card detail panel and, for pinned fields, on the card face.
 
 ### Adding or editing a field
 

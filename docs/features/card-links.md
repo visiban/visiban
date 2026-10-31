@@ -1,15 +1,14 @@
-# Pull & Merge Request Links
+# Jump from a card to its pull request
 
 > **Added in 1.2**
 
-Attach a pull request or merge request to a card so anyone looking at the board can
-jump straight from the work item to the code. Each card carries **one** link, with a
-provider (GitHub, GitLab, or Other) and a short reference such as `acme/web#12` or
-`group/project!45`.
+Attach one pull or merge request to a card from the **Pull / merge request** section in the card's *Details* tab.
 
-The link works with any http or https URL, so self-hosted GitLab and other code
-hosts are supported. The link is also available through the REST API — see
-[API](#api).
+**Why it matters:** Anyone looking at the board can jump straight from the work item to the code.
+
+**The big picture:** Each card carries **one** link, with a provider (GitHub, GitLab, or Other) and a short reference such as `acme/web#12` or `group/project!45`.
+
+**Yes, but:** the link works with any http or https URL, so self-hosted GitLab and other code hosts are supported. The link is also available through the REST API; see [API](#api).
 
 ---
 
@@ -24,7 +23,7 @@ row, before any other indicator.
 | Standard | The glyph and the reference, truncated if long |
 | Dense | The glyph and the reference, truncated if long |
 
-At Comfortable density, hover the glyph to see the provider and reference — for
+At Comfortable density, hover the glyph to see the provider and reference, for
 example "GitHub acme/web#12 — github.com (opens in new tab)", which always shows the real host the link opens. The reference also appears in the
 hover peek as "GitHub acme/web#12".
 

@@ -1,6 +1,8 @@
-# Roles & Permissions
+# Check what each role can and can't touch
 
-Visiban has five roles that control access at the group, board, and site level. **Why it matters:** this page is the single source of truth for what each role can and can't touch — check it before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.
+Five roles control access at the group, board, and site level; the tables below are the single source of truth.
+
+**Why it matters:** Check this page before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.
 
 ## Role hierarchy
 

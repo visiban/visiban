@@ -1,4 +1,4 @@
-# Issue Board Lens
+# See GitHub and GitLab issues as a kanban pivot
 
 > **Added in 1.2**
 

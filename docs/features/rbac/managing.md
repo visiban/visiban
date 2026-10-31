@@ -1,6 +1,8 @@
-# Managing Roles
+# Assign, change, and revoke roles
 
-How to assign, change, and revoke group, board, and site admin roles via the UI or API.
+Board admins add, change, or remove members in the board settings panel or the API; group and site admin roles work the same way below.
+
+**Why it matters:** Roles are the only access control, so a stale one is a standing risk.
 
 ## Board membership
 

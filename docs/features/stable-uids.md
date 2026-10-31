@@ -1,6 +1,10 @@
-# Stable UIDs
+# Key external systems on UIDs, not names
 
-Every board object — boards, columns, swimlanes, labels, cards, and custom field definitions (added in 1.2) — carries a stable, globally unique identifier called a **UID**. **Why it matters:** names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.
+Use an object's `uid`, not its name or numeric ID, as the key in any external system.
+
+**Why it matters:** Names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.
+
+**The big picture:** every board object (boards, columns, swimlanes, labels, cards, and custom field definitions (added in 1.2)) carries a stable, globally unique identifier called a **UID**.
 
 ## What is a UID?
 

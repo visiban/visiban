@@ -1,14 +1,16 @@
-# Groups
+# Onboard a team by adding one group
 
 > **Added in 1.0**
 
-Groups organize boards and users into a hierarchy. A board can belong to one group; a group can have one parent group. Group trees are walked up to 6 levels deep, and creating a subgroup, or moving a group to a new parent, is refused when the result would be deeper than that.
+Groups organize boards and users into a hierarchy; add someone to a group and they get access to every board in it.
 
-**Why it matters:** membership and shared settings inherit down the tree, so a manager can onboard a whole team by adding one group instead of every board.
+**The big picture:** a board can belong to one group; a group can have one parent group. Group trees are walked up to 6 levels deep, and creating a subgroup, or moving a group to a new parent, is refused when the result would be deeper than that.
+
+**Why it matters:** Membership and shared settings inherit down the tree, so a manager can onboard a whole team by adding one group instead of every board.
 
 ## Group description
 
-Each group has an optional **description** field — a short free-text summary of the group's purpose. It appears on the group detail page and is inline-editable: click it to enter edit mode, then press **Enter** (or click outside) to save, or **Escape** to cancel.
+Each group has an optional **description** field, a short free-text summary of the group's purpose. It appears on the group detail page and is inline-editable: click it to enter edit mode, then press **Enter** (or click outside) to save, or **Escape** to cancel.
 
 The description is returned as `description` in `GET /api/v1/groups/{id}/` and is writable via `PUT /api/v1/groups/{id}/` (group admin required).
 

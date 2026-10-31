@@ -1,8 +1,10 @@
-# Feature Toggles
+# Switch features on or off for the whole instance
 
 > **Added in 1.0**
 
-Site admins can enable or disable specific features across the entire instance from the admin panel. Toggling a feature never deletes or alters existing data — it only gates access to that functionality going forward.
+Site admins flip instance-wide feature toggles at **/admin → Settings → Features**; changes apply within about 60 seconds, with no restart.
+
+**Why it matters:** Toggling a feature never deletes or alters existing data. It only gates access to that functionality going forward.
 
 ## Managing toggles
 
@@ -26,7 +28,7 @@ Only users with site admin status (`is_site_admin`) can access the admin panel S
 
 ## Effect on existing data
 
-Disabling a feature never removes data created while it was active. Re-enabling it restores full access to that data. For example, disabling file uploads doesn't delete existing card attachments — it just blocks new uploads until re-enabled.
+Disabling a feature never removes data created while it was active. Re-enabling it restores full access to that data. For example, disabling file uploads doesn't delete existing card attachments; it just blocks new uploads until re-enabled.
 
 !!! tip
     Use feature toggles to roll out new functionality gradually, to disable a feature during an incident, or to restrict capabilities on instances with specific compliance requirements.

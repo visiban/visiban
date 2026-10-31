@@ -1,8 +1,12 @@
-# Appearance
+# Pick light, dark, or follow your OS
 
 > **Added in 1.1**
 
-Visiban offers a per-user appearance preference with three options.
+Choose **System**, **Dark**, or **Light** in **Profile & preferences → Appearance**; the change applies immediately.
+
+**Why it matters:** The preference is stored with your account, so it follows you to every browser and device you sign in on.
+
+**The big picture:** Visiban offers a per-user appearance preference with three options.
 
 | Option | Behavior |
 |---|---|
@@ -10,26 +14,26 @@ Visiban offers a per-user appearance preference with three options.
 | **Dark** | Always use the dark palette, regardless of OS preference. |
 | **Light** | Always use the light palette, regardless of OS preference. |
 
-The preference is stored with your account, so it follows you to every browser and device you sign in on — see [below](#changing-your-appearance) for when it takes effect.
+**Yes, but:** the preference reaches other devices only when they load Visiban (see [below](#changing-your-appearance)).
 
 ## Changing your appearance
 
 1. Click your avatar in the top-right corner and select **Profile & preferences**.
 2. Open the **Appearance** tab in the Settings sidebar.
 3. Under **Theme**, choose one of the three options.
-4. The change takes effect immediately — no page reload.
+4. The change takes effect immediately, with no page reload.
 
-Your choice is remembered across logins and syncs instantly to any other tab in the same browser. It reaches your other browsers and devices the next time each one loads or reloads Visiban — there's no live push between already-open sessions on different devices.
+Your choice is remembered across logins and syncs instantly to any other tab in the same browser. It reaches your other browsers and devices the next time each one loads or reloads Visiban. There's no live push between already-open sessions on different devices.
 
 ## System (auto) option
 
-**System** follows your operating system's appearance preference via the standard `prefers-color-scheme` signal. When your OS switches modes (e.g. a scheduled night-shift on macOS), Visiban picks it up without a page reload.
+**System** follows your operating system's appearance preference via the standard `prefers-color-scheme` signal. When your OS switches modes (for example, a scheduled night-shift on macOS), Visiban picks it up without a page reload.
 
 ### macOS
 
 1. Open **System Settings → Appearance**.
 2. Choose **Light**, **Dark**, or **Auto** (switches automatically with sunrise/sunset).
-3. Visiban updates as soon as the setting changes — no action needed in the browser.
+3. Visiban updates as soon as the setting changes. No action needed in the browser.
 
 ### Windows 11
 
@@ -48,7 +52,7 @@ Other desktop environments (KDE Plasma, XFCE, Cinnamon) expose the same `prefers
 
 **Light** is available by default in every Visiban installation.
 
-Administrators who want to hide it — for example, on an install-specific fork that hasn't adopted the light palette — can set the build-time environment variable `VITE_THEME_LIGHT_ENABLED=false` when building the frontend image. **System** and **Dark** are always available regardless.
+Administrators who want to hide it (for example, on an install-specific fork that hasn't adopted the light palette) can set the build-time environment variable `VITE_THEME_LIGHT_ENABLED=false` when building the frontend image. **System** and **Dark** are always available regardless.
 
 ## What's next
 

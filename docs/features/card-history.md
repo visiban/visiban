@@ -1,6 +1,10 @@
-# Card History
+# See who moved a card, and when
 
-Every card keeps a full audit trail of movements and field changes. **Why it matters:** you can see who moved a card and when — the record incident retros and audits need.
+Open a card's **Activity** tab to see every movement and field change, newest first.
+
+**Why it matters:** You can see who moved a card and when. It is the record incident retros and audits need.
+
+**The big picture:** every card keeps a full audit trail of movements and field changes. Movement records are append-only, and deleting a card keeps them.
 
 ## Movement history
 
@@ -12,7 +16,7 @@ A `CardMovement` record captures every column or swimlane change. Each record in
 - From swimlane UID / to swimlane UID — stable even after the swimlane is deleted or renamed
 - Denormalized names at the time of the move (from_column_name, to_column_name, etc.)
 - Who moved it (`moved_by`)
-- When (`moved_at`) — indexed for query performance
+- When (`moved_at`), indexed for query performance
 - Optional notes
 - **Movement type** (`movement_type`) — one of `move` (standard drag-and-drop or API move), `archived` (card was archived), or `unarchived` (card was unarchived from the Archived panel)
 

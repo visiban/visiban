@@ -1,8 +1,10 @@
-# Board Role Permissions
+# What each board role can do
 
-Visiban uses four board-level roles to control what each member can do on a board. Site admins are a separate designation, covered at the end of this page. **Why it matters:** getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.
+Four board roles (Admin, Member, Collaborator, Viewer) control what each member can do on a board. Site admins are a separate designation, covered at the end of this page.
 
-This page is the detailed board-action reference. For how the same roles work at the group level, how group membership cascades down to boards, and how to assign roles, see [Roles & Access Control](rbac/index.md).
+**Why it matters:** Getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.
+
+**Go deeper:** this page is the detailed board-action reference. For how the same roles work at the group level, how group membership cascades down to boards, and how to assign roles, see [Roles & Access Control](rbac/index.md).
 
 ## The four board roles
 

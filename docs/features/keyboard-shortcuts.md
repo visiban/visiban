@@ -1,14 +1,20 @@
-# Keyboard shortcuts
+# Drive the board from the keyboard
 
 > **Added in 1.1**
 
-Visiban ships with a keyboard-first control scheme so power users can drive the board without moving their hands from the home row. **Why it matters:** for someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.
+Press `?` on any board to see every shortcut.
 
-Shortcuts are platform-aware: macOS renders them as glyphs (⌘, ⇧, ⌥); Linux / Windows renders them as named chords (`Ctrl`, `Shift`, `Alt`).
+**Why it matters:** For someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.
+
+**The big picture:** Visiban ships with a keyboard-first control scheme so power users can drive the board without moving their hands from the home row.
+
+**How it works:** shortcuts are platform-aware: macOS renders them as glyphs (⌘, ⇧, ⌥); Linux / Windows renders them as named chords (`Ctrl`, `Shift`, `Alt`).
 
 Open the shortcuts overlay from any board by pressing `?`, or from the avatar menu → **Keyboard shortcuts**.
 
-## Safety rule — shortcuts never fire while typing
+<a id="safety-rule-shortcuts-never-fire-while-typing"></a>
+
+## Shortcuts never fire while typing
 
 Single-letter shortcuts are suppressed whenever the focused element is an input, textarea, select, or rich-text editor. Type `b` in the search box without switching to the Board view, or `y` in a card description without toggling the archived panel. Modifier chords (⌘K, ⌘\\) fire everywhere, because the modifier makes the intent unambiguous.
 
