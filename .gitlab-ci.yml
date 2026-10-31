@@ -5305,13 +5305,13 @@ nightly-load-test:
 # Runs on every scheduled pipeline, same slot check-release-images/
 # helm-install/helm-netpol already use, so this needs no new schedule of its
 # own to be exercised. It only asserts anything when a GITLAB_API_TOKEN CI
-# variable (personal access token, read_api scope, owner Reporter or above;
+# variable (personal access token, read_api scope, owner Maintainer, since
+# GitLab returns schedule variables only to Maintainers and schedule owners;
 # see docs/maintainers/tokens-and-rotation.md) is
 # configured: CI_JOB_TOKEN cannot read pipeline schedules, so without
 # GITLAB_API_TOKEN the lookup is inconclusive and the job warns and passes
-# rather than report a false MISSING. As of #1383 no GITLAB_API_TOKEN is
-# configured on the project or the group, so today this check is a warning
-# only. Before #1383 the script also stopped at the rejected CI_JOB_TOKEN and
+# rather than report a false MISSING. The project has had one since
+# 2026-10-31 (#1996), so the check now asserts. Before #1383 the script also stopped at the rejected CI_JOB_TOKEN and
 # never tried GITLAB_API_TOKEN at all; it now falls through.
 #
 # SCHEDULE_AUDIT_ACCEPTED_GAPS (unset here, so empty) once listed gaps #1213's own

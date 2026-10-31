@@ -310,7 +310,8 @@ chart, and the **GitHub** Release. It does not stop the docs. So after `release.
 - **Open the tag pipeline and watch `release-main-pipeline-guard` first.** Report the release
   as done only once the guard and the publish jobs are green. Step 3 depends on them.
 - **The first release after #1154 merges will refuse if `GITLAB_API_TOKEN` was never
-  created.** The Step 1 credential pre-flight exists to catch that before the tag. If it
+  created.** (The OSS project has had one since 2026-10-31, #1996; the enterprise project
+  does not yet, so its mirrored tag pipelines still refuse.) The Step 1 credential pre-flight exists to catch that before the tag. If it
   happens anyway, create the token, then retry the guard job.
 - **On a refusal**, fix the cause (usually by retrying the red job in the `main` pipeline),
   then retry the guard job. GitLab re-runs the skipped publish jobs under the same tag, so

@@ -78,12 +78,15 @@ add a **separate** `read_api` token owned by `visiban-mirror-bot`. Never reuse t
 write token or the OSS token.
 
 **Verifying a token without a tag:** from a checkout detached at a commit whose `main`
-pipeline is green, run the guard directly with the token read via `read -rs` (never on the
-command line or in shell history):
+pipeline exists and is green (otherwise the guard waits up to 10 minutes, then reports it not
+found), run the guard directly. Read the token with `read -rs` so it never lands on the command
+line or in shell history, and export it, because the guard reads it from the environment:
 
 ```bash
+read -rs GITLAB_API_TOKEN && export GITLAB_API_TOKEN
 CI_API_V4_URL=https://gitlab.com/api/v4 CI_PROJECT_ID=79990909 CI_DEFAULT_BRANCH=main \
   python3 scripts/wait-for-main-pipeline.py --sha "$(git rev-parse HEAD)"
+unset GITLAB_API_TOKEN
 ```
 
 `79990909` is `visiban/visiban`; use `80083859` for the enterprise project.
