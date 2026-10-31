@@ -1,5 +1,7 @@
 # Find the feature you need
 
+<a id="features"></a>
+
 Start with [Board & Cards](board.md); every other feature builds on the grid.
 
 **Why it matters:** Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.
@@ -246,7 +248,7 @@ The application sidebar gives you persistent access to your full group and board
 
 Site admins see a **Site Admin** link in the sidebar that opens the administration panel directly. The link is hidden for all other users.
 
-The authenticated app is optimized for desktop (1024 px and wider). Below that width, Visiban shows a "use a larger screen" notice instead of a degraded layout. Public join, share, and account-recovery pages remain accessible on any viewport.
+Below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally, so the app stays usable on phones and tablets (see [Navigation → Mobile behavior](navigation.md#mobile-behavior)). Public join, share, and account-recovery pages remain accessible on any viewport.
 
 → [Navigation](navigation.md)
 

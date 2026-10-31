@@ -1,5 +1,7 @@
 # Onboard a team by adding one group
 
+<a id="groups"></a>
+
 > **Added in 1.0**
 
 Create a group, add people with a role, and they get that role on every board in it and in its subgroups.

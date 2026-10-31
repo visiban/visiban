@@ -1,5 +1,7 @@
 # Call the API without sharing your password
 
+<a id="personal-access-tokens"></a>
+
 > **Added in 1.0**
 
 Open **Settings → Access Tokens**, fill in the **New token** form, and click **Generate token**. Then send it as `Authorization: Token vbn_...` on API requests.

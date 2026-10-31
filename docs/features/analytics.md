@@ -1,5 +1,7 @@
 # Find bottlenecks and measure velocity
 
+<a id="analytics-summary-beta"></a>
+
 Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where cards stall and how fast work finishes. **Beta.**
 
 **Why it matters:** The two views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving cards.

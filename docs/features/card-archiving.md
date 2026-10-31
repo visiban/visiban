@@ -1,5 +1,7 @@
 # Hide finished cards without losing them
 
+<a id="card-archiving"></a>
+
 > **Added in 1.0**
 
 Click **Archive card** in the card detail panel to hide a card from the board. Its history stays, and you can unarchive it any time.

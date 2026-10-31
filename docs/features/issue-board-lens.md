@@ -1,5 +1,7 @@
 # See GitHub and GitLab issues as a kanban pivot
 
+<a id="issue-board-lens"></a>
+
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Set `GIT_LENS_ENABLED=true`, then pick a provider and `owner/repo` in **Board Settings → Lens**. A read-only **Lens** tab shows that repository's issues as a kanban board.

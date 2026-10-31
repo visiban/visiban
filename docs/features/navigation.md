@@ -1,5 +1,7 @@
 # Jump between boards from the sidebar
 
+<a id="navigation"></a>
+
 The left sidebar shows your full group and board hierarchy on every authenticated page, on desktop-sized viewports. Collapse it to a 48 px icon rail with the toggle in its header.
 
 **Why it matters:** With dozens of boards across several workstreams, the sidebar is how you jump between them without hunting through menus.

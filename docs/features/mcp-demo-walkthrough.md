@@ -4,7 +4,7 @@
 
 Point your own AI agent at a **local** Visiban instance with a read-only `mcp:read` token and ask it questions about the generic "Visiban Demo Board" from `seed_demo_data`. It takes about ten minutes.
 
-**Why it matters:** You see what an agent can do with a realistic board before you connect it to real data.
+**Why it matters:** You can ask an agent questions about a realistic board, with a read-only token.
 
 **Go deeper:** for the full MCP reference, see [MCP Server](mcp-server.md).
 

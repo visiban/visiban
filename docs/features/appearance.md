@@ -1,5 +1,7 @@
 # Pick light, dark, or follow your OS
 
+<a id="appearance"></a>
+
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
 Open **Profile & preferences → Appearance** and pick one of three options: **System** (the default), **Dark**, or **Light**. It applies at once, with no reload.

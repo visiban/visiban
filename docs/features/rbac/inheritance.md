@@ -1,5 +1,7 @@
 # Add someone once, get access everywhere below
 
+<a id="group-inheritance"></a>
+
 A user with a role in a parent group automatically has that same role on all sub-groups and boards within it.
 
 **Why it matters:** Add someone to a parent group once, and they get the right access everywhere below it, with no per-board setup.

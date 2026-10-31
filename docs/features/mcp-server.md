@@ -1,5 +1,7 @@
 # Connect an AI agent to your boards
 
+<a id="mcp-server"></a>
+
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Set `MCP_SERVER_ENABLED=true` on the backend, generate a token with the **mcp:read** scope, and point your MCP client at `/mcp`.

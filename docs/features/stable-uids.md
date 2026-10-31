@@ -1,5 +1,7 @@
 # Key external systems on UIDs, not names
 
+<a id="stable-uids"></a>
+
 Use an object's `uid`, not its name or numeric ID, as the key in any external system. A UID is a 16-character lowercase hex string such as `3a9f1c2d7e4b8a05`.
 
 **Why it matters:** Names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.

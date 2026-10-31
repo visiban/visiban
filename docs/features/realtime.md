@@ -1,5 +1,7 @@
 # Board changes appear instantly for everyone
 
+<a id="real-time-updates"></a>
+
 WebSockets (Django Channels + Valkey) push every board change to all connected clients, with no polling. Valkey ships in the default `docker-compose.yml`, so there is nothing to set up.
 
 **Why it matters:** Open tabs and teammates stay in sync without a page refresh.

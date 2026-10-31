@@ -1,5 +1,7 @@
 # Check what each role can and can't touch
 
+<a id="roles-permissions"></a>
+
 Five roles control access at the group, board, and site level; the tables below are the single source of truth.
 
 **Why it matters:** Check this page before granting or denying access. It supersedes any other permission table in these docs; if another page's description ever disagrees with this one, this page is correct.

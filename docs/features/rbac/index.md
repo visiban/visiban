@@ -1,8 +1,10 @@
 # Control who can see and change what
 
+<a id="roles-access-control"></a>
+
 Assign one of five roles at the group or board level; see the guides below.
 
-**Why it matters:** Roles determine who can restructure a board versus who can only view it. Get them right and access control needs no daily attention.
+**Why it matters:** Roles determine who can restructure a board versus who can only view it.
 
 **The big picture:** Visiban uses role-based access control (RBAC) at both the group and board level.
 

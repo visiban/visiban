@@ -1,8 +1,10 @@
 # Format card descriptions with the toolbar or markdown
 
+<a id="card-descriptions"></a>
+
 Click a card's description to edit it, using the toolbar or typed markdown. Click outside to save.
 
-**Why it matters:** There is no Save button. Changes go to the server on blur, so nothing is lost to a forgotten click.
+**Why it matters:** There is no Save button. Changes are sent to the server on blur.
 
 **How it works:** the editor parses both toolbar formatting and typed markdown, and stores the result as markdown. Mentions notify the person you name. Admins and members can edit; viewers and collaborators can only read.
 
@@ -19,7 +21,7 @@ Click anywhere on the description area. A toolbar appears and the cursor lands a
 
 ## Toolbar reference
 
-Every toolbar action is one click. Bold and italic also have shortcuts.
+Every toolbar action is one click. The table lists the Bold and Italic shortcuts; the editor (Tiptap StarterKit, with no custom bindings in Visiban) also binds its own default shortcuts for the other formats.
 
 | Button | Format | Keyboard shortcut |
 |---|---|---|

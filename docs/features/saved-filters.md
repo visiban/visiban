@@ -1,5 +1,7 @@
 # Save a filter once, reuse it in one click
 
+<a id="saved-filters"></a>
+
 > **Added in 1.0**
 
 Set your filters, open the **Saved** dropdown next to the filter bar, and click **Save current filters**. Click a preset name later to restore it.

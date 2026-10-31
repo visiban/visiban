@@ -1,8 +1,10 @@
 # Get told when a card needs you
 
+<a id="notifications"></a>
+
 The bell in the navbar collects your in-app notifications. Choose which ones you get in **Settings → Notifications**.
 
-**Why it matters:** You hear about assignments and @mentions without watching the board.
+**Why it matters:** You get in-app notifications for assignments, @mentions, due dates, moves, comments, and board invites.
 
 **The big picture:** Visiban surfaces in-app notifications for card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
 

@@ -1,5 +1,7 @@
 # See what's stuck without opening a card
 
+<a id="card-relations"></a>
+
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
 In a card's *Details* tab, open **Relations** → **+ Add relation** to say what blocks it. A blocked card shows a red ⊖ on the board.

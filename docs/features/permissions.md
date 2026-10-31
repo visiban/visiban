@@ -1,5 +1,7 @@
 # What each board role can do
 
+<a id="board-role-permissions"></a>
+
 Four board roles (Admin, Member, Collaborator, Viewer) control what each member can do on a board. Set them in **Board Settings → Members**.
 
 **Why it matters:** Getting a role wrong either blocks a contributor from doing their job or gives a reviewer write access they shouldn't have.

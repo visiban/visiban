@@ -1,10 +1,12 @@
 # Switch features on or off for the whole instance
 
+<a id="feature-toggles"></a>
+
 > **Added in 1.0**
 
 Site admins flip a toggle at **/admin → Settings → Features**. It takes effect within about 60 seconds, with no restart.
 
-**Why it matters:** Toggling never deletes or alters existing data. It only gates access going forward, so it is safe to use during an incident.
+**Why it matters:** Toggling never deletes or alters existing data. It only gates access going forward. Use toggles to disable a feature during an incident, roll out new functionality gradually, or restrict capabilities for compliance.
 
 ## Available toggles
 

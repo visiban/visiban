@@ -1,5 +1,7 @@
 # Work the board: grid, cards, and settings
 
+<a id="board-cards"></a>
+
 Pick a template in the **Create Board** modal, then drag cards between cells. Everything else on this page shapes that grid.
 
 **Why it matters:** This is the core workspace for anyone who works a board day to day, from quick status checks to full admin control.

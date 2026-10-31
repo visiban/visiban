@@ -1,5 +1,7 @@
 # Drive the board from the keyboard
 
+<a id="keyboard-shortcuts"></a>
+
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
 Press `?` on any board (or use the avatar menu → **Keyboard shortcuts**) to open the shortcuts overlay.
