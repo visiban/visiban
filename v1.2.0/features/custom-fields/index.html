@@ -4313,7 +4313,7 @@
 <li><strong>Swimlane fields:</strong> described in <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>. The two are separate per-board schemas. A board may define a card field and a swimlane field with the same name, and they are never merged or compared.</li>
 </ul>
 <p><strong>By the numbers:</strong> up to <strong>30 card fields</strong>, with up to <strong>2 of them pinned</strong> to the card face. Swimlane fields have smaller caps; see <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>.</p>
-<p><strong>Yes, but:</strong> <code>is_required</code> isn't enforced and filters match exact values only. See <a href="#limitations-in-this-release">Limitations in this release</a>.</p>
+<p><strong>Yes, but:</strong> <code>is_required</code> isn't enforced (<a href="https://gitlab.com/visiban/visiban/-/issues/1433">#1433</a>) and filters match exact values only (<a href="https://gitlab.com/visiban/visiban/-/issues/1847">#1847</a>). See <a href="#limitations-in-this-release">Limitations in this release</a>.</p>
 <h2 id="field-types">Field types<a class="headerlink" href="#field-types" title="Permanent link">&para;</a></h2>
 <p>Seven types are available:</p>
 <table>
@@ -4566,7 +4566,7 @@
 </table>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release.</p>
+<p>Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release (<a href="https://gitlab.com/visiban/visiban/-/issues/1847">#1847</a>).</p>
 </div>
 <ul>
 <li>A multi-select filter matches whole values only: checking <code>web</code> matches a card holding <code>web</code>, never one holding only <code>webhooks</code>.</li>
@@ -4646,7 +4646,7 @@
 </tr>
 <tr>
 <td>No range filtering</td>
-<td>Number and date filters match an exact value only, not a range</td>
+<td>Number and date filters match an exact value only, not a range. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1847">#1847</a></td>
 </tr>
 <tr>
 <td>Number formatting ignores the Number format preference</td>
@@ -4654,7 +4654,7 @@
 </tr>
 <tr>
 <td><code>is_required</code> not enforced</td>
-<td>The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank</td>
+<td>The field definition has a "required" concept in the data model, but it is not enforced in the UI or API in this release — a field marked required can still be left blank. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1433">#1433</a></td>
 </tr>
 <tr>
 <td>Swimlane fields aren't filterable</td>
@@ -4662,11 +4662,15 @@
 </tr>
 <tr>
 <td><code>is_required</code> not enforced (swimlane fields)</td>
-<td>Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal</td>
+<td>Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1433">#1433</a></td>
+</tr>
+<tr>
+<td>No aggregates</td>
+<td>Custom field values cannot be summed or otherwise rolled up on swimlane headers or in board and report widgets. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1851">#1851</a></td>
 </tr>
 </tbody>
 </table>
-<p>Teams with more advanced custom field needs — beyond what a single board's admin can configure here — should look at <a href="https://visiban.com/enterprise">Visiban Enterprise</a>.</p>
+<p>The backend also exposes a <code>CUSTOM_FIELD_VALIDATORS</code> extension point that lets an extension register additional per-type validators for card values, and a separate <code>SWIMLANE_CUSTOM_FIELD_VALIDATORS</code> list for swimlane-row values. See the <a href="../../architecture/open-core-boundary/">open-core boundary</a>.</p>
 
 
 
