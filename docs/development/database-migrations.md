@@ -4,7 +4,7 @@
 
 Build every new index and constraint with `visiban.db_operations`, so `migrate` never blocks the product.
 
-**Why it matters:** An index or constraint added the default Django way takes an `ACCESS EXCLUSIVE` lock on its table for the *entire* build. On `cards` — the table every board read and every card move goes through — that is a full outage lasting as long as the build takes, which on a large instance with trigram indexes is minutes, not milliseconds.
+**Why it matters:** An index or constraint added the default Django way takes an `ACCESS EXCLUSIVE` lock on its table for the *entire* build. On `cards` — the table every board read and every card move goes through — that's a full outage lasting as long as the build takes, which on a large instance with trigram indexes is minutes, not milliseconds.
 
 **The big picture:** PostgreSQL offers a way out, and Visiban requires it. Everything below follows from the rule that `migrate` must never block the product.
 
@@ -28,9 +28,9 @@ cd backend
 python manage.py check_migration_concurrency
 ```
 
-The check is a syntactic scan of `backend/*/migrations/*.py`. It needs no database and will flag a migration that would not even import on the current backend.
+The check is a syntactic scan of `backend/*/migrations/*.py`. It needs no database and will flag a migration that wouldn't even import on the current backend.
 
-There are **five** ways to build an index or a uniqueness constraint in a Django migration, and it checks all five. Catching only the first would leave the rule trivially evadable, and that is not hypothetical: three of the other four are already used in this repo's history, by migrations that never mention `AddIndex` at all.
+There are **five** ways to build an index or a uniqueness constraint in a Django migration, and it checks all five. Catching only the first would leave the rule trivially evadable, and that isn't hypothetical: three of the other four are already used in this repo's history, by migrations that never mention `AddIndex` at all.
 
 | Pattern | Flagged | Example in the tree |
 |---|---|---|
@@ -43,9 +43,9 @@ There are **five** ways to build an index or a uniqueness constraint in a Django
 | `Meta.indexes` / `Meta.constraints` in `CreateModel` `options` | **no** | same reason — built with the new table (e.g. `boards/0061_add_card_external_ref`) |
 | `AddIndex` under `SeparateDatabaseAndState(state_operations=...)` | **no** | state only, emits no DDL |
 
-**Watch out:** The field-level patterns are the easiest to reach for and the easiest to miss in review. `makemigrations` generates them silently from a one-word model change, and nothing in the generated file says "index". `unique=True` in particular does not look like an index at all, but Django implements it as one, under the same lock. Declare the index in the model's `Meta.indexes` (or the uniqueness in `Meta.constraints`) instead, and add it concurrently.
+**Watch out:** The field-level patterns are the easiest to reach for and the easiest to miss in review. `makemigrations` generates them silently from a one-word model change, and nothing in the generated file says "index". `unique=True` in particular doesn't look like an index at all, but Django implements it as one, under the same lock. Declare the index in the model's `Meta.indexes` (or the uniqueness in `Meta.constraints`) instead, and add it concurrently.
 
-The check also fails a migration that uses a concurrent operation without setting `atomic = False`. That combination raises `NotSupportedError` at `migrate` time. It is loud, but only once it reaches an environment that actually runs migrations: usually CI at the earliest and production at the worst.
+The check also fails a migration that uses a concurrent operation without setting `atomic = False`. That combination raises `NotSupportedError` at `migrate` time. It's loud, but only once it reaches an environment that runs migrations: usually CI at the earliest and production at the worst.
 
 ---
 
@@ -53,7 +53,7 @@ The check also fails a migration that uses a concurrent operation without settin
 
 Use `db_default=` for a `NOT NULL` column, so the database keeps the default.
 
-**Why it matters:** A `NOT NULL` column added with only a Python-level `default=` is safe for the rows that already exist, but not for a rolling deploy. On PostgreSQL, Django adds the column with the default and then **drops the database default** at the end of `AddField`. Old application pods keep running during the rollout, and an `INSERT` from one of them that does not name the new column then fails with a `NOT NULL` violation until that pod drains. Any table written on a user-facing path (signup, login, board or card creation, membership changes) is exposed.
+**Why it matters:** A `NOT NULL` column added with only a Python-level `default=` is safe for the rows that already exist, but not for a rolling deploy. On PostgreSQL, Django adds the column with the default and then **drops the database default** at the end of `AddField`. Old application pods keep running during the rollout, and an `INSERT` from one of them that doesn't name the new column then fails with a `NOT NULL` violation until that pod drains. Any table written on a user-facing path (signup, login, board or card creation, membership changes) is exposed.
 
 ```python
 migrations.AddField(
@@ -65,7 +65,7 @@ migrations.AddField(
 
 - Put the same `db_default` on the model field so `makemigrations --check` stays clean.
 - A migration that has already shipped gets an additive `AlterField` rather than an edit in place.
-- The `check_migration_constraint_safety` scan below accepts any `default=` and so does not fail on this; `migration-check` enforces it.
+- The `check_migration_constraint_safety` scan below accepts any `default=` and so doesn't fail on this; `migration-check` enforces it.
 - The scan stays advisory by decision (#1680): its fix hint recommends `db_default=` (alongside `default=`), but it never fails a `default=`-only column.
 
 ## Adding an index
@@ -103,13 +103,13 @@ Declare the index on the model's `Meta.indexes` as usual. `makemigrations` will 
 
 **Never put a concurrent operation in the same migration as any other schema operation.**
 
-**Why it matters:** `atomic = False` means there is no transaction, and therefore no rollback. If a later operation fails, every earlier one stays applied while Django records the migration as *not* applied. The retry re-runs the earlier operations against a database that already has them, and fails again. The migration is now wedged and has to be untangled by hand.
+**Why it matters:** `atomic = False` means there's no transaction, and therefore no rollback. If a later operation fails, every earlier one stays applied while Django records the migration as *not* applied. The retry re-runs the earlier operations against a database that already has them, and fails again. The migration is now wedged and has to be untangled by hand.
 
-`boards/0024_enforce_wip_limits_and_card_index` is the shape to avoid: it combines `AddField(enforce_wip_limits)` with an `AddIndex` on `cards`. It is safe today precisely *because* it is atomic. Adding `atomic = False` to it to make the index concurrent would trade a guaranteed-atomic migration for one that can leave the column added and the migration unrecorded. Split instead: one migration for the field, and a second one (non-atomic, single operation) for the index.
+`boards/0024_enforce_wip_limits_and_card_index` is the shape to avoid: it combines `AddField(enforce_wip_limits)` with an `AddIndex` on `cards`. It's safe today precisely *because* it's atomic. Adding `atomic = False` to it to make the index concurrent would trade a guaranteed-atomic migration for one that can leave the column added and the migration unrecorded. Split instead: one migration for the field, and a second one (non-atomic, single operation) for the index.
 
 ### Recovering from a failed concurrent build
 
-An interrupted `CREATE INDEX CONCURRENTLY` does not roll back. It leaves a real, named index in the catalog marked **`INVALID`**. The index is maintained on every write but used by no query, so the symptom is a slow database with an index that looks present. Check for it and drop it before retrying:
+An interrupted `CREATE INDEX CONCURRENTLY` doesn't roll back. It leaves a real, named index in the catalog marked **`INVALID`**. The index is maintained on every write but used by no query, so the symptom is a slow database with an index that looks present. Check for it and drop it before retrying:
 
 ```bash
 psql "$DATABASE_URL" -c "SELECT indexrelid::regclass AS name, indisvalid
@@ -126,7 +126,7 @@ Then re-run `migrate`. A `ValidateConstraint` that fails is the same case: the c
 `ADD CONSTRAINT` validates the whole table under `ACCESS EXCLUSIVE`. Split it: add the
 constraint `NOT VALID` (a catalog-only change, so the exclusive lock is held for microseconds),
 then validate it in a second step under the much weaker `SHARE UPDATE EXCLUSIVE`, which
-readers and writers do not block on.
+readers and writers don't block on.
 
 ```python
 from django.db import migrations, models
@@ -150,7 +150,7 @@ class Migration(migrations.Migration):
     ]
 ```
 
-**Watch out:** `atomic = False` is not optional here. Run both operations inside one transaction and the brief `ACCESS EXCLUSIVE` from step one is held until commit, across the whole validation scan. That is precisely the outage the split exists to avoid.
+**Watch out:** `atomic = False` isn't optional here. Run both operations inside one transaction and the brief `ACCESS EXCLUSIVE` from step one is held until commit, across the whole validation scan. That is precisely the outage the split exists to avoid.
 
 A `NOT VALID` constraint is enforced for new and updated rows immediately; only the scan of pre-existing rows is deferred. If the validation step fails, the constraint stays in place as `NOT VALID` and the fix is a data cleanup followed by a re-run.
 
@@ -158,7 +158,7 @@ A `NOT VALID` constraint is enforced for new and updated rows immediately; only 
 
 ## Adding a unique constraint
 
-`NOT VALID` is not accepted for unique constraints — PostgreSQL has no way to defer a
+`NOT VALID` isn't accepted for unique constraints — PostgreSQL has no way to defer a
 uniqueness check. The safe path builds a unique *index* concurrently and then attaches a
 constraint to it, which is a catalog-only operation:
 
@@ -214,7 +214,7 @@ for its GIN indexes; read it for a worked example already in the tree.
 When the uniqueness only has to hold for non-null values, a *partial* `UniqueConstraint`
 (`condition=Q(col__isnull=False)`) is simpler: Django implements it as a unique index on
 every backend, so the `ALTER TABLE ... ADD CONSTRAINT ... USING INDEX` step drops out.
-`boards/0089_board_share_token_hash_uniq` is the worked example. It also drops a leftover
+`boards/0089_board_share_token_hash_uniq` is the worked example. It drops a leftover
 index of the same name before the build, because a failed `CREATE INDEX CONCURRENTLY` leaves
 an `INVALID` index that `IF NOT EXISTS` would skip. On SQLite it calls
 `schema_editor.add_constraint` / `remove_constraint`, so test databases there enforce the
@@ -228,21 +228,21 @@ A foreign key is a constraint, and PostgreSQL validates a constraint — scannin
 referencing column against the referenced table — while holding a lock on *both* tables for
 the length of the scan. Everything above already covers this for a `CheckConstraint`. A
 `ForeignKey` needs its own recipe because `AddConstraintNotValid` explicitly rejects
-anything that is not a `CheckConstraint`:
+anything that isn't a `CheckConstraint`:
 
 ```pycon
 >>> AddConstraintNotValid(model_name="card", constraint=models.UniqueConstraint(...))
 TypeError: AddConstraintNotValid.constraint must be a check constraint.
 ```
 
-`check_migration_concurrency` does not look at foreign-key validation either way — see
-below — so which recipe applies is a judgment call the check cannot make for you. It comes
+`check_migration_concurrency` doesn't look at foreign-key validation either way — see
+below — so which recipe applies is a judgment call the check can't make for you. It comes
 down to whether the column being constrained already holds data.
 
 ### A new, nullable column on an existing table
 
-If the column is brand new, every row gets `NULL` the instant it is added, and PostgreSQL
-does not validate a foreign key against a `NULL` — there is nothing for the constraint to
+If the column is brand new, every row gets `NULL` the instant it's added, and PostgreSQL
+doesn't validate a foreign key against a `NULL` — there's nothing for the constraint to
 check. A plain `AddField` is safe inline, constraint included:
 
 ```python
@@ -292,10 +292,10 @@ which was only harmless because `cardchecklist` was small at the time.
 
 Once the column already has real, non-`NULL` values — an existing plain integer column being
 turned into a proper `ForeignKey`, or a nullable one already backfilled with real
-references — PostgreSQL cannot skip the scan, and a plain `AddField` / `AlterField` /
+references — PostgreSQL can't skip the scan, and a plain `AddField` / `AlterField` /
 `AddConstraint` validates the whole table under `ACCESS EXCLUSIVE` for as long as the scan
 takes. The safe path is the same shape as a check constraint — add `NOT VALID`, validate
-later, under a weaker lock — but reached by hand, because there is no
+later, under a weaker lock — but reached by hand, because there's no
 `AddConstraintNotValid` for a `ForeignKey`:
 
 ```python
@@ -383,10 +383,10 @@ class Migration(migrations.Migration):
 ```
 
 The field itself must carry `db_constraint=False` from the moment the column is added (and
-until the validate migration above flips it back) — that is what stops Django's own
+until the validate migration above flips it back) — that's what stops Django's own
 `AddField`/`AlterField` from emitting a second, competing `FOREIGN KEY` clause on top of the
-one added by hand. `db_constraint=False` does not remove `on_delete` behavior at the Python
-level; it only means PostgreSQL is not enforcing it, which is exactly the gap the `NOT VALID`
+one added by hand. `db_constraint=False` doesn't remove `on_delete` behavior at the Python
+level; it only means PostgreSQL isn't enforcing it, which is exactly the gap the `NOT VALID`
 migration closes.
 
 **Neither checker flags the `RunPython` in the first migration.**
@@ -394,13 +394,13 @@ migration closes.
 (`RAW_CREATE_INDEX`), never `ADD CONSTRAINT`, so an `ALTER TABLE ... ADD CONSTRAINT ...
 FOREIGN KEY ... NOT VALID` inside `RunPython`/`RunSQL` needs no `# concurrency-exempt:`
 comment — the checker has no rule that would fire on it in the first place.
-`check_migration_constraint_safety` does not scan raw SQL string content at all, so it is
+`check_migration_constraint_safety` doesn't scan raw SQL string content at all, so it's
 silent on that migration too.
 
-**The second migration does not get the same protection a check constraint's does — verify
+**The second migration doesn't get the same protection a check constraint's does — verify
 this shape against `check_migration_constraint_safety.py` yourself before trusting it.**
 `ValidateConstraint` is the operation the checker watches for a `CheckConstraint`, by name,
-regardless of what kind of constraint it validates — but it is exempted whenever the
+regardless of what kind of constraint it validates — but it's exempted whenever the
 migration's own `dependencies` names another migration, in the same app, whose operations
 list contains a top-level `RunPython`/`RunSQL` (the "adjacent migration" rule: a migration
 depending on a dedicated repair migration is assumed already safe). The exemption checks
@@ -411,15 +411,15 @@ migration 2 depends on it directly, so this recipe's shape trips the exemption e
 holds a single orphaned reference. Writing migration 1 as `RunSQL` instead makes no
 difference; the checker treats the two names identically.
 
-This is a genuine gap in the checker, not a design choice, and there is no way to add a
+This is a genuine gap in the checker, not a design choice, and there's no way to add a
 hand-written `NOT VALID` constraint without a `RunPython`/`RunSQL` operation to carry it — so
 the gap is unavoidable with this recipe, not a mistake to fix by restructuring the
 migrations. Judge the need for a repair step the same way you would with the check turned
-off: if `reviewer_id` could hold a value that does not point at an existing row — data
+off: if `reviewer_id` could hold a value that doesn't point at an existing row — data
 written before an application-level guard existed, a row deleted out from under a reference,
 anything restored from an old backup — add a real `RunPython` repair step ahead of
-`ValidateConstraint` before relying on it, because CI will not catch a missing one here. The
-`# constraint-safe:` comment convention used elsewhere on this page does not help either: the
+`ValidateConstraint` before relying on it, because CI won't catch a missing one here. The
+`# constraint-safe:` comment convention used elsewhere on this page doesn't help either: the
 violation this shape would otherwise raise is suppressed by the adjacent-migration exemption
 before the scanner ever reaches the point where it would look for that comment, so writing
 one on `ValidateConstraint` in migration 2 has no effect.
@@ -434,10 +434,10 @@ Optional follow-up, out of scope for this page:
 - `check_migration_concurrency` could flag an `AddField`/`AlterField` that adds a
   `ForeignKey` with `db_constraint` left at its default (`True`) against an app's
   non-initial migration, the same way it already flags `db_index=True`.
-- `check_migration_constraint_safety`'s adjacent-migration exemption cannot tell a genuine
+- `check_migration_constraint_safety`'s adjacent-migration exemption can't tell a genuine
   data-repair `RunPython` from a schema-only one like the `NOT VALID` step above — both
   satisfy `has_top_level_repair()` by name alone. Narrowing that exemption would need the
-  scanner to look at what the dependency's `RunPython`/`RunSQL` actually does, not just that
+  scanner to look at what the dependency's `RunPython`/`RunSQL` does, not just that
   one exists, which the rest of both checkers deliberately avoid doing (see "The scan does
   not verify a repair step touches the *right* rows" above) — so this is a real trade-off to
   work out, not a one-line fix.
@@ -448,8 +448,8 @@ inferring scope from this paragraph.
 ### Changing an existing foreign key's nullability
 
 A plain `AlterField` that only adds `null=True` to a `ForeignKey` looks catalog-only, and it
-is not. Django's schema editor drops and re-adds the foreign key constraint whenever any
-database-relevant attribute of the field changes, and `null` is one (`on_delete` is not —
+isn't. Django's schema editor drops and re-adds the foreign key constraint whenever any
+database-relevant attribute of the field changes, and `null` is one (`on_delete` isn't —
 it emits no SQL). `sqlmigrate` shows the full sequence:
 
 ```sql
@@ -462,7 +462,7 @@ The re-`ADD` validates every row against the referenced table, holding `ACCESS E
 the referencing table (the migration is atomic) and `SHARE ROW EXCLUSIVE` on the referenced
 one for the whole scan. Neither checker flags it yet (#1798).
 
-The change that is actually needed is only `ALTER COLUMN ... DROP NOT NULL`, which is
+The change that's needed is only `ALTER COLUMN ... DROP NOT NULL`, which is
 catalog-only and leaves the existing constraint in place. `boards/0079_cardmovement_card_nullable`
 (#1469) is the precedent: a small `AlterField` subclass whose PostgreSQL `database_forwards`
 runs only that statement and whose state change is the inherited `AlterField`'s, so
@@ -495,7 +495,7 @@ above.
 
 ## The escape hatch
 
-Some tables genuinely do not need the ceremony — most often a table created in the same
+Some tables genuinely don't need the ceremony — most often a table created in the same
 migration, which no session can be reading yet. Add an inline comment naming the reason:
 
 ```python
@@ -511,7 +511,7 @@ operations = [
 
 The comment must sit on the operation's own line or within the four lines above it, and the
 reason after the colon is mandatory — a bare `# concurrency-exempt:` still fails the check.
-The reason is the point: it is what lets the next reader see why the lock was acceptable
+The reason is the point: it's what lets the next reader see why the lock was acceptable
 without re-deriving it.
 
 ---
@@ -520,11 +520,11 @@ without re-deriving it.
 
 Everything above is about how long a lock is held. This section is about a different
 failure: an operation that validates every existing row and **fails outright** if one of
-them does not comply. A migration that adds a `CheckConstraint`, makes an existing column
-`NOT NULL`, or turns on `unique=True` does not degrade gracefully when a row disagrees — the
+them doesn't comply. A migration that adds a `CheckConstraint`, makes an existing column
+`NOT NULL`, or turns on `unique=True` doesn't degrade gracefully when a row disagrees — the
 migration partially applies, the deploying pod's migrate step errors, health checks fail, and
 the deploy is stuck in a crash-loop until someone intervenes by hand. That is a worse outcome
-than a migration that simply refuses to run (#1098).
+than a migration that refuses to run (#1098).
 
 The CI `migration-check` job also fails the pipeline for this:
 
@@ -533,12 +533,12 @@ cd backend
 python manage.py check_migration_constraint_safety
 ```
 
-It is a second, independent scan alongside `check_migration_concurrency` — same syntactic
+It's a second, independent scan alongside `check_migration_concurrency` — same syntactic
 AST approach, same job, different rule. The two overlap in which operations they watch but
 not in what they check: `check_migration_concurrency` asks "how long is the lock held",
 this one asks "can this fail against the data that is already there". A migration can pass
 one and fail the other. In particular, `AddConstraintNotValid` (the concurrency-safe half of
-the #1081 pattern) never fails against existing data — that is what `NOT VALID` means — but
+the #1081 pattern) never fails against existing data — that's what `NOT VALID` means — but
 the `ValidateConstraint` that must follow it still scans the whole table and fails exactly
 the way a plain `AddConstraint` would. This check watches `ValidateConstraint`, not
 `AddConstraintNotValid`, for that reason.
@@ -548,12 +548,12 @@ the way a plain `AddConstraint` would. This check watches `ValidateConstraint`, 
 | `migrations.AddConstraint` | yes | validates every row when applied |
 | `visiban.db_operations.ValidateConstraint` | yes | the deferred half of the NOT VALID pair still scans every row |
 | `AlterUniqueTogether` / `AlterIndexTogether` | yes | rebuilds the table's unique index, fails on any duplicate |
-| `AddField` with no `null=True`, no `default=` and no `db_default=` | yes | Django cannot add the column to a populated table with nothing to put in existing rows |
+| `AddField` with no `null=True`, no `default=` and no `db_default=` | yes | Django can't add the column to a populated table with nothing to put in existing rows |
 | `AlterField` with explicit `null=False` | yes | making an existing column NOT NULL fails if any row is still NULL |
 | `AddField` / `AlterField` with `unique=True` | yes, with one exception below | fails on any pre-existing duplicate value |
-| `AddField` with `unique=True` **and** `null=True` | **no** | PostgreSQL does not treat NULL as equal to NULL, so a unique index over a nullable brand-new column never rejects a pre-existing row — every one of them just gets NULL (`boards/0034_board_share_token`, `groups/0010_hash_group_invite_token` are this exact shape) |
+| `AddField` with `unique=True` **and** `null=True` | **no** | PostgreSQL doesn't treat NULL as equal to NULL, so a unique index over a nullable brand-new column never rejects a pre-existing row — every one of them just gets NULL (`boards/0034_board_share_token`, `groups/0010_hash_group_invite_token` are this exact shape) |
 | `AddConstraintNotValid` on its own | **no** | `NOT VALID` defers the scan; nothing fails yet |
-| any of the above on a table created earlier in the same migration | **no** | a table with no rows cannot have a violating row — not an escape-hatch case, correct behavior |
+| any of the above on a table created earlier in the same migration | **no** | a table with no rows can't have a violating row — not an escape-hatch case, correct behavior |
 | any of the above under `SeparateDatabaseAndState(state_operations=...)` | **no** | state-only, emits no DDL |
 | `db_index=True` | **no** | a plain index never rejects a row — that risk is #1081's lock-duration concern, not a data-validity one |
 
@@ -574,14 +574,14 @@ things:
    renames every colliding username before the unique constraint is added. The check reads
    the dependency graph to confirm this, not just the file in front of it.
 
-The scan does not verify a repair step touches the *right* rows — same coarseness
-`check_migration_concurrency` accepts for its own "is this actually concurrent" question —
+The scan doesn't verify a repair step touches the *right* rows — same coarseness
+`check_migration_concurrency` accepts for its own "is this concurrent" question —
 it only confirms one exists in the right place. Requiring *some* explicit repair step there
 is the point; auditing that the repair is correct is still a human review job.
 
 ### The escape hatch
 
-Some operations are safe for reasons the scan cannot see — most commonly, a constraint whose
+Some operations are safe for reasons the scan can't see — most commonly, a constraint whose
 default values make every pre-existing row comply without any repair step at all. Add an
 inline comment naming the reason:
 
@@ -662,14 +662,14 @@ individually rather than filtered by migration number, so the exemption can only
 The reasoning, because this is the part worth not re-litigating:
 
 The alternative that was considered and rejected was editing
-`boards/0030_card_trigram_search_indexes` **in place** — it is already raw SQL with
+`boards/0030_card_trigram_search_indexes` **in place** — it's already raw SQL with
 `IF NOT EXISTS`, so adding `CONCURRENTLY` and `atomic = False` is nearly a two-word change,
-and it is the slowest build in the tree. It is declined on the grounds in the `0030` paragraph
-below. Should a future release want to revisit it, that is a deliberate decision to edit
+and it's the slowest build in the tree. It's declined on the grounds in the `0030` paragraph
+below. Should a future release want to revisit it, that's a deliberate decision to edit
 applied history and needs its own issue and its own sign-off — not a quiet amendment here.
 
 **Re-issuing them as new concurrent migrations helps nobody.** An install that has already
-applied `0038` will not apply it again; a new `0052` that rebuilds the same index would be a
+applied `0038` won't apply it again; a new `0052` that rebuilds the same index would be a
 no-op for them and pure churn for everyone else. Re-issuing only pays off if the *original* is
 also neutered — which means editing applied history.
 
@@ -682,10 +682,10 @@ retry. That is a real regression imposed on every normal upgrade to buy a benefi
 one.
 
 **`0030` is the one worth arguing about, and it still loses.** Its trigram GIN indexes on
-`cards` are by far the slowest build in the tree, and unlike the others it is already
+`cards` are by far the slowest build in the tree, and unlike the others it's already
 raw-SQL-with-`IF NOT EXISTS`, so switching it to `CREATE INDEX CONCURRENTLY IF NOT EXISTS`
 would be a two-word edit. The argument against is the interaction between those two clauses: a
-`CONCURRENTLY` build that is interrupted leaves an **INVALID** index behind — present in the
+`CONCURRENTLY` build that's interrupted leaves an **INVALID** index behind — present in the
 catalog, used by no query — and `IF NOT EXISTS` would then skip recreating it on the retry.
 The current idempotency, which is the whole reason that migration was written the way it was,
 would start silently hiding a broken index. Trading a loud lock for a quiet wrong answer is
@@ -694,10 +694,10 @@ the wrong trade.
 **Fresh installs never pay this cost at all.** They apply the whole chain against empty tables,
 before the instance serves any traffic: the lock is real and contended by nobody.
 
-**The population that actually pays is narrow, and has a better remedy.** It is the operator
+**The population that pays is narrow, and has a better remedy.** It's the operator
 restoring a large pre-1.1 dump into a 1.2 binary and then running `migrate` to catch up — a
-deliberate, offline maintenance operation. For them the answer is not a code change but a
-procedure: build the index by hand first, then tell Django it is done.
+deliberate, offline maintenance operation. For them the answer isn't a code change but a
+procedure: build the index by hand first, then tell Django it's done.
 
 ```bash
 # 1. Build the index concurrently, with the application still serving traffic.
@@ -714,7 +714,7 @@ python manage.py migrate boards 0047 --fake
 ```
 
 Use the exact index name and definition from the migration — `--fake` tells Django the schema
-matches, and it is on you to make that true.
+matches, and it's on you to make that true.
 
 !!! danger "`--fake` marks the whole migration applied, not just the index"
     `boards/0047` is used here because its **only** operation is the index. The procedure is
@@ -723,10 +723,10 @@ matches, and it is on you to make that true.
     `boards/0024` is the counter-example, and the trap: it bundles
     `AddField(board.enforce_wip_limits)` with its `AddIndex`. Building only the index by hand
     and then faking `0024` would leave Django believing `enforce_wip_limits` exists when the
-    column does not — and the first card move that consults a WIP limit fails with
+    column doesn't — and the first card move that consults a WIP limit fails with
     `ProgrammingError: column "enforce_wip_limits" does not exist`. Before faking any
     migration, read it and hand-apply **every** operation in it, not just the one you came
-    for. It is the same reason new migrations must never combine a concurrent operation with
+    for. It's the same reason new migrations must never combine a concurrent operation with
     anything else.
 
 This procedure is the reason
@@ -734,13 +734,13 @@ This procedure is the reason
 describe a genuine zero-downtime path across the whole migration history, including the
 fourteen above, without any of them changing.
 
-**Everything after #1081 is concurrent by construction**, so the exemption list does not grow.
+**Everything after #1081 is concurrent by construction**, so the exemption list doesn't grow.
 
 ---
 
 ## Known gaps in the 1.1 to 1.2 migrations
 
-Found by the 1.2 pre-release audit (#1662). The shipped migrations were not edited, because
+Found by the 1.2 pre-release audit (#1662). The shipped migrations weren't edited, because
 installs have already run them; these are documented instead.
 
 - **Foreign keys are not flagged by the concurrency checker.** `accounts/0031` adds a nullable
@@ -752,13 +752,13 @@ installs have already run them; these are documented instead.
   `users` in the same transaction as its column additions, so the UPDATE runs while
   `ACCESS EXCLUSIVE` is held. (`accounts/0036` is a standalone `RunPython` with no schema
   change; it only row-locks superuser rows, which is negligible.) Fine for typical sizes; see the
-  [upgrade guide](../administration/upgrade.md#upgrading-to-12x) for very large installs.
+  [upgrade guide](../administration/upgrade.md#upgrading-to-12x) for large installs.
 - **`boards/0054` overwrites system template columns** by slug, and its reverse restores
   constants rather than prior database values. See the upgrade guide.
 - **`accounts/0033` has an unneeded dependency** on `boards/0061` and `auth/0012` (an
-  autodetector artifact). Remove it at the next squash; do not edit it now.
+  autodetector artifact). Remove it at the next squash; don't edit it now.
 - **Frozen history:** the duplicate `boards/0033` (merged by `0035`) and the missing
-  `boards/0053` are not to be renumbered.
+  `boards/0053` aren't to be renumbered.
 - **allauth pin:** `accounts/0031` and `0033` depend on allauth's
   `account.0009_emailaddress_unique_primary_email`. 1.1.0 and 1.2 both pin
   `django-allauth==65.14.3`, which ships it;
@@ -768,7 +768,7 @@ installs have already run them; these are documented instead.
 
 ## When migrations are squashed
 
-`squashmigrations` reproduces historical operations into a new file, under a name that is not
+`squashmigrations` reproduces historical operations into a new file, under a name that isn't
 in the grandfathered set — so a squash that absorbs any of the fourteen above would otherwise
 surface them as brand-new violations. The check therefore **skips any migration whose
 `Migration` class defines `replaces`**, which is exactly the set of squashed migrations.

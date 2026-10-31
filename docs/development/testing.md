@@ -182,7 +182,7 @@ test.describe('mobile nav drawer', () => {
 })
 ```
 
-Do not change the viewport mid-test — responsive layout transitions are expensive and flaky.
+Don't change the viewport mid-test — responsive layout transitions are expensive and flaky.
 
 ### Non-fetch side effects
 
@@ -233,28 +233,28 @@ Before committing a new spec:
 The Playwright list above has a unit-test counterpart. Every root-caused `frontend-test` flake so
 far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed, not test noise:
 
-- [ ] **Act only on a settled page.** Finding the first element a fetch renders does not mean the
+- [ ] **Act only on a settled page.** Finding the first element a fetch renders doesn't mean the
   page is idle: the commit that shows it can still have mount effects and further fetches queued,
   and on a slow runner `waitFor` returns inside that window. Before firing events, wait for the
   last thing the page loads. `renderAdminPageSettled()` in `src/test/adminPage.test.tsx` is the
   pattern: it waits for `EmailSettingsSection`'s `Host` field, the last section to load.
 - [ ] **Re-query after an event** (`screen.getByLabelText(...)`) instead of asserting on a node
-  captured before it, so a remount cannot leave the assertion reading a detached element.
+  captured before it, so a remount can't leave the assertion reading a detached element.
 - [ ] **Test the commit-to-effect window when a component holds a local input buffer.** Mount it
   from a resolved promise (outside `act()`), call `stallEventLoopAfterWaitFor()` from
   `src/test/eventLoopStall.ts` inside the `waitFor` that finds the input, assert the mount effects
-  have not run yet, then type. `customFieldValueInput.test.tsx` and `lensFilterBar.test.tsx` show
+  haven't run yet, then type. `customFieldValueInput.test.tsx` and `lensFilterBar.test.tsx` show
   it. The component rule this protects is in `frontend/CLAUDE.md` § Local input buffers and timers.
 - [ ] **No timer that can outlive its component.** Hold a delayed timer's id in a ref, clear it
   on unmount, and add a test that unmounts with the timer pending. ESLint `no-restricted-syntax`
   catches only a call whose id is visibly discarded (a whole statement, an arrow's expression
   body such as `.then(() => setTimeout(...))`, or `void setTimeout(...)`) with a delay other
-  than a literal `0`. It does not catch a stored id that is never cleared, so review still has
+  than a literal `0`. It doesn't catch a stored id that's never cleared, so review still has
   to look for the cleanup.
 
 ## Writing tests that catch mutations
 
-A test that only checks `status_code == 200` or `assertTrue(result)` passes when the code under it is wrong. The [mutation baseline](mutation-testing.md) shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from `backend/boards/tests/`.
+A test that only checks `status_code == 200` or `assertTrue(result)` passes when the code under it's wrong. The [mutation baseline](mutation-testing.md) shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from `backend/boards/tests/`.
 
 ### 1. Exact values over truthiness
 
@@ -323,12 +323,12 @@ Do the same for broadcast events: assert nothing was queued.
 
 ### Row-lock tests (PostgreSQL only)
 
-SQLite has no row locks, so a `select_for_update()` can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern: pause the first request inside its transaction (after it took the lock and wrote, before it commits), start a second request only once the first is paused, and assert both that the second could not finish before the pause ended and that the final state is consistent (distinct positions, caps respected). Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
+SQLite has no row locks, so a `select_for_update()` can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern: pause the first request inside its transaction (after it took the lock and wrote, before it commits), start a second request only once the first is paused, and assert both that the second couldn't finish before the pause ended and that the final state is consistent (distinct positions, caps respected). Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
 
 ### What not to do
 
 - **Do not write one test per mutant.** Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.
-- **Do not pin the full wording of logger text.** Assert the level and a stable event-name prefix or key substring (`assertLogs(..., level="WARNING")` plus `assertIn("malformed payload", ...)`), not the whole sentence. Pin the full message only when it is a documented contract.
+- **Do not pin the full wording of logger text.** Assert the level and a stable event-name prefix or key substring (`assertLogs(..., level="WARNING")` plus `assertIn("malformed payload", ...)`), not the whole sentence. Pin the full message only when it's a documented contract.
 - **Do not assert on `.get()` defaults that are always overridden.** If no production input can reach the default, the mutant is equivalent: mark it `# pragma: no mutate -- <reason>` (a reason is required) instead of leaving it as a survivor. See the [policy](mutation-testing.md#equivalent-mutants-and-the-score-1503).
 - **Do not chase equivalent mutants** (dead branches, schema constants guarded by `migration-check`); exclude them with a reasoned pragma. See "How to read the results" in the mutation baseline.
 
@@ -337,28 +337,28 @@ SQLite has no row locks, so a `select_for_update()` can be deleted without faili
 - Backend tests run in the `backend-test` job (8 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
   - Shards are time-balanced by `pytest-split` from the committed `backend/.test_durations` file. Shards never write it (concurrent shards would overwrite each other's slice). Refresh it occasionally, e.g. after a large batch of new tests: `cd backend && pytest --store-durations --durations-path .test_durations`, then commit the file. A stale file only degrades balance, never correctness.
 - `backend-benchmark` is a **manual** job (#1341) that runs `python manage.py benchmark --fail-on-budget`.
-    - **Trigger:** use the pipeline page's manual-job play button on an MR or `main` pipeline. It is `allow_failure: true` so an unrun job never blocks a merge, and it never runs on schedules or tags.
+    - **Trigger:** use the pipeline page's manual-job play button on an MR or `main` pipeline. It's `allow_failure: true` so an unrun job never blocks a merge, and it never runs on schedules or tags.
     - **What it does:** the command seeds its own throw-away board (100 cards) and counts SQL queries for the card list, `full/`, and `summary/` against committed budgets. It fails on a non-2xx response, on `DEBUG` being off, or on any endpoint over budget.
     - **Locally:** `cd backend && DEBUG=True python manage.py benchmark --fail-on-budget`
     - **Why manual:** the same `benchmark --fail-on-budget` already runs on Postgres inside `backend-test` on every backend MR via `BenchmarkCommandCiGateTests.test_within_budget_passes_with_fail_on_budget`, so an automatic job would be near-redundant and cost a Postgres + Valkey pair per MR. Run on demand it adds `DEBUG` taken from the environment, a run outside a `TestCase` transaction, and a fresh `migrate`.
     - **Latency:** regressions that keep the query count identical are covered by `nightly-load-test` ([nightly-load-test.md](nightly-load-test.md)).
     - **First measured** on Postgres in #1341: cards 9 (budget 12), `full/` 17 (budget 20), `summary/` 4 (budget 10).
-    - **Budgets** partly overlap `backend/boards/tests/test_query_counts.py`. The benchmark's cards check serializes `_card_queryset` directly (a subset of the endpoint), so its budget of 12 is intentionally different from `CardListQueryCountTests.BUDGET` (14); it is a coarser check, not a replacement. `full/` (20) is deliberately 1 above `BoardFullQueryCountTests.BUDGET` (19) and `summary/` (10) equals `SummaryQueryCountTests.BUDGET`. Neither should exceed the `test_query_counts.py` value plus that slack. When a budget legitimately changes, bump both files together following [perf-bench.md section 6](https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-bench.md).
+    - **Budgets** partly overlap `backend/boards/tests/test_query_counts.py`. The benchmark's cards check serializes `_card_queryset` directly (a subset of the endpoint), so its budget of 12 is intentionally different from `CardListQueryCountTests.BUDGET` (14); it's a coarser check, not a replacement. `full/` (20) is deliberately 1 above `BoardFullQueryCountTests.BUDGET` (19) and `summary/` (10) equals `SummaryQueryCountTests.BUDGET`. Neither should exceed the `test_query_counts.py` value plus that slack. When a budget legitimately changes, bump both files together following [perf-bench.md section 6](https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-bench.md).
 - Frontend unit tests run in `frontend-test`. Unlike `backend-schema-fuzz` below, a single failed test retries once automatically under CI (`vitest.config.ts`'s `test.retry`, gated on `process.env.CI` so local runs stay strict) before failing the job.
     - The retry only absorbs a one-off scheduler hiccup.
     - Every occurrence that has been root-caused was a component defect that failed on both attempts: a leaked post-save timer (#1319 occurrence 3) and an effect-seeded input buffer racing the first edit (occurrence 4; occurrence 1 was most likely the same race).
-    - **A red job whose test shows `(retry x1)` means a real bug.** Investigate it; do not re-run the job until it passes.
-    - Do not raise the retry to 2 either. A second retry would not have saved any of these, and it would hide the next one.
+    - **A red job whose test shows `(retry x1)` means a real bug.** Investigate it; don't re-run the job until it passes.
+    - Don't raise the retry to 2 either. A second retry wouldn't have saved any of these, and it would hide the next one.
 - Playwright E2E runs in `playwright-e2e` — starts its own Vite dev server, no separate build step needed. It's `allow_failure: true` during rollout; promotion to blocking is tracked separately.
 - `backend-schema-validate` checks the generated OpenAPI document is well-formed;
   `backend-schema-fuzz` goes further and fuzzes a real, running instance with
   [schemathesis](https://schemathesis.readthedocs.io/) to catch a response that doesn't match
   its declared schema — see [`docs/api/openapi.md`](../api/openapi.md#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz).
-  It is blocking (`allow_failure: false`) as of #1120.
+  It's blocking (`allow_failure: false`) as of #1120.
     - A handful of already-tracked schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in `backend/schemathesis-baseline.json` rather than blocking on them landing first.
     - #1170 pruned the leftovers down to 12 entries (from two full-length runs, different seeds), each now carrying a `"reason"` field.
     - The undocumented-`400` gap (#1124) is closed generically by `visiban/schema_hooks.py` (#1165).
-    - **A red run is a real defect, never a flake.** Do not retry it; see the
+    - **A red run is a real defect, never a flake.** Don't retry it; see the
   [triage steps](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake)
 - `backend-schema-fuzz-git-lens` is the same fuzz with `GIT_LENS_ENABLED=True`, narrowed to
   the Issue Board Lens routes, with its own `backend/schemathesis-baseline-git-lens.json` and
@@ -368,7 +368,7 @@ SQLite has no row locks, so a `select_for_update()` can be deleted without faili
 
 ### SonarCloud coverage import (#1370)
 
-SonarCloud does not run tests. It imports the reports the `test` stage already produces, via `sonar.python.coverage.reportPaths` and `sonar.javascript.lcov.reportPaths` in `sonar-project.properties`. The nightly `sonar:scan` job consumes:
+SonarCloud doesn't run tests. It imports the reports the `test` stage already produces, via `sonar.python.coverage.reportPaths` and `sonar.javascript.lcov.reportPaths` in `sonar-project.properties`. The nightly `sonar:scan` job consumes:
 
 - the `backend-test-coverage` artifact (`backend/coverage.xml`, Cobertura);
 - the `frontend-test` artifact (`frontend/coverage/lcov.info`). `lcov` is one of the vitest `coverage.reporter` formats alongside `text` and `cobertura`, which GitLab's coverage badge and `coverage_report` still depend on.
@@ -385,12 +385,12 @@ Test code, migrations, repo tooling, and seed/factory modules are removed from t
 
 Coverage says a line ran. A **mutation score** says whether the tests would notice if the line were wrong. The weekly `backend-mutation` job makes one small change at a time to the code (flip `==` to `!=`, change a constant, replace a value with `None`), re-runs that code's tests, and counts the change as **killed** if a test fails or **survived** if every test still passes. It covers `boards/permissions.py`, `boards/services/cards.py`, the `CardMovement` class in `boards/models.py` and `boards/views/import_export.py`; the list and each target's test files are `TARGETS` in `backend/mutmut_config.py`.
 
-- **What the number means:** 92% means that of every 100 small, plausible bugs introduced into the code, the tests caught 92. The other 8 are *survivors*: changes the tests could not tell apart from the real code. A survivor is either a missing assertion (worth a test) or an equivalent mutant (a change no production input could observe). It is not a measure of correctness, and a high score in these modules says nothing about code outside them.
-- **Score:** the **adjusted** score is `(killed + timeout) / (killed + timeout + survived + suspicious)`; mutants on other shards' lines (`skipped`) are not counted. Mutants excluded with `# pragma: no mutate -- <reason>` are left out of it. The **raw** score also counts them (as not detected), so exclusions stay visible; both are printed and written to the artifact. A timeout counts as killed because the change hung the suite.
+- **What the number means:** 92% means that of every 100 small, plausible bugs introduced into the code, the tests caught 92. The other 8 are *survivors*: changes the tests couldn't tell apart from the real code. A survivor is either a missing assertion (worth a test) or an equivalent mutant (a change no production input could observe). It isn't a measure of correctness, and a high score in these modules says nothing about code outside them.
+- **Score:** the **adjusted** score is `(killed + timeout) / (killed + timeout + survived + suspicious)`; mutants on other shards' lines (`skipped`) aren't counted. Mutants excluded with `# pragma: no mutate -- <reason>` are left out of it. The **raw** score also counts them (as not detected), so exclusions stay visible; both are printed and written to the artifact. A timeout counts as killed because the change hung the suite.
 - **Where to read it:** the `backend-mutation-report` job log prints one line per target and then the merged counts and score. The `mutmut-cicd-stats.json` artifact (kept 30 days) holds the merged numbers at the top level and each target under `targets`. It runs on the Weekly mutation testing schedule only (Sundays, 06:00 ET), never on an MR.
-- **Floor:** `MUTATION_MIN=0.90` gates the **merged adjusted** score over all targets (exit 1 below it). A target under 90% on its own is named in the log but does not fail the job by itself. Until the follow-up on #1384 both jobs are `allow_failure: true`, so a low score shows as a yellow job, not a red pipeline; a follow-up makes the report blocking. The floor is a fraction (`0.90`, never `90`); `0` or a value outside (0, 1] is rejected (exit 2).
-- **Yellow can also mean not measured** (exit 2): a shard or a whole target's stats files did not arrive (a shard timed out or failed before writing its file), a file is malformed, a target's shards are not one consistent run (their `total` mutant counts differ, or their non-skipped mutants do not add up to that total), a run finished with untested mutants, or nothing was scoreable. The export step also exits 2 if mutmut is not importable or if a source file has pragmas that change no mutant count. The artifact is still written and carries a `not_measured` key with the reason; read the log to tell this from a low score. An invalid `MUTATION_MIN` fails before any stats are read, so that run has no artifact; fix the variable. Treat not measured as a broken job, not a score.
-- **Reading survivors:** survivors are not in the artifact. Reproduce the target locally in a throwaway copy of `backend/` (see [Mutation Testing Baseline](mutation-testing.md#how-to-reproduce)), then `mutmut results` lists them and `mutmut show <id>` prints the diff of one. For each survivor ask, in order: could any production input observe this change? If not, it is an **equivalent mutant**: mark it with a reasoned `# pragma: no mutate`. Does any test in the target's list reach the line? If not, it is **untested code**. Otherwise it is a **missing assertion**: add the smallest assertion that fails on the mutant (an exact message, a boundary value, an empty case). See [Writing tests that catch mutations](#writing-tests-that-catch-mutations).
+- **Floor:** `MUTATION_MIN=0.90` gates the **merged adjusted** score over all targets (exit 1 below it). A target under 90% on its own is named in the log but doesn't fail the job by itself. Until the follow-up on #1384 both jobs are `allow_failure: true`, so a low score shows as a yellow job, not a red pipeline; a follow-up makes the report blocking. The floor is a fraction (`0.90`, never `90`); `0` or a value outside (0, 1] is rejected (exit 2).
+- **Yellow can also mean not measured** (exit 2): a shard or a whole target's stats files didn't arrive (a shard timed out or failed before writing its file), a file is malformed, a target's shards aren't one consistent run (their `total` mutant counts differ, or their non-skipped mutants don't add up to that total), a run finished with untested mutants, or nothing was scoreable. The export step also exits 2 if mutmut isn't importable or if a source file has pragmas that change no mutant count. The artifact is still written and carries a `not_measured` key with the reason; read the log to tell this from a low score. An invalid `MUTATION_MIN` fails before any stats are read, so that run has no artifact; fix the variable. Treat not measured as a broken job, not a score.
+- **Reading survivors:** survivors aren't in the artifact. Reproduce the target locally in a throwaway copy of `backend/` (see [Mutation Testing Baseline](mutation-testing.md#how-to-reproduce)), then `mutmut results` lists them and `mutmut show <id>` prints the diff of one. For each survivor ask, in order: could any production input observe this change? If not, it's an **equivalent mutant**: mark it with a reasoned `# pragma: no mutate`. Does any test in the target's list reach the line? If not, it's **untested code**. Otherwise it's a **missing assertion**: add the smallest assertion that fails on the mutant (an exact message, a boundary value, an empty case). See [Writing tests that catch mutations](#writing-tests-that-catch-mutations).
 
 ### Coverage targets
 
@@ -415,7 +415,7 @@ Three different numbers apply. They measure different things; see
 `backend-diff-coverage` and `frontend-diff-coverage` close that gap:
 
 - They run only on MR pipelines (there's no diff to measure on `main`).
-- They use [`diff-cover`](https://github.com/Bachmann1234/diff_cover) to measure coverage of only the lines the MR actually adds or changes, against the same `coverage.xml` / `cobertura-coverage.xml` the aggregate jobs already produce. No test re-run.
+- They use [`diff-cover`](https://github.com/Bachmann1234/diff_cover) to measure coverage of only the lines the MR adds or changes, against the same `coverage.xml` / `cobertura-coverage.xml` the aggregate jobs already produce. No test re-run.
 - Both are blocking at **80% of changed lines** and print the uncovered line numbers in the job log (`--show-uncovered`), not just a percentage.
 
 Excluded from the diff denominator on both sides:
@@ -470,7 +470,7 @@ Run `scripts/setup-hooks.sh` once per clone to install the push-time collision c
 scripts/setup-hooks.sh
 ```
 
-This installs a `pre-push` hook and a `pre-commit` hook. Every `scripts/wt` worktree of this clone shares them, since hooks live in the git common dir, so there is no need to re-run per worktree.
+This installs a `pre-push` hook and a `pre-commit` hook. Every `scripts/wt` worktree of this clone shares them, since hooks live in the git common dir, so there's no need to re-run per worktree.
 
 Before each push, on a branch named `(feat|fix|chore|docs)/<issue>-...`, the `pre-push`
 hook:
@@ -497,4 +497,4 @@ The `pre-commit` hook runs `scripts/gitleaks-precommit.sh`, blocking a commit th
 
 `setup-hooks.sh` is idempotent and never clobbers a hook it doesn't manage (e.g. a hand-written lint hook) for either `pre-push` or `pre-commit`. It prints the line to add manually so the two can be chained instead. Run `scripts/check-issue-collision.sh --self-test` to exercise the issue-collision check offline against stubbed forge responses.
 
-**Yes, but:** Both hooks are local, best-effort checks. `gitleaks-scan` is the CI job that actually blocks a merge; `check-issue-collision.sh` has no CI counterpart (see [CI gate self-tests](ci-gates.md#known-gaps-and-deferred-work)).
+**Yes, but:** Both hooks are local, best-effort checks. `gitleaks-scan` is the CI job that blocks a merge; `check-issue-collision.sh` has no CI counterpart (see [CI gate self-tests](ci-gates.md#known-gaps-and-deferred-work)).

@@ -25,7 +25,7 @@ For each **gate** and **diff shape** it tracks the current streak of consecutive
 |---|---|
 | `N findings`, N > 0 | run; resets the streak |
 | `0 findings` | run; streak + 1 |
-| `n/a (...)` | gate did not apply; ignored |
+| `n/a (...)` | gate didn't apply; ignored |
 | `skipped (...)` | compliance signal; ignored (never conflated with `0 findings`) |
 | prose / deliverable outcome | no yield information; ignored |
 
@@ -55,7 +55,7 @@ See [CI gate scripts and path containment](ci-gates.md#path-containment-for-cli-
 
 `kaizen-yield-watch` runs only in scheduled pipelines that set `KAIZEN_YIELD_WATCH=true`, which the consolidated Nightly schedule does (#1383; see [Scheduled pipelines](ci-gates.md#scheduled-pipelines)).
 
-- **Why daily:** it is more often than needed, but it is one small job in a pipeline that runs anyway. A separate weekly schedule would spawn a whole extra full pipeline just for this report.
+- **Why daily:** it's more often than needed, but it's one small job in a pipeline that runs anyway. A separate weekly schedule would spawn a whole extra full pipeline just for this report.
 - **No double counting:** each run folds only MRs past the committed watermark.
 - **Fails open:** the job is `allow_failure: true`, and an inconclusive GitLab API lookup is a warning and exit 0, matching `scripts/check-suppression-issues.sh`.
 
@@ -66,7 +66,7 @@ Default is a dry run that prints what would be filed. To enable filing, set `KAI
 - Each new candidate becomes one issue titled ``harness: narrow `<gate>` trigger on <shape> diffs (N consecutive 0-finding runs)``, with the evidence (streak, lifetime runs, recent MRs) attached.
 - Filing is deduplicated against open issues with the same title.
 - It skips gates recorded in `.claude/kaizen-declined.json`.
-- A pair is not re-raised until its streak breaks.
+- A pair isn't re-raised until its streak breaks.
 - Proposals narrow a gate's trigger; they never delete a gate.
 
 ## Tests

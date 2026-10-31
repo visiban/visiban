@@ -2,7 +2,7 @@
 
 Edit `backend/requirements.txt`, run `scripts/lock-backend-requirements.sh`, and commit the result.
 
-**Why it matters:** Backend images install from `backend/requirements.lock`, a fully resolved, hash-pinned file, not from `backend/requirements.txt`. Pip never runs a package's `setup.py` and rejects any file whose hash is not in the lock.
+**Why it matters:** Backend images install from `backend/requirements.lock`, a fully resolved, hash-pinned file, not from `backend/requirements.txt`. Pip never runs a package's `setup.py` and rejects any file whose hash isn't in the lock.
 
 **Watch out:** Never edit `backend/requirements.lock` by hand.
 
@@ -34,7 +34,7 @@ git add backend/requirements.txt backend/requirements.lock backend/requirements-
 
 `dj-rest-auth` is the only dependency that publishes just a source distribution on PyPI (re-checked for 7.1.1). The Dockerfiles pass `--no-binary dj-rest-auth`, which overrides `--only-binary :all:` for that package and builds it into a wheel in the builder stage.
 
-What is and is not verified:
+What is and isn't verified:
 
 - Verified: every wheel and the `dj-rest-auth` sdist against their `sha256` in `requirements.lock`.
 - Verified: the build backend. `backend/requirements-build.lock` hash-pins `setuptools`. The builder installs it with `--only-binary :all: --require-hashes`, then builds with `--no-build-isolation`, so pip fetches no unpinned build requirement. The package's `setup.py` does run, in the builder stage only.
@@ -45,18 +45,18 @@ If upstream starts publishing a wheel, drop `--no-binary`, `--no-build-isolation
 
 ## pip floor (eMudhra emSign CA incident, #1927)
 
-**Why it matters:** pip older than 26.2.2 always uses its own vendored `certifi`, so the runtime `certifi` floor does not protect pip's TLS to PyPI against the compromised eMudhra emSign intermediates (2026-10-20). `python:3.12-slim` still ships an older pip, so:
+**Why it matters:** pip older than 26.2.2 always uses its own vendored `certifi`, so the runtime `certifi` floor doesn't protect pip's TLS to PyPI against the compromised eMudhra emSign intermediates (2026-10-20). `python:3.12-slim` still ships an older pip, so:
 
 - Both Dockerfile builder stages get pip from `backend/requirements-build.lock` (hash-pinned, `pip>=26.2.2` in `requirements-build.in`) in the same step that installs the build backend, and assert the installed version before `pip wheel`.
 - CI jobs on `python:3.12-slim` run the `.pip-floor` step (`scripts/ensure-pip.sh`, hash-pinned in `scripts/pip-requirements.txt`) before their first `pip install`. The script fails the job if pip is older than 26.2.2; `backend-lock-check` also runs its `--self-test`.
 - uv in `scripts/uv-requirements.txt` is 0.13.4 or newer.
 
-**Yes, but:** The first fetch of the fixed pip is still made by the older pip. It relies on `--require-hashes` rather than TLS: a wrong certificate cannot substitute a file whose sha256 is not in the lock.
+**Yes, but:** The first fetch of the fixed pip is still made by the older pip. It relies on `--require-hashes` rather than TLS: a wrong certificate can't substitute a file whose sha256 isn't in the lock.
 
 All of this is removable once the base image ships pip 26.2.2 or newer. Each location carries a comment saying so. Bump the floor in three places together: `requirements-build.in` (then re-lock), `scripts/pip-requirements.txt`, and `PIP_MIN` in `scripts/ensure-pip.sh`.
 
 ## CI test jobs
 
-- **Test jobs** `pip install -r backend/requirements.txt`. They do not build images, so by design they track the latest compatible releases and catch upstream breakage early. Only the shipped images install from the lock.
+- **Test jobs** `pip install -r backend/requirements.txt`. They don't build images, so by design they track the latest compatible releases and catch upstream breakage early. Only the shipped images install from the lock.
 - **`backend-dep-scan`** audits `requirements.lock` with `pip-audit --require-hashes`. `pip-audit` has no ignore list, so its JSON report is gated through `scripts/pip-audit-gate.py`. That script skips advisories accepted in `backend/osv-scanner.toml` (matched on id or alias, and only until their `ignoreUntil` date).
 - **Shared source of truth:** `backend/osv-scanner.toml` is shared with `dep-scan-osv`. The frontend counterpart is `scripts/npm-audit-gate.mjs`.

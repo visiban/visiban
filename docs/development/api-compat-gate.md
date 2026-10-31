@@ -4,13 +4,13 @@ Run `python3 scripts/check-api-compat.py` to see what the `api-compat-check` CI 
 
 **Why it matters:** Visiban 1.0+ treats both as a public contract (see "Backward compatibility" in `CLAUDE.md`), so a removal can no longer slip through on a green pipeline.
 
-**The big picture:** It is a sibling of `backend-schema-validate` (is the document well formed?) and `backend-schema-fuzz` (does the API match the document?). This job asks a third question: does today's contract still contain everything the last release promised?
+**The big picture:** It's a sibling of `backend-schema-validate` (is the document well formed?) and `backend-schema-fuzz` (does the API match the document?). This job asks a third question: does today's contract still contain everything the last release promised?
 
 **Go deeper:** [Allow-list a deliberate break](#allow-listing-a-deliberate-break), [mark an operation experimental](#experimental-operations), and [roll the baseline at each GA tag](#regenerating-the-baseline-at-each-ga-tag).
 
 ## What it checks
 
-**OpenAPI.** The schema `manage.py spectacular` emits for the branch is compared with `scripts/compat-baseline/v1.1.0/openapi.json`. `$ref` and `allOf` are resolved on both sides, so a renamed component is not a finding; only what a client can observe is.
+**OpenAPI.** The schema `manage.py spectacular` emits for the branch is compared with `scripts/compat-baseline/v1.1.0/openapi.json`. `$ref` and `allOf` are resolved on both sides, so a renamed component isn't a finding; only what a client can observe is.
 
 | Finding | Meaning |
 |---|---|
@@ -21,15 +21,15 @@ Run `python3 scripts/check-api-compat.py` to see what the `api-compat-check` CI 
 | `RESPONSE_FIELD_BECAME_OPTIONAL` | A response property is no longer always present |
 | `RESPONSE_BECAME_NULLABLE` | A response property may now be `null` |
 | `REQUEST_FIELD_BECAME_REQUIRED`, `NEW_REQUIRED_REQUEST_FIELD`, `NEW_REQUIRED_REQUEST_BODY` | Existing clients now fail validation |
-| `REQUEST_STOPPED_ACCEPTING_NULL`, `REQUEST_ENUM_VALUE_REMOVED` | A request value that used to be accepted is not |
+| `REQUEST_STOPPED_ACCEPTING_NULL`, `REQUEST_ENUM_VALUE_REMOVED` | A request value that used to be accepted isn't |
 | `REMOVED_PARAMETER`, `PARAMETER_BECAME_REQUIRED`, `NEW_REQUIRED_PARAMETER`, `PARAMETER_TYPE_CHANGED` | The same, for query/header/path parameters |
 | `REMOVED_REQUEST_MEDIA_TYPE`, `REMOVED_RESPONSE_MEDIA_TYPE` | A content type is no longer offered |
 
 - **Always passes:** additions (new endpoints, new optional fields, new optional parameters).
 - **Not checked:** error statuses (4xx/5xx).
-- **Untyped fallback:** a baseline property that is a bare read-only `string` is treated as untyped. It is drf-spectacular's fallback for an unannotated `SerializerMethodField`, so correcting it to its real type is not a break.
+- **Untyped fallback:** a baseline property that's a bare read-only `string` is treated as untyped. It's drf-spectacular's fallback for an unannotated `SerializerMethodField`, so correcting it to its real type isn't a break.
 
-**Settings.** Every env var name that `backend/visiban/settings.py` reads at the GA tag must still be read at HEAD. The gate counts these reads: `env(...)`, `env.<type>(...)`, `_secret_env(...)`, `os.environ`/`os.getenv`, the legacy name passed to `_warn_deprecated_env_alias`, and both names passed to `_env_alias_name`. A deprecated alias that is kept counts as present, which is exactly the rename policy in `CLAUDE.md`. The baseline is `scripts/compat-baseline/v1.1.0/settings-env.txt`.
+**Settings.** Every env var name that `backend/visiban/settings.py` reads at the GA tag must still be read at HEAD. The gate counts these reads: `env(...)`, `env.<type>(...)`, `_secret_env(...)`, `os.environ`/`os.getenv`, the legacy name passed to `_warn_deprecated_env_alias`, and both names passed to `_env_alias_name`. A deprecated alias that's kept counts as present, which is exactly the rename policy in `CLAUDE.md`. The baseline is `scripts/compat-baseline/v1.1.0/settings-env.txt`.
 
 ## Component names are not part of the contract
 
@@ -50,13 +50,13 @@ Decided in #1874, ahead of the first baseline roll that contains them (none of t
 
 ## Environment variable naming
 
-Env var names freeze the same way, and the gate cannot tell a good name from a bad one. Decided in #1873 for every name added from 1.2 on:
+Env var names freeze the same way, and the gate can't tell a good name from a bad one. Decided in #1873 for every name added from 1.2 on:
 
 - **No product prefix on functional settings.** Name them `<FEATURE>_<NOUN>[_<UNIT>]`, like `BOARD_EVENT_RETENTION_DAYS`, `NOTIFICATION_EMAIL_TIMEOUT` and `GIT_LENS_ENABLED`. Almost every pre-1.2 variable is already unprefixed, and a prefix on some settings but not others is how the inconsistency starts.
 - **Put the unit in the name when the value has one**: `_BYTES`, `_DAYS`, `_SECONDS`. A size without `_BYTES` reads as megabytes to half of all operators.
 - **A name that mirrors an upstream setting keeps the upstream name and unit.** Django, DRF and allauth settings read from the environment use their own names (`EMAIL_TIMEOUT`, `NUM_PROXIES`), and a feature-scoped copy follows it. `NOTIFICATION_EMAIL_TIMEOUT` is in seconds, like the `EMAIL_TIMEOUT` it mirrors, so it carries no `_SECONDS`.
-- **Feature on/off switches end in `_ENABLED`** (`MCP_SERVER_ENABLED`, `GIT_LENS_ENABLED`). A boolean that picks a mode of a feature that is already on says what the mode is (`NOTIFICATION_EMAIL_ASYNC`).
-- **A switch that turns the whole instance into a named mode ends in `_MODE`** (`DEMO_MODE`). It is not a feature toggle: it changes what the instance is (a public, write-fenced demo). The name states the mode, so it has no `_ENABLED`.
+- **Feature on/off switches end in `_ENABLED`** (`MCP_SERVER_ENABLED`, `GIT_LENS_ENABLED`). A boolean that picks a mode of a feature that's already on says what the mode is (`NOTIFICATION_EMAIL_ASYNC`).
+- **A switch that turns the whole instance into a named mode ends in `_MODE`** (`DEMO_MODE`). It isn't a feature toggle: it changes what the instance is (a public, write-fenced demo). The name states the mode, so it has no `_ENABLED`.
 - **Throttle rates are `<FEATURE>_THROTTLE_<SCOPE>_RATE`**, like `MCP_THROTTLE_READ_RATE` and `DEMO_THROTTLE_USER_RATE`, so a feature's limits sort together.
 - **The `VISIBAN_` prefix is reserved for two kinds of variable.** One is key material that Visiban itself uses to protect data (`VISIBAN_SECRET_ENCRYPTION_KEY`). The other is a test- or CI-only input that a production install must never set (`VISIBAN_DISABLE_THROTTLING`, `VISIBAN_GIT_LENS_STUB_PROVIDERS`, `VISIBAN_FUZZ_TOKEN_FILE`). The prefix marks them as not ordinary tuning knobs. Other secrets are credentials for an external service or an account, such as `REDIS_URL_PASSWORD` or `DEMO_LOGIN_PASSWORD`. They are named like any other setting, `<FEATURE>_<NOUN>`, without the prefix.
 - **Fixing a name that has shipped** (in any release, pre-releases included) means adding the new name and keeping the old one as a working, deprecated alias. Use the helpers in `backend/visiban/env_aliases.py`. They are pure stdlib, so `settings.py` and code outside it, such as a management command, can both import them without a cycle. **Import them under their underscore names**, as `settings.py` and `migrate_with_lock.py` do:
@@ -67,8 +67,8 @@ Env var names freeze the same way, and the gate cannot tell a good name from a b
   ```
 
   - **Why the names matter:** This gate (`scripts/check-api-compat.py`) and the chart's reader check (`scripts/helm-structure-check.sh` section 3) match calls to `_env_alias_name(...)` and `_warn_deprecated_env_alias(...)` by those names, with the variable names as string literals. A call under any other name, or with a name passed through a variable, is invisible to both.
-  - `_env_alias_name("NEW", "OLD")` picks which name to read: the new name wins when it is non-empty.
-  - `_warn_deprecated_env_alias("OLD", "NEW")` logs the startup warning. Pass `removed=True` for an old name that is no longer read at all, so the warning says it has no effect.
+  - `_env_alias_name("NEW", "OLD")` picks which name to read: the new name wins when it's non-empty.
+  - `_warn_deprecated_env_alias("OLD", "NEW")` logs the startup warning. Pass `removed=True` for an old name that's no longer read at all, so the warning says it has no effect.
   - List the alias in the deprecated-names table in `docs/administration/configuration.md`.
 
 Applied in #1873, before the first baseline roll that contains them. None of the old names is in the v1.1.0 baseline, but all of them shipped in 1.2 pre-releases (from `v1.2.0-alpha.1` on), so all of them are still read:
@@ -101,7 +101,7 @@ The `cd` matters: the script only reads paths under the repository, the system t
 |---|---|
 | `BOARD_EVENT_RETENTION_DAYS`, `NOTIFICATION_RETENTION_DAYS` | `<FEATURE>_<NOUN>_<UNIT>` |
 | `NOTIFICATION_EMAIL_ENABLED`, `INVITE_EMAIL_ENABLED`, `GIT_LENS_ENABLED`, `MCP_SERVER_ENABLED` | on/off switch ends in `_ENABLED` |
-| `NOTIFICATION_EMAIL_ASYNC` | mode of a feature that is already on |
+| `NOTIFICATION_EMAIL_ASYNC` | mode of a feature that's already on |
 | `NOTIFICATION_EMAIL_TIMEOUT` | mirrors Django's `EMAIL_TIMEOUT` (seconds) |
 | `EMAIL_TIMEOUT`, `EMAIL_USE_SSL`, `NUM_PROXIES` | upstream Django/DRF names |
 | `GIT_LENS_OUTBOUND_LOG_LEVEL`, `MCP_ALLOWED_HOSTS` | `<FEATURE>_<NOUN>` |
@@ -150,10 +150,10 @@ An operation documented as experimental (no stability promise until it graduates
 - Matching operations are skipped on both sides of the diff, and the gate prints each skipped `METHOD /path/` in the CI log so the exemption is visible.
 - An entry that matches no operation in the baseline or at HEAD is **dead and fails the job**. With `--schema FILE`, generate the schema with `GIT_LENS_ENABLED=True`, otherwise the Git Lens entries report as dead (the default run sets it for you).
 - `--normalize` honors the list, so a baseline regenerated at a GA tag never contains these operations (see "Regenerating the baseline"). Components are compared only through the operations that reference them, so a component shared with a non-experimental operation is still checked through that operation.
-- **When to add an entry:** only for a surface the public docs already call experimental, with a tracking issue. Do not use it to get a pipeline green.
+- **When to add an entry:** only for a surface the public docs already call experimental, with a tracking issue. Don't use it to get a pipeline green.
 - **Leaving experimental:** remove the entry **before** the baseline roll that should freeze the operation, and update the API doc's experimental notice in the same MR. Removing it after the roll leaves the operation permanently unfrozen.
 
-The only entries today are the Git Lens REST endpoints. The `lens_connection.*` WebSocket events and the `git_lens_enabled` user field are deliberately frozen (#1666) and are not listed.
+The only entries today are the Git Lens REST endpoints. The `lens_connection.*` WebSocket events and the `git_lens_enabled` user field are deliberately frozen (#1666) and aren't listed.
 
 ### Frozen snapshot of the v1.1.0 baseline drift
 
@@ -173,7 +173,7 @@ Those findings are therefore frozen as exact per-finding `key` entries (generate
 
 **Watch out:** Never add to the snapshot to get a pipeline green. A new finding is a real break or needs its own issue-referenced entry. The temporary `#1788`, `#1783` and `#1792` entries described below are such entries; none of them is part of the burn-down count below. The exception is an operation covered by an `operation` entry (the `#1783` ones): every finding under it passes, including a new one. That is why those entries must be deleted at the v1.2.0 roll.
 
-**Burn-down result** (#1695). Every one of the 51 operations with entries was checked against the v1.1.0 *view code* (`git show v1.1.0:backend/...`), not the v1.1.0 schema, and each entry's `reason` now records what v1.1.0 actually read and returned:
+**Burn-down result** (#1695). Every one of the 51 operations with entries was checked against the v1.1.0 *view code* (`git show v1.1.0:backend/...`), not the v1.1.0 schema, and each entry's `reason` now records what v1.1.0 read and returned:
 
 - **556 entries under `#1695` are documentation-only.** The v1.1.0 schema showed a fallback serializer for hand-written `@action`s and `APIView`s:
     - a card serializer for `move/`, `checklist/`, `comments/`, `attachments/`, `status/`, `timeline/`, `archived/`;
@@ -190,7 +190,7 @@ Until the baseline is rolled at the next GA, these entries stay in the file, bec
 2. the temporary #1788 entries below;
 3. the temporary #1783 entries below;
 4. the #1792 entry below;
-5. a permanent one: the `REMOVED_RESPONSE_STATUS DELETE /api/v1/admin/invite-links/{id}/ 204` entry under `#1912`. The v1.1.0 baseline listed `204` there (drf-spectacular's DELETE default), but v1.1.0 always answered `200` with the revoked link and `400` on a repeat revoke. That runtime contract is frozen for all of 1.x, so the schema now declares it and the entry is not removed at the v1.2.0 roll.
+5. a permanent one: the `REMOVED_RESPONSE_STATUS DELETE /api/v1/admin/invite-links/{id}/ 204` entry under `#1912`. The v1.1.0 baseline listed `204` there (drf-spectacular's DELETE default), but v1.1.0 always answered `200` with the revoked link and `400` on a repeat revoke. That runtime contract is frozen for all of 1.x, so the schema now declares it and the entry isn't removed at the v1.2.0 roll.
 
 Delete every temporary entry below when the baseline is rolled at the v1.2.0 GA:
 
@@ -198,7 +198,7 @@ Delete every temporary entry below when the baseline is rolled at the v1.2.0 GA:
 - **Sixteen `operation` entries under `#1783`** cover hand-written actions and `APIView`s whose schema showed a fallback serializer, no body, or a wrong status (for example `star/`, `move-group/`, `saved-filters/`, card `archive/` and `unarchive/`, `summary/`, `analytics/`, `export/`, the group `members/{user_id}/`, `transfer-ownership/` and `board-defaults/` actions, `auth/change-password/`, `auth/choose-username/` and `auth/registration/resend-email/`). The v1.1.0 baseline holds those wrong shapes, so each correction reads as a removal; no runtime behavior changed.
 - **One `key` entry under `#1792`** covers `REQUEST_BODY_BECAME_REQUIRED` on `POST boards/import/`. The baseline published the multipart upload body as optional, but the view has always answered 400 without `file`.
 
-**Yes, but:** The GA roll does not fix the schema by itself. It freezes the schema HEAD generates at that tag as the new baseline, so an operation that still documents a fallback serializer at the tag carries that error into the next baseline. #1783 corrected the cases its sweep confirmed. The board import request bodies were corrected in #1792; hand-written `GET`s that publish no response body are tracked in #1793. Any found later need the same fix before the following roll.
+**Yes, but:** The GA roll doesn't fix the schema by itself. It freezes the schema HEAD generates at that tag as the new baseline, so an operation that still documents a fallback serializer at the tag carries that error into the next baseline. #1783 corrected the cases its sweep confirmed. The board import request bodies were corrected in #1792; hand-written `GET`s that publish no response body are tracked in #1793. Any found later need the same fix before the following roll.
 
 ## Running it locally
 
