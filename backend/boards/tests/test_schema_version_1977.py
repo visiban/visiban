@@ -1,4 +1,5 @@
 """info.version in the generated OpenAPI schema tracks APP_VERSION (#1977)."""
+import json
 import os
 import subprocess
 import sys
@@ -15,8 +16,8 @@ def _spectacular_version_with_env(app_version):
     """Load settings in a fresh interpreter, since settings are read once at import."""
     env = {**os.environ, "APP_VERSION": app_version}
     code = (
-        "import django; from django.conf import settings; "
-        "print(repr((settings.SPECTACULAR_SETTINGS['VERSION'], settings.APP_VERSION)))"
+        "import json; from django.conf import settings; "
+        "print(json.dumps([settings.SPECTACULAR_SETTINGS['VERSION'], settings.APP_VERSION]))"
     )
     out = subprocess.run(  # list-form args, no shell
         [sys.executable, "-c", code],
@@ -26,7 +27,7 @@ def _spectacular_version_with_env(app_version):
         text=True,
         check=True,
     )
-    return eval(out.stdout.strip().splitlines()[-1])  # noqa: S307 - our own repr of two strings
+    return tuple(json.loads(out.stdout.strip().splitlines()[-1]))
 
 
 class SchemaVersionTests(TestCase):
