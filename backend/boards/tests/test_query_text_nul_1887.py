@@ -128,6 +128,8 @@ class NulQueryParamEndpointTests(TestCase):
         # never published, and the 200 read "No response body".
         schema = SchemaGenerator().get_schema(request=None, public=True)
         op = schema["paths"]["/api/v1/users/"]["get"]
+        # The operationId shipped in 1.1; a list response must not rename it.
+        self.assertEqual(op["operationId"], "api_v1_users_retrieve")
         params = {p["name"]: p for p in op["parameters"] if p["in"] == "query"}
         self.assertEqual(params["search"]["schema"], {"type": "string"})
         self.assertFalse(params["search"].get("required", False))

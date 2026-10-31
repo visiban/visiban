@@ -322,6 +322,10 @@ class UserSearchView(APIView):
     @extend_schema(
         # Parsed by hand below, so nothing published it (#1887). The 200 was
         # "No response body" only because an APIView declares no serializer.
+        # Pinned: a many=True response makes drf-spectacular infer
+        # "api_v1_users_list", which would rename this operation in every
+        # generated client.
+        operation_id="api_v1_users_retrieve",
         parameters=[
             OpenApiParameter(
                 "search", str, required=False,
