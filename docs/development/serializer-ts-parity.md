@@ -25,25 +25,23 @@ green job read as much broader assurance than it delivered. Widening it to eight
 nine more real mismatches on the new pairs (and one false positive caused by a defect in the
 gate's own TypeScript alias parser).
 
-The distinction that matters: #821 asks "does the serializer emit this field?" — this gate
-asks "does the document we publish describe it correctly?" A field can pass the first and fail
-the second, and in practice several do. Eight fields on `Board` and `CurrentUser` were
-published as `string` while returning ints, bools and nested objects (#1135); `BoardFull.members`
-sent rows the `BoardMembership` component forbids (#1137, fixed by publishing `BoardFull` with
-its own `EffectiveBoardMember` row component); a nullable field was declared
-non-nullable (#1138, fixed — a declared serializer field does not inherit `null=True` from the
-model the way an auto-generated one does; `Board.group_name` had the same symptom but was
-already fixed by earlier, unrelated work before #1138's branch existed). Every one of those
-passes #821's name check, because
-the serializer really does emit the field — it is the *published type* that is wrong, and the
-published type is what an external consumer generates a client from.
+**The distinction that matters:** #821 asks "does the serializer emit this field?" This gate asks "does the document we publish describe it correctly?" A field can pass the first and fail the second, and in practice several do:
+
+- Eight fields on `Board` and `CurrentUser` were published as `string` while returning ints, bools and nested objects (#1135).
+- `BoardFull.members` sent rows the `BoardMembership` component forbids (#1137, fixed by publishing `BoardFull` with its own `EffectiveBoardMember` row component).
+- A nullable field was declared non-nullable (#1138, fixed). A declared serializer field does not inherit `null=True` from the model the way an auto-generated one does. `Board.group_name` had the same symptom but was already fixed by earlier, unrelated work before #1138's branch existed.
+
+Every one of those passes #821's name check, because the serializer really does emit the field. The *published type* is wrong, and the published type is what an external consumer generates a client from.
 
 ## Why this gate exists
 
-The frontend's view of the API lives in `frontend/src/types/index.ts` as hand-written
-interfaces. The backend's lives in DRF serializers, and what the outside world sees lives in
-the generated OpenAPI document. All three are internally consistent, and until this gate
-nothing compared the third against the first. Drift was silent in both directions:
+Three views of the API exist:
+
+- the frontend's, in `frontend/src/types/index.ts` as hand-written interfaces;
+- the backend's, in DRF serializers;
+- the outside world's, in the generated OpenAPI document.
+
+All three are internally consistent, and until this gate nothing compared the third against the first. Drift was silent in both directions:
 
 | Drift | What you see |
 |---|---|
@@ -51,14 +49,11 @@ nothing compared the third against the first. Drift was silent in both direction
 | A field's *type* changes on one side only | Nothing, until a component renders a number as a string, or reads `.length` off a boolean. |
 | A serializer stops sending a field | `tsc` catches it only if some component happens to read that property. |
 
-This is the failure shape that motivated the gate: two representations of one contract, each
-internally consistent, with no third thing checking that they agree.
+That is the failure shape that motivated the gate: two representations of one contract, each internally consistent, with no third thing checking that they agree.
 
 ## What it checks
 
-The job regenerates the OpenAPI schema with `drf-spectacular` — the same command
-`backend-schema-validate` runs, and for the same reason it needs no database — and compares
-its components against the hand-written interfaces.
+The job regenerates the OpenAPI schema with `drf-spectacular` and compares its components against the hand-written interfaces. It runs the same command as `backend-schema-validate`, and for the same reason it needs no database.
 
 Seven kinds of mismatch are reported:
 
@@ -72,18 +67,9 @@ Seven kinds of mismatch are reported:
 | `enum_members` | Both resolve to a set of string values and the sets differ |
 | `array_item_type` | Both sides are arrays, the schema's `items` is a `$ref` to a component `COMPONENT_MAP` itself maps, and the TypeScript element type names a *different* mapped interface (#1296) |
 
-A check is **skipped, never guessed**, when either side cannot be classified confidently. An
-unresolvable TypeScript alias produces no finding rather than a false one. Optional fields
-(`x?: T`) are exempt from the nullability check, because in this codebase `?` already carries
-the "only present under some conditions" meaning — an `?expand=` payload, for instance.
+A check is **skipped, never guessed**, when either side cannot be classified confidently. An unresolvable TypeScript alias produces no finding rather than a false one. Optional fields (`x?: T`) are exempt from the nullability check, because in this codebase `?` already carries the "only present under some conditions" meaning (an `?expand=` payload, for instance).
 
-`array_item_type` is deliberately narrow, not a general structural recursion into array
-elements. Every check above reduced an array field to the single family `array` on both sides
-and stopped, which missed real drift: `BoardPublic.swimlanes` was typed `Swimlane[]` while the
-serializer's `items` schema was a `$ref` to `PublicSwimlane`, a narrower shape (#1140) that
-deliberately drops `custom_field_values`, `contact_email`, and `notes`. Every array-typed field
-on all 44 pairs mapped before #1296 had this blind spot. The check only fires when *both* sides
-name something comparable:
+`array_item_type` is deliberately narrow, not a general structural recursion into array elements. Every check above reduced an array field to the single family `array` on both sides and stopped, which missed real drift. `BoardPublic.swimlanes` was typed `Swimlane[]` while the serializer's `items` schema was a `$ref` to `PublicSwimlane`, a narrower shape (#1140) that deliberately drops `custom_field_values`, `contact_email`, and `notes`. Every array-typed field on all 44 pairs mapped before #1296 had this blind spot. The check only fires when *both* sides name something comparable:
 
 - The schema's `items` must resolve to a direct `$ref` (optionally through one level of `allOf`
   wrapping — the same shape `_unwrap_schema` already follows for a plain field). An inline item
@@ -156,19 +142,14 @@ name something comparable:
 | `Swimlane` | `Swimlane` | yes |
 | `SwimlaneCustomFieldDefinition` | `SwimlaneCustomFieldDefinition` | yes |
 
-The mapping is **not** keyed on the two names matching. There is no `User` component — the
-`/api/v1/auth/me/` shape is `CurrentUser` — and `CardChecklist` is the component behind the
-`CardChecklistItem` interface. Both are one resource under two spellings, and leaving either
-out would be a hole the gate's own name check cannot see. `ExternalRef`/`CardExternalRef` is
-the same shape again: `ExternalRefSerializer` is a plain `serializers.Serializer` nested on
-`Card.external_ref` rather than a top-level `ModelSerializer`, which is why it was missed when
-the map was built and stayed missing — undetected — until #1282 added it. Diffing the two
-found no drift.
+**The mapping is not keyed on the two names matching.**
 
-#1282's completeness-check widened the audit past #821's own name-checked list (which only
-sees `ModelSerializer`/`Serializer` subclasses it imports directly) and found four more
-components with a real, hand-maintained TypeScript interface on the other end that had simply
-never been added to the map:
+- There is no `User` component: the `/api/v1/auth/me/` shape is `CurrentUser`.
+- `CardChecklist` is the component behind the `CardChecklistItem` interface.
+- Both are one resource under two spellings, and leaving either out would be a hole the gate's own name check cannot see.
+- `ExternalRef`/`CardExternalRef` is the same shape again. `ExternalRefSerializer` is a plain `serializers.Serializer` nested on `Card.external_ref` rather than a top-level `ModelSerializer`, which is why it was missed when the map was built and stayed missing, undetected, until #1282 added it. Diffing the two found no drift.
+
+#1282's completeness-check widened the audit past #821's own name-checked list (which only sees `ModelSerializer`/`Serializer` subclasses it imports directly). It found four more components with a real, hand-maintained TypeScript interface on the other end that had simply never been added to the map:
 
 - `PublicAssignee` (`PublicAssigneeSerializer`, the display-name-only user on a public
   share-link card) — identical name on both sides, the same miss as `ExternalRef` above, just
@@ -184,29 +165,13 @@ never been added to the map:
 
 All four diffed clean — no real drift found on any of them.
 
-A later pass of this same audit found a fifth, different-shaped miss: `PublicBoard`
-(`PublicBoardSerializer`, the outer `{uid, name, columns, swimlanes, labels, cards}` shape at
-`GET /api/share/{token}/`) had been *documented* as having no TypeScript interface, in "What is
-not covered, and why" below — but `BoardPublic` in `frontend/src/types/index.ts` is exactly
-that shape, just under a renamed name, the same pattern as `CurrentUser`/`User`. That was a
-documentation error, not a structural gap, and #1282 fixed the record and mapped the pair.
-`BoardPublic.swimlanes` was typed `Swimlane[]` rather than a dedicated `PublicSwimlane[]` at the
-time, and this gate's array check then compared only the outer `array` family and did not
-recurse into item shapes, so that looseness produced no finding and needed no suppression.
-#1296 closed the gap on both sides: it added an `array_item_type` check (see
-[What it checks](#what-it-checks)) that follows a schema array's `items` `$ref` and compares it
-against the TypeScript element type, and it gave the public swimlane shape its own
-`PublicSwimlane` interface (matching `PublicSwimlaneSerializer` exactly — see
-[What is not covered, and why](#what-is-not-covered-and-why) for why that pair was excluded
-before) so `BoardPublic.swimlanes` could be correctly typed `PublicSwimlane[]` and the new check
-had something correct to compare it against. `PublicSwimlane` is now mapped in
-[Coverage](#coverage) above.
+A later pass of this same audit found a fifth, different-shaped miss.
 
-#1294 closed the structural gap the reverse sweep found (see
-[What is not covered, and why](#what-is-not-covered-and-why) below): twelve of the thirteen
-pairs listed there had no schema component only because nothing in their view ever called
-`@extend_schema` or set `serializer_class`. Adding that annotation — never a runtime, queryset,
-or permission change — gave each one a real component, now mapped above:
+- **`PublicBoard`** (`PublicBoardSerializer`, the outer `{uid, name, columns, swimlanes, labels, cards}` shape at `GET /api/share/{token}/`) had been *documented* as having no TypeScript interface, in "What is not covered, and why" below. But `BoardPublic` in `frontend/src/types/index.ts` is exactly that shape under a renamed name, the same pattern as `CurrentUser`/`User`. That was a documentation error, not a structural gap, and #1282 fixed the record and mapped the pair.
+- **`BoardPublic.swimlanes`** was typed `Swimlane[]` rather than a dedicated `PublicSwimlane[]` at the time. This gate's array check then compared only the outer `array` family and did not recurse into item shapes, so that looseness produced no finding and needed no suppression.
+- **#1296** closed the gap on both sides. It added an `array_item_type` check (see [What it checks](#what-it-checks)) that follows a schema array's `items` `$ref` and compares it against the TypeScript element type. It also gave the public swimlane shape its own `PublicSwimlane` interface (matching `PublicSwimlaneSerializer` exactly; see [What is not covered, and why](#what-is-not-covered-and-why) for why that pair was excluded before), so `BoardPublic.swimlanes` could be correctly typed `PublicSwimlane[]` and the new check had something correct to compare it against. `PublicSwimlane` is now mapped in [Coverage](#coverage) above.
+
+#1294 closed the structural gap the reverse sweep found (see [What is not covered, and why](#what-is-not-covered-and-why) below). Twelve of the thirteen pairs listed there had no schema component only because nothing in their view ever called `@extend_schema` or set `serializer_class`. Adding that annotation, never a runtime, queryset, or permission change, gave each one a real component, now mapped above:
 `AdminUser`, `BoardTemplate`, `CardTimelineEntry`, `GroupInviteLink`, `GroupMembership`,
 `InviteLink`/`InviteLinkCreateResponse` (→ `AdminInviteLink`/`CreatedAdminInviteLink`),
 `OwnedBoardSummary`, `PersonalAccessToken`/`PersonalAccessTokenCreateResponse` (→
@@ -370,8 +335,7 @@ def get_group_detail(self, obj):
   schema-only.
 - **`enum_members`** — the choice sets diverged. Decide which is authoritative before editing.
 
-A word on `nullability`, because #1139 hit both directions of it in one branch and they have
-opposite fixes:
+**Watch out:** #1139 hit both directions of `nullability` in one branch, and they have opposite fixes:
 
 - The **schema** understates it. A declared field (nested serializer, or a `CharField` with a
   traversing `source`) over a model FK with `null=True` publishes as non-nullable while the
@@ -382,8 +346,7 @@ opposite fixes:
   cannot produce. Narrow the interface — and check the test fixtures, which tend to encode the
   impossible shape too.
 
-Read the model field before choosing. The two cases look identical in the gate's output and
-the wrong fix in either direction is a lie in the opposite place.
+Read the model field before choosing. The two cases look identical in the gate's output, and the wrong fix in either direction is a lie in the opposite place.
 
 ## Suppressions
 
@@ -391,8 +354,7 @@ Real, already-tracked drift is recorded in the `SUPPRESSIONS` table in
 `scripts/check-serializer-ts-parity.py`, spelled `SUPPRESSED-UNTIL(#N)` to match the
 convention in [suppression markers](https://gitlab.com/visiban/visiban/-/issues/1092).
 
-These suppressions are **self-invalidating**, which is the part that matters. Each records the
-exact mismatch it masks — the schema type and the TypeScript type as they are today:
+These suppressions are **self-invalidating**, which is the part that matters. Each records the exact mismatch it masks, the schema type and the TypeScript type as they are today:
 
 ```python
 Suppression(TYPE_FAMILY, "Board", "member_count",
@@ -400,13 +362,9 @@ Suppression(TYPE_FAMILY, "Board", "member_count",
             reason="SerializerMethodField returns int, described as string"),
 ```
 
-When reality stops matching that record — because the cited issue's fix landed — the
-suppression has done its job, and the gate **fails** asking for its removal. A suppression
-therefore cannot outlive its reason, which is the usual way a suppression quietly turns a gate
-green forever.
+When reality stops matching that record because the cited issue's fix landed, the suppression has done its job, and the gate **fails** asking for its removal. A suppression therefore cannot outlive its reason, which is the usual way a suppression quietly turns a gate green forever.
 
-This is deliberately not an issue-state lookup: tying staleness to the observed drift needs no
-network and no GitLab token, so it works offline and in a fork's pipeline.
+This is deliberately not an issue-state lookup. Tying staleness to the observed drift needs no network and no GitLab token, so it works offline and in a fork's pipeline.
 
 Adding one:
 
@@ -418,8 +376,7 @@ Adding one:
 
 ## TypeScript-only optional fields
 
-A different thing from a suppression, and not interchangeable with one. Sometimes a single
-interface stands in for several serializers of one resource:
+These are not interchangeable with a suppression. Sometimes a single interface stands in for several serializers of one resource:
 
 - `Swimlane` unions `SwimlaneSerializer` and `SwimlaneAdminSerializer` — `contact_email` and
   `notes` are withheld from viewer-role members as PII, and only the public serializer reaches
