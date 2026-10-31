@@ -1989,7 +1989,8 @@ oidc-smoke:
 
 # helm-template alone also runs when the bundled nginx template changes: its
 # structure check compares the chart's frontend security headers against
-# nginx/app.conf.template (#1952), so that file must trigger it. Kept off
+# nginx/app.conf.template (#1952) and the frontend image's default config
+# against the bundled template (#1994), so those files must trigger it. Kept off
 # `helm-paths` so the install/netpol drills are not widened.
 .rules-helm-template: &rules-helm-template
   rules:
@@ -2000,6 +2001,10 @@ oidc-smoke:
         - scripts/helm-install-drill.sh
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
+        - nginx/app-http.conf.template
+        - frontend/nginx.default.conf
+        - frontend/Dockerfile
+        - frontend/Dockerfile.prod
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes:
@@ -2008,6 +2013,10 @@ oidc-smoke:
         - scripts/helm-install-drill.sh
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
+        - nginx/app-http.conf.template
+        - frontend/nginx.default.conf
+        - frontend/Dockerfile
+        - frontend/Dockerfile.prod
         - .gitlab-ci.yml
 
 helm-lint:
