@@ -1,11 +1,13 @@
-# Issue Board Lens Usage
+# See how much traffic the Issue Board Lens sends upstream
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 !!! warning "Experimental feature"
     The [Issue Board Lens](../features/issue-board-lens.md) is experimental. The usage report's fields may change while the feature is experimental.
 
-The Issue Board Lens reads GitHub and GitLab on behalf of the people viewing a lens board. GitLab reads are anonymous, so they count against your **instance's** IP address and the rate limit gitlab.com applies to it. GitHub reads use each viewer's own token. Below: how to see how much upstream traffic the lens actually generates, and why that traffic has a hard upper bound.
+Read `GET /api/v1/admin/git-lens/usage/` as a site admin to see the lens's outbound GitHub and GitLab calls, and why they have a hard upper bound.
+
+**Why it matters:** the Issue Board Lens reads GitHub and GitLab on behalf of the people viewing a lens board. GitLab reads are anonymous, so they count against your **instance's** IP address and the rate limit gitlab.com applies to it. GitHub reads use each viewer's own token.
 
 Two surfaces are available only while `GIT_LENS_ENABLED=true`:
 
@@ -59,7 +61,7 @@ A healthy instance shows `cache_fresh` well ahead of `fetched`.
 
 ### Retention and accuracy
 
-The counters are kept in the Redis/Valkey cache as hourly buckets for 24 hours. They are **operational telemetry, not an audit log**. They are approximate, they are not attributed to users, and they reset if the cache is flushed or restarted. For longer history, collect the log lines described below with your normal log pipeline.
+The counters live in the Redis/Valkey cache as hourly buckets for 24 hours. They are **operational telemetry, not an audit log**: approximate, not attributed to users, and reset if the cache is flushed or restarted. For longer history, collect the log lines below with your normal log pipeline.
 
 ---
 
@@ -96,7 +98,7 @@ The default is `INFO`. The logger has nothing to emit while `GIT_LENS_ENABLED` i
 
 ## Why the traffic is bounded
 
-The lens cannot generate unbounded upstream traffic, however many people view it or how they filter. The `bounds` section of the report shows the live values:
+However many people view it or how they filter, the lens cannot generate unbounded upstream traffic. The report's `bounds` section shows the live limits:
 
 | Limit | Default | Effect |
 |---|---|---|

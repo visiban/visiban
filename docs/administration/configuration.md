@@ -1,6 +1,10 @@
 # Required credentials reference
 
-Every secret and credential Visiban needs, across its three environments: local development, the GitLab CI pipeline, and production.
+Find every secret, credential, and environment variable Visiban needs in local development, the GitLab CI pipeline, and production.
+
+**Why it matters:** In production, `DB_PASSWORD`, `REDIS_PASSWORD`, and `APP_VERSION` are required, and `DJANGO_SECRET_KEY` must be unique and kept secret.
+
+**The big picture:** start with your environment ([local development](#local-development), [GitLab CI pipeline](#gitlab-ci-pipeline), [production](#production-deployment)), then the feature sections: [reverse proxies](#reverse-proxies-and-the-client-ip), [optional features](#optional-features-off-by-default), [import limits](#import-limits), [email](#email-smtp), [demo mode](#demo-mode), [health checks](#health-check-endpoints), [deprecated names](#deprecated-environment-variable-names).
 
 ---
 
@@ -20,7 +24,7 @@ Copy `.env.example` to `.env` in the repository root and fill in the values belo
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of origins allowed to make API requests. Must match the exact origin your browser uses (scheme + host + port). Defaults to `http://localhost:5173`. Also controls `CSRF_TRUSTED_ORIGINS` unless that is set separately. | `http://localhost:5173` |
 | `VITE_API_URL` | Frontend env var for `npm run dev` — create `frontend/.env.local` (gitignored) and set to `http://localhost:8000`. Leave empty for Docker builds; the frontend falls back to `window.location.origin` and relies on nginx to proxy `/api/` and `/ws/`. | `http://localhost:8000` |
 
-Valkey has no authentication in development — no variable needed.
+Valkey has no authentication in development, so no variable is needed.
 
 ### Frontend local override
 
@@ -30,13 +34,15 @@ When running the Vite dev server directly (`npm run dev`), create `frontend/.env
 VITE_API_URL=http://localhost:8000
 ```
 
-This file is gitignored and excluded from Docker builds via `frontend/.dockerignore`. **Never set `VITE_API_URL` to a `localhost` value in a Docker image** — it will be baked into the JS bundle and break WebSocket connections for any client accessing from a non-localhost address. The correct value for all Docker builds (dev compose, prod compose, Helm) is an empty string, which makes the frontend resolve the API relative to `window.location.origin`.
+This file is gitignored and excluded from Docker builds via `frontend/.dockerignore`.
+
+**Watch out:** never set `VITE_API_URL` to a `localhost` value in a Docker image. It is baked into the JS bundle and breaks WebSocket connections for any client accessing from a non-localhost address. The correct value for all Docker builds (dev compose, prod compose, Helm) is an empty string, which makes the frontend resolve the API relative to `window.location.origin`.
 
 ---
 
 ## GitLab CI pipeline
 
-Add these in **Settings → CI/CD → Variables**. The pipeline will fail or produce SAST warnings if any are missing.
+Add these in **Settings → CI/CD → Variables**. **Watch out:** the pipeline fails or produces SAST warnings if any are missing.
 
 | Variable | Used by | Masked | Notes |
 |---|---|---|---|
@@ -73,10 +79,10 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 
 | Variable | Description |
 |---|---|
-| `APP_VERSION` | Image tag to pull, e.g. `v1.1.0`. **Required** — the compose file fails to start if unset; it no longer falls back to the mutable `latest` tag (see [Container image retention](container-image-retention.md)). `.env.example` ships a pinned value. The backend strips only a leading `v` before serving it back — `GET /api/v1/version/` reports bare semver (e.g. `1.1.0`) when `APP_VERSION` is pinned to a release tag; a non-release value such as `latest` or `dev` is served back verbatim (see [Version API](../api/version.md)). |
+| `APP_VERSION` | Image tag to pull, e.g. `v1.1.0`. **Required**: the compose file fails to start if unset and no longer falls back to the mutable `latest` tag (see [Container image retention](container-image-retention.md)). `.env.example` ships a pinned value. The backend strips only a leading `v`: `GET /api/v1/version/` reports bare semver (e.g. `1.1.0`) for a release tag, and serves a non-release value such as `latest` or `dev` back verbatim (see [Version API](../api/version.md)). |
 | `DB_PASSWORD` | PostgreSQL password — required, no default; the compose file will error on startup if missing |
 | `REDIS_PASSWORD` | Valkey authentication password — required in production; the Valkey service starts with `--requirepass` and `REDIS_URL`/`REDIS_CACHE_URL` are built from this value. Generate with: `openssl rand -hex 32` (base64 output can contain `/`, which breaks the URL) |
-| `REDIS_URL_PASSWORD` | Not set under Compose: Compose puts the password into `REDIS_URL`/`REDIS_CACHE_URL` itself (from `REDIS_PASSWORD`). Set by the Helm chart from a Secret when `valkey.auth.enabled` is true, or when `externalRedis.existingSecret` is set. The backend percent-encodes it into both URLs, so any character is safe. A username in the URL (`redis://user@host:6379/0`, a Redis ACL user) is kept. The backend refuses to start if a URL already carries a password as well, because the two would be competing sources. |
+| `REDIS_URL_PASSWORD` | Not set under Compose, which puts the password into `REDIS_URL`/`REDIS_CACHE_URL` itself (from `REDIS_PASSWORD`). The Helm chart sets it from a Secret when `valkey.auth.enabled` is true or `externalRedis.existingSecret` is set. The backend percent-encodes it into both URLs, so any character is safe, and keeps a username in the URL (`redis://user@host:6379/0`, a Redis ACL user). It refuses to start if a URL already carries a password too, because the two would compete. |
 | `DJANGO_SECRET_KEY` | Production Django signing key — must be unique and kept secret |
 | `DOMAIN` | Your domain name for Nginx and Certbot, e.g. `app.visiban.com` |
 | `CERTBOT_EMAIL` | Email address for Let's Encrypt expiry notifications |
@@ -88,7 +94,7 @@ Pass sensitive values via a gitignored `values.secret.yaml` file — **never via
 
 An example file is included at `helm/visiban/values.secret.yaml.example`. Copy it to `values.secret.yaml`, fill in values, and pass it with `-f`:
 
-For production clusters, you can bring your own Kubernetes Secret instead of having the chart create one. Set `secret.existingSecret` to the Secret name and the chart will reference it directly. See [Deployment — Using an existing Kubernetes Secret](../architecture/deployment.md#using-an-existing-kubernetes-secret).
+**Tip:** for production clusters, bring your own Kubernetes Secret instead of having the chart create one. Set `secret.existingSecret` to the Secret name and the chart will reference it directly. See [Deployment — Using an existing Kubernetes Secret](../architecture/deployment.md#using-an-existing-kubernetes-secret).
 
 | Key | Description |
 |---|---|
@@ -125,18 +131,25 @@ helm upgrade --install visiban ./helm/visiban \
 
 > **Added in 1.2** (#1180).
 
-Per-IP rate limits (the login throttle, the anonymous request ceiling, allauth's failed-login lockout, the [MCP pre-auth failure limit](../api/mcp.md#failed-authentication-limit-per-ip), `MCP_THROTTLE_PREAUTH_RATE`) and the `/admin/` IP allowlist all need the visitor's real address. Behind proxies, Visiban reads it from `X-Forwarded-For`, trusting the entry that the configured number of proxies appended. Everything to the left of those entries is client-supplied.
+Per-IP rate limits (the login throttle, the anonymous request ceiling, allauth's failed-login lockout, the [MCP pre-auth failure limit](../api/mcp.md#failed-authentication-limit-per-ip), `MCP_THROTTLE_PREAUTH_RATE`) and the `/admin/` IP allowlist need the visitor's real address. Behind proxies, Visiban reads it from `X-Forwarded-For`, trusting the entry the configured number of proxies appended. Everything to its left is client-supplied.
 
 | Variable | Default | Description |
 |---|---|---|
-| `NUM_PROXIES` | `1` | Number of reverse proxies in front of the backend that append to `X-Forwarded-For`. The default of `1` counts this chart's own frontend nginx, which is correct for Docker Compose and for a Helm install with the ingress disabled and nothing else in front of the frontend Service. The Helm chart renders `2` instead when `ingress.enabled` is true, `frontend.service.type` is `ClusterIP` and `backend.settings.numProxies` is unset; an explicit value always wins. A non-negative integer. Anything else refuses to start. Helm: `backend.settings.numProxies`. |
+| `NUM_PROXIES` | `1` | Number of reverse proxies in front of the backend that append to `X-Forwarded-For`. The default `1` counts this chart's own frontend nginx: correct for Docker Compose and for Helm with the ingress disabled and nothing else in front of the frontend Service. Helm renders `2` when `ingress.enabled` is true, `frontend.service.type` is `ClusterIP` and `backend.settings.numProxies` is unset; an explicit value always wins. A non-negative integer; anything else refuses to start. Helm: `backend.settings.numProxies`. |
 
-Set it to the real depth of your proxy chain:
+**Watch out:** set it to the real depth of your proxy chain.
 
 - **Too low**: every client appears to come from the nearest proxy. One client exhausts the login and anonymous throttles for everyone.
 - **Too high**: a client can choose its own address by sending its own `X-Forwarded-For`, and so escape per-IP limits.
 
-**Behind an ingress controller, `1` is too low.** The Helm chart therefore renders `2` by default when its Ingress is enabled and the frontend Service is `ClusterIP` (if the frontend Service is exposed directly, only one hop applies; set `backend.settings.numProxies` to override; an additional proxy in front of the ingress, such as a CDN, needs an explicit value). This chart's frontend nginx always appends one hop (`proxy_add_x_forwarded_for`); an ingress controller in front of it appends its own, so the real chain is two hops deep, not one. Count every proxy between the internet and the frontend Service, including the frontend nginx itself. The value must equal the number of trusted proxy hops that append to `X-Forwarded-For`, and each proxy (including the ingress controller) must be configured to preserve and append the upstream header; check your controller's forwarded-header settings in its documentation.
+**Behind an ingress controller, `1` is too low.** The Helm chart therefore renders `2` by default when its Ingress is enabled and the frontend Service is `ClusterIP` (if the frontend Service is exposed directly, only one hop applies; set `backend.settings.numProxies` to override; an additional proxy in front of the ingress, such as a CDN, needs an explicit value).
+
+**How to count:**
+
+- This chart's frontend nginx always appends one hop (`proxy_add_x_forwarded_for`). An ingress controller in front of it appends its own, so the real chain is two hops deep, not one.
+- Count every proxy between the internet and the frontend Service, including the frontend nginx itself.
+- The value must equal the number of trusted proxy hops that append to `X-Forwarded-For`.
+- Each proxy (including the ingress controller) must be configured to preserve and append the upstream header; check your controller's forwarded-header settings in its documentation.
 
 The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visitor, then the frontend nginx appends the tunnel pod). See [Public demo mode](demo-data.md#public-demo-mode-helm).
 
@@ -144,7 +157,11 @@ The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visi
 
 ## Optional features (off by default)
 
-Two features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`). Turning `GIT_LENS_ENABLED` on adds the `git_lens` app and its tables, so a migration must run; in the production stack the `backend-init` service does that on `up -d`. Helm support for these flags is tracked in #1835. All names are stable: a rename keeps the old name as a deprecated alias for at least one minor release.
+Two features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`).
+
+- **Migration:** turning `GIT_LENS_ENABLED` on adds the `git_lens` app and its tables, so a migration must run. In the production stack the `backend-init` service does that on `up -d`.
+- **Helm:** support for these flags is tracked in #1835.
+- **Names are stable:** a rename keeps the old name as a deprecated alias for at least one minor release.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -166,7 +183,7 @@ Rates use the DRF form `<count>/<period>` with `sec`, `min`, `hour` or `day`. Se
 |---|---|---|
 | `IMPORT_MAX_SIZE_BYTES` | Maximum size, **in bytes**, of a Trello JSON export accepted by the [Trello import wizard](../features/trello-import.md). Oversized uploads get `413`. Separate from `MAX_UPLOAD_SIZE_BYTES`, which caps attachments and native board imports. Helm: `backend.settings.importMaxSizeBytes`. Deprecated alias: `VISIBAN_IMPORT_MAX_SIZE` (see [Deprecated names](#deprecated-environment-variable-names)). *(new in 1.2)* | `26214400` (25 MB) |
 
-The import runs synchronously inside the request, so every hop in front of
+**Watch out:** the import runs synchronously inside the request, so every hop in front of
 Django must accept a body this large and wait long enough for the board to be
 created:
 
@@ -189,17 +206,13 @@ created:
 
 Visiban uses Django's email backend for password resets, email verification and — since 1.2 — [notification email](../features/notifications.md#email-notifications).
 
-There are two ways to configure it, and **exactly one of them is in effect at a time** —
-settings are never merged across the two:
+There are two ways to configure it, and **exactly one of them is in effect at a time**.
+Settings are never merged across the two:
 
-1. **Environment variables** (below) — the default, and unchanged from earlier releases.
-2. **The admin UI** — *new in 1.2.* **Admin → Settings → Email** stores the same settings
-   in the database, so you can configure and test SMTP without shell access or a restart.
-   See [Configuring SMTP from the admin UI](#configuring-smtp-from-the-admin-ui).
+1. **Environment variables** (below): the default, unchanged from earlier releases.
+2. **The admin UI** — *new in 1.2.* **Admin → Settings → Email** stores the same settings in the database, so you can configure and test SMTP without shell access or a restart. See [Configuring SMTP from the admin UI](#configuring-smtp-from-the-admin-ui).
 
-An instance uses environment variables until an admin explicitly switches the source to
-the stored configuration, so **upgrading changes nothing** about how your instance sends
-mail.
+**Yes, but:** an instance uses environment variables until an admin explicitly switches the source to the stored configuration, so **upgrading changes nothing** about how your instance sends mail.
 
 ### Environment variables
 
@@ -218,7 +231,7 @@ Configure these in `.env` (Docker Compose) or as environment variables in your H
 | `NOTIFICATION_EMAIL_ENABLED` | Master switch for outbound **notification** email. Set to `false` to stop notification mail instance-wide without touching per-user preferences. Password resets and email verification are unaffected — silencing notifications must not lock anyone out of account recovery. *(new in 1.2)* | `true` |
 | `NOTIFICATION_EMAIL_TIMEOUT` | Socket timeout floor, in seconds, for notification email only. Notification mail is sent from the card-mutation path, so an unreachable SMTP host would otherwise hang a worker; this bounds it. Applied only when neither `EMAIL_TIMEOUT` nor the admin-UI timeout is set, so a timeout you configured is never overridden. *(new in 1.2)* | `10` |
 | `NOTIFICATION_EMAIL_ASYNC` | Send notification mail from a background thread rather than inline on the request. Keeps a slow or unreachable SMTP host from making card actions appear to hang, at the cost of delivery being best-effort — recycling a worker mid-send drops that batch. Set to `false` to send inline. *(new in 1.2)* | `true` |
-| `INVITE_EMAIL_ENABLED` | Lets group admins and site admins send invite links straight to an email address instead of copying them. Set to `false` to remove the option instance-wide; the send endpoints then return `403` with `code: "invite_email_disabled"`. Always off when `DEMO_MODE` is on. Uses the same mail configuration as everything else, with `NOTIFICATION_EMAIL_TIMEOUT` as its socket timeout floor. Rate limits (fixed, not configurable): 10 sends/hour per admin, 30/day per group, 200/day instance-wide for group invites, and a separate 200/day instance-wide budget for site-admin invites (throttle scope `invite_email_global_site`) so group admins cannot use up the site admins' allowance. Refused or failed sends don't count. The counters live in the Django cache, per cache backend — on a multi-worker or multi-replica deployment the limits only hold when every worker uses the shared Valkey/Redis cache (`REDIS_CACHE_URL`); with a per-process cache each worker counts separately. *(new in 1.2)* | `true` |
+| `INVITE_EMAIL_ENABLED` | Lets group admins and site admins send invite links straight to an email address instead of copying them. Set to `false` to remove the option instance-wide; the send endpoints then return `403` with `code: "invite_email_disabled"`. Always off when `DEMO_MODE` is on. Uses the same mail configuration as everything else, with `NOTIFICATION_EMAIL_TIMEOUT` as its socket timeout floor. Rate limits (fixed, not configurable): 10 sends/hour per admin, 30/day per group, 200/day instance-wide for group invites, and a separate 200/day instance-wide budget for site-admin invites (throttle scope `invite_email_global_site`) so group admins cannot use up the site admins' allowance. Refused or failed sends don't count. The counters live in the Django cache: on a multi-worker or multi-replica deployment the limits hold only when every worker uses the shared Valkey/Redis cache (`REDIS_CACHE_URL`); with a per-process cache each worker counts separately. *(new in 1.2)* | `true` |
 | `DEFAULT_FROM_EMAIL` | Sender address for outgoing emails | `noreply@example.com` |
 | `VISIBAN_SECRET_ENCRYPTION_KEY` | Optional dedicated key for secrets stored at rest. *(new in 1.2)* See [Secret rotation](secret-rotation.md#visiban_secret_encryption_key). | *(empty — derived from `DJANGO_SECRET_KEY`)* |
 
@@ -261,8 +274,7 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 
 > **Added in 1.2**
 
-Site admins can configure outbound email from **Admin → Settings → Email** without shell
-access or a container restart — useful on managed and cloud deployments.
+Site admins can configure outbound email from **Admin → Settings → Email** without shell access or a container restart, which suits managed and cloud deployments.
 
 1. Fill in the server, port, sender address, and credentials.
 2. Switch **Configuration source** to **Stored in this admin UI**.
@@ -272,46 +284,34 @@ Changes take effect on the next email sent — there is no restart and no cache 
 
 **How the two sources interact:**
 
-- The setting is **all-or-nothing**. When the source is *stored configuration*, every
-  value comes from the database; when it is *environment variables*, every value comes
-  from the environment. A single setting is never taken from the other source.
-- You cannot switch to the stored configuration until it is complete (at minimum a host
-  and a sender address, plus a password if you set a username). A partly-filled form is
-  therefore harmless: it stays a draft and your existing email configuration keeps
-  working.
-- **Setting `EMAIL_BACKEND` explicitly overrides both.** If you pin that variable — to a
-  third-party relay, or to the console backend in development — Visiban honors it and
-  ignores the stored configuration entirely. The admin page says so when this is the case.
+- **All-or-nothing.** With *stored configuration*, every value comes from the database; with *environment variables*, every value comes from the environment. A single setting is never taken from the other source.
+- **Incomplete forms are harmless.** You cannot switch to the stored configuration until it has at minimum a host and a sender address (plus a password if you set a username). A partly-filled form stays a draft and your existing configuration keeps working.
+- **Setting `EMAIL_BACKEND` explicitly overrides both.** If you pin it (to a third-party relay, or the console backend in development), Visiban honors it and ignores the stored configuration entirely. The admin page says so.
 
-**Password storage.** The SMTP password is encrypted at rest and never returned by the
-API. By default the encryption key is derived from `DJANGO_SECRET_KEY`, so **rotating
-that key makes a stored password unrecoverable** and you must re-enter it. To decouple
-the two, set `VISIBAN_SECRET_ENCRYPTION_KEY` before storing a password — see
-[Secret rotation](secret-rotation.md#visiban_secret_encryption_key).
+**Password storage.** The SMTP password is encrypted at rest and never returned by the API. By default the key is derived from `DJANGO_SECRET_KEY`, so **rotating that key makes a stored password unrecoverable** and you must re-enter it. To decouple the two, set `VISIBAN_SECRET_ENCRYPTION_KEY` before storing a password; see [Secret rotation](secret-rotation.md#visiban_secret_encryption_key).
 
 !!! warning "The test button connects to whatever host you enter"
     **Send test email** opens an outbound SMTP connection from the Visiban backend to
-    the host and port in the form — including internal addresses the backend can reach
-    but you cannot. That makes it a site-admin-only capability with real network reach,
-    so grant `is_site_admin` accordingly. The action is limited to 5 attempts per hour
-    per admin, always delivers to the requesting admin's own address, and every server
-    change is recorded in the [admin action log](../api/admin.md#action-log).
+    the host and port in the form, including internal addresses the backend can reach
+    but you cannot. It is a site-admin-only capability with real network reach, so grant
+    `is_site_admin` accordingly. The action is limited to 5 attempts per hour per admin,
+    always delivers to the requesting admin's own address, and every server change is
+    recorded in the [admin action log](../api/admin.md#action-log).
 
 !!! note "Notification email is off per user, not per instance"
-    Configuring SMTP does not start sending notification email. Every per-user email
-    preference defaults to **off**, so upgrading an instance that already has working SMTP
-    mails nobody until a user opts in under **Settings → Notifications**. Use
-    `NOTIFICATION_EMAIL_ENABLED=false` if you want to be certain no notification mail can
-    leave the instance regardless of what users have chosen. See
+    Configuring SMTP does not start notification email. Every per-user email preference
+    defaults to **off**, so an instance with working SMTP mails nobody until a user opts in
+    under **Settings → Notifications**. Set `NOTIFICATION_EMAIL_ENABLED=false` to guarantee
+    no notification mail leaves the instance whatever users have chosen. See
     [Email notifications](../features/notifications.md#email-notifications).
 
 !!! note "Sender address placeholder"
-    Visiban refuses to send mail from the shipped `noreply@example.com` placeholder. In
-    earlier releases this was checked at startup and a production instance would not boot
-    until `DEFAULT_FROM_EMAIL` was set. Since 1.2 the check happens when mail is sent (and
-    on save in the admin UI), so an instance can boot and be configured entirely through
-    the UI. Startup logs a warning instead, and outbound mail is refused with a clear
-    error until a real sender address is set — by either method.
+    Visiban refuses to send mail from the shipped `noreply@example.com` placeholder. Earlier
+    releases checked at startup, so a production instance would not boot until
+    `DEFAULT_FROM_EMAIL` was set. Since 1.2 the check happens when mail is sent (and on save
+    in the admin UI), so an instance can boot and be configured entirely through the UI.
+    Startup logs a warning instead, and outbound mail is refused with a clear error until a
+    real sender address is set, by either method.
 
 ---
 
@@ -319,7 +319,7 @@ the two, set `VISIBAN_SECRET_ENCRYPTION_KEY` before storing a password — see
 
 > **Added in 1.2** — for public demo instances only.
 
-Demo mode turns an instance into a public, shared demo: the login page offers a one-click "Explore the demo" sign-in with a published account, an in-app bar counts down to the next reset, and a deny-by-default write fence refuses every change except creating, editing and moving cards. It is **off by default**; existing installs are unaffected.
+Demo mode turns an instance into a public, shared demo: a one-click "Explore the demo" sign-in with a published account, an in-app countdown to the next reset, and a deny-by-default write fence that refuses every change except creating, editing and moving cards. It is **off by default**; existing installs are unaffected.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -351,23 +351,19 @@ Both endpoints are unauthenticated and do not require a valid `Host` header.
 
 **Docker Compose** uses the liveness endpoint in the backend healthcheck. **Helm** uses both: liveness probe hits `/api/health/liveness/`, readiness probe hits `/api/health/readiness/`.
 
-For external load balancers (AWS ALB, HAProxy, etc.), point your health check at `/api/health/readiness/` on the backend port (8000). This ensures traffic is only routed to instances with working database and Valkey connections.
+**Tip:** for external load balancers (AWS ALB, HAProxy, etc.), point the health check at `/api/health/readiness/` on the backend port (8000), so traffic reaches only instances with working database and Valkey connections.
 
 ---
 
 ## Deprecated environment variable names
 
-Environment variable names are a public contract: once a name has shipped, it keeps working.
-When a name is changed, the old one stays as a **deprecated alias**. It is still read, and
-setting it logs a startup warning naming its replacement. Each alias works for at least one
-minor release after its deprecation, and its removal is announced in the
-[upgrade guide](upgrade.md) first.
+Once an environment variable name has shipped, it keeps working. When a name is changed, the old one stays as a **deprecated alias**.
 
-If both names are set, the new name wins whenever it has a non-empty value. An install that
-sets only the old name behaves exactly as before.
+- **How it behaves:** the alias is still read, and setting it logs a startup warning naming its replacement.
+- **How long:** each alias works for at least one minor release after its deprecation, and its removal is announced in the [upgrade guide](upgrade.md) first.
+- **If both names are set,** the new name wins whenever it has a non-empty value. An install that sets only the old name behaves exactly as before.
 
-The Helm chart sets the new names, so it needs a backend image from the same release. See the
-[1.2 upgrade notes](upgrade.md#upgrading-to-12x).
+**Watch out:** the Helm chart sets the new names, so it needs a backend image from the same release. See the [1.2 upgrade notes](upgrade.md#upgrading-to-12x).
 
 | Deprecated name | Use instead | Deprecated in | Notes |
 |---|---|---|---|

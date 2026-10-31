@@ -1,22 +1,20 @@
-# Media Storage Security
+# Keep attachments private, on disk or in a bucket
 
-Visiban validates every attachment before it's written to storage and serves
-downloads through an authenticated view, not a public file mount. Below:
-both controls, plus what to configure if you move attachment storage to S3,
-GCS, or Azure Blob.
+Visiban validates every attachment before it's written to storage and serves downloads through an authenticated view, not a public file mount. If you move attachment storage to S3, GCS, or Azure Blob, keep the bucket private.
+
+**Why it matters:** attachments hold sensitive user content. The board-membership check in `ServeMediaView` is the primary access control, and bucket hardening is defense-in-depth.
+
+**The big picture:** this page covers upload validation, authenticated serving, external object storage hardening, and cleaning up orphaned files.
 
 ---
 
 ## Attachment upload validation
 
-Every file uploaded as a card attachment is validated by two independent
-checks before it is written to storage.
+Two independent checks validate every card attachment before it is written to storage.
 
 ### MIME type allowlist
 
-The `Content-Type` header supplied by the browser is checked against an
-allowlist of permitted types. Anything not in the list is rejected with
-`HTTP 400` before any bytes are written to disk or object storage.
+The browser-supplied `Content-Type` header is checked against an allowlist. Anything not listed is rejected with `HTTP 400` before any bytes reach disk or object storage.
 
 | Category | Allowed MIME types |
 |---|---|
@@ -34,30 +32,15 @@ allowlist of permitted types. Anything not in the list is rejected with
 
 ### Magic-byte validation
 
-For all binary file types, Visiban reads the first 12 bytes of the uploaded
-file and compares them against a table of known file signatures before
-accepting the upload. This prevents a renamed or misrepresented file (for
-example, an executable renamed to `.jpg`) from bypassing the allowlist by
-manipulating its `Content-Type` header.
-
-If the magic bytes do not match any recognized signature for the declared
-type, the upload is rejected with `HTTP 400` and the file is never written to
-storage.
+For all binary file types, Visiban reads the first 12 bytes of the upload and compares them against known file signatures. This stops a renamed or misrepresented file (for example, an executable renamed to `.jpg`) from bypassing the allowlist by manipulating its `Content-Type` header. If the magic bytes match no recognized signature for the declared type, the upload is rejected with `HTTP 400` and never written to storage.
 
 ### Content-Disposition
 
-Attachment download URLs include `Content-Disposition: attachment` so that
-browsers always prompt the user to save the file rather than rendering it
-inline. The frontend also sets the HTML `download` attribute on attachment
-links as defense-in-depth.
+Attachment download URLs send `Content-Disposition: attachment`, so browsers prompt to save rather than render inline. The frontend also sets the HTML `download` attribute on attachment links as defense-in-depth.
 
 ### Authenticated serving, not a bare static-file mount
 
-`/media/` is **not** a raw Nginx file mount — that would serve any
-attachment to anyone who guessed its URL. Every download is proxied through
-Django's `ServeMediaView`, which checks board membership before serving the
-file, then hands off delivery one of two ways controlled by
-`USE_X_ACCEL_REDIRECT`:
+`/media/` is **not** a raw Nginx file mount, which would serve any attachment to anyone who guessed its URL. Every download is proxied through Django's `ServeMediaView`, which checks board membership before serving the file. It then hands off delivery one of two ways, controlled by `USE_X_ACCEL_REDIRECT`:
 
 - **On** (production default): Django returns an `X-Accel-Redirect` header
   and Nginx streams the file itself from the internal-only
@@ -68,30 +51,20 @@ file, then hands off delivery one of two ways controlled by
   pod doesn't mount the media PVC — only the backend does, so a
   `ReadWriteOnce` storage class works even with multiple backend replicas.
 
-A request that can't be matched to a real, permitted attachment gets `404`
-(never `403`), so a guessed path can't be used to confirm a file exists.
+A request that matches no real, permitted attachment gets `404` (never `403`), so a guessed path can't confirm a file exists.
 
 ---
 
 ## External object storage (S3, GCS, Azure Blob)
 
-Visiban stores attachments on the local filesystem (`MEDIA_ROOT`) by
-default — there is no `django-storages` (or equivalent) dependency in the
-shipped image, and `STORAGES` in `backend/visiban/settings.py` is hardcoded
-to `FileSystemStorage`. Moving to S3-compatible storage is a supported
-customization, not a built-in toggle: see
+Visiban stores attachments on the local filesystem (`MEDIA_ROOT`) by default. There is no `django-storages` (or equivalent) dependency in the shipped image, and `STORAGES` in `backend/visiban/settings.py` is hardcoded to `FileSystemStorage`.
+
+**Yes, but:** moving to S3-compatible storage is a supported customization, not a built-in toggle. See
 [Scaling → Attachment storage](../architecture/scaling.md#attachment-storage)
 for the `django-storages` install and settings override, which you need
 before running more than one backend replica.
 
-Because every download still goes through the authenticated `ServeMediaView`
-(see [above](#authenticated-serving-not-a-bare-static-file-mount)) — Django's
-storage backend only changes where bytes are read from, not who can request
-them — most bucket-level hardening below is defense-in-depth, not the primary
-access control. `X-Accel-Redirect` only works for local files Nginx can read
-directly, so `USE_X_ACCEL_REDIRECT` has no effect once you switch to S3;
-Django streams every download itself via `FileResponse` after fetching it
-from the bucket.
+Every download still goes through the authenticated `ServeMediaView` (see [above](#authenticated-serving-not-a-bare-static-file-mount)); Django's storage backend changes only where bytes are read from, not who can request them. Most bucket-level hardening below is therefore defense-in-depth, not the primary access control. `X-Accel-Redirect` works only for local files Nginx can read, so `USE_X_ACCEL_REDIRECT` has no effect on S3: Django streams every download itself via `FileResponse` after fetching it from the bucket.
 
 ### Block public access
 
@@ -131,17 +104,11 @@ account used by the Visiban backend. Example AWS S3 bucket policy:
 
 ### Disable CORS on the bucket
 
-Attachment downloads are always proxied through the application backend, never
-served directly from the bucket to the browser. There is no need to enable a
-permissive CORS policy on the bucket. If your infrastructure requires a CORS
-policy, restrict `AllowedOrigins` to your application's own domain.
+Attachment downloads always proxy through the backend, never straight from the bucket to the browser, so the bucket needs no permissive CORS policy. If your infrastructure requires one, restrict `AllowedOrigins` to your application's own domain.
 
 ### Enable server-side encryption
 
-Enable server-side encryption on the bucket using managed keys (SSE-S3 /
-Google-managed / Azure-managed) or customer-managed keys (SSE-KMS / CMEK)
-according to your compliance requirements. Visiban does not require a
-specific key type.
+Enable server-side encryption on the bucket with managed keys (SSE-S3 / Google-managed / Azure-managed) or customer-managed keys (SSE-KMS / CMEK), per your compliance requirements. Visiban requires no specific key type.
 
 ---
 
@@ -149,7 +116,7 @@ specific key type.
 
 > **Added in 1.2** (#1817)
 
-Deleting a card, column, swimlane or board, or deleting attachments in the Django admin, removes the attachment files from storage once the delete commits. If the delete rolls back, the files stay. A file is also kept while another attachment row still points at the same path.
+Deleting a card, column, swimlane or board, or deleting attachments in the Django admin, removes the attachment files once the delete commits. If the delete rolls back, the files stay. A file also stays while another attachment row points at the same path.
 
 Some files can still be left with no attachment row pointing at them:
 

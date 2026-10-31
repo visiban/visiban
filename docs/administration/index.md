@@ -1,6 +1,10 @@
-# Administration
+# Run and maintain your Visiban instance
 
-Guides for running and maintaining a Visiban instance.
+Find the guide for the admin task in front of you: configure, upgrade, secure, schedule, or demo.
+
+**Why it matters:** start from the table below, then follow the **Go deeper** links on each page.
+
+**Go deeper:** upgrading? Start with [Upgrading](upgrade.md). First install or secrets? Start with [Configuration](configuration.md).
 
 | Guide | Description |
 |---|---|

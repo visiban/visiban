@@ -1,29 +1,27 @@
-# Verifying release images and the Helm chart
+# Verify that an image came from Visiban's release pipeline
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Every Visiban release cut after image signing shipped (the first release after
-`v1.2.0-alpha.4`) is signed keyless with [Sigstore cosign](https://docs.sigstore.dev/)
-by the GitLab CI job that published it, so you can check that what you pull was built and
-pushed by Visiban's release pipeline rather than trusting the registry:
+Run `cosign verify` against any release image or the Helm chart to confirm Visiban's release pipeline built and pushed it. Every release cut after image signing shipped (the first release after `v1.2.0-alpha.4`) is signed keyless with [Sigstore cosign](https://docs.sigstore.dev/) by the GitLab CI job that published it.
+
+**Why it matters:** you check the signature instead of trusting the registry. There is no key to download.
+
+**The big picture:** CI attaches these to each release:
 
 | Artifact | Where | What CI attaches |
 |---|---|---|
 | Helm chart | `ghcr.io/visiban/charts/visiban` | A signature |
 | `backend` and `frontend` images | `ghcr.io/visiban/visiban/<image>` **and** `registry.gitlab.com/visiban/visiban/<image>` | A signature on the multi-arch index **and** on each platform image, plus a CycloneDX SBOM attestation on **each** platform image (`linux/amd64`, `linux/arm64`) |
 
-Signatures and attestations are stored in the same registry as the image, so each registry
-carries its own copy. Verify against the registry you actually pull from. GHCR keeps its
-copies indefinitely. On the GitLab registry, the cleanup policy's keep-regex protects
-signature and attestation tags, so they are kept as long as the image
-([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)).
-A nightly CI job, `check-release-attestations`, re-verifies the newest signed releases' signatures and SBOM
-attestations on both registries (releases cut before image signing shipped are skipped unless backfilled) so a sweep or delete does not go unnoticed. See
-[CI gate self-tests](../development/ci-gates.md).
-See [Container image retention](container-image-retention.md#signature-and-sbom-attestation-tags-1153).
+**How it works:** signatures and attestations are stored in the same registry as the image, so each registry carries its own copy. Verify against the registry you actually pull from.
 
-There is no key to download. A signature is valid when its Sigstore certificate says it was
-issued to Visiban's GitLab CI pipeline. Every command below pins that identity:
+- **GHCR** keeps its copies indefinitely.
+- **The GitLab registry's** cleanup policy keep-regex protects signature and attestation tags, so they are kept as long as the image ([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)).
+- **A nightly CI job,** `check-release-attestations`, re-verifies the newest signed releases' signatures and SBOM attestations on both registries (releases cut before image signing shipped are skipped unless backfilled), so a sweep or delete does not go unnoticed. See [CI gate self-tests](../development/ci-gates.md).
+
+**Go deeper:** [Container image retention](container-image-retention.md#signature-and-sbom-attestation-tags-1153).
+
+A signature is valid when its Sigstore certificate says it was issued to Visiban's GitLab CI pipeline. Every command below pins that identity:
 
 ```bash
 ISSUER=https://gitlab.com
@@ -31,11 +29,9 @@ ISSUER=https://gitlab.com
 IDENTITY='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*$'
 ```
 
-Use this tag-only identity for every release cut after image signing shipped. It proves the
-image was signed by a **release-tag pipeline of this project**. Only Maintainers can create
-`v*` tags, because they are protected. It does not pin *which* release: the certificate from
-any `v*` tag pipeline matches, so `v1.2.0-alpha.1`'s certificate would also pass on
-`v1.2.0`'s image. If you deploy one specific release, pin its exact identity instead:
+Use this tag-only identity for every release cut after image signing shipped. It proves the image was signed by a **release-tag pipeline of this project**. Only Maintainers can create `v*` tags, because they are protected.
+
+**Yes, but:** it does not pin *which* release. The certificate from any `v*` tag pipeline matches, so `v1.2.0-alpha.1`'s certificate would also pass on `v1.2.0`'s image. If you deploy one specific release, pin its exact identity instead:
 
 ```bash
 # Exact release: only the v1.2.0 tag pipeline's certificate matches.
@@ -50,8 +46,7 @@ the exact form never matches. It is described in [Older releases](#older-release
 wider identity only for those versions, and on the GitLab registry for a release whose
 signatures were re-attached (below).
 
-Keep the regexp anchored (`^...$`) as shown. A loose pattern such as `gitlab\.com/visiban/visiban`
-also matches other projects whose path starts the same way, such as `visiban/visiban-enterprise`.
+**Watch out:** keep the regexp anchored (`^...$`) as shown. A loose pattern such as `gitlab\.com/visiban/visiban` also matches other projects whose path starts the same way, such as `visiban/visiban-enterprise`.
 
 ## Verify an image signature
 
@@ -70,9 +65,7 @@ To pin a deployment to what you verified, record the digest and deploy by `@sha2
 
 ## Verify and read an image's SBOM
 
-The SBOM is attached to each **platform** digest, not to the tag. The tag resolves to the
-multi-arch index, which has no filesystem and no packages, so it has nothing to describe.
-Resolve the digest for your platform first:
+The SBOM is attached to each **platform** digest, not to the tag. The tag resolves to the multi-arch index, which has no filesystem and no packages, so it has nothing to describe. Resolve the digest for your platform first:
 
 ```bash
 IMAGE=ghcr.io/visiban/visiban/backend
@@ -118,28 +111,13 @@ signed and attested.
 
 ## Older releases
 
-Images published before this feature carry no image signature or SBOM: every 1.0.x and
-1.1.x release, and `v1.2.0-alpha.1` through `v1.2.0-alpha.4`. For those images, `cosign verify` reports `no signatures found`.
-This means the image was never signed. It does not mean the image was tampered with.
-Maintainers can bring an already-published release up to the same bar without re-cutting
-it: the manual `image-attest-backfill` CI job on `main` signs and attests a given tag's
-images on both registries. It skips any digest that already carries a verifying signature
-or SBOM from either a release tag pipeline or an earlier backfill run.
+Images published before this feature carry no image signature or SBOM: every 1.0.x and 1.1.x release, and `v1.2.0-alpha.1` through `v1.2.0-alpha.4`. For those, `cosign verify` reports `no signatures found`. The image was never signed; it was not necessarily tampered with.
 
-In the other direction, the tag pipeline's own attest jobs skip a digest **only** if it
-already carries a signature or SBOM from a release tag pipeline. A backfill (`main`)
-signature does not satisfy them, so the tag job signs anyway. On GHCR, every release cut
-after this feature shipped therefore verifies with the tag-only `IDENTITY`, even if the
-backfill job touched those digests first.
+Maintainers can bring a published release up to the same bar without re-cutting it: the manual `image-attest-backfill` CI job on `main` signs and attests a given tag's images on both registries. It skips any digest that already carries a verifying signature or SBOM from a release tag pipeline or an earlier backfill run.
 
-**Exception: a GitLab registry release whose signatures were re-attached.** The GitLab
-registry's cleanup keep-regex protects signature and attestation tags
-([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)), so tag-pipeline signatures are
-not swept. If they are deleted anyway (for example by hand) and the backfill job re-attaches
-them, the new copies on `registry.gitlab.com/visiban/visiban` carry the `@refs/heads/main`
-identity. The tag-only `IDENTITY` and the exact-release form then **fail** for that release on
-that registry. Use the backfill regexp below for it. The same release on GHCR still verifies
-with the tag-only identity, because GHCR never sweeps.
+In the other direction, the tag pipeline's attest jobs skip a digest **only** if it already carries a signature or SBOM from a release tag pipeline. A backfill (`main`) signature does not satisfy them, so the tag job signs anyway. On GHCR, every release cut after this feature shipped therefore verifies with the tag-only `IDENTITY`, even if the backfill job touched those digests first.
+
+**Exception: a GitLab registry release whose signatures were re-attached.** The GitLab registry's cleanup keep-regex protects signature and attestation tags ([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)), so tag-pipeline signatures are not swept. If they are deleted anyway (for example by hand) and the backfill job re-attaches them, the new copies on `registry.gitlab.com/visiban/visiban` carry the `@refs/heads/main` identity. The tag-only `IDENTITY` and the exact-release form then **fail** for that release on that registry; use the backfill regexp below. The same release on GHCR still verifies with the tag-only identity, because GHCR never sweeps.
 
 A backfilled release's certificate identity ends in `@refs/heads/main` rather than
 `@refs/tags/v…`, because a released tag cannot be re-run without moving it. The tag-only
@@ -150,13 +128,7 @@ A backfilled release's certificate identity ends in `@refs/heads/main` rather th
 IDENTITY='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/(tags/v[0-9][^/]*|heads/main)$'
 ```
 
-Backfill is **trust-on-first-use**. The job signs whatever the tag points at when it runs,
-not what the original release pipeline pushed. A backfilled signature therefore proves only
-that Visiban's pipeline vouched for those bytes at backfill time. Only Maintainers should run
-the job, and only after comparing the tag's current digests with the original release
-pipeline's log. `scripts/attest-image-sbom.sh --dry-run` prints the digests read-only. The
-wider regexp also accepts any later run of the backfill job on `main`. Accepting it for every
-release would widen what you trust for no benefit, which is why it is not the default.
+**Watch out:** backfill is **trust-on-first-use**. The job signs whatever the tag points at when it runs, not what the original release pipeline pushed, so a backfilled signature proves only that Visiban's pipeline vouched for those bytes at backfill time. Only Maintainers should run the job, and only after comparing the tag's current digests with the original release pipeline's log. `scripts/attest-image-sbom.sh --dry-run` prints the digests read-only. The wider regexp also accepts any later backfill run on `main`; accepting it for every release would widen your trust for no benefit, so it is not the default.
 
 Charts published at or before `v1.2.0-alpha.2` are unsigned (#1284). See
 [Known CI failures](../maintainers/known-ci-failures.md) if verification fails for a version

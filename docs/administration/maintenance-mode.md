@@ -1,24 +1,18 @@
-# Maintenance Mode
+# Freeze writes during an upgrade without taking the instance down
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Maintenance mode puts a Visiban instance into **read-only mode** for the duration of an
-upgrade or a migration. It exists so an operator can stop concurrent writes without stopping
-the instance — reads, and the operator's own access, keep working throughout.
+Turn on maintenance mode to put a Visiban instance into **read-only mode** for the duration of an upgrade or a migration. Reads, and the operator's own access, keep working throughout.
 
-For the API shape, see [Maintenance mode](../api/admin.md#maintenance-mode) in the API reference.
+**Why it matters:** an operator can stop concurrent writes without stopping the instance.
+
+**Go deeper:** for the API shape, see [Maintenance mode](../api/admin.md#maintenance-mode) in the API reference.
 
 ## When to use it
 
-Reach for maintenance mode when the thing you want to prevent is **concurrent writes**, not
-the upgrade itself — for example, running a data-integrity script, or a migration that is
-technically zero-downtime-safe but you'd rather nobody move a card while it runs. It is the
-softer alternative to taking the instance fully offline.
+Reach for maintenance mode when the thing you want to prevent is **concurrent writes**, not the upgrade itself. Examples: running a data-integrity script, or a migration that is technically zero-downtime-safe but you'd rather nobody move a card while it runs. It is the softer alternative to taking the instance fully offline.
 
-If you're following the [Standard upgrade steps](upgrade.md#standard-upgrade-steps) or the
-[Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md), most 1.x releases don't need a
-maintenance window at all — Visiban's migrations are additive-only by rule. Turn maintenance
-mode on only when you specifically want to freeze writes, and off again once you're done.
+**Yes, but:** if you're following the [Standard upgrade steps](upgrade.md#standard-upgrade-steps) or the [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md), most 1.x releases don't need a maintenance window at all, because Visiban's migrations are additive-only by rule. Turn maintenance mode on only when you specifically want to freeze writes, and off again once you're done.
 
 ## Turning it on
 
@@ -29,23 +23,16 @@ From **Admin → Settings → Maintenance**:
 | **Maintenance mode** toggle | When on, every write from a non-admin is rejected with `503 Service Unavailable`. Reads keep working. |
 | **Message** | Plain-text notice (max 1000 characters) shown to everyone while maintenance mode is on. Leave it blank to use the built-in default. The notice is public, so keep internal detail out of it (see below). |
 
-Turning the toggle **on** asks for inline confirmation — "Enable maintenance mode? All
-non-admin users will immediately lose write access." — since it's an instance-wide,
-immediate-effect change. Turning it **off** does not prompt: exits are never gated behind a
-confirmation, only the transition that removes access is.
+Turning the toggle **on** asks for inline confirmation ("Enable maintenance mode? All non-admin users will immediately lose write access."), since it is an instance-wide, immediate change. Turning it **off** does not prompt: only the transition that removes access is gated.
 
 !!! tip "Put an end time in the message"
-    A notice with no ETA is the one people find most frustrating: "changes are disabled" with
-    no sense of for how long reads as either trivial or alarming, depending on the reader. Say
-    when you expect to be finished — for example, *"Upgrading to 1.2 — back by 14:00 UTC."*
+    A notice with no ETA frustrates people most: "changes are disabled" with no duration reads as trivial or alarming, depending on the reader. Say when you expect to finish, for example *"Upgrading to 1.2 — back by 14:00 UTC."*
 
-The setting lives on the database, so it survives a restart, and it takes effect immediately
-for every worker — there is no need to restart the service or wait for a cache to expire.
+The setting lives in the database, so it survives a restart and takes effect immediately for every worker. No service restart or cache wait is needed.
 
 ## What everyone else sees
 
-- **Reads keep working.** Boards, cards, comments and history all stay visible. This is a
-  read-only mode, not an outage, so nobody loses access to information they need mid-incident.
+- **Reads keep working.** Boards, cards, comments and history stay visible. This is a read-only mode, not an outage, so nobody loses information they need mid-incident.
 - **Writes are blocked** — creating, editing, moving, archiving and deleting all fail with a
   `503` and a `maintenance_mode` error. This covers the REST API and the MCP write tools alike.
 - **Every signed-in user sees the notice** — a non-dismissible amber banner — until you turn
@@ -67,27 +54,20 @@ for every worker — there is no need to restart the service or wait for a cache
 
 ## Known limitation: an already-open tab can lag behind
 
-Nothing pushes maintenance state to a browser tab that is already open — there is no
-WebSocket event for it. A tab only learns the instance is in maintenance mode in one of two
-ways:
+**Yes, but:** nothing pushes maintenance state to a browser tab that is already open. There is no WebSocket event for it. A tab only learns the instance is in maintenance mode in one of two ways:
 
 - **It tries to write.** The `503` response tells the client immediately, and the banner
   appears at that point.
 - **It regains focus.** Coming back to a tab re-checks the instance settings (`/auth/site-config/`), throttled to at most
   once every 30 seconds, so a tab that was in the background picks up the change on refocus.
 
-A user who is idling on an open tab — not writing, not switching away — will not see the
-banner appear or disappear the instant you flip the toggle. Don't assume every open session
-updates the moment you act; if you need everyone to see the notice immediately, say so in
-another channel (chat, status page) rather than relying on the banner alone.
+**Watch out:** a user who is idling on an open tab (not writing, not switching away) will not see the banner appear or disappear the instant you flip the toggle. Don't assume every open session updates the moment you act. If you need everyone to see the notice immediately, say so in another channel (chat, status page) rather than relying on the banner alone.
 
 ## Who turned it on? — the action log
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Every flip of the maintenance mode toggle is recorded, so an incident retrospective can
-answer "who put us into maintenance, and when did it end?" without guesswork. Each entry
-records the actor, the time, whether it went on or off, and the notice that was in force.
+Every flip of the toggle is recorded, so an incident retrospective can answer "who put us into maintenance, and when did it end?" Each entry records the actor, the time, whether it went on or off, and the notice in force.
 
 Read it from [`GET /api/v1/admin/action-log/`](../api/admin.md#action-log):
 
@@ -111,13 +91,9 @@ command-line change has no signed-in user to attribute, so it is recorded with n
     treat an empty log as "no audited path made this change", not as proof the setting was
     never touched.
 
-Setting a value to the one it already holds is not recorded: the log contains real
-transitions only, so the gap between an `enabled` entry and the next `disabled` entry is the
-actual duration of the maintenance window.
+Setting a value to the one it already holds is not recorded. The log holds real transitions only, so the gap between an `enabled` entry and the next `disabled` entry is the actual maintenance window.
 
-The log covers the instance-wide settings on the Admin → Settings tab. It does **not** yet
-cover user management — granting site admin, deactivating an account, or issuing an invite
-link leaves no entry.
+The log covers the instance-wide settings on the Admin → Settings tab. It does **not** yet cover user management: granting site admin, deactivating an account, or issuing an invite link leaves no entry.
 
 !!! warning "The audit write is part of the change"
     A setting change and its log entry commit together: if the entry cannot be written, the
@@ -151,12 +127,9 @@ python manage.py maintenance_mode --on --message "Upgrading to 1.3 — back by 1
 python manage.py maintenance_mode --off
 ```
 
-Changes take effect immediately, exactly as they do from the admin panel. This is the
-break-glass path for an operator with shell access but no working ingress.
+Changes take effect immediately, as from the admin panel. This is the break-glass path for an operator with shell access but no working ingress.
 
-Maintenance mode is also editable from the [Django admin](django-admin.md) as a second
-break-glass route — `Site settings` has exactly one row, and edits there go through the same
-save path, so the cache invalidation still fires.
+The [Django admin](django-admin.md) is a second break-glass route: `Site settings` has exactly one row, and edits there use the same save path, so cache invalidation still fires.
 
 ## Related pages
 

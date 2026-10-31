@@ -1,12 +1,15 @@
-# Scheduled Jobs
+# Schedule the four maintenance commands Visiban needs
+
+Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs.enabled=true`) so the notification scans run. The two prune jobs stay off until you enable each one.
+
+**Why it matters:** Visiban has no task queue, and nothing runs these commands on a web request. Without a schedule, opted-in users never get due-date or stale-card notifications.
 
 !!! note "Added in 1.2"
     Before 1.2, Visiban documented these commands but shipped nothing to run
     them — each needed a hand-written host cron line. 1.2 ships an opt-in
     scheduler for Docker Compose and native CronJobs for Kubernetes.
 
-Visiban has four maintenance commands that must run on a schedule. None of them
-runs on a web request, and Visiban has no task queue. If nothing schedules them:
+**The big picture:** Visiban has four maintenance commands that must run on a schedule. If nothing schedules them:
 
 - users who turn on **Due date approaching** or **Card has gone stale** in
   their notification preferences never receive those notifications, in the bell
@@ -20,26 +23,15 @@ runs on a web request, and Visiban has no task queue. If nothing schedules them:
 | `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | No |
 | `prune_notifications` | **Deletes** notifications, read or unread, older than the retention window (default 90 days) | 03:30 | No |
 
-**The scheduler is off by default on both deployment paths**, so upgrading
-changes nothing until you turn it on. Once it is on, the two notification scans
-run, and they only act for users who switched the matching preference on. The
-two prune jobs delete data, so each one stays off until you enable it on its own.
+**Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. The two prune jobs delete data, so each one stays off until you enable it on its own.
 
-All four commands are idempotent, so running one twice in a day does no harm.
-**Running two copies at the same moment is different.** If you already run any
-of these from host cron, remove that cron line before you enable the shipped
-scheduler. Two notification scans that start in the same minute can both pass
-the "already notified" check and notify the same user twice.
+**Watch out:** all four commands are idempotent, so running one twice in a day does no harm. **Running two copies at the same moment is different.** If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.
 
 ## Docker Compose
 
-`docker-compose.prod.yml` includes a `scheduler` service behind the `scheduler`
-[Compose profile](https://docs.docker.com/compose/how-tos/profiles/). It runs
-`python manage.py run_scheduler` in the backend image, with the same `.env` as
-the backend.
+`docker-compose.prod.yml` includes a `scheduler` service behind the `scheduler` [Compose profile](https://docs.docker.com/compose/how-tos/profiles/). It runs `python manage.py run_scheduler` in the backend image, with the backend's `.env`.
 
-Turn it on by adding the profile to `.env`. Keep `letsencrypt` in the list if
-you use it:
+To turn it on, add the profile to `.env`, keeping `letsencrypt` if you use it:
 
 ```bash
 # .env
@@ -53,19 +45,17 @@ docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml logs -f scheduler
 ```
 
-A `--profile` flag on the command line **replaces** `COMPOSE_PROFILES` rather
+**Watch out:** a `--profile` flag on the command line **replaces** `COMPOSE_PROFILES` rather
 than adding to it (verified with Docker Compose v5.3). `init-prod.sh` starts the
 stack with `--profile letsencrypt` when `TLS_MODE=letsencrypt`, so that run does
 not start the scheduler. Run the plain `up -d` above afterwards, or pass both
 flags yourself: `--profile letsencrypt --profile scheduler`.
 
-At startup the service prints the schedule it loaded. It logs a line when each
-job starts and when it finishes.
+At startup the service prints the schedule it loaded, and logs a line when each job starts and finishes.
 
 ### Choosing jobs and times
 
-Each job's time comes from an environment variable in `.env`. A value is
-`HH:MM` (24-hour, **UTC**) or `off`:
+Each job's time comes from an `.env` variable. A value is `HH:MM` (24-hour, **UTC**) or `off`:
 
 | Variable | Default |
 |---|---|
@@ -74,8 +64,7 @@ Each job's time comes from an environment variable in `.env`. A value is
 | `SCHEDULE_PRUNE_BOARD_EVENTS` | `off` |
 | `SCHEDULE_PRUNE_NOTIFICATIONS` | `off` |
 
-For example, this keeps the notification scans at their defaults and turns on
-both prune jobs:
+This keeps the notification scans at their defaults and turns on both prune jobs:
 
 ```bash
 # .env
@@ -83,18 +72,13 @@ SCHEDULE_PRUNE_BOARD_EVENTS=03:00
 SCHEDULE_PRUNE_NOTIFICATIONS=03:30
 ```
 
-Run `docker compose -f docker-compose.prod.yml up -d scheduler` again after
-changing any of these variables.
+After changing any of these variables, run `docker compose -f docker-compose.prod.yml up -d scheduler` again.
 
 ### How the Compose scheduler behaves
 
-- **Once a day per job, at or after its time.** If a check runs late (for
-  example, the host was suspended), the job still runs that day.
-- **No catch-up.** A job whose time already passed when the container started
-  waits until the next day. This stops a restart loop from firing every job on
-  every restart. A missed notification scan is a skipped day, not a backlog.
-- **A failing job does not stop the others.** The error and traceback go to
-  the service log, and the next day's run happens as normal.
+- **Once a day per job, at or after its time.** A late check (for example, the host was suspended) still runs the job that day.
+- **No catch-up.** A job whose time passed before the container started waits until the next day, so a restart loop can't fire every job on every restart. A missed notification scan is a skipped day, not a backlog.
+- **A failing job does not stop the others.** The error and traceback go to the service log, and the next day's run happens as normal.
 - **Bad configuration fails at startup.** An invalid time, or every job set to
   `off`, is an error that names the variable. Because the service has
   `restart: unless-stopped`, this shows up as a restart loop rather than a
@@ -102,8 +86,7 @@ changing any of these variables.
   scheduler` for a `Restarting` status, and read the error with
   `docker compose -f docker-compose.prod.yml logs scheduler`.
 
-Without the `scheduler` profile, you can still schedule the same commands from
-host cron:
+Without the `scheduler` profile, schedule the same commands from host cron:
 
 ```bash
 0 7 * * *  docker compose -f /opt/visiban/docker-compose.prod.yml run --rm backend python manage.py notify_due_soon
@@ -114,9 +97,7 @@ host cron:
 
 ## Kubernetes (Helm)
 
-The chart renders one `CronJob` for each enabled entry under `scheduledJobs`.
-Each CronJob runs in the backend image, with the backend's environment and
-runtime Secret.
+The chart renders one `CronJob` per enabled entry under `scheduledJobs`, each running in the backend image with the backend's environment and runtime Secret.
 
 ```bash
 helm upgrade visiban oci://ghcr.io/visiban/charts/visiban --reuse-values \
@@ -151,10 +132,7 @@ scheduledJobs:
 | `scheduledJobs.ttlSecondsAfterFinished` | `86400` | How long finished Jobs and their logs are kept |
 | `scheduledJobs.resources` | 50m/128Mi requests, 500m/512Mi limits | Container resources |
 
-Every CronJob uses `concurrencyPolicy: Forbid`, so a slow run is never joined by
-the next one. The pods carry `app.kubernetes.io/component: scheduler`. With
-`networkPolicy.enabled=true`, that label is allowed to reach PostgreSQL and
-Valkey.
+Every CronJob uses `concurrencyPolicy: Forbid`, so a slow run is never joined by the next. The pods carry `app.kubernetes.io/component: scheduler`; with `networkPolicy.enabled=true`, that label may reach PostgreSQL and Valkey.
 
 To check on the jobs:
 
@@ -177,17 +155,11 @@ kubectl create job -n <namespace> --from=cronjob/visiban-notify-due-soon notify-
 | `prune_board_events` | 30 days | 1 | `BOARD_EVENT_RETENTION_DAYS` in `.env` | `scheduledJobs.pruneBoardEvents.args: ["--days", "N"]` |
 | `prune_notifications` | 90 days | 14 | `NOTIFICATION_RETENTION_DAYS` in `.env` | `scheduledJobs.pruneNotifications.args: ["--days", "N"]` |
 
-On Compose and host cron, the window is read from the environment variable.
-The Helm chart does not set either variable on its pods, so on Helm you set the
-window with the job's `args`. A retention window only takes effect once its
-prune job is scheduled. Until then, nothing is deleted.
+On Compose and host cron, the window comes from the environment variable. The Helm chart sets neither variable on its pods, so on Helm use the job's `args`. A retention window takes effect only once its prune job is scheduled; until then nothing is deleted.
 
-`prune_notifications` refuses a window shorter than 14 days. The notification
-rows are also the scans' record of what they have already sent: pruning them
-too soon would make `notify_due_soon` and `notify_stale_cards` notify, and
-email, the same card again. The retention window must also stay **longer than**
-any `--days` you pass to `notify_due_soon`. That command logs a warning when it
-does not.
+`prune_notifications` refuses a window shorter than 14 days. The notification rows are also the scans' record of what they have already sent. Pruning them too soon would make `notify_due_soon` and `notify_stale_cards` notify, and email, the same card again.
+
+The retention window must also stay **longer than** any `--days` you pass to `notify_due_soon`. That command logs a warning when it does not.
 
 Before you enable a prune job on an existing install, preview what its first
 run would delete:
@@ -197,5 +169,4 @@ docker compose -f docker-compose.prod.yml run --rm backend python manage.py prun
 docker compose -f docker-compose.prod.yml run --rm backend python manage.py prune_board_events --dry-run
 ```
 
-The first run on a large, never-pruned table deletes in batches of 5,000 rows
-(`--batch-size`), so it does not hold long locks.
+The first run on a large, never-pruned table deletes in batches of 5,000 rows (`--batch-size`), so it holds no long locks.
