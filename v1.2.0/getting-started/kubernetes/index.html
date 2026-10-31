@@ -4513,6 +4513,10 @@
 <a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span>--set<span class="w"> </span>postgresql.auth.existingSecret<span class="o">=</span>my-visiban-pg-secret<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span>...
 </code></pre></div>
+<div class="admonition note">
+<p class="admonition-title"><code>postgresql.auth.existingSecret</code> supplies the backend's database password too</p>
+<p>With <code>postgresql.auth.existingSecret</code>, the bundled PostgreSQL starts with the <code>password</code> key of that Secret, and the backend reads the same key into <code>DATABASE_URL_PASSWORD</code>. The chart then renders <code>database-url</code> without a password, and the backend percent-encodes the password into it, so the password can contain any character and <code>postgresql.auth.password</code> is not used. If you also set <code>secret.existingSecret</code>, its <code>database-url</code> key is used as is and must carry the password itself (<code>postgres://&lt;user&gt;:&lt;url-encoded-password&gt;@&lt;release&gt;-postgresql:5432/&lt;database&gt;</code>); the chart then does not set <code>DATABASE_URL_PASSWORD</code>.</p>
+</div>
 <p>The chart skips creating its own Secret when <code>existingSecret</code> is set. The Secret needs these keys:</p>
 <table>
 <thead>

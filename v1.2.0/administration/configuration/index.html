@@ -4449,6 +4449,10 @@
 <td>Not set under Compose, which puts the password into <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> itself (from <code>REDIS_PASSWORD</code>). The Helm chart sets it from a Secret when <code>valkey.auth.enabled</code> is true or <code>externalRedis.existingSecret</code> is set. The backend percent-encodes it into both URLs, so any character is safe, and keeps a username in the URL (<code>redis://user@host:6379/0</code>, a Redis ACL user). It refuses to start if a URL already carries a password too, because the two would compete.</td>
 </tr>
 <tr>
+<td><code>DATABASE_URL_PASSWORD</code></td>
+<td>Optional (#1910). Not set under Compose, or by default under Helm. The Helm chart sets it from the <code>password</code> key of the Secret named by <code>postgresql.auth.existingSecret</code>, and renders <code>DATABASE_URL</code> without a password. The backend percent-encodes it into <code>DATABASE_URL</code>, so any character is safe. The chart does not set it when <code>secret.existingSecret</code> supplies a complete <code>database-url</code>. It refuses to start if <code>DATABASE_URL</code> already carries a password too, because the two would compete.</td>
+</tr>
+<tr>
 <td><code>DJANGO_SECRET_KEY</code></td>
 <td>Production Django signing key — must be unique and kept secret</td>
 </tr>
@@ -4488,11 +4492,11 @@
 </tr>
 <tr>
 <td><code>postgresql.auth.existingSecret</code></td>
-<td>Name of a pre-existing K8s Secret for the PG password (key: <code>password</code>)</td>
+<td>Name of a pre-existing K8s Secret for the PG password (key: <code>password</code>). The bundled PostgreSQL and the backend (via <code>DATABASE_URL_PASSWORD</code>) both read the password from it, so <code>postgresql.auth.password</code> is unused (#1910)</td>
 </tr>
 <tr>
 <td><code>postgresql.auth.password</code></td>
-<td>PostgreSQL password (ignored when <code>existingSecret</code> is set). An empty or placeholder (<code>visiban</code>) value fails the render; set your own password. <code>existingSecret</code> clears the check only together with <code>secret.existingSecret</code> supplying a matching <code>database-url</code> (#1910)</td>
+<td>PostgreSQL password, used to build the chart-managed <code>database-url</code>. An empty or placeholder (<code>visiban</code>) value fails the render; set your own password. Not used, and not checked, when <code>postgresql.auth.existingSecret</code> is set</td>
 </tr>
 <tr>
 <td><code>backend.settings.frontendUrl</code></td>

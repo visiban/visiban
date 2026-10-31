@@ -4510,12 +4510,12 @@
 <tr>
 <td><code>postgresql.auth.existingSecret</code></td>
 <td><code>""</code></td>
-<td>Name of a pre-existing K8s Secret for the PG password (key: <code>password</code>)</td>
+<td>Name of a pre-existing K8s Secret for the PG password (key: <code>password</code>). The bundled PostgreSQL and the backend (via <code>DATABASE_URL_PASSWORD</code>) both read the password from it (#1910)</td>
 </tr>
 <tr>
 <td><code>postgresql.auth.password</code></td>
 <td><code>visiban</code></td>
-<td>Database password (ignored when <code>existingSecret</code> is set). The default is a placeholder: the render fails until you set your own password (<code>postgresql.auth.existingSecret</code> clears it only together with <code>secret.existingSecret</code> supplying a matching <code>database-url</code>, #1910)</td>
+<td>Database password. The default is a placeholder: the render fails until you set your own password, unless <code>postgresql.auth.existingSecret</code> supplies it</td>
 </tr>
 <tr>
 <td><code>backend.image.tag</code></td>
