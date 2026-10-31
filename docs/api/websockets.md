@@ -86,7 +86,7 @@ Pass the ticket as the `ticket` query parameter:
 ws://<host>/ws/boards/<board_id>/?ticket=<ticket>
 ```
 
-The ticket is consumed by the upgrade. **Obtain a new ticket for every connection attempt**, including every reconnect.
+The upgrade consumes the ticket. **Get a new ticket for every connection attempt**, including every reconnect.
 
 ### Rules
 
@@ -410,20 +410,20 @@ Personal boards (no group) do not emit events on any group channel.
 
 ## Delivery guarantees
 
-WebSocket events are registered with `transaction.on_commit()` inside a database transaction. This means:
+WebSocket events are registered with `transaction.on_commit()` inside a database transaction, so:
 
-- Events are **never broadcast for rolled-back transactions** — if a write fails and rolls back, no event fires.
-- Events fire **after** the transaction commits, so the data is guaranteed to be visible to any subsequent REST read by the time the event reaches clients.
-- The publish is **best-effort** (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a `WARNING` (`board broadcast dropped` or `group broadcast dropped`, with the board or group id, event name, and exception class). The write that caused it still returns its normal success status, because the change is already committed. Before 1.2 such a write returned `500` even though it had been saved, and retrying it created a duplicate.
+- Events are **never broadcast for rolled-back transactions**: a write that fails and rolls back fires no event.
+- Events fire **after** the transaction commits, so the data is visible to any later REST read by the time the event reaches clients.
+- The publish is **best-effort** (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a `WARNING` (`board broadcast dropped` or `group broadcast dropped`, with the board or group id, event name, and exception class). The write still returns its normal success status, because the change is already committed. Before 1.2 such a write returned `500` even though it had been saved, and a retry created a duplicate.
 
 The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.
 
 ### Access re-check and eviction
 
-A user who loses access to a board or group stops receiving its frames even if the `member.removed` frame that announces the removal is lost (since 1.2, #1477). That frame is published best-effort like every other frame, so the server does not rely on it alone:
+A user who loses access to a board or group stops receiving its frames even if the `member.removed` frame announcing the removal is lost (since 1.2, #1477). That frame is best-effort like every other, so the server does not rely on it alone:
 
 - When the socket's own user is the subject of a `member.removed` frame, the server closes the socket at once. This is the fast path.
-- Before it forwards **any** frame, the server re-checks that the socket's user still has access. It uses the same rule as the handshake: `get_board_role` for a board channel, membership in the group or one of its ancestors for a group channel. A deactivated account has no access. The result is cached per socket for a window of 5 seconds plus a random 0 to 2 seconds, redrawn after every check. The random part keeps the sockets on one board from all re-checking at the same moment. So a busy board costs at most one access query per socket per window. A `member.added` or `member.updated` frame about the socket's own user skips the cache.
+- Before it forwards **any** frame, the server re-checks that the socket's user still has access. It uses the same rule as the handshake: `get_board_role` for a board channel, membership in the group or one of its ancestors for a group channel. A deactivated account has no access. The result is cached per socket for 5 seconds plus a random 0 to 2 seconds, redrawn after every check; the random part keeps a board's sockets from all re-checking at once. A busy board therefore costs at most one access query per socket per window. A `member.added` or `member.updated` frame about the socket's own user skips the cache.
 - The re-check also confirms that the credential the socket connected with has not been revoked and that the password has not changed since the handshake. See [Credential revocation](#credential-revocation-since-12).
 - Each keepalive ping (every 30 seconds) runs the same check first, so a socket on a quiet channel is re-checked even when no frames are published.
 - The re-check also applies the same account-state checks as the REST API: an account with a pending password or username change has no access to the channel, at the handshake and on every re-check. Completing the pending change allows a later reconnect.
@@ -433,7 +433,7 @@ A user who loses access to a board or group stops receiving its frames even if t
 
 The same window applies to the other changes the re-check picks up. A role change that sends no `member.*` frame on the board channel (a group role change, a board moved to another group, a change to all-content access) and the deactivation of a user's account both take effect within it.
 
-The window is a bound, not a guarantee of zero exposure. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket is closed before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user. Its keepalive ping runs the re-check, so it closes within about 30–40 seconds (one keepalive interval plus the re-check window) even if no frame arrives.
+The window bounds exposure; it does not eliminate it. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket closes before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user, and its keepalive ping runs the re-check, closing it within about 30–40 seconds (one keepalive interval plus the re-check window) even if no frame arrives.
 
 #### Credential revocation (since 1.2)
 
@@ -450,7 +450,7 @@ The re-check also verifies that the credential the socket connected with is stil
 When the close happens:
 
 - On a channel with traffic, the close happens on the first frame after the re-check window.
-- On a quiet channel, the keepalive ping (every 30 seconds, see [Keepalive](#keepalive)) runs the same check. The close then happens at the first ping after the window. A revoked socket on a quiet channel therefore closes within about 30–40 seconds (one keepalive interval plus the re-check window) even when no events are published.
+- On a quiet channel, the keepalive ping (every 30 seconds, see [Keepalive](#keepalive)) runs the same check, so the close happens at the first ping after the window: within about 30–40 seconds (one keepalive interval plus the re-check window) even when no events are published.
 - The check costs one extra indexed lookup per socket per window.
 
 Related behavior and limits:
@@ -462,7 +462,7 @@ Related behavior and limits:
 
 ### Missed frames
 
-A transient publish failure does **not** close the socket. A client that stays connected therefore gets no signal that it missed a frame, and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect.
+A transient publish failure does **not** close the socket, so a connected client gets no signal that it missed a frame and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect.
 
 How to resync:
 

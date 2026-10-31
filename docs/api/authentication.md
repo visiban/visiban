@@ -74,7 +74,7 @@ Store the `key` value — this is your API token.
 | Status | Cause |
 |---|---|
 | `400 Bad Request` | Wrong username/email or password — `{"non_field_errors": ["Unable to log in with provided credentials."]}`. The response is identical whether the identifier is unknown, ambiguous, or the password is wrong. |
-| `400 Bad Request` | Locked out — either the per-account rate (5 failed attempts / 5 min for that account — failures by username and by email count together toward the same account's lockout, and a lockout tripped through one identifier blocks the other) or the per-IP rate (10 failed attempts / min from that IP, across ANY accounts) tripped; both return the same `{"non_field_errors": ["Too many failed login attempts. Try again later."]}` and there's no way to tell which from the response (see [Rate limiting](../architecture/deployment.md#rate-limiting)). The correct password is refused too while either is active — including for an account that never itself failed, if it shares an IP (e.g. behind a NAT) with one that tripped the per-IP rate. The **per-account** lockout now has two early-recovery paths (#1203): a successful password reset clears it automatically, or a site admin can clear it directly via `POST /api/v1/admin/users/{id}/clear-lockout/` (see [Admin API](admin.md)). The **per-IP** rate has no early-recovery path and none is planned — clearing it on demand would undermine the protection it exists for (it is shared across every account attempted from that IP, so clearing it for one account's benefit would clear it for all of them). |
+| `400 Bad Request` | Locked out. Either the per-account rate (5 failed attempts / 5 min; failures by username and by email count together, and a lockout tripped through one identifier blocks the other) or the per-IP rate (10 failed attempts / min from that IP, across ANY accounts) tripped. Both return the same `{"non_field_errors": ["Too many failed login attempts. Try again later."]}`, so the response does not say which (see [Rate limiting](../architecture/deployment.md#rate-limiting)). While either is active the correct password is refused too, even for an account that never failed but shares an IP (e.g. behind a NAT) with one that tripped the per-IP rate. The **per-account** lockout has two early-recovery paths (#1203): a successful password reset clears it, or a site admin clears it via `POST /api/v1/admin/users/{id}/clear-lockout/` (see [Admin API](admin.md)). The **per-IP** rate has none and none is planned: it is shared across every account attempted from that IP, so clearing it on demand for one account would clear it for all and undermine the protection. |
 | `429 Too Many Requests` | Per-IP request-volume ceiling exceeded (`LoginRateThrottle`, 20/hour — a separate DRF throttle, independent of the two `login_failed` lockouts above) |
 
 ---
@@ -84,10 +84,10 @@ Store the `key` value — this is your API token.
 Pass the token in the `Authorization` header using the `Token` scheme.
 
 !!! note
-    Visiban uses the prefix `Token`, not `Bearer`. This applies to both session tokens and Personal Access Tokens. For PATs the full header looks like:
+    Visiban uses the prefix `Token`, not `Bearer`, for both session tokens and Personal Access Tokens. A PAT header looks like:
     `Authorization: Token vbn_0123456789abcdef0123456789abcdef01234567`
 
-    The one exception is the [MCP server](mcp.md) at `/mcp`, which requires the `Bearer` scheme because the Model Context Protocol specification mandates it. The two schemes are scoped to their own transports and are not interchangeable, but they resolve the same Personal Access Token records — revoking a token revokes it for both.
+    The one exception is the [MCP server](mcp.md) at `/mcp`, which requires `Bearer` because the Model Context Protocol specification mandates it. The schemes are not interchangeable, but they resolve the same Personal Access Token records, so revoking a token revokes it for both.
 
 === "curl"
     ```bash
@@ -164,13 +164,13 @@ This deletes the token server-side. Any further requests with it will receive `4
 
 ## Personal Access Tokens
 
-Personal Access Tokens (PATs) are named, long-lived tokens tied to a user account. They are intended for scripts, CI pipelines, and third-party integrations where a session login is not practical.
+Personal Access Tokens (PATs) are named, long-lived tokens tied to a user account, for scripts, CI pipelines, and third-party integrations where a session login is impractical.
 
 **Token format:** `vbn_` prefix + 40 hex characters, e.g. `vbn_0123456789abcdef0123456789abcdef01234567`.
 
-The raw token value is shown **once** at creation and never again — Visiban stores only a SHA-256 hash.
+The raw token is shown **once**, at creation; Visiban stores only a SHA-256 hash.
 
-All PATs for a user are revoked automatically when that user's password is changed or reset through the web interface, the API or the Django admin: the REST endpoints, allauth's pages under `/accounts/password/`, or an administrator setting it in the Django admin.
+All of a user's PATs are revoked automatically when the password is changed or reset through the web interface, the API or the Django admin: the REST endpoints, allauth's pages under `/accounts/password/`, or an administrator setting it in the Django admin.
 
 ---
 
@@ -280,11 +280,11 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
 
 Mint a short-lived, single-use ticket for a WebSocket handshake. Added in 1.2.
 
-WebSocket upgrades cannot carry an `Authorization` header from a browser, and the session cookie is `SameSite=Lax` so it is not sent cross-origin. Token-authenticated clients — native, CLI, or a front end on another origin — use this endpoint to exchange the credential they already hold for a one-shot ticket, then pass it as the `ticket` query parameter on the upgrade. See [WebSocket API → Ticket authentication](websockets.md#ticket-authentication-since-12).
+A browser WebSocket upgrade cannot carry an `Authorization` header, and the session cookie is `SameSite=Lax`, so it is not sent cross-origin. Token-authenticated clients (native, CLI, or a front end on another origin) exchange the credential they hold for a one-shot ticket here, then pass it as the `ticket` query parameter on the upgrade. See [WebSocket API → Ticket authentication](websockets.md#ticket-authentication-since-12).
 
 **Permission:** Requires authentication. Accepts any supported credential — PAT, session token, or session cookie.
 
-A *scoped* PAT must hold `write`: minting a ticket is a `POST`, and the scope baseline is resolved from the path and method (see [Scopes](#scopes)). A `read`-only token therefore cannot open a WebSocket. Legacy tokens (created before 1.2, `scopes` unset) keep full authority here as everywhere else.
+A *scoped* PAT must hold `write`: minting a ticket is a `POST`, and the scope baseline comes from the path and method (see [Scopes](#scopes)), so a `read`-only token cannot open a WebSocket. Legacy tokens (created before 1.2, `scopes` unset) keep full authority here as everywhere else.
 
 **Request body:** none.
 
@@ -304,9 +304,9 @@ The `ticket` is returned here and never again.
 | `ticket` | string | The credential to pass as `?ticket=` on the WebSocket upgrade. Single use. |
 | `expires_at` | datetime | ISO 8601. 30 seconds after issuance. |
 
-The ticket authenticates only — board and group membership is still enforced on every connection, so a ticket belonging to a non-member is closed with `4003`. The same account-state checks that apply to REST and MCP (pending password or username change) apply to board and group sockets, at connect and on every access re-check, with close code `4003`.
+The ticket authenticates only: board and group membership is still enforced on every connection, so a non-member's ticket is closed with `4003`. The account-state checks that apply to REST and MCP (pending password or username change) also apply to board and group sockets, at connect and on every access re-check, with close code `4003`.
 
-The ticket is bound to the credential that minted it (since 1.2, #1483). If that credential is revoked before the ticket is spent (the session logs out, the PAT is deleted or expires, or the session token is deleted), the handshake is closed with `4001`. Once the socket is open, the server closes it with `4003` within the access re-check window after logout, password change, or credential revocation. See [WebSocket API → Credential revocation](websockets.md#credential-revocation-since-12).
+The ticket is bound to the credential that minted it (since 1.2, #1483). If that credential is revoked before the ticket is spent (the session logs out, the PAT is deleted or expires, or the session token is deleted), the handshake closes with `4001`. Once the socket is open, the server closes it with `4003` within the access re-check window after logout, password change, or credential revocation. See [WebSocket API → Credential revocation](websockets.md#credential-revocation-since-12).
 
 **Errors**
 
@@ -336,7 +336,7 @@ Revoke a Personal Access Token. The token is immediately invalidated and cannot 
 | `404 Not Found` | Token does not exist, or belongs to a different user |
 
 !!! note
-    A missing token and a token owned by another user both return `404 Not Found` — not `403 Forbidden`. This prevents user enumeration (IDOR prevention).
+    A missing token and another user's token both return `404 Not Found`, not `403 Forbidden`, which prevents user enumeration (IDOR prevention).
 
 ---
 
@@ -344,7 +344,7 @@ Revoke a Personal Access Token. The token is immediately invalidated and cannot 
 
 > **Added in 1.2**
 
-Every Personal Access Token created from 1.2 onward carries an explicit list of scopes. A request is authorized only if the token holds **every** scope that request requires.
+Every Personal Access Token created from 1.2 onward carries an explicit scope list. A request is authorized only if the token holds **every** scope it requires.
 
 | Scope | Required for |
 |---|---|
@@ -382,31 +382,29 @@ For a request authenticated with a PAT:
 
 ### Error semantics
 
-A scope failure is **`403 Forbidden`**, never `401 Unauthorized`. The credential is valid; only its authority is insufficient, and no amount of re-authenticating will change that. Clients should not retry a `403` with fresh credentials.
+A scope failure is **`403 Forbidden`**, never `401 Unauthorized`: the credential is valid, only its authority is insufficient, and re-authenticating will not change that. Do not retry a `403` with fresh credentials.
 
-The `detail` message names the scope that was missing. It never echoes the scopes the token actually holds.
+The `detail` message names the missing scope and never echoes the scopes the token holds.
 
 ### Tokens cannot mint tokens
 
-A scoped token cannot call `POST /api/v1/auth/tokens/` or `DELETE /api/v1/auth/tokens/{id}/`. If it could, a `read`-only token could issue itself an `admin` one and the scope model would mean nothing. A scoped token **may** list tokens (`GET`) if it holds `read`.
+A scoped token cannot call `POST /api/v1/auth/tokens/` or `DELETE /api/v1/auth/tokens/{id}/`; otherwise a `read`-only token could issue itself an `admin` one. A scoped token **may** list tokens (`GET`) if it holds `read`.
 
 Tokens created before 1.2 retain the old behavior here and can still mint and revoke.
 
 ### Session-only account-security endpoints
 
-A few account-security operations ignore token scopes entirely: a request authenticated with a token credential (a personal access token of any scope, or the login API token) is refused with `403 Forbidden`, because a `write` scope is not meant to carry authority over how the account is signed in to. The rule applies per operation: `DELETE /api/v1/auth/me/connected-accounts/{provider}/` is always refused (1.2, #1794); setting a first password is refused only for an account with no usable password; changing the account email is refused only when the request changes the address (sending the stored value back unchanged is accepted); and changing the username is refused only when the request changes it (1.2). See their endpoint sections. Use the browser session for these.
+A few account-security operations ignore token scopes: a request authenticated with a token credential (a personal access token of any scope, or the login API token) is refused with `403 Forbidden`, because a `write` scope is not meant to carry authority over how the account is signed in to. The rule applies per operation: `DELETE /api/v1/auth/me/connected-accounts/{provider}/` is always refused (1.2, #1794); setting a first password is refused only for an account with no usable password; changing the account email is refused only when the request changes the address (sending the stored value back unchanged is accepted); and changing the username is refused only when the request changes it (1.2). See their endpoint sections. Use the browser session for these.
 
 ### Scopes never widen access
 
-A scope can only narrow what a token may do. Board membership, role, and site-administrator checks all still apply. An `admin`-scoped token on an account that is not a site administrator reaches no admin endpoint.
+A scope only narrows what a token may do; board membership, role, and site-administrator checks still apply. An `admin`-scoped token on a non-site-admin account reaches no admin endpoint.
 
 ---
 
 ## Session authentication
 
-The browser SPA uses cookie-based sessions. CSRF protection is enforced — every mutating request (`POST`, `PATCH`, `PUT`, `DELETE`) must include the `X-CSRFToken` header.
-
-This method is not recommended for scripts. Use token auth for all non-browser clients.
+The browser SPA uses cookie-based sessions with CSRF protection: every mutating request (`POST`, `PATCH`, `PUT`, `DELETE`) must include the `X-CSRFToken` header. Scripts and other non-browser clients should use token auth instead.
 
 === "curl"
     ```bash
@@ -432,7 +430,7 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 ### `GET /api/v1/users/?search=<query>`
 Search active users by display name or username. Requires authentication. Excludes the requesting user from results. Used internally for @mention autocomplete and the member invite typeahead.
 
-> **Note:** Email is intentionally excluded from the search criteria. Filtering on email without returning it would allow any authenticated caller to silently confirm whether a given email address exists on the instance. Only active users are returned, and only the fields the response returns (username and display name) are matched.
+> **Note:** Email is deliberately excluded from the search: filtering on it without returning it would let any authenticated caller confirm whether an email address exists on the instance. Only active users are returned, and only the fields the response returns (username and display name) are matched.
 
 Rate-limited to 30 requests/minute per user.
 
@@ -451,7 +449,7 @@ Rate-limited to 30 requests/minute per user.
 ## OAuth providers
 
 ### `GET /api/v1/auth/providers/`
-Returns the list of configured OAuth providers. No authentication required. Used by the login page to determine which social login buttons to display.
+Returns the configured OAuth providers. No authentication required. The login page uses it to choose which social login buttons to show.
 
 **Response**
 ```json
@@ -470,7 +468,7 @@ Returns the list of configured OAuth providers. No authentication required. Used
 
 ### Auth error redirects
 
-A failed OAuth (or invite-gated registration) flow redirects the browser back to the frontend with an `?auth_error=<code>` query parameter instead of rendering anything server-side. The SPA's login page reads this parameter and shows a message, then strips it from the URL.
+A failed OAuth (or invite-gated registration) flow redirects the browser to the frontend with an `?auth_error=<code>` query parameter instead of rendering anything server-side. The SPA's login page shows a message, then strips the parameter from the URL.
 
 | Code | Meaning |
 |---|---|
@@ -564,13 +562,13 @@ Since 1.2, a body that is not a JSON object returns `400 Bad Request` (it return
 
 #### Rate limits for password change
 
-Both password-change endpoints share one per-user DRF throttle scope, `password_change` (10 requests/hour), and exceeding it returns `429 Too Many Requests`. A wrong current password is also counted against the same per-account `login_failed` budget as failed logins (5 per 5 minutes), so failures at login and here draw on one allowance; while an account is locked out, both endpoints return `429` even for a correct password until the window expires. A correct current password is not counted.
+Both password-change endpoints share one per-user DRF throttle scope, `password_change` (10 requests/hour); exceeding it returns `429 Too Many Requests`. A wrong current password also counts against the per-account `login_failed` budget used by failed logins (5 per 5 minutes), so login and password-change failures draw on one allowance. While an account is locked out, both endpoints return `429` even for a correct password until the window expires. A correct current password is not counted.
 
 Failed password changes count toward the same per-account and per-IP failed-attempt budgets that sign-in uses, so repeated failures from one IP address can also affect sign-in from that address for a short time.
 
 #### API token on password change
 
-A password change through this endpoint or `POST /api/v1/auth/password/change/` below revokes the account's API token issued by `POST /api/v1/auth/login/`, along with all Personal Access Tokens; a caller authenticated with that token receives a replacement in the optional `key` field. allauth's change and set pages and the Django admin's own-password form do the same.
+A password change here or via `POST /api/v1/auth/password/change/` below revokes the API token issued by `POST /api/v1/auth/login/` and all Personal Access Tokens; a caller authenticated with that token gets a replacement in the optional `key` field. allauth's change and set pages and the Django admin's own-password form do the same.
 
 - **Signed in with a session (the browser SPA):** the session stays signed in. The response has no `key` field. Log in again to get a new API token.
 - **Authenticated with the login API token:** the response's optional `key` field holds a new token. Use it for later requests in place of the token you sent, which is revoked. A client that loses the response (for example, to a dropped connection) must log in again to get a token. The response is sent with `Cache-Control: no-store`.
@@ -702,7 +700,7 @@ session (see above), so a token client reports the condition to the account owne
 
 **The rule:** new instance-level flags go on [`GET /api/v1/auth/site-config/`](#get-apiv1authsite-config) (or a capabilities payload), never on this object. Only per-user state belongs here.
 
-All of them except `uploads_enabled` also appear on `site-config`: `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, and `demo_next_reset_at`. The server computes both copies with the same code, so they always report the same values and types. Tests pin both field sets (`backend/accounts/tests/test_current_user_instance_flags_frozen_1664.py` and `test_site_config_instance_flags_1872.py`), and a type assertion keeps the TypeScript `User` and `SiteConfig` in step.
+All of them except `uploads_enabled` also appear on `site-config`: `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, and `demo_next_reset_at`. Both copies come from the same code, so they always report the same values and types. Tests pin both field sets (`backend/accounts/tests/test_current_user_instance_flags_frozen_1664.py` and `test_site_config_instance_flags_1872.py`), and a type assertion keeps the TypeScript `User` and `SiteConfig` in step.
 
 !!! warning "Deprecated in 1.2: read instance flags from `site-config`"
     `maintenance_mode`, `maintenance_message`, `demo_mode`, and `demo_next_reset_at` on `/auth/user/` and `/auth/me/` are **deprecated** (#1872). Read them from [`GET /api/v1/auth/site-config/`](#get-apiv1authsite-config). The OpenAPI schema marks the `/auth/user/` copies `deprecated: true`. They are still returned, with unchanged values, for the whole 1.x line. Removal needs a major version.
@@ -780,9 +778,9 @@ Update the authenticated user's profile. All fields are optional.
 
 > **Changed in 1.2** (#1273) — `username` is now checked case-insensitively and rate-limited, and under `EMAIL_VERIFICATION=mandatory` a changed `email` needs confirmation before it takes effect. Both fields remain writable. Earlier releases stored either value directly.
 
-**Notice to the previous address** (**added in 1.2**) — once an account's email actually changes to a different address (a direct change, a confirmed change under `EMAIL_VERIFICATION=mandatory`, or a change made on the `/accounts/email/` page or in the Django admin), the previous address is sent a short notice that the account's email was changed. The notice does not include the new address. A case-only change, or an account that had no address, sends nothing. A failure to send the notice does not undo or fail the change.
+**Notice to the previous address** (**added in 1.2**) — once an account's email actually changes to a different address (a direct change, a confirmed change under `EMAIL_VERIFICATION=mandatory`, or a change on the `/accounts/email/` page or in the Django admin), the previous address gets a short notice that the email changed. The notice omits the new address. A case-only change, or an account that had no address, sends nothing. A failed send does not undo or fail the change.
 
-**Notices for accounts without a password** (**added in 1.2**) — on an account with no usable password (identity-provider sign-in only), an address added to or confirmed on the account (on the `/accounts/email/` page, through `POST /api/v1/auth/registration/verify-email/`, or as a pending change under `EMAIL_VERIFICATION=mandatory`) sends a short notice to the account's current email (at most one such notice per account per hour), never to the added address; a confirmation that changes the account's email sends only the previous-address notice above. When the first password on such an account is set through `POST /api/v1/auth/password/reset/confirm/`, `POST /api/v1/auth/change-password/` or `POST /api/v1/auth/password/change/`, the account's email address and every verified address on the account (at most ten in all) receive a short notice, one message each. The notices contain fixed text only, and a failure to send one does not fail the request. Accounts with a password get neither notice.
+**Notices for accounts without a password** (**added in 1.2**) — on an account with no usable password (identity-provider sign-in only), an address added to or confirmed on the account (on the `/accounts/email/` page, through `POST /api/v1/auth/registration/verify-email/`, or as a pending change under `EMAIL_VERIFICATION=mandatory`) sends a short notice to the account's current email (at most one such notice per account per hour), never to the added address; a confirmation that changes the account's email sends only the previous-address notice above. When the first password on such an account is set through `POST /api/v1/auth/password/reset/confirm/`, `POST /api/v1/auth/change-password/` or `POST /api/v1/auth/password/change/`, the account's email address and every verified address on the account (at most ten in all) receive a short notice, one message each. The notices contain fixed text only, and a failed send does not fail the request. Accounts with a password get neither notice.
 
 **Changing `email` when verification is mandatory** — when the instance sets `EMAIL_VERIFICATION=mandatory` and `email` differs from the current address (ignoring case), the request still returns `200 OK`, but:
 
@@ -833,7 +831,7 @@ PATCH /api/v1/auth/me/
 
 Withdraw the authenticated user's pending email change (see [Changing `email` when verification is mandatory](#patch-apiv1authme)). The unconfirmed address is removed from the account, so the link already sent stops working, and `email` is unchanged. Added in 1.2 (#1293).
 
-Only the address the pending change tracks is removed. In the rare case where two `PATCH` requests raced (see above), the losing request's unconfirmed address is indistinguishable from other unconfirmed addresses on the account, such as ones imported by a social login, so it is left in place. Its link can still verify it as an additional address, but it never changes `email`.
+Only the address the pending change tracks is removed. If two `PATCH` requests raced (see above), the losing request's unconfirmed address is indistinguishable from other unconfirmed addresses on the account, such as ones imported by a social login, so it stays. Its link can still verify it as an additional address, but never changes `email`.
 
 **Permission:** Requires authentication, from an interactive session only (changed in 1.2, #1838): a request authenticated with a token (a personal access token or the login API token) answers `403 Forbidden` and nothing is changed, the same rule as changing `email` itself. Acts only on the caller's own pending change; the request takes no address or id. Blocked while the account has a forced password or username change pending, like other profile endpoints except `GET`/`PATCH /api/v1/auth/me/`.
 
@@ -964,7 +962,7 @@ Returns site-level configuration. This endpoint is public — no authentication 
 | `maintenance_mode` | boolean | `true` / `false` | Whether the instance is in read-only [maintenance mode](admin.md#maintenance-mode). Added in 1.2 (#1872). |
 | `maintenance_message` | string | text / `""` | The maintenance notice. Always non-empty while `maintenance_mode` is `true` (a blank operator message is replaced by the built-in default), and `""` otherwise. Plain text: render it as text, never as HTML. Added in 1.2 (#1872). |
 
-Every field describes the instance, not the caller, so an anonymous request and a signed-in one get the same body. Clients should read `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, and `demo_next_reset_at` here rather than from `/auth/user/` (see [Frozen instance flags](#frozen-instance-flags-on-authuser)).
+Every field describes the instance, not the caller, so anonymous and signed-in requests get the same body. Read `git_lens_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, and `demo_next_reset_at` here rather than from `/auth/user/` (see [Frozen instance flags](#frozen-instance-flags-on-authuser)).
 
 !!! note "The maintenance notice is public"
     Anyone can read this endpoint, so `maintenance_message` is visible without signing in. An anonymous write during maintenance also gets the same notice in its `503` body. Do not put internal detail in the notice.
@@ -1020,7 +1018,7 @@ What a registration for an address that another account already uses gets depend
 - **`mandatory`** — the same response as any other registration: `201 Created` with `{"detail": "Verification e-mail sent."}`, after the same form checks (password rules, matching passwords, a `403` when registration is closed). No account is created and the existing account is left unchanged. Instead of a confirmation link, the address receives an email saying an account already exists, with a link to reset its password. The same applies in invite-only mode, where the invite stays unused, and to the server-rendered `/accounts/signup/` form. Earlier releases answered `400` here.
 - **`optional`** or **`none`** (the default is `optional`) — `400 Bad Request` with `{"email": ["User is already registered with this e-mail address."]}`, as before. In these modes a new registration is signed in immediately and receives a token, which a registration that creates no account cannot match, so the existing response is kept.
 
-"In use" means an address another active account has as its email, an address another account has verified, or another account's username, compared ignoring case. Registration is rate-limited per IP address (`register` scope, 10 requests per minute) in every mode. Operators who want registration to answer every address the same way should set `EMAIL_VERIFICATION=mandatory` (see [Configuration](../administration/configuration.md)).
+"In use" means another active account's email, an address another account has verified, or another account's username, compared ignoring case. Registration is rate-limited per IP address (`register` scope, 10 requests per minute) in every mode. To make registration answer every address the same way, set `EMAIL_VERIFICATION=mandatory` (see [Configuration](../administration/configuration.md)).
 
 #### Invite-only mode
 
@@ -1036,7 +1034,7 @@ An **emailed board invite** (a `vbnb_` token from `POST /api/v1/boards/{id}/invi
 
 > **Added in 1.2** (#1678)
 
-An emailed site, group or board invite is bound to the address it was sent to. Registration with a different `email` is refused with `400 {"email": ["This invite was sent to a different email address. Sign up with the address the invite was sent to, or ask for a new invite."], "code": "invite_recipient_mismatch"}`. The invite is still valid, so this is an `email` field error and not an `invite_token` one, and clients should keep the token for a retry with the invited address. The check runs only after the rest of the form is valid, so a form error, such as mismatched passwords, reads the same whatever address was typed. No account is created and the invite stays unused. Matching ignores case and surrounding spaces. For OAuth sign-up, the provider's address must match; otherwise the account is rolled back and the browser is redirected with `auth_error=invite_recipient_mismatch`. The new account still follows the normal email-verification setting. With `EMAIL_VERIFICATION=mandatory`, a group or board invite whose address is not yet verified on the new account grants its membership when that address is confirmed, not at registration; the `201` response is the usual verify-email answer (#1704). Shareable invite links and emailed invites sent before upgrading to this version are not bound to an address (#1703 extended the binding to emailed site invites).
+An emailed site, group or board invite is bound to the address it was sent to. Registration with a different `email` is refused with `400 {"email": ["This invite was sent to a different email address. Sign up with the address the invite was sent to, or ask for a new invite."], "code": "invite_recipient_mismatch"}`. The invite is still valid, so this is an `email` field error, not an `invite_token` one; keep the token and retry with the invited address. The check runs only after the rest of the form is valid, so a form error such as mismatched passwords reads the same whatever address was typed. No account is created and the invite stays unused. Matching ignores case and surrounding spaces. For OAuth sign-up, the provider's address must match; otherwise the account is rolled back and the browser is redirected with `auth_error=invite_recipient_mismatch`. The new account still follows the normal email-verification setting. With `EMAIL_VERIFICATION=mandatory`, a group or board invite whose address is not yet verified on the new account grants its membership when that address is confirmed, not at registration; the `201` response is the usual verify-email answer (#1704). Shareable invite links and emailed invites sent before upgrading to this version are not bound to an address (#1703 extended the binding to emailed site invites).
 
 **Request body**
 

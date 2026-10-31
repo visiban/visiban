@@ -57,14 +57,14 @@ When the flag is off, the app is not installed, the `/mcp` route does not exist,
 
 The server runs **stateless**: every request is self-contained and no session state is pinned to a single process. This means a deployment running several backend replicas needs no sticky-session configuration.
 
-If you terminate TLS behind a reverse proxy, the `/mcp` location must disable response buffering — the transport holds a long-lived Server-Sent Events response open, and a buffering proxy will withhold event frames. The bundled Nginx templates and the Helm chart already include a correct `/mcp` block.
+If you terminate TLS behind a reverse proxy, the `/mcp` location must disable response buffering: the transport holds a long-lived Server-Sent Events response open, and a buffering proxy withholds event frames. The bundled Nginx templates and the Helm chart already include a correct `/mcp` block.
 
 ### DNS rebinding protection
 
-The transport validates the `Host` and `Origin` headers of every request against the server's `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS` settings. This stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser. A request whose `Host` is not allowed is rejected with `421 Misdirected Request`. If you reach the server on a hostname the backend does not know about, add it to `ALLOWED_HOSTS`.
+The transport checks every request's `Host` and `Origin` headers against `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`, which stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser. A request whose `Host` is not allowed gets `421 Misdirected Request`. If you reach the server on a hostname the backend does not know, add it to `ALLOWED_HOSTS`.
 
 !!! warning "If `ALLOWED_HOSTS` is `*`"
-    A wildcard cannot serve as a rebinding allowlist — the two settings guard different threats, and inheriting the wildcard would silently switch this protection off. Set `MCP_ALLOWED_HOSTS` to the hostnames clients actually reach `/mcp` on:
+    A wildcard cannot serve as a rebinding allowlist: the two settings guard different threats, and inheriting the wildcard would silently switch this protection off. Set `MCP_ALLOWED_HOSTS` to the hostnames clients actually reach `/mcp` on:
 
     ```bash
     MCP_ALLOWED_HOSTS=visiban.example.com,visiban.internal
@@ -108,7 +108,7 @@ The plaintext token is shown **once**, at creation. Only a SHA-256 hash is store
 - a token created **before 1.2** (no scopes recorded) is **refused** at `/mcp`, even though it still works across the whole REST API
 - `mcp:write` does not imply `mcp:read`
 
-The reason is consent, not capability. A PAT is a credential a user is instructed to paste into an agent, and an agent is a fundamentally different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.
+The reason is consent, not capability. Users paste a PAT into an agent, a different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.
 
 Scopes never widen access: an `mcp:read` token still sees exactly the boards its owner can see, with the same roles.
 
@@ -118,9 +118,9 @@ A token intended for both an agent and a script needs both sets of scopes, e.g. 
 
 > **Added in 1.2**
 
-`mcp:read` opens a session and is enough to call every read tool below. Calling any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`) additionally requires the **`mcp:write`** scope on the same token — non-hierarchically, exactly like every other scope pair: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
+`mcp:read` opens a session and is enough for every read tool below. Any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`) additionally requires **`mcp:write`** on the same token. Scopes are non-hierarchical: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
 
-Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool itself as a [tool error](#tool-errors) — an `isError: true` result carrying `{"error": {"code": "missing_scope", "detail": "..."}}` — not a `401`. The session is valid; only that one call was declined.
+Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool as a [tool error](#tool-errors): an `isError: true` result carrying `{"error": {"code": "missing_scope", "detail": "..."}}`, not a `401`. The session is valid; only that call was declined.
 
 ### Errors
 
@@ -132,7 +132,7 @@ Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a
 | `404 Not Found` | `MCP_SERVER_ENABLED` is not set. |
 | `421 Misdirected Request` | The `Host` header is not in `ALLOWED_HOSTS`. |
 
-Authentication is enforced at the transport layer, before any MCP protocol frame is parsed — an unauthenticated caller cannot reach the protocol machinery at all. The `401` body is a JSON-RPC error envelope so that spec-compliant clients surface a useful message.
+Authentication is enforced at the transport layer, before any MCP protocol frame is parsed, so an unauthenticated caller never reaches the protocol machinery. The `401` body is a JSON-RPC error envelope, so spec-compliant clients surface a useful message.
 
 ### Protocol errors and limits
 
@@ -157,7 +157,7 @@ These responses come from the MCP SDK rather than from a Visiban tool, so a clie
 
 > **Added in 1.2**
 
-DRF's request throttles (`DEFAULT_THROTTLE_RATES`) never apply to `/mcp` — the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view. `/mcp` instead has its own per-token limiter, keyed on the presented Personal Access Token (never on IP, and never on the raw token value), so limits hold regardless of which network or proxy a caller connects through, and hold across every backend replica because they share the same cache backend the REST throttles already use.
+DRF's request throttles (`DEFAULT_THROTTLE_RATES`) never apply to `/mcp`: the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view. `/mcp` has its own per-token limiter, keyed on the presented Personal Access Token (never on IP or the raw token value). Limits therefore hold whatever network or proxy a caller uses, and across every backend replica, because they share the cache backend the REST throttles use.
 
 Two limits stack on every call:
 
@@ -166,11 +166,11 @@ Two limits stack on every call:
 | Baseline (read) | Every tool call and every resource read | `300/min` per token | `MCP_THROTTLE_READ_RATE` |
 | Compute | `list_cards` and `board://{board_id}` only, **in addition to** the baseline limit above | `30/min` per token | `MCP_THROTTLE_COMPUTE_RATE` |
 
-A call to `list_cards` or `board://{board_id}` spends a unit from **both** buckets; every other tool/resource spends only the baseline unit. There is no `DEBUG`-time bypass — unlike the REST throttle rates, these apply the same way in local development, since a runaway loop in an agent under development is exactly the case the compute bucket exists to catch.
+A call to `list_cards` or `board://{board_id}` spends a unit from **both** buckets; every other tool/resource spends only the baseline unit. There is no `DEBUG`-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.
 
 This applies uniformly to every token, including a site admin's — there is no admin exemption from the throttle, unlike maintenance mode.
 
-Both settings accept the same `<count>/<period>` syntax as DRF's throttle rates (`m`/`min`, `h`/`hour`, `s`/`sec`, `d`/`day` — e.g. `"300/min"`, `"20/hour"`). An operator who never sets either variable still gets the defaults above, not an unlimited server. A rate string that fails to parse raises `ImproperlyConfigured` at startup rather than silently disabling the limit.
+Both settings accept the same `<count>/<period>` syntax as DRF's throttle rates (`m`/`min`, `h`/`hour`, `s`/`sec`, `d`/`day` — e.g. `"300/min"`, `"20/hour"`). Leaving both unset still gives the defaults above, not an unlimited server. A rate string that fails to parse raises `ImproperlyConfigured` at startup rather than silently disabling the limit.
 
 ```bash
 MCP_THROTTLE_READ_RATE=300/min
@@ -445,7 +445,7 @@ Soft-deletes a card. Idempotent — archiving an already-archived card succeeds 
 
 > **Added in 1.2**
 
-A **resource** is MCP's second kind of server capability, alongside a tool. Where a tool is invoked with `tools/call` and takes arguments an agent chooses per call, a resource is addressed by a URI and read with `resources/read` — it exists so an agent can load a whole board's or card's context in a single round trip, instead of chaining several `list_*` tool calls together. Visiban registers two resource templates: `board://{board_id}` and `card://{card_id}`.
+A **resource** is MCP's second kind of server capability, alongside a tool. A tool is invoked with `tools/call` and takes arguments an agent chooses per call; a resource is addressed by a URI and read with `resources/read`, so an agent can load a whole board's or card's context in one round trip instead of chaining `list_*` tool calls. Visiban registers two resource templates: `board://{board_id}` and `card://{card_id}`.
 
 Like every other endpoint under `/mcp`, reading a resource requires the `mcp:read` scope. Neither resource needs `mcp:write` — both are read-only.
 
@@ -490,9 +490,9 @@ Card detail plus full audit history. Requires board membership — any role, inc
 
 ### Resource errors
 
-Resources fail differently from tools. A tool that cannot complete returns a structured `{"error": {"code": ...}}` result (see [Tool errors](#tool-errors) above); a resource read has no equivalent channel. A failed read — a bad id, or an id on a board the caller cannot access — instead surfaces as a plain JSON-RPC-level error, with a message like `No Board matches the given query.` or `No Card matches the given query.`
+Resources fail differently from tools. A tool that cannot complete returns a structured `{"error": {"code": ...}}` result (see [Tool errors](#tool-errors) above); a resource read has no such channel. A failed read (a bad id, or an id on a board the caller cannot access) surfaces as a plain JSON-RPC-level error, with a message like `No Board matches the given query.` or `No Card matches the given query.`
 
-That message is deliberately identical whether the id does not exist or exists on a board the caller cannot see — the same IDOR-prevention reasoning the `board_not_found`/`card_not_found` tool error codes already document above. There is no way to distinguish the two cases from the response, by design.
+That message is deliberately identical whether the id does not exist or sits on a board the caller cannot see, for the same IDOR-prevention reason as the `board_not_found`/`card_not_found` tool error codes above. The two cases cannot be told apart, by design.
 
 The same "raise, don't return" rule applies to a throttled resource read — see [Throttled resource reads](#throttled-resource-reads) above.
 
