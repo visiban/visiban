@@ -14,12 +14,19 @@ Before you call a rewrite done, diff the old and new pages for:
 
 - every code block (each command must still be there, unchanged unless it was wrong)
 - every env var, Helm key, and file path
-- every callout, by severity (see [Callouts](#callouts))
-- every version note ("Added in 1.2", "since 1.2", "Changed in 1.2")
-- every link
+- every callout, by severity (see [Callouts](#callouts)), and every blockquote callout label (`> **Added in 1.2**`, `> **Visiban Enterprise**`)
+- every version note ("Added in 1.2", "since 1.2", "Changed in 1.2", "(1.2+)")
+- every link, external and internal (page and `#anchor`)
 - every heading anchor the old page published (see [Headings and links](#headings-and-links))
 
-`docs-site/scripts/check-rewrite-facts.mjs` checks all of these except version notes mechanically. It compares code blocks, inline code, external links, callout counts per severity, and published anchors. Run it, and paste its summary line in the MR.
+`docs-site/scripts/check-rewrite-facts.mjs` checks every item on this list. Version notes are matched as phrases, so a reworded note can pass while saying something different; read those yourself. For a rewrite done in place in `docs/`, compare against the branch point; no build is needed:
+
+```bash
+cd docs-site && npm ci
+node scripts/check-rewrite-facts.mjs --base origin/main features
+```
+
+It must end with `problems 0`. Paste that summary line in the MR.
 
 ## Page anatomy
 
@@ -66,7 +73,7 @@ Write the callout title as the takeaway, not a category. "Back up first: this de
 ## Headings and links
 
 - **Write headings as tasks or answers.** "Retrieve the admin password" beats "Retrieving the password".
-- **Never break a published anchor.** Every `##`–`######` heading on a page that has been published is a URL someone may have bookmarked or linked, from places no grep can reach. If you rename, merge, or remove a heading, keep its old anchor resolving: leave `<a id="old-anchor"></a>` right above wherever that content now lives. mkdocs anchors are the heading lowercased, punctuation removed, and runs of spaces and hyphens collapsed to one `-`. A repeated heading gets `_1`, `_2`, and so on. `check-rewrite-facts.mjs` lists any that no longer resolve.
+- **Never break a published anchor.** Every `##`–`######` heading on a page that has been published is a URL someone may have bookmarked or linked, from places no grep can reach. If you rename, merge, or remove a heading, keep its old anchor resolving: leave `<a id="old-anchor"></a>` right above wherever that content now lives. mkdocs anchors are the heading lowercased, punctuation removed, and runs of spaces and hyphens collapsed to one `-`. A repeated heading gets `_1`, `_2`, and so on. `check-rewrite-facts.mjs` lists any that no longer resolve, including the duplicate-heading `_1` class.
 - **Link once per page, where the reader needs it.** Don't add a "Related" section that repeats links already in the body. Put new links under **Go deeper:** instead.
 
 ## Before and after
@@ -144,7 +151,7 @@ What changed, and why:
 ## Checklist for a rewrite MR
 
 - [ ] Every page has a lede sentence and a **Why it matters:** line.
-- [ ] `check-rewrite-facts.mjs` reports `problems 0`: no code block, inline-code token, external link, callout (per severity), or published anchor lost. Version notes were checked by hand.
+- [ ] `check-rewrite-facts.mjs --base origin/main <section>` reports `problems 0`. That means no code block, inline-code token, external or internal link, callout (per severity), blockquote label, version note, or published anchor was lost. Any reworded version notes were also read by hand.
 - [ ] Every warning and danger is still a callout of the same severity.
 - [ ] No "Coming in X" or "Ships in X" wording for a version that has shipped. CI's `docs-version-accuracy` job fails on it.
 - [ ] Every page is written in US English.

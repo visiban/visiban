@@ -52,6 +52,8 @@ a scroll-back.
 
 See [Card History](https://docs.visiban.com/v1.2.0-alpha.1/features/card-history/) and [Analytics](https://docs.visiban.com/v1.2.0-alpha.1/features/analytics/).
 
+<a id="3-bring-your-own-agent-nothing-leaves-your-install"></a>
+
 ### 3. Bring your own agent — nothing leaves your install
 
 Visiban ships a first-class [MCP server](https://docs.visiban.com/v1.2.0-alpha.1/features/mcp-server/). Any MCP-capable assistant you
@@ -106,6 +108,8 @@ Visiban offers, and for a software team that does not need self-hosting it is ve
 **Pick Visiban if** self-hosting is a requirement, or your rows are customers rather than sprints.
 Linear is cloud-only and models work around engineering cycles, not per-account pipelines.
 
+<a id="vs-gitlab-github-issue-boards"></a>
+
 ### vs. GitLab / GitHub issue boards
 
 *Checked 2026-09.*
@@ -120,6 +124,8 @@ need per-account swimlanes; or if you need cycle-time data the native boards do 
 Visiban can also *mirror* a repository's issues as a read-only board — see
 [Issue Board Lens](https://docs.visiban.com/v1.2.0-alpha.1/features/issue-board-lens/) — which is often the better first step than
 migrating anything.
+
+<a id="vs-monday-clickup-asana"></a>
 
 ### vs. Monday / ClickUp / Asana
 
@@ -143,6 +149,8 @@ the workflow.
 of a database; it does not track how long something sat in a state, and it will not stop you
 overloading a column.
 
+<a id="vs-vikunja-plane"></a>
+
 ### vs. Vikunja / Plane
 
 *Checked 2026-09.*
@@ -163,6 +171,8 @@ knew now.
 
 **Pick Visiban if** you need SSO without a commercial tier — Planka moved OIDC support to its Pro
 offering in August 2026 — or if you need the swimlane data model and movement history.
+
+<a id="vs-wekan-kanboard-focalboard"></a>
 
 ### vs. WeKan / Kanboard / Focalboard
 

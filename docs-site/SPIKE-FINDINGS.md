@@ -1,6 +1,6 @@
 # Spike #1271: Astro + Starlight as a replacement for mkdocs-material + mike
 
-**Verdict: GO, with five conditions.** Starlight with `starlight-versions` fixes the #1270 bug class at its root, keeps every URL mike published working (the `v1.1`/`v1.2` alias paths unchanged, and all 22 full-version directories plus the `latest`/`next` aliases through redirect rules), and builds this prototype in about 1.3 seconds. The porting work is mostly mechanical, and a converter for it already exists here. The conditions are listed under [Go / no-go](#go--no-go). None of them is large, but skipping any of them would ship a regression.
+**Verdict: GO, with five conditions.** Starlight with `starlight-versions` removes the design that produced #1270 (an appended, string-sorted, unvalidated version list), keeps every URL mike published resolving (the `v1.1`/`v1.2` alias paths unchanged, all 22 full-version directories and the `latest`/`next` aliases through redirect rules, and every mike-published heading anchor in the archived versions), and builds this prototype in about 1.3 seconds. The porting work is mostly mechanical, and a converter for it already exists here. The conditions are listed under [Go / no-go](#go--no-go). None of them is large, but skipping any of them would ship a regression. One behavior change needs an owner decision before the cutover: what the site root serves (see [The root and `/latest/`](#the-root-and-latest-a-behavior-change-to-decide)).
 
 **Why it matters:** mike appends to a `gh-pages` branch, identifies versions with free-form strings, and sorts them as strings. That design is what let one un-prefixed `DOCS_VERSION` create a duplicate version that outranked every real one (#1270). `starlight-versions` uses a different model. Versions are an explicit, reviewed array in a config file. A version's docs are a snapshot committed at its release tag. Nothing is appended to a branch by CI.
 
@@ -12,17 +12,19 @@
 |---|---|
 | `astro.config.mjs` | Starlight config: sidebar, version list, version-slug guard |
 | `src/content.config.ts` | Content collections, plus a custom `generateId` that keeps dots in version directory names |
-| `src/content/docs/index.md`, `getting-started/*` | The current version: `docs/getting-started/` **rewritten** in Smart Brevity style, reordered into one path |
+| `src/content/docs/index.md`, `getting-started/*` | The current version: `docs/index.md` and `docs/getting-started/` **rewritten** in Smart Brevity style, reordered into one path |
 | `src/content/docs/v1.2/`, `v1.2.0-alpha.1/`, `v1.1/` | Archived versions, backfilled from tags `v1.2.0`, `v1.2.0-alpha.1`, and `v1.1.0` |
 | `src/content/versions/*.json` | Each archived version's sidebar, taken from that tag's `mkdocs.yml` nav |
 | `scripts/snapshot-from-tag.mjs` | The converter: mkdocs Markdown at a git tag → a Starlight version snapshot |
 | `public/_redirects` | GitLab Pages redirects for every URL mike published: the 22 full-version directories in `gh-pages/versions.json` and the `latest`/`next` aliases |
+| `scripts/version-slugs.mjs` | The version-slug and version-order guard, shared by the config and the converter; `npm run test:versions` tests it |
+| `scripts/anchors.mjs` | mkdocs vs. Starlight heading anchors, shared by the converter and the checks |
 | `scripts/check-*.mjs`, `scripts/measure-*.mjs` | The checks and measurements behind this page; see [Reproduce the numbers](#reproduce-the-numbers) |
 | `../docs/development/docs-style-smart-brevity.md` | The style guide for the rewrite, with a before/after example |
 
 **Run it:** `cd docs-site && npm ci && npm run build` (Node 22.12+). `npm run dev` serves it at `localhost:4321`. To re-backfill a version, run `npm run snapshot -- <tag> <slug>`, for example `npm run snapshot -- v1.1.0 v1.1`.
 
-**By the numbers:** 40 pages build in 1.3 s with a warm cache, 3.7 s on the first build after `npm ci` (Apple Silicon). That's 10 current pages plus 30 across the three archived versions. `dist/` is 4.1 MB. Three direct dependencies (`astro` 7.3.3, `@astrojs/starlight` 0.41.3, `starlight-versions` 0.9.1), exact-pinned to what TruePPM resolves, with 502 lockfile entries. `osv-scanner` 2.3.8 plus `scripts/osv-severity-gate.sh` on the lockfile: no advisories. `gitleaks dir docs-site`: no leaks. `trivy fs docs-site/package-lock.json --scanners vuln --severity HIGH,CRITICAL` (local trivy 0.71.1; CI pins 0.74.0): clean.
+**By the numbers:** 40 pages build in 1.3 s with a warm cache, and 2.3–3.7 s on a first build after `npm ci` (Apple Silicon). That's 10 current pages (the root plus nine Getting Started pages), 29 across the three archived versions (10 + 10 + 9), and `404.html`. `dist/` is 4.1 MB. Three direct dependencies (`astro` 7.3.3, `@astrojs/starlight` 0.41.3, `starlight-versions` 0.9.1), exact-pinned to what TruePPM resolves, with 502 lockfile entries. `osv-scanner` 2.3.8 plus `scripts/osv-severity-gate.sh` on the lockfile: no advisories. `gitleaks dir docs-site`: no leaks. `trivy fs docs-site/package-lock.json --scanners vuln --severity HIGH,CRITICAL` (local trivy 0.71.1; CI pins 0.74.0): clean.
 
 ## Versioning, proven side by side with mike
 
@@ -30,10 +32,10 @@
 
 **How it works:**
 
-- **The order is the array order** in `astro.config.mjs`. No string sort is involved, so the verspec half of #1270 can't happen.
-- **A malformed or duplicate version slug fails config load.** It must match `^v\d+\.\d+(\.\d+-(alpha|beta|rc)\.\d+)?$`. The snapshot script refuses the same pattern (tested: `v1.1x` exits 2). Neither mike nor the plugin validates slugs. The guard lives in our config, so it is ours to keep.
-- **The slugs reuse mike's alias paths.** `/v1.2/getting-started/installation/` is the same URL on both sites, so a deep link through mike's `v1.1`/`v1.2` aliases survives a cutover with no redirect rule.
-- **mike's full-version URLs need redirects, and have them.** mkdocs-material's version dropdown links to the full-version directories (`/v1.2.0/`, `/v1.1.0/`, `/v1.0.0/`, and every pre-release), not to the aliases, so those are the URLs people bookmarked. `public/_redirects` has a splat rule for each of the 22 directories in `gh-pages`' `versions.json` (checked against that file: 26 of 26 versions and aliases covered). The 1.2 line maps to `/v1.2/:splat` and the 1.1 line to `/v1.1/:splat`, both 301. `latest` maps to the root with 301 and `next` with 302. The 1.0 line maps to the root with 302, because this prototype doesn't backfill `v1.0`; backfill it and repoint those rules if 1.0 docs should stay reachable. *Not tested on GitLab Pages itself:* the rules follow GitLab's documented `_redirects` splat syntax, but no Pages deploy was made.
+- **The order is the array order** in `astro.config.mjs`. Nothing sorts it, so the string-sort half of #1270 has nothing to act on. The order is still hand-written, so `scripts/version-slugs.mjs` refuses a list that is not strictly newest-first, compared numerically (`v1.10` ranks above `v1.9`, and a GA minor above its own pre-releases). That makes a misordered list fail the build, not merely unlikely.
+- **A malformed or duplicate version slug fails config load.** A slug must be `vMAJOR.MINOR` or `vMAJOR.MINOR.PATCH-(alpha|beta|rc).N` with no leading zeros, so `1.2` (the #1270 shape), `v01.2`, `v1.02`, and `v1.2x` are all refused. The snapshot script applies the same module. `npm run test:versions` runs 7 tests with negative controls, covering malformed, duplicate, ascending, shuffled, and string-sorted lists. Neither mike nor the plugin validates slugs or order, so this guard is ours to keep. It reduces the #1270 risk to whatever the tested pattern misses; it doesn't eliminate it.
+- **The slugs reuse mike's alias paths, and the archived pages keep mike's anchors.** `/v1.2/getting-started/installation/` is the same URL on both sites, so a deep link through mike's `v1.1`/`v1.2` aliases needs no redirect rule. The heading anchors survive too. The converter leaves an `<a id>` shim wherever Starlight's id for a heading differs from the one mike published, including the duplicate-heading class (`#prerequisites_1` vs `#prerequisites-1`). `scripts/check-version-anchors.mjs` checks every anchor mike published for each backfilled page against the built site: `v1.2` 103/103, `v1.2.0-alpha.1` 94/94, `v1.1` 72/72. Before the shims it was 91/103, 82/94, and 65/72.
+- **mike's full-version URLs need redirects, and have them.** mkdocs-material's version dropdown links to the full-version directories (`/v1.2.0/`, `/v1.1.0/`, `/v1.0.0/`, and every pre-release), not to the aliases, so those are the URLs people bookmarked. `public/_redirects` has a splat rule for each of the 22 directories in `gh-pages`' `versions.json` (checked against that file: 26 of 26 versions and aliases covered). The 1.2 line maps to `/v1.2/:splat` and the 1.1 line to `/v1.1/:splat`, both 301. The floating aliases are 302: `latest` goes to the newest GA version (`/v1.2/:splat`), which keeps today's meaning, and `next` goes to the root. The 1.0 line maps to the root with 302, because this prototype doesn't backfill `v1.0`; backfill it and repoint those rules if 1.0 docs should stay reachable. *Not tested on GitLab Pages itself:* the rules follow GitLab's documented `_redirects` splat syntax, but no Pages deploy was made.
 - **Links out of scope go to the same version on the live site.** In the `v1.1` snapshot, a link to `features/custom-fields.md` becomes `https://docs.visiban.com/v1.1/features/custom-fields/`. That keeps the prototype honest about which pages it has.
 
 **Cutting a new version at a release works.** Tested in a scratch copy: adding `{ slug: 'v1.3' }` and running one build copied the current tree to `src/content/docs/v1.3/`. It also wrote `src/content/versions/v1.3.json`, rewrote all 58 internal links to `/v1.3/...` (0 broken), and built 50 pages. That is the release-time step going forward: add the entry, build once, and commit the snapshot.
@@ -59,9 +61,9 @@
 | Tabbed blocks `=== "Label"` | 14 in 4 files | **Mechanical.** The page becomes `.mdx` with `<Tabs>/<TabItem>`. Its prose then needs `{`, `}`, and `<` escaped, which the converter does. |
 | `include-markdown` | **1 use**: `changelog.md` includes `../CHANGELOG.md` | **Small.** Replace it with an Astro page that imports `CHANGELOG.md`, or a prebuild copy. |
 | Nav (`mkdocs.yml`) | 105 page entries (nav lines naming a `.md` file) before this branch, 106 with the style guide; one tree. An earlier draft said 109: that counted every 4-space `- ` line in the whole file, which includes 9 theme lines. | **Hand port, about 1–2 h.** It becomes the `sidebar` array. The converter already reads one section of it. |
-| Relative `.md` links | 857 | **Mechanical.** They are rewritten to absolute Starlight paths. All 592 internal links in the built prototype resolve (definition under [Reproduce the numbers](#reproduce-the-numbers)). |
+| Relative `.md` links | 853. The pattern is a Markdown link whose target ends in `.md` with an optional `#anchor`, excluding `http(s):` targets. An earlier draft said 857, which also counted 4 absolute GitLab links to `.md` files. | **Mechanical.** They are rewritten to absolute Starlight paths. All 598 internal links in the built prototype resolve (definition under [Reproduce the numbers](#reproduce-the-numbers)). |
 | Front matter | 1 file has any (`changelog.md`, `hide: navigation`) | **Mechanical.** Each page's `# H1` becomes its required `title:`. |
-| Heading anchors that change | **78 of 1,388 headings, in 35 files** (1,395 headings with the new style guide, which adds no drift); 18 in-repo links point at one | **Needs care.** mkdocs collapses `" / "` and `" — "` to a single `-`, and Starlight keeps `--` (for example `#kubernetes-helm` → `#kubernetes--helm`). The converter remaps in-repo links. External deep links need an `<a id="old">` shim; `first-boot.md` in the prototype shows one. |
+| Heading anchors that change | **88 of 1,388 headings, in 37 files** (1,395 headings with the new style guide, which adds no drift). 78 are punctuation and 10 are duplicate headings, in 5 files. 18 in-repo links point at one. An earlier draft said 78: it missed the duplicate-heading class. | **Mechanical, now.** Punctuation: mkdocs collapses `" / "` and `" — "` to a single `-`, and Starlight keeps `--` (`#kubernetes-helm` → `#kubernetes--helm`). Duplicates: mkdocs suffixes `_1`, Starlight `-1`. The converter remaps in-repo links *and* shims every drifting anchor with `<a id>`, because bookmarks and outside links can't be remapped. |
 | Pages that break the MDX parse used at version cut | 6 | **Small, but required.** See trap 2. |
 | Images, Mermaid fences, fence attributes (`hl_lines`, `title=`), attr lists | 0 / 0 / 0 / 0 | Nothing to port. (The 8 `{:`-shaped grep hits are kubectl `jsonpath` strings inside code.) |
 | Non-Markdown files | `requirements.txt`, `googled53d7e4b717185a1.html` | Move the Google site-verification file to `public/`. Delete `requirements.txt` when mike goes. |
@@ -119,15 +121,56 @@ This is a planning estimate, *not measured*. It does not include the Smart Brevi
 
 **Must keep working:**
 
-- **`README.md` has 32 links to `docs.visiban.com/next/…`.** `public/_redirects` maps `/next/*` and `/latest/*` to the root.
+- **`README.md` has 32 links to `docs.visiban.com/next/…`.** `public/_redirects` maps `/next/*` to the root and `/latest/*` to the newest GA version.
+- **What `/` and `/latest/` serve.** This is a behavior change, and it needs a decision; see the next section.
 - **Link checking.** `mkdocs build --strict` fails on a broken link. `astro build` does not. Keep the link check this spike used (a script over `dist/`), or add a link-validator plugin, which is a new dependency and needs the `dependency` gate.
 
-**Prose that still says mike:**
+**Still tied to mike or mkdocs:**
 
 - `docs/maintainers/known-ci-failures.md` (the `mike delete`/`mike alias` recovery runbook)
 - `docs/development/ci-gates.md` (the `resolve-docs-version.sh` row)
+- `docs/architecture/overview.md` lines 108–121: the CI pipeline diagram's `docs-deploy` box ("mike deploy to gh-pages; stable → latest, pre-release → next"), and the "Docs versioned with mike" design-decision bullet
+- `SKILLS.md` line 107: the `docs` skill entry ("updates `mkdocs.yml` nav, enforces … MkDocs admonition syntax, and verifies the build with `mkdocs build --strict`"). That skill doesn't exist in `.claude/skills/` either; see [Agent and skill changes](#agent-and-skill-changes).
 - `README.md` (`mkdocs serve`)
 - `.claude/skills/release/SKILL.md` (lines 286 and 320)
+
+**License checking doesn't cover `docs-site/`.** Two jobs exist today, and both are `allow_failure: true`:
+
+- `backend-license-check`: `pip-licenses --fail-on` GPLv2/GPLv3 on `backend/requirements.txt`
+- `frontend-license-check`: `npx license-checker --failOn "GPL-2.0;GPL-3.0"` in `frontend/`
+
+Neither runs on `docs-site/`. The project `CLAUDE.md` requires enterprise dependencies to pass "the same GPL license checks as OSS deps", so the migration should add a `docs-site` license job alongside the others.
+
+**What the policy says about the 14 LGPL-3.0-or-later lockfile entries** (sharp's prebuilt libvips binaries, all optional and platform-specific):
+
+- **CI blocks only GPL-2.0 and GPL-3.0,** and only as a warning. LGPL isn't on that list.
+- **The `dependency` agent** (`.claude/agents/dependency.md` line 28) classes LGPL and MPL as weak copyleft: "generally safe for application use (not library distribution); flag for awareness".
+- **`SKILLS.md`** says the dependency gate "blocks GPL-2.0/3.0".
+
+So LGPL is allowed under the project's written rules, and flagged for awareness.
+
+**Measured, not assumed:** CI's exact frontend command, `npx license-checker@25.0.1 --failOn "GPL-2.0;GPL-3.0" --summary`, run in `docs-site/`, exits 0. It counted only the packages installed on this macOS machine: 1 `LGPL-3.0-or-later` package, 1 `Apache-2.0 AND LGPL-3.0-or-later AND MIT` package, and the private root package as `UNLICENSED`. Its `failOn` matching doesn't treat `LGPL-3.0-or-later` as `GPL-3.0`. A Linux CI install would pull the linux libvips variants instead; that run was *not measured*.
+
+## The root and `/latest/`: a behavior change to decide
+
+**Today:**
+
+- `mkdocs.yml` sets `default: latest`.
+- `docs-deploy` runs `mike set-default` to the newest GA minor.
+- `gh-pages`' root `index.html` redirects to `v1.2/`.
+
+So `docs.visiban.com/` and `/latest/` both show **the newest GA release's docs**.
+
+**Under `starlight-versions`,** the root serves the *current* tree, which is built from main. That's unreleased docs, labeled "Latest (main)" in this prototype.
+
+**Why it matters:** The app's help link points at the root: `frontend/src/components/Layout/UserMenu.tsx` line 144, `href="https://docs.visiban.com"`. A self-hoster on 1.2 who clicks Help would land on docs for features their install doesn't have yet.
+
+**Options. The owner decides; this spike doesn't:**
+
+- **(a) Root = newest GA; main under `/next/`.** This preserves today's behavior. Build the current tree only at release tags so it matches the newest GA, and publish main's build as a separate preview under `/next/`. Recommended, because nothing users rely on changes.
+- **(b) Root = main** (TruePPM's model). Every merge is visible immediately, but the help link and every unversioned bookmark show unreleased docs. Only versioned URLs (`/v1.2/…`) pin a release.
+
+**In the prototype:** `/latest/*` is a 302 to `/v1.2/:splat`, which is today's meaning under either option. `/next/*` is a 302 to the root. Change both once the decision is made. This is recorded in #2019.
 
 ## Agent and skill changes
 
@@ -138,16 +181,31 @@ This is a planning estimate, *not measured*. It does not include the Smart Brevi
 | `.claude/skills/release/SKILL.md` | Lines 286 and 320 describe the `mike deploy` and `mike` abandon steps | The version-cut step, and its recovery (trap 3) |
 | Project `CLAUDE.md` | "invoke `/docs`", but **no `docs` skill exists** in `.claude/skills/` (it has `ci-debug`, `fix-mr`, `kaizen`, `mass_merge`, `mr`, `pre-release`, `release`, `review`, `threat-model`, `voc`, `wave`) | Point at the `docs-writer` agent, or create the skill. This drift predates the spike. |
 
-## The Smart Brevity rewrite of Getting Started
+## The Smart Brevity rewrite of the root page and Getting Started
 
 **What changed:**
 
 - **The section reads as one path.** The order is: decide → install → first boot → board setup → sample boards. Kubernetes, OAuth/SSO, and the onboarding tour sit in a "Branch to what you need" group.
 - **Every page opens the same way.** It has a tease-like title, a one-sentence lede, a **Why it matters:** line, and bold-label axioms (**The big picture**, **How it works**, **Yes, but**, **Watch out**, **Go deeper**).
 - **Page slugs are unchanged,** so every existing URL still resolves.
-- **Every published anchor still resolves: 101 of 101.** The original nine pages published 101 H2–H6 anchors. The first cut of the rewrite (commit `368e2e5df`) renamed or merged headings and broke **45** of them, including `installation#environment-variables`, `#hardware-requirements`, and `#docker-recommended`. Only the 9 that other repo pages link to had been kept. External bookmarks can't be grepped for, so all 101 count. Each of the 45 is now an `<a id="old-anchor"></a>` shim placed where that content lives, and `scripts/check-rewrite-facts.mjs` checks every one against the built page.
+- **Every published anchor still resolves: 103 of 103.** These are the root page's 2 plus Getting Started's 101. The original nine Getting Started pages published 101 H2–H6 anchors. The first cut of the rewrite (commit `368e2e5df`) renamed or merged headings and broke **45** of them, including `installation#environment-variables`, `#hardware-requirements`, and `#docker-recommended`. Only the 9 that other repo pages link to had been kept. External bookmarks can't be grepped for, so all 101 count. Each of the 45 is now an `<a id="old-anchor"></a>` shim placed where that content lives, and `scripts/check-rewrite-facts.mjs` checks every one against the built page.
 
-**No facts were cut** (checked by `scripts/check-rewrite-facts.mjs`, not by eye). Against the original `docs/getting-started/*.md`, the rewrite is missing 0 code blocks, 0 inline-code tokens (every env var, path, flag, and command), 0 external link targets, and 0 callouts. Callouts are compared by count per severity: the rewrite has at least as many note, tip, caution, and danger asides as the original on every page. All 592 internal links in the built site resolve, anchors included.
+**No facts were cut** (checked by `scripts/check-rewrite-facts.mjs`, not by eye). Against the original `docs/index.md` and `docs/getting-started/*.md`, the rewrite is missing none of these:
+
+- code blocks
+- inline-code tokens (every env var, path, flag, and command)
+- external link targets
+- internal link targets, compared as page + anchor
+- callouts, compared by count per severity
+- blockquote callout labels (`> **Added in 1.2**`, `> **Tested:**`, `> **⚠ Destructive:**`)
+- version notes
+
+All 598 internal links in the built site resolve, anchors included.
+
+**Two review rounds caught what the first version of the check missed:**
+
+- **The root page.** The first cut reduced `docs/index.md`'s 18-item Highlights list and 10-link Quick links table to three bullets. Lost along the way: the TLS modes, `docker-compose.prod.yml` and `init-prod.sh`, five roles, soft/hard WIP limits, Analytics *(beta)*, PAT scopes, the MCP server being off by default, Trello import, invite links, saved filters, and the "Latest release" note. All are restored, and the check now covers the root page.
+- **Two internal links:** `installation#updating-to-a-new-version` and `sample-boards#how-to-import`. Both are restored, and internal links are now checked.
 
 **Callouts kept their severity.** The first cut had flattened 11 callouts into prose or bold labels:
 
@@ -158,10 +216,10 @@ This is a planning estimate, *not measured*. It does not include the Smart Brevi
 
 All are asides again, at the original severity. The style guide now says a warning is never flattened.
 
-**Yes, but: the pages are not much shorter.** Prose words went from 14,059 to 14,458 across the nine pages (anchor shims excluded):
+**Yes, but: the pages are not much shorter.** Prose words went from 14,673 to 15,206 across the ten pages (anchor shims excluded):
 
-- **The larger pages lost a little or held steady:** `installation` 4,228 → 4,195, `first-boot` 1,218 → 1,207, and `board-setup` 604 → 604.
-- **The small pages grew:** `oauth` 357 → 505, because it gained a provider summary table, and `index` 306 → 414.
+- **The larger pages lost a little or held steady:** `installation` 4,228 → 4,208, `first-boot` 1,218 → 1,207, and `board-setup` 604 → 604.
+- **The small pages grew:** `oauth` 357 → 505, because it gained a provider summary table, `getting-started/index` 306 → 414, and the root page 614 → 731, which gained the prototype notice and a lede.
 
 On pages that are mostly commands, tables, and warnings, "cut words, never facts" leaves few words to cut. The gain is scannability, not length. That's worth saying before anyone sets a word-count target for the rest of the rewrite.
 
@@ -173,9 +231,9 @@ On pages that are mostly commands, tables, and warnings, "cut words, never facts
 
 1. Make the 6 MDX-hostile pages, and the generator markers, parse-clean. Add a CI parse check so a release is never the first place it fails.
 2. Keep link checking. `astro build` doesn't fail on broken links the way `mkdocs build --strict` does. `scripts/check-links.mjs` is a dependency-free start.
-3. Keep the version-slug guard in `astro.config.mjs`. Neither mike nor the plugin validates slugs.
-4. Preserve every published anchor, not only the ones in-repo links use: remap in-repo links, and add `<a id>` shims for the rest.
-5. Repoint `release.sh`, `check-docs-version-accuracy.sh` (excluding archived versions), and `generate_seed_data.py`. Add the Node 22 image, and add the lockfile to `dep-scan-osv`.
+3. Keep the version-slug and version-order guard (`scripts/version-slugs.mjs`, tested by `npm run test:versions`). Neither mike nor the plugin validates slugs or order.
+4. Preserve every published anchor, not only the ones in-repo links use: remap in-repo links, and add `<a id>` shims for the rest. That includes the duplicate-heading `_N` class, and every archived version (`check:version-anchors`).
+5. Repoint `release.sh`, `check-docs-version-accuracy.sh` (excluding archived versions), and `generate_seed_data.py`. Add the Node 22 image, add the lockfile to `dep-scan-osv`, and add a `docs-site` license job.
 
 **Open questions this spike did not evaluate** (both belong to #2019):
 
@@ -195,12 +253,15 @@ Run these from `docs-site/` after `npm ci && npm run build`. None needs a new de
 
 | Script | npm script | Measures | Result on this branch |
 |---|---|---|---|
-| `scripts/check-rewrite-facts.mjs [section]` | `check:facts` | Old `docs/<section>/` vs. rewritten pages. It compares code blocks, inline code, external links, callouts per severity, and published H2–H6 anchors resolved against the built page. Exits 1 on any loss. | `getting-started`: 0 problems, 101/101 anchors |
-| `scripts/check-links.mjs` | `check:links` | Every `<a>` with an `href` starting `/` or `#` inside `<main>…</main>` of every built page must resolve, including the fragment. Starlight's heading self-links are counted and reported separately. Header, sidebar, and footer links, and non-`<a>` hrefs, are excluded. | 592 links (354 heading self-links + 238 written in content), 0 broken |
+| `scripts/check-rewrite-facts.mjs [section…]` | `check:facts` | Prototype mode: old `docs/` page vs. its rewrite in `src/content/docs/`, with anchors resolved against the built page. With no section, it checks the root page and `getting-started`. It compares code blocks, inline code, external links, internal links (page + anchor), callouts per severity, blockquote callout labels, version notes, and published H2–H6 anchors. Exits 1 on any loss. | 0 problems; 103/103 anchors |
+| `scripts/check-rewrite-facts.mjs --base <ref> <section…>` | — | In-place mode, for rewrites done in `docs/` itself (#2020–#2026). It runs the same comparisons, with `docs/<section>` at `<ref>` as the old page and the working tree as the new one. Anchors come from the new Markdown's headings and `<a id>` shims, so no build is needed. | `--base origin/main features`: 0 problems, 344/344 anchors (no rewrite yet, so this is the control) |
+| `scripts/check-version-anchors.mjs [slug=tag…]` | `check:version-anchors` | Every anchor mike published for each backfilled page, at its tag, must exist in `dist/<slug>/` | `v1.2` 103/103, `v1.2.0-alpha.1` 94/94, `v1.1` 72/72 |
+| `scripts/check-links.mjs` | `check:links` | Every `<a>` with an `href` starting `/` or `#` inside `<main>…</main>` of every built page must resolve, including the fragment. Starlight's heading self-links are counted and reported separately. Header, sidebar, and footer links, and non-`<a>` hrefs, are excluded. | 598 links (356 heading self-links + 242 written in content), 0 broken |
+| `scripts/test-version-slugs.mjs` | `test:versions` | The slug and order guard, with negative controls | 7 tests pass |
 | `scripts/measure-mdx-parse.mjs [dir…]` | `measure:mdx` | Pages that fail the `remark-mdx` parse `starlight-versions` runs when it cuts a version | `../docs`: 6 of 106; prototype: 0 of 39 |
-| `scripts/measure-anchor-drift.mjs [dir]` | `measure:anchors` | H2–H6 anchors whose mkdocs slug differs from Starlight's, and in-repo links that target one | 78 of 1,395 headings in 35 files; 18 links |
+| `scripts/measure-anchor-drift.mjs [dir]` | `measure:anchors` | H2–H6 anchors whose mkdocs id differs from Starlight's, by class, and in-repo links that target one | 88 of 1,395 headings in 37 files (78 punctuation, 10 duplicate in 5 files); 18 links |
 
-**Why the link count changed from an earlier 616.** The first count matched every `href="…"` inside `<main>`, which also caught 24 `<link rel="stylesheet">` tags that Expressive Code emits inside `<main>` (one per page with a code block). Counting only `<a>` elements gives 592. Both counts had 0 broken.
+**Why the link count changed twice.** The first count, 616, matched every `href="…"` inside `<main>`. That also caught 24 `<link rel="stylesheet">` tags that Expressive Code emits inside `<main>`, one per page with a code block. Counting only `<a>` elements gave 592 at commit `9b1bb4833`. It is 598 now, because the restored root page and the two restored internal links add 6. Every count had 0 broken.
 
 ## Follow-ups filed
 

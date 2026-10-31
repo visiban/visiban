@@ -259,6 +259,8 @@ A template with comments is at `frontend/.env.local.example`.
 
 OAuth variables are documented in [OAuth Setup](/v1.2/getting-started/oauth/).
 
+<a id="kubernetes-helm"></a>
+
 ## Kubernetes / Helm
 
 > **Tested:** The Helm chart has been deployed and verified on a live Kubernetes cluster.
@@ -334,6 +336,8 @@ The production stack (`docker-compose.prod.yml`) replaces the Vite dev server wi
 | **Frontend build** | The release image's pre-built SPA (compiled at image-build time) is copied into a shared volume at startup |
 | **Certbot** | (TLS_MODE=letsencrypt only) Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours |
 
+<a id="prerequisites_1"></a>
+
 ### Prerequisites
 
 - A Linux server (VPS, cloud VM, bare metal)
@@ -343,6 +347,8 @@ The production stack (`docker-compose.prod.yml`) replaces the Vite dev server wi
     - A DNS **A record** pointing `yourdomain.com` → your server's public IP (Let's Encrypt verifies domain ownership before issuing a certificate)
 - For `TLS_MODE=selfsigned`: Port **443** open (and **80** for the HTTP→HTTPS redirect)
 - For `TLS_MODE=none`: Port **80** open
+
+<a id="step-1-clone-and-configure"></a>
 
 ### Step 1 — Clone and configure
 
@@ -434,6 +440,8 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173
 
 > **OAuth** (Google, GitHub, GitLab) is optional. See [OAuth Setup](/v1.2/getting-started/oauth/) if you want social login.
 
+<a id="step-2-run-the-init-script"></a>
+
 ### Step 2 — Run the init script
 
 ```bash
@@ -460,6 +468,8 @@ When it finishes you will see:
 :::note[Migrating from `init-letsencrypt.sh`]
 The old `init-letsencrypt.sh` script still works — it prints a deprecation warning and delegates to `init-prod.sh` with `TLS_MODE=letsencrypt`. No action is required for existing deployments, but new installs should use `init-prod.sh` directly.
 :::
+
+<a id="step-3-verify"></a>
 
 ### Step 3 — Verify
 
@@ -573,6 +583,8 @@ docker compose -f docker-compose.prod.yml exec backend \
   tar czf /tmp/media.tar.gz -C /app media/
 docker compose -f docker-compose.prod.yml cp backend:/tmp/media.tar.gz ./media_backup.tar.gz
 ```
+
+<a id="troubleshooting_1"></a>
 
 ### Troubleshooting
 

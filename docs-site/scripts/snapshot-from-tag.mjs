@@ -34,6 +34,8 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { dirname, join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SLUG_PATTERN } from './version-slugs.mjs'
+import { headings } from './anchors.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const siteRoot = join(here, '..')
@@ -46,8 +48,8 @@ if (!tag || !slug) {
 }
 // Same guard astro.config.mjs applies: the #1270 failure was an unvalidated
 // version identifier, so a malformed slug never reaches the filesystem.
-if (!/^v\d+\.\d+(\.\d+-(alpha|beta|rc)\.\d+)?$/.test(slug)) {
-  console.error(`refusing version slug "${slug}": expected vMAJOR.MINOR or vMAJOR.MINOR.PATCH-(alpha|beta|rc).N`)
+if (!SLUG_PATTERN.test(slug)) {
+  console.error(`refusing version slug "${slug}": expected vMAJOR.MINOR or vMAJOR.MINOR.PATCH-(alpha|beta|rc).N, no leading zeros`)
   process.exit(2)
 }
 // mike publishes GA releases under their vMAJOR.MINOR alias and pre-releases
@@ -65,38 +67,18 @@ const sources = [
 ]
 const inScope = new Set(sources)
 
-// ---------- slugs ----------
-// Python-Markdown toc.slugify, which is what every existing #anchor was written against.
-function mkdocsSlug(v) {
-  v = v.normalize('NFKD').replace(/[^\x00-\x7f]/g, '')
-  v = v.replace(/[^\w\s-]/g, '').trim().toLowerCase()
-  return v.replace(/[-\s]+/g, '-')
-}
-// github-slugger's algorithm (what Starlight's heading anchors follow): lowercase,
-// strip punctuation, every space becomes '-', no collapsing.
-function astroSlug(v) {
-  return v
-    .toLowerCase()
-    .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, '')
-    .replace(/ /g, '-')
-}
-const headingText = (h) =>
-  h.replace(/`/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_]/g, '').trim()
-
-// mkdocs anchor -> Astro anchor, per in-scope source file.
+// ---------- anchors ----------
+// Every #anchor in these pages was written against mkdocs' slugs, and every
+// bookmark into the live site uses them. Map each page's mkdocs anchors
+// (duplicates suffixed _1, _2, ...) to the ids Starlight will generate
+// (duplicates suffixed -1, -2, ...); see scripts/anchors.mjs.
 const anchorMaps = new Map()
 const contents = new Map()
+const titleOf = (text) => /^#\s+(.*)$/m.exec(text)?.[1]
 for (const src of sources) {
   const text = git('show', `${tag}:${src}`)
   contents.set(src, text)
-  const map = new Map()
-  let fence = false
-  for (const line of text.split('\n')) {
-    if (/^\s*```/.test(line)) fence = !fence
-    const m = !fence && /^#{2,6}\s+(.*)$/.exec(line)
-    if (m) map.set(mkdocsSlug(headingText(m[1])), astroSlug(headingText(m[1])))
-  }
-  anchorMaps.set(src, map)
+  anchorMaps.set(src, new Map(headings(text.split('\n'), { h1: titleOf(text) }).map((h) => [h.mkdocs, h.astro])))
 }
 
 const pageUrl = (src) => {
@@ -220,6 +202,14 @@ function convert(src) {
 
   const state = { tabs: false }
   lines = convertBlocks(lines, state)
+
+  // Keep every anchor mkdocs published: where Starlight's id for a heading
+  // differs, leave the mkdocs id as an <a id> shim right above it. In-repo
+  // links are remapped to the Starlight id below; the shim is for bookmarks
+  // and links from outside, which no rewrite can reach.
+  for (const h of headings(lines, { h1: title }).reverse()) {
+    if (h.mkdocs !== h.astro) lines.splice(h.line, 0, `<a id="${h.mkdocs}"></a>`, '')
+  }
   lines = mapProse(lines, (s) => s.replace(/\]\(([^)\s]+)\)/g, (_, t) => `](${rewriteLink(t, src)})`))
 
   const mdx = state.tabs
@@ -238,7 +228,7 @@ function convert(src) {
     )
   }
   if (mdx) {
-    const generated = /^<\/?(Tabs|TabItem)\b/
+    const generated = /^<\/?(Tabs|TabItem)\b|^<a id="[^"]*"><\/a>$/
     // Single-line HTML comments only (the only kind the in-scope pages use).
     const comments = []
     lines = mapProse(lines, (s) => {

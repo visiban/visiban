@@ -90,6 +90,8 @@ cat /tmp/visiban_admin_password
 The password is on its own line. If your shell displays a `%` immediately after it, that is a zsh prompt indicator — it is **not** part of the password. Copy only the characters before the `%`.
 :::
 
+<a id="kubernetes-helm"></a>
+
 ### Kubernetes / Helm
 
 `ensure_site_admin` runs automatically as a `bootstrap` init container on every deploy. The password is written to `/run/visiban/admin_password` inside a shared volume that persists into the running backend pod.

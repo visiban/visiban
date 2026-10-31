@@ -10,12 +10,17 @@
 #   /v1.2.0-alpha.1/        kept as an archived version in this prototype
 #
 # Splat rules keep the rest of the path, so a deep link lands on the same page
-# in the matching version. 301 where the target is the permanent home of that
-# release's docs; 302 where it is a stand-in that may change (aliases that
-# follow the newest docs, and v1.0, which this prototype does not backfill).
-
-# Aliases: the current version is served at the root.
-/latest/*            /:splat         301
+# in the matching version.
+#   301  the target is the permanent home of that release's docs
+#   302  the target is a stand-in that is expected to change: the two
+#        floating aliases, and v1.0, which this prototype does not backfill
+#
+# Aliases. Today `latest` is mike's default and means the newest GA release,
+# not main; keep that meaning by pointing it at the newest GA version (move it
+# when a new minor is cut). `next` is mike's newest pre-release; this prototype
+# serves main at the root, so `next` goes there. What the root itself should
+# serve (newest GA, or main) is an open decision; see SPIKE-FINDINGS.md and #2019.
+/latest/*            /v1.2/:splat    302
 /next/*              /:splat         302
 
 # 1.2 line -> /v1.2/

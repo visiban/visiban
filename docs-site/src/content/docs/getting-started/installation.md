@@ -94,7 +94,7 @@ db-1 | FATAL: database files are incompatible with server
 db-1 | DETAIL: The data directory was initialized by PostgreSQL version 16, which is not compatible with this version 17.x.
 ```
 
-:::danger[This deletes all local database data]
+:::danger[Destructive: this deletes all local database data]
 Back up anything you need first: `docker compose exec db pg_dump -U visiban visiban > backup.sql`.
 :::
 
@@ -419,7 +419,7 @@ The backend image ships the sample board JSON files. To try Visiban with a popul
 
 <a id="subsequent-deploys"></a>
 
-**Subsequent deploys:** The production stack runs the released images named by `APP_VERSION` in `.env`. It builds nothing locally, and `git pull` doesn't change `.env`.
+**Subsequent deploys:** The production stack runs the released images named by `APP_VERSION` in `.env`. It builds nothing locally, and `git pull` doesn't change `.env`. To move to a new release, see [Updating to a new version](#updating-to-a-new-version).
 
 ### Updating to a new version
 

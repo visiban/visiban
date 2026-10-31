@@ -5,7 +5,7 @@ sidebar:
   label: Sample boards
 ---
 
-In the app, open **Import** on the Dashboard and pick a board under **Start from a sample**. You'll have a fully populated board in a few seconds.
+In the app, open **Import** on the Dashboard and pick a board under **Start from a sample** (see [How to import](#how-to-import)). You'll have a fully populated board in a few seconds.
 
 **Why it matters:** An empty board teaches you nothing about analytics or history. Each sample has real columns, swimlanes, labels, and cards, plus typed custom fields, a full audit trail, and enough movement history to fill the analytics charts.
 

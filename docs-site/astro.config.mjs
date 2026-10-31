@@ -9,14 +9,15 @@
 import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 import starlightVersions from 'starlight-versions'
+import { assertVersions } from './scripts/version-slugs.mjs'
 
 // Archived versions, newest first. The dropdown shows them in exactly this
-// order: there is no string sort to get wrong, which is the half of #1270 that
-// mike's verspec sort caused.
+// order: nothing sorts them, which removes the string-sort half of #1270.
+// assertVersions (below) refuses the config if the order is not descending.
 //
-// Each slug mirrors the URL mike already publishes (/v1.2/, /v1.1/,
-// /v1.2.0-alpha.1/), so a deep link into an archived version keeps working
-// after a cutover. Snapshots for releases that predate this site are
+// Each slug mirrors one of mike's alias paths (/v1.2/, /v1.1/) or a version
+// directory (/v1.2.0-alpha.1/); mike's other version directories redirect via
+// public/_redirects. Snapshots for releases that predate this site are
 // backfilled with `npm run snapshot -- <tag> <slug>`; future releases are cut
 // by adding the entry here and running one build (the plugin copies the
 // current tree into src/content/docs/<slug>/), then committing the snapshot.
@@ -27,17 +28,10 @@ const versions = [
 ]
 
 // The other half of #1270: mike accepted any string as a version, so one
-// un-prefixed DOCS_VERSION created a duplicate entry. Refuse a malformed or
-// duplicate slug at config load, before anything is written.
-const slugPattern = /^v\d+\.\d+(\.\d+-(alpha|beta|rc)\.\d+)?$/
-const seen = new Set()
-for (const { slug } of versions) {
-  if (!slugPattern.test(slug)) {
-    throw new Error(`docs version slug "${slug}" must be vMAJOR.MINOR or vMAJOR.MINOR.PATCH-(alpha|beta|rc).N`)
-  }
-  if (seen.has(slug)) throw new Error(`docs version slug "${slug}" is listed twice`)
-  seen.add(slug)
-}
+// un-prefixed DOCS_VERSION created a duplicate entry. Refuse a malformed,
+// duplicate, or out-of-order slug at config load, before anything is written.
+// Tested, with negative controls, by `npm run test:versions`.
+assertVersions(versions)
 
 export default defineConfig({
   site: 'https://docs.visiban.com',

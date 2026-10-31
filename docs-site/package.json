@@ -11,7 +11,9 @@
     "check:links": "node scripts/check-links.mjs",
     "check:facts": "node scripts/check-rewrite-facts.mjs",
     "measure:mdx": "node scripts/measure-mdx-parse.mjs",
-    "measure:anchors": "node scripts/measure-anchor-drift.mjs"
+    "measure:anchors": "node scripts/measure-anchor-drift.mjs",
+    "check:version-anchors": "node scripts/check-version-anchors.mjs",
+    "test:versions": "node scripts/test-version-slugs.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "0.41.3",
