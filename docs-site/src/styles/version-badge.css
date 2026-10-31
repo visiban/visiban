@@ -1,0 +1,20 @@
+/* "Added in" version badge (#1271). Markup, in .md or .mdx:
+ *   <span class="vb-version" title="Added in 1.2">1.2+</span>
+ * Rules (label format, never 1.0, additions only) are in
+ * docs/development/docs-style-smart-brevity.md, "Version badges", and
+ * scripts/rewrite-facts.mjs checks them. Colors follow Starlight's note badge,
+ * so it reads in both light and dark themes. */
+.vb-version {
+  display: inline-block;
+  padding: 0 0.4em;
+  border: 1px solid var(--sl-color-blue);
+  border-radius: 0.25rem;
+  background-color: var(--sl-color-blue-low);
+  color: var(--sl-color-blue-high);
+  font-family: var(--sl-font-system-mono);
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}

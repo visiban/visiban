@@ -215,9 +215,7 @@ Run `init-prod.sh` once and it obtains a certificate, starts the stack, and tell
 | **Frontend build** | Copies the release image's pre-built SPA (compiled at image-build time) into a shared volume at startup |
 | **Certbot** | (`TLS_MODE=letsencrypt` only) Obtains the Let's Encrypt certificate on first boot and renews it automatically every 12 hours |
 
-> **Added in 1.2**
-
-**Verify the images:** The `backend` and `frontend` images this stack pulls are cosign-signed, and each carries a per-architecture CycloneDX SBOM. Verify them before deploying: see [Verifying release images](https://docs.visiban.com/latest/administration/image-verification/). The stack's other images (`postgres`, `valkey`, `nginx`, `certbot`) are upstream images that Visiban does not sign.
+**Verify the images <span class="vb-version" title="Added in 1.2">1.2+</span>:** The `backend` and `frontend` images this stack pulls are cosign-signed, and each carries a per-architecture CycloneDX SBOM. Verify them before deploying: see [Verifying release images](https://docs.visiban.com/latest/administration/image-verification/). The stack's other images (`postgres`, `valkey`, `nginx`, `certbot`) are upstream images that Visiban does not sign.
 
 <a id="prerequisites_1"></a>
 

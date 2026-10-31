@@ -220,7 +220,7 @@ So `docs.visiban.com/` and `/latest/` both show **the newest GA release's docs**
 
 All 598 internal links in the built site resolve, anchors included.
 
-**The check fails when it should.** `npm run test:facts` runs 12 negative controls against the real root-page rewrite. Each one deletes the Invite links, Custom fields *(1.2)*, Groups, MCP *(1.2, off by default)* or Saved filters bullet, or changes "Five roles" to "Several roles", or drops a version note, a Quick links row, a warning callout, or a duplicate-heading anchor, or hides a broken `#django_secret_key` behind a wrong shim. Every one is reported, and in the right category.
+**The check fails when it should.** `npm run test:facts` runs 19 tests against the real root-page rewrite: a baseline and 18 negative controls. The version-badge controls are described under [Version badges](#version-badges). Each one deletes the Invite links, Custom fields *(1.2)*, Groups, MCP *(1.2, off by default)* or Saved filters bullet, or changes "Five roles" to "Several roles", or drops a version note, a Quick links row, a warning callout, or a duplicate-heading anchor, or hides a broken `#django_secret_key` behind a wrong shim. Every one is reported, and in the right category.
 
 **What it can't see, and a reviewer must read for:** a fact stated only in plain prose. If it isn't code, a link, a callout, a bold bullet term, a number in a list or table, or a version note, the check can't tell whether it was reworded into something false or dropped.
 
@@ -238,14 +238,47 @@ All 598 internal links in the built site resolve, anchors included.
 
 All are asides again, at the original severity. The style guide now says a warning is never flattened.
 
-**Yes, but: the pages are not much shorter.** Prose words went from 14,673 to 15,200 across the ten pages (anchor shims excluded):
+**Yes, but: the pages are not much shorter.** Prose words went from 14,673 to 15,191 (a version badge counts as one word) across the ten pages (anchor shims excluded):
 
-- **The larger pages lost a little or held steady:** `installation` 4,228 → 4,202, `first-boot` 1,218 → 1,207, and `board-setup` 604 → 605.
+- **The larger pages lost a little or held steady:** `installation` 4,228 → 4,199, `first-boot` 1,218 → 1,207, and `board-setup` 604 → 605.
 - **The small pages grew:** `oauth` 357 → 505, because it gained a provider summary table, `getting-started/index` 306 → 413, and the root page 614 → 731, which gained the prototype notice and a lede.
 
 On pages that are mostly commands, tables, and warnings, "cut words, never facts" leaves few words to cut. The gain is scannability, not length. That's worth saying before anyone sets a word-count target for the rest of the rewrite.
 
 **One fix found while rewriting:** the original `getting-started/index.md` says "work through these **four** steps" and then lists five. The rewrite says five. The in-place port should carry that fix back.
+
+## Version badges
+
+**Features and sections added after 1.0 now carry a visible "added in" badge,** `1.2+`. That is the user's convention, and the rules are in `docs/development/docs-style-smart-brevity.md` under "Version badges". In short: badge a called-out feature or section, never a sentence, and never 1.0.
+
+**What you'll see:**
+
+- **On the root page:** a `1.2+` badge inside the bold term, before its period, of the **Custom fields**, **Trello import**, and **MCP server** Highlights bullets. "Off by default" stays plain text beside the MCP badge.
+- **On `installation`:** `1.2+` inside the bold label, before its colon (**Verify the images 1.2+:**), replacing the standalone `> **Added in 1.2**` blockquote above it.
+- **On `sample-boards`:** `1.2+` alone under the "From the app" heading, replacing the "Added in 1.2" note about the sample gallery.
+- **On `onboarding-tour`:** `1.1+` on the page's first line, replacing `> **Added in 1.1**`, plus a `1.1+` badge on its sidebar entry.
+
+**Version mentions inside sentences stay prose,** as they were:
+
+- "scopes are new in 1.2"
+- `first-boot`'s "*(1.2+)* a group invite" and "new in 1.2, via `POST …`"
+- `kubernetes`' "Since 1.2, the chart is published …" and "*(since 1.2)* each platform image …"
+- `why-visiban`'s "*(as of 1.2)*"
+
+**Behavior changes keep their prose and get no badge.** Those are "Since 1.2, `backend.email.backend` defaults to unset", the "Changed in 1.2" note, and the "removed in 1.1" aliases. Code blocks and the archived snapshots are untouched.
+
+**How it's built:**
+
+- **A plain `<span class="vb-version" title="Added in 1.2">1.2+</span>`**, styled by `src/styles/version-badge.css` (added to `customCss`), using Starlight's blue tokens so it reads in both themes.
+- **Why not Starlight's `<Badge>` component:** that only works in `.mdx`. A span keeps every page `.md`, adds no dependency, and parses as MDX at a version cut (`measure:mdx` 0 of 39).
+- **No route or anchor impact:** badges never go in heading text (`check:facts` 103/103, `check:version-anchors` unchanged).
+
+**How it's checked:** `check:facts` treats feature-level and prose notes differently.
+
+- **Feature-level notes** (standalone "Added in X" blockquotes or callouts, notes right after a bullet's bold term, and notes in headings) may become badges, counted per version. A dropped badge, or `1.2+` changed to `1.1+`, is reported.
+- **Prose notes** must survive word for word.
+- **Every badge** must be well formed and newer than 1.0, and it may not sit inside a sentence.
+- **The tests:** `test:facts` has negative controls for each of these.
 
 ## Go / no-go
 
@@ -281,7 +314,7 @@ Run these from `docs-site/` after `npm ci && npm run build`. `npm test` runs the
 | `scripts/check-links.mjs` | `check:links` | Every `<a>` with an `href` starting `/` or `#` inside `<main>…</main>` of every built page must resolve, including the fragment. Starlight's heading self-links are counted and reported separately. Header, sidebar, and footer links, and non-`<a>` hrefs, are excluded. | 598 links (356 heading self-links + 242 written in content), 0 broken |
 | `scripts/test-version-slugs.mjs` | `test:versions` | The slug and order guard, and that `/latest/*` in `_redirects` points at the newest GA version, with negative controls | 9 tests pass |
 | `scripts/test-anchor-model.mjs` | `test:anchors` | The anchor model against every heading id a real `mkdocs build` published (`scripts/fixtures/mkdocs-anchor-ids.json`, regenerated by `build-anchor-fixture.mjs`), plus negative controls | 1,395/1,395 match |
-| `scripts/test-rewrite-facts.mjs` | `test:facts` | Negative controls for the fact check (see above) | 12 tests pass |
+| `scripts/test-rewrite-facts.mjs` | `test:facts` | Negative controls for the fact check, including the version badges (see above) | 19 tests pass |
 | `scripts/measure-mdx-parse.mjs [dir…]` | `measure:mdx` | Pages that fail the `remark-mdx` parse `starlight-versions` runs when it cuts a version | `../docs`: 6 of 106; prototype: 0 of 39 |
 | `scripts/measure-anchor-drift.mjs [dir]` | `measure:anchors` | H2–H6 anchors whose mkdocs id differs from Starlight's, by class, and in-repo links that target one | 88 of 1,395 headings in 37 files (78 punctuation, 10 duplicate in 5 files); 22 links |
 

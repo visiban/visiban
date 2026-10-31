@@ -5,7 +5,7 @@ sidebar:
   label: Onboarding tour
 ---
 
-> **Added in 1.1**
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
 Every new user gets an 8-step guided tour the first time they open any board. It runs once, until someone resets it.
 

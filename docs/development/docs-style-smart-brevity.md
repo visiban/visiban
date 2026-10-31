@@ -15,7 +15,7 @@ Before you call a rewrite done, diff the old and new pages for:
 - every code block (each command must still be there, unchanged unless it was wrong)
 - every env var, Helm key, and file path
 - every callout, by severity (see [Callouts](#callouts)), and every blockquote callout label (`> **Added in 1.2**`, `> **Visiban Enterprise**`)
-- every version note ("Added in 1.2", "since 1.2", "Changed in 1.2", "(1.2+)", "*(1.2)*", "*(1.2, off by default)*")
+- every version note ("Added in 1.2", "since 1.2", "Changed in 1.2", "(1.2+)", "*(1.2)*", "*(1.2, off by default)*"). A feature-level addition note may become a [version badge](#version-badges); a note inside a sentence stays.
 - every link, external and internal (page and `#anchor`)
 - every heading anchor the old page published (see [Headings and links](#headings-and-links))
 - every bullet's bold lead term (`- **Invite links** …`): keep the term itself, and reword what follows it
@@ -76,6 +76,42 @@ Use a *new* callout only for a fact a reader could be hurt by missing, not for a
 | `!!! danger "Title"` | `:::danger[Title]` | data loss, security exposure |
 
 Write the callout title as the takeaway, not a category. "Back up first: this deletes the database" beats "Warning".
+
+## Version badges
+
+**Badge a called-out feature or section, never a sentence.** When a page calls something out *as a feature* and it was added after 1.0, mark it with the release it was added in, as `MAJOR.MINOR+`:
+
+```markdown
+- **Custom fields <span class="vb-version" title="Added in 1.2">1.2+</span>.** Typed fields on cards and on swimlane rows ...
+- **MCP server <span class="vb-version" title="Added in 1.2">1.2+</span>.** Off by default. Let an AI agent ...
+```
+
+**Why it matters:** A reader on 1.1 scanning a feature list or a page's sections needs to see at a glance what their install doesn't have. One consistent badge in those places is faster to scan than a mix of "*(1.2)*" and "Added in 1.2" callouts.
+
+**Where a badge goes. Only these places:**
+
+- **Inside the bold lead term of a feature bullet,** a table row, or a bold-labeled paragraph, after the term and before its closing period or colon, so it reads "Custom fields 1.2+." and not "Custom fields. 1.2+" (`**Verify the images <span …>1.2+</span>:** …`). The punctuation stays inside the bold.
+- **Alone on its own line directly under a heading,** when the whole section is new. This replaces a standalone `> **Added in 1.2**` blockquote or a callout titled only "Added in 1.2".
+- **Alone on the first line of the body,** when the whole page is new. In `docs-site/`, also give the page's sidebar entry a `badge` in `astro.config.mjs`.
+
+**Never inside a sentence or running prose.** "Scopes are new in 1.2", "Since 1.2, the chart is published as …", "*(since 1.2)* each platform image …", and "a site invite link or *(1.2+)* a group invite" all stay as plain text.
+
+**Never inside heading text.** The heading's text is its anchor, so `## Groups 1.2+` would publish `#groups-12` and break every link to `#groups`.
+
+**The rules:**
+
+- **Label format: `1.2+`.** Always major.minor plus `+`, with the title attribute `Added in 1.2`. Never `v1.2`, `1.2.0+`, or `1.2`.
+- **Never tag 1.0.** 1.0 is the base product, so nothing in it was "added". An untagged feature means it has been there since 1.0.
+- **Additions only.** A behavior change to something older keeps its version in prose, or in a `Changed in 1.2` callout. A `1.2+` badge would tell a 1.1 reader the thing doesn't exist for them, which is false. Example: "Since 1.2, `backend.email.backend` defaults to unset."
+- **Qualifiers stay plain text beside it:** `1.2+ Off by default.`, not `(1.2, off by default)`.
+
+**How it's checked:** `check-rewrite-facts.mjs` handles feature-level and prose notes differently.
+
+- **Feature-level notes** are a standalone "Added in X" blockquote or callout, a note right after a bullet's bold lead term, or a note in a heading. These may become badges: per version, the badges plus any surviving feature-level notes must cover the original's. So dropping a badge, or changing `1.2+` to `1.1+`, is reported.
+- **Prose notes** must survive word for word. A badge doesn't stand in for one.
+- **Every badge** must be well formed, newer than 1.0, and in one of the places above. A badge inside a sentence is reported.
+
+**Yes, but: mkdocs won't style it yet.** The badge is a plain `<span class="vb-version">`, so pages stay `.md` and parse as MDX at a Starlight version cut. Under mkdocs (`docs/`) it renders as plain text "1.2+" until the stylesheet is added with `extra_css`. The rule for doing that lives in #2020; the CSS is `docs-site/src/styles/version-badge.css`.
 
 ## Headings and links
 
@@ -161,5 +197,6 @@ What changed, and why:
 - [ ] `check-rewrite-facts.mjs --base origin/main <section>` reports `problems 0`. That means no code block, inline-code token, external or internal link, callout (per severity), blockquote label, bullet lead term, list or table number, version note, or published anchor was lost.
 - [ ] A reviewer read the old and new pages side by side for facts stated only in prose, which the check can't see.
 - [ ] Every warning and danger is still a callout of the same severity.
+- [ ] Every feature or section called out as added after 1.0 carries a `MAJOR.MINOR+` version badge, placed per [Version badges](#version-badges): never in a sentence, never in heading text, never 1.0. Prose version notes stay prose.
 - [ ] No "Coming in X" or "Ships in X" wording for a version that has shipped. CI's `docs-version-accuracy` job fails on it.
 - [ ] Every page is written in US English.
