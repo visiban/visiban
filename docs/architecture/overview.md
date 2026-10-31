@@ -2,11 +2,9 @@
 
 # One Django backend, one React SPA, two datastores
 
-How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking over REST and WebSocket, backed by PostgreSQL and Valkey. Read this first if you're contributing code or evaluating self-hosting.
+A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by PostgreSQL 17 and Valkey 8. Read this first if you're contributing code or evaluating self-hosting.
 
-**Why it matters:** Visiban is a monolith with no microservices, queues, or search index. Two datastores are all a self-hoster operates.
-
-**The big picture:** the browser talks to a daphne ASGI backend over REST and WebSocket. PostgreSQL 17 holds the data. Valkey 8 carries WebSocket channel messages.
+**Why it matters:** no microservices, queues, or search index: a self-hoster operates two datastores.
 
 **Go deeper:** [Data Model](data-model.md), [Deployment](deployment.md), [Technology Decisions](decisions.md).
 
@@ -61,15 +59,15 @@ How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking
 
 1. Browser sends REST request with session cookie; a non-browser client sends a `PersonalAccessToken` instead
 2. DRF authenticates, trying `PATAuthentication`, then `SessionAuthentication`, then `TokenAuthentication` in that order
-3. View calls `get_board_role()` or `_require_group_admin()` to resolve the caller's effective role
+3. View calls `get_board_role()` or `_require_group_admin()` for the caller's effective role
 4. Queryset filtering restricts results to accessible boards/groups
-5. Response serialized and returned as JSON
+5. Response is serialized to JSON
 
 ## WebSocket lifecycle
 
 1. Frontend opens `ws://{host}/ws/boards/{board_id}/` on page load
-2. `AuthMiddlewareStack` authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001. A caller with no session cookie — a PAT/DRF-token client, a different origin, or a native/CLI client — instead requests a short-lived, single-use **ticket** over REST first and passes it as `?ticket=` on the upgrade (`accounts.ws_auth.TicketAuthMiddleware`, #1109); the ticket only authenticates the connection, it grants no extra authorization
-3. On connect, the consumer joins the `board_{id}` channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change) regardless of how the connection was authenticated
+2. `AuthMiddlewareStack` authenticates the connection via the session cookie; unauthenticated connections close with code 4001. A caller with no session cookie (a PAT/DRF-token client, a different origin, or a native/CLI client) first requests a short-lived, single-use **ticket** over REST and passes it as `?ticket=` on the upgrade (`accounts.ws_auth.TicketAuthMiddleware`, #1109). The ticket only authenticates the connection; it grants no extra authorization
+3. On connect, the consumer joins the `board_{id}` channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change), however the connection was authenticated
 4. Any mutation (card move, update, delete) calls `broadcast_board_event()` which publishes to Valkey
 5. Valkey fans the event out to all consumers in the group
 6. Each consumer forwards the event to its WebSocket client
@@ -77,7 +75,7 @@ How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking
 
 ## CI/CD pipeline
 
-GitLab CI runs on every push, MR, and version tag. The pipeline validates code quality, runs tests, scans for vulnerabilities, and — on merges to `main` and version tags — deploys Docker images and the docs site.
+GitLab CI runs on every push, MR, and version tag. It lints, tests, scans for vulnerabilities, and, on merges to `main` and version tags, deploys Docker images and the docs site.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -130,7 +128,7 @@ Key design decisions:
 
 ### Which security jobs block a merge
 
-"Blocks" means the job fails the pipeline, and the project setting `only_allow_merge_if_pipeline_succeeds` then prevents the merge. A job with `allow_failure: true` shows a yellow warning instead. Full policy, suppression format, and runbook: [Security Scanners](../maintainers/security-scanners.md).
+"Blocks" means the job fails the pipeline, and the project setting `only_allow_merge_if_pipeline_succeeds` then prevents the merge. A job with `allow_failure: true` shows a yellow warning instead. Policy, suppression format, and runbook: [Security Scanners](../maintainers/security-scanners.md).
 
 | Job | Checks | Runs on | Blocks an MR? | Blocks the nightly schedule? |
 |---|---|---|---|---|
@@ -165,4 +163,4 @@ The SPA is a single `App.tsx` with React Router v7 routes:
 - `/share/:token` — Public read-only board view (no authentication required)
 - `/admin` — Site administration panel (site admins only)
 
-State is local React state with optimistic updates on drag-and-drop. No global state library.
+State is local React state with optimistic updates on drag-and-drop; there is no global state library.

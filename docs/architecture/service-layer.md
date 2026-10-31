@@ -10,7 +10,7 @@ Board mutations that carry invariants live in `backend/boards/services/`, not in
 
 **Watch out:** the lock order is a deadlock-avoidance contract. Reordering locks can deadlock concurrent moves.
 
-**Go deeper:** [Field Enforcement](field-enforcement.md) lists which limits bind on which write path.
+**Go deeper:** [Field Enforcement](field-enforcement.md) lists which limits bind where.
 
 ## Why the layer exists
 
@@ -63,8 +63,8 @@ For one state transition, a service function owns:
 
 ### Writes to an existing card vs. a hard delete (#1587)
 
-- **Who locks:** `update_card`, `archive_card`, `unarchive_card` (before its column limit check), and the card-child writes in `CardViewSet` (comment, checklist item, and attachment create; checklist item edit and delete, which write an activity row) call `lock_card_for_write()` first in their transaction. It locks the card row `FOR NO KEY UPDATE` and raises `CardNotFound` (a `404`) if the row is already gone.
-- **Relation create** gets the same answer from its existing pk-ordered lock on both cards.
+- **Who:** `update_card`, `archive_card`, `unarchive_card` (before its column limit check), and the card-child writes in `CardViewSet` (comment, checklist item, and attachment create; checklist item edit and delete, which write an activity row) call `lock_card_for_write()` first in their transaction. It locks the card row `FOR NO KEY UPDATE` and raises `CardNotFound` (a `404`) if the row is already gone.
+- **Relation create** gets the same answer from its pk-ordered lock on both cards.
 - **`delete_card`** locks the row `FOR UPDATE` before Django collects its cascade, and re-checks `archived_at` under that lock so a card archived concurrently is still refused.
 - **Why:** without them, a delete committing mid-write let `update_card`'s `save()` fall back to an `INSERT` that re-created the deleted card, made an archive or restore's `save(update_fields=...)` match no row (a `500`), or failed the child insert's deferred foreign-key check at commit (a `500`).
 - **Order:** it is a card row, so it goes before any column row the transaction locks.
@@ -187,13 +187,13 @@ Every other case was a `500`. Now every one of them locks the group row before i
 
 ### Board, column, and swimlane writers (#1602, #1631, #1632)
 
-**The problem.** A container delete holds the board row from its start. A writer that went straight to its `UPDATE` queued behind the whole cascade (the board `UPDATE` takes `FOR NO KEY UPDATE` on the board row itself, a column `UPDATE` on a column row the delete holds) and then found its row gone. `serializer.save()` and a full `save()` fall back to an `INSERT` when the `UPDATE` matches no row. That re-created the deleted board with no columns or members, or tripped an `IntegrityError` the column view reported as a misleading `400`. `save(update_fields=...)` raised instead (a `500`).
+**The problem.** A container delete holds the board row from the start. A writer that went straight to its `UPDATE` queued behind the whole cascade (the board `UPDATE` takes `FOR NO KEY UPDATE` on the board row itself, a column `UPDATE` on a column row the delete holds) and then found its row gone. `serializer.save()` and a full `save()` fall back to an `INSERT` when the `UPDATE` matches no row. That re-created the deleted board with no columns or members, or tripped an `IntegrityError` the column view reported as a misleading `400`. `save(update_fields=...)` raised instead (a `500`).
 
 **The fix.** Each writer takes the board row (`lock_board_row_or_404(board, no_key=True)`), and a column or swimlane writer then its own row (`lock_board_and_row_or_404`), before saving.
 
-- A writer queued behind a delete answers `404` (the admin raises `Http404`, through `_lock_board_for_admin_save`) and writes nothing.
+- A writer behind a delete answers `404` (the admin raises `Http404`, through `_lock_board_for_admin_save`) and writes nothing.
 - `FOR NO KEY UPDATE` is the mode the `UPDATE` takes anyway, so it adds no new conflict, and it does not block a card insert's `FOR KEY SHARE`.
-- Move-group now saves with `update_fields`.
+- Move-group saves with `update_fields`.
 - Label create, saved-filter create, and star take the board row (`FOR NO KEY UPDATE`), so they queue with a board delete in both orders. A row committed between the delete's cascade read and its `DELETE` would otherwise fail the delete's deferred foreign key at commit, and a label created after the delete reported a misleading `400`.
 - A column, swimlane, or board `DELETE` that queued behind another delete of the same object re-checks, once it holds the locks, that the board and the object still exist. It answers `404` without storing or broadcasting a second deletion event (`require_present_or_404`).
 - The column, swimlane, label, and custom-field-definition `PATCH`/`PUT` reload the row under the lock before saving, like the board `PATCH`.

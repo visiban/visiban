@@ -6,15 +6,11 @@ Visiban's REST API is a public contract from 1.0 onward: this page is the backwa
 
 **Why it matters:** Integrations built on `/api/v1/` keep working through every 1.x release. Deprecations get headers and at least one minor release of notice.
 
-**The big picture:** everything lives under `/api/v1/`, and only `v1` exists today.
-
 ## URL path versioning — `/api/v1/`
 
-All Visiban API endpoints are served under the `/api/v1/` prefix (e.g. `/api/v1/boards/`, `/api/v1/auth/login/`). This is implemented using DRF's `URLPathVersioning` with `DEFAULT_VERSION = "v1"` and `ALLOWED_VERSIONS = ["v1"]`.
+Every API endpoint is served under `/api/v1/` (e.g. `/api/v1/boards/`, `/api/v1/auth/login/`), using DRF's `URLPathVersioning` with `DEFAULT_VERSION = "v1"` and `ALLOWED_VERSIONS = ["v1"]`. A request to an unsupported version (e.g. `/api/v2/`) receives `406 Not Acceptable`.
 
-Requests to an unsupported version (e.g. `/api/v2/`) receive `406 Not Acceptable`.
-
-A small number of infrastructure-level endpoints are intentionally unversioned:
+A few infrastructure endpoints are intentionally unversioned:
 
 | Endpoint | Reason |
 |---|---|
@@ -25,7 +21,7 @@ A small number of infrastructure-level endpoints are intentionally unversioned:
 
 ## Backward-compatibility policy
 
-The URL prefix is the version signal for clients. Within a major version, the following changes are **never** made in a patch or minor release:
+The URL prefix is the version signal. Within a major version, a patch or minor release **never** makes these changes:
 
 | Change type | Rule |
 |---|---|
@@ -35,7 +31,7 @@ The URL prefix is the version signal for clients. Within a major version, the fo
 | Add a required query parameter to an existing endpoint | Never — new parameters must be optional with a sensible default |
 | Add a required body field to an existing endpoint | Never — new body fields must be optional with a sensible default |
 
-These rules are enforced by code review and are documented in `CLAUDE.md` so they apply to every contribution.
+Code review and `CLAUDE.md` enforce these rules on every contribution.
 
 ## Pagination shape
 
@@ -54,9 +50,9 @@ Query parameters: `?offset=0&page_size=50` (max `200`). This shape is stable for
 
 ## How deprecation works
 
-When a field or endpoint needs to be removed in a future release:
+To remove a field or endpoint in a future release:
 
-1. **Announce deprecation** — add `Deprecation` and `Sunset` response headers to the relevant endpoint for at least one minor release before removing the behavior:
+1. **Announce deprecation** — add `Deprecation` and `Sunset` response headers to the endpoint for at least one minor release before removing the behavior:
 
     ```
     Deprecation: true
@@ -89,4 +85,4 @@ For endpoints being retired, return `410 Gone` with a JSON body explaining what 
 
 ## Future versioning
 
-When a breaking change is unavoidable, a `/api/v2/` prefix will be introduced. Both versions will be served in parallel for at least one minor release cycle to allow integrators to migrate. Until a breaking change is required, only `v1` exists — there is no `/api/v2/` today.
+If a breaking change becomes unavoidable, a `/api/v2/` prefix will be introduced and both versions served in parallel for at least one minor release cycle, so integrators can migrate. Until then only `v1` exists; there is no `/api/v2/` today.
