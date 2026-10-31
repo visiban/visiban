@@ -2,25 +2,14 @@
 
 > **Added in 1.0**
 
-Groups organize boards and users into a hierarchy; add someone to a group and they get access to every board in it.
-
-**The big picture:** a board can belong to one group; a group can have one parent group. Group trees are walked up to 6 levels deep, and creating a subgroup, or moving a group to a new parent, is refused when the result would be deeper than that.
+Create a group, add people with a role, and they get that role on every board in it and in its subgroups.
 
 **Why it matters:** Membership and shared settings inherit down the tree, so a manager can onboard a whole team by adding one group instead of every board.
 
-## Group description
+**The big picture:** groups organize boards and users into a hierarchy.
 
-Each group has an optional **description** field, a short free-text summary of the group's purpose. It appears on the group detail page and is inline-editable: click it to enter edit mode, then press **Enter** (or click outside) to save, or **Escape** to cancel.
-
-The description is returned as `description` in `GET /api/v1/groups/{id}/` and is writable via `PUT /api/v1/groups/{id}/` (group admin required).
-
-## Ancestor breadcrumb chain
-
-When viewing a group with a parent, the group detail page shows a breadcrumb chain above the group name, listing every ancestor from the root down to the immediate parent as a clickable link — useful for orienting yourself and navigating back up deep hierarchies.
-
-The full ancestor list is also available in the API: `GET /api/v1/groups/{id}/` returns an `ancestors` array (see [Groups API](../api/groups.md)).
-
-## Structure
+- A board belongs to one group; a group has one parent group.
+- Group trees are walked **up to 6 levels deep**. Creating a subgroup, or moving a group to a new parent, is refused when the result would be deeper.
 
 ```
 Acme Corp  (top-level group)
@@ -29,6 +18,10 @@ Acme Corp  (top-level group)
 │   └── Frontend Team
 └── Sales
 ```
+
+## Structure
+
+The tree above shows a top-level group with two subgroups, one of which has two team groups of its own.
 
 ## Membership
 
@@ -41,25 +34,39 @@ Each group has members with one of four roles:
 | `collaborator` | View boards in the group; can comment on cards but cannot create, edit, move, or delete them |
 | `viewer` | Read-only access to all boards in the group — can view cards and card history but cannot create, edit, move, delete cards, or manage members |
 
-Membership is **inherited** — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup individually. See [Group Inheritance](rbac/inheritance.md) for full details.
+Membership is **inherited**: a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup. See [Group Inheritance](rbac/inheritance.md).
 
 ## Board roles vs group roles
 
-All four roles — `admin`, `member`, `collaborator`, and `viewer` — are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the **Members** button in the board toolbar. See [Roles & Permissions](rbac/roles.md).
+All four roles (`admin`, `member`, `collaborator`, `viewer`) are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the **Members** button in the board toolbar. See [Roles & Permissions](rbac/roles.md).
+
+## Group description
+
+Each group has an optional **description**: a short free-text summary of its purpose. It appears on the group detail page. Click it to edit inline, then press **Enter** (or click outside) to save, or **Escape** to cancel.
+
+The description is returned as `description` in `GET /api/v1/groups/{id}/` and is writable via `PUT /api/v1/groups/{id}/` (group admin required).
+
+## Ancestor breadcrumb chain
+
+For a group with a parent, the detail page shows a breadcrumb chain above the group name: every ancestor from the root down to the immediate parent, each a clickable link. It orients you and lets you navigate up deep hierarchies.
+
+The full ancestor list is also in the API: `GET /api/v1/groups/{id}/` returns an `ancestors` array (see [Groups API](../api/groups.md)).
 
 ## Boards inside groups
 
-Boards belonging to a group are visible to all group members. Group admins can create new boards from the group detail page, or **import** a board from a previously exported JSON or CSV file directly into the group. Boards can be moved between groups (or back to personal) using the move button that appears on hover.
+Boards in a group are visible to all group members. Group admins can create boards from the group detail page, or **import** a board from a previously exported JSON or CSV file directly into the group. Move a board between groups (or back to personal) with the move button that appears on hover.
 
 ## Subgroups
 
-Group admins can create subgroups. Access is inherited through up to 6 levels of nesting; creating a subgroup, or moving a group under a new parent, is refused when the resulting tree would be deeper than 6 levels. Trees that were already deeper before this limit applied to creation are left as they are. The group detail page shows subgroups and optionally lists all boards across subgroups via the "Show subgroup boards" toggle.
+Group admins can create subgroups. Access is inherited through up to 6 levels of nesting; creating a subgroup, or moving a group under a new parent, is refused when the resulting tree would be deeper than 6 levels. Trees that were already deeper before this limit applied to creation are left as they are.
+
+The group detail page shows subgroups, and the "Show subgroup boards" toggle optionally lists all boards across subgroups.
 
 ## Invite links
 
 > **Added in 1.0**
 
-Group admins can generate up to **5 active invite links** per group from the group detail page. Each link is configured independently:
+Group admins generate up to **5 active invite links** per group from the group detail page. Anyone with the link joins with the role assigned to that link. Each link is configured independently:
 
 | Setting | Options |
 |---|---|
@@ -74,11 +81,19 @@ Group admins can generate up to **5 active invite links** per group from the gro
 
 A shareable link works for anyone who holds it, wherever it ends up being pasted, so it cannot make someone a group admin (which would make them an admin of every board in the group and its subgroups) and it cannot live forever. An [emailed invite](#emailing-an-invite-link) cannot grant admin either, since a forwarded or misdirected email would do the same. To make someone an admin, change their role after they join. Upgrading to 1.2 revokes unused shareable links that had the `admin` role and gives unused links with no expiry an expiry 7 days after the upgrade. An emailed invite with the `admin` role sent before the upgrade stops working (it answers like a revoked link); send a new one as a member.
 
-Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and can't be used to join. Used single-use links display a status badge and consumed-at timestamp in the invite links list. Each link can be revoked independently — existing members are not affected.
+**Link status:**
+
+- Expired links show a visual indicator and can't be used to join.
+- Used single-use links display a status badge and consumed-at timestamp in the invite links list.
+- Each link can be revoked independently. Existing members are not affected.
 
 > **Added in 1.2**
 
-A link only works while the person who created it is an active user and still an admin of the group (or of a parent group). If the creator is deactivated, a site admin deactivating their account revokes all of their active, unused group invite links at once (consumed single-use links are left alone, so they keep showing as used), and they disappear from the group's invite panel in real time. If the creator is instead demoted or removed from the group, the link stops working at the next preview or join, and it is revoked so it drops off the active list and frees its slot toward the 5-link cap (links that lapsed before this fix are cleaned up by an upgrade migration). In both cases the link answers like any revoked link (`404 Not found`); the response does not say why.
+**Creator must stay an admin.** A link only works while the person who created it is an active user and still an admin of the group (or of a parent group).
+
+- **Creator deactivated:** a site admin deactivating their account revokes all of their active, unused group invite links at once. Consumed single-use links are left alone, so they keep showing as used. The links disappear from the group's invite panel in real time.
+- **Creator demoted or removed from the group:** the link stops working at the next preview or join, and it is revoked so it drops off the active list and frees its slot toward the 5-link cap. Links that lapsed before this fix are cleaned up by an upgrade migration.
+- In both cases the link answers like any revoked link (`404 Not found`); the response does not say why.
 
 **How it works:**
 
@@ -107,7 +122,7 @@ Group admins can have Visiban email an invite straight to someone's address. In 
 
 ### New users on invite-only instances
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 On an instance whose registration mode is **Invite-only**, an invite **emailed by a site admin** also lets a newcomer create an account: they select **Create an account** (or an OAuth provider) on the join page, and the new account is added to the group with the invite's role. With `EMAIL_VERIFICATION=mandatory` and the invited address not yet verified, the account is added, and the invite used up, when that address is confirmed instead (see [Site Admins](../administration/site-admins.md)). Registering uses up (or, until confirmation, holds) the invite, so it creates one account (for OAuth sign-up this is best-effort, as it is for site invites: two simultaneous OAuth sign-ups with one link could both create an account, but only one joins the group). *(1.2+)* The sign-up address (or the address the OAuth provider reports) must be the one the invite was sent to; a different address is refused and the invite stays unused. The invite stops creating accounts if the person who sent it is deactivated, is no longer a site admin, or is no longer an admin of the group, or if email invites are turned off (`INVITE_EMAIL_ENABLED=false`); revoke it in the panel to stop it sooner.
 
@@ -121,7 +136,7 @@ The **Invite by email** section shows which case applies. A site admin on an inv
 
 ## Moving boards between groups
 
-Any board can move to a different group or back to personal boards from the **Move board** dialog. Open it with the move icon that appears when you hover over or tab to a board row:
+Move a board to a different group, or back to personal boards, from the **Move board** dialog. Open it with the move icon that appears when you hover over or tab to a board row:
 
 - on the dashboard, **Move to group** on a board in the **Favorite Boards** list or in **My Boards** (your personal boards);
 - on a group page, **Move to another group** on a board in the group's **Boards** list.
@@ -138,9 +153,7 @@ The dialog lists every group you can see, but groups you can't place boards in a
 
 > **Added in 1.0**
 
-Group admins can define a shared label library for the group. New boards created inside it automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.
-
-Manage labels from the **Settings** tab on the group detail page.
+Group admins define a shared label library in the **Settings** tab on the group detail page. New boards created in the group inherit these labels, so your team starts with a consistent tagging vocabulary.
 
 **Watch out:** inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.
 
@@ -148,22 +161,18 @@ Manage labels from the **Settings** tab on the group detail page.
 
 ## Group board defaults
 
-Group admins can configure defaults for new boards created in the group. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.
+Group admins configure defaults for new boards in the group, in the **Settings** tab on the group detail page. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.
 
 | Setting | Description |
 |---|---|
 | **Default member role** | **Deprecated (#1430).** Saved for API compatibility but has no effect: group members get their group role on every group board. Values: `admin`, `member`, `collaborator`, `viewer`; defaults to `member`. |
 | **Allowed priorities** | Copied onto new boards created in the group. **Not yet enforced** — cards can still use any priority. An empty list `[]` (default) means all priorities. |
 
-Board defaults are configured from the **Settings** tab on the group detail page.
-
 **API:** `PATCH /api/v1/groups/{id}/board-defaults/`
 
 ## Transferring group ownership
 
-Only the **current owner** of a group can transfer ownership, and only to an existing group **admin**. Confirm the transfer by typing the group name exactly as shown.
-
-After transfer, the previous owner becomes a regular admin — not removed from the group.
+Only the **current owner** can transfer ownership, and only to an existing group **admin**. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.
 
 If the owner has left or been deactivated, a superuser can transfer the group from the Django admin; see [Transferring a group's ownership](../administration/django-admin.md#transferring-a-groups-ownership).
 
@@ -171,15 +180,15 @@ If the owner has left or been deactivated, a superuser can transfer the group fr
 
 ## Starring groups
 
-The star button (☆/★) in the group detail page header lets you mark frequently-visited groups as favorites. Starred groups appear in a **Favorite Groups** section at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.
+The star button (☆/★) in the group detail page header marks a group as a favorite. Starred groups appear in a **Favorite Groups** section at the top of the sidebar. The star updates optimistically and rolls back on failure.
 
 ## Live board list
 
-> **Added in 1.1**
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
-The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time — no page refresh needed.
+The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time, with no page refresh.
 
-The group page subscribes to a per-group WebSocket channel (`ws/groups/<group_id>/`) that emits the following events:
+The page subscribes to a per-group WebSocket channel (`ws/groups/<group_id>/`) that emits:
 
 | Event | Description |
 |---|---|
@@ -187,13 +196,13 @@ The group page subscribes to a per-group WebSocket channel (`ws/groups/<group_id
 | `board.updated` | A board was renamed or its settings changed |
 | `board.deleted` | A board was deleted or moved out of this group |
 
-A **Live / Reconnecting… / Failed** connection status indicator in the group page header mirrors the board-view indicator — it reflects the same five states and uses the same `ConnectionStatus` component. The "Refresh board" button in the popover re-fetches the board list from the API.
+A **Live / Reconnecting… / Failed** status indicator in the group page header mirrors the board-view indicator: it reflects the same five states and uses the same `ConnectionStatus` component. The "Refresh board" button in the popover re-fetches the board list from the API.
 
 ## Dashboard
 
-The persistent, collapsible left sidebar is the primary way to navigate between groups and boards — it shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.
+The persistent, collapsible left sidebar is the primary way to navigate between groups and boards. It shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.
 
-The **+ New board** and **+ New group** buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required.
+The **+ New board** and **+ New group** buttons in the sidebar footer open their creation dialogs immediately, with no navigation.
 
 ### Create Group modal
 
@@ -204,6 +213,6 @@ The **Create Group** modal has two fields:
 | **Name** | Required. The group's display name. |
 | **Description** | Optional. A short summary of the group's purpose. A character counter is shown below the field as you type. |
 
-After creating a group or subgroup, the modal switches to a **post-creation state** where you can add subgroups immediately, without navigating away: type a name, click **+ Add** (or press Enter), and repeat. Each subgroup is created instantly. Click **Done** when finished.
+After you create a group or subgroup, the modal switches to a **post-creation state** where you can add subgroups right away: type a name, click **+ Add** (or press Enter), and repeat. Each subgroup is created instantly. Click **Done** when finished.
 
-This flow works at every level of the hierarchy — create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.
+This works at every level of the hierarchy: create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.

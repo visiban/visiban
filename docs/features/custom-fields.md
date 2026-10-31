@@ -48,7 +48,7 @@ Click **+ Add field**, or **✎** on a field, to open the inline editor:
 - **Type:** one of the seven types, chosen from a row of buttons
 - **Help text:** optional hint shown next to the input wherever the field is edited
 - **Format** (number only): optional **Prefix**, **Suffix**, and **Decimals**; see [Number formatting](#number-formatting)
-- **Choices** (dropdown and multi-select): add rows with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add from newline-separated text. The round swatch in front of each choice sets its color; see [Choice colors](#choice-colors)
+- **Choices** (dropdown and multi-select): add rows with **+ Add choice**, drag to reorder, or click **Paste a list** to bulk-add from a newline-separated block of text in one step. The round swatch in front of each choice sets its color; see [Choice colors](#choice-colors)
 - **Pin to card face:** toggle to show this field's value on the card face; see [Pinned fields on the card face](#pinned-fields-on-the-card-face)
 
 Click **Save field** to commit, or **Cancel** to discard.
