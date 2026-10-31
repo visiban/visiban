@@ -1,6 +1,6 @@
 # Ask your own agent about the demo data
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Point your own AI agent at a **local** Visiban instance with a read-only `mcp:read` token and ask it questions about the generic "Visiban Demo Board" from `seed_demo_data`. It takes about ten minutes.
 

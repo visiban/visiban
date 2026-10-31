@@ -1,14 +1,25 @@
 # Find the feature you need
 
-Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.
+Start with [Board & Cards](board.md); every other feature builds on the grid.
+
+**Why it matters:** Every card's journey through your pipeline should be visible, measurable, and actionable. This page is a map of the features that make that true.
 
 **Go deeper:** each section below links to the full page.
+
+| If you want to... | Read |
+|---|---|
+| Work a board day to day | [Board & Cards](board.md) |
+| See who moved what, and when | [Card History](card-history.md) |
+| Spot bottlenecks and velocity | [Analytics](analytics.md) |
+| Organize boards and invite a team | [Groups](groups.md) |
+| Control who can do what | [Roles & Permissions](rbac/roles.md) |
+| Script the API or connect an AI agent | [Personal Access Tokens](personal-access-tokens.md) · [MCP Server](mcp-server.md) |
 
 ---
 
 ## The board
 
-The kanban grid is the heart of Visiban. Columns represent pipeline stages; swimlanes represent the entities moving through them — customers, projects, epics, or anything else.
+The kanban grid is the heart of Visiban. Columns are pipeline stages; swimlanes are the entities moving through them: customers, projects, epics, or anything else.
 
 ```
               Backlog   │  To Do   │  Doing   │   Done
@@ -24,7 +35,7 @@ Cards are dragged between cells. Every move that changes column or swimlane is l
 
 Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` focuses search, and `?` shows the full shortcut reference.
 
-**Grid overlays** shade each cell by card count — without hiding or resizing anything, so you can spot hot spots at a glance.
+**Grid overlays** shade each cell by card count, without hiding or resizing anything, so you can spot hot spots at a glance.
 
 → [Board & Cards](board.md) · [Grid overlays](board.md#grid-overlays)
 
@@ -32,9 +43,9 @@ Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` 
 
 ## Board creation & templates
 
-When creating a new board you choose from ten purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring & Recruiting, Legal & Compliance, or Infrastructure & DevOps — each pre-seeded with the right columns and a swimlane placeholder. Or start from **Blank Board**, which creates no columns at all so you can build the layout yourself.
+When creating a new board you choose from ten purposeful templates (Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring & Recruiting, Legal & Compliance, or Infrastructure & DevOps), each pre-seeded with the right columns and a swimlane placeholder. Or start from **Blank Board**, which creates no columns at all so you can build the layout yourself.
 
-After choosing a template you're prompted to name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your **default board** so it opens automatically after login.
+After choosing a template, name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your **default board** so it opens automatically after login.
 
 → [Board & Cards](board.md)
 
@@ -44,7 +55,10 @@ After choosing a template you're prompted to name the first swimlane using the t
 
 > **Added in 1.2** (#1452)
 
-Instead of finding and uploading a file, open **Import** on the Dashboard and pick a ready-made board under **Start from a sample** — Software Development, Sales Overlay, Simple Kanban, Sales Pipeline and more. Samples come from your own server, so they match your installed version, and their dates are moved to the day you import so the board does not open mostly overdue.
+Open **Import** on the Dashboard and pick a ready-made board under **Start from a sample**: Software Development, Sales Overlay, Simple Kanban, Sales Pipeline and more. No file hunting or uploading.
+
+- Samples come from your own server, so they match your installed version.
+- Their dates are moved to the day you import, so the board does not open mostly overdue.
 
 → [Sample Boards](../getting-started/sample-boards.md)
 
@@ -73,11 +87,11 @@ Click any card to open a side panel with full context:
 
 ## Bulk operations & data portability
 
-Select multiple cards at once and apply bulk actions — move to a column, assign, set priority, archive, or delete — all from a toolbar that appears at the bottom of the board.
+Select multiple cards and apply bulk actions (move to a column, assign, set priority, archive, or delete) from a toolbar at the bottom of the board.
 
-Export your board as CSV or JSON for backup or analysis, or import a previously exported board to recreate it with all its structure and cards. Import accepts lowercase and snake_case column headers (e.g. `title`, `due_date`) so files from external tools import cleanly without manual editing.
-
-Coming from Trello? Import a Trello board JSON export into a new board, with a preview of how lists, labels, checklists, comments, and members will map before anything is created.
+- **Export** your board as CSV or JSON for backup or analysis.
+- **Import** a previously exported board to recreate it with all its structure and cards. Import accepts lowercase and snake_case column headers (e.g. `title`, `due_date`) so files from external tools import cleanly without manual editing.
+- **Coming from Trello?** Import a Trello board JSON export into a new board, with a preview of how lists, labels, checklists, comments, and members will map before anything is created.
 
 → [Board & Cards](board.md#bulk-card-operations) · [Export & Import](board.md#export-import) · [Import from Trello](trello-import.md)
 
@@ -95,7 +109,7 @@ Deleting a card does not erase its movement history: the moves stay in the board
 
 ## Card archiving
 
-Cards can be archived instead of deleted — removing them from the active board view while preserving their full history and movement audit trail. Archived cards can be restored at any time from the **Archived** panel in the board toolbar. Analytics dwell-time uses `archived_at` as the terminal timestamp so only the active period is counted.
+Archive a card instead of deleting it: it leaves the active board view, but its full history and movement audit trail stay. Restore it any time from the **Archived** panel in the board toolbar. Analytics dwell-time uses `archived_at` as the terminal timestamp, so only the active period is counted.
 
 → [Card Archiving](card-archiving.md)
 
@@ -119,14 +133,14 @@ The **Analytics** view computes median dwell time per stage from historical move
 
 ## Notifications
 
-Visiban surfaces two types of alerts in the notification bell:
+Visiban surfaces these alerts in the notification bell:
 
 - **Assignment** — you're notified when someone assigns a card to you
 - **@mentions** — you're notified when someone mentions you in a card description
 - **Comments** — opt in to be notified when someone comments on a card you created or are assigned to
 - **Staleness** — cards that haven't moved in N days (configurable per board) are tinted on a graduated scale, get a `Stale · 41d` badge and trigger a daily digest
 
-Aging cards are tinted on the board on a graduated scale: yellow as they approach the threshold, then orange, red and deep red at 1×, 2× and 3× the threshold. A card idle 150 days no longer looks the same as one idle 15 days. See [Card aging tint](card-history.md#card-aging-tint).
+**Aging tint:** aging cards are tinted on a graduated scale, yellow as they approach the threshold, then orange, red and deep red at 1×, 2× and 3× the threshold. A card idle 150 days no longer looks the same as one idle 15 days. See [Card aging tint](card-history.md#card-aging-tint).
 
 Five of these events — assigned to me, @mentioned, due date approaching, a watched card moved, and a comment on a watched card — can also be **delivered by email**, off by default, once an administrator configures outgoing SMTP and you turn the per-event toggle on in Settings → Notifications.
 
@@ -136,9 +150,9 @@ Five of these events — assigned to me, @mentioned, due date approaching, a wat
 
 ## Real-time collaboration
 
-When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. The connection status indicator in the toolbar stays quiet when healthy — a small **Live** dot at wider viewports — and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.
+When multiple people work on a board at once, changes appear instantly without a page refresh. The toolbar's connection status indicator stays quiet when healthy (a small **Live** dot at wider viewports) and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.
 
-Powered by Django Channels and Valkey — no configuration required in the default Docker Compose setup.
+Powered by Django Channels and Valkey. No configuration is required in the default Docker Compose setup.
 
 → [Real-time Updates](realtime.md)
 
@@ -146,9 +160,9 @@ Powered by Django Channels and Valkey — no configuration required in the defau
 
 ## Real-time group updates
 
-> **Added in 1.1**
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
-The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time — no manual refresh needed. A **Live / Reconnecting… / Failed** status indicator mirrors the board-view connection badge.
+The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time, with no manual refresh. A **Live / Reconnecting… / Failed** status indicator mirrors the board-view connection badge.
 
 → [Groups — Live board list](groups.md#live-board-list)
 
@@ -156,7 +170,7 @@ The group detail page auto-refreshes its board list over WebSocket. Boards creat
 
 ## Groups & access control
 
-Boards can be organized into groups and subgroups (access is inherited through up to 6 levels; creating a subgroup or moving a group past that depth is refused). Group membership cascades down the hierarchy — add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.
+Boards can be organized into groups and subgroups (access is inherited through up to 6 levels; creating a subgroup or moving a group past that depth is refused). Group membership cascades down the hierarchy: add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.
 
 ```
 Acme Corp  ← add user here
@@ -194,7 +208,7 @@ Tokens created from 1.2 onward carry explicit **scopes** (`read`, `write`, `admi
 
 ## MCP Server
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Connect Claude Desktop, Copilot, or any [Model Context Protocol](https://spec.modelcontextprotocol.io)-compatible AI agent to Visiban so it can read your boards and, with a suitably scoped token, create, move, update, and archive cards. Authenticates with the same Personal Access Token used elsewhere in the API. Off by default; operators enable it with `MCP_SERVER_ENABLED=true`.
 
@@ -212,7 +226,7 @@ Every board, column, swimlane, label, and card carries a stable 16-character hex
 
 ## Command palette
 
-> **Added in 1.1**
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
 Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behavior adapts to the current surface:
 
@@ -293,7 +307,6 @@ On an instance that requires verified email addresses (`EMAIL_VERIFICATION=manda
 
 ## WIP limits and hard enforcement
 
-
 WIP limits can now be configured in two modes: **soft** (advisory, admins can override) or **hard** (strict, no override for any role). When hard enforcement is enabled in **Board Settings → Rules → Enforce WIP hard**, moves into, new cards in, and restores into a full column are blocked for everyone — including board admins and site admins. The move, create, and restore APIs return `409` with code `wip_hard_blocked`, and the board shows a `⛔` toast rather than the `⚠` used for soft blocks.
 
 Weight limits work the same way: the corresponding **Enforce weight limits** setting blocks moving, creating, or restoring a card that would push a column's total weight over its budget, and raising a card's weight past it.
@@ -316,7 +329,7 @@ Save any combination of filters (search text, assignee, labels, priority, due da
 
 ## Custom fields
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Board admins can define up to 30 typed metadata fields per board — text, number, date, dropdown, checkbox, URL, or multi-select — for tracking anything specific to that board's workflow. Up to 2 fields can be pinned to the card face as small chips; checkbox and dropdown chips are editable directly from the card face. Every field also gets its own input in the card detail panel, and the filter bar can filter on any of them.
 
@@ -330,7 +343,7 @@ Admins can also turn off **Show field names on row chips** (Board Settings → S
 
 ## Card density
 
-> **Added in 1.1**
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
 Each board has an admin-controlled **Card density** setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in **Board Settings → Display**.
 
@@ -344,7 +357,6 @@ Any member can override the board's density for their own view without changing 
 
 ## Card information at a glance
 
-
 Two new fields are visible directly on the card face without opening the detail panel:
 
 - **Weight** — shown in the card metadata row when the card's weight is above 1, letting you scan column budgets at a glance.
@@ -356,7 +368,6 @@ Two new fields are visible directly on the card face without opening the detail 
 
 ## Move to from the card detail panel
 
-
 The card detail panel now includes a **Move to** button in the breadcrumb row. Clicking it opens a popover where you can select a destination column and swimlane without closing the panel and without drag-and-drop. The button shows a first-encounter dot indicator for users who have not yet clicked it; the dot is dismissed permanently on first use.
 
 → [Board & Cards — Cards](board.md#cards)
@@ -364,7 +375,6 @@ The card detail panel now includes a **Move to** button in the breadcrumb row. C
 ---
 
 ## URL-addressable board tabs and card history preference
-
 
 The board sub-navigation tabs (Board, Summary, Analytics, History) now reflect in the URL via a `?view=` search parameter. Tab views can be bookmarked and shared, and the browser Back button skips tab transitions.
 
@@ -376,7 +386,6 @@ Within the card detail Activity tab, the **Show full history** toggle now persis
 
 ## Analytics heatmap — absolute threshold coloring
 
-
 The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Card aging settings**.
 
 → [Analytics](analytics.md#color-coding)
@@ -385,7 +394,6 @@ The analytics heatmap colors cells using absolute board-level thresholds instead
 
 ## Onboarding tour
 
-
 First-time users see an 8-step contextual tooltip walkthrough when they open a board for the first time. The tour introduces swimlanes, card movement, the audit trail, and the filter bar. Completing or skipping the tour sets a persistent server-side flag — the tour never reappears. Site admins can reset the flag for any user from the admin panel.
 
 → [Onboarding Tour](../getting-started/onboarding-tour.md)
@@ -393,7 +401,6 @@ First-time users see an 8-step contextual tooltip walkthrough when they open a b
 ---
 
 ## Board sharing
-
 
 Board admins can generate a public read-only link that lets anyone view the board without a Visiban account. The link serves a static board view showing the full grid (columns, swimlanes, cards) with titles, labels, checklist progress, due dates, weights, and assignee names visible. Editing and commenting are disabled in the public view. Revoking the token immediately invalidates the link.
 
@@ -405,7 +412,6 @@ Board admins can generate a public read-only link that lets anyone view the boar
 
 ## Sidebar explorer tree
 
-
 The expanded sidebar now renders groups and their boards as a recursive tree. Subgroups appear nested under their parent group with indented chevron expand/collapse controls, and boards belonging to subgroups are shown inline under their group. The collapsed icon rail is unchanged — it continues to show one icon per top-level section.
 
 → [Navigation](navigation.md)
@@ -413,7 +419,6 @@ The expanded sidebar now renders groups and their boards as a recursive tree. Su
 ---
 
 ## Ownership-gated destructive actions
-
 
 Card delete, archive, and comment delete are now ownership-gated for members. A member can only delete or archive cards they created and delete comments they authored. Board admins and members with the **moderator** entitlement can act on any content.
 
@@ -425,7 +430,6 @@ The **moderator** entitlement lets a board admin delegate content-moderation rig
 
 ## Board export and per-board threshold
 
-
 By default any board member (including Collaborators and Viewers) can export the full CSV or JSON dump. Board admins can restrict exports to a higher minimum role via the `export_min_role` board setting, which limits only the export action and file formats, not ordinary reads. A per-board export history log records every successful export and is visible to board admins.
 
 → [Board & Cards — Export](board.md#export-import)
@@ -434,7 +438,6 @@ By default any board member (including Collaborators and Viewers) can export the
 
 ## Invite link improvements
 
-
 Invite links now handle group-access-gated boards correctly. When a new user follows an invite link to a board that is protected by group membership, they see a clear explanation of the pending access request and what to expect next, rather than an error page. The admin panel invite links tab now displays and copies the full join URL (`/join/<token>`) rather than the raw token.
 
 → [Administration](../administration/admin-panel.md)
@@ -442,7 +445,6 @@ Invite links now handle group-access-gated boards correctly. When a new user fol
 ---
 
 ## OIDC authentication
-
 
 Generic OpenID Connect (OIDC) is configurable via environment variables, making it straightforward to integrate with Keycloak, Authentik, Okta, Dex, or any other standard OIDC identity provider. Set `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and `OIDC_SERVER_URL` to enable it; the provider is only registered when all three are present.
 
@@ -455,7 +457,6 @@ Generic OpenID Connect (OIDC) is configurable via environment variables, making 
 
 ## Feature toggles
 
-
 Site admins can enable or disable specific features instance-wide from the admin panel Settings tab. Toggling a feature takes effect within approximately 60 seconds and never deletes existing data. The current toggles control file uploads; additional toggles will be added as new gated features are introduced.
 
 → [Feature Toggles](feature-toggles.md)
@@ -463,7 +464,6 @@ Site admins can enable or disable specific features instance-wide from the admin
 ---
 
 ## UI polish — wave 1 and wave 2
-
 
 A focused set of usability improvements landed across two waves:
 
@@ -477,9 +477,9 @@ A focused set of usability improvements landed across two waves:
 
 ## Issue Board Lens
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Connect a public GitHub or GitLab repository to a board and view its issues as a read-only kanban grid — with the swimlane dimension that native provider boards lack. Columns default to a derived **Pipeline** view (Backlog → To Do → Doing → Review → Done) and can be changed to status labels, Open/Closed, or any label; swimlanes group by milestone, label, or assignee. The lens is off by default; operators enable it with `GIT_LENS_ENABLED=true`.
+Connect a public GitHub or GitLab repository to a board and view its issues as a read-only kanban grid, with the swimlane dimension that native provider boards lack. Columns default to a derived **Pipeline** view (Backlog → To Do → Doing → Review → Done) and can be changed to status labels, Open/Closed, or any label; swimlanes group by milestone, label, or assignee. The lens is off by default; operators enable it with `GIT_LENS_ENABLED=true`.
 
 → [Issue Board Lens](issue-board-lens.md)
 

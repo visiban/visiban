@@ -160,7 +160,7 @@ It runs daily at 08:00 UTC once the shipped scheduler is turned on. See [Schedul
 
 ## Notification retention
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Notifications are kept until they are pruned. The `prune_notifications` management command deletes notifications, read or unread, older than `NOTIFICATION_RETENTION_DAYS` (default **90**, minimum **14**; on Helm, set the window with `scheduledJobs.pruneNotifications.args: ["--days", "N"]`). It only runs when you schedule it: the shipped scheduler has it **off** by default, so an existing install keeps every notification until you turn the prune on.
 
@@ -174,7 +174,7 @@ The 14-day minimum is deliberate. The scheduled scans use existing notifications
 
 ## Email notifications
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Team members who are not watching the board all day can have notifications delivered to their email address as well as the bell. Five events support it:
 

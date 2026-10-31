@@ -131,7 +131,7 @@ The `card.moved` event includes both the updated card and the movement record, t
 
 ## Group real-time events
 
-> **Added in 1.1**
+<span class="vb-version" title="Added in 1.1">1.1+</span>
 
 Visiban also exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).
 
@@ -196,7 +196,7 @@ The board is also re-fetched each time the WebSocket reconnects after a dropped 
 
 ## Resuming after a dropped connection
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer outside the browser (a second front end, a sync job, the MCP server's REST client) can instead replay exactly what it missed:
 

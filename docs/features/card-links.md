@@ -1,6 +1,6 @@
 # Jump from a card to its pull request
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 In a card's *Details* tab, open **Pull / merge request** → **+ Link a pull or merge request**, paste the URL, and click **Save link**.
 

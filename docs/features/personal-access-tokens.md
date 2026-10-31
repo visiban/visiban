@@ -48,7 +48,7 @@ Since the full value is shown only once, the Access Tokens list identifies each 
 
 ## Scopes
 
-> **Added in 1.2**
+<span class="vb-version" title="Added in 1.2">1.2+</span>
 
 Every token created from version 1.2 onward carries an explicit list of **scopes**: the operations it's allowed to perform. Scopes let you give a script, a CI pipeline, or an AI agent a credential less powerful than your own account.
 
