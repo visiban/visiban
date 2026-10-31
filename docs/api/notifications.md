@@ -7,7 +7,7 @@ curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/notifications
 # {"count": 5}
 ```
 
-**Why it matters:** each notification type has its own preference, so a missing notification is usually a toggle, not a bug.
+**Why it matters:** each notification type has its own `notif_*` preference on `PATCH /api/v1/auth/me/`, so check the toggle for the type you expect.
 
 **By the numbers:** the list returns at most 50 notifications, unread only. Three endpoints, all authenticated: `GET /api/v1/notifications/`, `POST /api/v1/notifications/mark-read/`, and `GET /api/v1/notifications/unread-count/`.
 

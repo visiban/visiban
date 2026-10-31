@@ -251,7 +251,7 @@ empty values are ignored rather than rejected: a lens URL is a shareable snapsho
 that can outlive the data it points at, so a link carrying a stale value still
 renders a board instead of returning `400`.
 
-All seven parameters above are declared in the generated OpenAPI schema (`/api/schema/`) when `GIT_LENS_ENABLED=true`, each as an optional string. Accepted values are described rather than declared as an `enum`, because unrecognized values are ignored, not rejected. There is no text-search parameter to declare (see [Filtering](#filtering)).
+All seven parameters above are declared in the generated OpenAPI schema (`/api/schema/`) when `GIT_LENS_ENABLED=true`, each as an optional string. Accepted values are described, not declared as an `enum`, because unrecognized values are ignored rather than rejected. There is no text-search parameter (see [Filtering](#filtering)).
 
 !!! note
     Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.
@@ -283,9 +283,9 @@ GitHub `milestone` filtering was applied client-side in earlier releases, which 
 
 **Coverage expansion** — when any server-side filter is active, the effective issue set is scoped to it, and the fetch budget applies to the scoped set rather than the full repository. This makes filtering a useful way to deep-dive a large milestone or label without fetching the entire repository.
 
-The `available_milestones` field in the response lists the milestone titles present in the current fetched set, for use as autocomplete suggestions. Because it is derived from the fetched issues and not from the provider's full milestone list, milestones whose issues were not fetched (e.g. milestones beyond the budget on an unfiltered request) will not appear — but passing their title as a `?milestone=` value still works.
+`available_milestones` lists the milestone titles in the current fetched set, for autocomplete. It comes from the fetched issues, not the provider's full milestone list, so milestones whose issues were not fetched (e.g. beyond the budget on an unfiltered request) do not appear, but passing their title as `?milestone=` still works.
 
-There is deliberately no `available_labels` or `available_assignees` field: every issue object already carries its `labels` and `assignees`, so a client can derive both suggestion sets from the response it already has. Note that, as with `available_milestones`, any such derived list narrows as filters are applied — a client that needs a stable suggestion list should accumulate values across responses rather than recompute from the latest one.
+There is deliberately no `available_labels` or `available_assignees` field: every issue already carries its `labels` and `assignees`, so a client can derive both suggestion sets from the response. As with `available_milestones`, a derived list narrows as filters apply; a client that needs a stable suggestion list should accumulate values across responses.
 
 **Response — 200 OK** (`column_dim=state`, the default for `"state"` connections)
 ```json

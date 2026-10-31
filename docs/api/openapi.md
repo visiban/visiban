@@ -65,7 +65,7 @@ kubectl port-forward svc/<release-name>-backend 8000:8000
 
 The CI pipeline runs `manage.py spectacular --validate` on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.
 
-**Not yet enforced: `--fail-on-warn`.** [#1108](https://gitlab.com/visiban/visiban/-/issues/1108) proposed also running `--fail-on-warn` in CI so the schema cannot regress by acquiring a new warning (as opposed to `--validate` alone, which only catches OpenAPI-document-level errors). As of this writing the codebase carries ~90 unique pre-existing warnings unrelated to any single change — mostly `@action`/APIView endpoints with no declared serializer, and nested viewsets where drf-spectacular cannot resolve `board_pk`-scoped path parameter types without a request. Flipping `--fail-on-warn` on today would fail CI on every branch, not just ones that introduce a new problem. Enforcing it is tracked as a follow-up once that backlog is worked down; until then, treat a clean `--validate --fail-on-warn` run as informative, not a merge gate.
+**Not yet enforced: `--fail-on-warn`.** [#1108](https://gitlab.com/visiban/visiban/-/issues/1108) proposed also running `--fail-on-warn` in CI so the schema cannot acquire a new warning (`--validate` alone catches only OpenAPI-document-level errors). The codebase currently carries ~90 unique pre-existing warnings, mostly `@action`/APIView endpoints with no declared serializer and nested viewsets where drf-spectacular cannot resolve `board_pk`-scoped path parameter types without a request. Enabling `--fail-on-warn` today would fail CI on every branch. Enforcement is a tracked follow-up once that backlog shrinks; until then a clean `--validate --fail-on-warn` run is informative, not a merge gate.
 
 ### Fuzz testing the contract against real responses (`backend-schema-fuzz`)
 
@@ -281,9 +281,9 @@ this paragraph is not re-synced on every future prune.
 
 ## Versioning
 
-The schema is generated live from whatever code is deployed — `GET /api/schema/` always reflects the exact version running behind it, consistent with the `/api/v1/` URL versioning scheme the REST API itself uses (see [`docs/api/authentication.md`](authentication.md) for the versioning contract those endpoints follow).
+The schema is generated live from the deployed code, so `GET /api/schema/` always reflects the exact version running behind it, consistent with the `/api/v1/` URL versioning scheme (see [`docs/api/authentication.md`](authentication.md) for the versioning contract).
 
-There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the MCP server's REST-client package (#511) is one known case — must fetch `/api/schema/` from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (`scripts/release.sh`) rather than a schema-accuracy fix.
+There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client (the MCP server's REST-client package, #511, is one) must fetch `/api/schema/` from a running instance of the version they target, not pin a static file. A versioned artifact on tags was proposal item 3 of #1108 and is deferred to a follow-up; it is release-tooling work (`scripts/release.sh`), not a schema-accuracy fix.
 
 ## Adding annotations
 
