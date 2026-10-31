@@ -1,14 +1,11 @@
-# SonarCloud
+# SonarCloud is an advisory second opinion that never blocks a merge
+<a id="sonarcloud"></a>
 
-Visiban uses [SonarCloud](https://sonarcloud.io/project/overview?id=visiban_visiban) as a
-second, independent read of code quality: bugs, vulnerabilities, security hotspots,
-maintainability, duplication, and test coverage. It is advisory tooling that runs on a
-schedule. It never blocks a merge request.
+[SonarCloud](https://sonarcloud.io/project/overview?id=visiban_visiban) gives a second, independent read of code quality: bugs, vulnerabilities, security hotspots, maintainability, duplication, and test coverage. It runs on a schedule and never blocks a merge request.
 
-This page is for contributors and maintainers who need to understand what Sonar checks, how
-coverage gets to it, and what the quality policy is. For the operational side (the token, the
-pipeline schedule, and what to do when the nightly run breaks), see the
-[SonarCloud maintainer runbook](../maintainers/sonarcloud.md).
+**Why it matters:** Contributors and maintainers need to know what Sonar checks, how coverage gets to it, and what the quality policy is.
+
+**Go deeper:** For the operational side (the token, the pipeline schedule, and what to do when the nightly run breaks), see the [SonarCloud maintainer runbook](../maintainers/sonarcloud.md).
 
 ## What runs and when
 
@@ -20,10 +17,10 @@ pipeline schedule, and what to do when the nightly run breaks), see the
 | `sonar:rules-check` | `.gitlab-ci.yml`, `security` stage | Scheduled pipelines only, when the schedule sets `SONAR_SCHEDULED=true`; advisory (`allow_failure`) |
 
 `sonar:scan` runs on the **Nightly** pipeline schedule (03:00 ET), never on MR or push
-pipelines, so day-to-day pipeline time is unchanged. It is `allow_failure: true`: a SonarCloud
-or network problem shows as a yellow job in an otherwise green pipeline and does not turn the
-nightly red. It also does not wait for SonarCloud to finish computing the quality gate
-(`-Dsonar.qualitygate.wait=false`), because it refreshes a dashboard and is not a merge gate.
+pipelines, so day-to-day pipeline time is unchanged. It's `allow_failure: true`: a SonarCloud
+or network problem shows as a yellow job in an otherwise green pipeline and doesn't turn the
+nightly red. It doesn't wait for SonarCloud to finish computing the quality gate
+(`-Dsonar.qualitygate.wait=false`), because it refreshes a dashboard and isn't a merge gate.
 
 Because nothing alerts on a yellow `sonar:scan`, a broken scan is only noticed by looking at
 the schedule's pipeline history or at the dashboard's last-analysis date. The
@@ -34,7 +31,7 @@ The schedule is shared with the other nightly jobs; see
 
 ## How coverage reaches Sonar
 
-SonarCloud does not run tests. It imports the coverage reports that the `test` stage already
+SonarCloud doesn't run tests. It imports the coverage reports that the `test` stage already
 produces. `sonar:scan` declares `needs:` on both producer jobs with `artifacts: true`:
 
 | Report | Produced by | Format | Imported through |
@@ -42,23 +39,19 @@ produces. `sonar:scan` declares `needs:` on both producer jobs with `artifacts: 
 | `backend/coverage.xml` | `backend-test-coverage` | Cobertura XML | `sonar.python.coverage.reportPaths` |
 | `frontend/coverage/lcov.info` | `frontend-test` | LCOV | `sonar.javascript.lcov.reportPaths` |
 
-The scanner runs from the repository root, and neither report resolves from there as emitted.
-Left alone, the scanner reads the report, resolves zero files, and reports 0.0% coverage with
-no error. `scripts/sonar-scan.sh --prep-only` writes a rewritten copy of each report, and
-`sonar-project.properties` points at the copies:
+**Watch out:** The scanner runs from the repository root, and neither report resolves from there as emitted. Left alone, it reads the report, resolves zero files, and reports 0.0% coverage with no error. `scripts/sonar-scan.sh --prep-only` writes a rewritten copy of each report, and `sonar-project.properties` points at the copies:
 
 | Original | Rewritten copy | Rewrite | Why |
 |---|---|---|---|
 | `backend/coverage.xml` | `backend/coverage.sonar.xml` | An empty `<source></source>` becomes `<source><repo>/backend</source>` | `backend/.coveragerc` sets `relative_files = true` so parallel test shards can combine. That makes the report list filenames relative to `backend/` with no source root. |
 | `frontend/coverage/lcov.info` | `frontend/coverage/lcov.sonar.info` | `SF:src/...` becomes `SF:frontend/src/...` | Vitest records paths relative to `frontend/`. |
 
-The originals are never modified, because GitLab's coverage tooling still reads them. A
-missing report only prints a warning, so one failed producer does not abort the whole scan.
-The script prints how many class entries and `SF:` files each rewritten report lists and warns
-when the count is zero, so the nightly log shows whether paths resolved. `sh
-scripts/sonar-scan.sh --self-test` proves both rewrites against fixtures; the
-`sonar-scan-selftest` job runs it. See
-[Testing § SonarCloud coverage import](testing.md#sonarcloud-coverage-import-1370).
+- The originals are never modified, because GitLab's coverage tooling still reads them.
+- A missing report only prints a warning, so one failed producer doesn't abort the whole scan.
+- The script prints how many class entries and `SF:` files each rewritten report lists and warns when the count is zero, so the nightly log shows whether paths resolved.
+- `sh scripts/sonar-scan.sh --self-test` proves both rewrites against fixtures; the `sonar-scan-selftest` job runs it.
+
+See [Testing § SonarCloud coverage import](testing.md#sonarcloud-coverage-import-1370).
 
 ## What Sonar does not count or flag
 
@@ -71,33 +64,28 @@ coverage. It lists only test code, which Sonar reads through `sonar.tests` inste
 reported) but removes them from the coverage denominator. Each entry is justified in a comment
 in `sonar-project.properties`:
 
-| Entry | Why it is out of the coverage denominator |
+| Entry | Why it's out of the coverage denominator |
 |---|---|
 | `**/tests/**`, `**/test_*.py`, `**/conftest.py`, `**/*.test.ts`, `**/*.test.tsx`, `frontend/src/test/**` | Test code is the measuring instrument, not the subject |
-| `frontend/e2e/**` | Playwright specs assert flows; they are not themselves covered |
+| `frontend/e2e/**` | Playwright specs assert flows; they aren't themselves covered |
 | `**/migrations/**` | Auto-generated schema operations. Data-migration logic is tested through the function it calls |
 | `scripts/**`, `backend/scripts/**` | Repo tooling (CI gate scripts, release helpers). None of it ships in an image or bundle, and no test runner instruments it |
 | `backend/factories.py` | Test-data factory module |
 | `backend/boards/seed_data/**` | Standalone fixture generators (`generate_seed_data.py`, `generate_seed_data_part2.py`) that write the `backend/boards/sample_boards/*.json` and `sample-boards/*.csv` fixtures checked into the repo; run by hand, never imported by any runtime path |
 
-Nothing under product source is excluded to reach a number. If you are tempted to add an
-exclusion because a file is hard to cover, write the test instead.
+**Watch out:** Nothing under product source is excluded to reach a number. If you are tempted to add an exclusion because a file is hard to cover, write the test instead.
 
-**`sonar.issue.ignore.multicriteria.*`** silences one rule for one path, for findings that were
-triaged and confirmed as false positives. Every criterion carries a comment saying why. The
-`lint:sonar-exclusions` job (`scripts/check-sonar-exclusions.sh`) fails when a criterion's glob
-matches no tracked file, which is what a rename looks like when it silently un-suppresses
-findings. Each criterion's comment must also name its rule. The nightly `sonar:rules-check` job
-adds an online check that every rule key is still active in the project's quality profile
-(fail-open: no token or an API error warns and passes). See [Suppression Markers § SonarCloud suppressions](suppressions.md#sonarcloud-suppressions).
+**`sonar.issue.ignore.multicriteria.*`** silences one rule for one path, for findings that were triaged and confirmed as false positives.
 
-These properties apply only to CI-based analysis (the `sonar:scan` job and a local
-`scripts/sonar-scan.sh` run). SonarCloud's Automatic Analysis ignores
-`sonar-project.properties`, so it must stay off for this project.
+- Every criterion carries a comment saying why, and the comment must name its rule.
+- The `lint:sonar-exclusions` job (`scripts/check-sonar-exclusions.sh`) fails when a criterion's glob matches no tracked file, which is what a rename looks like when it silently un-suppresses findings.
+- The nightly `sonar:rules-check` job adds an online check that every rule key is still active in the project's quality profile (fail-open: no token or an API error warns and passes).
 
-When you add a Django app that has a `tests/` directory, add that directory to `sonar.tests`
-and keep it in step with the `backend/*/tests/**` exclusion. The two lists are maintained by
-hand.
+See [Suppression Markers § SonarCloud suppressions](suppressions.md#sonarcloud-suppressions).
+
+**Yes, but:** These properties apply only to CI-based analysis (the `sonar:scan` job and a local `scripts/sonar-scan.sh` run). SonarCloud's Automatic Analysis ignores `sonar-project.properties`, so it must stay off for this project.
+
+When you add a Django app that has a `tests/` directory, add that directory to `sonar.tests` and keep it in step with the `backend/*/tests/**` exclusion. The two lists are maintained by hand.
 
 ## Quality policy
 
@@ -106,7 +94,7 @@ hand.
   explain.
 - **No unreviewed security hotspots.** Every hotspot gets reviewed and marked Safe, Fixed, or
   Acknowledged, with a comment saying why. A hotspot is a prompt for a human decision, so
-  "Security Review" below A means someone has not made one. The
+  "Security Review" below A means someone hasn't made one. The
   [runbook](../maintainers/sonarcloud.md#the-review-every-new-hotspot-rule) describes the
   routine.
 - **Suppressions need a rationale and a narrow path.** An ignore criterion states why the
@@ -118,8 +106,7 @@ hand.
 - **Coverage targets.** Aim for at least 85% on Sonar, with 80% as the floor. The enforced
   gates are separate; see [Testing § Coverage targets](testing.md#coverage-targets).
 
-Fix findings in code where you can. Reach for a suppression only when the finding is a false
-positive, and say why in the same change.
+Fix findings in code where you can. Suppress only a false positive, and say why in the same change.
 
 ## Running a scan locally
 
@@ -155,7 +142,7 @@ Use this to reproduce the nightly result or to check a fix before waiting for th
 Open the [project page](https://sonarcloud.io/project/overview?id=visiban_visiban).
 
 - **Overall Code vs New Code.** The policy above applies to **Overall Code**. The quality gate
-  scores **New Code** only, so a gate that passes does not mean the ratings are healthy.
+  scores **New Code** only, so a gate that passes doesn't mean the ratings are healthy.
 - **Ratings.** Security, Reliability, and Maintainability each show A to E.
 - **Security Hotspots.** The "Security Review" rating reflects the share of hotspots reviewed.
   Open the Security Hotspots tab and review anything in the To Review state.
@@ -163,25 +150,21 @@ Open the [project page](https://sonarcloud.io/project/overview?id=visiban_visiba
   0.0% almost always means the import broke, not that nothing is tested; check the
   `sonar:scan` log for the "resolved" lines first.
 - **Last analysis date.** It shows when the dashboard last refreshed. A date more than a day
-  old means the nightly scan is not publishing.
+  old means the nightly scan isn't publishing.
 
 ## Why GitLab's coverage badge and Sonar's differ
 
-They are two unrelated measurements and are not expected to match.
+They are two unrelated measurements and aren't expected to match.
 
-Two jobs declare a `coverage:` regex in `.gitlab-ci.yml`: `backend-test-coverage` (the `TOTAL`
-line of `coverage report`) and `frontend-test` (the `All files` line of Vitest's text report).
-GitLab averages the values it collects into the pipeline's coverage figure, which is what the
-README badge shows. Check the `coverage:` lines in `.gitlab-ci.yml` if this changes.
+Two jobs declare a `coverage:` regex in `.gitlab-ci.yml`: `backend-test-coverage` (the `TOTAL` line of `coverage report`) and `frontend-test` (the `All files` line of Vitest's text report). GitLab averages the values it collects into the pipeline's coverage figure, which is what the README badge shows. Check the `coverage:` lines in `.gitlab-ci.yml` if this changes.
 
 | | GitLab coverage badge | SonarCloud |
 |---|---|---|
 | Source | Regexes over the job logs of `backend-test-coverage` and `frontend-test` | The imported Cobertura and LCOV reports |
 | Scope | Backend and frontend, as an **average of two percentages** | Backend and frontend, as **one combined figure weighted by lines** |
-| Denominator | Whatever each tool reports: everything `backend/.coveragerc` does not omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded |
+| Denominator | Whatever each tool reports: everything `backend/.coveragerc` doesn't omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded |
 | Updates | Every pipeline that runs the jobs | Nightly |
 
-Because the badge averages two percentages, a small frontend and a large backend count equally,
-while Sonar weights each file by its lines. The badge never reaches the scanner, and the
-scanner never feeds the badge. The backend gate (`--fail-under=90`) applies only to the
-backend number, not to either combined figure.
+- The badge averages two percentages, so a small frontend and a large backend count equally. Sonar weights each file by its lines.
+- The badge never reaches the scanner, and the scanner never feeds the badge.
+- The backend gate (`--fail-under=90`) applies only to the backend number, not to either combined figure.
