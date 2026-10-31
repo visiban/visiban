@@ -5178,11 +5178,11 @@
 <tbody>
 <tr>
 <td><code>search</code></td>
-<td>Search term — minimum 2 characters; partial match on username and display name. Returns <code>[]</code> for shorter queries.</td>
+<td>Search term — minimum 2 characters; partial match on username and display name. Returns <code>[]</code> for shorter queries. A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Response</strong> <code>[{ "id": 5, "username": "alice", "display_name": "Alice Smith", "avatar_url": null }, ...]</code></p>
+<p><strong>Response</strong> <code>[{ "id": 5, "username": "alice", "display_name": "Alice Smith", "avatar_url": "" }, ...]</code></p>
 <blockquote>
 <p>Results include <code>id</code>, <code>username</code>, <code>display_name</code>, and <code>avatar_url</code> only — the full user profile (including email) is not returned by this endpoint.</p>
 </blockquote>

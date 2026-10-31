@@ -5975,7 +5975,7 @@
 <tr>
 <td><code>exclude_type</code></td>
 <td>comma-separated string</td>
-<td>Exclude movement types (e.g. <code>archived,unarchived</code> hides system events)</td>
+<td>Exclude movement types (e.g. <code>archived,unarchived</code> hides system events). A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "exclude_type must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
 </tr>
 <tr>
 <td><code>offset</code></td>

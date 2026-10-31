@@ -4094,6 +4094,7 @@
 <li><code>GET /admin/action-log/</code>: <code>action</code></li>
 <li><code>GET /admin/board-invite-links/</code>: <code>status</code></li>
 <li><code>GET /cards/</code>: a <code>cursor</code> that cannot be decoded, or whose position is not a timestamp Postgres can store (not a valid date and time, or a UTC offset of 16 hours or more)</li>
+<li>A <code>search</code> containing a NUL (0x00) character on <code>GET /cards/</code>, <code>GET /admin/users/</code>, <code>GET /users/</code> and <code>/boards/{id}/cards/</code>, both the list and the card detail routes (<code>GET</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code> on <code>/boards/{id}/cards/{id}/</code>), and an <code>exclude_type</code> containing one on <code>GET /boards/{id}/movements/</code>. These were a <code>500</code> on PostgreSQL before 1.3 (#1887). The <code>detail</code> names the parameter: <code>"search must not contain NUL (0x00) characters."</code></li>
 <li>Card filter parameters whose value fails the filter's type check, on <code>GET /boards/{id}/cards/</code> and <code>GET /cards/</code>. These also keep the field-keyed entry the board card list has answered with since 1.1, so a 1.1 client that reads it is unaffected:</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Enter a number."</span><span class="p">],</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assignee: Enter a number."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_query_param"</span><span class="w"> </span><span class="p">}</span>
@@ -4172,7 +4173,7 @@
 <td>Bare JSON array, not paginated and <strong>not bounded</strong>: it returns every board in the group's subtree that the caller can access, which for a top-level group can be the whole organization. Use <code>GET /groups/{id}/descendant-boards/paged/</code> for bounded pages</td>
 </tr>
 <tr>
-<td>Small, bounded lists (group members, subgroups, boards, labels, and invite links of a group; board invite links and saved filters; <code>GET /admin/invite-links/</code>; <code>GET /users/search/</code> (capped at 10 rows); sample boards and templates; notifications; personal access tokens; connected accounts; a card's comments, attachments, checklist, and relations)</td>
+<td>Small, bounded lists (group members, subgroups, boards, labels, and invite links of a group; board invite links and saved filters; <code>GET /admin/invite-links/</code>; <code>GET /users/</code> (search, capped at 10 rows); sample boards and templates; notifications; personal access tokens; connected accounts; a card's comments, attachments, checklist, and relations)</td>
 <td>Bare JSON array, not paginated</td>
 </tr>
 </tbody>

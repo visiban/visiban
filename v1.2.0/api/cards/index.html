@@ -4624,7 +4624,7 @@ page; treat it as opaque.</p>
 </tr>
 <tr>
 <td><code>?search=&lt;q&gt;</code></td>
-<td>Filter by title and description (partial, case-insensitive)</td>
+<td>Filter by title and description (partial, case-insensitive). A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
 </tr>
 <tr>
 <td><code>?ordering=&lt;field&gt;</code></td>
@@ -4699,7 +4699,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 </tr>
 <tr>
 <td><code>?search=&lt;q&gt;</code></td>
-<td>Filter by title and description (partial, case-insensitive)</td>
+<td>Filter by title and description (partial, case-insensitive). A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
 </tr>
 <tr>
 <td><code>?assignee=&lt;id&gt;</code></td>
@@ -4707,7 +4707,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 </tr>
 <tr>
 <td><code>?unassigned=true</code></td>
-<td>Return only cards with no assignee</td>
+<td>Return only cards with no assignee (<code>false</code> returns only assigned cards)</td>
 </tr>
 <tr>
 <td><code>?priority=&lt;value&gt;</code></td>
@@ -4731,7 +4731,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 </tr>
 <tr>
 <td><code>?overdue=true</code></td>
-<td>Cards past their due date (due date is set and is before today)</td>
+<td>Cards past their due date (due date is set and is before today). <code>false</code> returns the rest: cards with no due date or a due date of today or later</td>
 </tr>
 <tr>
 <td><code>?ordering=&lt;field&gt;</code></td>
@@ -5376,7 +5376,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <td><code>limit</code></td>
 <td>integer</td>
 <td><code>50</code></td>
-<td>Page size. Capped at <code>200</code>; a negative value is treated as <code>0</code>.</td>
+<td>Page size. Capped at <code>200</code>; a negative value is treated as <code>0</code> and a non-integer value as the default.</td>
 </tr>
 <tr>
 <td><code>offset</code></td>
@@ -5538,6 +5538,10 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <tr>
 <td><code>400 Bad Request</code></td>
 <td><code>event_types</code> names a group not in the allowed set — <code>{"detail": "Invalid event_types: ... Valid groups: ...", "code": "invalid_query_param"}</code> (<code>code</code> added in 1.2)</td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>offset</code> is above <code>2^62</code> — <code>{"detail": "offset must not exceed ...", "code": "invalid_query_param"}</code></td>
 </tr>
 <tr>
 <td><code>404 Not Found</code></td>
