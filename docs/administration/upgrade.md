@@ -1642,7 +1642,7 @@ migration touches `boards` or `cards`, and an instance that leaves `GIT_LENS_ENA
       volume; the second command only renews the anonymous volumes). On Linux hosts whose user
       is not uid 1000, the `./frontend:/app` bind mount may also need to be writable by uid 1000.
 
-!!! note "Scheduled jobs ship in 1.2 — off by default"
+!!! note "Scheduled jobs are new in 1.2 — off by default"
     1.2 adds a scheduler for `notify_due_soon`, `notify_stale_cards`,
     `prune_board_events` and the new `prune_notifications`: an opt-in `scheduler`
     service (Compose profile `scheduler`) in `docker-compose.prod.yml`, and
