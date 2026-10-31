@@ -1,6 +1,10 @@
 # Admin API
 
-Site-wide settings, the action log, email configuration, maintenance mode, users, invite
+Manage site settings, users, and invites with a site-admin token.
+
+**Why it matters:** every endpoint here changes the whole instance, so a non-admin call fails with `403 Forbidden`.
+
+**The big picture:** site-wide settings, the action log, email configuration, maintenance mode, users, invite
 links, and board invites — administrative endpoints, restricted to site admins.
 
 All endpoints below require **site admin** authentication; non-admin users receive `403 Forbidden`.

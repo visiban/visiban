@@ -1,6 +1,10 @@
 # Notifications API
 
-Visiban creates notifications for board members when:
+Read and clear your notifications over REST; toggle each type with `PATCH /api/v1/auth/me/`.
+
+**Why it matters:** each notification type has its own preference, so a missing notification is usually a toggle, not a bug.
+
+**The big picture:** Visiban creates notifications for board members when:
 
 - A card is assigned to them (`notif_card_assigned`)
 - They are @mentioned in a comment or card description (`notif_mentioned`)

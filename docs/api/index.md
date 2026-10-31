@@ -1,6 +1,10 @@
 # API Reference
 
-Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.
+Send authenticated JSON requests to `/api/v1`; start with [Authentication](authentication.md).
+
+**Why it matters:** every endpoint lives under the `/api/v1/` prefix and needs a valid token or session, so an unauthenticated request fails before it reaches any board data.
+
+**The big picture:** Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.
 
 **Base URL:** `http://localhost:8000/api/v1` (dev) or `https://<your-domain>/api/v1` (production)
 

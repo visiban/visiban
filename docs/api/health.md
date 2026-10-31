@@ -1,6 +1,10 @@
 # Health Check API
 
-Two unauthenticated endpoints for liveness and readiness probes — usable with Kubernetes, Docker Compose `healthcheck` directives, or any uptime monitoring tool.
+`GET /api/health/liveness/` returns `{"status": "ok"}` with no authentication.
+
+**Why it matters:** a probe pointed at the wrong endpoint restarts healthy containers or routes traffic to unready ones.
+
+**The big picture:** two unauthenticated endpoints for liveness and readiness probes — usable with Kubernetes, Docker Compose `healthcheck` directives, or any uptime monitoring tool.
 
 ## `GET /api/health/liveness/`
 
