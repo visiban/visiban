@@ -506,6 +506,26 @@ class GroupInviteLink(models.Model):
         return self.expires_at is not None and self.expires_at < timezone.now()
 
     @property
+    def role_refusal(self):
+        """Why this link's stored role can never redeem: ``admin``, ``invalid_role`` or None.
+
+        The one definition of a redeemable role, shared by the join preview,
+        join, registration and ``status`` (#2015, Rule 9). No invite grants
+        admin (#2006), and ``choices`` is not enforced on save, so a row
+        written outside the API may hold a role that is not a membership role.
+        """
+        if self.role == self.Role.ADMIN:
+            return "admin"
+        if self.role not in GroupMembership.Role.values:
+            return "invalid_role"
+        return None
+
+    @property
+    def role_redeemable(self):
+        """Whether the stored role may be granted by redeeming this link."""
+        return self.role_refusal is None
+
+    @property
     def status(self):
         """Return canonical link status: pending / used / expired / revoked.
 
@@ -515,12 +535,13 @@ class GroupInviteLink(models.Model):
 
         An unused admin-role link reports ``revoked`` (#2006): no invite
         grants admin any more, so one minted before the cap can never redeem
-        and must not look pending. A used one keeps ``used``: it did join
+        and must not look pending; so does one holding a role outside the
+        enum (#2015). A used one keeps ``used``: it did join
         someone, and the audit trail should say so.
         """
         if not self.is_active:
             return "revoked"
-        if self.role == self.Role.ADMIN and not self.used_at:
+        if not self.role_redeemable and not self.used_at:
             return "revoked"
         if self.used_at:
             return "used"
@@ -561,6 +582,10 @@ class GroupInviteLink(models.Model):
         # misdirected email must not mint a group admin.
         if role == cls.Role.ADMIN:
             raise ValueError("A group invite cannot grant admin.")
+        # Rule 9 (#2015): refuse a role outside the enum at the writer, as
+        # BoardInviteLink.generate does.
+        if role is not None and role not in GroupMembership.Role.values:
+            raise ValueError(f"A group invite cannot grant the role {role!r}.")
         raw = cls.GROUP_INVITE_PREFIX + secrets.token_hex(20)
         instance = cls.objects.create(
             group=group,

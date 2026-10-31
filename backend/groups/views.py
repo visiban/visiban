@@ -1998,8 +1998,13 @@ class JoinGroupView(APIView):
         # the POST would refuse.
         # An emailed admin invite minted before #2006 is refused the same way.
         # A stored role outside the enum is refused the same way (#2015).
-        if link.role == GroupInviteLink.Role.ADMIN or link.role not in GroupMembership.Role.values:
-            logger.info("Invite token lookup failed: admin invite. token=%s ip=%s", token_hint, ip)
+        if not link.role_redeemable:
+            logger.info(
+                "Invite token lookup failed: %s. token=%s ip=%s",
+                "admin invite" if link.role_refusal == "admin" else "invalid role",
+                token_hint,
+                ip,
+            )
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         # Residual distinction accepted: with a live creator an expired or
         # consumed link still answers 410, so "creator gone" (404) is
@@ -2146,9 +2151,10 @@ class JoinGroupView(APIView):
             # same way, matching group_link_registration_refusal (Rule 9, #2015):
             # ``choices`` is not enforced on save, so a row written outside the
             # API must not copy an unknown role into a membership.
-            if link.role == GroupInviteLink.Role.ADMIN or link.role not in GroupMembership.Role.values:
+            if not link.role_redeemable:
                 logger.info(
-                    "Invite token redemption failed: admin or invalid-role invite. token=%s user_id=%s ip=%s outcome=failure",
+                    "Invite token redemption failed: %s. token=%s user_id=%s ip=%s outcome=failure",
+                    "admin invite" if link.role_refusal == "admin" else "invalid role",
                     token_hint,
                     request.user.pk,
                     ip,

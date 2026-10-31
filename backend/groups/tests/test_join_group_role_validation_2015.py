@@ -65,3 +65,26 @@ class JoinGroupRoleValidationTests(TestCase):
         client.force_authenticate(self.joiner)
         r = client.get(f"/api/v1/groups/join/{raw}/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND, r.content)
+
+    def test_status_reports_revoked_for_unused_out_of_enum_role(self):
+        link, _raw = GroupInviteLink.generate(group=self.group, created_by=self.admin, expires_at=None)
+        self.assertEqual(link.status, "pending")
+        GroupInviteLink.objects.filter(pk=link.pk).update(role="superuser")
+        link.refresh_from_db()
+        self.assertEqual(link.status, "revoked")
+        self.assertFalse(link.role_redeemable)
+        self.assertEqual(link.role_refusal, "invalid_role")
+
+    def test_generate_refuses_out_of_enum_role(self):
+        for role in ("superuser", "owner"):
+            with self.subTest(role=role), self.assertRaises(ValueError):
+                GroupInviteLink.generate(group=self.group, created_by=self.admin, role=role)
+        self.assertFalse(GroupInviteLink.objects.filter(group=self.group).exists())
+
+    def test_registration_refuses_out_of_enum_role(self):
+        from groups.invite_registration import group_link_registration_refusal
+
+        link, _raw = GroupInviteLink.generate(group=self.group, created_by=self.admin, expires_at=None)
+        GroupInviteLink.objects.filter(pk=link.pk).update(role="superuser")
+        link.refresh_from_db()
+        self.assertEqual(group_link_registration_refusal(link), "invite_invalid")

@@ -570,7 +570,7 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 
 **Errors:** `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed)
 
-*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404`, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. *(#2006)* An emailed `admin` invite sent before the cap answers `404` too; no invite grants admin.
+*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404`, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. *(#2006)* An emailed `admin` invite sent before the cap answers `404` too; no invite grants admin. *(#2015)* A link whose stored role is not one of the group roles (only possible through a write outside the API) answers `404` as well.
 
 > **Added in 1.2**
 
@@ -610,7 +610,7 @@ An emailed link (`delivery: "email"`) works only for an account with the address
 
 **Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed by someone who is not a member)
 
-*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404` and nothing is written, the same as a revoked link. *(#2006)* An emailed `admin` invite sent before the cap is refused the same way.
+*(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404` and nothing is written, the same as a revoked link. *(#2006)* An emailed `admin` invite sent before the cap is refused the same way. *(#2015)* So is a link whose stored role is outside the group roles; nothing is written and a single-use link stays unconsumed.
 
 > **Added in 1.2**
 
