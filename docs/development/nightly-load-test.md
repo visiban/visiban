@@ -333,7 +333,10 @@ Ruled out, each by measurement or by reading the path:
 - **Server-side cursors.** Not used on this path. Django opens a named cursor only for chunked `.iterator()` reads, and `board_full` makes none.
 - **Server-side binding.** Django's `OPTIONS["server_side_binding"]` wouldn't help. psycopg's server-side `PostgresQuery` splits the query with the same `_split_query`, behind the same 4,096-byte and 50-parameter cache limits as the client-side `PostgresClientQuery` (`psycopg/_queries.py`, the two `convert` methods).
 - **Pipeline mode.** Django doesn't use it. Each prefetch query also needs the ids returned by the query before it, so the round trips couldn't be pipelined anyway.
-- **The previous response staying in memory.** Each request's first full collection frees about 207,000 objects from the previous `board_full` response. The `@extend_schema` decorator on the `full` action passes its schema class through the view's init kwargs, and DRF's schema descriptor then stores each new view instance on that class. So the last view, its response and the serialized board stay referenced until the next request to the same action. Removing that reference didn't change latency: the objects are reference cycles that only the collector frees in either case. It's the same under both drivers and isn't part of this step. This is recorded as an observation only. No work on it's planned.
+- **The previous response staying in memory.** Each request's first full collection frees about 207,000 objects from the previous `board_full` response.
+  - The `@extend_schema` decorator on the `full` action passes its schema class through the view's init kwargs, and DRF's schema descriptor then stores each new view instance on that class. So the last view, its response and the serialized board stay referenced until the next request to the same action.
+  - Removing that reference didn't change latency: the objects are reference cycles that only the collector frees in either case.
+  - It's the same under both drivers and isn't part of this step. Observation only; no work on it is planned.
 
 Why the parts aren't fixed here:
 
@@ -342,7 +345,7 @@ Why the parts aren't fixed here:
   - Inside Django, that would mean one array parameter with `= ANY(%s)`, a change to how Django builds `prefetch_related` lookups.
   - Visiban could also do it without a Django change: `board_full` loads a single board, so it could fetch each child relation filtered by the board and attach the rows to the cards itself. That would remove the `IN` lists under psycopg2 too.
   - It's untried. The experiment is tracked in [#1813](https://gitlab.com/visiban/visiban/-/issues/1813).
-- **The collector.** Tuning it's a process-wide change to every endpoint, not a driver change. As a data point, calling `gc.freeze()` after startup made each arm faster than the same arm with default settings in the same round: by about 53ms under psycopg2 (668ms to 616ms in the table) and about 77ms under psycopg 3 (720ms to 646ms). It shrank the psycopg 3 step from about 45ms to about 24ms (30ms from the table's medians). This is recorded as an observation only. No work on collector tuning is planned.
+- **The collector.** Tuning it is a process-wide change to every endpoint, not a driver change. As a data point, calling `gc.freeze()` after startup made each arm faster than the same arm with default settings in the same round: by about 53ms under psycopg2 (668ms to 616ms in the table) and about 77ms under psycopg 3 (720ms to 646ms). It shrank the psycopg 3 step from about 45ms to about 24ms (30ms from the table's medians). This is recorded as an observation only. No work on collector tuning is planned.
 
 How it was measured, so it can be repeated:
 
@@ -402,7 +405,9 @@ Measured locally on one scale-20 database (PostgreSQL 17, `DEBUG=True` and no `C
 - **Same queries, slower planning.** Both commits ran 10 queries with token auth (8 without the token lookup and its `last_used_at` update). Only the main card SELECT got slower, 25ms to 33ms. `EXPLAIN ANALYZE` on that statement:
   - Execution: unchanged (15.2ms and 15.1ms).
   - Planning: 11-15ms before, 19-23ms after, in fresh and warm sessions alike.
-- **Mechanism.** The view filters cards with `board_id__in=get_accessible_boards_queryset(user)`. Before #1723 that subquery was `SELECT DISTINCT ... LEFT JOIN board_memberships`. #1723 replaced it with `owner = ... OR EXISTS(...)`. PostgreSQL pulls the subquery up into the card SELECT's 7-table join (cards, board, column, swimlane, two users, external ref). With the `OR EXISTS` form, the planner spends longer on that join than the executor spends running it. #1723's `Exists()` alone accounts for the rise (planning 19-20ms). [#1721](https://gitlab.com/visiban/visiban/-/issues/1721)'s role filter added nothing measurable.
+- **Mechanism.** The view filters cards with `board_id__in=get_accessible_boards_queryset(user)`. Before #1723 that subquery was `SELECT DISTINCT ... LEFT JOIN board_memberships`. #1723 replaced it with `owner = ... OR EXISTS(...)`.
+  - PostgreSQL pulls the subquery up into the card SELECT's 7-table join (cards, board, column, swimlane, two users, external ref). With the `OR EXISTS` form, the planner spends longer on that join than the executor spends running it.
+  - #1723's `Exists()` alone accounts for the rise (planning 19-20ms). [#1721](https://gitlab.com/visiban/visiban/-/issues/1721)'s role filter added nothing measurable.
 
 **The fix.** `get_queryset()` now evaluates the accessible board ids as a list (one small extra query) and passes the literal list to `board_id__in`. The access rule itself is untouched: the same `get_accessible_boards_queryset()` decides which ids are in the list. On the same statement:
 

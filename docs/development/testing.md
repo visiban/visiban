@@ -254,7 +254,7 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 
 ## Writing tests that catch mutations
 
-A test that only checks `status_code == 200` or `assertTrue(result)` passes when the code under it's wrong. The [mutation baseline](mutation-testing.md) shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from `backend/boards/tests/`.
+A test that only checks `status_code == 200` or `assertTrue(result)` passes when the code under it is wrong. The [mutation baseline](mutation-testing.md) shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from `backend/boards/tests/`.
 
 ### 1. Exact values over truthiness
 
@@ -323,7 +323,13 @@ Do the same for broadcast events: assert nothing was queued.
 
 ### Row-lock tests (PostgreSQL only)
 
-SQLite has no row locks, so a `select_for_update()` can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern: pause the first request inside its transaction (after it took the lock and wrote, before it commits), start a second request only once the first is paused, and assert both that the second couldn't finish before the pause ended and that the final state is consistent (distinct positions, caps respected). Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
+SQLite has no row locks, so a `select_for_update()` can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern:
+
+1. Pause the first request inside its transaction (after it took the lock and wrote, before it commits).
+2. Start a second request only once the first is paused.
+3. Assert both that the second couldn't finish before the pause ended and that the final state is consistent (distinct positions, caps respected).
+
+Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
 
 ### What not to do
 
@@ -390,7 +396,12 @@ Coverage says a line ran. A **mutation score** says whether the tests would noti
 - **Where to read it:** the `backend-mutation-report` job log prints one line per target and then the merged counts and score. The `mutmut-cicd-stats.json` artifact (kept 30 days) holds the merged numbers at the top level and each target under `targets`. It runs on the Weekly mutation testing schedule only (Sundays, 06:00 ET), never on an MR.
 - **Floor:** `MUTATION_MIN=0.90` gates the **merged adjusted** score over all targets (exit 1 below it). A target under 90% on its own is named in the log but doesn't fail the job by itself. Until the follow-up on #1384 both jobs are `allow_failure: true`, so a low score shows as a yellow job, not a red pipeline; a follow-up makes the report blocking. The floor is a fraction (`0.90`, never `90`); `0` or a value outside (0, 1] is rejected (exit 2).
 - **Yellow can also mean not measured** (exit 2): a shard or a whole target's stats files didn't arrive (a shard timed out or failed before writing its file), a file is malformed, a target's shards aren't one consistent run (their `total` mutant counts differ, or their non-skipped mutants don't add up to that total), a run finished with untested mutants, or nothing was scoreable. The export step also exits 2 if mutmut isn't importable or if a source file has pragmas that change no mutant count. The artifact is still written and carries a `not_measured` key with the reason; read the log to tell this from a low score. An invalid `MUTATION_MIN` fails before any stats are read, so that run has no artifact; fix the variable. Treat not measured as a broken job, not a score.
-- **Reading survivors:** survivors aren't in the artifact. Reproduce the target locally in a throwaway copy of `backend/` (see [Mutation Testing Baseline](mutation-testing.md#how-to-reproduce)), then `mutmut results` lists them and `mutmut show <id>` prints the diff of one. For each survivor ask, in order: could any production input observe this change? If not, it's an **equivalent mutant**: mark it with a reasoned `# pragma: no mutate`. Does any test in the target's list reach the line? If not, it's **untested code**. Otherwise it's a **missing assertion**: add the smallest assertion that fails on the mutant (an exact message, a boundary value, an empty case). See [Writing tests that catch mutations](#writing-tests-that-catch-mutations).
+- **Reading survivors:** survivors aren't in the artifact. Reproduce the target locally in a throwaway copy of `backend/` (see [Mutation Testing Baseline](mutation-testing.md#how-to-reproduce)), then `mutmut results` lists them and `mutmut show <id>` prints the diff of one. For each survivor ask, in order:
+    1. Could any production input observe this change? If not, it's an **equivalent mutant**: mark it with a reasoned `# pragma: no mutate`.
+    2. Does any test in the target's list reach the line? If not, it's **untested code**.
+    3. Otherwise it's a **missing assertion**: add the smallest assertion that fails on the mutant (an exact message, a boundary value, an empty case).
+
+    See [Writing tests that catch mutations](#writing-tests-that-catch-mutations).
 
 ### Coverage targets
 

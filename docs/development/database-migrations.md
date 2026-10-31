@@ -399,33 +399,19 @@ silent on that migration too.
 
 **The second migration doesn't get the same protection a check constraint's does — verify
 this shape against `check_migration_constraint_safety.py` yourself before trusting it.**
-`ValidateConstraint` is the operation the checker watches for a `CheckConstraint`, by name,
-regardless of what kind of constraint it validates — but it's exempted whenever the
-migration's own `dependencies` names another migration, in the same app, whose operations
-list contains a top-level `RunPython`/`RunSQL` (the "adjacent migration" rule: a migration
-depending on a dedicated repair migration is assumed already safe). The exemption checks
-only that such an operation exists in the dependency, never what it does. Migration 1 above
-*is* a top-level `RunPython` — it just happens to add a constraint, not repair a row — and
-migration 2 depends on it directly, so this recipe's shape trips the exemption every time:
-`ValidateConstraint` in migration 2 is silently waved through whether or not `reviewer_id`
-holds a single orphaned reference. Writing migration 1 as `RunSQL` instead makes no
-difference; the checker treats the two names identically.
 
-This is a genuine gap in the checker, not a design choice, and there's no way to add a
-hand-written `NOT VALID` constraint without a `RunPython`/`RunSQL` operation to carry it — so
-the gap is unavoidable with this recipe, not a mistake to fix by restructuring the
-migrations. Judge the need for a repair step the same way you would with the check turned
-off: if `reviewer_id` could hold a value that doesn't point at an existing row — data
-written before an application-level guard existed, a row deleted out from under a reference,
-anything restored from an old backup — add a real `RunPython` repair step ahead of
-`ValidateConstraint` before relying on it, because CI won't catch a missing one here. The
-`# constraint-safe:` comment convention used elsewhere on this page doesn't help either: the
-violation this shape would otherwise raise is suppressed by the adjacent-migration exemption
-before the scanner ever reaches the point where it would look for that comment, so writing
-one on `ValidateConstraint` in migration 2 has no effect.
+- `ValidateConstraint` is the operation the checker watches for a `CheckConstraint`, by name, regardless of what kind of constraint it validates.
+- It's exempted whenever the migration's own `dependencies` names another migration, in the same app, whose operations list contains a top-level `RunPython`/`RunSQL` (the "adjacent migration" rule: a migration depending on a dedicated repair migration is assumed already safe). The exemption checks only that such an operation exists in the dependency, never what it does.
+- Migration 1 above *is* a top-level `RunPython` (it just adds a constraint instead of repairing a row), and migration 2 depends on it directly. So this recipe's shape trips the exemption every time: `ValidateConstraint` in migration 2 is silently waved through whether or not `reviewer_id` holds a single orphaned reference.
+- Writing migration 1 as `RunSQL` makes no difference; the checker treats the two names identically.
 
-`VALIDATE CONSTRAINT` itself takes `SHARE UPDATE EXCLUSIVE` — the same weak lock a check
-constraint's validation takes, which is the whole reason the two-step split is worth doing.
+This is a genuine gap in the checker, not a design choice. There's no way to add a hand-written `NOT VALID` constraint without a `RunPython`/`RunSQL` operation to carry it, so the gap is unavoidable with this recipe. Restructuring the migrations doesn't fix it.
+
+**Watch out:** Judge the need for a repair step as if the check were turned off. If `reviewer_id` could hold a value that doesn't point at an existing row (data written before an application-level guard existed, a row deleted out from under a reference, anything restored from an old backup), add a real `RunPython` repair step ahead of `ValidateConstraint` before relying on it. CI won't catch a missing one here.
+
+The `# constraint-safe:` comment convention used elsewhere on this page doesn't help either. The adjacent-migration exemption suppresses the violation before the scanner reaches the point where it would look for that comment, so writing one on `ValidateConstraint` in migration 2 has no effect.
+
+`VALIDATE CONSTRAINT` itself takes `SHARE UPDATE EXCLUSIVE`, the same weak lock a check constraint's validation takes. That's the whole reason the two-step split is worth doing.
 
 ### Teaching the checker to see this
 
@@ -509,10 +495,7 @@ operations = [
 ]
 ```
 
-The comment must sit on the operation's own line or within the four lines above it, and the
-reason after the colon is mandatory — a bare `# concurrency-exempt:` still fails the check.
-The reason is the point: it's what lets the next reader see why the lock was acceptable
-without re-deriving it.
+The comment must sit on the operation's own line or within the four lines above it. The reason after the colon is mandatory: a bare `# concurrency-exempt:` still fails the check. The reason lets the next reader see why the lock was acceptable without re-deriving it.
 
 ---
 

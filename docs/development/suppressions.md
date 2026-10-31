@@ -47,7 +47,7 @@ The `suppressions-check` CI job (`scripts/check-suppression-issues.sh`) greps th
 The same job also scans `backend/nightly-load-test-baseline.json` for pending budgets (#1812). An `endpoints` entry with `"budget_p95_ms": null` and `"pending_budget": "#NNNN"` is measured nightly but not gated (see [Pending budgets](nightly-load-test.md#pending-budgets)). That makes it a temporary exemption exactly like a `SUPPRESSED-UNTIL` marker, so the check applies the same rules:
 
 - It fails, naming the endpoint and the issue, when the cited issue is closed or not returned by the tracker, and fails open on an inconclusive lookup.
-- The marker shape matches `_pending_budget()` in `scripts/nightly_load_test.py`. An entry whose budget isn't null is gated normally, so a leftover `pending_budget` on it's ignored, and so is a value that isn't `#NNNN` (the load-test self-test rejects that case).
+- The marker shape matches `_pending_budget()` in `scripts/nightly_load_test.py`. An entry whose budget isn't null is gated normally, so a leftover `pending_budget` on it is ignored, and so is a value that isn't `#NNNN` (the load-test self-test rejects that case).
 - A missing or unparseable baseline file fails the check instead of reporting a clean scan.
 - When it fires, assign the budget and delete `pending_budget` in the whole-file NUC re-derivation, or re-point it at a new tracked issue.
 
