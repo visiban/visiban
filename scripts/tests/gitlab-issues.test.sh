@@ -29,6 +29,11 @@
 # expanding now against this test's own variables.)
 set -euo pipefail
 
+# Start from a token-free environment: GITLAB_API_TOKEN is a protected project
+# CI variable (#1996), so on main it would otherwise leak into every case and
+# defeat the token-resolution assertions below, which set tokens per command.
+unset GITLAB_API_TOKEN ISSUES_API_TOKEN
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LIB="$REPO_ROOT/scripts/lib/gitlab-issues.sh"
 
