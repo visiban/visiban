@@ -1,36 +1,10 @@
-# Sample Boards
+# Get a fully populated board in seconds
 
-Visiban ships ready-to-import sample boards: a set of templates. Import
-one to get a fully populated board in a few seconds. Each sample has real columns,
-swimlanes, labels and cards, typed custom fields, a full audit trail and enough movement
-history to fill the analytics charts.
+In the app, open **Import** on the Dashboard and pick a board under **Start from a sample** (see [How to import](#how-to-import)). You'll have a fully populated board in a few seconds.
 
-In the app, open **Import** on the Dashboard and pick one under **Start from a sample** (see [How to import](#how-to-import)). The sections below cover getting the files yourself.
+**Why it matters:** An empty board teaches you nothing about analytics or history. Each sample has real columns, swimlanes, labels, and cards, plus typed custom fields, a full audit trail, and enough movement history to fill the analytics charts.
 
-## Where to get the files
-
-The sample boards are `.json` files in [`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards)
-in the Visiban repository, with a matching `.csv` file for each in [`sample-boards/`](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards).
-A `manifest.json` next to the JSON files lists every sample.
-
-**Installed with Docker Compose or Helm?** Download the files from the repository, either from
-[GitLab](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) or from the
-[GitHub mirror](https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards):
-
-```bash
-# One board
-curl -LO https://gitlab.com/visiban/visiban/-/raw/main/backend/boards/sample_boards/sales_overlay.json
-
-# All of them (sparse checkout of just the samples directory)
-git clone --depth 1 --filter=blob:none --sparse https://gitlab.com/visiban/visiban.git
-cd visiban && git sparse-checkout set backend/boards/sample_boards
-```
-
-To match your installed version, replace `main` with your release tag (for example
-`v1.2.0`). Every sample imports into the release it was published with or into a later one.
-
-**Working from a clone of the repository?** The JSON files are already on disk at
-`backend/boards/sample_boards/` and the CSV files at `sample-boards/`.
+**The big picture:** The samples are a set of templates. The in-app gallery needs no download. The sections below are for importing the files yourself.
 
 ## Available samples
 
@@ -57,118 +31,109 @@ To match your installed version, replace `main` with your release tag (for examp
 
 ### From the app
 
-!!! note "Added in 1.2"
-    The sample gallery in the Import Board dialog.
+<span class="vb-version" title="Added in 1.2">1.2+</span>
+
+The sample gallery in the Import Board dialog:
 
 1. Log in to your Visiban instance.
 2. From the **Dashboard** (or a group page), click **Import**.
 3. Under **Start from a sample**, click **Use this sample** on a card. **Show all** lists the rest.
-4. Choose what to include (cards, labels, comments, checklists, history) and click **Import**.
-   Use **Change** to go back and pick a different sample.
+4. Choose what to include (cards, labels, comments, checklists, history) and click **Import**. Use **Change** to go back and pick a different sample.
 
-The sample is fetched from your own Visiban server, so it matches your installed version and works without internet access.
-Dates in the sample are moved to the day you import it, so the board does not open mostly overdue
-(see [Dates on import](#dates-on-import)).
-The board is named **Imported: <sample title>**, and a second import of the same sample is numbered.
-Press **Esc** while a sample is loading to cancel it. If samples can't be loaded, the dialog says so and you can retry or upload a file instead.
+**How it works:**
+
+- **It works offline.** The sample comes from your own Visiban server, so it matches your installed version and needs no internet access.
+- **Dates move to today,** so the board doesn't open mostly overdue (see [Dates on import](#dates-on-import)).
+- **The board is named "Imported: \<sample title\>".** A second import of the same sample gets a number.
+- **Press Esc** while a sample is loading to cancel. If samples can't be loaded, the dialog says so, and you can retry or upload a file instead.
 
 ### From a file
 
 1. Log in to your Visiban instance.
 2. From the **Dashboard**, click **Import**.
 3. Choose a `.json` file from `backend/boards/sample_boards/`.
-4. Optionally untick what you don't want (cards, labels, comments, checklists, history).
-   The board's columns, swimlanes and custom field definitions are always imported.
-5. The board is created with everything in the file, dated around today
-   (see [Dates on import](#dates-on-import)).
+4. Optionally untick what you don't want (cards, labels, comments, checklists, history). The board's columns, swimlanes, and custom field definitions are always imported.
+5. The board is created with everything in the file, dated around today (see [Dates on import](#dates-on-import)).
 
-Imports are limited to 10 per user per hour.
+**By the numbers:** Imports are limited to 10 per user per hour.
 
-### Dates on import
+## Where to get the files
+
+**The big picture:** The sample boards are `.json` files in [`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) in the Visiban repository. Each has a matching `.csv` file in [`sample-boards/`](https://gitlab.com/visiban/visiban/-/tree/main/sample-boards). A `manifest.json` next to the JSON files lists every sample.
+
+**Installed with Docker Compose or Helm?** Download the files from [GitLab](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) or the [GitHub mirror](https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards):
+
+```bash
+# One board
+curl -LO https://gitlab.com/visiban/visiban/-/raw/main/backend/boards/sample_boards/sales_overlay.json
+
+# All of them (sparse checkout of just the samples directory)
+git clone --depth 1 --filter=blob:none --sparse https://gitlab.com/visiban/visiban.git
+cd visiban && git sparse-checkout set backend/boards/sample_boards
+```
+
+**Match your version:** replace `main` with your release tag (for example `v1.2.0`). Every sample imports into the release it was published with, or into a later one.
+
+**Working from a clone?** The JSON files are already on disk at `backend/boards/sample_boards/`, and the CSV files are at `sample-boards/`.
+
+## Dates on import
+
+Visiban moves a sample's dates so the board looks current. The CSV files are the exception.
 
 !!! note "Changed in 1.2"
-    Before #1949, only the in-app gallery moved a sample's dates. A sample file chosen from
-    disk or downloaded with `curl` kept the dates it was generated with (around March 2026).
+    Before #1949, only the in-app gallery moved a sample's dates. A sample file chosen from disk or downloaded with `curl` kept the dates it was generated with (around March 2026).
 
-The samples are generated around a fixed day, and each sample file records that day as its
-`date_anchor`. On import, Visiban moves every date in the board (due dates, date custom
-fields, card creation, comments, moves and history) forward by the days between that anchor
-and today, keeping the spacing between them. This happens however the JSON file reaches
-Visiban: the gallery, **Import** with a file you downloaded, or an API upload. A board you
-exported yourself has no `date_anchor`, so its dates always import as written. The sample
-`.csv` files are not shifted: a CSV import always keeps its dates as written, so a sample
-imported from CSV keeps the March 2026 dates it was generated with.
+**How it works:** The samples are generated around a fixed day, and each sample file records that day as its `date_anchor`. On import, Visiban moves every date in the board forward by the number of days between that anchor and today, keeping their spacing. That covers due dates, date custom fields, card creation, comments, moves, and history. It happens however the JSON reaches Visiban: the gallery, **Import** with a downloaded file, or an API upload.
 
-In the Import Board dialog the **Dates** section shows when the file carries an anchor:
+**Yes, but:**
+
+- **A board you exported yourself has no `date_anchor`,** so its dates always import as written.
+- **The sample `.csv` files are not shifted.** A CSV import always keeps its dates as written, so a sample imported from CSV keeps the March 2026 dates it was generated with.
+
+**In the Import Board dialog,** the **Dates** section appears when the file carries an anchor:
 
 - **Move dates to today** is on by default. Untick it to import the dates exactly as written.
-- **Adjust dates** opens a date field set to today. Pick an earlier day to date the board
-  around that day instead, for example to match a demo you ran last week. A day after today
-  is refused, so imported history never lands after the import. The dialog sends the day
-  only when you change it; otherwise the server uses today (UTC).
+- **Adjust dates** opens a date field set to today. Pick an earlier day to date the board around it instead, for example to match a demo you ran last week. A day after today is refused, so imported history never lands after the import. The dialog sends the day only when you change it; otherwise the server uses today (UTC).
 
-From the API the same choices are the `shift_dates` and `shift_dates_to` import options; see
-[Date shifting](../api/boards.md#date-shifting).
+**From the API,** the same choices are the `shift_dates` and `shift_dates_to` import options; see [Date shifting](../api/boards.md#date-shifting).
 
 !!! tip "Who did what"
-    The samples name the users `demo1` through `demo5` as assignees and as the people
-    behind each move and history entry. The import links an assignee account with one of
-    those usernames only if it is visible to you: you, people who share a board or group
-    with you, or members of the group you import into. Site administrators and users with
-    all-content access see all active accounts, and inactive accounts are never linked.
-    Otherwise cards are imported unassigned. Moves and history entries are always
-    recorded under you, the importing user, with the sample's name kept beside yours
-    ("imported, originally demo1") — see [Imported history](../features/card-history.md#imported-history).
-    Comments are always imported as written by you, with the sample's name kept beside
-    yours in the same way.
+    The samples name the users `demo1` through `demo5` as assignees and as the people behind each move and history entry.
 
-The `.csv` file for each template uses the same layout as **Export → CSV**
-Use it to look at
-the data in a spreadsheet or to try the CSV importer. CSV import creates cards with their
-title, description, column, swimlane, priority, labels, due date and weight. It also reads
-the `Custom:` and `Swimlane Custom:` columns, restoring card and swimlane custom field values
-as **text** fields (a CSV carries no field type; import the JSON file to keep field types and
-choices). It does not restore movement history, comments or checklists.
+    - **Assignees** link to an account with one of those usernames only if it's visible to you. That means you, people who share a board or group with you, or members of the group you import into. Site administrators and users with all-content access see all active accounts. Inactive accounts are never linked. Otherwise cards are imported unassigned.
+    - **Moves and history entries** are always recorded under you, the importing user, with the sample's name kept beside yours ("imported, originally demo1"). See [Imported history](../features/card-history.md#imported-history).
+    - **Comments** are always imported as written by you, with the sample's name kept beside yours the same way.
+
+### The CSV files
+
+Each template's `.csv` file uses the same layout as **Export → CSV**. Use it to look at the data in a spreadsheet, or to try the CSV importer.
+
+**What CSV import restores:** each card's title, description, column, swimlane, priority, labels, due date, and weight. It also reads the `Custom:` and `Swimlane Custom:` columns, restoring card and swimlane custom field values as **text** fields. A CSV carries no field type, so import the JSON file to keep field types and choices.
+
+**Yes, but:** CSV import doesn't restore movement history, comments, or checklists.
 
 ## What each template includes
 
-The templates include everything below.
+- **Typed custom fields on cards.** Six to eleven per template. Together the templates use every field type: number (with `$`, `%`, or unit formatting), dropdown and multi-select (with choice colors), date, URL, checkbox, and text. Sales Overlay uses all of them on one board. Two per template are pinned to the card face.
+- **Swimlane fields.** Owner, budget, tier, and similar facts about each row, pinned to the row header. Some are admin-only and hidden from non-admin members.
+- **Column limits.** WIP and weight limits on the busy columns. On each template one column is deliberately just over its limit, so you can see how that's flagged.
+- **A full audit trail on every card.** Creation, assignments and reassignments, labels added and removed, priority escalations, due-date changes, renames, description edits, checklist items added, checked, unchecked, and deleted, and comments. Each entry has the user and time it happened, written in the same form the app writes it. So every label, assignee, and checked item on a card traces back to the entry that set it.
+- **Movement history.** Cards move through the workflow, sometimes skipping a stage or going back one. Backward moves carry a note explaining why. A card that ends in a lost outcome (Lost, Rejected, Denied) never passes through a winning one first. The heatmap and dwell-time charts are populated as soon as you import.
+- **Archived cards.** Some finished cards are archived, the way a team clears its Done column.
+- **Merge request and issue links.** The engineering boards link cards to fictional GitLab and GitHub URLs.
+- **Done columns marked with `is_done`,** so analytics treat finished work correctly.
 
-- **Typed custom fields on cards.** Six to eleven per template. Together the templates use
-  every field type: number (with `$`, `%` or unit formatting), dropdown and multi-select
-  (with choice colors), date, URL, checkbox and text. Sales Overlay uses all of them on
-  one board. Two per template are pinned to the card face.
-- **Swimlane fields.** Owner, budget, tier and similar facts about each row, pinned to the
-  row header. Some are admin-only and hidden from non-admin members.
-- **Column limits.** WIP and weight limits on the busy columns. On each template, one
-  column is deliberately just over its limit so you can see how that is flagged.
-- **A full audit trail on every card.** Creation, assignments and reassignments, labels
-  added and removed, priority escalations, due-date changes, renames, description edits,
-  checklist items added, checked, unchecked and deleted, and comments. Each entry has the
-  user and time it happened, and is written in the same form the app writes it, so every
-  label, assignee and checked item on a card can be traced to the entry that set it.
-- **Movement history.** Cards move through the workflow, sometimes skipping a stage or
-  going back one. Backward moves carry a note explaining why. A card that ends in a lost
-  outcome (Lost, Rejected, Denied) never passes through a winning one first. The heatmap and dwell-time
-  charts are populated as soon as you import.
-- **Archived cards.** Some finished cards are archived, the way a team clears its Done
-  column.
-- **Merge request and issue links.** The engineering boards link cards to fictional GitLab
-  and GitHub URLs.
-- **Done columns marked with `is_done`**, so analytics treat finished work correctly.
-
-All people, companies and links in the samples are fictional.
+All people, companies, and links in the samples are fictional.
 
 ## Regenerating the samples (contributors)
 
-The templates are generated. Do not edit the JSON or CSV by hand: the backend test
-suite regenerates them and fails if the committed files differ from the generator output.
+**Watch out:** the templates are generated. Don't edit the JSON or CSV by hand. The backend test suite regenerates them and fails if the committed files differ from the generator output.
 
 | File | Contains |
 |------|----------|
 | `backend/boards/seed_data/generate_seed_data.py` | Templates 1-5 and Software Development, history and audit-trail generation, CSV writer, entry point |
 | `backend/boards/seed_data/generate_seed_data_part2.py` | Templates 6-10 |
-| `backend/boards/seed_data/sample_features.py` | Custom fields, swimlane fields, column limits and links for every template |
+| `backend/boards/seed_data/sample_features.py` | Custom fields, swimlane fields, column limits, and links for every template |
 | `backend/boards/seed_data/sales_overlay.py` | The hand-written Sales Overlay board |
 
 ```bash
@@ -176,7 +141,4 @@ suite regenerates them and fails if the committed files differ from the generato
 python3 backend/boards/seed_data/generate_seed_data.py
 ```
 
-The first command writes the JSON files and `manifest.json` to
-`backend/boards/sample_boards/` and the CSV files to `sample-boards/`. It also rewrites the
-sample table on this page and in `sample-boards/README.md`. That script is the only writer of
-these files; the hosted demo's seed data (`seed_demo_data`) is separate and writes no sample files.
+**What it writes:** the JSON files and `manifest.json` to `backend/boards/sample_boards/`, and the CSV files to `sample-boards/`. It also rewrites the sample table on this page and in `sample-boards/README.md`. That script is the only writer of these files. The hosted demo's seed data (`seed_demo_data`) is separate and writes no sample files.

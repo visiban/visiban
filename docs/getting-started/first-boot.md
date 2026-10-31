@@ -1,14 +1,19 @@
-# First Boot
+# Log in once, then lock the door
 
-The first time Visiban starts, it creates a one-time admin password — retrieve it, log in, and set your own password before inviting anyone else.
+On first start, Visiban creates an `admin` account and writes its one-time password to a file. Retrieve it, log in, set your own password, and choose a registration mode before you invite anyone.
 
-## Automatic admin bootstrap
+**Why it matters:** The password is written once and never printed to the logs. If the container is recreated before you read the file, the file is gone and you'll need to reset the password instead.
 
-On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (`/tmp/visiban_admin_password` by default). The password is **not** printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.
+<a id="automatic-admin-bootstrap"></a>
 
-The file is created exclusively with mode `0600` and symlinks are never followed. If something other than a regular file you own already exists at that path, Visiban refuses to use it and prints the password to the command's stdout instead. Set `VISIBAN_ADMIN_PASSWORD_FILE` to use a private directory instead of `/tmp`.
+**How it works:**
 
-The stdout output looks like this:
+- **When no site admin exists,** `ensure_site_admin` creates one and writes the password to `/tmp/visiban_admin_password` by default.
+- **The password isn't printed to stdout,** so it can't end up in a log aggregator such as CloudWatch, Datadog, or the Docker log driver.
+- **The file is created exclusively, with mode `0600`, and symlinks are never followed.** If something other than a regular file you own is already at that path, Visiban refuses to use it and prints the password to the command's stdout instead.
+- **Set `VISIBAN_ADMIN_PASSWORD_FILE`** to use a private directory instead of `/tmp`.
+
+What stdout shows:
 
 ```
 ============================================================
@@ -22,75 +27,48 @@ The stdout output looks like this:
 ============================================================
 ```
 
-### Retrieving the password
+<a id="retrieving-the-password"></a>
 
-**Docker Compose (development):**
+## Retrieve the password
+
+### Docker Compose
+
+**Development:**
 
 ```bash
 docker compose exec backend cat /tmp/visiban_admin_password
 ```
 
-**Docker Compose (production):**
+**Production:**
 
 ```bash
 docker compose -f docker-compose.prod.yml exec backend cat /tmp/visiban_admin_password
 ```
 
-Delete the file after retrieving it:
+Delete the file once you have the password:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec backend rm /tmp/visiban_admin_password
 ```
 
-!!! note "Password file not found?"
-    If the file does not exist, the admin account was already created on a previous boot (the password is only written once). This commonly happens even on what looks like a fresh start: the database lives in a named Docker volume that survives `docker compose down` / `up --build` / image rebuilds, but `/tmp` inside the `backend` container does not. So the moment the container is recreated for any reason after the admin's first boot — a rebuild, a `down`/`up` cycle, anything that gives you a new container instance — `ensure_site_admin` sees the admin already exists in Postgres, no-ops, and never writes the file again. There is no way to recover that specific file after the fact.
+**Watch out:** The service is named `backend` in this project's compose files, not `api`.
 
-    Reset the password with:
-
-    ```bash
-    docker compose exec backend python manage.py changepassword admin
-    ```
-
-    For production:
-
-    ```bash
-    docker compose -f docker-compose.prod.yml exec backend python manage.py changepassword admin
-    ```
-
-    The reset revokes any personal access tokens and API auth token issued under the old password. It does not change whether the account must choose a new password. The temporary password that `ensure_site_admin` generates is the exception by design: it sets the forced-change flag because that password is written to a file.
-
-    `changepassword` prompts interactively and needs a real TTY (`docker compose exec` allocates one by default in an interactive terminal; scripts, CI, and some automation contexts do not and will fail with `EOFError`). In a non-interactive context, set the password directly instead:
-
-    ```bash
-    docker compose exec -T backend python manage.py shell -c "
-    from django.db import transaction
-    from accounts.credentials import lock_user_row, revoke_credentials_after_operator_reset
-    from accounts.models import User
-    with transaction.atomic():
-        u = lock_user_row(User.objects.get(username='admin'))
-        u.set_password('a-new-temporary-password')
-        u.must_change_password = True
-        u.save()
-        revoke_credentials_after_operator_reset(u)
-    "
-    ```
-
-    Also double check the service name — it's `backend` in this project's compose files, not `api`.
-
-**Local development (bare metal / venv):**
+### Local development (bare metal or venv)
 
 ```bash
 cat /tmp/visiban_admin_password
 ```
 
-!!! tip
-    The password is on its own line. If your shell displays a `%` immediately after it, that is a zsh prompt indicator — it is **not** part of the password. Copy only the characters before the `%`.
+!!! tip "A `%` after the password isn't part of it"
+    The password is on its own line. If your shell shows a `%` right after it, that's a zsh prompt indicator. Copy only the characters before the `%`.
 
-### Kubernetes / Helm
+<a id="kubernetes-helm"></a>
 
-`ensure_site_admin` runs automatically as a `bootstrap` init container on every deploy. The password is written to `/run/visiban/admin_password` inside a shared volume that persists into the running backend pod.
+### Kubernetes and Helm
 
-Retrieve the password with:
+**How it works:** `ensure_site_admin` runs as the `bootstrap` init container on every deploy. It writes the password to `/run/visiban/admin_password` on a shared volume that persists into the running backend pod.
+
+Retrieve it:
 
 ```bash
 kubectl exec -n visiban $(kubectl get pods -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') -- cat /run/visiban/admin_password
@@ -102,33 +80,52 @@ Delete it once you have it:
 kubectl exec -n visiban $(kubectl get pods -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') -- rm /run/visiban/admin_password
 ```
 
-If the admin already exists (e.g. the pod restarted before you retrieved the password), reset the password with:
+If the admin already exists (for example, the pod restarted before you retrieved the password), reset it:
 
 ```bash
 kubectl exec -it -n visiban $(kubectl get pods -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') -- python manage.py changepassword admin
 ```
 
-## Changing the password
+## No password file? Reset the password
 
-On first login you will be shown a password change screen. You cannot access the application until a new password (minimum 12 characters) is set. The temporary password cannot be reused.
+!!! note "Password file not found?"
+    The admin was already created on an earlier boot, and the password is written only once.
 
-Once SMTP is configured, regular users (not just admins) can reset their own passwords via **Forgot password?** on the login page — no administrator intervention required. See [Authentication — Forgot password](../administration/authentication.md#forgot-password-self-service-password-reset) for SMTP setup notes.
+    **Why it happens even on a "fresh" start:** The database lives in a named Docker volume that survives `docker compose down`, `up --build`, and image rebuilds. `/tmp` inside the `backend` container doesn't. Any time the container is recreated after the admin's first boot (a rebuild, a `down`/`up` cycle, or anything else that gives you a new container), `ensure_site_admin` finds the admin already in Postgres, does nothing, and never writes the file again. That file can't be recovered.
 
-## Customizing the bootstrap account
-
-Set these environment variables **before** the first boot:
+Reset the password:
 
 ```bash
-DJANGO_SUPERUSER_USERNAME=admin
-DJANGO_SUPERUSER_EMAIL=admin@example.com
+docker compose exec backend python manage.py changepassword admin
 ```
 
-## Subsequent boots
+For production:
 
-`ensure_site_admin` runs on every boot. Admin bootstrap is a no-op once a site admin exists — credentials are never printed again — but the command also re-syncs the Sites framework's domain from `SITE_DOMAIN` every time it runs, so changing `SITE_DOMAIN` and restarting the backend takes effect immediately, with no extra step.
+```bash
+docker compose -f docker-compose.prod.yml exec backend python manage.py changepassword admin
+```
 
-!!! warning
-    If you lose the temporary password before changing it, reset it via the Django shell:
+**What a reset does:** It revokes any personal access tokens and API auth token issued under the old password. It doesn't change whether the account must choose a new password. The exception, by design, is the temporary password `ensure_site_admin` generates. That one sets the forced-change flag, because it's written to a file.
+
+**Yes, but: `changepassword` needs a real TTY.** It prompts interactively. `docker compose exec` allocates a TTY by default in an interactive terminal, but scripts, CI, and some automation don't, and they fail with `EOFError`. In a non-interactive context, set the password directly:
+
+```bash
+docker compose exec -T backend python manage.py shell -c "
+from django.db import transaction
+from accounts.credentials import lock_user_row, revoke_credentials_after_operator_reset
+from accounts.models import User
+with transaction.atomic():
+    u = lock_user_row(User.objects.get(username='admin'))
+    u.set_password('a-new-temporary-password')
+    u.must_change_password = True
+    u.save()
+    revoke_credentials_after_operator_reset(u)
+"
+```
+
+!!! warning "Lost the temporary password before changing it?"
+    Reset it the same way from the Django shell:
+
     ```python
     from django.db import transaction
     from accounts.credentials import lock_user_row, revoke_credentials_after_operator_reset
@@ -142,35 +139,56 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
         revoke_credentials_after_operator_reset(u)
     ```
 
+<a id="changing-the-password"></a>
+
+## Change the password
+
+On first login you get a password change screen. You can't use the application until you set a new password of at least 12 characters, and you can't reuse the temporary one.
+
+**After that:** Once SMTP is configured, any user (not just admins) can reset their own password with **Forgot password?** on the login page. No administrator is needed. For SMTP setup notes, see [Authentication: Forgot password](../administration/authentication.md#forgot-password-self-service-password-reset).
+
+<a id="customizing-the-bootstrap-account"></a>
+
+## Customize the bootstrap account
+
+Set these **before** the first boot:
+
+```bash
+DJANGO_SUPERUSER_USERNAME=admin
+DJANGO_SUPERUSER_EMAIL=admin@example.com
+```
+
+<a id="subsequent-boots"></a>
+
+**On later boots:** `ensure_site_admin` still runs every time. Once a site admin exists the bootstrap does nothing, and credentials are never printed again. The command also re-syncs the Sites framework's domain from `SITE_DOMAIN` on every run, so a changed `SITE_DOMAIN` takes effect as soon as you restart the backend, with no extra step.
+
 ## Inviting your team
 
-Before inviting anyone, decide how new users can join the instance. Go to **Admin → Settings** and set the registration mode:
+Choose how people join **before** you share the URL. Go to **Admin → Settings** and set the registration mode:
 
 | Mode | Who can create an account |
 |---|---|
-| **Open** | Anyone who reaches the login page can self-register — no action required from an admin |
-| **Invite-only** | New users must follow a valid invite link from a site admin — a site invite link, or *(1.2+)* a group invite a site admin emailed from a group's invite panel; attempts to register without one are rejected |
-| **Closed** | Self-registration is disabled entirely; site admins create accounts manually from **Admin → Users → Add user** |
+| **Open** | Anyone who reaches the login page can self-register. No admin action needed. |
+| **Invite-only** | New users must follow a valid invite link from a site admin. That's a site invite link or *(1.2+)* a group invite that a site admin emailed from a group's invite panel. Registration attempts without one are rejected. |
+| **Closed** | Self-registration is off. Site admins create accounts by hand under **Admin → Users → Add user**. |
 
-The change takes effect immediately with no restart required. Existing sessions and OAuth-linked accounts are never affected.
+**How it works:** The change applies immediately, with no restart. Existing sessions and OAuth-linked accounts are never affected.
 
-### Generating invite links (Invite-only mode)
+<a id="generating-invite-links-invite-only-mode"></a>
 
-When registration mode is set to Invite-only, go to **Admin → Invite Links** to create links for new users.
+### Generate invite links (Invite-only mode)
 
-Invite links work for both password-based and OAuth registration. When a user follows an invite link and chooses to sign up via Google, GitHub, GitLab, or OIDC, the token is carried through the OAuth redirect and consumed on successful signup — no manual token entry required.
+**The big picture:** Invite links work for both password and OAuth sign-up. If a user follows an invite link and signs up with Google, GitHub, GitLab, or OIDC, the token rides through the OAuth redirect and is consumed when sign-up succeeds. Nobody has to enter a token by hand.
 
-**To create a link:**
+To create a link:
 
 1. Open the **Admin** panel (`/admin`) and go to the **Invite Links** tab.
 2. Click **Generate invite link**.
-3. Choose an expiry window: **1 day**, **7 days**, **30 days**, or **Never expires**.
-4. Optionally enable **Single-use** — the link is consumed after the first registration and cannot be reused.
-5. Copy the generated token and share it with the new user via a secure channel.
+3. Choose an expiry: **1 day**, **7 days**, **30 days**, or **Never expires**.
+4. Optionally turn on **Single-use**, which consumes the link on the first registration so it can't be reused.
+5. Copy the generated token and send it to the new user over a secure channel.
 
-The raw token value is shown only once at creation — it is not stored in plain text and cannot be retrieved later. If a link is lost before it is used, revoke it and generate a new one.
-
-**Link statuses:**
+**Watch out: you see the token once.** It isn't stored in plain text and can't be retrieved later. If a link is lost before it's used, revoke it and generate a new one.
 
 | Status | Meaning |
 |---|---|
@@ -179,21 +197,18 @@ The raw token value is shown only once at creation — it is not stored in plain
 | Expired | Past the expiry date |
 | Revoked | Manually invalidated by a site admin |
 
-!!! note
-    A maximum of 50 active (pending, non-expired) shareable invite links can exist at one time per instance. Revoke unused links to stay below this limit. Invite links sent by email (new in 1.2, via `POST /api/v1/admin/invite-links/send/`) don't count toward it — they have a separate limit of 200 pending.
+!!! note "By the numbers: 50 shareable links per instance"
+    At most 50 active (pending, unexpired) shareable invite links can exist per instance; revoke unused ones to stay under the limit. Invite links sent by email (new in 1.2, via `POST /api/v1/admin/invite-links/send/`) don't count toward it. They have a separate limit of 200 pending.
 
-### Creating accounts manually (Closed mode)
+<a id="creating-accounts-manually-closed-mode"></a>
 
-When registration mode is Closed, use **Admin → Users → Add user** to create accounts directly. Set a temporary password and enable **Force password reset** so the user chooses their own password on first login.
+### Create accounts by hand (Closed mode)
 
-!!! warning
-    Copy the temporary password before closing the Create User dialog — it is not shown again. Share it with the new user via a secure channel.
+Use **Admin → Users → Add user**. Set a temporary password and turn on **Force password reset** so the user picks their own password on first login.
 
-## Loading sample data
+!!! warning "Copy the temporary password before you close the dialog"
+    The Create User dialog doesn't show it again. Send it to the new user over a secure channel.
 
-To see a fully populated board before your team's real work arrives, import one of the
-sample boards. The backend image ships the JSON files, so **Import** on the dashboard and pick one under **Start from a sample** works without a
-download. To import a file yourself (or to get the CSVs, which are repo-only), download them from [`backend/boards/sample_boards/` on GitLab](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards)
-(or the [GitHub mirror](https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards)), then
-use **Dashboard → Import**. See [Sample Boards](sample-boards.md) for the list and for what
-each board demonstrates.
+<a id="loading-sample-data"></a>
+
+**Next:** [Set up your first board](board-setup.md). For a fully populated board to explore first, import a [sample board](sample-boards.md). The backend image ships the JSON files, so **Import** on the dashboard → **Start from a sample** works without a download. To import a file yourself, or to get the CSVs (which are repo-only), download them from [`backend/boards/sample_boards/` on GitLab](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) (or the [GitHub mirror](https://github.com/visiban/visiban/tree/main/backend/boards/sample_boards)) and use **Dashboard → Import**.

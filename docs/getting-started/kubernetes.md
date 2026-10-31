@@ -1,11 +1,20 @@
-# Kubernetes (Helm)
+# Run Visiban on Kubernetes with one Helm command
 
-Deploy Visiban to a Kubernetes cluster using the bundled Helm chart.
+One `helm install` brings up Visiban with its bundled PostgreSQL and Valkey. Then `helm test` proves the install end to end.
 
-!!! tip "Docker Compose"
-    If you are deploying to a single server, the [Docker Compose installation](installation.md) is simpler. This guide is for Kubernetes clusters.
+**Why it matters:** The chart runs migrations safely across replicas, hardens every pod by default, and ships as a signed OCI artifact. You don't have to assemble any of that yourself.
 
-## Prerequisites
+!!! tip "Single server? Use Docker Compose"
+    If you are deploying to a single server, the [Docker Compose installation](installation.md) is simpler. This page is for Kubernetes clusters.
+
+**The big picture:**
+
+- **Five steps:** get the chart, write a secrets file, install, retrieve the admin password, and verify.
+- **Then tune:** TLS, external databases, Valkey auth, network policies, scaling, and scheduled jobs.
+
+<a id="prerequisites"></a>
+
+**You need:**
 
 | Requirement | Minimum version |
 |---|---|
@@ -13,15 +22,14 @@ Deploy Visiban to a Kubernetes cluster using the bundled Helm chart.
 | Helm | 3.12+ |
 | kubectl | configured for your cluster |
 | Ingress controller | nginx-ingress-controller recommended |
-| cert-manager (optional) | 1.12+ — for automatic TLS certificates |
-| CNI with NetworkPolicy support (optional) | Calico, Cilium, etc. — for network isolation |
+| cert-manager (optional) | 1.12+, for automatic TLS certificates |
+| CNI with NetworkPolicy support (optional) | Calico, Cilium, etc., for network isolation |
 
 ## Quick start
 
 ### 1. Get the chart
 
-Since 1.2 the chart is published as a signed OCI artifact, so a clone is only
-needed if you want to modify it:
+Since 1.2, the chart is published as a signed OCI artifact. You only need a clone if you want to modify it.
 
 ```bash
 # Verify the signature first (optional but recommended)
@@ -32,20 +40,11 @@ cosign verify ghcr.io/visiban/charts/visiban:<chart-version> \
 helm show values oci://ghcr.io/visiban/charts/visiban
 ```
 
-The `backend` and `frontend` images the chart pulls are signed too, and each platform image
-carries a CycloneDX SBOM attestation *(since 1.2)*. See
-[Verifying release images and the Helm chart](../administration/image-verification.md) for the
-image and SBOM verification commands, and for which older releases are unsigned.
+**The images are signed too.** The `backend` and `frontend` images the chart pulls are signed, and *(since 1.2)* each platform image carries a CycloneDX SBOM attestation. [Verifying release images and the Helm chart](../administration/image-verification.md) has the image and SBOM verification commands, and lists which older releases are unsigned.
 
-> A chart signing gap (#1284, fixed after `v1.2.0-alpha.2`) means any chart published at or
-> before that tag is unsigned — `cosign verify` against those versions fails with no signature
-> found, not a tampering warning. Check `docs/maintainers/known-ci-failures.md` if verification
-> fails against a version you expect to be signed.
+**Yes, but: older charts are unsigned.** A chart signing gap (#1284, fixed after `v1.2.0-alpha.2`) means any chart published at or before that tag has no signature. `cosign verify` against those versions fails with "no signature found", not a tampering warning. If verification fails against a version you expect to be signed, check `docs/maintainers/known-ci-failures.md`.
 
-Every `helm install helm/visiban` below also works as
-`helm install oci://ghcr.io/visiban/charts/visiban`.
-
-To work from a checkout instead:
+**Every `helm install helm/visiban` below also works as `helm install oci://ghcr.io/visiban/charts/visiban`.** To work from a checkout instead:
 
 ```bash
 git clone https://github.com/visiban/visiban.git
@@ -54,9 +53,7 @@ helm dependency update helm/visiban
 ```
 
 !!! tip "Start from an overlay"
-    `helm/visiban/values-dev.yaml` and `helm/visiban/values-prod.yaml` carry the
-    evaluation and production shapes respectively, and both are linted in CI.
-    Pass one with `-f` rather than assembling a dozen `--set` flags by hand.
+    `helm/visiban/values-dev.yaml` and `helm/visiban/values-prod.yaml` carry the evaluation and production shapes, and CI lints both. Pass one with `-f` instead of assembling a dozen `--set` flags by hand.
 
 ### 2. Create a secrets file
 
@@ -64,7 +61,7 @@ helm dependency update helm/visiban
 cp helm/visiban/values.secret.yaml.example helm/visiban/values.secret.yaml
 ```
 
-Edit `values.secret.yaml` with strong random values:
+Fill `values.secret.yaml` with strong random values:
 
 ```yaml
 secret:
@@ -84,15 +81,15 @@ backend:
     useTls: true
 ```
 
-Since 1.2, `backend.email.backend` defaults to `""` (unset) rather than `"smtp"`, so you can leave `backend.email.*` blank and install first — a site admin can then configure SMTP afterward from **Admin → Settings → Email**, without a redeploy. The chart's render-time check for a placeholder `fromAddress` (e.g. `noreply@example.com`) only fires when `backend.email.host` is set, so an install with the whole block blank passes.
+**Email can wait.** Since 1.2, `backend.email.backend` defaults to `""` (unset) instead of `"smtp"`. You can leave `backend.email.*` blank and install first. A site admin can then configure SMTP from **Admin → Settings → Email**, with no redeploy. The chart's render-time check for a placeholder `fromAddress` (for example `noreply@example.com`) fires only when `backend.email.host` is set, so an install with the whole block blank passes.
 
-Set `backend.email.backend` explicitly only if you want env-only email configuration — doing so pins the backend and **disables** the Admin → Settings → Email UI. Filling in `host`, `user` and `password` alone does not pin it.
+**Watch out: setting `backend.email.backend` locks the UI.** Set it only if you want env-only email configuration. Doing so pins the backend and **disables** the Admin → Settings → Email UI. Filling in `host`, `user`, and `password` alone doesn't pin it.
 
-- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`. With `backend.email.backend` left empty the password is still passed to the backend (and **Admin → Settings → Email** stays available); set `backend.email.backend: "smtp"` to pin env-only configuration instead. Use `backend.email.useSsl` instead of `useTls` for implicit TLS (port 465).
-- **Console (no SMTP):** set `backend.email.backend=console` and leave the other fields blank — emails log to stdout.
+- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`. With `backend.email.backend` left empty, the password still reaches the backend and **Admin → Settings → Email** stays available. Set `backend.email.backend: "smtp"` to pin env-only configuration instead. For implicit TLS (port 465), use `backend.email.useSsl` instead of `useTls`.
+- **Console (no SMTP):** set `backend.email.backend=console` and leave the other fields blank. Emails go to stdout.
 
 !!! warning "Never commit `values.secret.yaml`"
-    This file is gitignored. Keep secrets out of shell history — always use `-f values.secret.yaml` instead of `--set secret.djangoSecretKey=...`. The `--set` flag leaks values to shell history (`~/.bash_history`), `/proc/*/cmdline`, and process listings visible to other users on the host.
+    The file is gitignored. Keep secrets out of shell history: always use `-f values.secret.yaml`, never `--set secret.djangoSecretKey=...`. The `--set` flag leaks values to shell history (`~/.bash_history`), `/proc/*/cmdline`, and process listings visible to other users on the host.
 
     To generate and insert secrets in one step:
 
@@ -106,7 +103,7 @@ Set `backend.email.backend` explicitly only if you want env-only email configura
     sed -i "s|password:.*# strong random password|password: \"${PG_PASS}\"  # strong random password|" helm/visiban/values.secret.yaml
     ```
 
-    For production clusters, use a secrets manager (Sealed Secrets, External Secrets Operator, Vault) and reference an `existingSecret` — see [Using a pre-existing Secret](#using-a-pre-existing-secret).
+    For production clusters, use a secrets manager (Sealed Secrets, External Secrets Operator, or Vault) and reference an `existingSecret`. See [Using a pre-existing Secret](#using-a-pre-existing-secret).
 
 ### 3. Install
 
@@ -121,26 +118,16 @@ helm install visiban helm/visiban \
   --set backend.settings.siteDomain=boards.example.com
 ```
 
-That single command is all a fresh install needs — including the bundled
-PostgreSQL, which the chart creates and waits for as part of the same release.
+That single command is all a fresh install needs, including the bundled PostgreSQL. The chart creates it and waits for it as part of the same release.
 
-Three init containers run in order inside each backend pod, before its
-application container starts:
+**How it works:** three init containers run in order inside each backend pod, before the application container starts:
 
-1. **migrate** — applies database migrations. It waits for the database to accept
-   connections, then takes a PostgreSQL advisory lock so that concurrent replicas
-   apply migrations one at a time; a replica that loses the race waits for the
-   winner rather than starting against a half-migrated schema. Inspect with
-   `kubectl logs -n visiban deploy/visiban-backend -c migrate`.
-2. **collectstatic** — bundles Django static assets.
-3. **bootstrap** (first install only) — creates the initial admin account.
+1. **migrate** applies database migrations. It waits for the database to accept connections, then takes a PostgreSQL advisory lock so concurrent replicas migrate one at a time. A replica that loses the race waits for the winner instead of starting against a half-migrated schema. Inspect it with `kubectl logs -n visiban deploy/visiban-backend -c migrate`.
+2. **collectstatic** bundles Django static assets.
+3. **bootstrap** (first install only) creates the initial admin account.
 
-!!! info "Tuning the migrate waits"
-    `backend.migrate.connectTimeout` (default 300s) bounds the wait for the
-    database to come up, and `backend.migrate.lockTimeout` (default 900s) bounds
-    the wait for another replica's migration. Raise the second one if your
-    migrations legitimately take longer than that to apply. Both fail with a
-    named error rather than hanging.
+!!! note "Tuning the migrate waits"
+    `backend.migrate.connectTimeout` (default 300s) bounds the wait for the database to come up. `backend.migrate.lockTimeout` (default 900s) bounds the wait for another replica's migration; raise it if your migrations legitimately take longer than that. Both fail with a named error instead of hanging.
 
 ### 4. Retrieve the admin password
 
@@ -149,10 +136,10 @@ kubectl exec -n visiban deploy/visiban-backend -- \
   cat /run/visiban/admin_password
 ```
 
-The password is generated once and written to an emptyDir volume. Copy it, then log in at `https://boards.example.com/` with username `admin`.
+The password is generated once and written to an emptyDir volume. Copy it, then log in at `https://boards.example.com/` as `admin`.
 
 !!! note
-    Change this password immediately after first login. See [First Boot](first-boot.md).
+    Change this password immediately after first login. See [First boot](first-boot.md).
 
 ### 5. Verify
 
@@ -160,20 +147,16 @@ The password is generated once and written to an emptyDir volume. Copy it, then 
 helm test visiban --namespace visiban --logs
 ```
 
-`helm test` is the chart's own end-to-end probe. It checks, in order, the
-backend's liveness endpoint, its readiness endpoint, that same readiness
-endpoint *through the frontend's nginx*, and the SPA itself. Each step
-distinguishes a different failure:
+**How it works:** `helm test` is the chart's own end-to-end probe. In order, it checks the backend's liveness endpoint, its readiness endpoint, that same readiness endpoint *through the frontend's nginx*, and the SPA itself. Each step points to a different failure:
 
 | Step fails | What it means |
 |---|---|
-| liveness | The backend container is not running — check the init containers |
-| readiness | It runs but cannot reach PostgreSQL or Valkey |
-| through nginx | The frontend cannot resolve its backend upstream |
+| liveness | The backend container isn't running; check the init containers |
+| readiness | It runs but can't reach PostgreSQL or Valkey |
+| through nginx | The frontend can't resolve its backend upstream |
 | SPA | nginx proxies correctly but serves no bundle |
 
-CI runs this identical hook (`helm-install`), so your install and the pipeline
-verify the same invariant.
+CI runs this same hook (`helm-install`), so your install and the pipeline verify the same thing.
 
 Lower-level checks, if you need them:
 
@@ -186,11 +169,11 @@ kubectl exec -n visiban deploy/visiban-backend -- \
   python -c "import urllib.request as u; print(u.urlopen(u.Request('http://localhost:8000/api/health/readiness/', headers={'Host': '<your host>'})).read().decode())"
 ```
 
-`<your host>` is the first entry of `backend.settings.allowedHosts` (for example `boards.example.com`). The chart no longer adds `localhost` to `ALLOWED_HOSTS`, so a request that says `Host: localhost` gets HTTP 400. Adding `localhost` (or `*`, `127.0.0.1` and the other catch-all or loopback entries) to `allowedHosts` fails the render unless you also set `backend.settings.allowUnsafeHosts=true`; see [Upgrade notes](../administration/upgrade.md#upgrading-to-12x).
+**Watch out:** `<your host>` is the first entry of `backend.settings.allowedHosts` (for example `boards.example.com`). The chart no longer adds `localhost` to `ALLOWED_HOSTS`, so a request that says `Host: localhost` gets HTTP 400. Adding `localhost` (or `*`, `127.0.0.1`, and the other catch-all or loopback entries) to `allowedHosts` fails the render unless you also set `backend.settings.allowUnsafeHosts=true`. See [Upgrade notes](../administration/upgrade.md#upgrading-to-12x).
 
 ## TLS with cert-manager
 
-To enable automatic Let's Encrypt certificates:
+To get automatic Let's Encrypt certificates:
 
 1. Install cert-manager and create a `ClusterIssuer`:
 
@@ -212,7 +195,7 @@ To enable automatic Let's Encrypt certificates:
                 class: nginx
     ```
 
-2. Enable TLS in your Helm install:
+2. Turn on TLS in your Helm install:
 
     ```bash
     helm install visiban helm/visiban \
@@ -230,7 +213,7 @@ To enable automatic Let's Encrypt certificates:
 
 ## Deploying without TLS
 
-If TLS is terminated upstream (AWS ALB, Cloudflare, etc.) or you are running in an air-gapped network:
+Use this when TLS terminates upstream (AWS ALB, Cloudflare, etc.) or the cluster is air-gapped:
 
 ```bash
 helm install visiban helm/visiban \
@@ -245,14 +228,14 @@ helm install visiban helm/visiban \
   --set backend.settings.siteDomain=boards.internal
 ```
 
-On Helm installs the frontend's Content-Security-Policy names `ingress.host` for WebSocket connections (`wss://`, plus `ws://` when `ingress.tls.enabled` is `false`), and nothing is added when the ingress is disabled or no host is set, so WebSocket connections then rely on `'self'` (as does reaching the app through a different host name or `kubectl port-forward`); set `ingress.host` if your browser does not map `'self'` to `ws`/`wss`; the frame policy is `X-Frame-Options: DENY`, matching the Compose templates.
+**Watch out: WebSockets and the Content-Security-Policy.** On Helm installs, the frontend's CSP names `ingress.host` for WebSocket connections: `wss://`, plus `ws://` when `ingress.tls.enabled` is `false`. Nothing is added when the ingress is disabled or no host is set. Then WebSocket connections rely on `'self'`, as does reaching the app through a different host name or `kubectl port-forward`. Set `ingress.host` if your browser doesn't map `'self'` to `ws`/`wss`. The frame policy is `X-Frame-Options: DENY`, matching the Compose templates.
 
 !!! danger "Insecure cookies"
-    `forceInsecureCookies: true` disables `Secure` flags on session and CSRF cookies. Only use this when the entire path from browser to Visiban is within a trusted network, or when an upstream proxy terminates TLS and sets `X-Forwarded-Proto: https`.
+    `forceInsecureCookies: true` removes the `Secure` flag from session and CSRF cookies. Use it only when the whole path from browser to Visiban is inside a trusted network, or when an upstream proxy terminates TLS and sets `X-Forwarded-Proto: https`.
 
 ## Using a pre-existing Secret
 
-For production clusters, create the Secret externally (e.g. via Sealed Secrets, External Secrets, or Vault) and reference it:
+For production clusters, create the Secret outside the chart (for example with Sealed Secrets, External Secrets, or Vault) and reference it:
 
 ```bash
 helm install visiban helm/visiban \
@@ -262,7 +245,7 @@ helm install visiban helm/visiban \
   ...
 ```
 
-The chart skips creating its own Secret when `existingSecret` is set. Required keys in the Secret:
+The chart skips creating its own Secret when `existingSecret` is set. The Secret needs these keys:
 
 | Key | Description |
 |---|---|
@@ -308,10 +291,9 @@ externalRedis:
 
 ### Password for an external Valkey or Redis
 
-If the external instance requires a password, keep it in a Secret rather than
-in `externalRedis.url`. The chart renders `url` and `cacheUrl` as plain
-environment values, so a password inside them is visible to anyone who can
-read the Deployment or run `helm get manifest`.
+Keep the instance's password in a Secret, not in `externalRedis.url`.
+
+**Why it matters:** The chart renders `url` and `cacheUrl` as plain environment values. A password inside them is visible to anyone who can read the Deployment or run `helm get manifest`.
 
 ```bash
 kubectl -n <namespace> create secret generic visiban-redis \
@@ -331,47 +313,26 @@ externalRedis:
   # existingSecretPasswordKey: redis-password  # the default
 ```
 
-The backend reads the password as `REDIS_URL_PASSWORD` and percent-encodes it
-into both URLs itself, so it can contain any character, including `/`, `@`,
-`:` and `$`. If the URL has a username (a Redis 6+ ACL user, as on most
-managed services), the username is kept and the password is added to it.
+**How it works:** The backend reads the password as `REDIS_URL_PASSWORD` and percent-encodes it into both URLs itself, so it can contain any character, including `/`, `@`, `:`, and `$`. If the URL has a username (a Redis 6+ ACL user, as on most managed services), the username is kept and the password is added to it.
 
 | Key | Default | Description |
 |---|---|---|
 | `externalRedis.existingSecret` | empty | Secret holding the external instance's password. Only with `valkey.enabled: false`. |
 | `externalRedis.existingSecretPasswordKey` | `redis-password` | Key in that Secret that holds the password. |
 
-The install fails with an explanation if `existingSecret` is set and either
-URL also carries a password, because the two would compete. It also fails if
-`existingSecret` is set while the bundled Valkey is on, because the setting
-would be ignored. The bundled Valkey's password is `valkey.auth.*`; see
-[Valkey password](#valkey-password).
+**Guardrails:** The install fails with an explanation if `existingSecret` is set and either URL also carries a password, because the two would compete. It also fails if `existingSecret` is set while the bundled Valkey is on, because the setting would be ignored. The bundled Valkey's password is `valkey.auth.*`; see [Valkey password](#valkey-password).
 
-**Existing installs keep working unchanged.** With `existingSecret` empty (the
-default), a password embedded in `externalRedis.url` is used exactly as before.
-To move it into a Secret, create the Secret, then in one `helm upgrade` set
-`externalRedis.existingSecret` and remove the password from both URLs. If the
-password contains `/`, `@`, `%` or other reserved characters, put the plain
-value in the Secret, not the percent-encoded form from your old URL, or it is
-encoded twice.
+**Existing installs keep working unchanged.** With `existingSecret` empty (the default), a password embedded in `externalRedis.url` is used exactly as before. To move it into a Secret, create the Secret, then in one `helm upgrade` set `externalRedis.existingSecret` and remove the password from both URLs. If the password contains `/`, `@`, `%`, or other reserved characters, put the plain value in the Secret, not the percent-encoded form from your old URL, or it is encoded twice.
 
-As with the bundled Valkey, changing the password in the Secret does not
-restart anything by itself. Run
-`kubectl -n <namespace> rollout restart deployment -l app.kubernetes.io/instance=<release>,app.kubernetes.io/component=backend`
-after you rotate it. Scheduled jobs pick up the new value on their next run.
+**Rotating it:** As with the bundled Valkey, changing the password in the Secret restarts nothing by itself. After you rotate it, run `kubectl -n <namespace> rollout restart deployment -l app.kubernetes.io/instance=<release>,app.kubernetes.io/component=backend`. Scheduled jobs pick up the new value on their next run.
 
 ## Bundled Valkey
 
-With `valkey.enabled: true` (the default) the chart runs Valkey itself: a
-single-replica StatefulSet on the official `valkey/valkey:8-alpine` image, the
-same major as `docker-compose.prod.yml`, as a non-root user with a read-only
-root filesystem and no Linux capabilities. The backend reaches it at
-`<release>-valkey-primary:6379`. See [Pod security](#pod-security) below —
-the bundled PostgreSQL and the backend Deployment run with this same
-hardening.
+With `valkey.enabled: true` (the default), the chart runs Valkey itself.
 
-Valkey holds only the real-time (Channels) layer and the Django cache, so it
-runs without persistence by default. The values it reads:
+**How it works:** It's a single-replica StatefulSet on the official `valkey/valkey:8-alpine` image, the same major as `docker-compose.prod.yml`. It runs as a non-root user with a read-only root filesystem and no Linux capabilities. The backend reaches it at `<release>-valkey-primary:6379`. The bundled PostgreSQL and the backend Deployment get the same hardening; see [Pod security](#pod-security).
+
+**Why there's no persistence by default:** Valkey holds only the real-time (Channels) layer and the Django cache. The values it reads:
 
 | Key | Default | Purpose |
 |---|---|---|
@@ -385,16 +346,11 @@ runs without persistence by default. The values it reads:
 
 ### Valkey password
 
-By default the bundled Valkey has no password. Access to it is restricted only
-by the [network policies](#network-policies) below, and those are off by
-default and enforced only by a CNI that implements them. On a shared cluster,
-turn password authentication on. (`docker-compose.prod.yml` always runs Valkey
-with a password.)
+**Turn on Valkey auth on a shared cluster.** By default the bundled Valkey has no password.
 
-Set `valkey.auth.enabled=true` and **exactly one** password source. The install
-fails with an explanation if you set neither or both. The chart does not
-generate a password for you, because a generated one would change on every
-render under `helm template` and GitOps tools.
+**Why it matters:** The only thing restricting access is the [network policies](#network-policies) below. Those are off by default, and only a CNI that implements them enforces them. (`docker-compose.prod.yml` always runs Valkey with a password.)
+
+**How it works:** Set `valkey.auth.enabled=true` and **exactly one** password source. The install fails with an explanation if you set neither or both. The chart doesn't generate a password for you, because a generated one would change on every render under `helm template` and GitOps tools.
 
 === "Chart-managed password"
 
@@ -404,11 +360,7 @@ render under `helm template` and GitOps tools.
       --set-string valkey.auth.password="$(openssl rand -hex 32)"
     ```
 
-    The chart stores the password in the `<fullname>-valkey-auth` Secret.
-    `<fullname>` is the release name when it already contains `visiban`
-    (`visiban`, `visiban-prod`), and `<release>-visiban` otherwise
-    (`my-release-visiban`), unless `fullnameOverride` is set. The Secret is
-    part of the Helm release record like every chart-managed credential.
+    The chart stores the password in the `<fullname>-valkey-auth` Secret. `<fullname>` is the release name when it already contains `visiban` (`visiban`, `visiban-prod`), and `<release>-visiban` otherwise (`my-release-visiban`), unless `fullnameOverride` is set. The Secret is part of the Helm release record, like every chart-managed credential.
 
 === "Your own Secret"
 
@@ -420,58 +372,39 @@ render under `helm template` and GitOps tools.
       --set valkey.auth.existingSecret=visiban-valkey
     ```
 
-    Use `valkey.auth.existingSecretPasswordKey` if the password is under a key
-    other than `valkey-password`. This works with or without
-    `secret.existingSecret`. The password never passes through Helm.
+    Use `valkey.auth.existingSecretPasswordKey` if the password is under a key other than `valkey-password`. This works with or without `secret.existingSecret`. The password never passes through Helm.
 
-**Rotating the password.** With either source, a new password does not
-restart anything by itself. The chart deliberately adds no checksum
-annotation for it, because a hash of the password on a pod could be cracked
-offline by anyone who can read pods but not Secrets. After you change the
-password (a `helm upgrade` with a new `valkey.auth.password`, or an edit to
-your own Secret), restart Valkey and the backend together:
+
+
+**Rotating the password restarts nothing by itself,** with either source. The chart deliberately adds no checksum annotation for it: a hash of the password on a pod could be cracked offline by anyone who can read pods but not Secrets. After you change the password (a `helm upgrade` with a new `valkey.auth.password`, or an edit to your own Secret), restart Valkey and the backend together:
 
 ```bash
 kubectl -n <namespace> rollout restart statefulset,deployment \
   -l 'app.kubernetes.io/instance=<release>,app.kubernetes.io/component in (valkey,backend)'
 ```
 
-The label selector matches the Valkey StatefulSet (`<release>-valkey`) and the
-backend Deployment (`<fullname>-backend`: `visiban-backend` for a release
-named `visiban`, `my-release-visiban-backend` for `my-release`), and nothing
-else, whatever the release is called.
+That label selector matches the Valkey StatefulSet (`<release>-valkey`) and the backend Deployment (`<fullname>-backend`: `visiban-backend` for a release named `visiban`, `my-release-visiban-backend` for `my-release`), and nothing else, whatever the release is called.
 
-Until both restart, the backend cannot reach Valkey, so do this in a quiet
-moment. Scheduled jobs pick up the new password on their next run. Turning
-auth on or off, or switching between the two sources, changes the pod specs,
-so that `helm upgrade` restarts both without this step.
+**Watch out:** Until both restart, the backend can't reach Valkey, so do this at a quiet moment. Scheduled jobs pick up the new password on their next run. Turning auth on or off, or switching between the two sources, changes the pod specs, so that `helm upgrade` restarts both without this step.
 
-The password can contain any character, including `/`, `@`, `:` and `$`. It never
-appears in a ConfigMap, a plain environment value or a URL the chart renders.
-Valkey gets it from the Secret as `--requirepass`, and its health probes
-authenticate with the same Secret value. The backend reads it into
-`REDIS_URL_PASSWORD` and percent-encodes it into `REDIS_URL` and
-`REDIS_CACHE_URL` itself. Those two variables keep their password-free values.
-If the Secret's value is empty, Valkey refuses to start rather than run
-without a password.
+**Where the password goes:** It can contain any character, including `/`, `@`, `:`, and `$`. It never appears in a ConfigMap, a plain environment value, or a URL the chart renders. Valkey gets it from the Secret as `--requirepass`, and its health probes authenticate with the same Secret value. The backend reads it into `REDIS_URL_PASSWORD` and percent-encodes it into `REDIS_URL` and `REDIS_CACHE_URL` itself; those two variables keep their password-free values. If the Secret's value is empty, Valkey refuses to start rather than run without a password.
 
-To use a password-protected Valkey or Redis outside the cluster instead, see
-[Password for an external Valkey or Redis](#password-for-an-external-valkey-or-redis).
+For a password-protected Valkey or Redis outside the cluster, see [Password for an external Valkey or Redis](#password-for-an-external-valkey-or-redis).
 
 !!! note "Chart 0.5.0 replaced the Bitnami subchart"
-    Earlier development builds of the 1.2 chart ran Valkey through the Bitnami
-    `valkey` subchart, whose default image was the floating
-    `bitnami/valkey:latest`. See the
-    [upgrade note](../administration/upgrade.md#upgrading-to-12x) for what
-    `helm upgrade` does to an existing install.
+    Earlier development builds of the 1.2 chart ran Valkey through the Bitnami `valkey` subchart, whose default image was the floating `bitnami/valkey:latest`. See the [upgrade note](../administration/upgrade.md#upgrading-to-12x) for what `helm upgrade` does to an existing install.
 
 ## Pod security
 
-Every long-running or scheduled workload the chart renders — the backend
-Deployment (its `migrate`, `collectstatic` and `bootstrap` init containers
-included), the frontend (nginx) Deployment, the bundled PostgreSQL and Valkey
-StatefulSets, the [scheduled jobs](#scheduled-jobs) CronJobs, and the demo
-seed Job/CronJob — runs:
+Every pod the chart renders runs non-root, read-only, and with no capabilities. That covers every long-running or scheduled workload:
+
+- the backend Deployment, including its `migrate`, `collectstatic`, and `bootstrap` init containers
+- the frontend (nginx) Deployment
+- the bundled PostgreSQL and Valkey StatefulSets
+- the [scheduled jobs](#scheduled-jobs) CronJobs
+- the demo seed Job/CronJob
+
+Each of them runs:
 
 - as a non-root user (`runAsNonRoot: true`, a numeric `runAsUser`/`runAsGroup`)
 - with `seccompProfile: RuntimeDefault`
@@ -480,18 +413,16 @@ seed Job/CronJob — runs:
 - with every Linux capability dropped (`capabilities.drop: [ALL]`)
 - with no mounted ServiceAccount token (`automountServiceAccountToken: false`)
 
-Scratch space each image still needs to write — `/tmp` on the backend's four
-containers, on PostgreSQL and on the frontend; PostgreSQL's
-`/var/run/postgresql` socket directory; the backend's `collectstatic` output
-(`STATIC_ROOT`); and nginx's `/var/cache/nginx` (its client/proxy/fastcgi
-buffering temp dirs) and `/run` (`nginx.pid`, `nginx.lock`) — is an `emptyDir`
-volume, never the read-only root filesystem itself. (The bundled Valkey needs
-no `/tmp` mount — it only ever writes to `/data` and `/etc/valkey`, both
-already `emptyDir`/`ConfigMap` mounts from #1200.)
+**Scratch space is `emptyDir`, never the root filesystem.** That covers:
 
-The bundled Valkey's hardening (chart 0.5.0, #1200) is fixed. The backend
-Deployment's, the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210), and
-the frontend Deployment's (chart 0.7.0, #1224) are overridable:
+- `/tmp` on the backend's four containers, on PostgreSQL, and on the frontend
+- PostgreSQL's `/var/run/postgresql` socket directory
+- the backend's `collectstatic` output (`STATIC_ROOT`)
+- nginx's `/var/cache/nginx` (its client, proxy, and fastcgi buffering temp dirs) and `/run` (`nginx.pid`, `nginx.lock`)
+
+The bundled Valkey needs no `/tmp` mount. It only ever writes to `/data` and `/etc/valkey`, which are already `emptyDir`/`ConfigMap` mounts from #1200.
+
+**What you can override:** The bundled Valkey's hardening (chart 0.5.0, #1200) is fixed. You can override the backend Deployment's, the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210), and the frontend Deployment's (chart 0.7.0, #1224):
 
 | Key | Default | Purpose |
 |---|---|---|
@@ -499,15 +430,10 @@ the frontend Deployment's (chart 0.7.0, #1224) are overridable:
 | `backend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext`, applied to every backend container (init and app). |
 | `postgresql.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup`/`fsGroup: 999`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the bundled PostgreSQL StatefulSet. Not read when `postgresql.subchartEnabled` is true. |
 | `postgresql.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `postgresql` container. |
-| `frontend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 101`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the frontend (nginx) Deployment. `101` is `nginx:1.27-alpine`'s built-in `nginx` user/group. |
+| `frontend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 101`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the frontend (nginx) Deployment. `101` is `nginx:1.27-alpine`'s built-in `nginx` user and group. |
 | `frontend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `frontend` container. |
 
-All three blocks are passed through with `toYaml`, like `backend.resources` —
-the chart does not validate their contents, so an operator running a base
-image that cannot run as the chart's numeric UID, or that needs a writable
-root filesystem, can override any block wholesale. For example, to run the
-bundled PostgreSQL with a writable root filesystem on an image that writes
-somewhere this chart does not mount an `emptyDir` for:
+**Yes, but: the chart doesn't validate these blocks.** All three are passed through with `toYaml`, like `backend.resources`. You can override any block wholesale, for example if your base image can't run as the chart's numeric UID or needs a writable root filesystem. To run the bundled PostgreSQL with a writable root filesystem, on an image that writes somewhere this chart doesn't mount an `emptyDir`:
 
 ```yaml
 # values.override.yaml
@@ -520,35 +446,21 @@ postgresql:
         drop: ["ALL"]
 ```
 
-`scripts/helm-structure-check.sh` asserts `runAsNonRoot` and a full capability
-drop on every rendered pod, with no exclusions.
+`scripts/helm-structure-check.sh` asserts `runAsNonRoot` and a full capability drop on every rendered pod, with no exclusions.
 
 !!! note "The frontend container listens on 8080, not 80 (chart 0.7.0)"
-    The published frontend image now runs as the non-root `nginx` user (uid 101) and listens
-    on 8080 on its own (#1528), so it needs no chart overrides. Direct `docker run` users must
-    publish `-p 80:8080`. The production Compose file is unaffected: its `frontend-build`
-    job only copies the static files into a volume served by the stock `nginx` service on 80/443.
+    The published frontend image now runs as the non-root `nginx` user (uid 101) and listens on 8080 by itself (#1528), so it needs no chart overrides.
 
-    `nginx:1.27-alpine` cannot bind a port below 1024 as the non-root
-    `frontend.securityContext.pod.runAsUser` without `CAP_NET_BIND_SERVICE` —
-    and that capability is not usable here either: Docker/containerd's
-    runc-based container runtimes do not add a capability to an already
-    non-root process's effective/ambient set from `capabilities.add` alone
-    (verified empirically against `nginx:1.27-alpine`, #1224), so the process
-    can never actually use it. The frontend container's own listen port moved
-    to 8080 to sidestep this entirely — a non-privileged port needs no
-    capability. This does **not** change the frontend **Service**'s port
-    (`frontend.service.port`, `80` by default): the Service targets the
-    container by its named `http` port, which follows automatically. The one
-    place this is user-visible is a `kubectl port-forward <frontend-pod>
-    8080:80` run directly against the pod (bypassing the Service) — the NOTES
-    printed after `helm install`/`helm upgrade` already reflect the new
-    `8080:8080`, but a script or alias built from an older NOTES output needs
-    updating.
+    - **Direct `docker run` users** must publish `-p 80:8080`.
+    - **The production Compose file is unaffected.** Its `frontend-build` job only copies the static files into a volume that the stock `nginx` service serves on 80/443.
+    - **The frontend Service's port is unchanged** (`frontend.service.port`, `80` by default). The Service targets the container by its named `http` port, which follows automatically.
+    - **The one visible change:** a `kubectl port-forward <frontend-pod> 8080:80` run directly against the pod, bypassing the Service. The NOTES printed after `helm install`/`helm upgrade` already show the new `8080:8080`, but a script or alias built from older NOTES output needs updating.
+
+    **Why 8080:** `nginx:1.27-alpine` can't bind a port below 1024 as the non-root `frontend.securityContext.pod.runAsUser` without `CAP_NET_BIND_SERVICE`. That capability doesn't help either. Docker's and containerd's runc-based runtimes don't add a capability to an already non-root process's effective or ambient set from `capabilities.add` alone, so the process can never use it (verified empirically against `nginx:1.27-alpine`, #1224). Moving to an unprivileged port needs no capability at all.
 
 ## Network policies
 
-Enable network policies to restrict pod-to-pod traffic to only the paths Visiban needs:
+Turn on network policies to restrict pod-to-pod traffic to only the paths Visiban needs:
 
 ```bash
 helm install visiban helm/visiban \
@@ -557,42 +469,28 @@ helm install visiban helm/visiban \
   ...
 ```
 
-This creates policies that allow:
+**What's allowed:**
 
-- Ingress controller → frontend (port 8080 — the frontend container's own
-  listen port, #1224; the frontend Service itself still fronts port 80 by
-  default)
+- Ingress controller → frontend (port 8080, the frontend container's own listen port, #1224; the frontend Service itself still fronts port 80 by default)
 - Frontend (and the `helm test` probe) → backend (port 8000)
 - Backend → PostgreSQL (port 5432)
 - Backend → Valkey (port 6379)
 
-The backend entry covers migrations too: they run as an init container of the
-backend pod and so carry the backend pod's labels.
-
-All other ingress to Visiban pods is denied.
+The backend entry covers migrations too, because they run as an init container of the backend pod and carry its labels. All other ingress to Visiban pods is denied.
 
 !!! warning "Your CNI must *enforce* NetworkPolicy, not just accept it"
-    Requires Calico, Cilium, or a managed equivalent. A CNI that does not
-    implement NetworkPolicy — including **kind's default `kindnetd`** — will
-    admit these objects, list them under `kubectl get netpol`, and then ignore
-    them completely. There is no warning and no error. A clean install on such a
-    cluster is not evidence that the policies work.
+    You need Calico, Cilium, or a managed equivalent. A CNI that doesn't implement NetworkPolicy (including **kind's default `kindnetd`**) admits these objects, lists them under `kubectl get netpol`, and then ignores them completely. There's no warning and no error. A clean install on such a cluster is not evidence the policies work.
 
-    Confirm enforcement rather than assuming it: run a pod with no Visiban
-    labels and check that it cannot reach the database.
+    Confirm enforcement instead of assuming it: run a pod with no Visiban labels and check that it can't reach the database.
 
     ```bash
     kubectl run netpol-probe -n visiban --rm -i --restart=Never \
       --image=busybox:1.36 -- nc -z -w 5 visiban-postgresql 5432
     ```
 
-    This must **fail**. If it succeeds, your policies are not being enforced.
+    This must **fail**. If it succeeds, your policies aren't being enforced.
 
-**Watch out:** the policies name allowed clients by `app.kubernetes.io/component`.
-If you add a workload that opens a PostgreSQL or Valkey connection, add its
-component to the allow-lists at the top of `templates/networkpolicy.yaml` —
-otherwise it is denied, and that usually shows up as an install that hangs, not
-as an explicit error.
+**Watch out: new workloads are denied by default.** The policies name allowed clients by `app.kubernetes.io/component`. If you add a workload that opens a PostgreSQL or Valkey connection, add its component to the allow-lists at the top of `templates/networkpolicy.yaml`. Otherwise it's denied, and that usually shows up as an install that hangs, not as an explicit error.
 
 ## Media persistence
 
@@ -608,11 +506,11 @@ backend:
     # storageClassName: "gp3"
 ```
 
-If the backend and frontend pods run on **different nodes**, the PVC must support `ReadWriteMany` (RWX) — or use a pod affinity rule to co-locate them.
+**Watch out:** If the backend and frontend pods run on **different nodes**, the PVC must support `ReadWriteMany` (RWX), or use a pod affinity rule to put them on the same node.
 
 ## Scaling
 
-Increase replicas for the backend or frontend:
+Raise replicas for the backend or frontend:
 
 ```yaml
 backendReplicaCount: 3
@@ -621,45 +519,38 @@ frontendReplicaCount: 2
 
 When `backendReplicaCount > 1`, the chart automatically:
 
-- Creates a **PodDisruptionBudget** (`minAvailable: 1`) so node drains do not take all replicas offline
-- Adds **pod anti-affinity** (preferred) to spread replicas across nodes
+- creates a **PodDisruptionBudget** (`minAvailable: 1`) so node drains don't take all replicas offline
+- adds **pod anti-affinity** (preferred) to spread replicas across nodes
 
-See the [Scaling guide](../architecture/scaling.md) for component-by-component tuning advice.
+**Go deeper:** The [Scaling guide](../architecture/scaling.md) has component-by-component tuning advice.
 
 ## Scheduled jobs
 
-The due-date and staleness notification scans, and the retention prunes, run as
-Kubernetes CronJobs rendered from `scheduledJobs` in `values.yaml`. They are
-**off by default**, so an install that has not enabled them sends no due-date or
-staleness notifications:
+**Off by default.** An install that hasn't turned them on sends no due-date or staleness notifications.
+
+**How it works:** The due-date and staleness notification scans, and the retention prunes, run as Kubernetes CronJobs rendered from `scheduledJobs` in `values.yaml`. Turn them on:
 
 ```bash
 helm upgrade visiban helm/visiban --namespace visiban --reuse-values \
   --set scheduledJobs.enabled=true
 ```
 
-That schedules `notify_due_soon` (07:00) and `notify_stale_cards` (08:00). The
-two prune jobs delete data and are enabled individually. See
-[Scheduled Jobs](../administration/scheduled-jobs.md) for every key, and for how
-to check and trigger runs.
+That schedules `notify_due_soon` (07:00) and `notify_stale_cards` (08:00). The two prune jobs delete data, so you turn each on individually. [Scheduled Jobs](../administration/scheduled-jobs.md) covers every key, and how to check and trigger runs.
 
 ## Health check endpoints
 
-The backend exposes two health endpoints used by liveness and readiness probes:
+The backend exposes two health endpoints for liveness and readiness probes:
 
 | Endpoint | Purpose | Checks |
 |---|---|---|
 | `/api/health/liveness/` | Is the process alive? | HTTP 200 if the ASGI server responds |
 | `/api/health/readiness/` | Can the process serve traffic? | HTTP 200 if the database and Valkey are reachable |
 
-These are also suitable for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod is removed from the Service within ~35 seconds of a dependency failure.
+They also work for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod leaves the Service within about 35 seconds of a dependency failure.
 
 ## Sample data
 
-The backend image ships the sample board JSON files, so you can import one with
-**Import** on the dashboard and pick one under **Start from a sample**. To import a file by hand, download it from
-[`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) in the
-repository and import one from **Dashboard → Import**. See [Sample Boards](sample-boards.md).
+The backend image ships the sample board JSON files. Import one with **Import** on the dashboard → **Start from a sample**. To import a file by hand, download it from [`backend/boards/sample_boards/`](https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards) and use **Dashboard → Import**. See [Sample boards](sample-boards.md).
 
 ## Upgrading
 
@@ -671,19 +562,19 @@ helm upgrade visiban helm/visiban \
   --set frontend.image.tag=v1.2.0
 ```
 
-Each new backend pod runs the `migrate` init container before its application container starts, so migrations are applied automatically and no pod serves traffic against a schema it has not migrated. See the [Upgrade guide](../administration/upgrade.md) for version-specific notes and rollback procedures.
-
-!!! note "Rotating `secret.djangoSecretKey` in-flight"
-    A `--set-string secret.djangoSecretKey=...` override applied during `helm upgrade` takes effect for that same upgrade. The backend pod template carries a checksum over the chart-managed Secret, so rotating any value in it replaces the running pods — which is what puts the new key in front of both the application and the `migrate` init container. Chart versions before 1.2 used a hook-managed bootstrap Secret to achieve the same thing for a separate migrate Job; that Job and that Secret are gone.
+**How it works:** Each new backend pod runs the `migrate` init container before its application container starts. So migrations apply automatically, and no pod serves traffic against a schema it hasn't migrated. The [Upgrade guide](../administration/upgrade.md) has version-specific notes and rollback procedures.
 
 !!! warning "Always pin the image tag"
-    The chart defaults `backend.image.tag` and `frontend.image.tag` to the current release (e.g. `v1.0.0`). **Never deploy with `tag: "latest"` or an empty tag** — pod restarts may silently pull a different image than the one you validated, and rollbacks cannot recover a known-good state. Pin to a specific release tag (`v1.0.0`, `v1.1.0`, etc.), or to an image digest (`sha256:...`) for maximum reproducibility. The chart prints a warning in `helm install` / `helm upgrade` output when it detects an unpinned tag.
+    The chart defaults `backend.image.tag` and `frontend.image.tag` to the current release (for example `v1.0.0`). **Never deploy with `tag: "latest"` or an empty tag.** Pod restarts may silently pull a different image than the one you validated, and a rollback can't recover a known-good state. Pin a specific release tag (`v1.0.0`, `v1.1.0`, etc.), or an image digest (`sha256:...`) for maximum reproducibility. The chart prints a warning in `helm install`/`helm upgrade` output when it detects an unpinned tag.
+
+!!! note "Rotating `secret.djangoSecretKey` in flight"
+    A `--set-string secret.djangoSecretKey=...` override during `helm upgrade` takes effect in that same upgrade. The backend pod template carries a checksum over the chart-managed Secret, so rotating any value in it replaces the running pods. That's what puts the new key in front of both the application and the `migrate` init container. Chart versions before 1.2 used a hook-managed bootstrap Secret to do the same for a separate migrate Job; that Job and that Secret are gone.
 
 ## Django admin access
 
-The Django admin panel (`/admin/`) is restricted to loopback at both the Nginx and Django layers. Two access patterns:
+The Django admin panel (`/admin/`) is restricted to loopback at both the nginx and Django layers. There are two ways in.
 
-**Port-forward (default)** — for occasional access from a single workstation:
+**Port-forward (default):** for occasional access from one workstation.
 
 ```bash
 kubectl port-forward -n visiban svc/visiban-backend 8000:8000
@@ -692,16 +583,14 @@ kubectl port-forward -n visiban svc/visiban-backend 8000:8000
 #  also needs backend.settings.allowUnsafeHosts=true, the chart no longer adds it)
 ```
 
-**IP allowlist** — for persistent access from a bastion or VPN host, set `backend.settings.adminAllowedIPs` to a comma-separated list of IPs and/or CIDR ranges:
+**IP allowlist:** for persistent access from a bastion or VPN host. Set `backend.settings.adminAllowedIPs` to a comma-separated list of IPs and/or CIDR ranges:
 
 ```bash
 helm upgrade visiban helm/visiban --reuse-values \
   --set backend.settings.adminAllowedIPs="10.0.0.0/8,192.168.42.7"
 ```
 
-The allowlist is enforced by both the frontend Nginx config and the Django `AdminIPRestrictionMiddleware` for defense in depth.
-
-Both Nginx and the Django middleware accept CIDR ranges (e.g. `10.0.0.0/8`) as well as individual IPs for this value. See [Secret Rotation](../administration/secret-rotation.md#helm).
+**How it works:** Both the frontend nginx config and Django's `AdminIPRestrictionMiddleware` enforce the allowlist, for defense in depth. Both accept CIDR ranges (for example `10.0.0.0/8`) as well as individual IPs. See [Secret Rotation](../administration/secret-rotation.md#helm).
 
 ## Uninstalling
 
@@ -709,7 +598,9 @@ Both Nginx and the Django middleware accept CIDR ranges (e.g. `10.0.0.0/8`) as w
 helm uninstall visiban --namespace visiban
 ```
 
-This removes all Kubernetes resources created by the chart — the chart declares no Helm install hooks, and hook resources are the ones Helm would leave behind. **PersistentVolumeClaims are not deleted** — delete them manually if you want to remove all data:
+**What's removed:** every Kubernetes resource the chart created. The chart declares no Helm install hooks, and hook resources are the ones Helm would leave behind.
+
+**Yes, but: PersistentVolumeClaims stay.** Delete them by hand to remove all data:
 
 ```bash
 kubectl delete pvc -n visiban -l app.kubernetes.io/instance=visiban
