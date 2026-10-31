@@ -1,0 +1,5407 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0/development/mutation-testing/">
+      
+      
+        <link rel="prev" href="../testing/">
+      
+      
+        <link rel="next" href="../database-migrations/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Mutation Testing Baseline - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mutation-testing-baseline" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Mutation Testing Baseline
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-demo-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ask Your Agent About the Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-was-measured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What was measured
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#baseline-numbers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Baseline numbers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Baseline numbers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remainder-re-measure-2026-10-06-1484" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remainder re-measure (2026-10-06, #1484)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#head-re-measure-2026-10-08-1502" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Head re-measure (2026-10-08, #1502)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Head re-measure (2026-10-08, #1502)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Survivors left (34): 32 equivalent or redundant, 2 tracked in #1545
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whole-module-re-measure-2026-10-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Whole-module re-measure (2026-10-09)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#survivor-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Survivor classification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Survivor classification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#movement-service-cardspy-9-survivors-left-of-77-measured-before-1511-the-6-guard-survivors-were-re-checked-in-1504" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement service (cards.py): 9 survivors left of 77 (measured before #1511; the 6 guard survivors were re-checked in #1504)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Movement service (cards.py): 9 survivors left of 77 (measured before #1511; the 6 guard survivors were re-checked in #1504)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#postgresql-re-run-of-the-select_for_update-guards-1504" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PostgreSQL re-run of the select_for_update guards (#1504)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-1522-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What #1522 changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement model (CardMovement): 27 survivors left of 73 (all excluded, #1503)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-compat-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-fastpath-proposal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/card-history-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-deferred-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deferred Security Follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-scanners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Scanners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="mutation-testing-baseline">Mutation Testing Baseline<a class="headerlink" href="#mutation-testing-baseline" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Baseline is manual; a weekly CI job also runs</p>
+<p>The numbers below are a <strong>manual</strong> baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, <code>backend-mutation</code>, runs every one of these modules on the Weekly mutation testing schedule (Sundays, 06:00 ET), publishes a score artifact and gates the merged score at 90%. Until the follow-up on #1384 it is <code>allow_failure: true</code>, so it does not fail a pipeline yet. See <a href="#weekly-ci-job-backend-mutation">Weekly CI job</a>.</p>
+</div>
+<p>Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong. A tool makes one small change at a time (flip <code>==</code> to <code>!=</code>, change a string, replace a value with <code>None</code>), runs the tests, and counts the change as <strong>killed</strong> if a test fails or <strong>survived</strong> if every test still passes. The kill rate is <code>killed / (killed + survived)</code>.</p>
+<h2 id="what-was-measured">What was measured<a class="headerlink" href="#what-was-measured" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Tool:</strong> <a href="https://github.com/boxed/mutmut">mutmut</a> 2.5.1. Version 2.x is used on purpose: it runs <code>pytest</code> against the source tree in place, so <code>pytest-django</code> needs no changes. It is <strong>not</strong> in any <code>requirements*.txt</code> and must stay out of them.</li>
+<li><strong>Date and base:</strong> 2026-10-04, on top of <code>main</code> at <code>25bcfdf1e</code>.</li>
+<li><strong>Database:</strong> the isolated SQLite database from <code>backend/.env</code> (no PostgreSQL). Anything that is only observable on PostgreSQL, such as row locks, cannot be killed by this setup.</li>
+<li><strong>Scope:</strong> each module was mutated against its own test files only, not the whole suite.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Mutated code</th>
+<th>Tests it ran against</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Movement service</td>
+<td><code>boards/services/cards.py</code></td>
+<td><code>test_card_services</code>, <code>test_card_move</code>, <code>test_card_archiving</code>, <code>test_card_mutation_hooks</code>, <code>test_card_edge_cases</code>; the #1454 re-measure of <code>update_card</code> adds <code>test_card_service_mutation_gaps</code> and, to find what view suites already kill, <code>test_views_cards</code>, <code>test_notifications</code>, <code>test_card_timeline</code>, <code>test_views_extra</code>, <code>test_board_events</code>, <code>test_security_fixes</code>, <code>test_movement_record_mutation_gaps</code></td>
+</tr>
+<tr>
+<td>Movement model</td>
+<td><code>CardMovement</code> in <code>boards/models.py</code> (lines 358-423 only)</td>
+<td>same as above</td>
+</tr>
+<tr>
+<td>RBAC</td>
+<td><code>boards/permissions.py</code></td>
+<td><code>test_rbac</code>, <code>test_rbac_boundaries</code>, <code>test_explicit_permissions</code></td>
+</tr>
+<tr>
+<td>Import/export</td>
+<td><code>boards/views/import_export.py</code></td>
+<td><code>test_export</code>, <code>test_export_controls</code>, <code>test_export_edge_cases</code>, <code>test_import</code>, <code>test_moderator_export</code>; the "after" runs add <code>test_import_export_mutation_gaps</code> (#1453, extended by #1484); the head run (#1502) used nine files: <code>test_import_export_head_gaps</code>, <code>test_import_export_mutation_gaps</code>, <code>test_import</code>, <code>test_import_naming</code>, <code>test_import_options</code>, <code>test_import_user_scope</code>, <code>test_import_custom_fields</code>, <code>test_trello_import</code>, <code>test_import_json_value_validation</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>CardMovement</code> has no methods, so mutmut only finds field and <code>Meta</code> arguments in it. To keep the run to that class, a <code>pre_mutation</code> hook skips every line outside its range (see below). Running mutmut on all of <code>boards/models.py</code> would have generated tens of thousands of mutants for no signal.</p>
+<h2 id="baseline-numbers">Baseline numbers<a class="headerlink" href="#baseline-numbers" title="Permanent link">&para;</a></h2>
+<p>"Before" is the state of <code>main</code>. "After" includes the tests added with this page (<code>test_movement_record_mutation_gaps.py</code>, <code>test_permissions_unit_mutation_gaps.py</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th style="text-align: right;">Mutants</th>
+<th style="text-align: right;">Killed before</th>
+<th style="text-align: right;">Kill rate before</th>
+<th style="text-align: right;">Killed after</th>
+<th style="text-align: right;">Kill rate after (raw)</th>
+<th style="text-align: right;">Excluded (#1503)</th>
+<th style="text-align: right;">Adjusted after</th>
+<th style="text-align: right;">Timeouts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>boards/services/cards.py</code> (2026-10-07 re-measure after #1454: 228 of 243, measured before the #1511 fix and not re-measured since; #1504 found the 6 guard survivors in that count are killed, so the figure is 234 of 243 (96.3%) if they are removed from it)</td>
+<td style="text-align: right;">243</td>
+<td style="text-align: right;">166</td>
+<td style="text-align: right;">68.3%</td>
+<td style="text-align: right;">228</td>
+<td style="text-align: right;">93.8%</td>
+<td style="text-align: right;">0 (the 8 #1503 exclusions were deleted in #1505)</td>
+<td style="text-align: right;">238 of 246 = 96.7% (2026-10-09 whole-module re-measure, see <a href="#whole-module-re-measure-2026-10-09">below</a>; 8 survivors, none excluded)</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td><code>CardMovement</code> (<code>boards/models.py</code>; re-measured 2026-10-08, was 28 survivors / 45 killed / 61.6%)</td>
+<td style="text-align: right;">73</td>
+<td style="text-align: right;">28</td>
+<td style="text-align: right;">38.4%</td>
+<td style="text-align: right;">46</td>
+<td style="text-align: right;">63.0%</td>
+<td style="text-align: right;">27</td>
+<td style="text-align: right;">46 of 46 = 100%</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td><code>boards/permissions.py</code> (116 of 120 expected after #1503's two new killed mutants; 114 of 118 = 96.6% measured)</td>
+<td style="text-align: right;">118</td>
+<td style="text-align: right;">44</td>
+<td style="text-align: right;">37.3%</td>
+<td style="text-align: right;">114</td>
+<td style="text-align: right;">96.6%</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">116 of 116 tested = 100%; 116 of 117 = 99.1% counting 1 mutant that never ran (2026-10-09 whole-module re-measure, see <a href="#whole-module-re-measure-2026-10-09">below</a>)</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td><code>boards/views/import_export.py</code> (2026-10-05 re-measure, first 823 paired mutants)</td>
+<td style="text-align: right;">1364</td>
+<td style="text-align: right;">331 of 823 paired</td>
+<td style="text-align: right;">40.2%</td>
+<td style="text-align: right;">656 of 823 paired</td>
+<td style="text-align: right;">79.7%</td>
+<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; the head part of this module was triaged in #1502, see the next row)</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">2 (see below)</td>
+</tr>
+<tr>
+<td><code>boards/views/import_export.py</code>, head: helpers, <code>import_board</code>, <code>_import_json</code>, <code>import_trello</code> (2026-10-08, #1502; whole-region run, 0-based lines 0 to 1802; at <code>f898bf683</code>, #1449's head code unmeasured, #1546)</td>
+<td style="text-align: right;">1145</td>
+<td style="text-align: right;">n/a (not measured on the current code)</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">1111 of 1145</td>
+<td style="text-align: right;">97.0%</td>
+<td style="text-align: right;">n/a (unmarked; 32 of 34 survivors are documented as equivalent or redundant below, the other 2 are <code>_IMPORT_BACKFILL_BATCH</code> survivors tracked in #1545)</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">2 (killed by timeout, see below)</td>
+</tr>
+<tr>
+<td><code>boards/views/import_export.py</code>, <code>_import_csv</code> + <code>export</code> + <code>export_history</code> (2026-10-06, #1484)</td>
+<td style="text-align: right;">492</td>
+<td style="text-align: right;">290 of 492</td>
+<td style="text-align: right;">58.9%</td>
+<td style="text-align: right;">465 of 492 (447 with the #1453 tests only)</td>
+<td style="text-align: right;">94.5% (90.9%)</td>
+<td style="text-align: right;">2 (export 403 <code>detail</code> key and text, #1505; #1502 covers only the head, the 27 survivors of this region are triaged below as equivalent or covered elsewhere, and none is marked with a pragma; deciding pragma exclusions has no owner other than #1547)</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The 2 timeouts</strong> in the 2026-10-05 row: both are in <code>_imported_board_name</code>, in the first run's range. Mutating the <code>if candidate not in taken</code> check or the <code>n += 1</code> step makes its uniqueness loop spin forever, so pytest hangs and mutmut kills the run. Timeouts are counted as killed. The 2026-10-06 run (<code>_import_csv</code>, <code>export</code>, <code>export_history</code>) had none.</p>
+<p>Import/export was re-measured on 2026-10-05 against <code>main</code> at <code>a5e4b7d20</code>, after the module was rewritten (selective import #119, naming #1446). The module now has <strong>1364 mutants</strong> (it had 1078 at <code>25bcfdf1e</code>), so the 2026-10-04 figure is not comparable. "Before" is the five scoped files only; "after" adds <code>test_import_export_mutation_gaps.py</code> (#1453).</p>
+<p><strong>The 2026-10-05 measurement is a partial, paired measurement, not a whole-module run.</strong> The 2026-10-06 run below (#1484) measures the remainder. Sixteen shards (8 before, 8 after) were started on one laptop that was swapping (about 23 of 24 GB swap, load average above 250), and the after run reached about 60% of the module before being stopped. Mutants are processed in file order, so the paired set covers lines up to the middle of <code>_import_csv</code> and <strong>does not reach <code>export</code> or <code>export_history</code></strong>. Only mutants that have a verdict in both runs are compared (823 of 1364):</p>
+<table>
+<thead>
+<tr>
+<th>Region (paired mutants)</th>
+<th style="text-align: right;">Before killed</th>
+<th style="text-align: right;">After killed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>helpers and <code>import_board</code> (305)</td>
+<td style="text-align: right;">87 (28.5%)</td>
+<td style="text-align: right;">236 (77.4%)</td>
+</tr>
+<tr>
+<td><code>_import_json</code> (436)</td>
+<td style="text-align: right;">227 (52.1%)</td>
+<td style="text-align: right;">372 (85.3%)</td>
+</tr>
+<tr>
+<td><code>import_trello</code> (54)</td>
+<td style="text-align: right;">1 (1.9%)</td>
+<td style="text-align: right;">37 (68.5%)</td>
+</tr>
+<tr>
+<td><code>_import_csv</code> (28, sample only)</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">11 (15 more are suspicious, not counted as killed)</td>
+</tr>
+<tr>
+<td><strong>Total (823)</strong></td>
+<td style="text-align: right;"><strong>331 (40.2%)</strong></td>
+<td style="text-align: right;"><strong>656 (79.7%)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The before run alone tested 1138 of 1364 mutants: 474 killed, 637 survived, 27 suspicious (41.7%). <code>export</code> was reached only by that before run, which stopped early (38 killed, 32 survived of 70 tested); it is measured in full by the 2026-10-06 run below. Suspicious mutants are counted as survivors in the rates above (the 79.7% and the 40.2% use this convention; the head's 97.0% and the 2026-10-06 rows count suspicious mutants as killed, so those figures are not directly comparable). Timeouts are counted as killed: the 2 in the table are both from the after run, in the <code>_imported_board_name</code> uniqueness loop (mutating <code>if candidate not in taken</code> or <code>n += 1</code> makes the loop never return), so "656 killed after" is 654 killed plus those 2. The before run had no timeouts in the paired set.</p>
+<h3 id="remainder-re-measure-2026-10-06-1484">Remainder re-measure (2026-10-06, #1484)<a class="headerlink" href="#remainder-re-measure-2026-10-06-1484" title="Permanent link">&para;</a></h3>
+<p>Run on <code>main</code> at <code>4a5de6273</code> (<code>import_export.py</code> is unchanged since <code>a5e4b7d20</code>), 0-based line range <code>MM_LO=1317 MM_HI=2118</code>: the whole of <code>_import_csv</code>, <code>export</code> and <code>export_history</code>. Mutants with a verdict are all 492 mutants in range; none were left untested, suspicious or timed out. The machine (18 cores, 64 GB) was not swapping: four shards for each of "before" and "after" (8 processes), then 8 shards for the final run, load average 9 to 15. "Before" and "after" use the same five and six test files as above, so the numbers are comparable; the final column adds the #1484 tests to the gaps file.</p>
+<table>
+<thead>
+<tr>
+<th>Region (mutants)</th>
+<th style="text-align: right;">Before killed</th>
+<th style="text-align: right;">After #1453 killed</th>
+<th style="text-align: right;">After #1484 killed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>_import_csv</code> (240)</td>
+<td style="text-align: right;">142 (59.2%)</td>
+<td style="text-align: right;">208 (86.7%)</td>
+<td style="text-align: right;">220 (91.7%)</td>
+</tr>
+<tr>
+<td><code>export</code> (229)</td>
+<td style="text-align: right;">137 (59.8%)</td>
+<td style="text-align: right;">224 (97.8%)</td>
+<td style="text-align: right;">225 (98.3%)</td>
+</tr>
+<tr>
+<td><code>export_history</code> (23)</td>
+<td style="text-align: right;">11 (47.8%)</td>
+<td style="text-align: right;">15 (65.2%)</td>
+<td style="text-align: right;">20 (87.0%)</td>
+</tr>
+<tr>
+<td><strong>Total (492)</strong></td>
+<td style="text-align: right;"><strong>290 (58.9%)</strong></td>
+<td style="text-align: right;"><strong>447 (90.9%)</strong></td>
+<td style="text-align: right;"><strong>465 (94.5%)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Together with the 2026-10-05 table, the regions the first run could not reach have now been measured after #1453. The two runs were made on different days and the first covered only the mutants that had a verdict in both its before and after run, so the two tables are not summed into one whole-module percentage.</p>
+<h3 id="head-re-measure-2026-10-08-1502">Head re-measure (2026-10-08, #1502)<a class="headerlink" href="#head-re-measure-2026-10-08-1502" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Scope of these figures.</strong> Everything in this section describes the code at <code>f898bf683</code>, not current <code>main</code>. Code added after that commit is <strong>not</strong> in the 1145 measured mutants and has not been measured: that includes the roughly 140 lines #1449 added to the head: <code>_csv_custom_columns</code>, <code>_swimlane_values_from_rows</code>, <code>_csv_cell_value</code>, <code>_cap_warnings</code>, <code>_is_canonical_number</code>, and a change to <code>_csv_custom_field_cell</code> (<code>_import_field_values</code> and <code>_csv_custom_field_cell</code> themselves already existed at <code>f898bf683</code> and were measured). Measuring them is tracked in #1546. The head figures are for the <code>f898bf683</code> code, and the new head lines are unmeasured. The <code>MM_HI=1802</code> boundary and "<code>_import_csv</code> at 0-based line 1803" below are likewise valid only at <code>f898bf683</code>. Before reusing <code>MM_LO</code>/<code>MM_HI</code>, re-derive the range (<code>grep -n 'def _import_csv' backend/boards/views/import_export.py</code>, then subtract 1 to get the 0-based line), as the <code>update_card</code> section does.</p>
+</blockquote>
+<p>The head of <code>import_export.py</code> (everything before <code>_import_csv</code>) was measured as <strong>one whole-region run</strong>, not a paired sample: 12 shards of the sharded variant in <a href="#parallel-runs">Parallel runs</a>, <code>MM_LO=0 MM_HI=1802</code> (0-based; <code>_import_csv</code> starts at 0-based line 1803), on <code>main</code> at <code>f898bf683</code> plus this branch's tests, 18-core machine. The module had grown to 2609 lines since the 2026-10-05 run (selective import, #1496, #1507), so the head has <strong>1145 mutants</strong>, not the 795 of the paired set. The runner used these nine files (all backend import/export tests; the full suite is not needed): <code>test_import_export_head_gaps.py test_import_export_mutation_gaps.py test_import.py test_import_naming.py test_import_options.py test_import_user_scope.py test_import_custom_fields.py test_trello_import.py test_import_json_value_validation.py</code>.</p>
+<p>Two details of the harness matter if you repeat this:</p>
+<ul>
+<li><code>test_import.py::test_csv_import_accepts_committed_sample_csv</code> reads <code>sample-boards/</code> from the repository root, so each throwaway copy of <code>backend/</code> needs <code>sample-boards/</code> next to it, or the baseline run fails and mutmut tests nothing.</li>
+<li>mutmut 2.5.1 registers one extra mutant (id one past the printed total, line 422, <code>mutmut show</code> prints nothing for it) that every shard reports as <code>untested</code>. It has no diff, so it is not counted in the 1145 and not a gap.</li>
+</ul>
+<p>Line numbers in the region column are <strong>1-based and inclusive</strong>; the <code>MM_LO</code>/<code>MM_HI</code> range above is 0-based. So <code>1673 to 1803</code> here is 0-based 1672 to 1802, and <code>_import_csv</code> starts at 1-based line 1804 (0-based 1803).</p>
+<table>
+<thead>
+<tr>
+<th>Region (1-based lines)</th>
+<th style="text-align: right;">Mutants</th>
+<th style="text-align: right;">Killed, first whole-region run</th>
+<th style="text-align: right;">Killed, final run</th>
+<th style="text-align: right;">Survivors left</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>helpers and <code>import_board</code> (to line 949)</td>
+<td style="text-align: right;">574</td>
+<td style="text-align: right;">523 (91.1%)</td>
+<td style="text-align: right;">559 (97.4%)</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td><code>_import_json</code> (950 to 1672)</td>
+<td style="text-align: right;">440</td>
+<td style="text-align: right;">416 (94.5%)</td>
+<td style="text-align: right;">427 (97.0%)</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr>
+<td><code>import_trello</code> and <code>_broadcast_imported_board</code> (1673 to 1803)</td>
+<td style="text-align: right;">131</td>
+<td style="text-align: right;">120 (91.6%)</td>
+<td style="text-align: right;">125 (95.4%)</td>
+<td style="text-align: right;">6</td>
+</tr>
+<tr>
+<td><strong>Head</strong></td>
+<td style="text-align: right;"><strong>1145</strong></td>
+<td style="text-align: right;"><strong>1059 (92.5%)</strong></td>
+<td style="text-align: right;"><strong>1111 (97.0%)</strong></td>
+<td style="text-align: right;"><strong>34</strong></td>
+</tr>
+</tbody>
+</table>
+<p>"First whole-region run" already includes the 538-line <code>test_import_export_head_gaps.py</code> of the first #1502 commit; "final run" adds the boundary, default and tail tests of this pass (<code>EchoBoundTests</code>, <code>CardRowsAndUsernamesTests</code>, <code>TimestampErrorTests</code>, <code>WriteGuardLogTests</code>, <code>ValidateValuesBoundaryTests</code>, <code>ImportJsonTailTests</code>, <code>ImportTrelloTailTests</code>, <code>ImportOpenApiResponseTests</code>). The final figure is the second whole-region run, except that two lines (the write-guard log and the Trello archived count, 0-based 806 and 1786) were re-run on their own after their tests were tightened; both mutants that changed are now killed. Killed counts include the 2 timeouts and 6 slow kills (below).</p>
+<p><strong>The 33 suspicious mutants.</strong> mutmut 2.5.1 marks a mutant <code>suspicious</code> when a test <em>failed</em> (so it is killed) but the run took more than twice the cached baseline time. The 2026-10-05 run did that on a swapping laptop (load average above 250), which is where the 33 came from. In this run six were suspicious (<code>swimlane["name"]</code> in the custom-field value copy, <code>description</code> and <code>created_at</code> key names, <code>to_column</code> <code>or</code> to <code>and</code>, <code>dry_run = None</code>, <code>event_id = None</code>); re-run alone on a quiet machine each is still <code>suspicious</code>, so they are killed late in the file order, not flaky. They are counted as killed. None survives.</p>
+<p><strong>The 2 timeouts</strong> are the <code>_imported_board_name</code> uniqueness loop (<code>if candidate not in taken</code> inverted, <code>n += 1</code> replaced with <code>n = 1</code>). Both make the loop spin forever, so they are a real kill by timeout, as in the 2026-10-05 run. They are not made faster: the hang is the observable behavior.</p>
+<h4 id="survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545">Survivors left (34): 32 equivalent or redundant, 2 tracked in #1545<a class="headerlink" href="#survivors-left-34-32-equivalent-or-redundant-2-tracked-in-1545" title="Permanent link">&para;</a></h4>
+<p>The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors could be killed by a PostgreSQL test (#1545, open), so they stay survivors under the policy below. The other 32 are equivalent or redundant; none of those 32 is a missing assertion. They are listed so the next person does not re-triage them; none is marked with <code># pragma: no mutate</code> yet, because most share a line with mutants that <em>are</em> killed and the policy asks that a pragma cover the equivalent mutant only. Marking the 32 equivalent ones is tracked in #1544. It is not needed for the nightly 90% floor: that floor is met with these 32 counted as survivors (see <a href="#expected-score">Expected score</a>); marking them would only make this module's adjusted score exact. The 2 <code>_IMPORT_BACKFILL_BATCH</code> survivors that a PostgreSQL test could kill are tracked in #1545.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Mutants</th>
+<th>Where</th>
+<th>Why no test can kill it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>_EXPORT_ROLE_RANK</code> <code>ADMIN: 3</code> to <code>4</code></td>
+<td>The rank is only compared with another rank from the same dict, so any order-preserving value is equivalent.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>export_min_role or "viewer"</code></td>
+<td>An unknown threshold falls back to rank 0 through <code>.get(threshold, 0)</code>, which is also what <code>viewer</code> maps to.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>_query_flag</code> default <code>""</code> to <code>"XXXX"</code></td>
+<td>Neither is in <code>("true", "1")</code>.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>_IMPORTED_NAME_MAX_SUFFIX</code> 12 to 13</td>
+<td>A shorter <code>startswith</code> head only widens the database query; the exact comparison is in Python.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>_IMPORT_BACKFILL_BATCH</code> 500 to 501 and to <code>None</code></td>
+<td>On SQLite <code>bulk_update</code> caps its own batch size at 499 (<code>connection.ops.bulk_batch_size</code>), so the constant is not observable here; <code>test_timestamp_backfill_runs_in_batches_of_500</code> pins two UPDATEs for 501 rows. A PostgreSQL test could kill it.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>"unknown line"</code> text in <code>_json_import_write_guard</code></td>
+<td>The generator frame of the guard is always one of the importer frames, so <code>frames</code> is never empty.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>403</code> documented response on <code>import_board</code> and on <code>import_trello</code> (1 each)</td>
+<td><code>drf-spectacular</code> emits an object-typed <code>403</code> entry for the action anyway (<code>ImportOpenApiResponseTests</code> passes with the line mutated), so the generated document is unchanged.</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td><code>MAX_UPLOAD_SIZE</code> default <code>10 * 1024 * 1024</code></td>
+<td><code>settings.MAX_UPLOAD_SIZE</code> is always defined, so the <code>getattr</code> default is never used.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>file.name</code> and <code>file.content_type</code> fallbacks to <code>"XXXX"</code></td>
+<td><code>"XXXX"</code> ends in neither <code>.json</code>/<code>.csv</code> nor contains <code>json</code>/<code>csv</code>, same as <code>""</code>.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>data.get("schema_version", 0)</code> to <code>1</code></td>
+<td>Both are within the supported range and only a version above 2 logs a warning.</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td><code>_str_keys</code> names for <code>movements</code></td>
+<td>Redundant with the value-level check in <code>_validate_json_import_values</code>, which returns the same message for the same input. (<code>moved_by</code>, the one key it does not cover, is killed.)</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>.get("name", "")</code> in <code>_valid_col_names</code> / <code>_valid_sw_names</code></td>
+<td>A column or swimlane without a string <code>name</code> is rejected by the shape check before this line.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>not column or not swimlane</code> to <code>and</code>, <code>continue</code> to <code>break</code></td>
+<td>Every card's column and swimlane was checked against the definitions above, so the lookup cannot fail. Defensive code.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>card_data.get("priority", "medium")</code> sentinel</td>
+<td>An unrecognized priority falls back to <code>medium</code> on the next line.</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>act_data.get("event_type", "")</code> sentinel</td>
+<td>Neither value is a valid event type, so the activity is skipped either way.</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>distinct=False</code> on <code>_card_count</code> and <code>_archived_card_count</code></td>
+<td>The imported board has one membership, so the join cannot duplicate card rows. (<code>_member_count</code> <code>distinct=False</code> is killed by <code>test_response_counts_distinguish_active_and_archived_cards</code>.)</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td>Trello <code>file.size is not None</code>, <code>file.read(max_size + 1)</code> and the <code>'name' must be a string</code> response</td>
+<td><code>file.size</code> is always set for an upload and the <code>Content-Length</code> check precedes the bounded read; the endpoint takes <code>MultiPartParser</code> only, so <code>name</code> is always a string. Defense in depth.</td>
+</tr>
+</tbody>
+</table>
+<p><em>Update 2026-10-24 (#1725):</em> the <code>export_min_role or "viewer"</code> mutant is now killed. An unrecognized threshold is treated as admin-only, so <code>ExportHelperUnitTests::test_can_export_at_min_role</code> fails on <code>or "XXviewerXX"</code>.</p>
+<p>Everything the first commit on this branch and this pass pinned is a value a caller or client can observe (the echo caps are pinned through the length of the response message, not by reading the constants): throttle scopes and rates, option and flag parsing, the exact echo cut-offs of <code>_bounded_repr</code> and <code>_bounded_text</code>, the per-card caps and the username cap on both sides of the limit, <code>_card_rows</code> and <code>_card_usernames</code>, naive-timestamp acceptance, the write-guard log line, JSON and Trello response counts, the group broadcast, label colors, empty movement destinations, the weight-change activity, and the OpenAPI text.</p>
+<h3 id="runtime">Runtime<a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h3>
+<p>Each module was split across 16 parallel copies of the tree (see <a href="#parallel-runs">Parallel runs</a>) on an 18-core machine. "Wall" is the slowest shard; "CPU total" is the sum of every shard's elapsed time, which is roughly what a single serial run would cost under the same load.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th style="text-align: right;">Wall</th>
+<th style="text-align: right;">CPU total</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>boards/services/cards.py</code></td>
+<td style="text-align: right;">~12 min</td>
+<td style="text-align: right;">~1.9 h</td>
+</tr>
+<tr>
+<td><code>CardMovement</code></td>
+<td style="text-align: right;">~6 min</td>
+<td style="text-align: right;">~0.9 h</td>
+</tr>
+<tr>
+<td><code>boards/permissions.py</code></td>
+<td style="text-align: right;">~6.5 min</td>
+<td style="text-align: right;">~0.85 h</td>
+</tr>
+<tr>
+<td><code>boards/views/import_export.py</code></td>
+<td style="text-align: right;">~31 min</td>
+<td style="text-align: right;">~7.2 h</td>
+</tr>
+</tbody>
+</table>
+<p>Plan on the whole-module <code>import_export.py</code> run being the expensive one. A serial run of the movement service alone is about two hours.</p>
+<h3 id="whole-module-re-measure-2026-10-09">Whole-module re-measure (2026-10-09)<a class="headerlink" href="#whole-module-re-measure-2026-10-09" title="Permanent link">&para;</a></h3>
+<p>Re-measures the two rows that were marked "expected, not re-measured". Run with mutmut 2.5.1 on throwaway copies of <code>backend/</code> at <code>b90447652</code> (<code>cards.py</code> in 8 shards, <code>permissions.py</code> in 4, <code>line_index % N</code> sharding, SQLite, <code>-x</code> per mutant). Both modules are byte-identical on <code>main</code> at <code>e8be1a22f</code>. <code>cards.py</code> ran against the full test list in the table above (scoped files, the view suites and both gap files); <code>permissions.py</code> against its four scoped files. Counts are summed over the shards' <code>.mutmut-cache</code> files.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th style="text-align: right;">Mutants</th>
+<th style="text-align: right;">Killed</th>
+<th style="text-align: right;">Survived</th>
+<th style="text-align: right;">Untested</th>
+<th style="text-align: right;">Kill rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>boards/services/cards.py</code></td>
+<td style="text-align: right;">246</td>
+<td style="text-align: right;">238</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">96.7%</td>
+</tr>
+<tr>
+<td><code>boards/permissions.py</code></td>
+<td style="text-align: right;">117</td>
+<td style="text-align: right;">116</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">99.1% (100% of the 116 that ran)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>cards.py</code> survivors (8), not yet classified.</strong> They sit on lines 217 and 218 (the <code>CARD_MUTATION_HOOKS</code> failure log's format string and its <code>__qualname__</code> argument), 329 and 330 (<code>check_wip=True</code>, <code>check_weight=True</code> and <code>lock=True</code> in a signature), 364 (<code>weight_enforced = check_weight and board.enforce_weight_limits</code>), 422 and 935 (<code>force=False</code> in two service signatures), and 460 (a call passing <code>lock=False</code>). The <code>lock</code> mutants are the kind the <a href="#postgresql-re-run-of-the-select_for_update-guards-1504">PostgreSQL re-run</a> shows survive on SQLite; the others have not been triaged. The #1511 label mutant is not among them.</li>
+<li><strong><code>permissions.py</code> untested mutant (1).</strong> Mutant 117, on the <code>group_roles = dict(...)</code> statement (line 316, the closing <code>)</code>), was registered in the cache of every shard but never run, and <code>mutmut show 117</code> prints nothing for it. It was later explained as a mutmut 2.5.1 <strong>phantom</strong> row (see <a href="#how-it-works">How it works</a> under the nightly job): no such mutant exists, and the export now drops it. Here it was reported as untested rather than as killed, so the raw rate is 116 of 117; without the phantom it is 116 of 116. The module has 117 mutants here against 118 in the baseline row; the two counts were not reconciled, because the cache omits lines carrying <code># pragma: no mutate</code>.</li>
+</ul>
+<h2 id="survivor-classification">Survivor classification<a class="headerlink" href="#survivor-classification" title="Permanent link">&para;</a></h2>
+<p>Every survivor was put in one of three buckets:</p>
+<ul>
+<li><strong>Missing assertion:</strong> the code is exercised but no test checks the value. Fix by adding an assertion. These were fixed for the movement-record and RBAC paths.</li>
+<li><strong>Equivalent mutant:</strong> the change cannot alter observable behavior in this setup, for any production input, so no test can kill it. Mark it with <code># pragma: no mutate -- &lt;reason&gt;</code> under the <a href="#equivalent-mutants-and-the-score-1503">policy</a> rather than leaving it as a survivor.</li>
+<li><strong>Untested code:</strong> no test in the scoped files reaches the line, or reaches it without checking the result. Needs new tests or a decision that it is covered elsewhere.</li>
+</ul>
+<h3 id="movement-service-cardspy-9-survivors-left-of-77-measured-before-1511-the-6-guard-survivors-were-re-checked-in-1504">Movement service (<code>cards.py</code>): 9 survivors left of 77 (measured before #1511; the 6 guard survivors were re-checked in #1504)<a class="headerlink" href="#movement-service-cardspy-9-survivors-left-of-77-measured-before-1511-the-6-guard-survivors-were-re-checked-in-1504" title="Permanent link">&para;</a></h3>
+<p>Measured 2026-10-07 (#1454) with the line range of <code>update_card</code> only, run in 8 shards against the scoped files, then against the scoped files plus the view suites listed in the table above, then with <code>test_card_service_mutation_gaps.py</code> added to each. The 14 survivors outside <code>update_card</code> are unchanged from the #1443 baseline: 8 <code>_archive_movement</code> equivalents and 6 guard-condition mutants. #1504 (2026-10-08) re-checked the six guard mutants against the current code and found them killed, so the survivor count is now 9 (8 equivalent plus the #1511 label mutant, also now fixed) and the 77-mutant table below adds up to 77 with the new bucket.</p>
+<table>
+<thead>
+<tr>
+<th>Bucket</th>
+<th style="text-align: right;">Count</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Missing assertion, <strong>fixed</strong> (#1454)</td>
+<td style="text-align: right;">43</td>
+<td>The 44 <code>update_card</code> survivors of the #1443 baseline: per-field <code>CardActivity</code> rows (title, priority, weight, assignee, description, labels, due date), the assignment and mention notification contents, the weight-increase limit check, and the <code>force</code> default. The view suites (<code>test_views_cards</code>, <code>test_notifications</code>, <code>test_card_timeline</code> and the others in the table above) already killed 25 of them; <code>test_card_service_mutation_gaps.py</code> kills the other 18, and on its own with the scoped files kills 40 of the 44.</td>
+</tr>
+<tr>
+<td>Latent bug, <strong>fixed</strong> (#1511)</td>
+<td style="text-align: right;">1</td>
+<td><code>parts.append(f"-{', '.join(names)}")</code> in the label diff (<code>'XX, XX'.join(names)</code>). The removed label names were looked up in the labels on the card <em>after</em> the write, so the list was always empty and the activity row for a removal read <code>-</code> with no name. That was a real bug, not an equivalent mutant. #1511 resolves removed names from the pre-write label snapshot, and <code>test_removed_labels_are_listed_with_minus</code>, <code>test_several_removed_labels_join_with_comma_space</code> and <code>test_add_and_remove_in_one_update</code> now pin the corrected output, so the mutant dies.</td>
+</tr>
+<tr>
+<td>Equivalent, <strong>deleted</strong> (#1505)</td>
+<td style="text-align: right;">8</td>
+<td><code>_archive_movement</code> fell back to <code>""</code> when <code>card.column</code> or <code>card.swimlane</code> was <code>None</code>. Both foreign keys are non-null on <code>Card</code> and every caller passes a persisted card, so the branch was unreachable. #1505 deleted the 8 fallbacks (and the #1503 pragmas with them). Mutant counts, enumerated with mutmut 2.5.1 (mutant counts only; the test suite was not re-run against them, so kill rates are not re-measured; re-measuring is part of the nightly baseline work in #1384): <code>cards.py</code> goes from 246 honored / 254 raw on <code>main</code> to 246 / 246, exactly the 8 pragma'd mutants gone, i.e. 8 fewer than <code>main</code> (254 to 246 raw).</td>
+</tr>
+<tr>
+<td>Guard condition, <strong>no longer a survivor</strong> (#1504)</td>
+<td style="text-align: right;">6</td>
+<td>The original six sat on the <code>column_changed and ((wip_enforced and ...wip_limit is not None) or (... weight_limit is not None))</code> condition in <code>move_card</code> (lines 614-616 at baseline <code>25bcfdf1e</code>), which has exactly six <code>and</code>/<code>or</code>/<code>is not</code> mutation points. #1428 moved that condition into <code>enforce_column_limits</code> (<code>wip_applies</code>, <code>weight_applies</code> and <code>if not (wip_applies or weight_applies)</code>). Applying the six analog mutants by hand on SQLite on 2026-10-08, all six are killed (<code>RoleAllowListTests</code> in <code>test_card_services.py</code> and <code>WipEnforcementTests</code> in <code>test_wip_enforcement.py</code>, including <code>test_hard_mode_applies_even_when_soft_enforcement_is_off</code>). The old "equivalent here, needs PostgreSQL" label was wrong for these, and had been stale since #1428. Separately, #1504 adds PostgreSQL race tests for the real lock calls; see <a href="#postgresql-re-run-of-the-select_for_update-guards-1504">PostgreSQL re-run (#1504)</a>.</td>
+</tr>
+<tr>
+<td>Missing assertion, fixed (#1443)</td>
+<td style="text-align: right;">19</td>
+<td>Creation-movement origin fields, the <code>position</code> bypass guard in <code>update_card</code>, the <code>or 0</code> weight fallback on an empty column, the role-hint rejection warning, the restore ownership message, the delete broadcast payload, and the create-time mention notification.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="postgresql-re-run-of-the-select_for_update-guards-1504">PostgreSQL re-run of the <code>select_for_update</code> guards (#1504)<a class="headerlink" href="#postgresql-re-run-of-the-select_for_update-guards-1504" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Lock sites changed in #1522 (2026-10-09).</strong> The measurements below are against the pre-#1522 code and stay as the record of that run, but the lock sites they name no longer exist. <code>move_card</code> no longer locks the card with a <code>select_related</code> join, and no longer has separate source- and target-sibling locks. It now reads the card unlocked and locks the card plus both cells in <strong>one</strong> pk-ordered statement (<code>_lock_move_cells</code>). It then locks the source and target column rows in one pk-ordered <code>FOR NO KEY UPDATE</code> statement (<code>_lock_move_columns</code>) on every move (since #1567; a same-cell reorder locks its one column); <code>enforce_column_limits</code> is called with <code>lock=False</code>. If the card changed between the read and the lock, the attempt is retried. <code>ColumnViewSet.reorder</code> locks the board's columns in pk order too. See <a href="#what-1522-changed">What #1522 changed</a> below. Re-measuring these mutants is part of the nightly baseline work in #1384.</p>
+</blockquote>
+<p>Measured 2026-10-08. <code>ConcurrentMoveLockTests</code> (<code>test_concurrent_moves.py</code>, skipped unless <code>connection.vendor == "postgresql"</code>) holds one move open inside its transaction, at a point after it took its locks and before it commits, and starts a second move while the first is held. With the locks the second move queues; without them it runs against stale state. The three tests cover the card-row lock (two moves of one card must produce a continuous movement chain), the target-column lock in <code>enforce_column_limits</code> (a hard WIP limit must not be exceeded by two racing moves) and the target-cell sibling lock (two cards entering one occupied cell must not end at the same position).</p>
+<p>Second, separate set (a re-derivation, <strong>not</strong> the original six): mutmut 2.5.1 generated six mutants on the lines that carry the real lock calls (0-based lines 330, 372-373, 740-744, 816-819 and 827-830 at <code>f6d570d55</code>), ids 35, 168, 169, 170, 188 and 193: <code>lock=True</code> to <code>lock=False</code>, <code>select_related("column", ...)</code> and <code>select_related(..., "swimlane")</code> to <code>XX...XX</code>, the locked card read replaced by <code>None</code>, and <code>order_by("pk")</code> to <code>order_by("XXpkXX")</code> on the source and target sibling locks. mutmut cannot delete the <code>.select_for_update()</code> call or negate <code>if lock:</code>, so the lock calls themselves were flipped by hand instead.</p>
+<table>
+<thead>
+<tr>
+<th>Mutant</th>
+<th>SQLite, scoped files</th>
+<th>PostgreSQL, <code>ConcurrentMoveLockTests</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lock=True</code> to <code>lock=False</code> (<code>enforce_column_limits</code>)</td>
+<td><strong>Survives</strong> (since killed on SQLite by a spy on <code>select_for_update</code>, #1931: <a href="#remaining-cards-and-card_movement-survivors-1931">details</a>)</td>
+<td>Killed by <code>test_column_lock_serializes_moves_into_a_full_column</code></td>
+</tr>
+<tr>
+<td><code>select_related</code> name mutants (2), card read replaced by <code>None</code>, <code>order_by("XXpkXX")</code> (2)</td>
+<td>Killed (<code>FieldError</code> or <code>AttributeError</code> on any database)</td>
+<td>Killed</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Hand-flipped guard</th>
+<th>Killed by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Drop <code>select_for_update()</code> on the card read in <code>move_card</code></td>
+<td><code>test_card_row_lock_serializes_two_moves_of_the_same_card</code></td>
+</tr>
+<tr>
+<td>Drop <code>select_for_update()</code> on the column in <code>enforce_column_limits</code>, or <code>if lock:</code> to <code>if not lock:</code></td>
+<td><code>test_column_lock_serializes_moves_into_a_full_column</code></td>
+</tr>
+<tr>
+<td>Drop <code>select_for_update()</code> on the target cell's cards</td>
+<td><code>test_target_cell_lock_keeps_positions_distinct</code></td>
+</tr>
+<tr>
+<td>Drop <code>select_for_update()</code> on the <strong>source</strong> cell's cards</td>
+<td><strong>Survives on PostgreSQL</strong>; proven equivalent by argument, see below</td>
+</tr>
+</tbody>
+</table>
+<p>The source-cell sibling lock survives. It is a hand-flip, not a mutmut mutant, so a <code># pragma: no mutate</code> cannot apply to it. Classification: proven equivalent by argument (the <code>select_related</code> join-row locks make it redundant), not mutmut-excludable; recorded here, not pragma'd. No two-transaction schedule found distinguishes it: every other writer that could touch a source sibling either takes the same card, column and swimlane row locks through the join, or takes its own sibling lock that includes the card the first move already holds. A comment on #1503 names it so that policy can say how hand-flipped guards are recorded.</p>
+<p>Two findings came out of the test design, neither fixed in #1504 because <code>services/cards.py</code> was out of scope. First, two moves out of the <em>same</em> cell deadlocked on PostgreSQL (<code>deadlock detected</code>, a 500): each held its own card row and waited for the other's while taking the source-sibling locks (#1522, now fixed, see below). Second, two concurrent moves of the <em>same</em> card returned 404 for the loser, because PostgreSQL re-checked the <code>select_related</code> join on the locked read against the pre-commit column row after the wait (#1523). Since #1522 the locked read has no join, and a card that changed before its lock is re-read, so the loser gets 200 (or 409 when it sent a stale <code>version</code>). #1523 tightened the test to require 200 and added <code>test_same_card_move_race.py</code>, which also guards that the locked statement carries no join (<code>of=("self",)</code> alone does not prevent the drop-out).</p>
+<h4 id="what-1522-changed">What #1522 changed<a class="headerlink" href="#what-1522-changed" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Card rows:</strong> one pk-ordered <code>SELECT … FOR UPDATE OF cards</code> covering the moved card and every card in its source and target cells (<code>_lock_move_cells</code>). Locking the card first and its siblings afterwards was the deadlock. The source-sibling lock that survived as "equivalent" above is now part of this single statement, so it can no longer be flipped on its own.</li>
+<li><strong>Re-check and retry:</strong> the card is read unlocked, because its cell is only known after the read. Under the lock, the fields the gates and the lock depend on (version, column, swimlane, assignee, creator) are compared with that read. On any difference the attempt's savepoint is rolled back, which releases its locks, and the move is retried. After three attempts it returns <code>409 version_conflict</code>.</li>
+<li><strong>Column rows:</strong> after the card rows, the source and target columns are locked in one pk-ordered <code>FOR NO KEY UPDATE</code> statement (<code>_lock_move_columns</code>) on every move; since #1567 that includes a reorder within one cell, which locks its single column. The <code>CardMovement</code> insert needs <code>FOR KEY SHARE</code> on both columns. A column reorder holds <code>FOR UPDATE</code> on every column, because <code>position</code> is part of a unique key. A plain <code>FOR UPDATE</code> limit lock blocks key-share locks. Any of these taken out of a shared order deadlocks. <code>enforce_column_limits</code> and <code>create_card</code> lock the column <code>FOR NO KEY UPDATE</code>, and <code>ColumnViewSet.reorder</code> locks its columns in pk order.</li>
+<li><strong>Tests, and what each one actually guards</strong> (all verified on PostgreSQL):</li>
+<li><code>test_two_moves_out_of_the_same_cell_do_not_deadlock</code>, <code>…_in_reverse_pk_order_…</code> and <code>test_opposite_moves_between_two_cells_do_not_deadlock</code> fail with <code>deadlock detected</code> on origin/main. They pass once the card rows are locked in one pk-ordered statement (<code>_lock_move_cells</code>). They pass with any lock order that every move shares, so they do not pin the pk order.</li>
+<li><code>test_opposite_moves_between_limited_columns_do_not_deadlock</code> passes on origin/main, where the <code>select_related</code> join lock serialized the moves. It failed on the intermediate revision 2b12e2a02, which locked only the target column, with <code>FOR UPDATE</code>. On the current code it passes whether the column lock is <code>FOR UPDATE</code> or <code>FOR NO KEY UPDATE</code>.</li>
+<li><code>test_move_into_a_limited_column_does_not_deadlock_with_a_column_reorder</code> passes on origin/main and fails on 2b12e2a02. It passes once the move locks its source and target columns (<code>_lock_move_columns</code>), even without the reorder-side change.</li>
+<li><code>test_move_locks_cards_then_columns_in_pk_order</code> and <code>test_column_reorder_locks_columns_in_pk_order</code> fail on origin/main. They are the only tests that pin the pk ordering, the <code>FOR NO KEY UPDATE</code> column mode and the reorder's pk-ordered column lock, none of which a two-transaction race distinguishes from a consistent alternative.</li>
+<li>The same-card test now holds on <code>_lock_move_cells</code>.</li>
+<li><strong>Cards committed into a locked cell (#1567):</strong> the card-row statement locks only the rows in its pre-wait snapshot. After taking the column rows (now on every move, including a same-cell reorder), <code>move_card</code> re-reads its cells (<code>_require_cells_locked</code>) and retries if a card in them is unlocked. <code>test_move_cell_arrival_race.py</code> fails with <code>deadlock detected</code> without the re-check; the SQLite-runnable <code>MoveLockRevalidationTests</code> cases in <code>test_card_services.py</code> pin the retry and its 409 bound.</li>
+<li><strong>Known gaps (tracked):</strong> <code>create_card</code> against a column reorder (which predates #1522) was fixed in #1566 and is covered by <code>test_card_create_reorder_race.py</code>.</li>
+</ul>
+<p>Scope: this covers <code>move_card</code> and <code>enforce_column_limits</code> only. The other <code>select_for_update</code> sites are exercised by PostgreSQL race tests in <code>test_concurrent_lock_sites.py</code> (#1524: the column lock in <code>create_card</code>, the board-row locks on column/swimlane/custom-field create and swimlane reorder, the invite cap and revoke locks, the card-relation lock) and <code>test_card_create_reorder_race.py</code> (#1566: the column reorder's board lock against a column create, and a card create against a reorder); the same-card move race is covered by <code>test_same_card_move_race.py</code> (#1523).</p>
+<p>With every <code>update_card</code> survivor except the #1511 label mutant killed, <code>cards.py</code> went from 185 of 243 (76.1%) to 228 of 243 (93.8%) killed in the 2026-10-07 measurement, taken before #1511. The #1511 fix and its corrected tests are expected to kill that last <code>update_card</code> mutant (which would make it 229 of 243), but mutmut was not re-run, so the figures above still count it as a survivor. The 6 guard-condition survivors counted in the 15 are killed (#1504, above), which would make it 234 of 243 (96.3%); neither adjustment was re-measured with mutmut. Either way the score is above the 90% mutation-score target for every scored category (tracked in #1503 and #1502).</p>
+<p>With the 8 <code>_archive_movement</code> exclusions from #1503 the two numbers are, <strong>expected and not re-measured</strong>: raw 229 of 243 (94.2%) and adjusted 229 of 235 (97.4%), the remaining six survivors being the <code>select_for_update</code> guards. The pragmas only remove mutants, and the 8 excluded were survivors, so the killed count does not change. <strong>Update (#1505):</strong> the 8 excluded lines were deleted instead, so there is no <code># pragma: no mutate</code> in <code>_archive_movement</code> and the module has 246 mutants (8 fewer than the 254 raw on <code>main</code>), enumerated with mutmut 2.5.1 (mutant counts only; the test suite was not re-run against them, so kill rates are not re-measured; re-measuring is part of the nightly baseline work in #1384). The expected figure is 229 of 246 raw and adjusted alike, not re-measured.</p>
+<p>The activity and notification paths in <code>boards/views/cards.py</code> (comment added with comment and mention notifications, checklist item added, deleted and toggled) have the same missing-assertion shape. They are not part of the <code>cards.py</code> score above and are unmeasured; a mutation run on <code>boards/views/cards.py</code> would be needed to know their kill rate.</p>
+<h3 id="movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503">Movement model (<code>CardMovement</code>): 27 survivors left of 73 (all excluded, #1503)<a class="headerlink" href="#movement-model-cardmovement-27-survivors-left-of-73-all-excluded-1503" title="Permanent link">&para;</a></h3>
+<p>Re-measured 2026-10-08 on <code>main</code> at <code>f6d570d55</code> (4 shards, lines of the class only, the six scoped test files from the table above including <code>test_movement_record_mutation_gaps</code>): 46 killed, 27 survived, none untested. The earlier baseline in this page counted 28 survivors; the difference of one is a field the tests now cover, not a different set of mutants.</p>
+<p>All 27 survivors change a field argument that is a <strong>schema constant</strong>: <code>max_length</code> (+1) and <code>blank</code> (<code>True</code> to <code>False</code>) on the eight <code>*_name</code> / <code>*_uid</code> fields and on <code>notes</code>, <code>max_length</code> on <code>movement_type</code>, <code>db_index</code> on <code>moved_at</code>, <code>related_name="+"</code> on the four FKs, and the two strings and the field list of the <code>movement_card_moved_idx</code> index. They are not claimed to be unobservable (a <code>blank</code> flip changes validation and the admin change form, <code>max_length</code> the form field). They are excluded as the <strong>schema constant guarded by <code>migration-check</code></strong> category in the <a href="#equivalent-mutants-and-the-score-1503">policy</a>: a drift against the migrations fails the CI <code>migration-check</code> job, and testing Django <code>_meta</code> directly would be brittle. The behavioral arguments (<code>default</code>, <code>on_delete</code>, <code>null</code>, <code>choices</code>, <code>ordering</code>, <code>db_table</code>) are killed and stay mutated.</p>
+<h1 id="1503-marks-the-27-with-pragma-no-mutate-schema-constant-migration-check-mutmuts-pragma-is-per-physical-line-so-the-fields-in-this-class-are-written-one-argument-per-line-that-keeps-the-constants-on-their-own-lines-and-the-behavioral-arguments-which-were-killed-outside-any-pragma-this-was-checked-by-generating-the-classs-mutants-with-pragmas-ignored-and-with-them-honored-the-same-73-mutants-exist-in-both-and-the-27-that-disappear-are-exactly-the-27-survivors-above-nothing-that-was-killed-is-excluded-expected-result-raw-46-of-73-630-adjusted-46-of-46-100">1503 marks the 27 with <code># pragma: no mutate -- schema constant (migration-check)</code>. mutmut's pragma is per physical line, so the fields in this class are written one argument per line: that keeps the constants on their own lines and the behavioral arguments (which were killed) outside any pragma. This was checked by generating the class's mutants with pragmas ignored and with them honored: the same 73 mutants exist in both, and the 27 that disappear are exactly the 27 survivors above (nothing that was killed is excluded). Expected result: raw 46 of 73 (63.0%), adjusted 46 of 46 (100%).<a class="headerlink" href="#1503-marks-the-27-with-pragma-no-mutate-schema-constant-migration-check-mutmuts-pragma-is-per-physical-line-so-the-fields-in-this-class-are-written-one-argument-per-line-that-keeps-the-constants-on-their-own-lines-and-the-behavioral-arguments-which-were-killed-outside-any-pragma-this-was-checked-by-generating-the-classs-mutants-with-pragmas-ignored-and-with-them-honored-the-same-73-mutants-exist-in-both-and-the-27-that-disappear-are-exactly-the-27-survivors-above-nothing-that-was-killed-is-excluded-expected-result-raw-46-of-73-630-adjusted-46-of-46-100" title="Permanent link">&para;</a></h1>
+<h3 id="rbac-permissionspy-4-survivors-left-of-118-all-excluded-1503">RBAC (<code>permissions.py</code>): 4 survivors left of 118 (all excluded, #1503)<a class="headerlink" href="#rbac-permissionspy-4-survivors-left-of-118-all-excluded-1503" title="Permanent link">&para;</a></h3>
+<p>Re-measured 2026-10-08 on the lines of <code>get_board_role</code> and <code>_is_demo_visitor</code> that hold them: the same four survivors, all equivalent. (The page used to say "of 74"; the module has 118 mutants, 114 of them killed.)</p>
+<table>
+<thead>
+<tr>
+<th>Mutant</th>
+<th>Bucket</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>break</code> to <code>continue</code> in the prefetched-membership scan</td>
+<td>Equivalent, excluded</td>
+<td>A user has at most one membership per board, so scanning on finds nothing new.</td>
+</tr>
+<tr>
+<td><code>getattr(settings, "DEMO_MODE", False)</code> default flipped to <code>True</code></td>
+<td>Equivalent, excluded</td>
+<td><code>DEMO_MODE</code> is always defined in settings.</td>
+</tr>
+<tr>
+<td><code>""</code> default flipped to <code>"XXXX"</code> in <code>getattr(user, "username", "")</code></td>
+<td>Equivalent, excluded</td>
+<td>A real user always has a username.</td>
+</tr>
+<tr>
+<td><code>or ""</code> fallback flipped to <code>or "XXXX"</code> on <code>user.username</code></td>
+<td>Equivalent, excluded</td>
+<td>A real user always has a non-empty username.</td>
+</tr>
+</tbody>
+</table>
+<p>The last three shared a line with mutants that tests <em>do</em> kill (the setting name, <code>is not</code>, the <code>or</code> operator, <code>==</code>), so a line-level pragma would have hidden killed mutants too. <code>_is_demo_visitor</code> is therefore written with the defaults on their own lines, and the <code>or</code> on the closing line outside any pragma. The split adds two mutants (<code>demo_mode = None</code> and <code>username = None</code>, so the module now has 120). Both are killed: a re-run over the changed lines (116 mutants honoring the pragmas, 26 killed, 0 survived; the rest belong to other lines) leaves no survivor. As with <code>CardMovement</code>, the 4 mutants that disappear under the pragmas were checked to be exactly the 4 survivors. Expected for the module (114 killed before, plus the 2 new): raw 116 of 120 (96.7%), adjusted 116 of 116 (100%); not a whole-module re-run.</p>
+<h3 id="importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious">Import/export: survivors after #1453 (first 823 paired mutants: 134 survivors plus 33 suspicious)<a class="headerlink" href="#importexport-survivors-after-1453-first-823-paired-mutants-134-survivors-plus-33-suspicious" title="Permanent link">&para;</a></h3>
+<p>Triaged and re-measured on 2026-10-08 (#1502): see <a href="#head-re-measure-2026-10-08-1502">Head re-measure</a> above. The 2026-10-05 paired figures above predate #1496, #1507 and the other import fixes that grew the head, so they are kept as history, not as a baseline for the current code.</p>
+<p>The tests mostly pin exact error bodies, the 500/50/100 import cap boundaries, JSON key sets and order, and the movement-history cell format. The survivors of the current head code were triaged in full in the Head re-measure section above: all 34 are equivalent or redundant.</p>
+<h3 id="importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492">Import/export: <code>_import_csv</code>, <code>export</code>, <code>export_history</code> after #1484 (27 survivors of 492)<a class="headerlink" href="#importexport-_import_csv-export-export_history-after-1484-27-survivors-of-492" title="Permanent link">&para;</a></h3>
+<p>Triaged with the three questions in <a href="#how-to-read-the-results">How to read the results</a>. The 18 additional kills from #1484 (45 survivors after #1453, 27 now) come from <code>test_import_export_mutation_gaps.py</code> (<code>ImportCsvTailGapTests</code>, <code>ExportGapTests</code>, <code>ExportHistoryGapTests</code>: the lowercase <code>labels</code> header, absent optional columns, a repeated label in one cell, the response <code>member_count</code>/<code>card_count</code>/<code>archived_card_count</code>, the group id, <code>?expand=group</code> and group broadcast on a grouped import, the <code>Movement History</code> cell for a movement with no destination column, the unpaginated <code>export-history</code> fallback, and the OpenAPI summary and description). All 27 remaining survivors are equivalent or covered elsewhere:</p>
+<table>
+<thead>
+<tr>
+<th>Survivors</th>
+<th style="text-align: right;">Count</th>
+<th>Bucket</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file.name or ""</code> default (line 1433)</td>
+<td style="text-align: right;">1</td>
+<td>Equivalent</td>
+<td>An uploaded file always has a name.</td>
+</tr>
+<tr>
+<td><code>column_map</code> / <code>swimlane_map</code> / <code>label_map</code> placeholder <code>None</code> to <code>""</code>, and <code>col_name and ...</code> to <code>or</code> (lines 1465-1477)</td>
+<td style="text-align: right;">5</td>
+<td>Equivalent</td>
+<td>The required-field check above rejects an empty column or swimlane, and every placeholder is overwritten with the created object before it is read. Re-assigning an existing key keeps dict order.</td>
+</tr>
+<tr>
+<td><code>not column or not swimlane</code> to <code>and</code>, <code>continue</code> to <code>break</code> (lines 1522-1523)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent, <strong>deleted</strong> (#1505; mutant counts in the note below, kill rates not re-measured)</td>
+<td>Every column and swimlane name was just created, so the lookup cannot fail. The guard was removed and the lookups index the maps directly. The JSON-import twin of this guard (card loop in <code>_import_json</code>) was deleted too: card references are validated against the payload's definitions, and the maps are keyed by exactly those names.</td>
+</tr>
+<tr>
+<td><code>row.get("Priority", "medium")</code> and <code>row.get("Weight", "1")</code> sentinel defaults (lines 1525, 1533)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td>A sentinel such as <code>XXmediumXX</code> is not a valid priority or integer, so the existing fallback to <code>medium</code> and <code>1</code> produces the same card.</td>
+</tr>
+<tr>
+<td><code>row.get("Labels", "")</code> in the second pass (line 1574)</td>
+<td style="text-align: right;">1</td>
+<td>Equivalent</td>
+<td>A sentinel label name is never in <code>label_map</code>, so nothing is attached. (The first-pass default, line 1469, was a real gap and is killed.)</td>
+</tr>
+<tr>
+<td><code>(row.get("Assignee") or "")</code> sentinels (lines 1516, 1530)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent in practice</td>
+<td>Only observable if a user is literally named <code>XXXX</code>.</td>
+</tr>
+<tr>
+<td><code>row.get(field, "")</code> and <code>row.get("Column"/"Swimlane", "")</code> defaults (lines 1399, 1415, 1416)</td>
+<td style="text-align: right;">3</td>
+<td>Equivalent</td>
+<td><code>Title</code>, <code>Column</code> and <code>Swimlane</code> are required headers, so the key is always present and the default is never used. The value is another matter: <code>csv.DictReader</code> fills missing trailing cells with <code>None</code>. A short row makes <code>.get(field, "")</code> return <code>None</code>, so <code>.strip()</code> raises; tracked in #1496.</td>
+</tr>
+<tr>
+<td><code>CSV file has no headers.</code> key and text (line 1383)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent, <strong>deleted</strong> (#1505; mutant counts in the note below, kill rates not re-measured)</td>
+<td><code>DictReader</code> has no fieldnames only when it yields no rows, which the earlier <code>CSV file is empty.</code> check rejects (a BOM-only, whitespace-only or header-only file all give no rows or a list). The branch and the dead <code>fieldnames is not None</code> guard before it were removed.</td>
+</tr>
+<tr>
+<td><code>distinct=False</code> on <code>_card_count</code> and <code>_archived_card_count</code> (lines 1608-1609)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent</td>
+<td>The imported board has one membership, so the join cannot duplicate card rows. (<code>_member_count</code> <code>distinct=False</code> and the <code>isnull</code> filters were real gaps and are killed.)</td>
+</tr>
+<tr>
+<td>403 body <code>detail</code> key and text for a role outside the four member roles (line 1658)</td>
+<td style="text-align: right;">2</td>
+<td>Equivalent, <strong>kept as a guard and excluded</strong> (#1505, #1503; the pragma removes these 2 mutants, see the counts below)</td>
+<td><code>get_board_for_user</code> returns only the four roles or <code>SITE_ADMIN</code>, so no request reaches it via the API. It stays as a fail-closed permission guard against a stored role outside the enum (the column has no DB constraint), and the <code>detail</code> line carries <code># pragma: no mutate</code> because killing it needs a patched-role or DB-level test.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Mutant counts for #1505</strong> (enumerated with mutmut 2.5.1 (mutant counts only; the test suite was not re-run against them, so kill rates are not re-measured; re-measuring is part of the nightly baseline work in #1384)): <code>cards.py</code> 246 honored / 254 raw on <code>main</code> to 246 / 246 at HEAD (the 8 pragma'd mutants gone). <code>import_export.py</code> 1721 / 1721 on <code>main</code> to 1707 / 1709 at HEAD: 12 mutants deleted with the dead branches, and the 2 excluded are the <code>detail</code> key and text of the export 403. Kill rates for the touched modules were not re-measured.
+| <code>board.export_min_role or "viewer"</code> (line 1672) | 1 | Equivalent | The restriction branch is entered only when <code>export_min_role</code> is set. <em>(Update 2026-10-24, #1725: that expression no longer exists; the 403 body reports <code>_effective_export_min_role(board)</code>, pinned by the export controls and movement export tests.)</em> |
+| <code>request.query_params.get("format", "csv")</code> default (line 1676) | 1 | Equivalent | Any value other than <code>json</code> takes the CSV branch. |
+| <code>BoardExportLogSerializer(..., context={"request": request})</code> (lines 2116, 2118) | 2 | Equivalent | The actor serializer only reads the request when a <code>board</code> is also in its context, which this view does not pass. |
+| <code>responses=BoardExportLogSerializer(many=False)</code> on <code>export_history</code> (line 2093) | 1 | Covered elsewhere | <code>test_board_schema_contract.py::test_export_history_matches_schema</code> fails on it; that file is outside the scoped list. |</p>
+<h2 id="how-to-reproduce">How to reproduce<a class="headerlink" href="#how-to-reproduce" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Always mutate a throwaway copy</p>
+<p>mutmut rewrites the source file in place while it runs and restores it afterward. Do not run it in your working tree. If a run is killed, the tree can be left with a mutant applied.</p>
+</div>
+<p>Set up once. Keep the tool outside the repo:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># any directory outside the repo</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span>--target<span class="w"> </span>/tmp/mutmut-tools<span class="w"> </span><span class="s2">"mutmut==2.5.1"</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># throwaway copy of the backend, with the project venv linked in</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>/tmp/mm/backend
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>rsync<span class="w"> </span>-a<span class="w"> </span>--exclude<span class="w"> </span>.venv<span class="w"> </span>--exclude<span class="w"> </span>__pycache__<span class="w"> </span>--exclude<span class="w"> </span><span class="s1">'*.sqlite3'</span><span class="w"> </span>backend/<span class="w"> </span>/tmp/mm/backend/
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>ln<span class="w"> </span>-sfn<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/backend/.venv"</span><span class="w"> </span>/tmp/mm/backend/.venv
+</code></pre></div>
+<p>The copy keeps <code>backend/.env</code>, so it uses its own SQLite database.</p>
+<h3 id="one-module-one-process">One module, one process<a class="headerlink" href="#one-module-one-process" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>/tmp/mm/backend
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--paths-to-mutate<span class="w"> </span>boards/permissions.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--tests-dir<span class="w"> </span>boards/tests/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--runner<span class="w"> </span><span class="s2">".venv/bin/python -m pytest -x -q -p no:cacheprovider \</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="s2">    boards/tests/test_rbac.py boards/tests/test_rbac_boundaries.py boards/tests/test_explicit_permissions.py \</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="s2">    boards/tests/test_permissions_unit_mutation_gaps.py"</span>
+</code></pre></div>
+<ul>
+<li><code>-x</code> stops each mutant's test run at the first failure, which is what makes a kill cheap.</li>
+<li>These are the same four test files the nightly job runs for the <code>permissions</code> target (<code>TARGETS</code> in <code>backend/mutmut_config.py</code>; <code>python mutmut_config.py targets</code> prints every target's runner).</li>
+<li>mutmut 2.5.1 starts the runner without a shell, resolving the first word through the inherited <code>PATH</code>. The command above calls <code>.venv/bin/python</code> without activating the venv, so the runner names the venv interpreter too; a plain <code>python</code> would resolve to whatever is first on <code>PATH</code> (often none at all on macOS). The nightly driver avoids this by naming its own interpreter in the runner.</li>
+<li><code>--tests-dir</code> is required even though the runner lists its own files.</li>
+<li>Results are stored in <code>.mutmut-cache</code>. Delete it before changing the test list, or mutmut will reuse stale verdicts.</li>
+</ul>
+<p>For the other modules, swap <code>--paths-to-mutate</code> and the test files using the table above.</p>
+<h3 id="restricting-to-one-class">Restricting to one class<a class="headerlink" href="#restricting-to-one-class" title="Permanent link">&para;</a></h3>
+<p>mutmut imports <code>mutmut_config.py</code> from the working directory automatically. The committed <code>backend/mutmut_config.py</code> is the CI hook. With <code>MUTATION_TARGET=card_movement</code> exported it already restricts the run to <code>CardMovement</code> (range computed from the code) and, unless <code>MUTATION_SHARD=k</code> is also set, runs every mutant of that range (the CI driver sets <code>MUTATION_SHARD</code> per job); with no variables set it skips nothing. The variant below is for an arbitrary range. To restrict a run to a line range, overwrite it <strong>in the throwaway copy only</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># mutmut_config.py -- in the throwaway copy only; do not commit over the shard hook</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">LO</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MM_LO"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">))</span>              <span class="c1"># first line, 0-based</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">HI</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MM_HI"</span><span class="p">,</span> <span class="s2">"1000000000"</span><span class="p">))</span>     <span class="c1"># last line, 0-based</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">pre_mutation</span><span class="p">(</span><span class="n">context</span><span class="p">):</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">LO</span> <span class="o">&lt;=</span> <span class="n">context</span><span class="o">.</span><span class="n">current_line_index</span> <span class="o">&lt;=</span> <span class="n">HI</span><span class="p">):</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="n">context</span><span class="o">.</span><span class="n">skip</span> <span class="o">=</span> <span class="kc">True</span>
+</code></pre></div>
+<p>Then export <code>MM_LO</code> and <code>MM_HI</code> and run with <code>--paths-to-mutate boards/models.py</code>. The old <code>MM_LO=357 MM_HI=423</code> for <code>CardMovement</code> is stale (the class now starts at 1-based line 551); <code>python mutmut_config.py targets</code> prints the current range.</p>
+<h3 id="parallel-runs">Parallel runs<a class="headerlink" href="#parallel-runs" title="Permanent link">&para;</a></h3>
+<p>mutmut 2.x is single-process. To use many cores, make N copies of the tree (each has its own SQLite file) and give each copy a share of the lines. The committed hook already does this with <code>MUTATION_SHARDS=N MUTATION_SHARD=k</code>; to combine sharding with a line range, use this variant in the copies instead:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># mutmut_config.py -- sharded variant</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">SHARD</span><span class="p">,</span> <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"MM_SHARD"</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"MM_N"</span><span class="p">])</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">LO</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MM_LO"</span><span class="p">,</span> <span class="s2">"0"</span><span class="p">))</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">HI</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MM_HI"</span><span class="p">,</span> <span class="s2">"1000000000"</span><span class="p">))</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">pre_mutation</span><span class="p">(</span><span class="n">context</span><span class="p">):</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">i</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">current_line_index</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">LO</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">HI</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">%</span> <span class="n">N</span> <span class="o">!=</span> <span class="n">SHARD</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">context</span><span class="o">.</span><span class="n">skip</span> <span class="o">=</span> <span class="kc">True</span>
+</code></pre></div>
+<p>Run shard <code>k</code> of <code>N</code> in copy <code>k</code> with <code>MM_SHARD=k MM_N=N</code>, then add up the per-copy counts. Do not copy a result cache over a copy that is still running; aggregate in a separate directory. The baseline used <code>N=16</code>.</p>
+<h3 id="reproducing-the-update_card-re-measure-1454">Reproducing the <code>update_card</code> re-measure (#1454)<a class="headerlink" href="#reproducing-the-update_card-re-measure-1454" title="Permanent link">&para;</a></h3>
+<p>Measured against <code>main</code> at <code>ab38c4688</code>. The line range moves whenever <code>cards.py</code> changes, so re-derive it (<code>grep -n "^def update_card\|^def move_card" backend/boards/services/cards.py</code>) before reusing it: <code>update_card</code> was 0-based lines 492 to 696 (<code>MM_LO=492 MM_HI=696</code>) at that commit.</p>
+<ol>
+<li>Make 8 throwaway copies as in <a href="#parallel-runs">Parallel runs</a>, each with the sharded variant of <code>mutmut_config.py</code> (<code>MM_N=8</code>, <code>MM_SHARD=0..7</code>, <code>MM_LO=492</code>, <code>MM_HI=696</code> fixed in the file or exported).</li>
+<li>Baseline run, same runner as above with these test files: <code>test_card_services.py test_card_move.py test_card_archiving.py test_card_mutation_hooks.py test_card_edge_cases.py</code>. Result: 44 survivors.</li>
+<li>Second run (delete <code>.mutmut-cache</code> first): the same files plus <code>test_views_cards.py test_notifications.py test_card_timeline.py test_views_extra.py test_board_events.py test_security_fixes.py test_movement_record_mutation_gaps.py</code>. Result: 19 survivors, so the view suites kill 25.</li>
+<li>Third run: the second run's files plus <code>test_card_service_mutation_gaps.py</code>. Result: 1 survivor (#1511). With only the baseline files plus the new file, 4 survive, which is 40 of the 44 killed.</li>
+</ol>
+<p>Sum the survivors over the 8 copies (<code>select count(*) from Mutant where status='bad_survived'</code> in each <code>.mutmut-cache</code>). Run <code>mutmut show</code> with <code>MM_SHARD</code> and <code>MM_N</code> exported, or the config import fails.</p>
+<h2 id="equivalent-mutants-and-the-score-1503">Equivalent mutants and the score (#1503)<a class="headerlink" href="#equivalent-mutants-and-the-score-1503" title="Permanent link">&para;</a></h2>
+<p>Some modules cannot reach the target by tests alone. A survivor that no test can kill is an <strong>equivalent mutant</strong> (bucket two in <a href="#survivor-classification">Survivor classification</a>). Without a rule, a floor either demands brittle tests of Django <code>_meta</code> internals or sits permanently below target. The rule:</p>
+<ul>
+<li><strong>Two numbers per module.</strong> The <strong>adjusted</strong> score leaves out the mutants proven equivalent. The <strong>raw</strong> score keeps them in the denominator, as not detected. Both are printed by <code>scripts/check_mutation_score.py</code> and both are in the <code>mutmut-cicd-stats.json</code> artifact (<code>score_adjusted</code>, <code>score_raw</code>, <code>excluded</code>), so an exclusion is always visible.</li>
+<li><strong>The floor gates the adjusted number.</strong> <code>MUTATION_MIN</code> (<a href="#weekly-ci-job-backend-mutation">Weekly CI job</a>) is compared with the merged adjusted score. A low raw score is reported, never failed.</li>
+<li><strong>An exclusion is a comment in the source, with a reason.</strong> Put <code># pragma: no mutate -- &lt;reason&gt;</code> on the line. A pragma with no <code>-- &lt;reason&gt;</code> (at least 10 characters) is rejected by <code>python3 scripts/check_mutation_score.py --check-pragmas backend</code>, which the <code>mutation-score-selftest</code> CI job runs on every MR that touches backend Python.</li>
+<li><strong>A claim that SQLite cannot observe the mutant is excluded only with a PostgreSQL note.</strong> That is a gap in the test setup, not a property of the code, so the reason must also say that a PostgreSQL test could kill it (the checker rejects a reason that names SQLite but not PostgreSQL). The exception is a mutant for which a PostgreSQL test is already <strong>planned or filed</strong>: it is not excluded and stays a survivor until that test lands. The <code>select_for_update</code> guards were that case (#1504, since merged: the guard conditions turned out to be killed on SQLite). One rule, three places: here, the triage question in <a href="#how-to-read-the-results">How to read the results</a>, and the checker.</li>
+<li><strong>"Schema constant guarded by <code>migration-check</code>" is its own category, not an equivalence claim.</strong> A change to <code>max_length</code>, <code>blank</code>, <code>db_index</code> or <code>related_name</code> can be observable (a <code>blank</code> flip changes model validation and the admin change form; <code>max_length</code> changes the form field). It is excluded because CI <code>migration-check</code> fails on any drift from the migrations, which is a stronger guard than a test of Django <code>_meta</code>, not because no caller could see it. The pragma reason says <code>schema constant (migration-check)</code> for exactly this.</li>
+<li><strong>"Unobservable" means for any production input.</strong> A reason claims the mutant cannot change behavior for any input the running system can produce (a non-null FK, a setting that is always defined, a user that always has a username). It does not claim no test could reach the line: a stub user, an <code>override_settings</code> deletion or an in-memory card with <code>column=None</code> could execute it. Say which production invariant makes it equivalent, not that it is dead.</li>
+<li><strong>Hand-flipped guards are recorded, not pragma'd.</strong> A guard that is not a mutmut mutant (for example the sibling-row lock added by hand in <code>cards.py</code>, #1504) cannot carry a pragma. If it survives a hand-flip on PostgreSQL and is equivalent by argument, list it by name in the module's survivor table as "proven equivalent by argument, not mutmut-excludable", cite the issue, and leave it out of both the raw and the adjusted numbers: it is not in either denominator because mutmut never counted it.</li>
+<li><strong>Triage first.</strong> An equivalence claim is only made after the three questions in <a href="#how-to-read-the-results">How to read the results</a>; the reason states the answer to the first one.</li>
+</ul>
+<p>The import/export survivor tables above keep their "Equivalent" rows unmarked. #1502 re-measured the head and left its 34 equivalent survivors unmarked too (most share a line with killed mutants); marking them, which splits those lines, is tracked in #1544. The nightly floor does not wait for it: the merged score clears 90% with them counted as survivors (<a href="#expected-score">Expected score</a>).</p>
+<h3 id="how-mutmut-251-treats-pragma-no-mutate">How mutmut 2.5.1 treats <code># pragma: no mutate</code><a class="headerlink" href="#how-mutmut-251-treats-pragma-no-mutate" title="Permanent link">&para;</a></h3>
+<p>Checked on mutmut 2.5.1 (the CI pin) with a small module, and re-checked by the real-mutmut cases in <code>check_mutation_score.py --self-test</code> whenever mutmut is importable:</p>
+<table>
+<thead>
+<tr>
+<th>Placement</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any line containing <code># pragma:</code> followed, anywhere after it, by <code>no mutate</code> (so <code># pragma: no cover, no mutate</code> counts)</td>
+<td>No mutant is generated for that line.</td>
+</tr>
+<tr>
+<td>Comment on <code>def f():</code></td>
+<td><strong>Only</strong> the <code>def</code> line. The body is still mutated.</td>
+</tr>
+<tr>
+<td>Comment on the last line of a multi-line call, <code>)  # pragma: no mutate</code></td>
+<td>Only that closing line. The argument lines above it (<code>max_length=10,</code>) are still mutated, and are the survivors you were trying to exclude.</td>
+</tr>
+<tr>
+<td>Comment on the first line of a multi-line call, list or dict</td>
+<td>Only that first line.</td>
+</tr>
+</tbody>
+</table>
+<p>So the scope is <strong>one physical line, and the line the mutant is on</strong>. A multi-line field definition needs the pragma on every line that carries a constant, including the closing <code>)</code> or <code>]</code> when mutmut mutates it. Check by comparing the survivor list with and without the pragma, not by eye. There is no block form in 2.5.1.</p>
+<p>Because mutmut's cache is built from the mutants it generates, a pragma'd line has <strong>no row at all</strong> in <code>.mutmut-cache</code>: it is not killed, not survived, not skipped. A score computed from the cache alone would therefore silently shrink its own denominator and the raw number could not be recovered. <code>check_mutation_score.py --export-cache</code> solves this by reading the mutated source files named in the cache's <code>SourceFile</code> table and asking mutmut to enumerate their mutants twice, once as written and once with its pragma set emptied. The difference is <code>excluded</code>. Consequences:</p>
+<ul>
+<li><code>excluded</code> is per target, like <code>total</code>: for a class target such as <code>card_movement</code> it counts only the pragmas inside the class's lines (<code>--line-range</code>). Every shard of a target reports the same value, the shards must agree (exit 2 otherwise), and the merged file carries it once per target, not N times; the merged score sums the targets.</li>
+<li>The export step needs mutmut importable (it is, in the <code>backend-mutation</code> job). If it is not, the export exits 2 (not measured) rather than reporting a raw score equal to the adjusted one.</li>
+<li>The count assumes the run was not restricted by a <code>pre_mutation</code> hook that changes which lines are <em>generated</em>. The committed hook only skips mutants after generation (the shard split and the <code>CardMovement</code> class range alike), and the export applies the same class range with <code>--line-range</code>, so the counts cover exactly the class. A hand run with a different range must pass that range to <code>--line-range</code> too.</li>
+</ul>
+<h2 id="how-to-read-the-results">How to read the results<a class="headerlink" href="#how-to-read-the-results" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>results<span class="w">      </span><span class="c1"># lists survivors by id</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>/tmp/mutmut-tools<span class="w"> </span>.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>mutmut<span class="w"> </span>show<span class="w"> </span><span class="m">42</span><span class="w">      </span><span class="c1"># prints the diff for mutant 42</span>
+</code></pre></div>
+<p>The score a run reports is the <strong>adjusted</strong> one (excluded mutants left out), with the <strong>raw</strong> one beside it; see <a href="#equivalent-mutants-and-the-score-1503">Equivalent mutants and the score</a>. <code>mutmut results</code> and the <code>Mutant</code> table do not list pragma'd lines at all, so a survivor count read from them is already adjusted.</p>
+<p>Status meanings: killed (a test failed, good), survived (all tests passed, look at it), timeout (the mutant made the tests hang, counted as killed by most conventions), suspicious (slow but not a timeout). Statuses are also in the <code>mutant</code> table of <code>.mutmut-cache</code> (SQLite) if you want counts: <code>sqlite3 .mutmut-cache "select status, count(*) from mutant group by status"</code>.</p>
+<p>For each survivor, read the diff and ask in order:</p>
+<ol>
+<li><strong>Can this change alter anything a caller or user could observe, for any production input?</strong> If not (dead branch, default that is always overridden), it is an equivalent mutant. Do not write a test for it; mark it with <code># pragma: no mutate -- &lt;reason&gt;</code> following the <a href="#equivalent-mutants-and-the-score-1503">policy</a>. A lock call that is only unobservable on SQLite is excluded only with a note that a PostgreSQL test could kill it, and stays a survivor if such a test is planned or filed (#1504). A schema constant guarded by <code>migration-check</code> is excluded as its own category (see the policy).</li>
+<li><strong>Is the changed code reached by any test in scope?</strong> If not, it is untested code. Either add a test or note which other suite covers it.</li>
+<li><strong>Otherwise it is a missing assertion.</strong> Add the smallest assertion that fails on the mutant: the exact message or key, the boundary value (<code>limit</code> and <code>limit + 1</code>), the empty-collection case, or the ordering.</li>
+</ol>
+<p>Two patterns recur in this codebase. A string-literal mutant that adds <code>XX</code> around a message survives whenever a test uses <code>assertIn</code> with a fragment of the message, because the fragment is still a substring; assert the full message, or both its start and its end. A <code>&gt;=</code> to <code>&gt;</code> mutant on a limit survives unless a test sits exactly on the limit.</p>
+<p>For the assertion patterns that kill these mutants, with examples, see <a href="../testing/#writing-tests-that-catch-mutations">Writing tests that catch mutations</a>.</p>
+<h2 id="weekly-ci-job-backend-mutation">Weekly CI job (<code>backend-mutation</code>)<a class="headerlink" href="#weekly-ci-job-backend-mutation" title="Permanent link">&para;</a></h2>
+<p>Tracked in #1384, ported from TruePPM's <code>api:mutation</code> and <code>scheduler:mutation</code>. It runs on the Weekly mutation testing schedule only (<code>MUTATION_TEST=true</code>, never on an MR or a <code>main</code> push; it started on the Nightly schedule and moved to its own weekly one after a manual run measured the cost, see <a href="#runner-load">Runner load</a>) and covers <strong>every module with a manual baseline on this page</strong>. The report job gates the <strong>merged adjusted</strong> score at <strong>90%</strong> (<code>MUTATION_MIN=0.90</code>). Until the follow-up on #1384 both jobs stay <code>allow_failure: true</code>, so a score under the floor is a yellow job, not a red pipeline; a follow-up makes <code>backend-mutation-report</code> blocking.</p>
+<p>The job started as a one-module pilot on <code>boards/permissions.py</code> (!1176) and was widened to all baselined modules by #1384.</p>
+<h3 id="targets">Targets<a class="headerlink" href="#targets" title="Permanent link">&para;</a></h3>
+<p>The list lives in one place, <code>TARGETS</code> in <code>backend/mutmut_config.py</code>. Each target names its source file, the test files every mutant runs against, an optional class to restrict the run to, and its shard count. Mutant counts are the <code>total</code> and excluded figures from the 2026-10-25 CI mutmut stats (pipeline 2986276266, main <code>fd859446e</code>); they were first enumerated with mutmut 2.5.1 on <code>main</code> at <code>e8be1a22f</code> (116 / 246 / 46 / 1780), and pragma-excluded mutants are never generated, so they are listed apart. Kill rates for that run, and what #1930 changed, are in <a href="#2026-10-25-run-below-the-floor-1930">2026-10-25 run below the floor</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Code</th>
+<th style="text-align: right;">Mutants scored</th>
+<th style="text-align: right;">Excluded by pragma</th>
+<th>Tests</th>
+<th style="text-align: right;">Shards</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td><code>boards/permissions.py</code></td>
+<td style="text-align: right;">172</td>
+<td style="text-align: right;">4</td>
+<td>the four RBAC files (<code>test_rbac</code>, <code>test_rbac_boundaries</code>, <code>test_explicit_permissions</code>, <code>test_permissions_unit_mutation_gaps</code>)</td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td><code>boards/services/cards.py</code></td>
+<td style="text-align: right;">374</td>
+<td style="text-align: right;">0</td>
+<td>the 13 files of the 2026-10-09 whole-module re-measure (movement suites, view suites, both gap files)</td>
+<td style="text-align: right;">16</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td><code>CardMovement</code> in <code>boards/models.py</code> only</td>
+<td style="text-align: right;">70</td>
+<td style="text-align: right;">41</td>
+<td>the six movement-record files of the 2026-10-08 re-measure</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td><code>boards/views/import_export.py</code>, whole module</td>
+<td style="text-align: right;">1826</td>
+<td style="text-align: right;">2</td>
+<td>16 files: the nine of the head run (#1502), the remainder run's (#1484), <code>test_import_csv_custom_fields</code> for the #1449 code, and, last because only a mutant every other file let through reaches them, <code>test_import_history_attribution</code> and <code>test_import_export_schema_mutation_gaps</code> (#1930)</td>
+<td style="text-align: right;">29</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td></td>
+<td style="text-align: right;"><strong>2442</strong></td>
+<td style="text-align: right;"><strong>47</strong></td>
+<td></td>
+<td style="text-align: right;"><strong>50</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>CardMovement</code> range is computed from the code on every run (<code>ast</code>, the class's first to last line), never written down, so it follows the class when <code>models.py</code> changes. The mutants outside the range are registered by mutmut, skipped by the hook, and left out of every count by the export (<code>--line-range</code>).</p>
+<h3 id="shard-arithmetic">Shard arithmetic<a class="headerlink" href="#shard-arithmetic" title="Permanent link">&para;</a></h3>
+<p>Per-mutant cost is almost all the time the target's tests take to reach their first failure (<code>-x</code>); a survivor costs a full pass. Measured 2026-10-09 on an 18-core laptop, SQLite, mutmut 2.5.1, one process per sample, <code>--reuse-db</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">One full test pass</th>
+<th>Sample</th>
+<th style="text-align: right;">Cost per mutant (local)</th>
+<th style="text-align: right;">CI estimate (x2)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">25 s</td>
+<td>2026-10-04 baseline (loaded laptop)</td>
+<td style="text-align: right;">~25 s</td>
+<td style="text-align: right;">~30 s (the 2026-10-04 figure was taken under load)</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">78 s</td>
+<td>12 mutants, 376 s with a 78 s baseline</td>
+<td style="text-align: right;">~25 s</td>
+<td style="text-align: right;">~50 s (<strong>measured in CI 2026-10-18: ~65-95 s</strong>, see below)</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">35 s</td>
+<td>shard 1 of 2 through the CI driver: 15 mutants, 332 s with a 35 s baseline</td>
+<td style="text-align: right;">~20 s</td>
+<td style="text-align: right;">~40 s</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td style="text-align: right;">65 s</td>
+<td>25 mutants, 480 s with a 65 s baseline</td>
+<td style="text-align: right;">~17 s</td>
+<td style="text-align: right;">~33 s</td>
+</tr>
+</tbody>
+</table>
+<p>CI is assumed twice as slow as the laptop (shared self-hosted runners, PostgreSQL instead of in-memory SQLite). A target's mutants are dealt round-robin over its shards, so shard sizes differ by at most one mutant (a split by <code>line_index % N</code>, used at first, left the fullest <code>import_export</code> shard with 75 mutants against an average of 54, because mutants cluster on a few lines). <code>python mutmut_config.py targets</code> prints the current sizes. Each shard is sized to about 30 minutes of mutants.</p>
+<p><strong>Original sizing (2026-10-10, estimates; superseded by #1818):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">Mutants x CI cost</th>
+<th style="text-align: right;">Shards</th>
+<th style="text-align: right;">Mutants per shard</th>
+<th style="text-align: right;">Slowest shard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">116 x 30 s = 58 min</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">58</td>
+<td style="text-align: right;">~29 min</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">246 x 50 s = 205 min</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">35-36</td>
+<td style="text-align: right;">~30 min</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">46 x 40 s = 31 min</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">~15 min</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td style="text-align: right;">1780 x 33 s = 979 min</td>
+<td style="text-align: right;">33</td>
+<td style="text-align: right;">53-54</td>
+<td style="text-align: right;">~30 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Re-derived from the 2026-10-18 scheduled run (#1818).</strong> That run (pipeline 2960067085, main <code>6d440fb22</code>) timed out five shards at 60 minutes: four <code>cards</code> jobs (3/44, 4/44, 6/44, 9/44) and one <code>import_export</code> job (14/44, one hanging mutant). <code>cards.py</code> had grown to 361 mutants and measured ~65-95 s each in CI (not ~50 s); the job durations were:</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">Shards then</th>
+<th style="text-align: right;">Mutants per shard then</th>
+<th>Job wall time per shard (incl. ~5 min setup)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">74</td>
+<td>45 m, 49 m</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">~52</td>
+<td>60 m (timeout), 60 m (timeout), 43 m, 60 m (timeout), 40 m, 54 m, 60 m (timeout)</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">23</td>
+<td>9 m, 28 m</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td style="text-align: right;">33</td>
+<td style="text-align: right;">54-55</td>
+<td>31 jobs 19-41 m, one 59.9 m (job 15/44, also a hanging mutant), one 60 m (job 14/44, timeout, a hanging mutant)</td>
+</tr>
+</tbody>
+</table>
+<p>Jobs 4/44 and 9/44 (<code>cards</code>) each finished only 35 of their ~52 assigned mutants (28 killed, 7 survived) before the 60 minute kill. The timed-out jobs' stats files were written but never uploaded, so the report exited 2 ("expected 7 shard stats files, got 3"), as designed. The new split, sized from those measurements:</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">Mutants x measured CI cost</th>
+<th style="text-align: right;">Shards</th>
+<th style="text-align: right;">Mutants per shard</th>
+<th style="text-align: right;">Expected shard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">148 x ~37 s = 91 min (measured 36-39 s per mutant)</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">49-50</td>
+<td style="text-align: right;">~30 min</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">361 x ~80 s = 481 min</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">22-23</td>
+<td style="text-align: right;">~30 min</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">48 x ~65 s = 52 min (job 11/44: 24 mutants in ~26 min)</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">24</td>
+<td style="text-align: right;">~26 min (9 m and 28 m jobs measured)</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td style="text-align: right;">1786 x ~25 s = 744 min</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">61-62</td>
+<td style="text-align: right;">~26 min average, ~47 min slowest (41 m observed x 62/54, about 2x headroom under <code>timeout: 90m</code>) plus any hang; both near-60 m jobs (14/44, 15/44) held a hanging mutant, which is the evidence for <code>90m</code></td>
+</tr>
+</tbody>
+</table>
+<p>On top of the mutants each job spends about 5 minutes on setup: services, <code>pip install</code> of the backend and test requirements, and mutmut's baseline test run (up to ~2.5 min for <code>cards</code> at the CI estimate). So the slowest job was estimated at about 35 minutes with <code>timeout: 60m</code> (1.7x headroom); the 2026-10-18 run showed that estimate was too low for <code>cards</code>. With the re-derived split the average job is about 35 minutes including setup and <code>timeout</code> is now <code>90m</code>. Survivors cost a full test pass instead of a pass to the first failure; at a 3 to 4% survivor rate that adds about a minute to a shard. The 2026-10-10 sizing was an estimate; the 2026-10-18 run is the first measurement that exceeded it. A shard that times out makes the report exit 2 (not measured), never a smaller score. The default response to long shards is to raise that target's count (and <code>parallel:</code>) rather than the timeout, but the shard cap is now fully used (below), so the timeout was raised from 60m to 90m (#1818): mutmut lets a single mutant run 10x the baseline, so one hanging mutant costs minutes that no split can remove, and only timeout headroom absorbs it. The 90 minute <code>timeout:</code> deliberately exceeds the project's 60 minute default job timeout; as of 2026-10-21 no runner caps it (all seven project runners have no maximum timeout, and GitLab SaaS shared runners allow up to 3 hours). If shards run long again there is no room to add shards; move the slowest target's tests or mutants, or revisit the cap, instead.</p>
+<p>The shard total is capped at 50: <code>backend-mutation-report</code> <code>needs:</code> every shard, and GitLab allows a job to need at most 50 jobs. <code>mutmut_config.py self-test</code> fails the MR if the total goes over (50 now: at the cap, with no room left to add a shard).</p>
+<h4 id="runner-load">Runner load<a class="headerlink" href="#runner-load" title="Permanent link">&para;</a></h4>
+<p>The run costs about 1270 runner-minutes of mutants plus about 220 of setup (44 x 5, at the then 44 shards) by the estimate, roughly 25 runner-hours. <strong>Measured</strong> on 2026-10-10 (a manual play of the mutation schedule, pipeline 2933313351, all 44 shards and the report green): the 44 shards (the count at that time) took 1181 runner-minutes in total, between 6.5 and 39.5 minutes each (mean 26.8) on five self-hosted runners, and the whole 100-job pipeline took 1 h 17 min wall clock. The estimate was therefore about 20 percent high, and the slowest shard (39.5 min) is well under <code>timeout: 60m</code>. The report job printed a merged adjusted score of 96.1% (raw 94.6%; <code>import_export</code> 95.6%, <code>cards</code> 96.7%), above the 90% floor.</p>
+<p><strong>Re-measured</strong> on the scheduled run of 2026-10-18 (pipeline 2960067085, main <code>6d440fb22</code>): the pipeline succeeded overall with 6 allow-failure warnings, all one cause, five shards hitting <code>timeout: 60m</code> (see Shard arithmetic). The 44 shards at the old 7 / 33 split therefore no longer fit; #1818 moved to 50 shards and <code>timeout: 90m</code>. Expected cost is about 26-29 runner-hours: 1368 mutant-minutes from the table above (91 + 481 + 52 + 744) plus 50 x 5 minutes of setup is ~27 hours, and 50 x ~35 min is ~29 hours. Not yet measured, the next scheduled run will say.</p>
+<p>That is too much to share a night with the other scheduled jobs, so mutation testing has its own <strong>Weekly mutation testing</strong> schedule (4485984, <code>MUTATION_TEST=true</code>, Sundays 06:00 <code>America/New_York</code>) and the Nightly schedule no longer carries the variable. A scheduled pipeline on <code>main</code> runs the whole pipeline, so each weekly run also runs the ordinary <code>main</code> jobs; the Nightly jobs (the schedule-gated scans and the deep fuzz) stay on the Nightly schedule. The schedules sit in the 00:00 to 07:00 ET window at least 90 minutes apart, and clear of the TruePPM project's schedules, so the runners they share are not asked for two heavy runs at once. See <a href="../ci-gates/">CI gates</a> for the full schedule table. The jobs carry no <code>tags:</code>: <a href="../../maintainers/ci-runners/">CI runners</a> has no pin convention for heavy scheduled jobs (<code>nuc</code> is reserved for the latency-sensitive load test, and pinning 50 jobs to two NUCs would only lengthen the queue), so like every untagged job they can also be picked up by a GitLab SaaS runner if one is available to the project. <code>schedule-config-check</code> needs <code>MUTATION_TEST=true</code> on whichever schedule runs the job.</p>
+<p><code>--reuse-db</code> keeps pytest-django from creating the PostgreSQL test database and replaying every migration for each mutant. The schema comes from the migration files, which no mutant touches, so reusing it cannot change a verdict.</p>
+<h3 id="expected-score">Expected score<a class="headerlink" href="#expected-score" title="Permanent link">&para;</a></h3>
+<p>From the manual baselines (SQLite; CI runs on PostgreSQL, so the first scheduled run may differ):</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">Killed / scored (adjusted)</th>
+<th style="text-align: right;">Raw (pragma'd counted as not detected)</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td style="text-align: right;">116 / 116 (100%)</td>
+<td style="text-align: right;">116 / 120 (96.7%)</td>
+<td>2026-10-09 re-measure</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td style="text-align: right;">238 / 246 (96.7%)</td>
+<td style="text-align: right;">238 / 246 (96.7%)</td>
+<td>2026-10-09 re-measure</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td style="text-align: right;">46 / 46 (100%)</td>
+<td style="text-align: right;">46 / 73 (63.0%)</td>
+<td>2026-10-08 re-measure</td>
+</tr>
+<tr>
+<td><code>import_export</code>, measured parts</td>
+<td style="text-align: right;">1576 / 1635 (96.4%)</td>
+<td style="text-align: right;">1576 / 1637 (96.3%)</td>
+<td>head 1111 / 1145 (#1502, at <code>f898bf683</code>) plus remainder 465 / 490 (#1484, the 2 pragma'd 403 mutants removed)</td>
+</tr>
+<tr>
+<td><strong>Merged, measured parts</strong></td>
+<td style="text-align: right;"><strong>1976 / 2043 (96.7%)</strong></td>
+<td style="text-align: right;"><strong>1976 / 2076 (95.2%)</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>About 145 <code>import_export</code> mutants (1780 now against 1635 measured) belong to code added after those runs, mostly #1449's custom-field CSV helpers, and are unmeasured (#1546). Even if every one of them survived, the merged adjusted score would be 1976 / 2188 = 90.3% and the raw one 1976 / 2221 = 89.0%. So the 90% floor holds on the baseline without marking the 32 documented <code>import_export</code> equivalents (#1544), which are counted as survivors in all of the figures above. Two conventions can move the CI number down a little: the checker counts <code>suspicious</code> mutants as not detected (the head run counted its 6 as killed), and a mutant that only a PostgreSQL test can kill, or that only SQLite hides, can go either way.</p>
+<h3 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>python mutmut_config.py run</code> (from <code>backend/</code>) is the whole job script. It maps <code>CI_NODE_INDEX</code> of <code>CI_NODE_TOTAL</code> to one (target, shard), refuses to run (exit 2) if <code>CI_NODE_TOTAL</code> is not the sum of the shard counts, runs <code>mutmut run --paths-to-mutate &lt;file&gt; --runner "&lt;python&gt; -m pytest -x ... &lt;test files&gt;"</code>, prints <code>mutmut results</code>, and exports <code>mutmut-stats-&lt;index&gt;.json</code> with <code>check_mutation_score.py --export-cache --target &lt;name&gt; [--line-range LO:HI]</code>. Shard k of N of a target mutates the target's mutants whose ordinal, in (line, index) order, is k modulo N; the hook enumerates them with mutmut once per process.</li>
+<li><code>python3 backend/mutmut_config.py self-test --ci-file .gitlab-ci.yml</code> runs in <code>mutation-score-selftest</code> on every MR that touches backend Python or the CI file: every source file, test file and class in <code>TARGETS</code> must exist, a class target's computed range must equal the class's span read independently from the text, the hook's decision run for every shard must run each in-range mutant exactly once and nothing outside the range, shard sizes may differ by at most one, the shard total may not exceed 50, and <code>parallel:</code> on <code>backend-mutation</code> must equal the shard total. A renamed test file fails the MR that renames it, not a night later.</li>
+<li>mutmut is installed <strong>inside the job</strong> with <code>pip install "mutmut==2.5.1"</code>. It stays out of <code>requirements*.txt</code>. Bumping the pin changes the mutants generated and so moves the score; bump it on purpose and re-baseline. <code>backend/setup.cfg</code> <code>[mutmut]</code> now holds only <code>tests_dir</code>; the driver passes the path and runner explicitly.</li>
+<li>mutmut 2.5.1 has no <code>export-cicd-stats</code> command (that is 3.x). <code>--export-cache</code> reads <code>.mutmut-cache</code> instead. It counts only the mutants mutmut generates for the file (inside the line range, for <code>card_movement</code>): a generated mutant with no cache row is <code>untested</code> (so the run is not measured), and a cache row that is no generated mutant is a <strong>phantom</strong>, dropped and reported as <code>phantom</code>. A phantom is never run, so it is always <code>untested</code>; a non-generated row with a verdict (killed, survived, timeout, suspicious, skipped) means the cache does not match the code, and the export exits 2 rather than guess. mutmut 2.5.1 makes one whenever two lines have the same text and both carry mutants (two closing <code>)</code> lines, for example): its status lookup is keyed by line text, so it files the later line's mutant under the earlier line, as a row that is never run. That is the "extra untested mutant" the 2026-10-08 and 2026-10-09 re-measures could not explain (<code>permissions.py</code> line 316, <code>import_export.py</code> line 422). The real mutant is still run and scored correctly. Without the filter every nightly would be "unfinished".</li>
+<li><code>backend-mutation-report</code> groups the stats files by target. <code>--expect-shards</code> gets <code>permissions=3,cards=16,...</code> from <code>python3 backend/mutmut_config.py expect-shards</code>; a missing shard, a missing target or an unexpected one is exit 2. Within a target, every shard registers the whole target's mutants (other shards' lines as <code>skipped</code>), so every shard's <code>total</code> must be equal and the shards' non-skipped mutants must add up to exactly that total; otherwise exit 2. The targets are then summed (each target's <code>total</code>, <code>excluded</code> and <code>phantom</code> once) into the merged score, which <code>MUTATION_MIN</code> gates. The log prints one line per target first, and names any target under the floor on its own (not gated).</li>
+<li>The artifact <code>mutmut-cicd-stats.json</code> (30 days) has the merged counts and <code>score_adjusted</code> / <code>score_raw</code> at the top level, and <code>targets.&lt;name&gt;</code> with each target's counts and scores. On exit 2 it is still written, with a <code>not_measured</code> key giving the reason. A floor configuration error (for example <code>MUTATION_MIN=90</code>) exits 2 before anything is read, so no merged file is written for that run. Every stats and cache path the script reads or writes goes through the shared <code>scripts/_paths.py</code> containment helper (<code>resolve_within(cli_roots(), path)</code>, #1377): it must resolve under the repo checkout, the working directory or the system temp directory, or the script prints <code>CONFIG ERROR</code> and exits 2.</li>
+<li>Dependency review for mutmut 2.5.1: BSD-3-Clause; dependencies click (BSD-3), glob2 (BSD), parso (MIT), pony (Apache-2.0), junit-xml (MIT), toml (MIT); no OSV advisories for any of them on 2026-10-04. 2.x rather than 3.x because 3.x copies the tree into a sandbox (needs <code>also_copy</code> bookkeeping for every file the suite reads), which does not suit a Django suite.</li>
+</ul>
+<h3 id="2026-10-25-run-below-the-floor-1930">2026-10-25 run below the floor (#1930)<a class="headerlink" href="#2026-10-25-run-below-the-floor-1930" title="Permanent link">&para;</a></h3>
+<p>The scheduled run of 2026-10-25 (pipeline 2986276266, main <code>fd859446e</code>) scored a merged adjusted <strong>89.8%</strong>, under the 90% floor (it was 91.5% on 2026-10-21 and also failed on 2026-10-18). Nearly all the loss was code merged since the 2026-10-09 re-measures whose own tests are not in its target's test list: the broadcast visibility predicates (#1677, #1705, #1714) and the analytics panel <code>min_role</code> filter (#1826) in <code>permissions.py</code>, the container-delete peer helpers in <code>cards.py</code> (#1634), and the <code>created_at</code> restore helpers (#1906), the export's OpenAPI declaration (#1783) and the imported-movement attribution in the CSV export (#1675) in <code>import_export.py</code>.</p>
+<h1 id="1930-kills-them-with-direct-assertions-test_permissions_unit_mutation_gapspy-test_card_service_mutation_gapspy-test_import_export_mutation_gapspy-and-the-new-test_import_export_schema_mutation_gapspy-and-adds-test_import_history_attributionpy-to-the-import_export-list-survivor-ids-were-read-from-each-shards-mutmut-results-in-the-job-logs-mutmut-251-numbers-mutants-the-same-way-on-the-same-code-so-the-ids-map-to-diffs-with-mutmut-show-in-a-fresh-copy-the-changed-lines-were-then-re-run-locally-mutmut-251-sqlite-throwaway-copies-the-targets-full-test-list-all-172-permissions-mutants-172-killed-the-32-cards-mutants-on-the-lines-the-new-tests-cover-and-the-55-import_export-mutants-on-lines-0-based-1049-1092-2585-2625-and-3040-3050">1930 kills them with direct assertions (<code>test_permissions_unit_mutation_gaps.py</code>, <code>test_card_service_mutation_gaps.py</code>, <code>test_import_export_mutation_gaps.py</code>, and the new <code>test_import_export_schema_mutation_gaps.py</code>) and adds <code>test_import_history_attribution.py</code> to the <code>import_export</code> list. Survivor ids were read from each shard's <code>mutmut results</code> in the job logs; mutmut 2.5.1 numbers mutants the same way on the same code, so the ids map to diffs with <code>mutmut show</code> in a fresh copy. The changed lines were then re-run locally (mutmut 2.5.1, SQLite, throwaway copies, the target's full test list): all 172 <code>permissions</code> mutants (172 killed), the 32 <code>cards</code> mutants on the lines the new tests cover, and the 55 <code>import_export</code> mutants on lines 0-based 1049-1092, 2585-2625 and 3040-3050.<a class="headerlink" href="#1930-kills-them-with-direct-assertions-test_permissions_unit_mutation_gapspy-test_card_service_mutation_gapspy-test_import_export_mutation_gapspy-and-the-new-test_import_export_schema_mutation_gapspy-and-adds-test_import_history_attributionpy-to-the-import_export-list-survivor-ids-were-read-from-each-shards-mutmut-results-in-the-job-logs-mutmut-251-numbers-mutants-the-same-way-on-the-same-code-so-the-ids-map-to-diffs-with-mutmut-show-in-a-fresh-copy-the-changed-lines-were-then-re-run-locally-mutmut-251-sqlite-throwaway-copies-the-targets-full-test-list-all-172-permissions-mutants-172-killed-the-32-cards-mutants-on-the-lines-the-new-tests-cover-and-the-55-import_export-mutants-on-lines-0-based-1049-1092-2585-2625-and-3040-3050" title="Permanent link">&para;</a></h1>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>2026-10-25 CI: killed / survived / scored (adjusted)</th>
+<th>Re-run locally (#1930)</th>
+<th>Expected next run (a #1930-only projection, superseded by the #1931 section below)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions</code></td>
+<td>124 / 48 / 172 (72.1%)</td>
+<td>48 of the 48 survivors killed</td>
+<td>172 / 0 (100%)</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td>326 / 48 / 374 (87.2%)</td>
+<td>12 of 13 killed; <code>lock=True</code> in the <code>enforce_column_limits</code> signature survives (needs PostgreSQL, see <a href="#postgresql-re-run-of-the-select_for_update-guards-1504">#1504</a>); killed since by a spy on SQLite in <a href="#remaining-cards-and-card_movement-survivors-1931">#1931</a></td>
+<td>338 / 36 (90.4%)</td>
+</tr>
+<tr>
+<td><code>card_movement</code></td>
+<td>54 / 16 / 70 (77.1%)</td>
+<td>not re-run</td>
+<td>54 / 16 (77.1%)</td>
+</tr>
+<tr>
+<td><code>import_export</code></td>
+<td>1690 (2 by timeout) / 136 / 1826 (92.6%)</td>
+<td>48 of 49 killed</td>
+<td>1738 / 88 (95.2%)</td>
+</tr>
+<tr>
+<td><strong>Merged</strong></td>
+<td><strong>2194 / 248 / 2442 (89.8%)</strong></td>
+<td><strong>108 killed</strong></td>
+<td><strong>2302 / 140 (94.3%)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>"Expected next run" adds the local kills to the CI counts; it is not a whole-module run, and the CI job (PostgreSQL) is the measurement. The one <code>import_export</code> mutant left in range is the <code>JSON export (?format=json).</code> description of the export's JSON media type: drf-spectacular emits one description per status code, taken from the first media type, so the generated document is unchanged (the same reason as the <code>403</code> survivors in the head table). It is left unmarked, like those. Triaged in #1931 (see the next section; kept here as the record of what #1930 left): the other 35 <code>cards</code> survivors (mostly in the lock helpers: <code>select_for_update(no_key=...)</code>, <code>lock=</code> and <code>flat=</code> arguments, the <code>lock_cards_for_cascade</code> guards and the two retry-attempt constants; also the two <code>CARD_MUTATION_HOOKS</code> failure-log arguments and the <code>-1</code> to <code>-2</code> clamp in the move position; not triaged by #1930) and the 16 <code>card_movement</code> survivors, plus the equivalent <code>import_export</code> description mutant above.</p>
+<h3 id="remaining-cards-and-card_movement-survivors-1931">Remaining <code>cards</code> and <code>card_movement</code> survivors (#1931)<a class="headerlink" href="#remaining-cards-and-card_movement-survivors-1931" title="Permanent link">&para;</a></h3>
+<h1 id="1930-left-35-cards-survivors-and-16-card_movement-survivors-untriaged-1931-re-ran-both-targets-locally-exactly-as-ci-does-python-mutmut_configpy-run-for-the-16-cards-and-2-card_movement-shards-mutmut-251-sqlite-throwaway-copies-of-backend-and-triaged-every-survivor-the-first-local-run-at-a-machine-load-of-100-also-reported-40-suspicious-cards-mutants-in-update_card-they-were-timeouts-and-every-one-was-killed-when-the-run-was-repeated-at-normal-load-so-a-suspicious-count-on-a-loaded-machine-is-not-a-survivor-list">1930 left 35 <code>cards</code> survivors and 16 <code>card_movement</code> survivors untriaged. #1931 re-ran both targets locally exactly as CI does (<code>python mutmut_config.py run</code> for the 16 <code>cards</code> and 2 <code>card_movement</code> shards, mutmut 2.5.1, SQLite, throwaway copies of <code>backend/</code>) and triaged every survivor. The first local run, at a machine load of 100+, also reported 40 <code>suspicious</code> <code>cards</code> mutants in <code>update_card</code>; they were timeouts, and every one was killed when the run was repeated at normal load, so a <code>suspicious</code> count on a loaded machine is not a survivor list.<a class="headerlink" href="#1930-left-35-cards-survivors-and-16-card_movement-survivors-untriaged-1931-re-ran-both-targets-locally-exactly-as-ci-does-python-mutmut_configpy-run-for-the-16-cards-and-2-card_movement-shards-mutmut-251-sqlite-throwaway-copies-of-backend-and-triaged-every-survivor-the-first-local-run-at-a-machine-load-of-100-also-reported-40-suspicious-cards-mutants-in-update_card-they-were-timeouts-and-every-one-was-killed-when-the-run-was-repeated-at-normal-load-so-a-suspicious-count-on-a-loaded-machine-is-not-a-survivor-list" title="Permanent link">&para;</a></h1>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>select_for_update(no_key=...)</code> and <code>of=("self",)</code> arguments (<code>enforce_column_limits</code>, <code>create_card</code>, <code>_lock_move_columns</code>, <code>_lock_move_cells</code>, <code>lock_card_row</code>, <code>lock_card_for_write</code>, the three cascade lock statements)</td>
+<td>Killed on SQLite by <code>test_card_lock_mutation_gaps.py</code>: a spy wraps <code>QuerySet.select_for_update</code> and asserts the model and keyword arguments of each call, in order. SQLite ignores the clause, so the call itself is what is observed; the queueing it buys stays pinned on PostgreSQL by <code>test_concurrent_moves.py</code> and <code>test_concurrent_lock_sites.py</code>.</td>
+</tr>
+<tr>
+<td><code>lock=</code> arguments (<code>lock=True</code> in the <code>enforce_column_limits</code> signature, <code>lock=False</code> in <code>create_card</code> and <code>move_card</code>)</td>
+<td>Killed by the same spy: the default takes exactly one column lock, and the two callers that already hold it take none. No PostgreSQL test is needed.</td>
+</tr>
+<tr>
+<td><code>lock_cards_for_cascade</code> guards and <code>delete_boards_locked</code></td>
+<td>Killed: all four combinations of <code>entry_columns</code> / <code>boards</code> outside a transaction (<code>TransactionTestCase</code>) with the exact <code>RuntimeError</code> text, the three branches' lock order, <code>delete_boards_locked</code> deleting only the given boards, and the retry (<code>continue</code>) and its bound.</td>
+</tr>
+<tr>
+<td><code>_CASCADE_LOCK_ATTEMPTS</code>, <code>_MOVE_LOCK_ATTEMPTS</code> constants</td>
+<td>Killed by asserting the attempt count: the loop gives up after exactly three attempts and a retry that succeeds returns its result.</td>
+</tr>
+<tr>
+<td><code>values_list(..., flat=True)</code> on the pk sets the cascade compares</td>
+<td>Killed by asserting the helpers return plain pks (<code>_lock_cascade_cards</code>, <code>_cascade_card_pks</code>, <code>delete_boards_locked</code>'s board pks).</td>
+</tr>
+<tr>
+<td><code>lock_card_cell_entry</code> branches</td>
+<td>Killed: the card row is locked first only when a card id is given, and <code>None</code> column ids are dropped.</td>
+</tr>
+<tr>
+<td><code>lock_board_for_card_write</code> SQL dictionary (<code>"postgresql"</code> key and statement)</td>
+<td>Killed with a mocked connection whose vendor is <code>postgresql</code>; the statement is asserted verbatim.</td>
+</tr>
+<tr>
+<td><code>CARD_MUTATION_HOOKS</code> failure log (format string, <code>__qualname__</code>)</td>
+<td>Killed by asserting the logged message for a named handler and, for a handler with no <code>__qualname__</code>, its <code>repr</code>.</td>
+</tr>
+<tr>
+<td><code>-1</code> to <code>-2</code> move-position clamp</td>
+<td>Not equivalent as a whole line, so no pragma. The bound is now <code>0 if highest is None else highest + 1</code> (identical result under <code>max(0, ...)</code>, since any negative bound clamps to 0): the old <code>-1</code> to <code>-2</code> mutant no longer exists, and the new <code>0</code> to <code>1</code> mutant is killed by <code>MovePositionTests.test_a_huge_position_in_an_empty_cell_is_zero</code>. All 6 mutants on the line were killed locally.</td>
+</tr>
+<tr>
+<td><code>flat=True</code> in <code>create_card</code>'s column lock read, and in <code>_lock_cascade_boards</code> / <code>_lock_entry_columns</code></td>
+<td>Equivalent: the first is only tested for <code>None</code>, the others' <code>list(...)</code> result is discarded. <code># pragma: no mutate</code>, each on a line of its own (3 in total, the only pragmas in <code>cards.py</code>).</td>
+</tr>
+<tr>
+<td><code>CardMovement</code>: <code>default</code> / <code>db_default</code> of <code>card_uid</code> and <code>card_title</code>, the <code>save()</code> guards (<code>or</code>, <code>is not None</code>, the board and snapshot fills) and the two exception messages</td>
+<td>Killed in <code>test_movement_record_mutation_gaps.py</code>.</td>
+</tr>
+<tr>
+<td><code>CardMovement</code>: <code>null=True</code> on <code>card</code>, <code>board</code> and <code>imported_from_username</code></td>
+<td>Killed by asserting the field declarations (the column constraint comes from the migrations, so the model argument is otherwise unobservable) and a row stored with NULLs.</td>
+</tr>
+<tr>
+<td><code>import_export</code>: the JSON media type description</td>
+<td>Accepted, not marked: drf-spectacular emits one description per status code from the first media type, so the generated document is unchanged (same reason as the <code>403</code> survivors in the head table).</td>
+</tr>
+</tbody>
+</table>
+<p>Deviation from the issue text: #1931 expected the <code>lock=True</code> to <code>lock=False</code> mutant in the <code>enforce_column_limits</code> signature to need a PostgreSQL test. A spy on <code>select_for_update</code> kills it on SQLite instead. It pins the call arguments, not lock semantics; the queueing itself stays covered on PostgreSQL by <code>test_concurrent_moves.py</code> and <code>test_concurrent_lock_sites.py</code>.</p>
+<p>Re-run result on the final code (local, SQLite): <code>cards</code> 369 of 369 mutants killed with 3 excluded by the pragmas above, i.e. 100%; <code>card_movement</code> 70 of 70 in range killed (41 excluded). That is a local measurement; the weekly CI job on PostgreSQL is the measurement that counts, and no merged score is projected here. <code>MUTATION_MIN</code> is unchanged.</p>
+<h3 id="the-floor-decision-1384">The floor (decision, #1384)<a class="headerlink" href="#the-floor-decision-1384" title="Permanent link">&para;</a></h3>
+<p><code>MUTATION_MIN=0.90</code>, set on <code>backend-mutation-report</code>, applied to the merged adjusted score over all four targets. The maintainer chose 90% up front. That overrides the earlier plan on #1384 of reading the floor off a week of observed nightly scores; the week of observation now decides when the job becomes blocking, not what the floor is. The baseline arithmetic above puts the expected score several points above it. The floor is a fraction (<code>0.90</code>, never <code>90</code>) and is never set to <code>0</code> as a placeholder.</p>
+<h3 id="maintainer-steps-and-what-comes-next">Maintainer steps and what comes next<a class="headerlink" href="#maintainer-steps-and-what-comes-next" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Done: the <strong>Weekly mutation testing</strong> schedule (4485984, Sundays 06:00 ET) carries <code>MUTATION_TEST=true</code>, and <code>MUTATION_TEST</code> is no longer on the Nightly schedule (4176726) nor in <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> (the list is empty). It was first proven by a manual play of the schedule on 2026-10-10: all 44 shards and the report passed, merged adjusted score 96.1%. The Nightly run at 05:06 UTC that day, before the nightly-targets MR had merged, ran <code>main</code>'s old 4-shard <code>permissions.py</code> pilot, whose report exits 2 (not measured) on the mutmut phantom row described above; that was expected and ended when the MR merged.</li>
+<li>Observation: read each scheduled run's <code>backend-mutation-report</code> log (per-target lines and the merged score) and the shard durations. Resize shards in <code>TARGETS</code> (and <code>parallel:</code>) if any shard runs near the timeout. The slowest shard in the manual run was 39.5 min.</li>
+<li>Follow-up MR on #1384, the only remaining step: set <code>allow_failure: false</code> on <code>backend-mutation-report</code> (keep it on the shard jobs, whose verdict the report already judges) and record the observed scores here. #1384 stays open until then.</li>
+<li>Triage survivors as described in <a href="#how-to-read-the-results">How to read the results</a>.</li>
+</ol>
+<h2 id="limits-of-this-baseline">Limits of this baseline<a class="headerlink" href="#limits-of-this-baseline" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Mutation operators in mutmut 2.x are shallow (operators, constants, <code>None</code> replacements). A high kill rate here does not prove the tests are strong, and a low one on string literals is partly noise.</li>
+<li>Kill rate depends on which tests were allowed to run. The 44 <code>update_card</code> survivors would likely drop with the view-level suites included. They are tracked in #1454.</li>
+<li>SQLite hides locking and concurrency behavior. The <code>select_for_update</code> guards need a PostgreSQL run (<code>ConcurrentMoveLockTests</code>, #1504).</li>
+<li>The <code>CardMovement</code> figure (61.6% in the baseline table) is capped by schema-constant mutants (<code>max_length</code>, <code>db_index</code>, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and <code>SET_NULL</code> retention; the rest is guarded by CI <code>migration-check</code>, not by tests. Since #1503 those mutants are excluded with a reason in the source, so the module's <em>adjusted</em> score is 100% and its <em>raw</em> score stays at about 63%; the raw number is what shows how much of the module rests on <code>migration-check</code> rather than on tests.</li>
+<li>A line-level pragma also removes any <em>killed</em> mutants that share its line. Keep a pragma'd line to the equivalent argument only (split a call across lines); the <code>excluded</code> count in the artifact includes everything on those lines.</li>
+<li>It is a point-in-time number on one commit. Re-run it before the 1.2 movement-record and permission changes merge to see how the rate moved.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

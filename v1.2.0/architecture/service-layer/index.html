@@ -1,0 +1,4283 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0/architecture/service-layer/">
+      
+      
+        <link rel="prev" href="../scaling/">
+      
+      
+        <link rel="next" href="../open-core-boundary/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Service Layer - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#service-layer" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Service Layer
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-demo-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ask Your Agent About the Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-the-layer-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the layer exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-service-function-owns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a service function owns
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/mutation-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/api-compat-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/security-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/kaizen-fastpath-proposal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/card-history-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-deferred-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deferred Security Follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-scanners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Scanners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="service-layer">Service Layer<a class="headerlink" href="#service-layer" title="Permanent link">&para;</a></h1>
+<p>Board mutations that carry invariants live in <code>backend/boards/services/</code>, not in the DRF views that expose them over HTTP.</p>
+<h2 id="why-the-layer-exists">Why the layer exists<a class="headerlink" href="#why-the-layer-exists" title="Permanent link">&para;</a></h2>
+<p>Until Visiban 1.2 every card state transition was implemented inline in <code>CardViewSet</code>. That was fine while the REST API was the only writer. It stopped being fine as soon as a second consumer appeared, because an invariant that lives inside an HTTP handler can only be reached by making an HTTP request — so any second code path has to either re-implement the rules or skip them.</p>
+<p>Both failure modes had already happened:</p>
+<ul>
+<li>The MCP tool scaffold carried its own copy of the board-role precedence ladder, with a comment saying it "must be kept in step with" the original. Nothing enforced that.</li>
+<li>A <code>PATCH</code> that changed a card's <code>column</code> bypassed WIP enforcement and the movement audit trail entirely, because only the move endpoint evaluated them.</li>
+</ul>
+<p>The API now has several writers in view — a second front end, MCP write tools, import, and webhooks (planned, #863) — so the invariants need a home that is not a request handler.</p>
+<h2 id="what-a-service-function-owns">What a service function owns<a class="headerlink" href="#what-a-service-function-owns" title="Permanent link">&para;</a></h2>
+<p>For one state transition:</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Role allow-list</td>
+<td>only <code>member</code>, <code>admin</code>, <code>site_admin</code> may mutate a card</td>
+</tr>
+<tr>
+<td>Ownership / assignment gate</td>
+<td>a member may edit only cards they created, unless they hold the moderator entitlement</td>
+</tr>
+<tr>
+<td>Optimistic concurrency</td>
+<td>compare the caller's <code>version</code> against the stored row</td>
+</tr>
+<tr>
+<td>Row locks, in a fixed order</td>
+<td>the moved card plus every card in its source and target cells, in one statement ordered by pk → the source and target column rows, in one statement ordered by pk (<code>FOR NO KEY UPDATE</code>, on every move; a same-cell reorder locks its one column)</td>
+</tr>
+<tr>
+<td>Limit enforcement</td>
+<td>WIP soft, WIP hard, weight, and the <code>force</code> override authorization — one helper, <code>enforce_column_limits()</code>, shared by move, create, restore, and a weight increase on update (#1428)</td>
+</tr>
+<tr>
+<td>Audit trail</td>
+<td>the <code>CardMovement</code> row and the <code>CardActivity</code> diff</td>
+</tr>
+<tr>
+<td>The transaction</td>
+<td>one <code>atomic()</code> block per transition</td>
+</tr>
+<tr>
+<td>Deferred side effects</td>
+<td>the <code>transaction.on_commit()</code> WebSocket broadcast and <code>CARD_MUTATION_HOOKS</code></td>
+</tr>
+</tbody>
+</table>
+<p>The lock order is a deadlock-avoidance contract, not an implementation detail: concurrent moves queue behind each other only because every caller takes the same locks in the same sequence. Two consequences of #1522 are easy to undo by accident. First, card rows are never locked one statement at a time: locking the moved card and then its siblings deadlocked two moves out of one cell, because each held its own card and wanted the other's. Because the source cell is only known after the card is read, <code>move_card</code> reads it unlocked, locks the cells, and re-checks the card under the lock, retrying if a concurrent writer changed it (and returning <code>409</code> if that keeps happening). Second, column rows are locked after the card rows, source and target together in one pk-ordered statement, before the <code>CardMovement</code> insert takes key-share locks on both columns. A column reorder holds <code>FOR UPDATE</code> on every column (<code>position</code> is part of a unique key) and locks them in the same pk order. A move that locked only its target column deadlocked against a reorder. The column lock mode is <code>FOR NO KEY UPDATE</code> so that it does not block the key-share locks unrelated inserts take on the column (a card created in it, say). Under the current order a plain <code>FOR UPDATE</code> would not make two moves deadlock; the mode is pinned only by <code>test_move_locks_cards_then_columns_in_pk_order</code>. Third, the card-row lock statement locks the rows of the snapshot it took before it waited, so a card that a concurrent move commits into one of the cells during that wait is not locked by it; the later compaction or shift <code>UPDATE</code> would then lock it outside pk order, and a third move could deadlock against it (#1567). So once <code>move_card</code> holds the column rows, which every service path that puts a card into a cell (<code>create_card</code>, <code>move_card</code> and the tools that call them) also takes, it re-reads its cells' members (<code>_require_cells_locked</code>) and retries if any is unlocked. Django admin card edits follow the same card-then-column order (#1588): <code>CardAdminForm.clean</code> locks the card row and re-reads it, then locks the source and target columns in one pk-ordered statement whenever the card's column or swimlane changes (archived cards included) or a WIP/weight check runs, and the check counts under that lock. For that reason the column lock is taken on every move, including a reorder within one cell. <code>create_card</code> against a column reorder (#1566) is fixed by taking the reorder's board-row lock <code>FOR NO KEY UPDATE</code>: the card insert's foreign-key check needs <code>FOR KEY SHARE</code> on the board row at commit, which a <code>FOR UPDATE</code> board lock blocks while the reorder waits on the column the create holds.</p>
+<p>Deleting a user from the Django admin (#1616) takes its locks in the order user, group, card, user. Statement 1 locks the targets, the acting administrator and the active site-admin and superuser rows <code>FOR NO KEY UPDATE</code>, which does not block the <code>FOR KEY SHARE</code> that card writes and board inserts take on a user row. It then locks, <code>FOR NO KEY UPDATE</code> and in pk order, the rows of every group a target actively administers (<code>groups.services.lock_groups_administered_by</code>), the lock every group member removal, demotion and ownership transfer takes first, so for those groups the "keep an active group admin" refusal judges admin rows that no member change or ownership transfer can alter before the delete commits. The set is the groups the targets actively administer when statement 1 runs: a group in which a target becomes an admin after that is counted by the statement 3 re-check, but its row is not held. The other admins' active flag is read at check time, not locked. A group writer needs at most <code>FOR KEY SHARE</code> on a user row, which statement 1 does not block, so taking the group rows after the user rows cannot invert with it. Statement 2 locks the owned boards' rows <code>FOR NO KEY UPDATE</code>, then the cards the cascade will write (the owned boards' cards and every card carrying a reference to a target) with <code>FOR UPDATE</code>, then the owned boards' entry columns (<code>lock_cards_for_cascade()</code> with <code>boards=</code> and <code>entry_columns=</code>, #1602), so the board -&gt; card -&gt; column order matches every other container delete, and statement 3 locks the target rows <code>FOR UPDATE</code> and judges the refusals again, so a board committed by then is seen and the delete is refused. The card set is a snapshot taken at statement 2, like the snapshot in #1567 above, and that is a stated limit: a card that gains a reference to a target between statements 2 and 3 is not locked, so the cascade's <code>SET NULL</code> update of it runs while the delete holds the user row <code>FOR UPDATE</code>, and a writer holding that card, which needs <code>FOR KEY SHARE</code> on the user at commit, can deadlock with it. PostgreSQL aborts one side, which can be the delete; no data is lost. Apart from those group rows, tables not scoped to a card are not locked.</p>
+<p>Writes to an existing card also hold that card's row against a concurrent hard delete (#1587). <code>update_card</code>, <code>archive_card</code>, <code>unarchive_card</code> (before its column limit check), and the card-child writes in <code>CardViewSet</code> (comment, checklist item, and attachment create; checklist item edit and delete, which write an activity row) call <code>lock_card_for_write()</code> first in their transaction: it locks the card row <code>FOR NO KEY UPDATE</code> and raises <code>CardNotFound</code> (a <code>404</code>) if the row is already gone. Relation create gets the same answer from its existing pk-ordered lock on both cards. <code>delete_card</code> locks the row <code>FOR UPDATE</code> before Django collects its cascade, and re-checks <code>archived_at</code> under that lock so a card archived concurrently is still refused. Without these locks, a delete committing mid-write either let <code>update_card</code>'s <code>save()</code> fall back to an <code>INSERT</code> that re-created the deleted card, made an archive or restore's <code>save(update_fields=...)</code> match no row (a <code>500</code>), or failed the child insert's deferred foreign-key check at commit with a <code>500</code>. The lock is a card row, so it goes before any column row the same transaction locks. <code>lock_card_for_write()</code> returns the row it locked, and <code>update_card</code> copies it onto the caller's pre-lock instance before <code>apply()</code> (#1598): <code>serializer.save()</code> writes every column of that instance, so without the re-read an archive or move committed between the caller's read and the lock was written back over — <code>archived_at</code> cleared and the card returned to its old cell with no <code>CardMovement</code> row. The archived guard and the <code>use_move_endpoint</code> cell check are re-run on the locked state. <code>archive_card</code> and <code>unarchive_card</code> do the same (#1605): they re-check <code>archived_at</code> on the locked row, so a card archived (or restored) by a concurrent request in that window gets the existing no-op answer — <code>200</code> with the card, and no second <code>CardMovement</code> row, broadcast, or hook — and the <code>ARCHIVED</code>/<code>UNARCHIVED</code> movement row and the restore's column limit check use the card's cell as it is under the lock, not the cell a concurrent move took it out of. Both also read the set of cards the card blocks under that lock, as <code>delete_card</code> does, so a <code>blocks</code> relation created while they waited still gets its peer a <code>card.updated</code> frame (relation create locks both cards, which conflicts with the card lock).</p>
+<p>The response render is a delete race too (#1585). The view's render callbacks for <code>move_card</code>, <code>archive_card</code> and <code>unarchive_card</code> raise <code>CardNotFound</code> (<code>404</code>) when the card is gone by the time they re-read it, rather than leaking <code>Card.DoesNotExist</code> as a <code>500</code>. Inside the service's transaction that rolls the write back with no broadcast; for the renders that run after <code>archive_card</code>'s transaction (and the <code>unarchive_card</code> no-op) the write is already committed and the answer is still <code>404</code>, because a <code>200</code> would have to invent a payload for a card that no longer exists. The Django admin's card-child hooks (comment and checklist) cannot surface a DRF <code>NotFound</code>, so they differ: <code>save_model</code> takes <code>lock_card_for_write()</code> on the parent card before inserting the row (as the REST endpoints do, #1587) and answers a Django <code>Http404</code> if the card is already gone, so a card delete can no longer fail the deferred foreign-key check at commit with a <code>500</code>; the delete hooks look the card up by id rather than through the lazy <code>obj.card</code>, and skip the <code>card.updated</code> broadcast for a vanished card. <code>delete_queryset</code> refetches every card before recording any event, so a card vanishing part-way cannot leave a partial broadcast. <code>CardAdmin.save_model</code> likewise skips the broadcast for a vanished card.</p>
+<p>Deleting a column, swimlane, or board cascades to its cards, and has the same race (#1599). <code>ColumnViewSet</code>, <code>SwimlaneViewSet</code>, and <code>BoardViewSet</code> call <code>lock_cards_for_cascade()</code> first in their delete transaction. It locks every card the delete will cascade to, archived ones included, <code>FOR UPDATE</code> in one statement ordered by pk, before Django collects the cascade. A child write that already holds a card lock commits first, so the cascade sees its new rows and removes them. A child write that arrives later waits, finds the card gone, and answers <code>404</code>. Without the lock, the container delete failed its own deferred foreign-key check at commit with a <code>500</code>. The card rows are locked before the container row, and in pk order, like <code>move_card</code>'s card lock, so the two queue rather than deadlock. The statement locks with <code>FOR UPDATE OF</code> the card table only, so a filter that joins (the user admin's <code>board__owner</code>) does not also lock board rows.</p>
+<p>The card statement locks the rows of its snapshot, so on its own it did not cover a card that entered the container after it ran (#1602): a card <code>create_card</code> inserted into the container, or one <code>move_card</code> moved into an empty cell of it (no container card to wait on), could commit before the collector's card <code>DELETE</code>, and the delete then failed the same deferred foreign-key check at commit with a <code>500</code>. The other order was a <code>500</code> too: a create that queued behind the delete found its column gone (<code>Column.DoesNotExist</code>), and a create or move into a deleted swimlane failed its own deferred check. Locking the container row before the cards would close it but inverts the card -&gt; column order above, so the fix keeps that order and reuses the guarantee <code>move_card</code>'s re-check (#1567) rests on: every path that puts a card into a cell (<code>create_card</code>, <code>move_card</code> and the tools that call them, and the Django admin card form through <code>lock_card_cell_entry</code>, #1588) holds that cell's column row <code>FOR NO KEY UPDATE</code> until it commits. The destroy paths therefore pass <code>lock_cards_for_cascade(cards, entry_columns=..., boards=...)</code> the column rows a card can enter through (the deleted column itself, or every column of the board for a swimlane or board delete) and the board row(s). After the cards, the helper locks those columns in one pk-ordered <code>FOR NO KEY UPDATE</code> statement, the same mode and order as <code>move_card</code>'s column lock. Once it holds them no card can enter the container, and any card that entered before has committed, so the helper re-reads the container's cards. If one is not among the rows it locked, it rolls back to a savepoint, which releases that attempt's row locks, and repeats. It does not lock the newcomer in a second statement: that would take a card row after a column row, and could deadlock with a move of that card that holds it and waits on the column. A container that gains a card on every one of three attempts raises <code>ContainerChanged</code>, which the REST views answer with <code>409</code> (<code>code: container_changed</code>) and nothing deleted. On the entry side, <code>create_card</code> and <code>move_card</code> re-check their target column (from the locked rows) and swimlane once they hold the column row, and answer <code>404</code> (<code>ColumnNotFound</code> / <code>SwimlaneNotFound</code>) for a container deleted while they waited; the Django admin card form makes the same checks and refuses the save with a form error. <code>move_card</code> re-reads the swimlane only when the card changes swimlane: a container the card is already in has to lock the card first, so the card lock already answers that case.</p>
+<p>Holding the entry columns needs the board row taken first. Column create, swimlane create and swimlane reorder lock the board row <code>FOR UPDATE</code>, and column reorder locks it <code>FOR NO KEY UPDATE</code> (#1566), each <em>before</em> any column or swimlane row. A board delete that held the board's columns and only reached the board row at its final <code>DELETE</code> therefore deadlocked against a column reorder that held the board row and waited on a column (the shape #1604 describes, which the early column lock made easy to hit). So every container delete — the REST column, swimlane and board views and the column, swimlane, board and user admins — locks its board row(s) first, pk-ordered, <code>FOR NO KEY UPDATE</code>, before the cards. That mode conflicts with every board-row lock above, so a structure write and a container delete on one board queue whole, in either order, in the same board -&gt; column order. It does not conflict with the <code>FOR KEY SHARE</code> a card insert takes on the board at commit; <code>FOR UPDATE</code> would, and a <code>create_card</code> holding a column would then wait on the board while the delete waits on that column. A request that queued behind a board delete finds the board gone and answers <code>404</code> through <code>lock_board_row_or_404</code>, which every board-row lock site in the views uses: column and swimlane create and reorder, card and swimlane custom-field definition create, label create, saved-filter create, star, member add and removal, the invite caps (shareable link create and emailed invite send), and the invite join (#1631). The invite-only registration path takes the same board lock through <code>boards.invites.lock_invite_board</code> instead and answers <code>invite_invalid</code> rather than <code>404</code>; definition update and delete, label update and delete, and column and swimlane update take the board row <code>FOR NO KEY UPDATE</code> and then their own row through <code>lock_board_and_row_or_404</code>. The Django column admin raises <code>Http404</code> instead. The board lock also closes the case where a column is created mid-delete: the REST column create and the Django column admin (on add and on edit) take the board row first, so no column can appear in, or be re-pointed at, the board after the delete's column statement, and <code>entry_columns</code> covers every column a card can enter through. No path takes a board-row lock after a card or column lock in the same transaction. The full order:</p>
+<table>
+<thead>
+<tr>
+<th>Transaction</th>
+<th>Lock order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Container delete (column, swimlane, board; REST and admin; user admin for owned boards)</td>
+<td>board row(s) <code>FOR NO KEY UPDATE</code> -&gt; container's cards <code>FOR UPDATE</code> (one pk-ordered statement) -&gt; entry column rows <code>FOR NO KEY UPDATE</code> (one pk-ordered statement) -&gt; the collector's <code>DELETE</code>s</td>
+</tr>
+<tr>
+<td>Card entry (<code>create_card</code>, <code>move_card</code>, <code>create_card_at_position</code>, admin card form)</td>
+<td>(<code>create_card</code>, <code>create_card_at_position</code> and the admin card form: board row <code>FOR SHARE</code> first, #1632) -&gt; moved card and cell cards (one pk-ordered statement) -&gt; source and target column rows (one pk-ordered statement); <code>FOR KEY SHARE</code> on the board, column and swimlane only at commit. <code>create_card_at_position</code> (the MCP <code>create_card</code> tool with <code>position</code>, #1992) takes the target cell's cards and column in that order <em>before</em> it calls <code>create_card</code> and then <code>move_card</code> in the same transaction, re-reading the cell once it holds the column and retrying from a savepoint if a card entered it; by then every lock the two calls take is already held. A bare transaction around the two calls would hold the column from the create and then lock the cell's cards in the move: a card after a column, which deadlocks with a concurrent move in that cell</td>
+</tr>
+<tr>
+<td>Card write and card delete</td>
+<td>(<code>update_card</code> and the admin card form: board row <code>FOR SHARE</code> first, #1632) -&gt; card row -&gt; any column row</td>
+</tr>
+<tr>
+<td>Labels and custom-field definitions a card create or update names (REST, MCP, admin card form)</td>
+<td>never row-locked; re-read after the board row <code>FOR SHARE</code> above. Their <code>FOR KEY SHARE</code> from the M2M and value rows' foreign keys comes only at commit</td>
+</tr>
+<tr>
+<td>User deactivation with board transfer (<code>AdminUserDeactivateView</code>)</td>
+<td>user row <code>FOR NO KEY UPDATE</code> -&gt; owned board rows, <code>UPDATE</code> in pk order (#1632; was <code>FOR UPDATE</code>, which deadlocked with a card write's commit-time <code>FOR KEY SHARE</code> on the user)</td>
+</tr>
+<tr>
+<td>Card and swimlane custom-field definition reorder</td>
+<td>board row <code>FOR NO KEY UPDATE</code> -&gt; the definition rows <code>FOR UPDATE</code> (one pk-ordered statement) -&gt; <code>bulk_update</code></td>
+</tr>
+<tr>
+<td>Column reorder</td>
+<td>board row <code>FOR NO KEY UPDATE</code> -&gt; every column row <code>FOR UPDATE</code> (pk order)</td>
+</tr>
+<tr>
+<td>Column or swimlane create, swimlane reorder, custom-field definition create, invite caps</td>
+<td>board row <code>FOR UPDATE</code> -&gt; its own rows</td>
+</tr>
+<tr>
+<td>Invite redemption (join view; invite-only registration, REST and OAuth) (#1631)</td>
+<td>board row <code>FOR NO KEY UPDATE</code> (<code>lock_board_row_or_404</code> / <code>lock_invite_board</code>) -&gt; invite row <code>FOR UPDATE</code> (or the registration claim's conditional <code>used_at</code> <code>UPDATE</code>) -&gt; membership and redemption inserts</td>
+</tr>
+<tr>
+<td>Board invite grant at email confirmation (<code>redeem_reserved_board_invites</code>, #1704)</td>
+<td>board row <code>FOR NO KEY UPDATE</code> (<code>lock_invite_board</code>) -&gt; invite row <code>FOR UPDATE</code> -&gt; conditional <code>used_at</code> claim -&gt; membership and redemption inserts. The group equivalent (<code>redeem_reserved_group_invites</code>) takes the group row <code>FOR NO KEY UPDATE</code> (<code>lock_invite_group</code>) -&gt; invite row <code>FOR UPDATE</code>, the same order as the group invite redemptions below (#1638)</td>
+</tr>
+<tr>
+<td>Group delete (<code>GroupViewSet.destroy</code>, #1638)</td>
+<td>the group row and every subgroup row <code>FOR UPDATE</code> (one pk-ordered statement, <code>lock_group_subtree_for_delete</code>; the subtree is walked again under the locks until it stops growing) -&gt; the collector's <code>DELETE</code>s and the boards' <code>SET_NULL</code> (memberships, invite rows, boards, then the group rows)</td>
+</tr>
+<tr>
+<td>Board placed in a group: move-group, board <code>PATCH</code>/<code>PUT</code> naming <code>group</code>, board create with a group, group board create (#1638); board imports into a group (JSON, CSV, Trello) and the board admin save (#1719)</td>
+<td>target group row <code>FOR KEY SHARE</code> (<code>lock_group_for_board_placement</code>) -&gt; board row <code>FOR NO KEY UPDATE</code> (or the board insert)</td>
+</tr>
+<tr>
+<td>Group invite redemption (join view <code>JoinGroupView.post</code>; invite-only registration, REST and OAuth, <code>validate_group_registration_token</code> / <code>redeem_group_registration_token</code>) (#1638)</td>
+<td>group row <code>FOR NO KEY UPDATE</code> (<code>lock_invite_group</code>; the group id is read unlocked first) -&gt; invite row <code>FOR UPDATE</code> (or the registration claim's conditional <code>used_at</code> <code>UPDATE</code>) -&gt; membership insert</td>
+</tr>
+<tr>
+<td>Group create under a parent and group parent change (<code>recheck_create_parent_under_lock</code>, <code>recheck_parent_under_lock</code>, #1690)</td>
+<td>the parent's ancestor chain rows <code>FOR UPDATE</code> in one pk-ordered statement (a parent change includes the moved group's own row in that statement) -&gt; reload and re-check the depth cap (and, for a parent change, the cycle rules) -&gt; the <code>INSERT</code>/<code>UPDATE</code>. Only the ancestors read before the lock are locked</td>
+</tr>
+<tr>
+<td>Other group writers (#1719): group label create and <code>PATCH</code>, group star</td>
+<td>group row <code>FOR KEY SHARE</code> (<code>lock_group_for_child_write</code>) -&gt; (label <code>PATCH</code>) that row <code>FOR NO KEY UPDATE</code> -&gt; the <code>INSERT</code>/<code>UPDATE</code></td>
+</tr>
+<tr>
+<td>Group member role change and removal (<code>lock_membership_for_removal_or_demotion</code>)</td>
+<td>group row <code>FOR NO KEY UPDATE</code> (conflicts with the ownership transfer's <code>FOR UPDATE</code>, so the owner is read from the locked row) -&gt; the group's admin rows and the target's row in one pk-ordered <code>FOR UPDATE</code> statement -&gt; the owner and last-active-admin checks -&gt; the <code>UPDATE</code>/<code>DELETE</code></td>
+</tr>
+<tr>
+<td>Group row writers and invite writers (#1719): board-defaults <code>PATCH</code>, invite revoke; invite link create and the emailed-invite send (the caps)</td>
+<td>group row <code>FOR NO KEY UPDATE</code> (<code>lock_group_row</code>; the emailed-invite send keeps its <code>FOR UPDATE</code>) -&gt; (revoke) invite row <code>FOR UPDATE</code> -&gt; the <code>UPDATE</code>/<code>INSERT</code>. Ownership transfer keeps its group row <code>FOR UPDATE</code> -&gt; membership row order; group <code>PATCH</code> keeps the #1690 row above</td>
+</tr>
+<tr>
+<td>Board, column, swimlane, label and custom-field-definition UPDATE/DELETE writers (custom-field definition update and delete included, <code>FOR NO KEY UPDATE</code> through <code>lock_board_and_row_or_404</code>, not <code>FOR UPDATE</code>): board <code>PATCH</code>/<code>PUT</code>, share link enable/revoke, move-group, member add/role change/removal, label create, saved-filter create and star (board row only), column <code>PATCH</code>/<code>PUT</code>, swimlane <code>PATCH</code>/<code>PUT</code> and set-collapsed, label <code>PATCH</code>/<code>DELETE</code>, card and swimlane custom-field definition <code>PATCH</code>/<code>DELETE</code>; <code>BoardAdmin</code>, <code>ColumnAdmin</code>, <code>SwimlaneAdmin</code> (and the label and membership admins) saves</td>
+<td>board row <code>FOR NO KEY UPDATE</code> -&gt; (column, swimlane, label or definition writers) that row <code>FOR NO KEY UPDATE</code> -&gt; the <code>UPDATE</code>/<code>DELETE</code></td>
+</tr>
+</tbody>
+</table>
+<p>No SMTP session runs under any of these locks. A mail server with no <code>EMAIL_TIMEOUT</code> can hold a send open indefinitely, and every writer queued on the locked row waits with it. The invite-send view sends after its <code>atomic</code> block. Invite-only registration (<code>InviteRegisterView.create</code>) holds the row locks registration takes across account creation, so allauth's signup confirmation mail is rendered there but sent from <code>transaction.on_commit</code> (<code>accounts/adapter.py</code> <code>account_mail_deferred_to_commit</code>, #1639). A registration that rolls back sends no mail. Open-mode registration takes no such lock and still sends inline. If the deferred send fails, the account stands (<code>201</code>) and the user can ask for the mail again through <code>POST /api/v1/auth/registration/resend-email/</code> (<code>ResendEmailThrottle</code>, 10 per hour per IP; the SPA has no control for it). Under <code>EMAIL_VERIFICATION=mandatory</code> that <code>201</code> body still reads "Verification e-mail sent." when the send later fails.</p>
+<p>No path may lock a board row after it holds a board invite row in the same transaction: the board delete holds the board row and reaches the invite at its collector <code>DELETE</code>, so that order would deadlock against it. Invite revokes hold only the invite row and take no board lock (<code>BoardEvent.board_id</code> is a plain integer, not a foreign key).</p>
+<p>The same rule holds for groups (#1638): no path may lock a group row after it holds a group invite row. <code>GroupViewSet.destroy</code> used to call <code>group.delete()</code> with no lock; the collector read the group's memberships, waited on an invite row at its <code>DELETE</code>, and only reached the group row last. A join, invite-only registration or confirmation grant that held that invite row and inserted a <code>GroupMembership</code> under it made the delete fail its deferred foreign key at commit (a <code>500</code>), and a grant, which already took the group row first, deadlocked against it instead. The delete now locks the group row and its subgroups <code>FOR UPDATE</code> before the collector runs (subgroups because the delete cascades to them, and an invite on a subgroup races a parent delete the same way; one pk-ordered statement, the order the parent-change writer locks a chain in, so the first statement cannot deadlock against a single re-parent; the re-walk rounds that lock subgroups found afterwards take them after higher-pk rows are held and can in theory still contend with a second re-parent in flight), and every redemption takes the group row <code>FOR NO KEY UPDATE</code> before the invite row. A redemption and a delete therefore queue whole: a delete behind a redemption removes the new membership with the group (<code>204</code>), and a redemption behind a delete finds the group gone and answers <code>404</code> (join), <code>invite_invalid</code> (registration) or grants nothing (confirmation), with nothing written or broadcast. The delete re-reads the owner and parent from the locked row, so a delete that queued behind an ownership transfer answers <code>403</code>, a second delete of the same group answers <code>404</code> without a second <code>group.deleted</code> event, and the event reaches the parent the group actually had. Group -&gt; board is the order for boards too: the delete reaches a board in its subtree only at the collector's <code>SET_NULL</code>, and a board's <code>group</code> foreign key is deferred, so a move-group or group-changing <code>PATCH</code> that held the board row and asked for the target group only at commit deadlocked against the delete (a <code>500</code>), and any writer placing a board in a group being deleted failed that foreign key at commit (a <code>500</code>). Each such writer now takes the target group row <code>FOR KEY SHARE</code> before the board row, the mode the foreign key check takes anyway, so it conflicts only with the delete and other <code>FOR UPDATE</code> holders of the group row; a writer behind a delete answers <code>404</code> (move-group, group board create) or the serializer's unknown-group <code>400</code> (board create and <code>PATCH</code>/<code>PUT</code>). The consume-once claims are unchanged. Covered by <code>groups/tests/test_group_invite_vs_group_delete.py</code> (PostgreSQL deterministic interleavings, both orders, for join, subgroup join, registration, confirmation grant, move-group, board <code>PATCH</code>, board create and group board create, plus the subtree re-walk).</p>
+<h1 id="1719-applied-the-same-group-first-order-to-the-group-writers-1638-left-out-each-of-them-inserted-or-updated-a-row-pointing-at-the-group-or-the-group-row-itself-with-no-group-lock-so-racing-a-delete-of-that-group-it-failed-the-rows-deferred-foreign-key-at-commit-raised-from-a-row-the-delete-had-removed-doesnotexist-in-the-ownership-transfer-and-the-group-patch-databaseerror-from-the-invite-revokes-saveupdate_fields-or-had-save-fall-back-to-an-insert-when-its-update-matched-no-row-re-creating-a-group-label-or-a-membership-under-the-deleted-group-a-500-at-commit-or-for-the-board-defaults-patch-silently-re-creating-the-deleted-group-itself-empty-and-with-no-members-and-answering-200-every-other-case-was-a-500-now-every-one-of-them-locks-the-group-row-before-it-writes-for-key-share-lock_group_for_child_write-the-mode-the-foreign-key-check-takes-for-a-label-create-or-patch-and-a-star-for-no-key-update-lock_group_row-for-the-board-defaults-patch-which-then-reloads-the-row-so-save-cannot-write-a-stale-name-back-and-for-an-invite-revoke-ahead-of-the-invite-row-as-redemptions-take-them-for-no-key-update-for-invite-link-create-too-which-conflicts-with-itself-and-so-serializes-its-cap-count-without-blocking-the-for-key-share-writers-while-the-emailed-invite-send-keeps-the-for-update-it-already-took-for-its-cap-the-ownership-transfer-already-locked-the-group-row-and-the-group-patch-and-a-subgroup-create-lock-it-with-its-ancestor-chain-1690-they-now-answer-a-row-that-is-gone-once-they-hold-the-lock-404-for-the-transfer-and-the-patch-and-for-a-subgroup-create-the-unknown-parent-400-in-its-documented-parent-shape-it-was-a-bare-list-a-label-patch-also-locks-its-own-row-after-the-group-row-so-one-queued-behind-a-delete-of-that-row-answers-404-instead-of-re-creating-it-a-member-role-change-or-removal-takes-the-group-row-for-no-key-update-and-then-the-membership-rows-and-refuses-to-remove-or-demote-the-owner-or-the-last-active-admin-under-those-locks-board-imports-into-a-group-and-the-board-admin-save-take-lock_group_for_board_placement-before-the-board-insert-or-the-board-row-a-writer-behind-a-delete-answers-404-the-imports-unknown-group-answer-the-admin-raises-http404-with-nothing-written-and-a-delete-behind-a-writer-waits-for-it-and-then-cascades-or-detaches-what-it-wrote-the-seed-commands-take-no-group-lock-under-reset-database-seed_demo_data-creates-its-demo-group-and-the-rows-that-point-at-it-in-one-transaction-a-plain-run-commits-the-group-on-its-own-first-so-its-owner-and-site-admins-could-in-principle-see-it-before-those-rows-are-written-but-nothing-deletes-the-demo-group-concurrently-in-practice-seed_template_boards-places-no-board-in-a-group-each-writer-checks-the-callers-group-admin-standing-before-it-takes-the-group-lock-so-a-demotion-that-commits-in-that-window-can-still-let-one-write-through-this-is-accepted-because-an-invites-sender-standing-is-re-checked-at-preview-and-redemption-1490-covered-by-groupsteststest_group_writers_vs_group_deletepy-postgresql-deterministic-interleavings-both-orders-for-every-writer-above">1719 applied the same group-first order to the group writers #1638 left out. Each of them inserted or updated a row pointing at the group (or the group row itself) with no group lock, so racing a delete of that group it failed the row's deferred foreign key at commit, raised from a row the delete had removed (<code>DoesNotExist</code> in the ownership transfer and the group <code>PATCH</code>, <code>DatabaseError</code> from the invite revoke's <code>save(update_fields=...)</code>), or had <code>save()</code> fall back to an <code>INSERT</code> when its <code>UPDATE</code> matched no row, re-creating a group label or a membership under the deleted group (a <code>500</code> at commit) or, for the board-defaults <code>PATCH</code>, silently re-creating the deleted group itself, empty and with no members, and answering <code>200</code>. Every other case was a <code>500</code>. Now every one of them locks the group row before it writes: <code>FOR KEY SHARE</code> (<code>lock_group_for_child_write</code>, the mode the foreign key check takes) for a label create or <code>PATCH</code> and a star; <code>FOR NO KEY UPDATE</code> (<code>lock_group_row</code>) for the board-defaults <code>PATCH</code> (which then reloads the row, so <code>save()</code> cannot write a stale name back) and for an invite revoke, ahead of the invite row as redemptions take them; <code>FOR NO KEY UPDATE</code> for invite link create too, which conflicts with itself and so serializes its cap count without blocking the <code>FOR KEY SHARE</code> writers, while the emailed-invite send keeps the <code>FOR UPDATE</code> it already took for its cap. The ownership transfer already locked the group row, and the group <code>PATCH</code> and a subgroup create lock it with its ancestor chain (#1690); they now answer a row that is gone once they hold the lock: <code>404</code> for the transfer and the <code>PATCH</code>, and for a subgroup create the unknown-parent <code>400</code> in its documented <code>{"parent": [...]}</code> shape (it was a bare list). A label <code>PATCH</code> also locks its own row after the group row, so one queued behind a delete of that row answers <code>404</code> instead of re-creating it. A member role change or removal takes the group row <code>FOR NO KEY UPDATE</code> and then the membership rows, and refuses to remove or demote the owner or the last active admin under those locks. Board imports into a group and the board admin save take <code>lock_group_for_board_placement</code> before the board insert or the board row. A writer behind a delete answers <code>404</code> (the import's unknown-group answer; the admin raises <code>Http404</code>) with nothing written, and a delete behind a writer waits for it and then cascades or detaches what it wrote. The seed commands take no group lock: under <code>--reset-database</code>, <code>seed_demo_data</code> creates its demo group and the rows that point at it in one transaction; a plain run commits the group on its own first, so its owner and site admins could in principle see it before those rows are written, but nothing deletes the demo group concurrently in practice. <code>seed_template_boards</code> places no board in a group. Each writer checks the caller's group-admin standing before it takes the group lock, so a demotion that commits in that window can still let one write through; this is accepted because an invite's sender standing is re-checked at preview and redemption (#1490). Covered by <code>groups/tests/test_group_writers_vs_group_delete.py</code> (PostgreSQL deterministic interleavings, both orders, for every writer above).<a class="headerlink" href="#1719-applied-the-same-group-first-order-to-the-group-writers-1638-left-out-each-of-them-inserted-or-updated-a-row-pointing-at-the-group-or-the-group-row-itself-with-no-group-lock-so-racing-a-delete-of-that-group-it-failed-the-rows-deferred-foreign-key-at-commit-raised-from-a-row-the-delete-had-removed-doesnotexist-in-the-ownership-transfer-and-the-group-patch-databaseerror-from-the-invite-revokes-saveupdate_fields-or-had-save-fall-back-to-an-insert-when-its-update-matched-no-row-re-creating-a-group-label-or-a-membership-under-the-deleted-group-a-500-at-commit-or-for-the-board-defaults-patch-silently-re-creating-the-deleted-group-itself-empty-and-with-no-members-and-answering-200-every-other-case-was-a-500-now-every-one-of-them-locks-the-group-row-before-it-writes-for-key-share-lock_group_for_child_write-the-mode-the-foreign-key-check-takes-for-a-label-create-or-patch-and-a-star-for-no-key-update-lock_group_row-for-the-board-defaults-patch-which-then-reloads-the-row-so-save-cannot-write-a-stale-name-back-and-for-an-invite-revoke-ahead-of-the-invite-row-as-redemptions-take-them-for-no-key-update-for-invite-link-create-too-which-conflicts-with-itself-and-so-serializes-its-cap-count-without-blocking-the-for-key-share-writers-while-the-emailed-invite-send-keeps-the-for-update-it-already-took-for-its-cap-the-ownership-transfer-already-locked-the-group-row-and-the-group-patch-and-a-subgroup-create-lock-it-with-its-ancestor-chain-1690-they-now-answer-a-row-that-is-gone-once-they-hold-the-lock-404-for-the-transfer-and-the-patch-and-for-a-subgroup-create-the-unknown-parent-400-in-its-documented-parent-shape-it-was-a-bare-list-a-label-patch-also-locks-its-own-row-after-the-group-row-so-one-queued-behind-a-delete-of-that-row-answers-404-instead-of-re-creating-it-a-member-role-change-or-removal-takes-the-group-row-for-no-key-update-and-then-the-membership-rows-and-refuses-to-remove-or-demote-the-owner-or-the-last-active-admin-under-those-locks-board-imports-into-a-group-and-the-board-admin-save-take-lock_group_for_board_placement-before-the-board-insert-or-the-board-row-a-writer-behind-a-delete-answers-404-the-imports-unknown-group-answer-the-admin-raises-http404-with-nothing-written-and-a-delete-behind-a-writer-waits-for-it-and-then-cascades-or-detaches-what-it-wrote-the-seed-commands-take-no-group-lock-under-reset-database-seed_demo_data-creates-its-demo-group-and-the-rows-that-point-at-it-in-one-transaction-a-plain-run-commits-the-group-on-its-own-first-so-its-owner-and-site-admins-could-in-principle-see-it-before-those-rows-are-written-but-nothing-deletes-the-demo-group-concurrently-in-practice-seed_template_boards-places-no-board-in-a-group-each-writer-checks-the-callers-group-admin-standing-before-it-takes-the-group-lock-so-a-demotion-that-commits-in-that-window-can-still-let-one-write-through-this-is-accepted-because-an-invites-sender-standing-is-re-checked-at-preview-and-redemption-1490-covered-by-groupsteststest_group_writers_vs_group_deletepy-postgresql-deterministic-interleavings-both-orders-for-every-writer-above" title="Permanent link">&para;</a></h1>
+<p>The card admin delete takes no board or column lock: a card delete has no container a card can enter.</p>
+<p>Writers that <code>UPDATE</code> a board, column or swimlane row need the board row too (#1602). Because a container delete holds the board row from its start, a writer that went straight to its <code>UPDATE</code> queued behind the whole cascade (the board <code>UPDATE</code> takes <code>FOR NO KEY UPDATE</code> on the board row itself, a column <code>UPDATE</code> on a column row the delete holds) and then found its row gone: <code>serializer.save()</code> and a full <code>save()</code> fall back to an <code>INSERT</code> when the <code>UPDATE</code> matches no row, which re-created the deleted board with no columns or members, or tripped an <code>IntegrityError</code> the column view reported as a misleading <code>400</code>; <code>save(update_fields=...)</code> raised instead (a <code>500</code>). Each writer now takes the board row (<code>lock_board_row_or_404(board, no_key=True)</code>), and a column or swimlane writer then its own row (<code>lock_board_and_row_or_404</code>), before saving, so a writer queued behind a delete answers <code>404</code> (the admin raises <code>Http404</code>, through <code>_lock_board_for_admin_save</code>) and writes nothing. <code>FOR NO KEY UPDATE</code> is the mode the <code>UPDATE</code> takes anyway, so it adds no new conflict, and it does not block a card insert's <code>FOR KEY SHARE</code>. Move-group now saves with <code>update_fields</code>. Label create, saved-filter create and star take the board row (<code>FOR NO KEY UPDATE</code>), so they queue with a board delete in both orders: a row committed between the delete's cascade read and its <code>DELETE</code> would otherwise fail the delete's deferred foreign key at commit, and a label created after the delete reported a misleading <code>400</code>. A column, swimlane or board <code>DELETE</code> that queued behind another delete of the same object re-checks, once it holds the locks, that the board and the object still exist and answers <code>404</code> without storing or broadcasting a second deletion event (<code>require_present_or_404</code>). The column, swimlane, label and custom-field-definition <code>PATCH</code>/<code>PUT</code> reload the row under the lock before saving, like the board <code>PATCH</code>. Label and custom-field-definition writers take the same two locks (<code>lock_board_and_row_or_404</code> with the label or definition model): their <code>PATCH</code>, queued behind a <code>DELETE</code> of the same row, updated no row and <code>save()</code> inserted it again under the same pk, re-creating the deleted label or definition; the <code>DELETE</code> takes the locks too, so a second delete or a delete after an update answers <code>404</code> rather than broadcasting twice. Member add and role change (<code>members</code>) and member removal (<code>remove_member</code>) take the board row, so they queue with each other and with a board delete and answer <code>404</code> once the board is gone, not a <code>500</code> from the deferred board foreign key at commit; a role change queued behind a removal re-creates the membership as a new add, which is the result of the two in sequence. The board <code>PATCH</code> reloads the board under the lock before saving, because <code>save()</code> writes every column and the snapshot read before the lock could overwrite fields another request changed (the share link fields, the group) while the <code>PATCH</code> queued, so the <code>PATCH</code> now applies only the fields the request sent; <code>move_group</code> reads the group the board is leaving from the locked row, so the <code>board.deleted</code> event reaches the group it actually left. <code>lock_board_and_row_or_404</code> also scopes the row to the board, so a pk from another board is <code>404</code>. The other writers of board-owned rows are left as they were because they cannot re-create a deleted board, column or swimlane: column and swimlane reorders use <code>bulk_update</code>, which matches nothing once the rows are gone (the card and swimlane custom-field definition reorders now take the board row for #1632, below); the user-admin board transfer is a queryset <code>update()</code> (same); the board saved in group board create is created in that request; and the invite link revoke already locks its row (<code>select_for_update</code>) and answers <code>404</code> once it is gone. Group membership role edits are not board-scoped and are not covered here. Invite redemption (#1631) — the join view and invite-only registration, REST and OAuth — takes the board row <code>FOR NO KEY UPDATE</code> (<code>lock_board_row_or_404</code> in the join view, <code>lock_invite_board</code> on the registration path) before it locks the invite row, reading the invite's board id unlocked first: a redemption that held only the invite row and inserted the membership and redemption rows under it made a board delete, waiting on that invite at its collector <code>DELETE</code>, fail its deferred foreign keys at commit, and locking the board after the invite would deadlock against it. A redemption queued behind a board delete answers <code>404</code> (join) or <code>invite_invalid</code> (registration) with nothing written or broadcast; the consume-once claim is unchanged, still taken under the invite row lock (or the conditional <code>used_at</code> update). The group side, a group invite redemption racing a group delete, is #1638 (below the table above). A card create or update that names labels (<code>label_ids</code>) or custom-field definitions (<code>custom_field_values</code>) resolved them at validation, before its transaction, so a label or definition <code>DELETE</code> committing in between left the M2M or value row it inserts pointing at a missing row: a <code>500</code> from the deferred foreign key at commit (#1632). <code>create_card</code> and <code>update_card</code> now take the board row <code>FOR SHARE</code> as the first lock of their transaction (<code>lock_board_for_card_write</code>), before the card row and any column row, and <code>CardSerializer</code> re-reads the named rows under it; one already gone answers <code>400</code>, as a request naming an unknown id always did. Every label or definition deleter takes the board row <code>FOR NO KEY UPDATE</code> first (the REST <code>DELETE</code>s and the label admin, single and bulk, through <code>lock_board_and_row_or_404</code>, <code>_lock_board_for_admin_save</code> and <code>_lock_boards_then_rows</code>; container, board and user deletes through <code>lock_cards_for_cascade(boards=...)</code>), which conflicts with <code>FOR SHARE</code>, so it either committed before the re-read or queues behind the whole card write and then cascades what it wrote. <code>FOR SHARE</code> does not conflict with itself or with <code>FOR KEY SHARE</code>: card writes on one board do not queue behind each other, and a card insert's commit-time <code>FOR KEY SHARE</code> on the board is unaffected. It does make a card create or update and a board-row writer (board <code>PATCH</code>, column reorder, label create and the rest of the table) queue whole, in either order. The cost runs the other way too, and there is no lock timeout: a card create or update now waits for every in-flight board-row writer on its board (star, saved-filter create, label create, member add, role change and removal, board <code>PATCH</code>, structure writes and reorders, and a column, swimlane or board delete for its whole cascade), and those wait for in-flight card writes. Why this is deadlock-free: the board row is the card transaction's first lock; no path takes a board-row lock after a card or column lock; nothing in a card create or update writes the board row, so two <code>FOR SHARE</code> holders never upgrade into each other; and the label and definition rows are never row-locked by a card write, only read. The remaining edge is the user row: at commit a card write takes <code>FOR KEY SHARE</code> on the users its foreign keys name (activity actor, <code>created_by</code>, <code>assignee</code>), so any transaction that holds a user row <code>FOR UPDATE</code> and then locks or <code>UPDATE</code>s a board row closes a cycle with it. The user deactivation endpoint did exactly that: it locked the user <code>FOR UPDATE</code> and then <code>UPDATE</code>d the boards it transfers, and deactivating a board owner with a card write of theirs in flight deadlocked (a <code>500</code>). It now locks the user <code>FOR NO KEY UPDATE</code>, which does not block <code>FOR KEY SHARE</code>, as the user admin delete already did (#1616), and transfers the boards in pk order. Every other user-row <code>FOR UPDATE</code> holder (password, login, token, email change, the admin user <code>PATCH</code> and the user admin save, <code>set_site_admin</code>, <code>ensure_site_admin</code>, the demo seed's account reset) touches no board, card or column row: their invite link revocations lock invite link rows and append <code>BoardEvent</code> rows, which have no foreign key to the board. The user admin delete locks its targets <code>FOR NO KEY UPDATE</code>, then the owned boards (so it queues behind a card write on one of them), and takes <code>FOR UPDATE</code> on the users only after that. The first attempt locked the label and definition rows instead: after the column row on create but before it on a weight-raising update, so a create and an update naming the same label deadlocked. The Django admin card form takes the same lock (stored and submitted board, pk order) at the start of <code>clean()</code>, before the card and column rows, and re-reads the <code>labels</code> it chose; a label deleted meanwhile is a form error. The card and swimlane custom-field definition reorders take the board row <code>FOR NO KEY UPDATE</code> and then lock the definition rows in pk order: before, <code>bulk_update</code> locked them in scan order with no board lock, and a card or swimlane write holding <code>FOR KEY SHARE</code> on one definition at commit while waiting on another could close a cycle with it. Swimlane create and update re-read their <code>custom_field_values</code> definitions after the board row (<code>_require_live_swimlane_definitions</code>); before, a swimlane create racing a definition delete failed the value rows' foreign key at commit, which it reported as a misleading <code>400</code> name collision. The seed commands' <code>--wipe</code> (<code>seed_demo_data</code>, <code>seed_template_boards</code>) delete through <code>delete_boards_locked</code>, which takes the same locks as the board destroy view, because the demo cronjob runs them against a live instance. The helper resolves the board set to pks once, inside its transaction, and uses those pks for every lock statement and the final <code>DELETE</code>, so a board created with the same name between statements cannot be deleted unlocked.</p>
+<p>The Django admin delete paths take the same lock (#1603): the card, column, swimlane, and board admins, and the user admin (a user delete cascades to the boards they own and those boards' cards). Each <code>delete_model</code> and <code>delete_queryset</code> runs <code>lock_cards_for_cascade()</code> and the delete inside one <code>transaction.atomic()</code>. The outer transaction matters for bulk admin actions, which Django does not wrap, so a lock taken per object would be released before the delete. The column, swimlane, board and user admins also pass <code>entry_columns</code> and <code>boards</code> (#1602), so a card created in, or moved into, the container mid-delete is covered, and the board row is taken first, as on the REST paths. The card admin passes neither: a card delete has no container a card can enter. The rare <code>ContainerChanged</code> after three lost attempts is caught at the view level (<code>ContainerChangedAdminMixin</code>), not in <code>delete_model</code> or <code>delete_queryset</code>, because Django prints its success message after those return: a single delete shows the error and returns to the object's change page, and a bulk <code>delete_selected</code> runs in one transaction, so the deletion log entries Django writes before <code>delete_queryset</code> roll back too, and returns to the changelist with the error. Nothing is deleted in either case. The <code>board.deleted</code> event, from the REST board <code>DELETE</code> and the board admin's single and bulk delete, reads the board's group from the locked row (#1712), so a move-group that commits while the delete queues does not leave it going to the group the board already left.</p>
+<h2 id="what-stays-in-the-view">What stays in the view<a class="headerlink" href="#what-stays-in-the-view" title="Permanent link">&para;</a></h2>
+<p>Nothing under <code>boards/services/</code> imports <code>rest_framework</code>, reads a request, or builds a response. The view adapter keeps:</p>
+<ul>
+<li><strong>Parsing</strong>, mostly. <code>?force</code> becomes a <code>bool</code>. The exception is <code>version</code>, which the adapter passes through raw: <em>when</em> the "version must be an integer" <code>400</code> is raised is part of the frozen contract — it comes after the role allow-list, the card lookup, and the assignment gate — so the coercion lives in the service. Parsing it in the adapter turns a <code>403</code> into a <code>400</code> for a caller who sent both a bad version and a request they were not allowed to make.</li>
+<li><strong>Field validation.</strong> Per the project rule that input is validated at the serializer boundary, <code>create_card</code> and <code>update_card</code> take a callable that performs the already-validated write — <code>serializer.save()</code> for the HTTP adapter. <code>CardSerializer</code>'s querysets are board-scoped, so a cross-board column, swimlane, label, or assignee id is already a <code>400</code> before the service is reached.</li>
+<li><strong>Serialization.</strong> Each function takes a <code>render</code> callable and invokes it <em>inside</em> the transaction, because the REST response body and the WebSocket payload are deliberately the same dict. Re-serializing in the adapter after commit would cost a second multi-query fetch and would let a concurrent writer land between the write and the read.</li>
+</ul>
+<p>That last point is the one place the boundary is a compromise rather than a clean cut, and it is deliberate: the service stays serializer-agnostic. The adapter does not choose the broadcast shape, though: whatever <code>render</code> returns <em>is</em> the <code>card.*</code> WebSocket frame and change-feed row, which <a href="../../api/websockets/#card-events">the WebSocket contract</a> fixes as a <code>CardSerializer</code> card (<code>{card[, movement]}</code> for a move). An adapter that needs a different return shape renders the contract and keeps its own shape on the side, as the MCP tools do with <code>_BroadcastRender.tool_card</code> (<em>1.2, #1926</em>: they returned their own shape from <code>render</code>, and it reached the wire).</p>
+<h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
+<p><code>boards/services/errors.py</code> holds one class per failure mode, each carrying the exact HTTP status and response body its endpoint returned before the extraction. A view adapter is therefore a single clause:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">handle_exception</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">):</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">CardServiceError</span><span class="p">):</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">exc</span><span class="o">.</span><span class="n">body</span><span class="p">(),</span> <span class="n">status</span><span class="o">=</span><span class="n">exc</span><span class="o">.</span><span class="n">status</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">handle_exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+</code></pre></div>
+<p>The bodies live in that module, rather than being reassembled in the views, because they are a frozen contract and one home for them is the only way to keep them frozen. The card API returns five mutually incompatible <code>409</code>/<code>403</code> shapes — <code>wip_limit_exceeded</code> and <code>weight_limit_exceeded</code> carry no <code>detail</code> key at all, <code>wip_hard_blocked</code> carries both <code>detail</code> and <code>code</code>, and the move assignee gate is the only <code>403</code> in the card API with a <code>code</code>. The web client reads those field names directly, so converging the shapes needs a major version bump. <code>backend/boards/tests/test_card_error_bodies.py</code> pins every one by exact dictionary equality.</p>
+<p>The adapter does <strong>not</strong> wrap these in a DRF <code>APIException</code>. DRF coerces every value in an exception detail to a string, which would turn <code>current_count</code>, <code>wip_limit</code>, <code>card_weight</code>, and <code>current_version</code> into strings and break clients that compare them numerically.</p>
+<p><code>boards/services/errors.py</code> is <strong>not</strong> an extension point and carries no stability guarantee — unlike <code>boards/hooks.py</code>. The hierarchy is expected to change when the error bodies are converged.</p>
+<h2 id="roles">Roles<a class="headerlink" href="#roles" title="Permanent link">&para;</a></h2>
+<p><code>boards/permissions.py</code> exposes two resolvers over one shared precedence ladder:</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get_board_role(user, board)</code></td>
+<td>one board</td>
+</tr>
+<tr>
+<td><code>get_board_roles(user, boards)</code></td>
+<td>a list of boards, in a fixed two queries</td>
+</tr>
+</tbody>
+</table>
+<p>Resolving a role per board is an N+1 on any board that derives its role from a group, which is why the bulk form exists — and why re-implementing the ladder to dodge that N+1 is what produced the MCP fork. Both resolvers now delegate to the same private helpers; only the way they <em>load</em> memberships differs. Boards passed to <code>get_board_roles</code> must be loaded with <code>GROUP_ANCESTOR_SELECT_RELATED</code> applied, or the ancestor walk reintroduces the N+1 one level down.</p>
+<p><code>can_modify_others_content()</code> — the ownership gate — also lives in <code>permissions.py</code> rather than in the views package, so a service can call it without importing from <code>boards.views</code>.</p>
+<h3 id="the-role-parameter-fails-closed">The <code>role</code> parameter fails closed<a class="headerlink" href="#the-role-parameter-fails-closed" title="Permanent link">&para;</a></h3>
+<p>Every service function takes an optional <code>role</code>, so an adapter that has just resolved the role — <code>get_board_for_user()</code> does, as part of its own access check — does not pay for it twice. On a group-inherited board that second resolution is a real query.</p>
+<p>A parameter that carries authorization state is only safe if a wrong value cannot be believed, so both resolvers leave a memo on the board instance recording which role they resolved and for whom, and the service accepts a supplied role only when it matches that memo. Anything else is discarded, logged, and the role is derived from the database instead. Two mistakes are therefore impossible rather than merely discouraged: passing <code>"admin"</code> outright, and — the likelier one, now that <code>get_board_roles</code> returns a <code>{board_id: role}</code> dict — indexing that dict with the wrong board id. Both just cost the query the parameter existed to save.</p>
+<p>The memo is set by the resolvers alone and is never an input. A caller with no already-resolved role passes <code>None</code>, which is always correct.</p>
+<h2 id="write-paths-that-remain-divergent">Write paths that remain divergent<a class="headerlink" href="#write-paths-that-remain-divergent" title="Permanent link">&para;</a></h2>
+<p>Two paths deliberately do <strong>not</strong> go through the card service. Both are documented divergences, not oversights. (The operator seed commands — <code>seed_demo_data</code>, including <code>--demo-site</code>, <code>seed_template_boards</code>, and <code>benchmark</code> — also write cards directly with <code>Card.objects.create</code>/<code>bulk_create</code> and are exempt from WIP and weight limits for the same reason as import: they build a board as designed, which may be over its limits. They are management commands, not an API write path.)</p>
+<p><strong>Import / export</strong> (<code>boards/views/import_export.py</code>) creates cards with <code>bulk_create</code> into a board it has just created. It does not enforce WIP or weight limits — by design, since an import restores a board as exported and the sample boards each ship one over-WIP column (#1428) — does not compact positions, writes one <code>board.created</code> broadcast instead of per-card events, and fires no card mutation hooks. Calling a per-card service in a loop would mean O(n) round trips and a row lock per card on a 500-card import. There is a second reason to leave it alone: <code>bulk_create</code> does not emit <code>post_save</code>, so importing movement history does not notify assignees — routing import through a service that creates <code>CardMovement</code> rows individually would send a notification per imported movement.</p>
+<p><strong>Django admin</strong> (<code>boards/admin.py</code>, <code>CardAdmin.save_model</code>) broadcasts card events but skips the version bump, the <code>CardMovement</code> audit trail, the board-level RBAC check, and the hooks. An admin moving a card between columns therefore leaves no audit trail. WIP and weight limits and <code>allow_card_creation</code> <em>are</em> applied since 1.2: <code>CardAdminForm.clean()</code> calls the service's own <code>enforce_column_limits()</code> and reports a refusal as a form error, with no <code>force</code> override (#1428). Routing the rest through the service is still the strongest candidate to migrate next — it is a single call site.</p>
+<h2 id="a-service-that-is-not-a-transition-custom_fields">A service that is not a transition: <code>custom_fields</code><a class="headerlink" href="#a-service-that-is-not-a-transition-custom_fields" title="Permanent link">&para;</a></h2>
+<p><code>boards/services/custom_fields.py</code> (#371) is the second module in the package and does not
+follow the <code>cards.py</code> shape, deliberately. It owns no transaction, no role check and no
+broadcast — writing a card's custom field values is not a transition of its own, it is part
+of the card update that contains it.</p>
+<p>The split it does own is the one worth keeping: validation and per-type casting stay at the
+serializer boundary (<code>CustomFieldValuesField</code>), while the <strong>diff</strong> — deciding which
+submitted values actually changed — and the <code>custom_field_value_changed</code> signal fan-out
+live in the service. That is what keeps a client echoing back the representation it was
+given from firing an enterprise audit-log entry for a change nobody made.</p>
+<p>It is called from <code>CardSerializer.create</code>/<code>update</code>, which run inside <code>update_card</code>'s and
+<code>create_card</code>'s transaction, so the values roll back with the card and the deferred
+<code>card.updated</code> broadcast already reflects them.</p>
+<h2 id="adding-to-this-layer">Adding to this layer<a class="headerlink" href="#adding-to-this-layer" title="Permanent link">&para;</a></h2>
+<p>Swimlane and column reorder and the other structural mutations are slated to follow in this package, which is why <code>boards/services/</code> is a package rather than a single module. When adding a transition:</p>
+<ol>
+<li>Put the invariants in a service function; leave parsing, validation, and rendering to the caller.</li>
+<li>Add a class to <code>errors.py</code> for each new failure mode — never build a response body in a view.</li>
+<li>Reach <code>broadcast</code> and <code>hooks</code> through the <strong>module object</strong> (<code>from .. import broadcast as _broadcast</code>). The test suite patches <code>boards.broadcast.broadcast_board_event</code> at its source module, and a direct-name import binds a reference the patch cannot reach — so tests that patch only to suppress the channel layer would silently start broadcasting for real.</li>
+<li>Register hook callbacks by reading <code>hooks.CARD_MUTATION_HOOKS</code> inside the <code>on_commit</code> callback. Enterprise code appends to that list in place; a copy taken at import time would miss late registrations, and rebinding the attribute would drop every enterprise handler. Each handler runs in isolation (<code>_run_hooks</code>): an exception is logged (handler name, ids, event type, exception class only) and swallowed, because the write is already committed and a 500 would invite a duplicate-creating retry. Handlers must therefore handle their own failures; they cannot veto or roll back the write.</li>
+<li>When adding a writer (an adapter), make its <code>render</code> return the payload the REST adapter broadcasts for the same event, never its own response shape: the return value is the WebSocket frame and the change-feed row. Keep any different response shape on the side, as <code>mcp_server.tools._BroadcastRender</code> does, and test the stored <code>BoardEvent</code> row against <code>render_card_payloads</code> (see <code>BroadcastPayloadShapeTests</code>).</li>
+<li>Add a query budget to <code>CardMutationQueryCountTests</code>. Mutation budgets are <code>measured + 3</code>, tighter than the 2× used for read endpoints, because they have to catch a constant regression rather than a row-scaling one.</li>
+</ol>
+<h2 id="frozen-asymmetries">Frozen asymmetries<a class="headerlink" href="#frozen-asymmetries" title="Permanent link">&para;</a></h2>
+<p>Three things in this layer look like bugs and are contract. Do not "fix" them without a major version bump:</p>
+<ul>
+<li><code>unarchive</code> broadcasts the WebSocket event <code>card.unarchived</code> but fires the hook event <code>card.restored</code>. Both names are independently frozen.</li>
+<li><code>card.archived</code> broadcasts only <code>{"card_uid": ...}</code> while <code>card.unarchived</code> broadcasts the whole card. A client only needs to drop an archived card from its view.</li>
+<li><code>update_card</code> and <code>delete_card</code> reject an archived card; <code>move_card</code> accepts one. The move endpoint has always read through the unfiltered manager, so archiving never froze a card's position — a restored card returns to wherever it was put.</li>
+<li>The error bodies described above.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,4607 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0/development/ci-gates/">
+      
+      
+        <link rel="prev" href="../dependency-lock/">
+      
+      
+        <link rel="next" href="../serializer-ts-parity/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>CI Gate Self-Tests - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ci-gate-self-tests" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CI Gate Self-Tests
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-demo-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ask Your Agent About the Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mutation-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-meta-gate-gate-selftest-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The meta-gate: gate-selftest-parity
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The meta-gate: gate-selftest-parity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-escape-hatch-gate-selftest-exempt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The escape hatch: gate-selftest-exempt:
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The escape hatch: gate-selftest-exempt:">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#currently-exempt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Currently exempt
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-tested-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-tested today
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-trivy-scan-covers-in-the-helm-chart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What trivy-scan covers in the Helm chart
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#path-containment-for-cli-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path containment for CLI arguments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduled-pipelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduled pipelines
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scheduled pipelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changing-a-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing a schedule
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-compat-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-fastpath-proposal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/card-history-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-deferred-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deferred Security Follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-scanners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Scanners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ci-gate-self-tests">CI gate self-tests<a class="headerlink" href="#ci-gate-self-tests" title="Permanent link">&para;</a></h1>
+<p>A bespoke CI gate that stops detecting anything does not fail — it goes <strong>green</strong>,
+permanently, and looks exactly like a codebase with no violations. There is no signal
+distinguishing "the check passed" from "the check is broken." This is the house rule that
+closes that gap, and the record of which scripts follow it.</p>
+<h2 id="the-rule">The rule<a class="headerlink" href="#the-rule" title="Permanent link">&para;</a></h2>
+<p><strong>Every bespoke gate script under <code>scripts/</code> ships a <code>--self-test</code> mode</strong> that constructs a
+known-bad input, runs its own detection logic against it, and asserts the detection fires.
+CI runs <code>&lt;script&gt; --self-test</code> on the same image, immediately before the real invocation, so
+a change that silently broke detection (a tooling upgrade, a refactor, a BusyBox-vs-GNU
+behavior difference) is caught before its verdict is trusted on that same run.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># The shape every wired gate follows, e.g. dep-scan-osv:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>-<span class="w"> </span>sh<span class="w"> </span>scripts/osv-severity-gate.sh<span class="w"> </span>--self-test
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>-<span class="w"> </span>sh<span class="w"> </span>scripts/osv-severity-gate.sh<span class="w"> </span>osv-report.json
+</code></pre></div>
+<p>A self-test failure must hard-block regardless of the real check's own exit-code contract —
+see <code>osv-severity-gate.sh</code>'s self-test, which always exits 0 (pass) or 1 (fail), never the
+non-blocking <code>2</code> the real gate uses for a MEDIUM/LOW warning.</p>
+<h2 id="the-meta-gate-gate-selftest-parity">The meta-gate: <code>gate-selftest-parity</code><a class="headerlink" href="#the-meta-gate-gate-selftest-parity" title="Permanent link">&para;</a></h2>
+<p>Nothing above is self-enforcing on its own — a new script can be added to <code>.gitlab-ci.yml</code>
+without a self-test, or a self-test can be written and never wired into the job that would
+run it (exactly what happened to <code>migration-numbering-check</code> before #1093: the script had a
+working <code>--self-test</code>, but the job never called it with that flag).</p>
+<p><code>scripts/check-gate-selftest-parity.sh</code> closes that gap. It derives its list of gate scripts
+by scanning <code>.gitlab-ci.yml</code> <strong>at run time</strong> for every literal <code>scripts/&lt;name&gt;.(sh|py|mjs)</code>
+reference on a non-comment line, and fails if any of them:</p>
+<ul>
+<li>has no <code>--self-test</code> mode at all, or</li>
+<li>has one, but no job in <code>.gitlab-ci.yml</code> actually invokes it with that flag.</li>
+</ul>
+<p>Nothing here is hardcoded: when a new bespoke script is wired into the CI file (for example
+<code>check-suppression-issues.sh</code>), the parity check picks it up automatically the next run — no
+edit to the checker itself. Wired as its own job (<code>gate-selftest-parity</code>, <code>lint</code> stage),
+which runs <code>check-gate-selftest-parity.sh --self-test</code> before the real scan, same pattern as
+every gate it audits.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>bash<span class="w"> </span>scripts/check-gate-selftest-parity.sh<span class="w">            </span><span class="c1"># scan the real .gitlab-ci.yml</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>bash<span class="w"> </span>scripts/check-gate-selftest-parity.sh<span class="w"> </span>--self-test<span class="w"> </span><span class="c1"># prove the scanner still fires</span>
+</code></pre></div>
+<h3 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h3>
+<p>Only <code>scripts/*.sh</code>, <code>*.py</code>, and <code>*.mjs</code> files referenced by literal path in
+<code>.gitlab-ci.yml</code>. It does <strong>not</strong> reach into:</p>
+<ul>
+<li>the inline <code>- |</code> shell blocks scattered across the CI file (there is no script file to
+  point <code>--self-test</code> at),</li>
+<li>Django management commands such as <code>manage.py check_migration_concurrency</code> (not a file
+  under <code>scripts/</code>),</li>
+<li>scripts that are never invoked from <code>.gitlab-ci.yml</code> at all (e.g. <code>assemble-changelog.sh</code>
+  and <code>close-milestone-issues.sh</code>, called only from <code>scripts/release.sh</code> at release time).</li>
+</ul>
+<p>Extending the meta-gate to any of these is future work, not silently assumed to be covered —
+see <a href="#known-gaps-and-deferred-work">Known gaps</a> below.</p>
+<h2 id="the-escape-hatch-gate-selftest-exempt">The escape hatch: <code>gate-selftest-exempt:</code><a class="headerlink" href="#the-escape-hatch-gate-selftest-exempt" title="Permanent link">&para;</a></h2>
+<p>Some scripts genuinely cannot build a synthetic known-bad input cheaply — most often a live
+smoke test whose entire value is exercising real infrastructure. Rather than let the parity
+check hardcode a list of exceptions (the same anti-pattern the meta-gate exists to avoid),
+an exempt script documents its own exemption, the same escape-hatch shape as
+<code>migration-check</code>'s <code># concurrency-exempt:</code> comment and the OSV gate's <code>IgnoredVulns</code> entries:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># gate-selftest-exempt: &lt;reason&gt;</span>
+</code></pre></div>
+<p>The comment must start the line (only leading whitespace and a single <code>#</code> before the marker)
+so that prose <em>describing</em> the marker — like this page, or <code>check-gate-selftest-parity.sh</code>'s
+own header — is never mistaken for a real exemption.</p>
+<h3 id="currently-exempt">Currently exempt<a class="headerlink" href="#currently-exempt" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/helm-install-drill.sh</code></td>
+<td>Live kind-cluster boot drill — a synthetic self-test would need to boot a second real cluster. Its own NEGATIVE case (a placeholder-<code>SECRET_KEY</code> install must be rejected) already is a known-bad-input assertion, run against the real chart.</td>
+</tr>
+<tr>
+<td><code>scripts/helm-netpol-drill.sh</code></td>
+<td>Live Calico kind-cluster NetworkPolicy enforcement drill, same reasoning — its NEGATIVE/CONTROL pairs are the known-bad/known-good proof, against real Calico rather than a fixture.</td>
+</tr>
+<tr>
+<td><code>scripts/prod-compose-drill.sh</code></td>
+<td>Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE cases are the known-bad-input assertions, run against the real <code>init-prod.sh</code> and <code>docker-compose.prod.yml</code> instead of a fixture: a boot with the placeholder <code>DJANGO_SECRET_KEY</code> must be rejected, and <code>init-prod.sh</code> must reject a <code>/</code>-bearing <code>DB_PASSWORD</code> or <code>REDIS_PASSWORD</code> before anything boots, with the specific error message (<a href="https://gitlab.com/visiban/visiban/-/issues/1229">#1229</a>). A static check also asserts <code>init-prod.sh</code> restarts nginx after its final <code>up -d</code>. See <a href="https://gitlab.com/visiban/visiban/-/issues/1152">#1152</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/oidc_provision.py</code></td>
+<td>Provisioning against a live Keycloak Admin REST API — setup, not detection logic. Its correctness is exercised end-to-end by <code>oidc_smoke_test.py</code>.</td>
+</tr>
+<tr>
+<td><code>scripts/oidc_smoke_test.py</code></td>
+<td>End-to-end smoke test against a live Keycloak instance — a synthetic self-test would need a mock IdP and would not exercise the real risk (discovery/token-exchange/claim-mapping drift).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="self-tested-today">Self-tested today<a class="headerlink" href="#self-tested-today" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>CI job</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/check-added-files-covered.mjs</code></td>
+<td><code>added-files-coverage-check</code> (+ its own <code>added-files-coverage-check-self-test</code> job)</td>
+<td>First adopter, predates #1093's general rule.</td>
+</tr>
+<tr>
+<td><code>scripts/helm-structure-check.sh</code></td>
+<td><code>helm-lint</code></td>
+<td><code>--self-test</code> injects each defect class into a throwaway copy of the chart. <code>--lint-tmp</code> (run in the same job, #1427) rejects any hardcoded <code>/tmp</code> or <code>/var/tmp</code> path in the script and in <code>scripts/helm-install-drill.sh</code> (#1646), which must use their per-run <code>$RUN_TMP</code> directory.</td>
+</tr>
+<tr>
+<td><code>scripts/lock-backend-requirements.sh</code></td>
+<td><code>backend-lock-check</code></td>
+<td>Network-free self-test swaps in a stub <code>uv</code> and a synthetic <code>backend/</code> tree, then proves a fresh lock passes <code>--check</code>, a drifted <code>requirements.txt</code> makes <code>--check</code> exit non-zero, and an unknown argument is rejected (<a href="https://gitlab.com/visiban/visiban/-/issues/1378">#1378</a>).</td>
+</tr>
+<tr>
+<td><code>scripts/check-migration-numbering.sh</code></td>
+<td><code>migration-numbering-check</code></td>
+<td>Self-test builds a synthetic two-branch git repo and reproduces a numbering collision. Wiring the invocation into the job was itself a #1093 fix — the script had the mode, the job just never called it.</td>
+</tr>
+<tr>
+<td><code>scripts/osv-severity-gate.sh</code></td>
+<td><code>dep-scan-osv</code></td>
+<td>Covers the block/warn/clean/fail-safe boundary with synthetic OSV-Scanner JSON. Full 11-case regression suite lives in <code>scripts/tests/osv-severity-gate.test.sh</code>; the in-script self-test is the smaller, CI-wired proof.</td>
+</tr>
+<tr>
+<td><code>scripts/check-trivyignore-expiry.sh</code></td>
+<td><code>trivy-scan</code></td>
+<td>#1072: fails the job when a <code>.trivyignore.yaml</code> entry is expired, has no valid <code>expired_at</code>, has no <code>#NNNN</code> reference, does not start with <code>- id:</code>, or is dated more than 366 days out (trivy alone just stops honoring an expired entry). <code>--self-test</code> run in the job before the real check: a valid file and a date exactly 366 days out are accepted; expired, missing date, missing issue reference, <code>- paths:</code>-first entry, flow-style entry, a comment-only <code>#NNNN</code>, a date more than 366 days out, and a malformed entry in a second section must each be rejected. Wider regression suite in <code>scripts/tests/check-trivyignore-expiry.test.sh</code> (not run in CI).</td>
+</tr>
+<tr>
+<td><code>scripts/check-issue-collision.sh</code></td>
+<td>pre-push git hook only (not a CI job — see <a href="#known-gaps-and-deferred-work">Known gaps</a>)</td>
+<td>Offline self-test against stubbed forge responses.</td>
+</tr>
+<tr>
+<td><code>scripts/gl-issues.sh</code></td>
+<td>not a CI job (a maintainer-side helper for <code>/pre-release</code> and <code>/wave</code>, so the parity gate does not reach it)</td>
+<td>#1901: <code>--self-test</code> stubs <code>glab</code> on <code>PATH</code> and covers a failing <code>glab</code>, a missing <code>glab</code>, an HTTP-error object, a non-JSON body, an empty value (an unset <code>$WORKING_RELEASE</code> must not widen the query), an unknown milestone title, <code>&amp;</code> and space URL-encoding, and the happy path. Fails closed so an empty result always means "no issues".</td>
+</tr>
+<tr>
+<td><code>scripts/check-memory-index.sh</code></td>
+<td>not currently a CI job</td>
+<td>Self-test builds a synthetic memory store.</td>
+</tr>
+<tr>
+<td><code>scripts/check-gate-selftest-parity.sh</code></td>
+<td><code>gate-selftest-parity</code></td>
+<td>The meta-gate itself — see above.</td>
+</tr>
+<tr>
+<td><code>scripts/check-compose-image-pins.sh</code></td>
+<td><code>compose-hygiene</code></td>
+<td>Self-test plants an untagged image, an explicit <code>:latest</code>, a ported-registry reference (<code>host:5000/img</code>, whose colon must not read as a tag separator), and a first-party <code>${VAR}</code> reference that must NOT be reported.</td>
+</tr>
+<tr>
+<td><code>scripts/check-compose-project-names.sh</code></td>
+<td><code>compose-hygiene</code></td>
+<td>Self-test plants a missing <code>name:</code>, a duplicate name, a <code>${VAR:-default}</code> colliding on its <em>default</em> (the exact shape of the original defect), and an overlay that wrongly declares a name.</td>
+</tr>
+<tr>
+<td><code>scripts/check-docs-version-accuracy.sh</code></td>
+<td><code>docs-version-accuracy</code> (MRs, <code>main</code>, and tag pipelines)</td>
+<td>Self-test plants a stale "Coming in" claim naming the just-released version, the same in <code>README.md</code>, an RC banner on a GA version, a wrong banner version, stale <code>APP_VERSION=</code> / README image pins, and a tag that disagrees with <code>frontend/package.json</code>; it must spare a "Coming in" claim for a future version and a "new in" label. See the <a href="../../maintainers/#release-checklist">release checklist</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/resolve-docs-version.sh</code></td>
+<td><code>docs-deploy</code></td>
+<td>Resolves and v-prefix-normalizes the mike deploy VERSION from <code>DOCS_VERSION</code> / <code>CI_COMMIT_TAG</code> / <code>.env.example</code>'s <code>APP_VERSION=</code>, unconditionally across all three sources. <code>#1270</code>: a single manually-typed <code>DOCS_VERSION</code> missing the <code>v</code> prefix created a duplicate unprefixed version entry that mike/verspec's loose-version sort ranked above every real version in the docs dropdown, undetected for months. 6-case self-test plus a 9-case regression suite in <code>scripts/tests/resolve-docs-version.test.sh</code>.</td>
+</tr>
+<tr>
+<td><code>scripts/classify-release-tag.sh</code></td>
+<td><code>backend-manifest</code> and <code>frontend-manifest</code> (each runs the self-test independently — the two jobs have no <code>needs:</code> on each other and run in parallel, so a self-test in only one would let the other race ahead unguarded)</td>
+<td>Single source of truth for whether a release tag is stable (gets the <code>:latest</code>/<code>:MAJOR.MINOR</code> registry aliases) or pre-release (gets neither). <code>github-release</code> also calls it (no self-test of its own; it runs after both manifest jobs) so the GitHub Release <code>--prerelease</code> badge uses the same classification — any tag that is not strictly <code>vX.Y.Z</code> is a pre-release (#1410). A 2026-10 incident: the stable-vs-pre-release regex used to gate <code>:MAJOR.MINOR</code> alone while the alias list defaulted to including <code>:latest</code> unconditionally, so every alpha/beta/rc tag silently re-pointed <code>backend:latest</code>/<code>frontend:latest</code> at that pre-release build, on both registries, for about three days before anyone noticed — the second time this exact duplicated-regex shape has bitten this file (cf. <code>resolve-docs-version.sh</code> above, #1270). 13-case self-test, including the exact alpha/beta/rc shapes <code>scripts/release.sh</code> produces and several malformed/partial tags that must not be misread as stable.</td>
+</tr>
+<tr>
+<td><code>scripts/extract-release-notes.sh</code></td>
+<td><code>security-deferred-verdict-selftest</code> (same job as the release.sh self-test; its path list includes this script, so an edit to it alone runs it)</td>
+<td>Prints the dated <code>## [X.Y.Z]</code> CHANGELOG section for the <code>github-release</code> job (#1995), so the GitHub Release body carries the same roll-up summary and notes as the GitLab Release. Shared with <code>release.sh --self-test</code>, which runs it end to end against a rotated fixture. Self-test: builds a changelog with a summary, categories, a <code>---</code> divider and a following section, and asserts the extractor returns exactly the dated section (an unknown version returns nothing). Runs under busybox sh on alpine.</td>
+</tr>
+<tr>
+<td><code>scripts/check-latest-tag-stability.sh</code></td>
+<td><code>latest-tag-stability-check</code> (release tags, <code>needs: [backend-manifest, frontend-manifest]</code>)</td>
+<td>Fails the tag pipeline itself if <code>backend:latest</code>/<code>frontend:latest</code> on either registry does not match the newest STABLE release's digest — the automatic version of the manual check that caught the incident above. "Stable" is resolved via <code>classify-release-tag.sh</code>, never re-implemented, so this can't drift out of sync with the jobs it's checking. 10-case self-test over a stubbed <code>DIGEST_PROBE</code>, including the resolver correctly skipping a newer-but-pre-release tag and reproducing the actual incident shape (one registry's <code>:latest</code> drifted, the other healthy). <code>scripts/release.sh</code> also runs this same check read-only <strong>before</strong> it branches or tags (<code>check_latest_not_drifted</code>), so drift that predates the cut stops the release instead of turning the tag pipeline red afterward. Only a reported <code>MISMATCH</code> blocks; an unreachable registry or missing <code>crane</code>/<code>docker buildx</code> warns and continues, and <code>RELEASE_SKIP_LATEST_CHECK=1</code> bypasses it. See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-rbac-coverage.py</code></td>
+<td><code>rbac-coverage</code></td>
+<td>12-case self-test over a synthetic view tree: a dropped auth gate, a missing role gate, a write that never resolves a role, an unscoped board-child lookup, a raw membership lookup, and a stale entry in each recorded-exception table. See <a href="../rbac-and-broadcast-gates/">RBAC and broadcast gates</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-api-compat.py</code></td>
+<td><code>api-compat-check</code></td>
+<td>Diffs the OpenAPI schema and the env var names <code>settings.py</code> reads against the v1.1.0 baseline (#1667). Self-test covers removal, type change, required-ness change, addition, allow-listed removal, stale entry, a new finding under an already allow-listed operation (must fail), and the experimental-operation cases (skip, strip, dead or malformed entry). See <a href="../api-compat-gate/">API compatibility gate</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/security-deferred-verdict.sh</code></td>
+<td><code>security-deferred-verdict-selftest</code></td>
+<td>Accepted-risk verdict for <code>security::deferred</code> issues, used by <code>/pre-release</code> Step 1.5 (via <code>check-security-deferred.sh</code>, below). 44-case self-test: valid, expired, blank fields, impossible dates, duplicate <code>expires</code>, <code>;</code> in reason, no note, multiple lines, and the 1-year cap boundary, month/day ranges, leap-year rules (2000, 2028, 2100), handle/author shape, plus process-level checks of stdout and exit codes (0 accepted, 1 blocker, 2 bad argument). Runs on alpine busybox in CI and on BSD/GNU awk locally. See <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a> (<a href="https://gitlab.com/visiban/visiban/-/issues/1521">#1521</a>).</td>
+</tr>
+<tr>
+<td><code>scripts/check-security-deferred.sh</code></td>
+<td><code>security-deferred-verdict-selftest</code> (same job; also triggers on this path and <code>scripts/release.sh</code>, and also triggers on <code>scripts/tests/release.test.sh</code>; the job runs <code>scripts/tests/release.test.sh</code>, which includes <code>release.sh --self-test</code> plus the end-to-end rollback cases, now that release.sh's in-place edits are portable across BSD, GNU and busybox sed, <a href="https://gitlab.com/visiban/visiban/-/issues/1539">#1539</a>)</td>
+<td>The single query-and-loop implementation behind <code>/pre-release</code> Step 1.5 and <code>scripts/release.sh</code>: lists every open <code>security::deferred</code> issue in <strong>any</strong> milestone and runs the verdict script on each (#1520). <code>release.sh</code> runs it <strong>before</strong> it branches or tags (<code>check_security_deferred_clear</code>) for <strong>GA tags only</strong> — pre-releases are not gated and <code>/pre-release full</code> still runs it — because <code>/pre-release full</code> runs about a sprint earlier. Unlike the <code>:latest</code> guard it fails <strong>closed</strong>: a missing <code>glab</code>/<code>jq</code>, an API error or a non-array response blocks, since no later job backstops it. <code>RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1</code> bypasses it, still printing the open-issue list to stderr as a trace. Test-only overrides (<code>GLAB</code>, <code>PROJECT</code>, <code>TODAY</code>, <code>CAP</code>, <code>VERDICT_SCRIPT</code>, and <code>release.sh</code>'s <code>SECURITY_DEFERRED_SCRIPT</code>) are honored only under <code>--self-test</code>, so a stale exported <code>TODAY</code> cannot rescue an expired note. 15-case self-test over a stubbed <code>glab</code>: closed-, later- and no-milestone issues block, the query carries no <code>milestone=</code> filter, accepted/expired/system-note handling, and each fail-closed path. See <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-broadcast-deferral.py</code></td>
+<td><code>broadcast-deferral</code></td>
+<td>9-case self-test: a write that broadcasts nothing, a broadcast outside <code>on_commit</code>, a commit hook holding an ORM instance, an emit in a loop, and a stale entry in each recorded-exception table.</td>
+</tr>
+<tr>
+<td><code>scripts/check-release-images.sh</code></td>
+<td><code>check-release-images</code> (scheduled pipelines only)</td>
+<td>Ported from TruePPM's beta-readiness incident #0 (#1074): a registry cleanup policy with no keep-regex deleted a released image days after it shipped, with no commit to review and no job that went red on its own. 19-check self-test over stubbed <code>RELEASE_IMAGE_PROBE</code> / <code>RELEASE_ARCH_PROBE</code> — both registries missing, one registry healthy, both healthy, a present tag whose manifest silently dropped <code>arm64</code> (#1197), a manifest that cannot be read (reported <code>PROBE-ERROR</code>, not <code>ARCH-MISSING</code>), an explicit empty <code>RELEASE_REGISTRIES</code> override, no resolvable <code>v*</code> tag, and <code>ACCEPTED_GAPS</code> skipping only the named reference. Unlike <code>osv-severity-gate.sh</code>, there is no separate <code>scripts/tests/</code> regression file — the in-script self-test already exercises every branch of the (small) decision logic, so a second copy of the same fixtures would just be duplicate maintenance. See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-release-attestations.sh</code></td>
+<td><code>check-release-attestations</code> (Nightly schedule only: <code>CVE_SCAN=true</code>); its <code>--self-test</code> also runs on MRs via <code>check-release-attestations-selftest</code> (MRs touching the script, <code>docs/administration/image-verification.md</code> or <code>.gitlab-ci.yml</code>; also <code>main</code>)</td>
+<td>#1542, follow-up from #1153: <code>check-release-images</code> proves a released image exists, not that its cosign <code>.sig</code> / <code>.att</code> tags do, so a registry sweep or manual delete of them (the GitLab registry's policy swept them ~90 days after a release until #1541's keep-regex went live) turns nothing red. For the newest <code>ATTEST_CHECK_COUNT</code> <code>v*</code> tags (default 3) cut after image signing shipped, on both registries, both images, it runs <code>cosign verify</code> on the index and each platform digest and <code>cosign verify-attestation --type cyclonedx</code> on each platform digest, with the tag-only identity from <a href="../../administration/image-verification/">Verifying release images</a>. A tag is in scope only when the <code>.gitlab-ci.yml</code> at that tag defines every job in <code>ATTEST_SIGNING_JOBS</code> (<code>backend-image-attest</code> and <code>frontend-image-attest</code>), i.e. its own release pipeline signed it. Older releases were never signed, so there is nothing of theirs that could have been swept; the job lists them as <code>not checked</code> (#1606: the first nightly checked the three pre-#1153 <code>v1.2.0-alpha.*</code> tags and reported all 60 of their digests unsigned). Whether an unsigned tag is pre-signing is decided by commit ancestry, not version order: a tag without those jobs that descends from a release that had them fails rather than being skipped. That covers signing dropped from one release and restored in the next, and a patch on an older release line branched from a signed release, both of which sort below a signed tag. A tag that does not resolve to a commit, or whose ancestry <code>git merge-base</code> cannot read, fails; a shallow clone fails, and anything other than a literal <code>false</code> from <code>git rev-parse --is-shallow-repository</code> counts as shallow (the job sets <code>GIT_DEPTH: "0"</code> and unshallows a reused build directory before fetching tags), and the self-test asserts the repo's own <code>.gitlab-ci.yml</code> still defines the jobs, so renaming them cannot quietly empty the check. Until the first release after #1153 is cut, the job prints <code>no release has been cut since image signing shipped</code> and exits 0. A tag listed in <code>ATTEST_BACKFILLED_TAGS</code> (empty by default) is brought into scope even if it predates signing, and uses the main-or-tag identity instead; nothing else is ever widened. <code>ATTEST_TAGS</code> names tags explicitly and bypasses the signing-era filter. Not <code>allow_failure</code>. cosign is the <code>.cosign-pin</code> version shared with <code>image-attest</code> and <code>helm-publish</code>. 42-check self-test over stubbed <code>crane</code> / <code>cosign</code> (the stub cosign rejects any issuer other than <code>https://gitlab.com</code> and any <code>--type</code> other than <code>cyclonedx</code>; the real entry point is also run as a subprocess to pin its exit codes 0, 1 and 2): all good, cosign verifying but returning zero attestations (must fail), an attestation whose in-toto subject is another digest, deleted <code>.att</code>, deleted <code>.sig</code>, a missing image, a platform missing from the index, a platform-digest signature missing while the index signature passes, an unresolvable index digest, <code>ATTEST_CHECK_COUNT</code> bounding the releases checked, pre-signing releases skipped with a notice while a signing-era one is checked (and still fails on a missing signature), a backfilled pre-signing release brought back into scope, a release cut after signing without the signing jobs (must fail), signing dropped then restored (the gap still fails), an older-line patch tag descended from a signed release (must fail), a tag that does not resolve to a commit (must fail, with or without a signed release to compare against), a <code>git merge-base</code> error such as a missing object (must fail, never skip), a shallow clone or an unrecognized shallow answer from an old git (must fail), a backfilled tag not making other pre-signing tags fail, a fixture naming a signing job only in a comment or as an indented key (must not count as signed), the repo's <code>.gitlab-ci.yml</code> still defining the signing jobs, backfill versus tag-only identity, every reference accepted as a gap (zero verified must fail), no tag, no registry, and the two regexps matching the documented ones. Run it on demand from a workstation with registry credentials in <code>~/.docker/config.json</code>: <code>ATTEST_CHECK_COUNT=1 CI_REGISTRY_IMAGE=registry.gitlab.com/visiban/visiban bash scripts/check-release-attestations.sh</code> (needs <code>crane</code>, <code>cosign</code>, <code>jq</code>; read-only). <strong>Red means</strong> a signature or SBOM attestation is missing or does not verify for a named <code>registry/image@digest</code>, or none were found at all. <strong>Runbook:</strong> read the failing line. If <code>.sig</code>/<code>.att</code> tags are gone from the GitLab registry, check the cleanup keep-regex (#1541, <a href="../../administration/container-image-retention/">Container image retention</a>), then re-attach with the manual <code>image-attest-backfill</code> job (<code>BACKFILL_TAG=&lt;tag&gt;</code>) after comparing digests with the release log, and add the tag to <code>ATTEST_BACKFILLED_TAGS</code> in <code>.gitlab-ci.yml</code> because backfilled signatures carry the <code>@refs/heads/main</code> identity. <strong>Pre-signing releases:</strong> releases cut before #1153 are out of scope, not failures. Backfilling one is optional and is a Maintainer decision: run <code>image-attest-backfill</code> (<code>BACKFILL_TAG=&lt;tag&gt;</code>) after comparing digests, then add the tag to <code>ATTEST_BACKFILLED_TAGS</code> so this job starts guarding it. A tag listed there that is not signed fails like any other. Only tags whose own <code>.gitlab-ci.yml</code> defines the signing jobs anchor the ancestry check, so backfilling one old tag does not make the pre-signing tags after it fail; each backfilled tag is checked on its own. <strong>First signed release:</strong> the self-test checks the signing jobs in the working tree's <code>.gitlab-ci.yml</code>, not in any tag, so inspect the first Nightly run after the first release cut since #1153 once. It must show <code>== &lt;that tag&gt;</code> with <code>ok</code> lines, not the <code>no release has been cut since image signing shipped</code> notice. This self-test also runs in merge request pipelines (<code>check-release-attestations-selftest</code>, #1610), so renaming or dropping the signing jobs fails the MR, not the next night. The one-time inspection is tracked in #1610. A red <code>descends from a signed release, but its .gitlab-ci.yml does not define every job in</code> line means a release pipeline ran without the signing jobs: restore them, then backfill that tag. Do not lower <code>ATTEST_CHECK_COUNT</code> to dodge it. Accepting every reference as a gap still fails: the zero-verified guard exits 1 when no attestation was verified at all, so the exception list can never silence the whole job. A <code>manifest not readable</code> line is a missing image, so start with <code>check-release-images</code>.</td>
+</tr>
+<tr>
+<td><code>scripts/docker-push-retry.sh</code></td>
+<td>sourced in the <code>script:</code> of <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code>; self-test runs in <code>arm64-runner-preflight</code> (release tags)</td>
+<td>Bounded retry around <code>docker push</code> for the persistent arm64 shell runner, whose daemon can hit a transient cross-repo blob-mount failure a fresh kaniko container never sees (#1205, ported from TruePPM). 3-case self-test with a stubbed <code>docker</code> (the stub hook is honored only under <code>--self-test</code>, never from a CI variable): succeeds on a later attempt, gives up after exactly the max, and never re-pushes a clean push. Needs no daemon, so it runs on the preflight's plain alpine image.</td>
+</tr>
+<tr>
+<td><code>scripts/attest-image-sbom.sh</code></td>
+<td><code>backend-image-attest</code> / <code>frontend-image-attest</code> (release tags, after <code>*-manifest</code>), <code>image-attest-backfill</code> (manual, <code>main</code>), and <code>image-attest-selftest</code> (MRs touching the script, <code>docs/administration/image-verification.md</code> or <code>.gitlab-ci.yml</code>; also <code>main</code>)</td>
+<td>Signs each released image (<code>cosign sign --recursive</code>: index + both platform manifests) and attests a syft CycloneDX SBOM to <strong>each</strong> platform digest, on both registries, then verifies in the same job (#1153). 67-case self-test: the pure assertions against fixture JSON (single-arch manifest, missing <code>linux/arm64</code>, temp-path or wrong-arch SBOM name, foreign-arch package purl, zero packages, <code>verify-attestation</code> returning nothing or a wrong-arch SBOM among several, an attestation whose subject is another digest, the CI-only refusal, a multi-line/empty/metacharacter <code>--tag</code>, a <code>VERIFY_IDENTITY</code> variable that must not override the checked identity, and the documented tag-only and backfill identity regexps accepting/rejecting tag, <code>main</code> and <code>visiban-enterprise</code> identities) and the whole flow against stubbed <code>crane</code>/<code>syft</code>/<code>cosign</code> (attests platform digests never the index, idempotent re-run, <code>--force</code>, nothing signed when an arch is missing, a skip that logs which certificate identity matched, a mutated copy without <code>--recursive</code> failing its post-sign verify, and a tag job refusing to skip on a backfill <code>main</code>-identity signature while backfill accepts a tag one, an index-only signature that must not count as a skip, and a single missing platform SBOM that gets re-attested alone). The stub <code>cosign</code> records who signed and honors <code>--recursive</code> and <code>--certificate-identity(-regexp)</code>, so those cases exercise the real matching. Refuses to sign or attest unless <code>GITLAB_CI</code>, <code>CI_JOB_ID</code> and <code>SIGSTORE_ID_TOKEN</code> are set; <code>--dry-run</code> resolves digests read-only anywhere. See <a href="../../administration/image-verification/">Verifying release images</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-pipeline-schedules.sh</code></td>
+<td><code>schedule-config-check</code> (scheduled pipelines only)</td>
+<td>#1213: <code>nightly-load-test</code>'s GitLab pipeline schedule was never configured, and nothing asserted it existed — same failure shape as <code>check-release-images</code>. Self-test stubs <code>SCHEDULE_PROBE</code> with fixed JSON covering a covered variable, one with no schedule at all, one on an <code>active:false</code> schedule, one set to <code>"false"</code>, an <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> entry, a probe failure (must fail open, not report a false MISSING), a CI file with no schedule-gated rules at all, and (#1383) the real probe falling through from a rejected <code>CI_JOB_TOKEN</code> to <code>GITLAB_API_TOKEN</code>. See <a href="../nightly-load-test/#the-schedule">Nightly load test § The schedule</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check_mutation_score.py</code></td>
+<td><code>mutation-score-selftest</code> (MRs touching the script, the CI file or any <code>backend/**/*.py</code>; also main) and <code>backend-mutation-report</code> (the Weekly mutation testing schedule only, with <code>MUTATION_TEST=true</code>)</td>
+<td>#1384, ported from TruePPM's <code>check_mutation_score.py</code>. Exports mutmut 2.5.1's <code>.mutmut-cache</code> to a stats JSON (2.x has no <code>export-cicd-stats</code>), merges the parallel shards per target and then over all targets (<code>--expect-shards NAME=N,...</code>, printed by <code>backend/mutmut_config.py expect-shards</code>: a missing shard, a missing or unexpected target is exit 2, so a dead shard is never summed into a smaller complete run; a target's shards must also agree on <code>total</code> and their non-skipped mutants must add up to it), prints each target's score and the merged one, and gates the merged adjusted score with <code>MUTATION_MIN=0.90</code> (#1384; exit 1 below it, the jobs stay <code>allow_failure: true</code> until the follow-up on #1384). <code>--export-cache</code> drops mutmut 2.5.1's phantom cache rows (a mutant filed under another line with the same text, which is never run) and limits a class target to its lines (<code>--line-range</code>). Reports a <strong>raw</strong> and an <strong>adjusted</strong> score (#1503): adjusted leaves out mutants proven equivalent with <code># pragma: no mutate -- &lt;reason&gt;</code>, which mutmut never generates, so <code>--export-cache</code> counts them from the source (<code>excluded</code>, per target like <code>total</code>; a class target counts only its own lines); <code>MUTATION_MIN</code> gates the adjusted number. <code>--check-pragmas backend</code> (also run by <code>mutation-score-selftest</code>) fails any pragma with no reason and exits 2 on a missing path or a tree with no <code>.py</code> files; <code>--export-cache</code> exits 2 if a file with pragmas yields equal mutant counts, if the cache holds no generated mutant (or, with <code>--source</code>, none for the target's file: the run died before mutating), or if a non-generated row carries a verdict; the report exits 2 for any target with <code>total</code> 0 or nothing scoreable, so a dead target never drops out of the merged score. Report-only when <code>MUTATION_MIN</code> is unset (the weekly job sets it); exit 2 (not measured: missing, malformed or inconsistent shard stats, untested mutants, or zero scoreable mutants) applies even then, and a floor outside (0, 1], such as <code>95</code> or <code>0</code>, is also exit 2 (a config error, raised before any stats are read, so no merged file is written). 111-check self-test (120 with mutmut importable; the weekly <code>backend-mutation</code> job runs it with mutmut installed) (run on MRs by <code>mutation-score-selftest</code>, and in the report <code>script:</code> before the real call): above, at and one mutant below a floor, a floor of exactly 1, timeouts counted as killed, <code>suspicious</code> not, <code>skipped</code> excluded, shards summed, a missing shard, shards with unequal totals, an uncovered or doubly covered mutant, a shard with no <code>total</code>, malformed and missing inputs, unfinished and empty runs, report-only, out-of-range floors from <code>--min</code> and <code>MUTATION_MIN</code>, <code>--write-merged</code> writing the real module total and still writing (with a <code>not_measured</code> reason) on a not-measured run and a missing shard, raw versus adjusted scores and the pragma reason rule, several targets merged (the floor failing on the merged score while one target passes, a missing, extra or short target, per-target consistency, the per-target lines and artifact section), a cache export that drops a phantom row (and refuses, exit 2, a non-generated row that carries a verdict), counts a generated mutant with no row as untested and honors <code>--line-range</code>, a cache export from a SQLite fixture in mutmut's schema (including a path containing <code>?</code>, <code>#</code>, <code>%</code> and spaces, to prove the read-only URI is percent-quoted), and path containment (a stats, <code>--write-merged</code> or <code>--export-cache</code> path outside the allowed roots, or reached through an escaping symlink, is exit 2 with nothing written).</td>
+</tr>
+<tr>
+<td><code>backend/mutmut_config.py</code></td>
+<td><code>mutation-score-selftest</code> (<code>self-test --ci-file .gitlab-ci.yml</code>; MRs touching the CI file or any <code>backend/**/*.py</code>; also main)</td>
+<td>#1384. The mutation target table (<code>TARGETS</code>): every source file, test file and class exists; a class target's <code>ast</code> range equals the class span read from the text; the hook's skip decision, run for every shard, runs each in-range mutant exactly once and nothing outside the range, with shard sizes within one mutant; a hand run (no <code>MUTATION_SHARD</code>) runs the whole range; the shard total is at most 50 (GitLab's <code>needs:</code> cap for the report); and <code>parallel:</code> on <code>backend-mutation</code> equals the shard total. With mutmut importable it uses the real mutants, otherwise stand-ins on every line.</td>
+</tr>
+<tr>
+<td><code>scripts/fuzz_deep_file_issue.py</code></td>
+<td><code>backend-schema-fuzz-deep</code> (Nightly schedule only)</td>
+<td>#1383: the deep fuzz job is <code>allow_failure: true</code>, so a finding shows as a yellow job in a green pipeline and emails nobody. This script, run from <code>after_script</code> on failure, keeps one open tracking issue: it files it, or comments on it when it is already open. Self-test (run in <code>script:</code> before the fuzz) covers report-only with no token (no API call at all), a comment on an existing exact-title match (a near-miss search hit must not count), a new issue via the <code>KAIZEN_API_TOKEN</code> fallback, failing open on an API error, and quick-action smuggling: a multi-line <code>FUZZ_SEED</code> becomes <code>invalid</code>, and no CI-variable text can start a body line with <code>/</code>. The job files only when a marker written after the self-test exists, so a self-test or setup failure is never reported as a schema-fuzz finding.</td>
+</tr>
+<tr>
+<td><code>scripts/resolve_fuzz_seed.py</code></td>
+<td><code>backend-schema-fuzz</code> (and, via <code>extends:</code>, the deep nightly and <code>backend-schema-fuzz-git-lens</code>)</td>
+<td>#1207: MR pipelines cannot take pipeline variables, so the documented <code>FUZZ_SEED</code> replay was impossible on a feature branch. The script picks the seed: explicit <code>FUZZ_SEED</code> variable, then a <code>Fuzz-Seed: &lt;n&gt;</code> trailer on the MR head commit (<code>CI_COMMIT_MESSAGE</code>, merge request pipelines only), then random, and logs which. Every value is validated as a plain non-negative integer below 2**64 because it comes from a commit message. Self-test (run in <code>script:</code> before the fuzz) covers trailer parsing, case-insensitivity, last-trailer-wins, variable precedence, ignoring the trailer off MR pipelines, and rejecting non-integer, shell-metacharacter, negative, empty, unicode-digit and oversized values.</td>
+</tr>
+<tr>
+<td><code>scripts/sonar-scan.sh</code></td>
+<td><code>sonar-scan-selftest</code> (MRs touching the script, <code>sonar-project.properties</code>, or CI file; also main)</td>
+<td>#1370: the rewrites that make SonarCloud resolve backend/frontend coverage paths; a regression silently reads 0.0%. Self-test fixtures the backend <code>&lt;source&gt;</code> injection (and a non-empty <code>&lt;source&gt;</code> no-op), the lcov <code>SF:src/</code> prefix, untouched originals, and missing-report tolerance. Runs <code>sh</code> on alpine; the scan itself is the scheduled <code>sonar:scan</code>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-sonar-exclusions.sh</code></td>
+<td><code>lint:sonar-exclusions</code> (MRs touching <code>sonar-project.properties</code>, the script, or the CI file; also main)</td>
+<td>#1380, ported from TruePPM's <code>check-sonar-exclusions.sh</code>: a <code>sonar.issue.ignore.multicriteria</code> glob that matches no tracked file is dead or has silently drifted (a rename un-suppresses findings with nothing going red). Pure <code>git ls-files</code> matching, no network or <code>SONAR_TOKEN</code>. Globs use real Ant semantics (<code>**/est/**</code> is dead). Self-test plants a dead glob, an Ant-dead glob, <code>*.ts</code> globs (literal, <code>**/</code> and mid-<code>**</code> spellings) over a directory that also holds <code>.tsx</code>, an unlisted criterion, an orphan <code>.resourceKey</code>, an indexed criterion with no <code>.resourceKey</code>, and a ghost index id; each case must fail with its own check's message, and the real file must pass. #1425 added check 4b (each criterion's own comment must name its rule by S-number or RULE_TITLES title; self-test: rule not named, wrong rule named, title accepted) and an opt-in <code>--online</code> check 5 (every <code>ruleKey</code> is active in the SonarCloud quality profile) run nightly by <code>sonar:rules-check</code>, never on MRs; it fails open on no token, network error or unparseable or empty response, and its self-test drives it from fixture JSON (<code>SONAR_API_FIXTURE_DIR</code>) for rule-inactive, no-token, API-error, unparseable, zero-rules and token-not-leaked cases.</td>
+</tr>
+<tr>
+<td><code>scripts/wait-for-main-pipeline.py</code></td>
+<td><code>release-main-pipeline-guard</code> (release tags; on <code>main</code> it runs the self-test and <code>--check-ci-file</code>, then exits) and <code>release-main-pipeline-guard-selftest</code> (MRs touching the script, <code>scripts/_paths.py</code>, or the CI file; also main)</td>
+<td>#1154: every tag-pipeline publish job <code>needs:</code> the guard, which refuses unless the tagged commit's own <code>main</code> pipeline is green job by job, <code>allow_failure</code> jobs included. The self-test stubs the GitLab API and covers: green, any top-level pipeline status (<code>manual</code>, <code>running</code>, <code>failed</code>, ...) when every required job is green, top-level <code>success</code> with a required job failed, a failed <code>allow_failure</code> job, a missing always-required job, a legitimately absent change-conditional job, skipped/manual/canceled, no pipeline, HTTP/non-JSON/wrong-shape errors, newest push pipeline over a schedule one, a failure on the second jobs page, retried jobs in either order, running then timeout, the <code>dep-scan-osv</code> warn exit, parallel instances, an unknown status, an unset <code>GITLAB_API_TOKEN</code> (refused before any request), 401/403/404 refusing at once while 429/5xx are retried, and the token never being sent as <code>JOB-TOKEN</code> or printed. <code>--check-ci-file</code> fails when a listed job is not in <code>.gitlab-ci.yml</code> or a publish job does not list the guard in its <code>needs:</code>. It also fails when a publish job needs the guard only with <code>optional: true</code>, when an <code>ALWAYS_REQUIRED</code> job no longer runs automatically on every <code>main</code> pipeline (<code>changes:</code> or <code>when: manual</code> on its main rule), when a job outside <code>EXEMPT_JOBS</code> can be <code>manual</code> on <code>main</code>, and when an unlisted job that can run on a tag pipeline sits in the <code>deploy</code> stage or <code>needs:</code> a publish job without being in <code>PUBLISH_JOBS</code> or <code>TAG_READONLY</code>. Rules are read through <code>extends:</code> and <code>&lt;&lt;:</code> anchors, first match wins. Each <code>if:</code> is evaluated (<code>||</code>, <code>&amp;&amp;</code>, <code>==</code>/<code>!=</code>), and an unknown condition always counts against the job. The one shape it does not claim to catch is a job that publishes from a non-deploy stage and needs no publish job. The self-test also covers a pipeline with no jobs, and a <code>CI_COMMIT_SHA</code> overridden to a commit other than the checked-out one. Both refuse.</td>
+</tr>
+</tbody>
+</table>
+<p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,
+covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
+any CI job — see below.</p>
+<h2 id="what-trivy-scan-covers-in-the-helm-chart">What <code>trivy-scan</code> covers in the Helm chart<a class="headerlink" href="#what-trivy-scan-covers-in-the-helm-chart" title="Permanent link">&para;</a></h2>
+<p><code>trivy fs</code> renders a Helm chart before it scans it, and the chart's render-time guards
+(<code>templates/_validate.tpl</code>) reject placeholder values. Without help trivy logs
+<code>Skipping chart ... validate.yaml</code> and scans no template (#1536). The job therefore passes
+<code>--helm-values helm/ci/trivy-values.yaml</code>, a render-only values file (arbitrary, non-secret
+values; never use it to install), and fails if <code>trivy-report.json</code> has no result for <code>helm/visiban/templates/</code> or if the <code>Skipping chart</code> line ever reappears (two checks, so a reworded log line cannot hide a skip).</p>
+<ul>
+<li><strong>Scanned:</strong> the chart's default render plus NetworkPolicies, the scheduled-job CronJobs,
+  the OIDC env block and the SMTP env block (those are switched on in the values file so
+  their templates render). Misconfiguration findings (for example <code>privileged: true</code>) of
+  HIGH or CRITICAL severity fail the job like any other finding.</li>
+<li><strong>Not scanned:</strong> public demo mode (<code>values-demo.yaml</code> is a different render shape that
+  conflicts with the SMTP/OIDC settings above), the bundled <code>postgresql</code> subchart tarball,
+  and the other <code>values-*.yaml</code> overlays. Add a template or a new optional resource to the
+  values file when it is gated behind a flag that is off by default.</li>
+</ul>
+<h2 id="path-containment-for-cli-arguments">Path containment for CLI arguments<a class="headerlink" href="#path-containment-for-cli-arguments" title="Permanent link">&para;</a></h2>
+<p>Gate scripts that open files named on the command line or via <code>--root</code> do so through <code>scripts/_paths.py::resolve_within</code> (#1377). It canonicalizes the path (collapsing <code>..</code> and following symlinks) and only then checks it sits under an allowed root, so a symlink that leaves the tree is rejected too. A rejected path is a "cannot run" outcome (exit 2 for the rbac, ws-event and broadcast gates), never a clean result.</p>
+<ul>
+<li><code>--root</code>-based gates (<code>check-rbac-coverage.py</code>, <code>check-ws-event-reachability.py</code>, <code>check-broadcast-deferral.py</code>) confine every read to <code>--root</code>.</li>
+<li>Other file arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>, <code>--token-file</code>, <code>--budget-file</code>, <code>--check-ci-file</code>, <code>--output</code>, <code>--schema</code>, <code>--types</code>, <code>--evidence-out</code>) must resolve under the repository, the current directory, or the system temp directory (Python's <code>tempfile.gettempdir()</code>: <code>/tmp</code> on the Linux CI runners, <code>$TMPDIR</code> such as <code>/var/folders/...</code> on macOS, where a literal <code>/tmp/...</code> path is rejected; use <code>"${TMPDIR:-/tmp}/..."</code>). <code>kaizen_fastpath_proposal.py --table</code> may also resolve under <code>~/.claude/</code>, where the global fast-path table lives; it is read only. The temp roots are trusted only on ephemeral single-tenant runners; there is no ownership check. A filesystem-root working directory is never treated as a root.</li>
+<li><code>kaizen_gate_ledger.py</code> validates <code>--window</code> (1..100) and <code>--project</code> (an allowlist: <code>visiban/visiban</code> or <code>visiban/visiban-enterprise</code>) before they reach the <code>glab</code> argv.</li>
+<li><code>check-added-files-covered.mjs</code> rejects a <code>--target-ref</code> that starts with <code>-</code>.</li>
+</ul>
+<p>Run <code>python scripts/_paths.py --self-test</code> to exercise the helper (<code>..</code> traversal, symlink escape, filesystem-root cwd); the <code>rbac-coverage</code> job runs it.</p>
+<h2 id="scheduled-pipelines">Scheduled pipelines<a class="headerlink" href="#scheduled-pipelines" title="Permanent link">&para;</a></h2>
+<p>A scheduled pipeline on <code>main</code> runs the <strong>whole</strong> pipeline, not just the schedule-gated jobs:
+the <code>$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code> rules match a schedule, and <code>changes:</code> rules
+evaluate true on one. Every extra schedule therefore costs a full pipeline (about 48 jobs).
+So the project keeps <strong>three</strong> schedules (#1383, #1384), not one per job. All three use the <code>America/New_York</code> time zone so their local start times hold across daylight saving, and they sit in the 00:00 to 07:00 ET window, at least 90 minutes apart, clear of the TruePPM project's own schedules:</p>
+<table>
+<thead>
+<tr>
+<th>Schedule (id)</th>
+<th>Cron (<code>America/New_York</code>)</th>
+<th>Variables</th>
+<th>Owner</th>
+<th>Jobs it adds</th>
+<th>What red means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nightly (CVE/OSV, Sonar, deep fuzz, kaizen) (4176726)</td>
+<td><code>0 3 * * *</code> (03:00 ET)</td>
+<td><code>CVE_SCAN</code>, <code>OSV_SCAN</code>, <code>SONAR_SCHEDULED</code>, <code>FUZZ_DEEP</code>, <code>KAIZEN_YIELD_WATCH</code> (all <code>true</code>)</td>
+<td>maintainers (schedule owner: <code>kellyhair</code>)</td>
+<td><code>backend-dep-scan</code>, <code>frontend-dep-scan</code> (blocking); <code>dep-scan-osv</code> (blocking on HIGH/CRITICAL, warns otherwise); <code>trivy-scan</code> (blocking since #1072: HIGH/CRITICAL vulnerability, misconfiguration and secret findings all count; it runs on MRs that change its inputs and on Nightly via <code>CVE_SCAN=true</code>, not on every <code>main</code> push (#1267), and accepted findings live in <code>.trivyignore.yaml</code> with an expiry); <code>sonar:scan</code>, <code>backend-schema-fuzz-deep</code>, <code>check-release-attestations</code> (blocking, #1542); <code>kaizen-yield-watch</code> (<code>allow_failure: true</code>)</td>
+<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, a <code>trivy-scan</code> finding appears (a new misconfiguration or secret counts too) or a <code>.trivyignore.yaml</code> entry expires, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard did not refresh that night.</td>
+</tr>
+<tr>
+<td>Nightly load test (#1082) (4463581)</td>
+<td><code>0 0 * * *</code> (00:00 ET)</td>
+<td><code>LOAD_TEST_SCHEDULE=true</code></td>
+<td>maintainers (schedule owner: <code>kellyhair</code>)</td>
+<td><code>nightly-load-test</code> (blocking)</td>
+<td>A p95 budget was exceeded; see <a href="../nightly-load-test/">Nightly load test</a>.</td>
+</tr>
+<tr>
+<td>Weekly mutation testing (#1384) (4485984)</td>
+<td><code>0 6 * * 0</code> (Sunday 06:00 ET)</td>
+<td><code>MUTATION_TEST=true</code></td>
+<td>maintainers (schedule owner: <code>kellyhair</code>)</td>
+<td><code>backend-mutation</code> (50 shards) and <code>backend-mutation-report</code> (both <code>allow_failure: true</code> until the follow-up on #1384 makes the report blocking)</td>
+<td><strong>Yellow <code>backend-mutation-report</code>:</strong> either the merged adjusted mutation score is under the 0.90 floor (exit 1; the log names any target under it on its own), or the run was not measured (exit 2: a shard or target died, or finished with untested mutants). The log says which. See <a href="../mutation-testing/">Mutation testing</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>All three schedules also run every ordinary <code>main</code> job, plus the jobs that use any scheduled
+pipeline as their slot: <code>schedule-config-check</code>, <code>check-release-images</code>,
+<code>cleanup-merged-branches</code>. <code>check-release-attestations</code> is narrower: it runs only on the
+schedule that sets <code>CVE_SCAN</code> (Nightly), so it needs no schedule of its own. The helm and compose drills (<code>helm-install</code>, <code>helm-netpol</code>,
+<code>compose-prod-drill</code>) skip any schedule that sets <code>SONAR_SCHEDULED</code>, so they run on the
+load-test and weekly mutation schedules. The load test keeps its own schedule, three hours
+earlier than the Nightly one, because its latency budgets are noisy on a busy runner. Mutation
+testing keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see
+<a href="../mutation-testing/#runner-load">Runner load</a>), which did not fit alongside the Nightly jobs. <code>backend-schema-fuzz</code>, the MR job, never runs on
+a schedule; <code>backend-schema-fuzz-deep</code> replaces it there.</p>
+<p><code>seed-demo-data</code> has no schedule on purpose (#1232): it is manual-only on <code>main</code>, because the
+try.visiban.com demo now runs from the Helm chart's demo mode (see
+<a href="../../maintainers/demo-deploy/">Demo deployment</a>) rather than a weekly CI reseed.
+<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> is empty, so every schedule-gated variable must have an active
+schedule. Its last temporary entry, <code>MUTATION_TEST</code> (#1384), was removed once a schedule
+carried the variable (first the Nightly one, now the Weekly mutation testing one).</p>
+<h3 id="changing-a-schedule">Changing a schedule<a class="headerlink" href="#changing-a-schedule" title="Permanent link">&para;</a></h3>
+<p>Schedules are GitLab project configuration (<strong>Build → Pipeline schedules</strong>), not files in this
+repository. <code>schedule-config-check</code> runs on every scheduled pipeline. It fails if any
+<code>$CI_PIPELINE_SOURCE == "schedule" &amp;&amp; $VAR == "true"</code> rule in <code>.gitlab-ci.yml</code> has no
+active schedule setting <code>VAR=true</code>, unless the variable is listed in
+<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">The check only asserts anything when <code>GITLAB_API_TOKEN</code> is configured</p>
+<p>A job's <code>CI_JOB_TOKEN</code> cannot read pipeline schedules. Without a <code>GITLAB_API_TOKEN</code> CI
+variable, the lookup is
+inconclusive and the job <strong>warns and passes</strong>, and a schedule missing a variable goes
+unreported, which is the gap #1213 was filed over. The variable has existed on
+<code>visiban/visiban</code> since 2026-10-31 (#1996), owned by a Maintainer bot, so the check
+asserts from the next scheduled pipeline on. A red <code>schedule-config-check</code> there names a
+real gap the check could not see before. If it is ever removed or its owner drops below Maintainer, the check either
+falls back to warning or reports every schedule-only variable as <code>MISSING</code>. Before</p>
+<h1 id="1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying">1383 the script also stopped at the rejected job token instead of trying<a class="headerlink" href="#1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying" title="Permanent link">&para;</a></h1>
+<p><code>GITLAB_API_TOKEN</code>. It now falls through to it. The variable is a personal access token
+with <code>read_api</code> scope. For this check its owner needs <strong>Maintainer</strong>, or must own the
+schedules, because GitLab returns schedule <code>variables</code> only to them. Project access tokens
+need Premium on GitLab.com, and the <code>visiban</code> group is on Free. See
+<a href="../../maintainers/tokens-and-rotation/#gitlab_api_token-and-the-release-guard">Tokens and Rotation</a>.</p>
+</div>
+<p>Once <code>GITLAB_API_TOKEN</code> is configured, the order of a change matters:</p>
+<ul>
+<li><strong>Adding a schedule-gated job:</strong> add the variable to a schedule <strong>first</strong>. Extra variables
+  that no rule reads are harmless. Then merge the rule. In the reverse order, the next
+  scheduled pipeline reports the variable <code>MISSING</code>.</li>
+<li><strong>Removing a schedule-gated job:</strong> merge the removal first, then drop the variable from the
+  schedule.</li>
+</ul>
+<p>The check only reads <code>.gitlab-ci.yml</code> from the commit the schedule runs, so it never fails an
+MR or push pipeline. It fails the next scheduled pipeline on <code>main</code> after the merge.</p>
+<h3 id="the-readme-pipeline-badge">The README pipeline badge<a class="headerlink" href="#the-readme-pipeline-badge" title="Permanent link">&para;</a></h3>
+<p><strong>Decision (#1383): the README badge keeps tracking the latest <code>main</code> pipeline, schedules
+included.</strong> A red scheduled pipeline turns the badge red, which is deliberate. Both schedules
+feed it, including the 03:00 load-test pipeline. GitLab's pipeline badge
+can filter by ref and <code>ignore_skipped</code> but not by pipeline source, and the shields.io GitLab
+pipeline badge reads the same latest-pipeline-per-ref data. A schedule-free badge would mean
+running and maintaining a new endpoint, a service this project does not have. More
+importantly, every reason the badge can go red is a real problem with <code>main</code>, not a stochastic
+or external blip. Visiban is self-hosted, so for someone deciding whether to deploy <code>main</code>,
+that is exactly what a public status badge should show.</p>
+<p>The badge can go red for three reasons:</p>
+<ul>
+<li><code>nightly-load-test</code> goes over a latency budget. It is blocking and the noisiest of the
+  three, because budgets move on a busy shared runner. The 2026-09-30 red was this.</li>
+<li>A real HIGH/CRITICAL CVE or OSV advisory lands against a dependency of <code>main</code>, or <code>trivy-scan</code> (blocking since #1072) finds an unsuppressed HIGH/CRITICAL vulnerability, misconfiguration or secret, or an entry in <code>.trivyignore.yaml</code> expires.</li>
+<li>An ordinary <code>main</code> job really fails in a scheduled run (for example, the 2026-10-01
+  <code>frontend-test</code> red).</li>
+</ul>
+<p>Deep fuzz, Sonar and kaizen are <code>allow_failure: true</code> and <strong>cannot</strong> turn the badge red. The
+load test is the case most likely to reopen this decision. If its noise starts making the
+badge meaningless, the fix belongs in the load test's budgets, not in the badge. To revisit the
+decision, change this section and <code>README.md</code> together.</p>
+<h2 id="known-gaps-and-deferred-work">Known gaps and deferred work<a class="headerlink" href="#known-gaps-and-deferred-work" title="Permanent link">&para;</a></h2>
+<p>Not every bespoke script called out when #1093 was filed got a self-test in the same pass.
+Deferred deliberately, not silently:</p>
+<ul>
+<li><strong><code>scripts/close-milestone-issues.sh</code></strong> — an action script (closes GitLab issues via
+  <code>glab</code>), not a detection/gate script: there is no pass/fail verdict to prove still fires.
+  A meaningful self-test would need to mock the <code>glab</code> API surface, which is a larger lift
+  than this issue's scope. Not wired into <code>.gitlab-ci.yml</code> either, so the parity meta-gate
+  does not (and should not yet) flag it.</li>
+<li><strong><code>manage.py check_migration_concurrency</code></strong> — the Django management command described in
+  <code>docs/development/database-migrations.md</code>. Real detection logic with the same silent-green
+  failure mode as everything else on this page, but it is not a file under <code>scripts/</code>, so
+  today's meta-gate cannot point at it. Giving it a <code>--self-test</code> subcommand and extending
+  the meta-gate to management commands is follow-up work, not assumed done here.</li>
+<li><strong>The ~19 inline <code>- |</code> shell blocks in <code>.gitlab-ci.yml</code></strong> (e.g. <code>changelog-check</code>'s
+  <code>git merge-base</code> / label-lookup / path-stripping logic) are the same risk class but have no
+  script file to self-test. Extracting the highest-risk ones into standalone scripts (which
+  would then fall under this rule automatically) is the natural next step, evaluated
+  case-by-case rather than as a single sweep.</li>
+</ul>
+<h2 id="why-this-matters-here-specifically">Why this matters here specifically<a class="headerlink" href="#why-this-matters-here-specifically" title="Permanent link">&para;</a></h2>
+<p>Several CI jobs in this repo run on <code>alpine:3.19</code>, whose <code>grep</code>/<code>sed</code> are BusyBox, not GNU —
+no <code>--exclude-dir</code>, and subtly different behavior under <code>set -o pipefail</code> (a <code>grep -q</code>
+short-circuit sends <code>SIGPIPE</code> upstream, which <code>pipefail</code> turns into a false pipeline
+failure — found and fixed in <code>check-gate-selftest-parity.sh</code> itself while writing it; see the
+comment above <code>set -eu</code> in that script). <code>backend-lint</code> already ends a line with <code>|| true</code>
+(on its secondary Code Quality report step, not its blocking <code>ruff check</code> line — but the
+shape is exactly the hazard this page exists to guard against elsewhere). Write and test
+gate scripts assuming BusyBox and a bare <code>set -eu</code>, not GNU tools or <code>pipefail</code>, unless you
+have verified the specific behavior you rely on.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

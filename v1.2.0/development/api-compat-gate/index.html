@@ -1,0 +1,4616 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0/development/api-compat-gate/">
+      
+      
+        <link rel="prev" href="../serializer-ts-parity/">
+      
+      
+        <link rel="next" href="../rbac-and-broadcast-gates/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>API Compatibility Gate - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-compatibility-gate" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              API Compatibility Gate
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-demo-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ask Your Agent About the Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mutation-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-names-are-not-part-of-the-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component names are not part of the contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variable-naming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variable naming
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Environment variable naming">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inventory-of-the-names-new-in-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inventory of the names new in 1.2
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#allow-listing-a-deliberate-break" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allow-listing a deliberate break
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#experimental-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Experimental operations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Experimental operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#frozen-snapshot-of-the-v110-baseline-drift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frozen snapshot of the v1.1.0 baseline drift
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running it locally
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#regenerating-the-baseline-at-each-ga-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regenerating the baseline (at each GA tag)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-covered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not covered
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-fastpath-proposal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/card-history-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-deferred-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deferred Security Follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-scanners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Scanners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="api-compatibility-gate">API compatibility gate<a class="headerlink" href="#api-compatibility-gate" title="Permanent link">&para;</a></h1>
+<p>Visiban 1.0+ treats the REST schema and the operator-facing environment variable names as a
+public contract (see "Backward compatibility" in <code>CLAUDE.md</code>). The <code>api-compat-check</code> CI job
+(#1667) diffs both against the last GA tag on every MR and on <code>main</code>, so a removal can no
+longer slip through on a green pipeline.</p>
+<p>It is a sibling of <code>backend-schema-validate</code> (is the document well formed?) and
+<code>backend-schema-fuzz</code> (does the API match the document?). This job asks a third question: does
+today's contract still contain everything the last release promised?</p>
+<h2 id="what-it-checks">What it checks<a class="headerlink" href="#what-it-checks" title="Permanent link">&para;</a></h2>
+<p><strong>OpenAPI</strong> — the schema <code>manage.py spectacular</code> emits for the branch is compared with
+<code>scripts/compat-baseline/v1.1.0/openapi.json</code>. <code>$ref</code> and <code>allOf</code> are resolved on both sides,
+so a renamed component is not a finding; only what a client can observe is.</p>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>REMOVED_OPERATION</code></td>
+<td>A path + method present in the baseline is gone</td>
+</tr>
+<tr>
+<td><code>REMOVED_RESPONSE_STATUS</code></td>
+<td>A 2xx status the baseline documented is gone</td>
+</tr>
+<tr>
+<td><code>REMOVED_RESPONSE_FIELD</code> / <code>REMOVED_REQUEST_FIELD</code></td>
+<td>A property was removed</td>
+</tr>
+<tr>
+<td><code>TYPE_CHANGED</code></td>
+<td>A property, parameter, or body changed type</td>
+</tr>
+<tr>
+<td><code>RESPONSE_FIELD_BECAME_OPTIONAL</code></td>
+<td>A response property is no longer always present</td>
+</tr>
+<tr>
+<td><code>RESPONSE_BECAME_NULLABLE</code></td>
+<td>A response property may now be <code>null</code></td>
+</tr>
+<tr>
+<td><code>REQUEST_FIELD_BECAME_REQUIRED</code>, <code>NEW_REQUIRED_REQUEST_FIELD</code>, <code>NEW_REQUIRED_REQUEST_BODY</code></td>
+<td>Existing clients now fail validation</td>
+</tr>
+<tr>
+<td><code>REQUEST_STOPPED_ACCEPTING_NULL</code>, <code>REQUEST_ENUM_VALUE_REMOVED</code></td>
+<td>A request value that used to be accepted is not</td>
+</tr>
+<tr>
+<td><code>REMOVED_PARAMETER</code>, <code>PARAMETER_BECAME_REQUIRED</code>, <code>NEW_REQUIRED_PARAMETER</code>, <code>PARAMETER_TYPE_CHANGED</code></td>
+<td>The same, for query/header/path parameters</td>
+</tr>
+<tr>
+<td><code>REMOVED_REQUEST_MEDIA_TYPE</code>, <code>REMOVED_RESPONSE_MEDIA_TYPE</code></td>
+<td>A content type is no longer offered</td>
+</tr>
+</tbody>
+</table>
+<p>Additions (new endpoints, new optional fields, new optional parameters) always pass. Error
+statuses (4xx/5xx) are not part of the checked contract. A baseline property that is a bare
+read-only <code>string</code> is treated as untyped: it is drf-spectacular's fallback for an unannotated
+<code>SerializerMethodField</code>, so correcting it to its real type is not a break.</p>
+<p><strong>Settings</strong> — every env var name that <code>backend/visiban/settings.py</code> reads at the GA tag
+(<code>env(...)</code>, <code>env.&lt;type&gt;(...)</code>, <code>_secret_env(...)</code>, <code>os.environ</code>/<code>os.getenv</code>, the legacy
+name passed to <code>_warn_deprecated_env_alias</code>, and both names passed to <code>_env_alias_name</code>) must
+still be read at HEAD. A deprecated alias
+that is kept counts as present, which is exactly the rename policy in <code>CLAUDE.md</code>. The
+baseline is <code>scripts/compat-baseline/v1.1.0/settings-env.txt</code>.</p>
+<h2 id="component-names-are-not-part-of-the-contract">Component names are not part of the contract<a class="headerlink" href="#component-names-are-not-part-of-the-contract" title="Permanent link">&para;</a></h2>
+<p>The gate resolves <code>$ref</code> and <code>allOf</code>, so a renamed component is never a finding. A generated
+client does turn a component name into a type name, so a rename is still worth a decision, made
+once and recorded:</p>
+<ul>
+<li><strong>Pin the old name</strong> (<code>@extend_schema_serializer(component_name=...)</code>) only when a plain
+  rename is the whole change, as #1825 did for dj-rest-auth's password request bodies.</li>
+<li><strong>Otherwise keep the new name</strong> and list the old-to-new mapping in the upgrade guide. #1834
+  did this for <code>/auth/user/</code> (<code>User</code> to <code>CurrentUser</code>) and for the dj-rest-auth response
+  components: pinning <code>User</code> back would have collided with <code>UserSerializer</code>'s component, which
+  <code>POST /auth/choose-username/</code> returns, so one of the two would have needed a rename anyway.</li>
+</ul>
+<p>Decide before the baseline roll: the roll freezes whatever names the schema has that day.</p>
+<p>Decided in #1874, ahead of the first baseline roll that contains them (none of the names
+below exist in the v1.1.0 baseline, so nothing shipped was renamed):</p>
+<ul>
+<li><strong>No <code>*RequestRequest</code> components.</strong> <code>COMPONENT_SPLIT_REQUEST</code> already appends <code>Request</code>
+  to a request component, so an <code>inline_serializer(name="...")</code> on a <code>request=</code> must not end
+  in <code>Request</code>. Use <code>name="CardMove"</code> to get <code>CardMoveRequest</code>. This applied to the card
+  move, checklist/column/custom-field/swimlane/swimlane-custom-field reorder, board share,
+  add-or-update-member, and personal-access-token create bodies. The share body's expiry enum
+  is now <code>ShareBoardExpiresInDaysEnum</code>.</li>
+<li><strong>List endpoints get <code>_list</code> operationIds.</strong> <code>api_v1_admin_action_log_list</code>,
+  <code>api_v1_admin_board_invite_links_list</code> and <code>api_v1_boards_events_list</code> are set explicitly
+  with <code>operation_id=</code> because the generator names a non-<code>ViewSet</code> <code>APIView</code> GET, and the
+  <code>events</code> action, <code>_retrieve</code>.</li>
+<li>A 1.1 name that shipped keeps its name; only 1.2-new names were changed.</li>
+</ul>
+<p><code>backend/boards/tests/test_schema_generated_names_1874.py</code> fails if a <code>*RequestRequest</code>
+component or one of those <code>_retrieve</code> operationIds reappears.</p>
+<h2 id="environment-variable-naming">Environment variable naming<a class="headerlink" href="#environment-variable-naming" title="Permanent link">&para;</a></h2>
+<p>Env var names freeze the same way, and the gate cannot tell a good name from a bad one. Decided
+in #1873 for every name added from 1.2 on:</p>
+<ul>
+<li><strong>No product prefix on functional settings.</strong> Name them <code>&lt;FEATURE&gt;_&lt;NOUN&gt;[_&lt;UNIT&gt;]</code>, like
+  <code>BOARD_EVENT_RETENTION_DAYS</code>, <code>NOTIFICATION_EMAIL_TIMEOUT</code> and <code>GIT_LENS_ENABLED</code>. Almost every
+  pre-1.2 variable is already unprefixed, and a prefix on some settings but not others is how
+  the inconsistency starts.</li>
+<li><strong>Put the unit in the name when the value has one</strong>: <code>_BYTES</code>, <code>_DAYS</code>, <code>_SECONDS</code>. A size
+  without <code>_BYTES</code> reads as megabytes to half of all operators.</li>
+<li><strong>A name that mirrors an upstream setting keeps the upstream name and unit.</strong> Django,
+  DRF and allauth settings read from the environment use their own names (<code>EMAIL_TIMEOUT</code>,
+  <code>NUM_PROXIES</code>), and a feature-scoped copy of one follows it: <code>NOTIFICATION_EMAIL_TIMEOUT</code> is
+  in seconds, like the <code>EMAIL_TIMEOUT</code> it mirrors, so it carries no <code>_SECONDS</code>.</li>
+<li><strong>Feature on/off switches end in <code>_ENABLED</code></strong> (<code>MCP_SERVER_ENABLED</code>, <code>GIT_LENS_ENABLED</code>). A
+  boolean that picks a mode of a feature that is already on says what the mode is
+  (<code>NOTIFICATION_EMAIL_ASYNC</code>).</li>
+<li><strong>A switch that turns the whole instance into a named mode ends in <code>_MODE</code></strong> (<code>DEMO_MODE</code>).
+  It is not a feature toggle: it changes what the instance is (a public, write-fenced demo).
+  The name states the mode, so it has no <code>_ENABLED</code>.</li>
+<li><strong>Throttle rates are <code>&lt;FEATURE&gt;_THROTTLE_&lt;SCOPE&gt;_RATE</code></strong>, like <code>MCP_THROTTLE_READ_RATE</code> and
+  <code>DEMO_THROTTLE_USER_RATE</code>, so a feature's limits sort together.</li>
+<li><strong>The <code>VISIBAN_</code> prefix is reserved for two kinds of variable.</strong> One is key material that
+  Visiban itself uses to protect data (<code>VISIBAN_SECRET_ENCRYPTION_KEY</code>). The other is a
+  test- or CI-only input that a production install must never set
+  (<code>VISIBAN_DISABLE_THROTTLING</code>, <code>VISIBAN_GIT_LENS_STUB_PROVIDERS</code>, <code>VISIBAN_FUZZ_TOKEN_FILE</code>).
+  The prefix marks them as not ordinary tuning knobs. Other secrets are credentials for an
+  external service or an account, such as <code>REDIS_URL_PASSWORD</code> or <code>DEMO_LOGIN_PASSWORD</code>. They
+  are named like any other setting, <code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code>, without the prefix.</li>
+<li><strong>Fixing a name that has shipped</strong> (in any release, pre-releases included) means adding the
+  new name and keeping the old one as a working, deprecated alias. Use the helpers in
+  <code>backend/visiban/env_aliases.py</code>. They are pure stdlib, so <code>settings.py</code> and code outside it,
+  such as a management command, can both import them without a cycle. <strong>Import them under
+  their underscore names</strong>, as <code>settings.py</code> and <code>migrate_with_lock.py</code> do:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban.env_aliases</span><span class="w"> </span><span class="kn">import</span> <span class="n">env_alias_name</span> <span class="k">as</span> <span class="n">_env_alias_name</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban.env_aliases</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_deprecated_env_alias</span> <span class="k">as</span> <span class="n">_warn_deprecated_env_alias</span>
+</code></pre></div>
+<p>This gate (<code>scripts/check-api-compat.py</code>) and the chart's reader check
+  (<code>scripts/helm-structure-check.sh</code> section 3) match calls to <code>_env_alias_name(...)</code> and
+  <code>_warn_deprecated_env_alias(...)</code> by those names, with the variable names as string
+  literals. A call under any other name, or with a name passed through a variable, is
+  invisible to both. <code>_env_alias_name("NEW", "OLD")</code> picks which name to read: the new name
+  wins when it is non-empty. <code>_warn_deprecated_env_alias("OLD", "NEW")</code> logs the startup
+  warning. Pass <code>removed=True</code> for an old name that is no longer read at all, so the warning
+  says it has no effect. List the alias in the deprecated-names table in
+  <code>docs/administration/configuration.md</code>.</p>
+<p>Applied in #1873, before the first baseline roll that contains them. None of the old names is
+in the v1.1.0 baseline, but all of them shipped in 1.2 pre-releases (from <code>v1.2.0-alpha.1</code>
+on), so all of them are still read:</p>
+<table>
+<thead>
+<tr>
+<th>Pre-release name (deprecated alias)</th>
+<th>Canonical name</th>
+<th>Read in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VISIBAN_IMPORT_MAX_SIZE</code></td>
+<td><code>IMPORT_MAX_SIZE_BYTES</code></td>
+<td><code>visiban/settings.py</code></td>
+</tr>
+<tr>
+<td><code>DEMO_USER_THROTTLE_RATE</code></td>
+<td><code>DEMO_THROTTLE_USER_RATE</code></td>
+<td><code>visiban/settings.py</code></td>
+</tr>
+<tr>
+<td><code>VISIBAN_MIGRATE_CONNECT_TIMEOUT</code></td>
+<td><code>MIGRATE_CONNECT_TIMEOUT_SECONDS</code></td>
+<td><code>boards/management/commands/migrate_with_lock.py</code></td>
+</tr>
+<tr>
+<td><code>VISIBAN_MIGRATE_LOCK_TIMEOUT</code></td>
+<td><code>MIGRATE_LOCK_TIMEOUT_SECONDS</code></td>
+<td><code>boards/management/commands/migrate_with_lock.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>The Django setting <code>settings.VISIBAN_IMPORT_MAX_SIZE</code> keeps its name. Settings attributes are
+internal, and renaming it would only churn callers.
+<code>backend/accounts/tests/test_deprecated_env_aliases.py</code> and
+<code>backend/boards/tests/test_migrate_with_lock.py</code> cover the resolution order.</p>
+<h3 id="inventory-of-the-names-new-in-12">Inventory of the names new in 1.2<a class="headerlink" href="#inventory-of-the-names-new-in-12" title="Permanent link">&para;</a></h3>
+<p>How the list was derived, so it can be re-checked. <code>--dump-env</code> given a directory runs the
+gate's AST-based <code>env_names()</code> over every non-test <code>.py</code> file under it. It skips <code>tests/</code>
+directories, <code>test_*.py</code> and <code>conftest.py</code>. That covers lookups split across lines and the
+<code>JobSpec(name, "ENV", default)</code> entries in <code>run_scheduler.py</code>, which a per-line grep misses.
+Run it from the repository root:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">TMP</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>git<span class="w"> </span>archive<span class="w"> </span>v1.1.0<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-x<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">"</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python3<span class="w"> </span><span class="s2">"</span><span class="nv">$OLDPWD</span><span class="s2">/scripts/check-api-compat.py"</span><span class="w"> </span>--dump-env<span class="w"> </span>backend<span class="w"> </span><span class="o">)</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/old.txt"</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python3<span class="w"> </span>scripts/check-api-compat.py<span class="w"> </span>--dump-env<span class="w"> </span>backend<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/new.txt"</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>comm<span class="w"> </span>-13<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/old.txt"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/new.txt"</span><span class="w">   </span><span class="c1"># names new since v1.1.0</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>comm<span class="w"> </span>-23<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/old.txt"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/new.txt"</span><span class="w">   </span><span class="c1"># names gone since v1.1.0 (must be empty)</span>
+</code></pre></div>
+<p>The <code>cd</code> matters: the script only reads paths under the repository, the system temp
+directory or the current directory. When this was last run for #1873, no name was gone. Every
+new name is either one of the four renamed pairs above or in this table:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Rule it follows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BOARD_EVENT_RETENTION_DAYS</code>, <code>NOTIFICATION_RETENTION_DAYS</code></td>
+<td><code>&lt;FEATURE&gt;_&lt;NOUN&gt;_&lt;UNIT&gt;</code></td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_EMAIL_ENABLED</code>, <code>INVITE_EMAIL_ENABLED</code>, <code>GIT_LENS_ENABLED</code>, <code>MCP_SERVER_ENABLED</code></td>
+<td>on/off switch ends in <code>_ENABLED</code></td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_EMAIL_ASYNC</code></td>
+<td>mode of a feature that is already on</td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_EMAIL_TIMEOUT</code></td>
+<td>mirrors Django's <code>EMAIL_TIMEOUT</code> (seconds)</td>
+</tr>
+<tr>
+<td><code>EMAIL_TIMEOUT</code>, <code>EMAIL_USE_SSL</code>, <code>NUM_PROXIES</code></td>
+<td>upstream Django/DRF names</td>
+</tr>
+<tr>
+<td><code>GIT_LENS_OUTBOUND_LOG_LEVEL</code>, <code>MCP_ALLOWED_HOSTS</code></td>
+<td><code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code></td>
+</tr>
+<tr>
+<td><code>REDIS_URL_PASSWORD</code></td>
+<td><code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code>: credential for an external service, so no reserved prefix</td>
+</tr>
+<tr>
+<td><code>MCP_THROTTLE_READ_RATE</code>, <code>MCP_THROTTLE_COMPUTE_RATE</code>, <code>MCP_THROTTLE_PREAUTH_RATE</code></td>
+<td><code>&lt;FEATURE&gt;_THROTTLE_&lt;SCOPE&gt;_RATE</code></td>
+</tr>
+<tr>
+<td><code>DEMO_MODE</code></td>
+<td>named instance mode, ends in <code>_MODE</code></td>
+</tr>
+<tr>
+<td><code>DEMO_LOGIN_USERNAME</code>, <code>DEMO_RESET_SCHEDULE</code></td>
+<td><code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code></td>
+</tr>
+<tr>
+<td><code>DEMO_LOGIN_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code>, <code>DEMO_MEMBER_PASSWORD</code></td>
+<td><code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code>: account credentials, so no reserved prefix</td>
+</tr>
+<tr>
+<td><code>SCHEDULE_NOTIFY_DUE_SOON</code>, <code>SCHEDULE_NOTIFY_STALE_CARDS</code>, <code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, <code>SCHEDULE_PRUNE_NOTIFICATIONS</code></td>
+<td><code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code>: the scheduler's <code>SCHEDULE_&lt;JOB&gt;</code> family, read through <code>JobSpec</code> in <code>run_scheduler.py</code></td>
+</tr>
+<tr>
+<td><code>VISIBAN_SECRET_ENCRYPTION_KEY</code></td>
+<td>reserved prefix: key material Visiban uses to protect data</td>
+</tr>
+<tr>
+<td><code>VISIBAN_DISABLE_THROTTLING</code>, <code>VISIBAN_GIT_LENS_STUB_PROVIDERS</code>, <code>VISIBAN_FUZZ_TOKEN_FILE</code></td>
+<td>reserved prefix: test/CI-only</td>
+</tr>
+</tbody>
+</table>
+<p>Out of scope: <code>MUTATION_SHARD</code>, <code>MUTATION_SHARDS</code>, <code>MUTATION_TARGET</code>, <code>CI_NODE_INDEX</code> and
+<code>CI_NODE_TOTAL</code> are read only by <code>backend/mutmut_config.py</code>, the mutation-testing harness (see
+<a href="../mutation-testing/">Mutation testing</a>). They are CI inputs, not operator settings.</p>
+<h2 id="allow-listing-a-deliberate-break">Allow-listing a deliberate break<a class="headerlink" href="#allow-listing-a-deliberate-break" title="Permanent link">&para;</a></h2>
+<p>A break that is intentional (a planned major bump, or a removal of an item already deprecated
+for a full release) goes in <code>scripts/compat-baseline/allowlist.json</code>. Every entry needs an
+<code>issue</code> (<code>#1234</code>) and a <code>reason</code>, and exactly one target:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="nt">"allow"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p">{</span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"REMOVED_RESPONSE_FIELD GET /api/v1/boards/ response 200 application/json .results[] .legacy_name"</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">   </span><span class="nt">"issue"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#1700"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deprecated in 1.2, removal scheduled for 2.0"</span><span class="p">},</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="p">{</span><span class="nt">"operation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"POST /api/v1/old/"</span><span class="p">,</span><span class="w"> </span><span class="nt">"issue"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#1701"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"endpoint retired after the 410 period"</span><span class="p">}</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">]}</span>
+</code></pre></div>
+<ul>
+<li><code>key</code> is the exact text the gate prints (<code>*</code> is a wildcard).</li>
+<li><code>operation</code> (<code>"METHOD /path/"</code>) covers every finding under that one operation.</li>
+</ul>
+<p>An entry that no longer matches any finding is <strong>stale and fails the job</strong>, so the list can
+only shrink toward the truth. Entries without an issue reference fail the job outright.</p>
+<p>Prefer <code>key</code> entries. An <code>operation</code> entry silently covers every future finding under that
+operation, so use it only when the whole operation is deliberately retired (the five
+<code>#1080</code> catch-all entries are an example). The self-test pins the opposite behavior for
+<code>key</code> entries: a <em>new</em> finding under an operation that already has entries still fails.</p>
+<h2 id="experimental-operations">Experimental operations<a class="headerlink" href="#experimental-operations" title="Permanent link">&para;</a></h2>
+<p>An operation documented as experimental (no stability promise until it graduates) must not
+freeze when the baseline is rolled. List it in <code>scripts/compat-baseline/experimental.json</code>
+(#1875), which is separate from the allow-list: the allow-list excuses one specific break,
+this keeps a whole operation out of the contract.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">"experimental"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p">{</span><span class="nt">"path_pattern"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/api/v1/git-lens/*"</span><span class="p">,</span><span class="w"> </span><span class="nt">"issue"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#1875"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"documented experimental in docs/api/git-lens.md"</span><span class="p">}</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">]}</span>
+</code></pre></div>
+<ul>
+<li><code>path_pattern</code> is an <code>fnmatch</code> pattern against the schema path (<code>*</code> is a wildcard).</li>
+<li>Every entry needs an <code>issue</code> and a <code>reason</code>; the gate fails without them.</li>
+<li>Matching operations are skipped on both sides of the diff, and the gate prints each skipped
+  <code>METHOD /path/</code> in the CI log so the exemption is visible.</li>
+<li>An entry that matches no operation in the baseline or at HEAD is <strong>dead and fails the job</strong>.
+  With <code>--schema FILE</code>, generate the schema with <code>GIT_LENS_ENABLED=True</code>, otherwise the Git Lens
+  entries report as dead (the default run sets it for you).</li>
+<li><code>--normalize</code> honors the list, so a baseline regenerated at a GA tag never contains these
+  operations (see "Regenerating the baseline"). Components are compared only through the
+  operations that reference them, so a component shared with a non-experimental operation is
+  still checked through that operation.</li>
+<li><strong>When to add an entry:</strong> only for a surface the public docs already call experimental, with
+  a tracking issue. Do not use it to get a pipeline green.</li>
+<li><strong>Leaving experimental:</strong> remove the entry <strong>before</strong> the baseline roll that should freeze the
+  operation, and update the API doc's experimental notice in the same MR. Removing it after the
+  roll leaves the operation permanently unfrozen.</li>
+</ul>
+<p>The only entries today are the Git Lens REST endpoints. The <code>lens_connection.*</code> WebSocket
+events and the <code>git_lens_enabled</code> user field are deliberately frozen (#1666) and are not listed.</p>
+<h3 id="frozen-snapshot-of-the-v110-baseline-drift">Frozen snapshot of the v1.1.0 baseline drift<a class="headerlink" href="#frozen-snapshot-of-the-v110-baseline-drift" title="Permanent link">&para;</a></h3>
+<p>The v1.1.0 schema was generated before the schema-hygiene work (#1135-#1138, #1209, #1080) and
+documented fallback or wrong serializers for a number of operations (for example a card
+serializer standing in for the request body of <code>checklist/</code> and <code>comments/</code>). Diffing against
+it yields findings that look like documentation corrections rather than runtime changes.</p>
+<p>A read-only comparison of the v1.1.0 and current runtime code verified these classes as
+<strong>documentation-only baseline errors, not breaks</strong>:</p>
+<ul>
+<li><code>card_count</code> / <code>member_count</code> on <code>GET /boards/{id}/full/</code>: the v1.1.0 <code>BoardFullSerializer</code>
+  never had them; the v1.1.0 schema showed the viewset's default <code>BoardSerializer</code>.</li>
+<li><code>assignee</code> / <code>created_by</code> nullable on cards: v1.1.0 already returned <code>null</code> for the
+  <code>SET_NULL</code> foreign keys; only the schema (<code>allow_null=True</code>) changed.</li>
+<li><code>POST /boards/import/</code> <code>file</code>: v1.1.0 was already multipart-only and answered 400
+  "No file provided." without it.</li>
+<li><code>object</code> -&gt; <code>array</code> list responses (activities, attachments, movements, saved-filters, and
+  the group boards / descendant-boards / invite-links / labels / subgroups actions): these
+  hand-written <code>@action</code>s returned bare arrays in both versions; only the schema's
+  <code>pagination_class</code> was fixed.</li>
+<li>2xx status changes: an AST scan found none that differ at runtime.</li>
+</ul>
+<p>The same comparison found no serializer field and no URL route removed between v1.1.0 and
+<code>main</code> (the <code>dj_rest_auth</code> <code>include()</code> became explicit routes, and five declarations were
+rewritten as same-name <code>SerializerMethodField</code>s).</p>
+<p>Those findings are therefore frozen as exact per-finding <code>key</code> entries (generated once from
+the gate's own output with an empty allow-list, sorted for stable diffs). The snapshot is
+closed: anything not already in it, including a further change to an operation that has
+entries, fails the job. Never add to it to get a pipeline green; a new finding is a real break
+or needs its own issue-referenced entry. The temporary <code>#1788</code>, <code>#1783</code> and <code>#1792</code> entries described
+below are such entries; none of them is part of the burn-down count above.
+The exception is an operation covered by an <code>operation</code> entry (the <code>#1783</code> ones): every finding
+under it passes, including a new one. That is why those entries must be deleted at the v1.2.0
+roll.</p>
+<p><strong>Burn-down result</strong> (#1695). Every one of the 51 operations with entries was checked against
+the v1.1.0 <em>view code</em> (<code>git show v1.1.0:backend/...</code>), not the v1.1.0 schema, and each entry's
+<code>reason</code> now records what v1.1.0 actually read and returned. The outcome:</p>
+<ul>
+<li><strong>556 entries under <code>#1695</code> are documentation-only.</strong> The v1.1.0 schema showed a fallback
+  serializer for hand-written <code>@action</code>s and <code>APIView</code>s (a card serializer for <code>move/</code>,
+  <code>checklist/</code>, <code>comments/</code>, <code>attachments/</code>, <code>status/</code>, <code>timeline/</code>, <code>archived/</code>; a board
+  serializer for <code>share/</code>, <code>members/</code>, <code>movements/</code>, <code>export-history/</code>; a group serializer for
+  the group <code>labels/</code>, <code>members/</code>, <code>star/</code>, <code>invite-links/</code>, <code>boards/</code> actions), echoed the
+  request serializer as the response for the dj-rest-auth subclasses (<code>login/</code>,
+  <code>password/reset/</code>, <code>password/reset/confirm/</code>, <code>registration/</code>), and documented <code>200</code> where
+  the view returned <code>201</code> (or <code>204</code> where <code>DELETE share/</code> returned <code>200</code>). None of the listed
+  fields or statuses was ever on the wire.</li>
+<li><strong>4 entries under <code>#1302</code> are a real, deliberate runtime change</strong>, already announced in
+  <code>CHANGELOG.md</code>: <code>columns/reorder/</code> and <code>swimlanes/reorder/</code> used to treat a missing <code>order</code> as
+  a <code>200</code> no-op and now answer <code>400</code> unless <code>order</code> is the board's full ID list. The
+  upgrade-guide note for this is tracked in #1782.</li>
+<li><strong>3 <code>REMOVED_REQUEST_MEDIA_TYPE</code> entries on <code>POST /auth/password/change/</code> were a HEAD
+  schema defect, not a removal</strong> (#1781, fixed). <code>VisibanPasswordChangeSerializer.__init__</code>
+  called <code>has_usable_password()</code> on <code>AnonymousUser</code> during schema generation, so HEAD's schema
+  lost the request body. The fix replaced them with three
+  <code>NEW_REQUIRED_REQUEST_FIELD ... .old_password</code> entries under <code>#1257</code>, the deliberate security
+  break.</li>
+</ul>
+<p>Until the baseline is rolled at the next GA, these entries stay in the file because the drift lives in the frozen baseline itself: deleting
+an entry whose finding still fires turns the job red, whether the finding is drift or a real
+break. Entries are only ever deleted (when one goes stale) or re-justified, never added.
+The exceptions are the #1781 replacement above and the temporary #1788 entries below.
+The temporary #1783 entries below are a third exception, and the #1792 entry a fourth.</p>
+<p>A fifth exception is permanent, not temporary: the <code>REMOVED_RESPONSE_STATUS DELETE /api/v1/admin/invite-links/{id}/ 204</code>
+entry under <code>#1912</code>. The v1.1.0 baseline listed <code>204</code> there (drf-spectacular's DELETE default), but
+v1.1.0 always answered <code>200</code> with the revoked link and <code>400</code> on a repeat revoke. That runtime
+contract is frozen for all of 1.x, so the schema now declares it and the entry is not removed at
+the v1.2.0 roll.</p>
+<p>Four temporary <code>key</code> entries under <code>#1788</code> cover <code>NEW_REQUIRED_REQUEST_BODY</code> on <code>POST swimlanes/</code>,
+<code>PUT swimlanes/{id}/</code>, and <code>PATCH swimlanes/{id}/set-collapsed/</code> and <code>set_collapsed/</code>. The v1.1.0
+baseline lacks those bodies because <code>SwimlaneViewSet</code> crashed during schema generation; #1788
+fixes the schema, and the endpoints always required the body. Delete all four entries when the
+baseline is rolled at the v1.2.0 GA.</p>
+<p>Sixteen temporary <code>operation</code> entries under <code>#1783</code> cover hand-written actions and <code>APIView</code>s
+whose schema showed a fallback serializer, no body, or a wrong status (for example <code>star/</code>,
+<code>move-group/</code>, <code>saved-filters/</code>, card <code>archive/</code> and <code>unarchive/</code>, <code>summary/</code>, <code>analytics/</code>,
+<code>export/</code>, the group <code>members/{user_id}/</code>, <code>transfer-ownership/</code> and <code>board-defaults/</code> actions,
+<code>auth/change-password/</code>, <code>auth/choose-username/</code> and <code>auth/registration/resend-email/</code>).
+The v1.1.0 baseline holds those wrong shapes, so each correction reads as a removal; no runtime
+behavior changed. Delete all sixteen when the baseline is rolled at the v1.2.0 GA.</p>
+<p>One temporary <code>key</code> entry under <code>#1792</code> covers <code>REQUEST_BODY_BECAME_REQUIRED</code> on <code>POST boards/import/</code>: the
+baseline published the multipart upload body as optional, but the view has always answered 400 without
+<code>file</code>. Delete it when the baseline is rolled at the v1.2.0 GA.</p>
+<p>The GA roll does not fix the schema by itself. It freezes the schema HEAD generates at that tag
+as the new baseline, so an operation that still documents a fallback serializer at the tag
+carries that error into the next baseline. #1783 corrected the cases its sweep confirmed. The
+board import request bodies were corrected in #1792; hand-written <code>GET</code>s that
+publish no response body are tracked in #1793; any found later needs the same fix before the following roll.</p>
+<h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">   </span><span class="c1"># the same env the backend tests use</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">cd</span><span class="w"> </span>..<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python3<span class="w"> </span>scripts/check-api-compat.py<span class="w"> </span>--self-test
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>python3<span class="w"> </span>scripts/check-api-compat.py
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>bash<span class="w"> </span>scripts/tests/check-api-compat.test.sh
+</code></pre></div>
+<h2 id="regenerating-the-baseline-at-each-ga-tag">Regenerating the baseline (at each GA tag)<a class="headerlink" href="#regenerating-the-baseline-at-each-ga-tag" title="Permanent link">&para;</a></h2>
+<p>Do this once, when a new GA tag is cut, from a clean checkout of the tag. Run it in a
+temporary worktree outside the repo and delete it afterward.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.0
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">VENV_PY</span><span class="o">=</span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/backend/.venv/bin/python"</span><span class="w">   </span><span class="c1"># run from the repository root</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>git<span class="w"> </span>worktree<span class="w"> </span>add<span class="w"> </span>--detach<span class="w"> </span>/tmp/visiban-<span class="nv">$TAG</span><span class="w"> </span><span class="nv">$TAG</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/tmp/visiban-<span class="nv">$TAG</span>/backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://u:p@localhost:5432/d<span class="w"> </span><span class="nv">REDIS_URL</span><span class="o">=</span>redis://localhost:6379/0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">     </span><span class="nv">DJANGO_SECRET_KEY</span><span class="o">=</span>x<span class="w"> </span><span class="nv">DEBUG</span><span class="o">=</span>True<span class="w"> </span><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>localhost<span class="w"> </span><span class="nv">GIT_LENS_ENABLED</span><span class="o">=</span>True<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">     </span><span class="s2">"</span><span class="nv">$VENV_PY</span><span class="s2">"</span><span class="w"> </span>manage.py<span class="w"> </span>spectacular<span class="w"> </span>--format<span class="w"> </span>openapi-json<span class="w"> </span>--file<span class="w"> </span>/tmp/<span class="nv">$TAG</span>.json<span class="w"> </span><span class="o">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>scripts/compat-baseline/<span class="nv">$TAG</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>python3<span class="w"> </span>scripts/check-api-compat.py<span class="w"> </span>--normalize<span class="w"> </span>/tmp/<span class="nv">$TAG</span>.json<span class="w"> </span>scripts/compat-baseline/<span class="nv">$TAG</span>/openapi.json
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>python3<span class="w"> </span>scripts/check-api-compat.py<span class="w"> </span>--dump-env<span class="w"> </span>/tmp/visiban-<span class="nv">$TAG</span>/backend/visiban/settings.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span>&gt;<span class="w"> </span>scripts/compat-baseline/<span class="nv">$TAG</span>/settings-env.txt
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>git<span class="w"> </span>worktree<span class="w"> </span>remove<span class="w"> </span>/tmp/visiban-<span class="nv">$TAG</span>
+</code></pre></div>
+<p>Then, as a manual step on the
+release checklist, point <code>BASELINE_SCHEMA</code> / <code>BASELINE_ENV</code> in <code>scripts/check-api-compat.py</code>
+(lines 52-53) at the new
+directory, delete every allow-list entry the new baseline no longer needs, and delete the old
+baseline directory. <code>--normalize</code> strips prose, examples, and <code>x-</code> extensions so the fixture
+stays small and docs edits never read as contract changes, and drops every operation listed in
+<code>experimental.json</code>. Before the roll, remove the entry of any operation that should now freeze.</p>
+<p>Every allow-list entry is a diff against the v1.1.0 baseline. Once the baseline is the v1.2.0
+schema and HEAD matches it, none of those findings fire, so all entries go stale, and a stale
+entry fails the job. After regenerating, run <code>python3 scripts/check-api-compat.py</code>, delete every
+entry it reports as stale (expected: the whole list, leaving <code>{"allow": []}</code>), and re-run until
+it prints OK with no stale entries. As a safety net for the temporary entries (those whose
+<code>reason</code> starts with <code>temporary:</code>, citing #1783, #1788, #1789 or #1792), this lists any left
+behind; after deleting, it must print nothing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import json;[print(e['issue'],e.get('operation') or e['key']) for e in json.load(open('scripts/compat-baseline/allowlist.json'))['allow'] if e['reason'].startswith('temporary:') or e['issue'] in ('#1783','#1788','#1789','#1792')]"</span>
+</code></pre></div>
+<p>A temporary entry left behind fails the roll MR loudly. Then, in this file, delete every sentence
+or paragraph that describes temporary entries or counts exceptions to the "never added" rule
+(including any added for #1789 or #1792), keeping the existing "never added" sentence as is, and
+revise the prose that describes the v1.1.0 baseline drift and allow-list burn-down (the
+"Frozen snapshot of the v1.1.0 baseline drift" section, the <code>#1080</code> catch-all mentions, the
+<code>v1.1.0/</code> paths, and the paragraph above) to the new baseline.</p>
+<h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Serializer fields that never reach the schema (the schema is the source of truth here;
+  <code>serializer-ts-parity</code> covers frontend interfaces).</li>
+<li>WebSocket events: see <a href="../websocket-event-contract/">WebSocket event contract</a>.</li>
+<li>Settings <em>values</em> and defaults; only names are compared.</li>
+<li>Env vars read outside <code>backend/visiban/settings.py</code>, such as the <code>MIGRATE_*_TIMEOUT_SECONDS</code>
+  pair in <code>migrate_with_lock</code>. <code>scripts/helm-structure-check.sh</code> section 3 proves that every
+  name the chart injects has a reader under <code>backend/</code>, but nothing diffs these names against
+  a release.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

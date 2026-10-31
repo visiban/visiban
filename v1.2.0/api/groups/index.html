@@ -1,0 +1,5429 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0/api/groups/">
+      
+      
+        <link rel="prev" href="../cards/">
+      
+      
+        <link rel="next" href="../notifications/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Groups - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#groups-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Groups
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-demo-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ask Your Agent About the Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Groups
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Groups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GET /api/v1/groups/{id}/">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#board-placement-can_place_boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board placement (can_place_boards)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ancestor-groups-navigation-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ancestor groups (navigation-only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#put-apiv1groupsid-patch-apiv1groupsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PUT /api/v1/groups/{id}/ / PATCH /api/v1/groups/{id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1groupsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/groups/{id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#members" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Members
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidmembers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/members/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apiv1groupsidmembersuser_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/v1/groups/{id}/members/{user_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1groupsidmembersuser_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/groups/{id}/members/{user_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#subgroups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subgroups
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Subgroups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidsubgroups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/subgroups/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Boards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidboards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/boards/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groupsidboards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/{id}/boards/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsiddescendant-boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/descendant-boards/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsiddescendant-boardspaged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/descendant-boards/paged/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invite-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invite links
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Invite links">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidinvite-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/invite-links/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groupsidinvite-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/{id}/invite-links/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groupsidinvite-linkssend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/{id}/invite-links/send/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1groupsidinvite-linkslink_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/groups/{id}/invite-links/{link_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#favorites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Favorites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Favorites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groupsidstar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/{id}/star/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1groupsidstar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/groups/{id}/star/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsstarredtrue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/?starred=true
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transfer-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transfer ownership
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Transfer ownership">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groupsidtransfer-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/{id}/transfer-ownership/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#group-shared-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Group shared labels
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Group shared labels">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidlabels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/labels/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groupsidlabels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/{id}/labels/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apiv1groupsidlabelslabel_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/v1/groups/{id}/labels/{label_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1groupsidlabelslabel_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/groups/{id}/labels/{label_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#board-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board defaults
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Board defaults">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#patch-apiv1groupsidboard-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/v1/groups/{id}/board-defaults/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#join-public" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Join (public)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Join (public)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsjointoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/join/{token}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1groupsjointoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/groups/join/{token}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/mutation-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/api-compat-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/security-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/kaizen-fastpath-proposal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/card-history-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-deferred-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deferred Security Follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-scanners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Scanners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="groups-api">Groups API<a class="headerlink" href="#groups-api" title="Permanent link">&para;</a></h1>
+<p>Groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and <code>allowed_priorities</code> are copied onto boards created in the group; the default member role is deprecated and has no effect (<a href="https://gitlab.com/visiban/visiban/-/issues/1430">#1430</a>).</p>
+<h2 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1groups"><code>GET /api/v1/groups/</code><a class="headerlink" href="#get-apiv1groups" title="Permanent link">&para;</a></h3>
+<p><strong>Response</strong> — the standard <a href="../#pagination">paginated envelope</a> <code>{ "count", "offset", "page_size", "results": [ ...groups ] }</code>. It accepts <code>?offset</code> (default <code>0</code>) and <code>?page_size</code> (default <code>50</code>, max <code>200</code>); read the groups from <code>results</code>, not from the top level.</p>
+<p>List all groups accessible to the current user: groups they belong to, their subgroups, and the ancestors of those groups (so a client can render the path to a subgroup). <em>(1.2+)</em> Only a membership with one of the four roles (<code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code>) counts; a stored membership with any other role value (one no API accepts, written by a direct database edit or an older import) grants no group access, lists no group, and does not admit the user to the <a href="../websockets/#group-channel-since-11">group channel</a>, the same as it grants no board role. Owning a group without such a membership does not list it either (#1829); every owner holds an <code>admin</code> membership, see <a href="#members">Members</a>. A group the user has no access to itself (no membership in it or in one of its ancestors), returned only so navigation (tree, breadcrumbs) keeps working — typically an ancestor of one of their groups — is returned navigation-only, with its fields withheld: each such row has <code>navigation_only: true</code>, <code>description: ""</code>, <code>member_count</code>, <code>board_count</code> and <code>subgroup_count</code> of <code>0</code>, and empty <code>shared_labels</code> and <code>allowed_priorities</code> — see <a href="#ancestor-groups-navigation-only">Ancestor groups</a>. For example, a user whose only membership is the subgroup <code>Platform</code> receives its parent like this (shown as a full response):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">"page_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">"owner"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"maya"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Maya"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">"parent"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">      </span><span class="nt">"parent_name"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">"member_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">"board_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">"subgroup_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">      </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-01-05T09:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">      </span><span class="nt">"default_board_member_role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member"</span><span class="p">,</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">      </span><span class="nt">"allowed_priorities"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">      </span><span class="nt">"shared_labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">      </span><span class="nt">"is_starred"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">      </span><span class="nt">"navigation_only"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">      </span><span class="nt">"can_place_boards"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="p">}</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Response shape differs from <code>GET /api/v1/groups/{id}/</code></p>
+<p>The list endpoint uses a leaner <code>GroupSerializer</code> that <strong>does not</strong> include the <code>ancestors</code> field — only the single-object retrieve endpoint (<code>GET /api/v1/groups/{id}/</code>) returns <code>ancestors</code>. Clients iterating the list and reading <code>entry.ancestors</code> will get <code>undefined</code>. Fetch the single group if you need the ancestor chain.</p>
+</div>
+<h3 id="post-apiv1groups"><code>POST /api/v1/groups/</code><a class="headerlink" href="#post-apiv1groups" title="Permanent link">&para;</a></h3>
+<p>Create a group. Any authenticated user may create a top-level group. Creating a subgroup requires admin of the parent (directly or through an ancestor group). The endpoint returns the same <code>400 Bad Request</code> for an unknown <code>parent</code> id and for a parent the caller does not administer: <code>{"parent": ["Select a parent group you administer."]}</code>, the same body <code>PATCH</code> uses. <em>(1.2+)</em> A subgroup that would sit more than 6 levels deep is refused with <code>400 Bad Request</code>: <code>{"parent": ["Groups can be nested at most 6 levels deep."]}</code>, the same limit and message a <code>PATCH</code> parent change uses. A parent exactly 5 levels deep accepts a new subgroup (level 6); a parent 6 levels deep does not. Existing deeper trees are not changed.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A subgroup create that arrives while its parent (or an ancestor of it) is being deleted waits for the delete to finish and then answers the same <code>400</code> as for an unknown <code>parent</code>, with nothing created; a delete that arrives while the create is in flight waits for it and then deletes the new subgroup with the rest of the tree (#1719).</p>
+<p><strong>Request</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span><span class="w"> </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backend and frontend teams."</span><span class="p">,</span><span class="w"> </span><span class="nt">"parent"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Yes</td>
+<td>Display name</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>No</td>
+<td>Optional free-text summary</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>No</td>
+<td>Parent group ID; omit for a top-level group</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-apiv1groupsid"><code>GET /api/v1/groups/{id}/</code><a class="headerlink" href="#get-apiv1groupsid" title="Permanent link">&para;</a></h3>
+<p>Get group details.</p>
+<p><strong>Response fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Group ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Display name</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Optional free-text summary. Empty string if not set.</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>integer|null</td>
+<td>Parent group ID, or <code>null</code> for top-level groups</td>
+</tr>
+<tr>
+<td><code>parent_name</code></td>
+<td>string|null</td>
+<td>Parent group display name (convenience field), or <code>null</code></td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>object</td>
+<td><code>{ "id", "username", "display_name", "avatar_url" }</code></td>
+</tr>
+<tr>
+<td><code>member_count</code></td>
+<td>integer</td>
+<td>Total number of direct members (does not include inherited)</td>
+</tr>
+<tr>
+<td><code>board_count</code></td>
+<td>integer</td>
+<td>Number of boards directly in this group</td>
+</tr>
+<tr>
+<td><code>subgroup_count</code></td>
+<td>integer</td>
+<td>Number of direct subgroups</td>
+</tr>
+<tr>
+<td><code>is_starred</code></td>
+<td>boolean</td>
+<td>Whether the requesting user has starred this group</td>
+</tr>
+<tr>
+<td><code>shared_labels</code></td>
+<td>array</td>
+<td>Labels shared across all boards in this group</td>
+</tr>
+<tr>
+<td><code>default_board_member_role</code></td>
+<td>string</td>
+<td>Returned for navigation-only groups as well (see <a href="#ancestor-groups-navigation-only">Ancestor groups</a>). <strong>Deprecated (#1430).</strong> Has no effect and is kept only for API compatibility; marked <code>deprecated: true</code> in the OpenAPI schema. Stored but not read by any code path; group members' board access comes from their group role (scaffold, see <a href="../../architecture/field-enforcement/">Field Enforcement</a>)</td>
+</tr>
+<tr>
+<td><code>allowed_priorities</code></td>
+<td>array</td>
+<td><strong>Advisory.</strong> Copied onto a board's <code>allowed_priorities</code> when the board is created through <code>POST /groups/{id}/boards/</code>; it does not restrict card priorities, because the board-level field is not enforced either. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
+</tr>
+<tr>
+<td><code>ancestors</code></td>
+<td>array</td>
+<td>Ordered list of ancestor groups from root to immediate parent. Each entry is <code>{ "id": 1, "name": "Acme Corp" }</code>. Empty for top-level groups. <strong>Only present on this single-object retrieve endpoint</strong> — the list endpoint (<code>GET /api/v1/groups/</code>) omits <code>ancestors</code>.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp</td>
+</tr>
+<tr>
+<td><code>navigation_only</code></td>
+<td>boolean</td>
+<td><em>(1.2+)</em> <code>true</code> when the requesting user has no access to this group itself and it is returned only so navigation (tree, breadcrumbs) keeps working; its fields are withheld. See <a href="#ancestor-groups-navigation-only">Ancestor groups</a>.</td>
+</tr>
+<tr>
+<td><code>can_place_boards</code></td>
+<td>boolean</td>
+<td><em>(1.2+)</em> <code>true</code> when the requesting user may place a board in this group — create one through <a href="#post-apiv1groupsidboards"><code>POST /groups/{id}/boards/</code></a>, move one in with <code>POST /boards/{id}/move-group/</code>, or import one into it. See <a href="#board-placement-can_place_boards">Board placement</a>.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="board-placement-can_place_boards">Board placement (<code>can_place_boards</code>)<a class="headerlink" href="#board-placement-can_place_boards" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Placing a board in a group requires the group admin role on that group or on one of its ancestors (within the 6-level walk), or access to all content. <code>can_place_boards</code> reports that rule for the requesting user, computed with the same check the server applies to those writes, so a client can disable groups it would refuse instead of waiting for a <code>403</code>. It is returned on every REST response that carries a group object (list, retrieve, <code>/subgroups/</code>, create, update, <code>board-defaults</code>, <code>transfer-ownership</code>, and the invite join response); the list computes it for every row with one query. A navigation-only group is always <code>false</code>. For example, a member of <code>Engineering</code> who administers only its subgroup <code>Platform</code> receives:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">[</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span><span class="w"> </span><span class="nt">"parent"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"navigation_only"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"can_place_boards"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform"</span><span class="p">,</span><span class="w"> </span><span class="nt">"parent"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"navigation_only"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"can_place_boards"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">]</span>
+</code></pre></div>
+<p>(Other fields omitted.) The value describes the requesting user, so it is REST-only: <code>group.*</code> WebSocket event payloads do not carry <code>can_place_boards</code>, because one frame goes to every subscriber of the group. Re-read it over REST when a group event arrives.</p>
+<h4 id="ancestor-groups-navigation-only">Ancestor groups (navigation-only)<a class="headerlink" href="#ancestor-groups-navigation-only" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Group access is inherited downward only: membership in a subgroup grants nothing on its parent. The list and retrieve endpoints still return the ancestors of a user's groups so clients can render the sidebar tree and breadcrumbs, but a group the user has no access to itself — not a member of it or of one of its ancestors within the 6-level walk — is returned with <code>navigation_only: true</code> and these fields withheld (set to empty values):</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value for a navigation-only group</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>member_count</code>, <code>board_count</code>, <code>subgroup_count</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>shared_labels</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>allowed_priorities</code></td>
+<td><code>[]</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>id</code>, <code>name</code>, <code>parent</code>, <code>parent_name</code>, <code>owner</code>, <code>created_at</code>, <code>default_board_member_role</code>, <code>is_starred</code> and (on retrieve) <code>ancestors</code> are returned as for a member. <code>default_board_member_role</code> is returned intentionally: it is a required enum with no empty value, it is deprecated with no effect, and it is not sensitive. Ownership alone does not count as membership here, the same as for the nested routes and <em>(1.2+)</em> the list itself, which no longer returns a group only because the caller owns it (#1829). <code>owner</code> (public profile fields only, no email) is returned because clients require it; an ancestor's owner is normally also a member there, but an owner whose membership was removed is still named. Every key stays in the response with a value of its documented type, so existing clients keep parsing it; read <code>navigation_only</code> to tell withheld values from real zeros. This matches the nested routes, which already answer <code>403</code> to such a user (<code>/members/</code>, <code>/boards/</code>, <code>/subgroups/</code>, <code>/labels/</code>, <code>/descendant-boards/</code>, <code>/descendant-boards/paged/</code>, <code>/star/</code>), and the group WebSocket channel, which does not admit them. Users with access to all content always receive every field.</p>
+<p><strong>Backward compatibility:</strong> before 1.2 these fields carried the ancestor's real values for this role; no key was removed or retyped.</p>
+<h3 id="put-apiv1groupsid-patch-apiv1groupsid"><code>PUT /api/v1/groups/{id}/</code> / <code>PATCH /api/v1/groups/{id}/</code><a class="headerlink" href="#put-apiv1groupsid-patch-apiv1groupsid" title="Permanent link">&para;</a></h3>
+<p>Update group fields. Both <code>PUT</code> and <code>PATCH</code> are accepted. Requires group admin.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>parent</code>, <code>default_board_member_role</code>, <code>allowed_priorities</code>. The latter two duplicate what <a href="#board-defaults"><code>PATCH /groups/{id}/board-defaults/</code></a> does — either endpoint can set them.</p>
+<p><strong>Changing <code>parent</code></strong> <em>(1.2+)</em>. Sending the group's current <code>parent</code> value is not a change and needs nothing beyond group admin. A change is accepted only when, in this order:</p>
+<ol>
+<li><strong>Authority over the group's place in the tree</strong> — required for every change, to another group or to top level (<code>"parent": null</code>): the caller is the group's owner, an admin of one of its current ancestor groups, or has access to all content. An admin of the group itself, without one of those, cannot change its parent. A top-level group has no ancestors, so only its owner (or a user with access to all content) can move it under another group.</li>
+<li><strong>Admin of the new parent</strong> — when moving under another group: the caller is also an admin of the new parent group (directly or through one of its ancestors), the same check <code>POST /api/v1/groups/</code> applies to a new subgroup.</li>
+<li><strong>Structure</strong> — the new parent is not the group itself or one of its subgroups, and the resulting tree is at most 6 levels deep, counting the moved group's own subgroups.</li>
+</ol>
+<p>Changing <code>parent</code> revokes unused invite links in the moved subtree whose creator no longer administers the link's group through the new ancestor chain (see <a href="#invite-links">Invite links</a>).</p>
+<p><strong>Errors:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"parent": ["Select a parent group you administer."]}</code> — the caller passes rule 1, and <code>parent</code> names a group they do not administer or an ID that does not resolve to a group (the same response in both cases). <code>{"parent": [...]}</code> — the new parent is the group itself or one of its subgroups, or the move would nest groups more than 6 levels deep (on <code>POST</code>, a new subgroup more than 6 levels deep: <code>{"parent": ["Groups can be nested at most 6 levels deep."]}</code>). Also the usual per-field validation errors</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>The caller is not a group admin; or the request changes <code>parent</code> (to any value, including an ID that does not resolve) and the caller fails rule 1</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>The caller cannot see the group being updated</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>An update that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719). A <code>parent</code> that is deleted meanwhile answers the unknown-parent <code>400</code>.</p>
+<h3 id="delete-apiv1groupsid"><code>DELETE /api/v1/groups/{id}/</code><a class="headerlink" href="#delete-apiv1groupsid" title="Permanent link">&para;</a></h3>
+<p>Delete a group. Requires group owner or site admin. A group member who is not the owner gets <code>403 Forbidden</code> with <code>{"detail": "Only the group owner can delete this group."}</code>; a caller who cannot see the group at all gets <code>404</code>.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A delete that arrives while the same group is being deleted, or while an invite to it (or to one of its subgroups) is being redeemed or a board is being placed in it or one of its subgroups, waits for that request to finish. A second delete of the same group then answers <code>404</code>, and a delete that waited behind an ownership transfer away from the caller answers <code>403</code> (#1638). It also waits for an in-flight write to the group or its subgroups — a subgroup create, an update, a board-defaults or member role change, an invite link create, send or revoke, a label create or update, a star, an ownership transfer, or a board import into the group — and then proceeds against what that write left: it deletes the new or changed rows with the group, detaches an imported board from it (the board itself is kept), and answers <code>403</code> if the write was an ownership transfer away from the caller (#1719).</p>
+<hr />
+<h2 id="members">Members<a class="headerlink" href="#members" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1groupsidmembers"><code>GET /api/v1/groups/{id}/members/</code><a class="headerlink" href="#get-apiv1groupsidmembers" title="Permanent link">&para;</a></h3>
+<p>List group members. Requires group membership.</p>
+<p><strong>Response</strong> — array of member objects:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer / null</td>
+<td>Membership record ID. <code>null</code> for inherited members — access via an ancestor group's membership rather than a direct row on this group. A group's owner holds a direct <code>admin</code> <code>GroupMembership</code> row: it is created with the group, kept by <a href="#transfer-ownership">Transfer ownership</a> (which requires the new owner to already be a direct admin and keeps the previous owner as one), and the owner's membership cannot be removed or demoted. <em>(1.2+)</em> Upgrading restores that row on any group whose owner lacked it, promoting an existing membership or adding one, so the owner's <code>id</code> here is not <code>null</code>. A site admin with no membership of their own does not appear in this list at all. Callers must not assume this field is always an integer.</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>object</td>
+<td><code>{ "id", "username", "display_name", "avatar_url" }</code></td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>Effective role on this group: <code>admin</code>, <code>member</code>, <code>collaborator</code>, or <code>viewer</code></td>
+</tr>
+<tr>
+<td><code>joined_at</code></td>
+<td>string / null</td>
+<td>ISO 8601 timestamp of when the membership was created; <code>null</code> for inherited members</td>
+</tr>
+<tr>
+<td><code>is_inherited</code></td>
+<td>boolean</td>
+<td><code>true</code> when the member's access comes from a parent (ancestor) group rather than a direct membership on this group</td>
+</tr>
+<tr>
+<td><code>inherited_from</code></td>
+<td>string / null</td>
+<td>Display name of the ancestor group that grants access, when <code>is_inherited</code> is <code>true</code>; <code>null</code> otherwise</td>
+</tr>
+</tbody>
+</table>
+<h3 id="patch-apiv1groupsidmembersuser_id"><code>PATCH /api/v1/groups/{id}/members/{user_id}/</code><a class="headerlink" href="#patch-apiv1groupsidmembersuser_id" title="Permanent link">&para;</a></h3>
+<p>Change a member's role. Requires group admin. Cannot modify the membership of a site admin who is a member of the group. The target must already have a membership in the group (the role of an inactive member can be changed); otherwise the response is the same <code>404 Not Found</code> whether the id is unknown, belongs to an inactive user, or belongs to an active user who is not a member.</p>
+<p><strong>Request</strong> <code>{ "role": "admin" }</code> (<code>role</code> is required and is the only key read)</p>
+<p>Valid roles: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code></p>
+<p><strong>Response</strong> <code>200 OK</code> with the membership <code>{ "id", "user", "role", "joined_at" }</code>. Unlike the rows of <code>GET .../members/</code>, it carries no <code>is_inherited</code> or <code>inherited_from</code>.</p>
+<p>Since 1.2, a request body that is not a JSON object returns <code>400 Bad Request</code> (it returned <code>500</code> before). A non-numeric <code>{user_id}</code> in the path is <code>404</code>, as before.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Changing a member's role away from <code>admin</code> revokes their unused <a href="#invite-links">invite links</a> in this group and its subgroups that they can no longer administer (for example through another admin membership on an ancestor), and each revoked link emits <code>invite_link.revoked</code> on its group's channel. This frees their slots under the 5-active-link cap. <em>(1.2+)</em> It also turns off the public <a href="../boards/#board-sharing">board share links</a> the member enabled on boards where they are no longer a board admin by another route, and each affected board receives a <code>board.updated</code> event.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A role change that would demote the group owner, or demote the group's last active admin, returns <code>400 Bad Request</code> with a <code>detail</code> message and a machine-readable <code>code</code>, and writes nothing:</p>
+<table>
+<thead>
+<tr>
+<th><code>code</code></th>
+<th><code>detail</code></th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group_owner_protected</code></td>
+<td><code>The group owner's membership cannot be removed or demoted. Transfer ownership first.</code></td>
+<td>The target is the group owner</td>
+</tr>
+<tr>
+<td><code>group_last_admin</code></td>
+<td><code>A group must keep at least one admin.</code></td>
+<td>The target is the group's last active admin</td>
+</tr>
+</tbody>
+</table>
+<p>Branch on <code>code</code>, not on the <code>detail</code> text, which may be reworded. Other <code>400</code>s from this endpoint (a missing or invalid <code>role</code>, a body that is not a JSON object) carry <code>detail</code> only.</p>
+<p>Setting the owner's role to <code>admin</code> is accepted. Only active admins count toward the minimum; a deactivated admin does not. The check runs under row locks, so two requests that would each demote a different one of two admins cannot both succeed.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A role change that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719). The same <code>404</code> answers a role change whose membership was removed while it waited.</p>
+<h3 id="delete-apiv1groupsidmembersuser_id"><code>DELETE /api/v1/groups/{id}/members/{user_id}/</code><a class="headerlink" href="#delete-apiv1groupsidmembersuser_id" title="Permanent link">&para;</a></h3>
+<p>Remove a member. Requires group admin. Cannot remove a site admin who is a member of the group. <em>(1.2+)</em> A removal that arrives while the group is being deleted, or while another removal of the same member is in flight, waits for it to finish and then answers <code>404</code>, with nothing written. Returns <code>204</code> when the membership is removed; <em>(1.2+)</em> removing the group owner, or the group's last active admin, returns <code>400 Bad Request</code> with the same <code>{detail, code}</code> body as <code>PATCH</code> above, <code>code</code> being <code>group_owner_protected</code> or <code>group_last_admin</code> (the owner leaves through <a href="#transfer-ownership">Transfer ownership</a> or by deleting the group); the <code>400</code> for the last admin also applies when the remaining admins are deactivated, because only active admins count; with no membership the response is the same <code>404 Not Found</code> as for <code>PATCH</code>, and an inactive member can be removed. <em>(1.2+)</em> The removed member's unused invite links in this group and its subgroups that they can no longer administer are revoked, with an <code>invite_link.revoked</code> event per link. <em>(1.2+)</em> Removing an admin membership also turns off the public <a href="../boards/#board-sharing">board share links</a> the member enabled on boards where they are no longer a board admin by another route, with a <code>board.updated</code> event per board.</p>
+<p><em>(1.2+)</em> Deleting a user account removes all of that user's group memberships, so the Django admin's user delete applies the same minimum: it refuses to delete the last active admin of a group, or, in a bulk delete, every active admin of one. See <a href="../../administration/django-admin/">Django admin</a>.</p>
+<hr />
+<h2 id="subgroups">Subgroups<a class="headerlink" href="#subgroups" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1groupsidsubgroups"><code>GET /api/v1/groups/{id}/subgroups/</code><a class="headerlink" href="#get-apiv1groupsidsubgroups" title="Permanent link">&para;</a></h3>
+<p>List direct subgroups of this group that are visible to the requesting user. Requires membership in this group or any ancestor group. Visibility follows the RBAC inheritance model: members of a parent group see all descendant subgroups (not only subgroups they have been added to directly) — see <a href="../../features/rbac/inheritance/#visibility-of-descendant-groups">Role Inheritance</a> for the full rule.</p>
+<p><strong>Response</strong> — array of <code>Group</code> summary objects (same shape as the list endpoint; <code>ancestors</code> is omitted for parity with <code>GET /api/v1/groups/</code>).</p>
+<hr />
+<h2 id="boards">Boards<a class="headerlink" href="#boards" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1groupsidboards"><code>GET /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#get-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
+<p>List boards in this group. Requires group membership.</p>
+<p>A board is listed only when the caller's role on it resolves the same way as for board detail; a board the caller cannot open is not listed.</p>
+<p>Pass <code>?expand=group</code> to populate <code>group_detail</code> on each board (see <a href="../#expanding-foreign-key-fields">Expanding foreign-key fields</a>). <em>(1.2+)</em> The ancestor chain is resolved with one bulk fetch, so the query count does not grow with the number of boards (#1316).</p>
+<h3 id="post-apiv1groupsidboards"><code>POST /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#post-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
+<p>Create a board in this group. Requires group admin. Boards created here inherit the group's <code>shared_labels</code> and <code>allowed_priorities</code> automatically. The seeded <code>allowed_priorities</code> value is not enforced on cards (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A create that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1638).</p>
+<p><strong>Request</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Yes</td>
+<td>Board display name</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>No</td>
+<td>Optional free-text description</td>
+</tr>
+<tr>
+<td><code>template</code></td>
+<td>No</td>
+<td>Template slug to pre-populate columns. Valid values match those from <code>GET /api/v1/boards/templates/</code> (e.g. <code>simple_kanban</code>, <code>sales_pipeline</code>, <code>customer_support</code>). Default: <code>simple_kanban</code>. Omitting the field (or sending <code>""</code>/<code>null</code>) uses the default; a non-blank slug that doesn't match an active template returns <code>400 {"code": "unknown_template", "detail": "..."}</code> — same validation and error shape as <code>POST /api/v1/boards/</code> (#1115).</td>
+</tr>
+<tr>
+<td><code>swimlane_name</code></td>
+<td>No</td>
+<td>Label for the swimlane axis (e.g. <code>"Customer"</code>, <code>"Team"</code>). Defaults to <code>"General"</code>; truncated to 255 characters</td>
+</tr>
+</tbody>
+</table>
+<p>Since 1.2, a body that is not a JSON object, or a non-string <code>swimlane_name</code>, returns <code>400 Bad Request</code> (a non-string <code>swimlane_name</code>, and a numeric or boolean body, returned <code>500</code> before).</p>
+<h3 id="get-apiv1groupsiddescendant-boards"><code>GET /api/v1/groups/{id}/descendant-boards/</code><a class="headerlink" href="#get-apiv1groupsiddescendant-boards" title="Permanent link">&para;</a></h3>
+<p>List all boards in this group and all of its descendant subgroups that the requesting user can access. This answers "what boards live anywhere inside this group subtree?" — including boards in deeply nested subgroups. Requires group membership.</p>
+<p>A board is listed only when the caller's role on it resolves the same way as for board detail; a board the caller cannot open is not listed. The same rule applies to <code>GET /api/v1/groups/{id}/boards/</code> and the paged variant.</p>
+<p><strong>Response</strong> — array of board summary objects (same shape as <code>GET /api/v1/groups/{id}/boards/</code>). Each board's <code>group_detail</code> is always populated with a <code>GroupBrief</code> payload including the <code>ancestors</code> chain, so callers can render a full relative breadcrumb without an extra request (#845). <code>ancestors</code> is root-first and does <strong>not</strong> include the board's direct parent group — that name is in <code>group_name</code>.</p>
+<p><strong>Errors:</strong> <code>404 Not Found</code> if the group does not exist or the caller cannot see it; <code>403 Forbidden</code> if the caller sees the group only as <a href="#ancestor-groups-navigation-only">navigation-only</a> (a member of a descendant subgroup, not of this group or an ancestor).</p>
+<p>This endpoint is never paginated: it returns the whole subtree in one array, and <code>offset</code> / <code>page_size</code> in the query string are ignored. For a root group in a large organization that can be every board the caller can see; use the paged variant below to fetch it in bounded pages.</p>
+<h3 id="get-apiv1groupsiddescendant-boardspaged"><code>GET /api/v1/groups/{id}/descendant-boards/paged/</code><a class="headerlink" href="#get-apiv1groupsiddescendant-boardspaged" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>The same boards as <code>GET /api/v1/groups/{id}/descendant-boards/</code>, with the same access rules and the same per-board payload (including <code>group_detail.ancestors</code>), returned in pages (#1317). Requires group membership. A board is listed only when the caller's role on it resolves the same way as for board detail.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>offset</code></td>
+<td>Zero-based row offset (default <code>0</code>). An invalid or negative value is treated as <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>page_size</code></td>
+<td>Rows per page (default <code>50</code>, max <code>200</code>). An invalid, zero or negative value uses the default; a larger value is capped at <code>200</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Boards are ordered by <code>id</code>, oldest first. Editing a board in place (its name, description or settings) does not change its position, and a board created in the subtree during a walk is added at the end. Neither moves the boards already returned.</p>
+<p>Other changes during a walk do shift the window, as with every offset-paginated endpoint:</p>
+<ul>
+<li><strong>Rows added before the current offset:</strong> a board moved into the subtree (a <code>PATCH</code> of its <code>group</code>, or <code>POST /api/v1/boards/{id}/move-group/</code>), a subgroup re-parented into the subtree, or a newly granted membership that makes more of the subtree visible. These can insert earlier rows, so a board already returned can appear again on the next page.</li>
+<li><strong>Rows removed before the current offset:</strong> a board deleted or moved out of the subtree, or access removed. These shift later rows back, so the next page can skip a board.</li>
+</ul>
+<p>A client that needs an exact snapshot should de-duplicate by <code>id</code>, and re-read from <code>offset=0</code> if <code>count</code> changes between pages.</p>
+<p><strong>Response</strong> — the standard <code>{count, offset, page_size, results}</code> envelope (the same shape as every other paginated endpoint), where <code>results</code> is an array of board objects:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">137</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"page_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">412</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Q3 Roadmap"</span><span class="p">,</span><span class="w"> </span><span class="nt">"group"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"group_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform"</span><span class="p">,</span><span class="w"> </span><span class="nt">"group_detail"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform"</span><span class="p">,</span><span class="w"> </span><span class="nt">"ancestors"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">}]},</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">}</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">}</span>
+</code></pre></div>
+<p>Fetch the next page with <code>offset + page_size</code> until it reaches <code>count</code>.</p>
+<p><strong>Errors:</strong> the same as <code>GET /api/v1/groups/{id}/descendant-boards/</code>: <code>404 Not Found</code> if the group does not exist or the caller cannot see it; <code>403 Forbidden</code> for a navigation-only caller.</p>
+<hr />
+<h2 id="invite-links">Invite links<a class="headerlink" href="#invite-links" title="Permanent link">&para;</a></h2>
+<p>A group can have up to 5 active shareable invite links. Each link has an independent name, role, and expiry. Links sent by email (<code>delivery: "email"</code>, below) are capped separately — up to 50 pending per group — and never count against the 5. A link whose role can never redeem (see <code>status</code>) counts against neither cap.</p>
+<p>A link is revoked automatically (set inactive, freeing its slot, and announced as <code>invite_link.revoked</code>) when its creator is deactivated or deleted, loses group admin rights, or when a <code>parent</code> change moves the group so the creator no longer administers the link's group. Unused links only; a consumed single-use link is left alone. Join and preview independently refuse any link whose creator no longer qualifies, so nobody is admitted through a stale one.</p>
+<p>Upgrade cleanup: on upgrade, unused links whose creator was already deleted or deactivated are deactivated once. <strong>Not backfilled:</strong> links whose creator still exists and is active but was demoted, removed, or moved out of administering the group before this fix (tracked in #1565). They stay listed as active and hold a slot until revoked manually, but still admit nobody.</p>
+<p>Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.</p>
+<h3 id="get-apiv1groupsidinvite-links"><code>GET /api/v1/groups/{id}/invite-links/</code><a class="headerlink" href="#get-apiv1groupsidinvite-links" title="Permanent link">&para;</a></h3>
+<p>List all invite links for this group. Requires group admin.</p>
+<h3 id="post-apiv1groupsidinvite-links"><code>POST /api/v1/groups/{id}/invite-links/</code><a class="headerlink" href="#post-apiv1groupsidinvite-links" title="Permanent link">&para;</a></h3>
+<p>Create a new invite link. Requires group admin.</p>
+<p><strong>Request</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Team link"</span><span class="p">,</span><span class="w"> </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member"</span><span class="p">,</span><span class="w"> </span><span class="nt">"expiry_days"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"single_use"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p>All fields are optional. <code>single_use</code> (boolean, default <code>false</code>) creates a link that expires automatically after one person joins.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>role</code></td>
+<td><code>member</code> (default), <code>collaborator</code> or <code>viewer</code>. <em>(1.2+)</em> <code>admin</code> is refused with <code>400</code>: a shareable link is a bearer credential. An <a href="#post-apiv1groupsidinvite-linkssend">emailed invite</a> is capped the same way.</td>
+</tr>
+<tr>
+<td><code>expiry_days</code></td>
+<td><em>(1.2+)</em> An integer from <code>1</code> to <code>30</code>; defaults to <code>7</code> when omitted. <code>null</code> and values over <code>30</code> are refused with <code>400</code>: a shareable link always expires. Before 1.2 any positive integer or <code>null</code> (never expires) was accepted.</td>
+</tr>
+</tbody>
+</table>
+<p>Upgrading to 1.2 revokes unused shareable links that had the <code>admin</code> role and gives unused links with no expiry an expiry 7 days after the upgrade (#1940). Revoked links no longer appear in this list. A legacy non-admin link (member, collaborator or viewer) that already expires more than 30 days out keeps that expiry.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A create that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719). Two creates on the same group run one after the other, so they cannot together exceed the 5-active-link cap.</p>
+<p><strong>Response (create only)</strong> — the raw secret is returned once and never again, in a field named <code>token</code>:</p>
+<div class="admonition note">
+<p class="admonition-title">Field name differs from site invite links</p>
+<p>Group and <a href="../boards/#board-invites">board</a> invite-link create responses name the secret <code>token</code>. The site-wide <a href="../admin/#post-apiv1admininvite-links"><code>POST /api/v1/admin/invite-links/</code></a> response names the same kind of value <code>raw_token</code>. The names differ for historical reasons and are frozen by the 1.0 API contract: both are stable and will not be renamed before a major version. Read the field that matches the endpoint you called. A consistent alias is planned for the next major version (tracked in #1255); until then each endpoint keeps its current name for 1.0 API compatibility. The field is present only on this create response, never on list responses.</p>
+</div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">"token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123raw"</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123ra"</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Team link"</span><span class="p">,</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member"</span><span class="p">,</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">"is_active"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">"is_expired"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-07T00:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-31T00:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">"created_by_username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">"single_use"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">"used_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">,</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">  </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"link"</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>List response</strong> — <code>token</code> is absent; <code>prefix</code> (first 8 chars) is shown for identification:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">"prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123ra"</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Team link"</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member"</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">"is_active"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">"is_expired"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-07T00:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-31T00:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span><span class="nt">"created_by_username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span><span class="nt">"single_use"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nt">"used_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pending"</span><span class="p">,</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span><span class="nt">"delivery"</span><span class="p">:</span><span class="w"> </span><span class="s2">"link"</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="p">}</span>
+</code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Invite link ID</td>
+</tr>
+<tr>
+<td><code>token</code></td>
+<td>string</td>
+<td>Raw token — present <strong>only</strong> in the create response. The full token can never be retrieved later; admins identify links by <code>prefix</code>.</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td>string</td>
+<td>First 8 characters of the token, shown in the admin UI for audit.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Admin-assigned label for the link (e.g. "Engineering Slack").</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>Role granted on redemption: <code>admin</code> / <code>member</code> / <code>collaborator</code> / <code>viewer</code>. <em>(1.2+)</em> No new invite grants <code>admin</code>, shareable or emailed. An <code>admin</code> value can appear only on a link created before the cap; such a link grants nothing (shareable ones are revoked on upgrade, #1940; emailed ones are refused at preview and join with <code>404</code>, and cannot register an account).</td>
+</tr>
+<tr>
+<td><code>is_active</code></td>
+<td>boolean</td>
+<td><code>true</code> until revoked. A consumed single-use link still shows <code>is_active: true</code> but cannot be redeemed again — see <code>status</code>.</td>
+</tr>
+<tr>
+<td><code>is_expired</code></td>
+<td>boolean</td>
+<td><code>true</code> once <code>expires_at</code> has passed.</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>string / null</td>
+<td>ISO 8601 expiry; <code>null</code> means never expires. Every link created in 1.2+ has an expiry, and upgrade gives unused legacy links one (#1940).</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp.</td>
+</tr>
+<tr>
+<td><code>created_by_username</code></td>
+<td>string / null</td>
+<td>Username of the admin who created the link (#1008). <code>null</code> if the creator's account has since been anonymized.</td>
+</tr>
+<tr>
+<td><code>single_use</code></td>
+<td>boolean</td>
+<td><code>true</code> if the link is consumed by the first redemption (cannot be reused).</td>
+</tr>
+<tr>
+<td><code>used_at</code></td>
+<td>string / null</td>
+<td>ISO 8601 timestamp of consumption (single-use links only); <code>null</code> for multi-use or unredeemed.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Computed status: <code>pending</code> (active and unredeemed), <code>used</code> (single-use and consumed), <code>expired</code> (past <code>expires_at</code>), or <code>revoked</code> (admin disabled). <em>(#2006)</em> An unused link whose role can never redeem also reports <code>revoked</code>: an <code>admin</code> link minted before invites were capped below admin, or <em>(#2015)</em> a link whose stored role is outside the group roles. Neither counts toward a cap.</td>
+</tr>
+<tr>
+<td><code>delivery</code></td>
+<td>string</td>
+<td><code>link</code> (created here and shared by an admin) or <code>email</code> (sent to one address by <code>POST …/invite-links/send/</code>). Added in 1.2.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>revoked</code> is a real status value, but <code>GET /invite-links/</code> cannot return a link revoked by an admin — a revoked link's <code>is_active</code> is cleared and it is filtered out of the list. Once a link is revoked, it is gone from this endpoint entirely rather than kept around showing <code>status: "revoked"</code>.</p>
+</div>
+<h3 id="post-apiv1groupsidinvite-linkssend"><code>POST /api/v1/groups/{id}/invite-links/send/</code><a class="headerlink" href="#post-apiv1groupsidinvite-linkssend" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Email a single-use invite link to one address. Requires group admin.</p>
+<p><strong>Request</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new.person@example.org"</span><span class="p">,</span><span class="w"> </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member"</span><span class="p">,</span><span class="w"> </span><span class="nt">"expiry_days"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>email</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Recipient address. Surrounding spaces are stripped; an address containing a line break is rejected. The address itself is <strong>never stored</strong> or logged. <em>(1.2+)</em> The link keeps only a keyed hash of it, which binds the invite to that address (see <code>POST /api/v1/groups/join/{token}/</code>) and is never returned.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>No</td>
+<td>Role granted on join: <code>member</code> (default), <code>collaborator</code> or <code>viewer</code>. <em>(1.2+)</em> <code>admin</code> is refused with <code>400</code> and <code>{"role": ["\"admin\" is not a valid choice."]}</code>, nothing is minted and no email is sent: a forwarded or misdirected email must not mint a group admin. Make someone an admin by changing their role after they join.</td>
+</tr>
+<tr>
+<td><code>expiry_days</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Days until the link expires, <code>1</code>–<code>30</code>. Default <code>7</code>. There is no "never expires" option for emailed links.</td>
+</tr>
+</tbody>
+</table>
+<p>The server mints a link with <code>single_use: true</code> and <code>delivery: "email"</code>, then sends a plain-text email naming the group, the join link (<code>&lt;FRONTEND_URL&gt;/join/&lt;token&gt;</code>) and the expiry date. There is no free-text message field.</p>
+<p><strong>Response</strong> <code>202 Accepted</code>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Invite sent"</span><span class="p">,</span><span class="w"> </span><span class="nt">"sent_to"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new.person@example.org"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p>The response is identical whether the address belongs to an existing member, an existing user who is not a member, or nobody — and the email is always sent — so this endpoint cannot be used to discover which addresses have accounts. The raw token is <strong>never</strong> returned; it exists only in the email. Under <code>DEBUG</code> with console mail delivery the response also carries <code>"delivery": "console"</code>.</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>field errors</td>
+<td>Invalid or missing <code>email</code>, address with a line break, <code>expiry_days</code> outside <code>1</code>–<code>30</code> or <code>null</code></td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"code": "invite_email_cap_reached", ...}</code></td>
+<td>The group already has 50 pending emailed links (active, unexpired, unused; <em>(#2006)</em> an unusable <code>admin</code> invite, or <em>(#2015)</em> one whose stored role is outside the group roles, does not count)</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>—</td>
+<td>Caller is not a group admin</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"code": "invite_email_disabled", ...}</code></td>
+<td><code>INVITE_EMAIL_ENABLED=false</code>, or the instance runs in demo mode</td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td>—</td>
+<td>Rate limit: 10 sends/hour per user, 30/day per group (shared by all its admins), 200/day instance-wide for group invites. Requests refused for another reason, and sends the mail server rejected, don't count</td>
+</tr>
+<tr>
+<td><code>502 Bad Gateway</code></td>
+<td><code>{"code": "&lt;error code&gt;", ...}</code></td>
+<td>The mail server refused or could not be reached. The just-created link is revoked automatically. <code>code</code> is one of the sanitized SMTP codes (<code>auth_failed</code>, <code>connection_refused</code>, <code>dns_failure</code>, <code>tls_failure</code>, <code>timeout</code>, <code>config_unusable</code>, <code>unknown</code>) — never the raw server reply</td>
+</tr>
+</tbody>
+</table>
+<p>A successful send emits <code>invite_link.created</code> (payload <code>{ "id" }</code> only) on the group's WebSocket channel; a failed send emits <code>invite_link.revoked</code> for the auto-revoked link. See <a href="../websockets/">WebSockets</a>.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A send that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719). No email is sent.</p>
+<h3 id="delete-apiv1groupsidinvite-linkslink_id"><code>DELETE /api/v1/groups/{id}/invite-links/{link_id}/</code><a class="headerlink" href="#delete-apiv1groupsidinvite-linkslink_id" title="Permanent link">&para;</a></h3>
+<p>Revoke a single invite link. Requires group admin. Works the same for shareable and emailed links.</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>Link does not exist, or is already revoked</td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>The link is a single-use link that has already been consumed — <code>{"detail": "This link has already been consumed and cannot be revoked."}</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A revoke that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719). A revoke waits for a join through the same link that is in flight, and then answers the consumed-link <code>400</code> if that join used it.</p>
+<hr />
+<h2 id="favorites">Favorites<a class="headerlink" href="#favorites" title="Permanent link">&para;</a></h2>
+<h3 id="post-apiv1groupsidstar"><code>POST /api/v1/groups/{id}/star/</code><a class="headerlink" href="#post-apiv1groupsidstar" title="Permanent link">&para;</a></h3>
+<p>Star (favorite) a group. Requires group membership (any role) — not just authentication. Takes no request body.</p>
+<p><strong>Response</strong> <code>201 Created</code> with <code>{ "starred": true }</code> when the group was not starred yet, <code>200 OK</code> with the same body when it already was.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A star that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719).</p>
+<h3 id="delete-apiv1groupsidstar"><code>DELETE /api/v1/groups/{id}/star/</code><a class="headerlink" href="#delete-apiv1groupsidstar" title="Permanent link">&para;</a></h3>
+<p>Unstar a group. Requires group membership (any role) — not just authentication. Returns <code>204 No Content</code>.</p>
+<h3 id="get-apiv1groupsstarredtrue"><code>GET /api/v1/groups/?starred=true</code><a class="headerlink" href="#get-apiv1groupsstarredtrue" title="Permanent link">&para;</a></h3>
+<p>List only starred groups for the current user.</p>
+<hr />
+<h2 id="transfer-ownership">Transfer ownership<a class="headerlink" href="#transfer-ownership" title="Permanent link">&para;</a></h2>
+<h3 id="post-apiv1groupsidtransfer-ownership"><code>POST /api/v1/groups/{id}/transfer-ownership/</code><a class="headerlink" href="#post-apiv1groupsidtransfer-ownership" title="Permanent link">&para;</a></h3>
+<p>Transfer group ownership to another user. Requires the <strong>current owner</strong> (not just admin). There is no API route for administrators; a superuser can transfer a departed owner's group from the Django admin (see <a href="../../administration/django-admin/#transferring-a-groups-ownership">Transferring a group's ownership</a>).</p>
+<p><strong>Request</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"new_owner_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="nt">"confirmation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<ul>
+<li><code>new_owner_id</code> — the user ID of the new owner; must already be a group <strong>admin</strong></li>
+<li><code>confirmation</code> — must exactly match the group's name (case-sensitive) to prevent accidental transfers</li>
+</ul>
+<p>Since 1.2, a <code>new_owner_id</code> that is not an integer, or is beyond the 64-bit integer range, returns <code>400 Bad Request</code> (it returned <code>500</code> before). A body that is not a JSON object was already a <code>400</code>.</p>
+<p>The previous owner becomes a regular admin after transfer. Returns the updated group object.</p>
+<p><strong>Error responses</strong>
+- <code>403 Forbidden</code> — you are not the current owner
+- <code>400 Bad Request</code> — request body is not a JSON object
+- <code>400 Bad Request</code> — confirmation does not match group name
+- <code>400 Bad Request</code> — <code>new_owner_id</code> is not a member of this group
+- <code>400 Bad Request</code> — <code>new_owner_id</code> is a member but not an admin
+- <code>400 Bad Request</code> — the group's owner changed while the request was being processed (<code>Only the group owner can transfer ownership.</code>)
+- <code>404 Not Found</code> <em>(1.2+)</em> — the group was deleted while the request waited for it (#1719)</p>
+<hr />
+<h2 id="group-shared-labels">Group shared labels<a class="headerlink" href="#group-shared-labels" title="Permanent link">&para;</a></h2>
+<p>Group labels are a shared label library. When a new board is created inside the group, it inherits the group's labels automatically.</p>
+<h3 id="get-apiv1groupsidlabels"><code>GET /api/v1/groups/{id}/labels/</code><a class="headerlink" href="#get-apiv1groupsidlabels" title="Permanent link">&para;</a></h3>
+<p>List group shared labels. Requires group membership.</p>
+<p><strong>Response</strong> <code>[{ "id": 1, "name": "Bug", "color": "#EF4444" }, ...]</code></p>
+<h3 id="post-apiv1groupsidlabels"><code>POST /api/v1/groups/{id}/labels/</code><a class="headerlink" href="#post-apiv1groupsidlabels" title="Permanent link">&para;</a></h3>
+<p>Create a group shared label. Requires group admin.</p>
+<p><strong>Request</strong> <code>{ "name": "Feature", "color": "#3B82F6" }</code></p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A create that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719).</p>
+<h3 id="patch-apiv1groupsidlabelslabel_id"><code>PATCH /api/v1/groups/{id}/labels/{label_id}/</code><a class="headerlink" href="#patch-apiv1groupsidlabelslabel_id" title="Permanent link">&para;</a></h3>
+<p>Update a group shared label name or color. Requires group admin.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>An update that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719). The same <code>404</code> answers an update of a label deleted while it waited; before, the update re-created the deleted label.</p>
+<h3 id="delete-apiv1groupsidlabelslabel_id"><code>DELETE /api/v1/groups/{id}/labels/{label_id}/</code><a class="headerlink" href="#delete-apiv1groupsidlabelslabel_id" title="Permanent link">&para;</a></h3>
+<p>Delete a group shared label. Requires group admin. Does <strong>not</strong> remove the label from boards that already inherited it.</p>
+<hr />
+<h2 id="board-defaults">Board defaults<a class="headerlink" href="#board-defaults" title="Permanent link">&para;</a></h2>
+<h3 id="patch-apiv1groupsidboard-defaults"><code>PATCH /api/v1/groups/{id}/board-defaults/</code><a class="headerlink" href="#patch-apiv1groupsidboard-defaults" title="Permanent link">&para;</a></h3>
+<p>Update the board defaults for this group. <code>allowed_priorities</code> is copied onto boards created in the group; <code>default_board_member_role</code> is <strong>deprecated (#1430)</strong>: still accepted and stored, but it has no effect. Requires group admin. Only the two fields below are read; any other key in the body is ignored.</p>
+<p><strong>Patchable fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>default_board_member_role</code></td>
+<td>string</td>
+<td><strong>Deprecated (#1430).</strong> <code>admin</code>, <code>member</code>, <code>collaborator</code>, or <code>viewer</code>. Accepted and stored, but has no effect — see the field table above</td>
+</tr>
+<tr>
+<td><code>allowed_priorities</code></td>
+<td>array / null</td>
+<td><strong>Advisory.</strong> Seeds <code>allowed_priorities</code> on new boards created in this group (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all. Not enforced on cards — see the field table above</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Request</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"default_board_member_role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member"</span><span class="p">,</span><span class="w"> </span><span class="nt">"allowed_priorities"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"low"</span><span class="p">,</span><span class="w"> </span><span class="s2">"medium"</span><span class="p">,</span><span class="w"> </span><span class="s2">"high"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p>Returns the updated group object.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A <code>PATCH</code> that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719).</p>
+<hr />
+<h2 id="join-public">Join (public)<a class="headerlink" href="#join-public" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1groupsjointoken"><code>GET /api/v1/groups/join/{token}/</code><a class="headerlink" href="#get-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
+<p>Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP — <em>(1.2+)</em> one budget shared with the <a href="../boards/#board-invites">board join endpoints</a>.</p>
+<p><strong>Response</strong> <code>{ "group_id": 5, "group_name": "Engineering", "role": "member", "can_register": true }</code></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group_id</code></td>
+<td>integer</td>
+<td>The link's group</td>
+</tr>
+<tr>
+<td><code>group_name</code></td>
+<td>string</td>
+<td>The group's name</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>Role granted on join: <code>admin</code> / <code>member</code> / <code>collaborator</code> / <code>viewer</code></td>
+</tr>
+<tr>
+<td><code>can_register</code></td>
+<td>boolean</td>
+<td><strong>Added in 1.2</strong> (#1481). Whether <a href="../authentication/"><code>POST /api/v1/auth/registration/</code></a> would accept this link as <code>invite_token</code> under the current registration mode: always <code>true</code> in <code>"open"</code> mode, always <code>false</code> in <code>"closed"</code> mode, and in <code>"invite_only"</code> mode <code>true</code> only for an unused, unexpired emailed single-use invite whose sender is still an active site admin and group admin while email invites are enabled. The value is the same for anonymous and authenticated callers. It is a bare boolean — the reason a link does not qualify is never disclosed. <strong>Advisory only:</strong> it can go stale before the registration request (the sender can lose site admin, the invite can be consumed, the mode can change), and registration re-checks and stays the enforcer. Clients should treat a missing field (older servers) as unknown, not <code>false</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Disclosure:</strong> <code>can_register</code> is visible to anyone holding the token, and its value can narrow down whether the site is closed, whether the link is an emailed single-use invite, and whether its sender still has admin rights. This is accepted under the token-as-capability model of this endpoint (#801): a token holder could learn the same thing by attempting registration with it. No reason, registration mode, delivery type or sender is ever returned.</p>
+<p><code>can_register</code> is present only on <code>200</code> responses, never on <code>404</code> / <code>410</code> bodies. A member previewing their own consumed single-use invite (below) gets <code>can_register: false</code> in <code>"invite_only"</code> mode. Site invite links (<code>vbnl_</code>) are out of scope: they are not group tokens, and the SPA routes them to the registration form without calling this endpoint.</p>
+<p><strong>Errors:</strong> <code>404 Not Found</code> (invalid or revoked token, or, <em>(1.2+)</em> the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is <code>404</code> even if it is also expired or consumed. A link with a live creator still answers <code>410</code> for expired or consumed, so the two cases remain distinguishable to a token holder), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
+<p><em>(1.2+, #1940)</em> A shareable (<code>delivery: "link"</code>) link with the <code>admin</code> role answers <code>404</code>, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. <em>(#2006)</em> An emailed <code>admin</code> invite sent before the cap answers <code>404</code> too; no invite grants admin. <em>(#2015)</em> A link whose stored role is not one of the group roles (only possible through a write outside the API) answers <code>404</code> as well.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>An authenticated caller who is already a member of the link's group gets <code>200</code> with the preview for a consumed single-use link instead of <code>410</code>. This is the path a newcomer takes after an emailed invite created their account (see <a href="../authentication/"><code>POST /api/v1/auth/registration/</code></a>); everyone else still gets <code>410</code>.</p>
+<h3 id="post-apiv1groupsjointoken"><code>POST /api/v1/groups/join/{token}/</code><a class="headerlink" href="#post-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
+<p>Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP, shared with the board join endpoints.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong> (#1678)</p>
+</blockquote>
+<p>An emailed link (<code>delivery: "email"</code>) works only for an account with the address it was sent to. Otherwise the response is <code>403 {"code": "invite_recipient_mismatch", "detail": "This invite was sent to a different email address. ..."}</code>, nothing is written, and the link is not consumed. The same address rules apply as for <a href="../boards/#post-apiv1boardsjointoken">board invites</a>: verified addresses, plus the account's <code>email</code> unless <code>EMAIL_VERIFICATION=mandatory</code>, ignoring case. Shareable links and emailed links sent before upgrading to this version are not checked. Only a keyed fingerprint of the address is stored, and it is never returned.</p>
+<p><strong>Response body</strong> — returns the full group object (same shape as <code>GET /api/v1/groups/{id}/</code> but using the list serializer, without <code>ancestors</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backend and frontend teams."</span><span class="p">,</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">"owner"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">"parent"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="nt">"parent_name"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">"member_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">"board_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="nt">"subgroup_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">"is_starred"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">"shared_labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">"default_board_member_role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"member"</span><span class="p">,</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">  </span><span class="nt">"allowed_priorities"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Status:</strong> <code>201 Created</code> on first join; <code>200 OK</code> if the caller was already a member (existing role preserved, no downgrade).</p>
+<p><strong>Note:</strong> Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.</p>
+<p><strong>Errors:</strong> <code>401 Unauthorized</code> (not authenticated), <code>404 Not Found</code> (invalid or revoked token, or, <em>(1.2+)</em> the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is <code>404</code> even if it is also expired or consumed. A link with a live creator still answers <code>410</code> for expired or consumed, so the two cases remain distinguishable to a token holder), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed by someone who is not a member)</p>
+<p><em>(1.2+, #1940)</em> A shareable (<code>delivery: "link"</code>) link with the <code>admin</code> role answers <code>404</code> and nothing is written, the same as a revoked link. <em>(#2006)</em> An emailed <code>admin</code> invite sent before the cap is refused the same way. <em>(#2015)</em> So is a link whose stored role is outside the group roles; nothing is written and a single-use link stays unconsumed.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>If the caller is already a member of the link's group, a consumed single-use link returns <code>200</code> with the group, the same as any repeat join; the link is not re-stamped and the caller's role is unchanged.</p>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A join that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1638).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
