@@ -1,10 +1,12 @@
 # Key external systems on UIDs, not names
 
-Use an object's `uid`, not its name or numeric ID, as the key in any external system.
+Use an object's `uid`, not its name or numeric ID, as the key in any external system. A UID is a 16-character lowercase hex string such as `3a9f1c2d7e4b8a05`.
 
 **Why it matters:** Names change and numeric IDs go null on delete; a UID never does, so it's the safe key for external systems.
 
 **The big picture:** every board object (boards, columns, swimlanes, labels, cards, and custom field definitions (added in 1.2)) carries a stable, globally unique identifier called a **UID**.
+
+**Yes, but:** exports don't carry UIDs, and import assigns brand-new ones. See [UIDs in export files](#uids-in-export-files) and [UIDs on import](#uids-on-import).
 
 ## What is a UID?
 
@@ -33,7 +35,7 @@ UIDs appear in every API response that returns the object type.
 
 ## UIDs in movement history
 
-When a card is moved, `CardMovement` captures the UID of the source and destination column and swimlane **at the time of the move**. These UID fields are:
+When a card is moved, `CardMovement` captures the UID of the source and destination column and swimlane **at the time of the move**:
 
 | Field | Meaning |
 |---|---|
@@ -42,7 +44,7 @@ When a card is moved, `CardMovement` captures the UID of the source and destinat
 | `from_swimlane_uid` | UID of the swimlane the card left |
 | `to_swimlane_uid` | UID of the swimlane the card entered |
 
-These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its `id` FK becomes `null` in the movement record, but the `_uid` field keeps the original value — the right identifier for reconciling movement history against an external system.
+These values survive the deletion or renaming of the referenced column or swimlane. After a column is deleted, its `id` FK becomes `null` in the movement record, but the `_uid` field keeps the original value. That makes it the right identifier for reconciling movement history against an external system.
 
 !!! tip
     Building an integration that tracks where cards have been? Use the `*_uid` fields, not `*_id` or `*_name`. Names change. IDs go null after deletion. UIDs are permanent.
@@ -81,14 +83,14 @@ Numeric `id` values are local to each installation. UIDs are the right key for s
 
 ## UIDs in export files
 
-The JSON and CSV exports (`GET /api/v1/boards/{id}/export/`) serialize objects **by name, not by UID** — UIDs aren't included at all. This is intentional: the export format is built for portability, so columns and swimlanes are referenced by name and the file can be imported into a different board or installation without carrying over identifiers meaningless in the new context.
+The JSON and CSV exports (`GET /api/v1/boards/{id}/export/`) serialize objects **by name, not by UID**; UIDs aren't included at all. This is intentional: the export format is built for portability, so columns and swimlanes are referenced by name and the file can be imported into a different board or installation without carrying over identifiers meaningless in the new context.
 
 ## UIDs on import
 
 Importing a board via `POST /api/v1/boards/import/` assigns **every object a brand new UID**, regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.
 
-- If the source file was produced by the Visiban export endpoint, the original UIDs are not preserved — the imported board is a new entity with new identities.
-- If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any `uid` field present in the JSON is silently ignored.
+- If the source file came from the Visiban export endpoint, the original UIDs are not preserved. The imported board is a new entity with new identities.
+- If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any `uid` field in the JSON is silently ignored.
 
 You can't use UIDs to correlate an imported board with its export source. To track which records came from a specific import, use the board name or a naming convention, then delete those boards explicitly after use.
 
