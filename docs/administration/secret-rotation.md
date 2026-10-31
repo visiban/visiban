@@ -19,11 +19,11 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
 - Shareable invite links are not affected.
 
 !!! note "Key strength is now a confidentiality control, not only an integrity one"
-    Before Visiban stored secrets at rest, `SECRET_KEY` protected session and CSRF
-    signatures — forgery, not disclosure. Now that it can encrypt a stored SMTP
-    password, a weak or guessable key means anyone with a database dump or backup can
-    recover that credential offline. Use a full-entropy value: the generator in step 1
-    below produces one. Never shorten it, and never reuse it across environments.
+    `SECRET_KEY` used to protect only session and CSRF signatures (forgery, not
+    disclosure). It can now encrypt a stored SMTP password, so a weak or guessable key lets
+    anyone with a database dump or backup recover that credential offline. Use a
+    full-entropy value (the generator in step 1 below produces one), never shorten it, and
+    never reuse it across environments.
 
 !!! warning "Rotating this key invalidates a stored SMTP password"
 
@@ -32,9 +32,9 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
     key derived from `SECRET_KEY`. Rotating `SECRET_KEY` makes that stored password
     permanently unrecoverable, and outbound email will stop working.
 
-    This is recoverable in under a minute — step 5 below — but only if you know to do it.
-    Otherwise the symptom (password-reset emails silently stop arriving) shows up days
-    later with nothing pointing back to the rotation.
+    Step 5 below recovers it in under a minute, but only if you know to do it. Otherwise
+    password-reset emails silently stop arriving, days later, with nothing pointing back
+    to the rotation.
 
     To decouple the two, set a dedicated `VISIBAN_SECRET_ENCRYPTION_KEY` **before** you
     first store an SMTP password. See
@@ -88,10 +88,7 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
 
 > **Added in 1.2** (#306)
 
-Optional. When set, this key — rather than one derived from `SECRET_KEY` — encrypts
-secrets Visiban stores at rest (today: the SMTP password set in **Admin → Settings →
-Email**). Setting it lets you rotate `SECRET_KEY` on its own schedule without
-invalidating stored secrets.
+Optional. When set, this key (rather than one derived from `SECRET_KEY`) encrypts secrets Visiban stores at rest (today: the SMTP password set in **Admin → Settings → Email**). It lets you rotate `SECRET_KEY` on its own schedule without invalidating stored secrets.
 
 ### Steps
 
@@ -109,9 +106,9 @@ invalidating stored secrets.
 
 !!! note "Set it before storing secrets, not after"
 
-    Adding, changing, or removing this variable has the same effect on already-stored
-    secrets as rotating `SECRET_KEY`: they become undecryptable and must be re-entered.
-    There is no re-encryption command yet.
+    Adding, changing, or removing this variable has the same effect on stored secrets as
+    rotating `SECRET_KEY`: they become undecryptable and must be re-entered. No
+    re-encryption command exists yet.
 
 ---
 
@@ -205,10 +202,9 @@ Then visit `https://localhost:8080/admin/` in your browser.
 ### Docker Compose
 
 The bundled `nginx/app.conf.template` hardcodes `allow 127.0.0.1; allow ::1;
-deny all;` on the `/admin/` block — it does not read any environment
-variable. To allow a non-loopback IP (e.g. an internal bastion host) on
-Compose, you must edit that template yourself and add an `allow` line for it,
-**and** set `DJANGO_ADMIN_ALLOWED_IPS` in `.env` so the middleware layer
+deny all;` on the `/admin/` block and reads no environment variable. To allow a
+non-loopback IP (e.g. an internal bastion host) on Compose, edit that template to add an
+`allow` line for it, **and** set `DJANGO_ADMIN_ALLOWED_IPS` in `.env` so the middleware
 agrees:
 
 ```bash
@@ -247,12 +243,7 @@ beyond loopback. The chart uses the one value in two places:
     Because one `adminAllowedIPs` value feeds both, list the ingress controller's range
     (for Nginx) as well as the client addresses (for Django).
 
-Both layers accept CIDR ranges (e.g. `10.0.0.0/8`) as well as individual IPs —
-the backend middleware parses each entry with `ipaddress.ip_network()`, so a
-range that passes the Nginx allowlist is matched by Django too. An entry with
-host bits set (e.g. `10.0.0.5/24`) is normalized to its network address, and
-an unusually broad range (`/0` most of all) is logged as a warning at
-startup — both still take effect, for parity with Nginx.
+Both layers accept CIDR ranges (e.g. `10.0.0.0/8`) as well as single IPs. The backend middleware parses each entry with `ipaddress.ip_network()`, so a range that passes the Nginx allowlist matches in Django too. An entry with host bits set (e.g. `10.0.0.5/24`) is normalized to its network address, and an unusually broad range (`/0` most of all) is logged as a warning at startup. Both still take effect, for parity with Nginx.
 
 !!! warning
     Operators upgrading from a release prior to the v1.0 security hardening must apply the Nginx `/admin/` block manually if they manage the Nginx config outside of the bundled template. Add the following to the `/admin/` location block:

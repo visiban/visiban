@@ -111,26 +111,13 @@ signed and attested.
 
 ## Older releases
 
-Images published before this feature carry no image signature or SBOM: every 1.0.x and 1.1.x release, and `v1.2.0-alpha.1` through `v1.2.0-alpha.4`. For those images, `cosign verify` reports `no signatures found`. This means the image was never signed. It does not mean the image was tampered with.
-Maintainers can bring an already-published release up to the same bar without re-cutting
-it: the manual `image-attest-backfill` CI job on `main` signs and attests a given tag's
-images on both registries. It skips any digest that already carries a verifying signature
-or SBOM from either a release tag pipeline or an earlier backfill run.
+Images published before this feature carry no image signature or SBOM: every 1.0.x and 1.1.x release, and `v1.2.0-alpha.1` through `v1.2.0-alpha.4`. For those, `cosign verify` reports `no signatures found`. The image was never signed; it was not necessarily tampered with.
 
-In the other direction, the tag pipeline's own attest jobs skip a digest **only** if it
-already carries a signature or SBOM from a release tag pipeline. A backfill (`main`)
-signature does not satisfy them, so the tag job signs anyway. On GHCR, every release cut
-after this feature shipped therefore verifies with the tag-only `IDENTITY`, even if the
-backfill job touched those digests first.
+Maintainers can bring a published release up to the same bar without re-cutting it: the manual `image-attest-backfill` CI job on `main` signs and attests a given tag's images on both registries. It skips any digest that already carries a verifying signature or SBOM from a release tag pipeline or an earlier backfill run.
 
-**Exception: a GitLab registry release whose signatures were re-attached.** The GitLab
-registry's cleanup keep-regex protects signature and attestation tags
-([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)), so tag-pipeline signatures are
-not swept. If they are deleted anyway (for example by hand) and the backfill job re-attaches
-them, the new copies on `registry.gitlab.com/visiban/visiban` carry the `@refs/heads/main`
-identity. The tag-only `IDENTITY` and the exact-release form then **fail** for that release on
-that registry. Use the backfill regexp below for it. The same release on GHCR still verifies
-with the tag-only identity, because GHCR never sweeps.
+In the other direction, the tag pipeline's attest jobs skip a digest **only** if it already carries a signature or SBOM from a release tag pipeline. A backfill (`main`) signature does not satisfy them, so the tag job signs anyway. On GHCR, every release cut after this feature shipped therefore verifies with the tag-only `IDENTITY`, even if the backfill job touched those digests first.
+
+**Exception: a GitLab registry release whose signatures were re-attached.** The GitLab registry's cleanup keep-regex protects signature and attestation tags ([#1541](https://gitlab.com/visiban/visiban/-/issues/1541)), so tag-pipeline signatures are not swept. If they are deleted anyway (for example by hand) and the backfill job re-attaches them, the new copies on `registry.gitlab.com/visiban/visiban` carry the `@refs/heads/main` identity. The tag-only `IDENTITY` and the exact-release form then **fail** for that release on that registry; use the backfill regexp below. The same release on GHCR still verifies with the tag-only identity, because GHCR never sweeps.
 
 A backfilled release's certificate identity ends in `@refs/heads/main` rather than
 `@refs/tags/v…`, because a released tag cannot be re-run without moving it. The tag-only
@@ -141,13 +128,7 @@ A backfilled release's certificate identity ends in `@refs/heads/main` rather th
 IDENTITY='^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/(tags/v[0-9][^/]*|heads/main)$'
 ```
 
-**Watch out:** backfill is **trust-on-first-use**. The job signs whatever the tag points at when it runs,
-not what the original release pipeline pushed. A backfilled signature therefore proves only
-that Visiban's pipeline vouched for those bytes at backfill time. Only Maintainers should run
-the job, and only after comparing the tag's current digests with the original release
-pipeline's log. `scripts/attest-image-sbom.sh --dry-run` prints the digests read-only. The
-wider regexp also accepts any later run of the backfill job on `main`. Accepting it for every
-release would widen what you trust for no benefit, which is why it is not the default.
+**Watch out:** backfill is **trust-on-first-use**. The job signs whatever the tag points at when it runs, not what the original release pipeline pushed, so a backfilled signature proves only that Visiban's pipeline vouched for those bytes at backfill time. Only Maintainers should run the job, and only after comparing the tag's current digests with the original release pipeline's log. `scripts/attest-image-sbom.sh --dry-run` prints the digests read-only. The wider regexp also accepts any later backfill run on `main`; accepting it for every release would widen your trust for no benefit, so it is not the default.
 
 Charts published at or before `v1.2.0-alpha.2` are unsigned (#1284). See
 [Known CI failures](../maintainers/known-ci-failures.md) if verification fails for a version

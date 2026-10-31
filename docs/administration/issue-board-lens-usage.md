@@ -61,7 +61,7 @@ A healthy instance shows `cache_fresh` well ahead of `fetched`.
 
 ### Retention and accuracy
 
-The counters are kept in the Redis/Valkey cache as hourly buckets for 24 hours. They are **operational telemetry, not an audit log**. They are approximate, they are not attributed to users, and they reset if the cache is flushed or restarted. For longer history, collect the log lines described below with your normal log pipeline.
+The counters live in the Redis/Valkey cache as hourly buckets for 24 hours. They are **operational telemetry, not an audit log**: approximate, not attributed to users, and reset if the cache is flushed or restarted. For longer history, collect the log lines below with your normal log pipeline.
 
 ---
 
@@ -98,7 +98,7 @@ The default is `INFO`. The logger has nothing to emit while `GIT_LENS_ENABLED` i
 
 ## Why the traffic is bounded
 
-The lens cannot generate unbounded upstream traffic, however many people view it or how they filter. The `bounds` section of the report shows the live values:
+However many people view it or how they filter, the lens cannot generate unbounded upstream traffic. The report's `bounds` section shows the live limits:
 
 | Limit | Default | Effect |
 |---|---|---|

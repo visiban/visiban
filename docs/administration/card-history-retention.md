@@ -15,14 +15,14 @@ Each movement record of a deleted card keeps:
 - the card's UID, and the card's title **as it was at the time of that move** (`card_uid`, `card_title`);
 - the movement's notes, the columns and swimlanes involved, who moved it and when.
 
-While the card exists, its history is shown under its current title. Once it is deleted, each movement is shown under the title recorded with it, so a card that was renamed before deletion appears in the board's **History** view under each of its earlier titles. This is intended: it is what the card was called when each move happened.
+While the card exists, its history shows under its current title. Once it is deleted, each movement shows under the title recorded with it, so a card renamed before deletion appears in the board's **History** view under each earlier title. This is intended: it is what the card was called at each move.
 
 **Yes, but:** two exceptions.
 
 - Movements recorded before the 1.2 upgrade, and imported ones, carry the title as of the upgrade or the import, which can differ from what the card was called at that move.
 - A movement written by the previous release while an upgrade was rolling out has no title stored until `backfill_card_movement_snapshots` runs or the card is deleted. Either fills in the card's title at that point (see [Upgrading](upgrade.md)).
 
-**Who can see it:** every member of the board, through the board's **History** view; users with [`can_access_all_content`](../features/permissions.md), who can open every board; and Django admin users with permission to view card movements (read-only).
+**Who can see it:** every board member, through the board's **History** view; users with [`can_access_all_content`](../features/permissions.md), who can open every board; and Django admin users with permission to view card movements (read-only).
 
 **How long it lasts:** until the board is deleted, or until a superuser purges it with the command below. Nothing expires it on a schedule.
 
@@ -68,9 +68,9 @@ Dates are `YYYY-MM-DD` (midnight UTC at the start of that day) or an ISO 8601 da
 
 How the command behaves:
 
-- **Selectors combine.** `--card`, `--board`, `--since` and `--before` all apply together. At least one is required; there is no form that purges everything. A date range alone covers deleted cards on every board.
+- **Selectors combine.** `--card`, `--board`, `--since` and `--before` apply together. At least one is required; no form purges everything. A date range alone covers deleted cards on every board.
 - **`--board` matches the board recorded on each movement.** A movement written by the previous release while an upgrade was rolling out may not have its board recorded yet, and `--board` does not match it. If you upgraded to 1.2 while the old release was still serving, run `python manage.py backfill_card_movement_snapshots` once before purging by board, so those movements carry their board (see [Upgrading](upgrade.md)).
-- **Deleted cards only, by default.** Without `--include-live-cards`, only history of cards that no longer exist is matched, and naming a card that still exists with `--card` is refused. A live card's history feeds its own timeline and the board's metrics, so erasing it is a separate, explicit choice, and it must be narrowed with `--card` or `--board`: a date range alone is refused with `--include-live-cards`.
+- **Deleted cards only, by default.** Without `--include-live-cards`, only history of cards that no longer exist is matched, and naming a card that still exists with `--card` is refused. A live card's history feeds its timeline and the board's metrics, so erasing it is a separate, explicit choice, narrowed with `--card` or `--board`: a date range alone is refused with `--include-live-cards`.
 - **Dry run by default.** The dry run prints counts of records, cards and boards, never titles. Re-run with `--yes` to delete.
 - **Recorded.** A purge that deletes anything writes one `card_history.purged` entry to the [admin action log](../api/admin.md#action-log) with source `cli`, the `--actor` account, the selector used and the number of records deleted. The entry never contains a purged title or note. A run that matches nothing writes no entry.
 - **All or nothing.** The records are deleted in the same transaction that writes the log entry. If the entry cannot be written, nothing is deleted.
@@ -81,4 +81,4 @@ Finding the card UID: a deleted card's UID is shown in the Django admin's **Card
     Movement records are otherwise never edited or deleted outside a board delete. A purge removes them for good, and Board History, the card's audit trail and any later review cannot recover them. The action-log entry is the only record that the purge happened.
 
 !!! note "`--actor` is accountability, not authentication"
-    Anyone who can run `manage.py` already has direct access to the database and can name any account. Shell access is the real control; `--actor` records which superuser authorized the purge, so the action log can answer "who erased this?".
+    Anyone who can run `manage.py` already has database access and can name any account. Shell access is the real control; `--actor` records which superuser authorized the purge, so the action log can answer "who erased this?".

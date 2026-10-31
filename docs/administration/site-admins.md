@@ -24,7 +24,7 @@ See [Roles & Permissions](../features/rbac/roles.md) for the full permission tab
 
 ## Granting and revoking content access separately
 
-If you want a user to manage the admin panel **without** seeing all boards and groups, grant `is_site_admin` but leave `can_access_all_content` off:
+To let a user manage the admin panel **without** seeing all boards and groups, grant `is_site_admin` and leave `can_access_all_content` off:
 
 ```bash
 # Grant admin panel access only — board/group access unchanged
@@ -33,7 +33,7 @@ python manage.py set_site_admin <username>
 # (use the admin panel toggle, or Django admin to uncheck can_access_all_content)
 ```
 
-If you want a user to see all boards (e.g. a support engineer) **without** admin panel access, you can enable `can_access_all_content` via the admin panel (**Site Admin → Users → Grant all-content**) without enabling `is_site_admin`.
+To let a user (e.g. a support engineer) see all boards **without** admin panel access, enable `can_access_all_content` in the admin panel (**Site Admin → Users → Grant all-content**) and leave `is_site_admin` off.
 
 The `set_site_admin` management command always sets **both** flags together for convenience:
 
@@ -90,11 +90,11 @@ python manage.py set_site_admin <username> --revoke
     An account that is still a superuser cannot have site admin removed; remove its superuser status first. The command refuses it, and **Demote admin** is not offered for superuser accounts.
 
 !!! note
-    A site admin cannot demote themselves — this prevents accidentally locking yourself out of the instance. To revoke your own status, ask another site admin to do it. The last active site admin on the instance cannot be demoted through the admin API or the site-admin panel.
+    A site admin cannot demote themselves, which prevents locking yourself out. To revoke your own status, ask another site admin. The last active site admin cannot be demoted through the admin API or the site-admin panel.
 
 ## Restricting registration
 
-By default, anyone can create an account on a Visiban instance. The **Settings** tab in the admin panel (`/admin`) lets you change this:
+By default, anyone can create an account. Change this in the admin panel's **Settings** tab (`/admin`):
 
 | Mode | Effect |
 |---|---|
@@ -147,7 +147,7 @@ Emailed invites from group admins who are not site admins, and every shareable g
 
 **Emailed group and board invites work only for the address they were sent to.** Visiban stores a keyed fingerprint of the address (an HMAC keyed from `DJANGO_SECRET_KEY`), never the address itself, and checks it every time the invite is used (#1678):
 
-- **Joining with an existing account:** the account must have the invited address. Under `EMAIL_VERIFICATION=mandatory` that means a verified address on the account (a pending, unconfirmed address change does not count). Under `optional` or `none`, the account's email address also counts. Those modes never ask anyone to prove an address, so there the check is only as strong as the verification setting. Capitalization and surrounding spaces don't matter; `+tags` and dots do.
+- **Joining with an existing account:** the account must have the invited address. Under `EMAIL_VERIFICATION=mandatory` that means a verified address (a pending, unconfirmed change does not count). Under `optional` or `none`, the account's email address also counts; those modes never ask anyone to prove an address, so the check is only as strong as the verification setting. Capitalization and surrounding spaces don't matter; `+tags` and dots do.
 - **Creating an account from the invite** (invite-only instances, see above): the sign-up address, or the address the OAuth provider reports, must be the invited one. The new account still goes through the normal email-verification setting.
 - *(New in 1.2)* **When the membership starts, with `EMAIL_VERIFICATION=mandatory`:** an account created from an emailed group or board invite joins the group or board when the invited address is verified, not at sign-up (#1704). Only invites bound to an address that is not yet verified are held; emailed invites sent before the upgrade, and sign-ups whose OAuth provider reports the invited address as verified, still join at sign-up. Until then the invite is held for that account: it is not used up and it lists as pending. The person sees the usual "verify your email" step; confirming the invited address adds them with the invite's role and uses up the invite.
     - **What the binding guarantees:** the membership is granted to the account that registered the invited address, once that address is confirmed. Completing the grant requires control of the invited mailbox; the binding does not by itself verify who chose the account's password.

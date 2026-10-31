@@ -34,11 +34,7 @@ rules make possible.
 Work through this before touching the cluster.
 
 1. **Read the changelog for every version between your current release and the target.**
-   Pay particular attention to `changed` and `security` entries — `added` entries are
-   additive by definition and rarely affect an upgrade, but `changed` covers behavior shifts
-   (an env var default, a WebSocket payload addition, a Helm values key) and `security`
-   entries sometimes carry a required post-upgrade action, like the `find_cross_board_cards`
-   command in the [1.2 data-integrity note](upgrade.md#upgrading-to-12x).
+   Focus on `changed` and `security` entries. `added` entries are additive and rarely affect an upgrade, but `changed` covers behavior shifts (an env var default, a WebSocket payload addition, a Helm values key) and `security` entries sometimes require a post-upgrade action, like the `find_cross_board_cards` command in the [1.2 data-integrity note](upgrade.md#upgrading-to-12x).
 
     ```bash
     # From a checkout at the target tag
@@ -87,9 +83,7 @@ Work through this before touching the cluster.
     kubectl get pods -n visiban -l app.kubernetes.io/component=backend
     ```
 
-    Starting a rolling upgrade on top of an already-degraded deployment makes it much harder
-    to tell a pre-existing problem from a new one once you start verifying half-rolled state
-    in step 3 below.
+    Starting on top of an already-degraded deployment makes it hard to tell a pre-existing problem from a new one when you verify half-rolled state in step 3 below.
 
 ---
 
@@ -128,10 +122,7 @@ Because `backendReplicaCount` can be more than 1, more than one new pod's `migra
 - `backend.migrate.connectTimeout` (default `300`) bounds how long a pod waits for the database to accept a connection at all. It is generous, since on a fresh install PostgreSQL may still be starting.
 - `backend.migrate.lockTimeout` (default `900`) bounds how long a replica waits for another replica's in-flight migration to finish before giving up. Raise it if your largest migration (an index build on `cards`, for example) can plausibly run longer than 15 minutes.
 
-Because the schema each `migrate` run leaves behind is safe for both the old and new backend
-code to read (that's the whole point of the
-[zero-downtime migration rules](upgrade.md#zero-downtime-migration-rules)), old pods keep
-serving correctly the entire time new pods are migrating and starting.
+The schema each `migrate` run leaves behind is safe for both old and new backend code (the point of the [zero-downtime migration rules](upgrade.md#zero-downtime-migration-rules)), so old pods keep serving correctly while new pods migrate and start.
 
 ### Step 2 — Watch the rollout's migrate init containers
 
@@ -173,13 +164,12 @@ kubectl exec -n visiban <new-pod-name> -- \
 ```
 
 !!! note "This checkpoint is approximate, not a guaranteed 50%"
-    `kubectl rollout pause` stops the controller from replacing *further* pods, but it can't
-    retroactively undo replacements already in flight when you run it — at low replica counts
-    (2–4, which covers most self-hosted installs) the window between `helm upgrade` returning
-    and your `pause` command landing is often enough for one pod to already be mid-replacement.
-    Treat this as "verify on however many new pods are up so far," not as a precise 50/50
-    canary gate. A true gated canary needs a progressive-delivery controller (e.g. Argo
-    Rollouts), which is out of scope here.
+    `kubectl rollout pause` stops the controller replacing *further* pods but can't undo
+    replacements already in flight. At low replica counts (2–4, most self-hosted installs),
+    one pod is often already mid-replacement before your `pause` lands. Treat this as
+    "verify on however many new pods are up so far," not a precise 50/50 canary gate. A true
+    gated canary needs a progressive-delivery controller (e.g. Argo Rollouts), which is out
+    of scope here.
 
 If the new pods look healthy, resume the rollout to completion:
 
@@ -238,11 +228,7 @@ values that stop traffic (or put the ingress in maintenance mode), run `helm upg
 
 ### A new pod's `migrate` init container failed (§2 Step 1–2)
 
-Traffic is unaffected — old pods are untouched by a new pod's init container failing, since
-Kubernetes never routes Service traffic to a pod whose init containers haven't all succeeded.
-The rollout stalls with the new pod stuck in `Init:Error` or `CrashLoopBackOff`, and
-`kubectl rollout status` will not return until you intervene — there's no separate hook Job for
-Helm to report as failed, so `helm upgrade` itself will have already returned successfully.
+Traffic is unaffected: Kubernetes never routes Service traffic to a pod whose init containers haven't all succeeded, so old pods are untouched. The rollout stalls with the new pod stuck in `Init:Error` or `CrashLoopBackOff`, and `kubectl rollout status` won't return until you intervene. With no hook Job for Helm to report as failed, `helm upgrade` itself has already returned successfully.
 
 Read the failed container's logs and fix the underlying cause:
 
@@ -263,9 +249,7 @@ require restoring the backup taken in checklist step 4.
 
 ### The rollout itself is unhealthy (§2 Step 3 or 4)
 
-The schema is already forward-compatible with the old code — that's what made the rolling
-upgrade safe to start — so reverting the *Deployment* is enough; there is no matching
-migration rollback to perform.
+The schema is already forward-compatible with the old code, which is what made the rolling upgrade safe, so reverting the *Deployment* is enough. No migration rollback is needed.
 
 ```bash
 kubectl rollout undo deployment/visiban-backend -n visiban
@@ -283,11 +267,7 @@ helm history visiban --namespace visiban
 helm rollback visiban <previous-revision> --namespace visiban
 ```
 
-`helm rollback` recreates backend pods on the previous image, so their `migrate` init
-containers run `manage.py migrate_with_lock` again — a no-op, since the schema is already at
-whatever the failed upgrade left it at. That's safe precisely because that schema was built to
-be readable by both versions; `helm rollback` does not and cannot revert a schema change
-itself, only the Deployment/ConfigMap/Secret objects.
+`helm rollback` recreates backend pods on the previous image, so their `migrate` init containers run `manage.py migrate_with_lock` again, a no-op since the schema is already where the failed upgrade left it. That is safe because both versions can read that schema. `helm rollback` cannot revert a schema change, only the Deployment/ConfigMap/Secret objects.
 
 ---
 
