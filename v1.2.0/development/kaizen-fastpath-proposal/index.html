@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#kaizen-fast-path-proposal" class="md-skip">
+        <a href="#propose-fast-path-table-edits-from-yield-data" class="md-skip">
           Skip to content
         </a>
       
@@ -2936,6 +2936,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2952,6 +2970,80 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-proposes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it proposes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-evidence-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The evidence section
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kaizen-stays-the-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        /kaizen stays the fallback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -3962,23 +4054,14 @@
   
 
 
-<h1 id="kaizen-fast-path-proposal">Kaizen fast-path proposal<a class="headerlink" href="#kaizen-fast-path-proposal" title="Permanent link">&para;</a></h1>
-<p>The fast-path table (which change class runs which gates) used to change only when someone
-noticed a pattern by hand: the "Settings sub-page wiring" row exists because kaizen finding</p>
-<h1 id="682-showed-architect-and-ux-design-finding-nothing-on-repeated-form-to-serializer">682 showed <code>architect</code> and <code>ux-design</code> finding nothing on repeated form-to-serializer<a class="headerlink" href="#682-showed-architect-and-ux-design-finding-nothing-on-repeated-form-to-serializer" title="Permanent link">&para;</a></h1>
-<p>sub-pages. Since the <a href="../kaizen-yield-watch/">yield watch</a> (#1144) keeps a running
-per-gate, per-diff-shape streak of <code>0 findings</code> runs, the table's evidence can come from that
-data instead of from memory (#1145).</p>
-<p><code>scripts/kaizen_fastpath_proposal.py</code> reads the yield state and <strong>proposes</strong> table edits. It
-never edits the table. It prints a unified diff and a ready-to-paste evidence section. The
-table is a local file (see below), so the diff is meant to be reviewed and then applied with
-<code>patch</code> by the table's owner, and the evidence section pasted into whatever issue or MR records
-the change (the repository that carries the table, if there is one). This changes where the
-table's evidence comes from, not who decides on a table change.</p>
+<h1 id="propose-fast-path-table-edits-from-yield-data">Propose fast-path table edits from yield data<a class="headerlink" href="#propose-fast-path-table-edits-from-yield-data" title="Permanent link">&para;</a></h1>
+<p><a id="kaizen-fast-path-proposal"></a></p>
+<p><code>scripts/kaizen_fastpath_proposal.py</code> reads the yield state and <strong>proposes</strong> fast-path table edits as a diff plus a ready-to-paste evidence section. It never edits the table.</p>
+<p><strong>Why it matters:</strong> The fast-path table (which change class runs which gates) used to change only when someone noticed a pattern by hand. The "Settings sub-page wiring" row exists because kaizen finding #682 showed <code>architect</code> and <code>ux-design</code> finding nothing on repeated form-to-serializer sub-pages. The <a href="../kaizen-yield-watch/">yield watch</a> (#1144) now keeps a per-gate, per-diff-shape streak of <code>0 findings</code> runs, so the evidence can come from data instead of memory (#1145).</p>
+<p><strong>How it works:</strong> The table is a local file (see below). Its owner reviews the diff, applies it with <code>patch</code>, and pastes the evidence section into the issue or MR that records the change (in the repository that carries the table, if there's one).</p>
+<p><strong>Yes, but:</strong> This changes where the table's evidence comes from, not who decides on a table change.</p>
 <h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
-<p>The table lives in the global <code>~/.claude/CLAUDE.md</code>, which is not in this repository, so pass
-its path. Without <code>--table</code> the script searches the repository's <code>CLAUDE.md</code> files and exits 2
-if none holds the table.</p>
+<p>The table lives in the global <code>~/.claude/CLAUDE.md</code>, which isn't in this repository, so pass its path. Without <code>--table</code> the script searches the repository's <code>CLAUDE.md</code> files and exits 2 if none holds the table.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">OUT</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">TMPDIR</span><span class="k">:-</span><span class="p">/tmp</span><span class="si">}</span><span class="s2">"</span><span class="w">   </span><span class="c1"># macOS: $TMPDIR (/var/folders/...); a literal /tmp/... path is rejected</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/kaizen_fastpath_proposal.py<span class="w"> </span>--table<span class="w"> </span>~/.claude/CLAUDE.md<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--evidence-out<span class="w"> </span><span class="s2">"</span><span class="nv">$OUT</span><span class="s2">/fastpath-evidence.md"</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="nv">$OUT</span><span class="s2">/fastpath.diff"</span>
@@ -3997,12 +4080,12 @@ if none holds the table.</p>
 <tr>
 <td><code>--state FILE</code></td>
 <td><code>.claude/kaizen-yield-state.json</code></td>
-<td>Yield state from the watch. Use the nightly job's <code>kaizen-yield-state.json</code> artifact for the newest data. A file that does not exist exits 2 (it would otherwise read as "no candidates").</td>
+<td>Yield state from the watch. Use the nightly job's <code>kaizen-yield-state.json</code> artifact for the newest data. A file that doesn't exist exits 2 (it would otherwise read as "no candidates").</td>
 </tr>
 <tr>
 <td><code>--declined FILE</code></td>
 <td><code>.claude/kaizen-declined.json</code></td>
-<td>Gates declined as <code>&lt;gate&gt;:fast-path-candidate</code> are not proposed.</td>
+<td>Gates declined as <code>&lt;gate&gt;:fast-path-candidate</code> aren't proposed.</td>
 </tr>
 <tr>
 <td><code>--table FILE</code></td>
@@ -4021,28 +4104,24 @@ if none holds the table.</p>
 </tr>
 </tbody>
 </table>
-<p>Stdout is only the diff, so it can be redirected straight into a file for <code>patch</code>. Line
-endings (CRLF included) are carried through, and an edited last line without a trailing newline
-gets the <code>\ No newline at end of file</code> marker, so the diff applies as-is. The last line of
-stderr is always a one-line summary (after the evidence section when that goes to stderr), such as <code>3 candidate(s) over threshold, 1 diff edit(s),
-2 evidence-only note(s)</code>. <strong>An empty diff does not mean nothing reached the threshold</strong>: the
-candidates below that get no automatic edit appear only in the evidence section, so read it
-(or the summary) every time. File paths follow the
-<a href="../ci-gates/#path-containment-for-cli-arguments">path containment rules</a>; <code>--table</code> may also
-live under <code>~/.claude/</code>. On macOS the temp root is <code>$TMPDIR</code>, not <code>/tmp</code>; a rejected path
-exits 2 with the allowed roots listed. Any other error (a malformed state, an unreadable
-table) exits 2 with a message and no proposal.</p>
-<p><strong>Stale signal.</strong> If the state's watermark (<code>last_merged_at</code>, the newest merge folded in) is
-more than <strong>30 days</strong> old (<code>STALE_DAYS</code>), or the state has no watermark, the first line of
-stderr is a <code>STALE SIGNAL</code> warning, the evidence section carries the same warning, and the
-summary line ends with <code>[STALE SIGNAL]</code>. The committed <code>.claude/kaizen-yield-state.json</code> only
-advances when someone commits the nightly artifact (its watermark was !925, 2026-09-26, when
-this was written), so prefer the newest artifact with <code>--state</code>.</p>
+<p><strong>Output:</strong></p>
+<ul>
+<li><strong>Stdout</strong> is only the diff, so you can redirect it straight into <code>patch</code>. Line endings (CRLF included) carry through, and an edited last line without a trailing newline gets the <code>\ No newline at end of file</code> marker.</li>
+<li><strong>The last line of stderr</strong> is a one-line summary (after the evidence section when that goes to stderr), such as <code>3 candidate(s) over threshold, 1 diff edit(s),
+2 evidence-only note(s)</code>.</li>
+<li><strong>An empty diff doesn't mean nothing reached the threshold.</strong> Candidates with no automatic edit appear only in the evidence section, so read it (or the summary) every time.</li>
+<li><strong>Paths</strong> follow the <a href="../ci-gates/#path-containment-for-cli-arguments">path containment rules</a>; <code>--table</code> may also live under <code>~/.claude/</code>. On macOS the temp root is <code>$TMPDIR</code>, not <code>/tmp</code>. A rejected path exits 2 with the allowed roots listed.</li>
+<li><strong>Any other error</strong> (a malformed state, an unreadable table) exits 2 with a message and no proposal.</li>
+</ul>
+<p><strong>Stale signal.</strong> If the state's watermark (<code>last_merged_at</code>, the newest merge folded in) is more than <strong>30 days</strong> old (<code>STALE_DAYS</code>), or the state has no watermark:</p>
+<ul>
+<li>the first line of stderr is a <code>STALE SIGNAL</code> warning,</li>
+<li>the evidence section carries the same warning, and</li>
+<li>the summary line ends with <code>[STALE SIGNAL]</code>.</li>
+</ul>
+<p>The committed <code>.claude/kaizen-yield-state.json</code> only advances when someone commits the nightly artifact (its watermark was !925, 2026-09-26, when this was written), so prefer the newest artifact with <code>--state</code>.</p>
 <h2 id="what-it-proposes">What it proposes<a class="headerlink" href="#what-it-proposes" title="Permanent link">&para;</a></h2>
-<p>A <strong>candidate</strong> is a (gate, diff shape) pair whose streak reached the state's threshold
-(10 consecutive <code>0 findings</code> runs, <code>/kaizen</code>'s <code>MIN_RUNS_FOR_VERDICT</code>) and that is not
-declined. <code>n/a</code> and <code>skipped</code> lines never count, as in the watch. A pair the watch already
-filed an issue for is still proposed: the issue and the table edit are separate steps.</p>
+<p>A <strong>candidate</strong> is a (gate, diff shape) pair whose streak reached the state's threshold (10 consecutive <code>0 findings</code> runs, <code>/kaizen</code>'s <code>MIN_RUNS_FOR_VERDICT</code>) and that isn't declined. <code>n/a</code> and <code>skipped</code> lines never count, as in the watch. A pair the watch already filed an issue for is still proposed: the issue and the table edit are separate steps.</p>
 <p>Diff shape is the branch prefix, mapped to table rows by the start of the "Change class" cell:</p>
 <table>
 <thead>
@@ -4074,54 +4153,37 @@ filed an issue for is still proposed: the issue and the table edit are separate 
 </tr>
 </tbody>
 </table>
-<p>Because <code>feat</code> covers every feature row, a <code>feat</code> streak is evidence about all of them
-together. The reviewer decides whether the narrowing holds for each row.</p>
+<p><code>feat</code> covers every feature row, so a <code>feat</code> streak is evidence about all of them together. The reviewer decides whether the narrowing holds for each row.</p>
 <p>For each candidate:</p>
 <ul>
-<li><strong>Gate named in a mapped row</strong> (for example <code>`security-review`</code> in "Settings sub-page
-  wiring"): the diff removes that item from the row, including its qualifier text, and one
-  adjacent separator (<code>+</code> inside a group, else the step arrow). Arrows may be <code>→</code> or <code>-&gt;</code> with any
-  spacing; an arrow inside a parenthesized qualifier is part of the item. The ledger name <code>voc</code>
-  matches the table's <code>voice-of-customer</code>.</li>
-<li><strong>Edit would remove the gate from every row that runs it</strong> (by name or through the pre-MR
-  gate cluster): no diff. That is a gate deletion, which <code>/kaizen</code>'s hard rule (narrow, never
-  delete) reserves for a human; the evidence section says so.</li>
-<li><strong>Cell cannot be split safely</strong>: unbalanced parentheses or backticks, the gate named inside
-  prose rather than as an item, text after the gate other than one parenthesized qualifier
-  (for example "<code>`b`</code> (if x) or <code>`c`</code> (if y)", where the item boundary is ambiguous), the
-  gate named more than once in the cell, or the gate as the cell's only item. That row is not
-  edited and the evidence section names it with the reason. The script never writes markdown
-  it could not parse.</li>
-<li><strong>Gate covered only by "batched pre-MR gate cluster"</strong>: no diff. The evidence section lists
-  it as a hand edit, because the cluster's applicability list is prose.</li>
-<li><strong>No mapped row names the gate</strong>, or the shape is <code>other</code>: no diff, listed with the reason.
-  A streak on a gate the table does not require for that shape means it was run outside the
-  table, so there is nothing to narrow.</li>
+<li><strong>Gate named in a mapped row</strong> (for example <code>`security-review`</code> in "Settings sub-page wiring"): the diff removes that item from the row, including its qualifier text, and one adjacent separator (<code>+</code> inside a group, else the step arrow). Arrows may be <code>→</code> or <code>-&gt;</code> with any spacing; an arrow inside a parenthesized qualifier is part of the item. The ledger name <code>voc</code> matches the table's <code>voice-of-customer</code>.</li>
+<li><strong>Edit would remove the gate from every row that runs it</strong> (by name or through the pre-MR gate cluster): no diff. That is a gate deletion, which <code>/kaizen</code>'s hard rule (narrow, never delete) reserves for a human. The evidence section says so.</li>
+<li><strong>Cell cannot be split safely</strong>: no edit, and the evidence section names the row with the reason. The script never writes markdown it couldn't parse. The triggers:<ul>
+<li>unbalanced parentheses or backticks,</li>
+<li>the gate named inside prose rather than as an item,</li>
+<li>text after the gate other than one parenthesized qualifier (for example "<code>`b`</code> (if x) or <code>`c`</code> (if y)", where the item boundary is ambiguous),</li>
+<li>the gate named more than once in the cell, or</li>
+<li>the gate as the cell's only item.</li>
 </ul>
-<p><strong>Adding a row is out of reach of this data.</strong> A branch prefix cannot tell a sub-class of
-<code>feat</code> (like Settings sub-page wiring) from the rest, so new rows still come from <code>/kaizen</code> and
-human review. Path-based diff shapes, which would let the proposer add rows, are tracked in</p>
-<h1 id="1652">1652.<a class="headerlink" href="#1652" title="Permanent link">&para;</a></h1>
+</li>
+<li><strong>Gate covered only by "batched pre-MR gate cluster"</strong>: no diff. The evidence section lists it as a hand edit, because the cluster's applicability list is prose.</li>
+<li><strong>No mapped row names the gate</strong>, or the shape is <code>other</code>: no diff, listed with the reason. A streak on a gate the table doesn't require for that shape means it was run outside the table, so there's nothing to narrow.</li>
+</ul>
+<p><strong>Yes, but:</strong> Adding a row is out of reach of this data. A branch prefix can't tell a sub-class of <code>feat</code> (like Settings sub-page wiring) from the rest, so new rows still come from <code>/kaizen</code> and human review. Path-based diff shapes, which would let the proposer add rows, are tracked in #1652.</p>
 <h2 id="the-evidence-section">The evidence section<a class="headerlink" href="#the-evidence-section" title="Permanent link">&para;</a></h2>
-<p>The <code>## Fast-path evidence</code> section is meant to be pasted as-is into the issue or MR that
-records the table change. It names the state
-file and its watermark, the threshold, and for each candidate the gate, diff shape,
-consecutive 0-finding runs, lifetime runs (with how many had findings), the MRs in the streak
-(the most recent 10 the state keeps), and the rows narrowed or the reason no edit was made.
-The table's rationale stays auditable the same way the #682 citation is.</p>
-<p>The diff edits only the table, but the same file restates when gates fire (the Gate
-reference rows, and prose such as "before the push, run <code>completeness-check</code>"). For every
-narrowed gate the evidence section adds a checklist line to review those too, before the
-diff is applied.</p>
-<p>A streak is absence of evidence. Before merging, confirm the gate was not only run on
-trivially safe diffs. Narrow a trigger; never delete a gate.</p>
+<p>Paste the <code>## Fast-path evidence</code> section as-is into the issue or MR that records the table change. It names:</p>
+<ul>
+<li>the state file and its watermark,</li>
+<li>the threshold, and</li>
+<li>for each candidate: the gate, diff shape, consecutive 0-finding runs, lifetime runs (with how many had findings), the MRs in the streak (the most recent 10 the state keeps), and the rows narrowed or the reason no edit was made.</li>
+</ul>
+<p>The table's rationale stays auditable the same way the #682 citation is.</p>
+<p>The diff edits only the table, but the same file restates when gates fire (the Gate reference rows, and prose such as "before the push, run <code>completeness-check</code>"). For every narrowed gate the evidence section adds a checklist line to review those too, before you apply the diff.</p>
+<p><strong>Watch out:</strong> A streak is absence of evidence. Before merging, confirm the gate wasn't only run on trivially safe diffs. Narrow a trigger; never delete a gate.</p>
 <h2 id="kaizen-stays-the-fallback"><code>/kaizen</code> stays the fallback<a class="headerlink" href="#kaizen-stays-the-fallback" title="Permanent link">&para;</a></h2>
-<p>Manual <code>/kaizen</code> runs (<code>.claude/skills/kaizen/SKILL.md</code>) are not deprecated. They read a
-window of merged MRs directly, report adoption, phantom gates and load-bearing gates, and are
-the cross-check when the proposal looks wrong or the state file is stale.</p>
+<p>Manual <code>/kaizen</code> runs (<code>.claude/skills/kaizen/SKILL.md</code>) aren't deprecated. They read a window of merged MRs directly and report adoption, phantom gates and load-bearing gates. Use them as the cross-check when the proposal looks wrong or the state file is stale.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
-<p><code>bash scripts/tests/kaizen_fastpath_proposal.test.sh</code> (no network; fixture state and table in
-<code>scripts/tests/fixtures/kaizen/</code>). The nightly <code>kaizen-yield-watch</code> job runs <code>--self-test</code>.</p>
+<p><code>bash scripts/tests/kaizen_fastpath_proposal.test.sh</code> (no network; fixture state and table in <code>scripts/tests/fixtures/kaizen/</code>). The nightly <code>kaizen-yield-watch</code> job runs <code>--self-test</code>.</p>
 
 
 

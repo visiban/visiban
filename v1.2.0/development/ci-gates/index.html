@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ci-gate-self-tests" class="md-skip">
+        <a href="#every-ci-gate-script-proves-it-can-fail" class="md-skip">
           Skip to content
         </a>
       
@@ -2857,8 +2857,41 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#the-readme-pipeline-badge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The README pipeline badge
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-gaps-and-deferred-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known gaps and deferred work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-matters-here-specifically" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this matters here specifically
+      
+    </span>
+  </a>
   
 </li>
       
@@ -4127,17 +4160,16 @@
   
 
 
-<h1 id="ci-gate-self-tests">CI gate self-tests<a class="headerlink" href="#ci-gate-self-tests" title="Permanent link">&para;</a></h1>
-<p>A bespoke CI gate that stops detecting anything does not fail — it goes <strong>green</strong>,
-permanently, and looks exactly like a codebase with no violations. There is no signal
-distinguishing "the check passed" from "the check is broken." This is the house rule that
-closes that gap, and the record of which scripts follow it.</p>
+<h1 id="every-ci-gate-script-proves-it-can-fail">Every CI gate script proves it can fail<a class="headerlink" href="#every-ci-gate-script-proves-it-can-fail" title="Permanent link">&para;</a></h1>
+<p><a id="ci-gate-self-tests"></a></p>
+<p>Every bespoke gate script under <code>scripts/</code> ships a <code>--self-test</code> mode, and CI runs it right before the real check.</p>
+<p><strong>Why it matters:</strong> A bespoke CI gate that stops detecting anything doesn't fail. It goes <strong>green</strong>, permanently, and looks exactly like a codebase with no violations. Nothing distinguishes "the check passed" from "the check is broken." This page is the house rule that closes that gap, and the record of which scripts follow it.</p>
 <h2 id="the-rule">The rule<a class="headerlink" href="#the-rule" title="Permanent link">&para;</a></h2>
 <p><strong>Every bespoke gate script under <code>scripts/</code> ships a <code>--self-test</code> mode</strong> that constructs a
 known-bad input, runs its own detection logic against it, and asserts the detection fires.
-CI runs <code>&lt;script&gt; --self-test</code> on the same image, immediately before the real invocation, so
-a change that silently broke detection (a tooling upgrade, a refactor, a BusyBox-vs-GNU
-behavior difference) is caught before its verdict is trusted on that same run.</p>
+CI runs <code>&lt;script&gt; --self-test</code> on the same image, immediately before the real invocation. A
+change that silently broke detection (a tooling upgrade, a refactor, a BusyBox-vs-GNU
+behavior difference) is then caught before its verdict is trusted on that same run.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># The shape every wired gate follows, e.g. dep-scan-osv:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>-<span class="w"> </span>sh<span class="w"> </span>scripts/osv-severity-gate.sh<span class="w"> </span>--self-test
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>-<span class="w"> </span>sh<span class="w"> </span>scripts/osv-severity-gate.sh<span class="w"> </span>osv-report.json
@@ -4146,49 +4178,39 @@ behavior difference) is caught before its verdict is trusted on that same run.</
 see <code>osv-severity-gate.sh</code>'s self-test, which always exits 0 (pass) or 1 (fail), never the
 non-blocking <code>2</code> the real gate uses for a MEDIUM/LOW warning.</p>
 <h2 id="the-meta-gate-gate-selftest-parity">The meta-gate: <code>gate-selftest-parity</code><a class="headerlink" href="#the-meta-gate-gate-selftest-parity" title="Permanent link">&para;</a></h2>
-<p>Nothing above is self-enforcing on its own — a new script can be added to <code>.gitlab-ci.yml</code>
+<p>The rule doesn't enforce itself. A new script can be added to <code>.gitlab-ci.yml</code>
 without a self-test, or a self-test can be written and never wired into the job that would
-run it (exactly what happened to <code>migration-numbering-check</code> before #1093: the script had a
-working <code>--self-test</code>, but the job never called it with that flag).</p>
+run it. That is exactly what happened to <code>migration-numbering-check</code> before #1093: the script had a
+working <code>--self-test</code>, but the job never called it with that flag.</p>
 <p><code>scripts/check-gate-selftest-parity.sh</code> closes that gap. It derives its list of gate scripts
 by scanning <code>.gitlab-ci.yml</code> <strong>at run time</strong> for every literal <code>scripts/&lt;name&gt;.(sh|py|mjs)</code>
 reference on a non-comment line, and fails if any of them:</p>
 <ul>
 <li>has no <code>--self-test</code> mode at all, or</li>
-<li>has one, but no job in <code>.gitlab-ci.yml</code> actually invokes it with that flag.</li>
+<li>has one, but no job in <code>.gitlab-ci.yml</code> invokes it with that flag.</li>
 </ul>
-<p>Nothing here is hardcoded: when a new bespoke script is wired into the CI file (for example
-<code>check-suppression-issues.sh</code>), the parity check picks it up automatically the next run — no
-edit to the checker itself. Wired as its own job (<code>gate-selftest-parity</code>, <code>lint</code> stage),
-which runs <code>check-gate-selftest-parity.sh --self-test</code> before the real scan, same pattern as
-every gate it audits.</p>
+<p>Nothing is hardcoded. When a new bespoke script is wired into the CI file (for example
+<code>check-suppression-issues.sh</code>), the parity check picks it up on the next run, with no edit to the checker. It runs as its own job (<code>gate-selftest-parity</code>, <code>lint</code> stage), which runs <code>check-gate-selftest-parity.sh --self-test</code> before the real scan, like every gate it audits.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>bash<span class="w"> </span>scripts/check-gate-selftest-parity.sh<span class="w">            </span><span class="c1"># scan the real .gitlab-ci.yml</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>bash<span class="w"> </span>scripts/check-gate-selftest-parity.sh<span class="w"> </span>--self-test<span class="w"> </span><span class="c1"># prove the scanner still fires</span>
 </code></pre></div>
 <h3 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h3>
-<p>Only <code>scripts/*.sh</code>, <code>*.py</code>, and <code>*.mjs</code> files referenced by literal path in
+<p>It covers only <code>scripts/*.sh</code>, <code>*.py</code>, and <code>*.mjs</code> files referenced by literal path in
 <code>.gitlab-ci.yml</code>. It does <strong>not</strong> reach into:</p>
 <ul>
-<li>the inline <code>- |</code> shell blocks scattered across the CI file (there is no script file to
+<li>the inline <code>- |</code> shell blocks scattered across the CI file (there's no script file to
   point <code>--self-test</code> at),</li>
 <li>Django management commands such as <code>manage.py check_migration_concurrency</code> (not a file
   under <code>scripts/</code>),</li>
 <li>scripts that are never invoked from <code>.gitlab-ci.yml</code> at all (e.g. <code>assemble-changelog.sh</code>
   and <code>close-milestone-issues.sh</code>, called only from <code>scripts/release.sh</code> at release time).</li>
 </ul>
-<p>Extending the meta-gate to any of these is future work, not silently assumed to be covered —
-see <a href="#known-gaps-and-deferred-work">Known gaps</a> below.</p>
+<p>Extending the meta-gate to these is future work, not assumed covered. See <a href="#known-gaps-and-deferred-work">Known gaps</a>.</p>
 <h2 id="the-escape-hatch-gate-selftest-exempt">The escape hatch: <code>gate-selftest-exempt:</code><a class="headerlink" href="#the-escape-hatch-gate-selftest-exempt" title="Permanent link">&para;</a></h2>
-<p>Some scripts genuinely cannot build a synthetic known-bad input cheaply — most often a live
-smoke test whose entire value is exercising real infrastructure. Rather than let the parity
-check hardcode a list of exceptions (the same anti-pattern the meta-gate exists to avoid),
-an exempt script documents its own exemption, the same escape-hatch shape as
-<code>migration-check</code>'s <code># concurrency-exempt:</code> comment and the OSV gate's <code>IgnoredVulns</code> entries:</p>
+<p>Some scripts can't build a synthetic known-bad input cheaply, most often a live smoke test whose value is exercising real infrastructure. The parity check doesn't hardcode exceptions (the anti-pattern the meta-gate exists to avoid). An exempt script documents its own exemption instead, the same escape-hatch shape as <code>migration-check</code>'s <code># concurrency-exempt:</code> comment and the OSV gate's <code>IgnoredVulns</code> entries:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># gate-selftest-exempt: &lt;reason&gt;</span>
 </code></pre></div>
-<p>The comment must start the line (only leading whitespace and a single <code>#</code> before the marker)
-so that prose <em>describing</em> the marker — like this page, or <code>check-gate-selftest-parity.sh</code>'s
-own header — is never mistaken for a real exemption.</p>
+<p><strong>Watch out:</strong> The comment must start the line (only leading whitespace and a single <code>#</code> before the marker). Prose <em>describing</em> the marker, like this page or <code>check-gate-selftest-parity.sh</code>'s own header, is then never mistaken for a real exemption.</p>
 <h3 id="currently-exempt">Currently exempt<a class="headerlink" href="#currently-exempt" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4216,7 +4238,7 @@ own header — is never mistaken for a real exemption.</p>
 </tr>
 <tr>
 <td><code>scripts/oidc_smoke_test.py</code></td>
-<td>End-to-end smoke test against a live Keycloak instance — a synthetic self-test would need a mock IdP and would not exercise the real risk (discovery/token-exchange/claim-mapping drift).</td>
+<td>End-to-end smoke test against a live Keycloak instance — a synthetic self-test would need a mock IdP and wouldn't exercise the real risk (discovery/token-exchange/claim-mapping drift).</td>
 </tr>
 </tbody>
 </table>
@@ -4258,7 +4280,7 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/check-trivyignore-expiry.sh</code></td>
 <td><code>trivy-scan</code></td>
-<td>#1072: fails the job when a <code>.trivyignore.yaml</code> entry is expired, has no valid <code>expired_at</code>, has no <code>#NNNN</code> reference, does not start with <code>- id:</code>, or is dated more than 366 days out (trivy alone just stops honoring an expired entry). <code>--self-test</code> run in the job before the real check: a valid file and a date exactly 366 days out are accepted; expired, missing date, missing issue reference, <code>- paths:</code>-first entry, flow-style entry, a comment-only <code>#NNNN</code>, a date more than 366 days out, and a malformed entry in a second section must each be rejected. Wider regression suite in <code>scripts/tests/check-trivyignore-expiry.test.sh</code> (not run in CI).</td>
+<td>#1072: fails the job when a <code>.trivyignore.yaml</code> entry is expired, has no valid <code>expired_at</code>, has no <code>#NNNN</code> reference, doesn't start with <code>- id:</code>, or is dated more than 366 days out (trivy alone just stops honoring an expired entry). <code>--self-test</code> run in the job before the real check: a valid file and a date exactly 366 days out are accepted; expired, missing date, missing issue reference, <code>- paths:</code>-first entry, flow-style entry, a comment-only <code>#NNNN</code>, a date more than 366 days out, and a malformed entry in a second section must each be rejected. Wider regression suite in <code>scripts/tests/check-trivyignore-expiry.test.sh</code> (not run in CI).</td>
 </tr>
 <tr>
 <td><code>scripts/check-issue-collision.sh</code></td>
@@ -4267,7 +4289,7 @@ own header — is never mistaken for a real exemption.</p>
 </tr>
 <tr>
 <td><code>scripts/gl-issues.sh</code></td>
-<td>not a CI job (a maintainer-side helper for <code>/pre-release</code> and <code>/wave</code>, so the parity gate does not reach it)</td>
+<td>not a CI job (a maintainer-side helper for <code>/pre-release</code> and <code>/wave</code>, so the parity gate doesn't reach it)</td>
 <td>#1901: <code>--self-test</code> stubs <code>glab</code> on <code>PATH</code> and covers a failing <code>glab</code>, a missing <code>glab</code>, an HTTP-error object, a non-JSON body, an empty value (an unset <code>$WORKING_RELEASE</code> must not widen the query), an unknown milestone title, <code>&amp;</code> and space URL-encoding, and the happy path. Fails closed so an empty result always means "no issues".</td>
 </tr>
 <tr>
@@ -4303,7 +4325,7 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/classify-release-tag.sh</code></td>
 <td><code>backend-manifest</code> and <code>frontend-manifest</code> (each runs the self-test independently — the two jobs have no <code>needs:</code> on each other and run in parallel, so a self-test in only one would let the other race ahead unguarded)</td>
-<td>Single source of truth for whether a release tag is stable (gets the <code>:latest</code>/<code>:MAJOR.MINOR</code> registry aliases) or pre-release (gets neither). <code>github-release</code> also calls it (no self-test of its own; it runs after both manifest jobs) so the GitHub Release <code>--prerelease</code> badge uses the same classification — any tag that is not strictly <code>vX.Y.Z</code> is a pre-release (#1410). A 2026-10 incident: the stable-vs-pre-release regex used to gate <code>:MAJOR.MINOR</code> alone while the alias list defaulted to including <code>:latest</code> unconditionally, so every alpha/beta/rc tag silently re-pointed <code>backend:latest</code>/<code>frontend:latest</code> at that pre-release build, on both registries, for about three days before anyone noticed — the second time this exact duplicated-regex shape has bitten this file (cf. <code>resolve-docs-version.sh</code> above, #1270). 13-case self-test, including the exact alpha/beta/rc shapes <code>scripts/release.sh</code> produces and several malformed/partial tags that must not be misread as stable.</td>
+<td>Single source of truth for whether a release tag is stable (gets the <code>:latest</code>/<code>:MAJOR.MINOR</code> registry aliases) or pre-release (gets neither). <code>github-release</code> also calls it (no self-test of its own; it runs after both manifest jobs) so the GitHub Release <code>--prerelease</code> badge uses the same classification — any tag that isn't strictly <code>vX.Y.Z</code> is a pre-release (#1410). A 2026-10 incident: the stable-vs-pre-release regex used to gate <code>:MAJOR.MINOR</code> alone while the alias list defaulted to including <code>:latest</code> unconditionally, so every alpha/beta/rc tag silently re-pointed <code>backend:latest</code>/<code>frontend:latest</code> at that pre-release build, on both registries, for about three days before anyone noticed — the second time this exact duplicated-regex shape has bitten this file (cf. <code>resolve-docs-version.sh</code> above, #1270). 13-case self-test, including the exact alpha/beta/rc shapes <code>scripts/release.sh</code> produces and several malformed/partial tags that must not be misread as stable.</td>
 </tr>
 <tr>
 <td><code>scripts/extract-release-notes.sh</code></td>
@@ -4313,7 +4335,7 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/check-latest-tag-stability.sh</code></td>
 <td><code>latest-tag-stability-check</code> (release tags, <code>needs: [backend-manifest, frontend-manifest]</code>)</td>
-<td>Fails the tag pipeline itself if <code>backend:latest</code>/<code>frontend:latest</code> on either registry does not match the newest STABLE release's digest — the automatic version of the manual check that caught the incident above. "Stable" is resolved via <code>classify-release-tag.sh</code>, never re-implemented, so this can't drift out of sync with the jobs it's checking. 10-case self-test over a stubbed <code>DIGEST_PROBE</code>, including the resolver correctly skipping a newer-but-pre-release tag and reproducing the actual incident shape (one registry's <code>:latest</code> drifted, the other healthy). <code>scripts/release.sh</code> also runs this same check read-only <strong>before</strong> it branches or tags (<code>check_latest_not_drifted</code>), so drift that predates the cut stops the release instead of turning the tag pipeline red afterward. Only a reported <code>MISMATCH</code> blocks; an unreachable registry or missing <code>crane</code>/<code>docker buildx</code> warns and continues, and <code>RELEASE_SKIP_LATEST_CHECK=1</code> bypasses it. See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
+<td>Fails the tag pipeline itself if <code>backend:latest</code>/<code>frontend:latest</code> on either registry doesn't match the newest STABLE release's digest — the automatic version of the manual check that caught the incident above. "Stable" is resolved via <code>classify-release-tag.sh</code>, never re-implemented, so this can't drift out of sync with the jobs it's checking. 10-case self-test over a stubbed <code>DIGEST_PROBE</code>, including the resolver correctly skipping a newer-but-pre-release tag and reproducing the actual incident shape (one registry's <code>:latest</code> drifted, the other healthy). <code>scripts/release.sh</code> also runs this same check read-only <strong>before</strong> it branches or tags (<code>check_latest_not_drifted</code>), so drift that predates the cut stops the release instead of turning the tag pipeline red afterward. Only a reported <code>MISMATCH</code> blocks; an unreachable registry or missing <code>crane</code>/<code>docker buildx</code> warns and continues, and <code>RELEASE_SKIP_LATEST_CHECK=1</code> bypasses it. See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/check-rbac-coverage.py</code></td>
@@ -4333,7 +4355,7 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/check-security-deferred.sh</code></td>
 <td><code>security-deferred-verdict-selftest</code> (same job; also triggers on this path and <code>scripts/release.sh</code>, and also triggers on <code>scripts/tests/release.test.sh</code>; the job runs <code>scripts/tests/release.test.sh</code>, which includes <code>release.sh --self-test</code> plus the end-to-end rollback cases, now that release.sh's in-place edits are portable across BSD, GNU and busybox sed, <a href="https://gitlab.com/visiban/visiban/-/issues/1539">#1539</a>)</td>
-<td>The single query-and-loop implementation behind <code>/pre-release</code> Step 1.5 and <code>scripts/release.sh</code>: lists every open <code>security::deferred</code> issue in <strong>any</strong> milestone and runs the verdict script on each (#1520). <code>release.sh</code> runs it <strong>before</strong> it branches or tags (<code>check_security_deferred_clear</code>) for <strong>GA tags only</strong> — pre-releases are not gated and <code>/pre-release full</code> still runs it — because <code>/pre-release full</code> runs about a sprint earlier. Unlike the <code>:latest</code> guard it fails <strong>closed</strong>: a missing <code>glab</code>/<code>jq</code>, an API error or a non-array response blocks, since no later job backstops it. <code>RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1</code> bypasses it, still printing the open-issue list to stderr as a trace. Test-only overrides (<code>GLAB</code>, <code>PROJECT</code>, <code>TODAY</code>, <code>CAP</code>, <code>VERDICT_SCRIPT</code>, and <code>release.sh</code>'s <code>SECURITY_DEFERRED_SCRIPT</code>) are honored only under <code>--self-test</code>, so a stale exported <code>TODAY</code> cannot rescue an expired note. 15-case self-test over a stubbed <code>glab</code>: closed-, later- and no-milestone issues block, the query carries no <code>milestone=</code> filter, accepted/expired/system-note handling, and each fail-closed path. See <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a>.</td>
+<td>The single query-and-loop implementation behind <code>/pre-release</code> Step 1.5 and <code>scripts/release.sh</code>: lists every open <code>security::deferred</code> issue in <strong>any</strong> milestone and runs the verdict script on each (#1520). <code>release.sh</code> runs it <strong>before</strong> it branches or tags (<code>check_security_deferred_clear</code>) for <strong>GA tags only</strong> — pre-releases aren't gated and <code>/pre-release full</code> still runs it — because <code>/pre-release full</code> runs about a sprint earlier. Unlike the <code>:latest</code> guard it fails <strong>closed</strong>: a missing <code>glab</code>/<code>jq</code>, an API error or a non-array response blocks, since no later job backstops it. <code>RELEASE_SKIP_SECURITY_DEFERRED_CHECK=1</code> bypasses it, still printing the open-issue list to stderr as a trace. Test-only overrides (<code>GLAB</code>, <code>PROJECT</code>, <code>TODAY</code>, <code>CAP</code>, <code>VERDICT_SCRIPT</code>, and <code>release.sh</code>'s <code>SECURITY_DEFERRED_SCRIPT</code>) are honored only under <code>--self-test</code>, so a stale exported <code>TODAY</code> can't rescue an expired note. 15-case self-test over a stubbed <code>glab</code>: closed-, later- and no-milestone issues block, the query carries no <code>milestone=</code> filter, accepted/expired/system-note handling, and each fail-closed path. See <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/check-broadcast-deferral.py</code></td>
@@ -4343,12 +4365,12 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/check-release-images.sh</code></td>
 <td><code>check-release-images</code> (scheduled pipelines only)</td>
-<td>Ported from TruePPM's beta-readiness incident #0 (#1074): a registry cleanup policy with no keep-regex deleted a released image days after it shipped, with no commit to review and no job that went red on its own. 19-check self-test over stubbed <code>RELEASE_IMAGE_PROBE</code> / <code>RELEASE_ARCH_PROBE</code> — both registries missing, one registry healthy, both healthy, a present tag whose manifest silently dropped <code>arm64</code> (#1197), a manifest that cannot be read (reported <code>PROBE-ERROR</code>, not <code>ARCH-MISSING</code>), an explicit empty <code>RELEASE_REGISTRIES</code> override, no resolvable <code>v*</code> tag, and <code>ACCEPTED_GAPS</code> skipping only the named reference. Unlike <code>osv-severity-gate.sh</code>, there is no separate <code>scripts/tests/</code> regression file — the in-script self-test already exercises every branch of the (small) decision logic, so a second copy of the same fixtures would just be duplicate maintenance. See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
+<td>Ported from TruePPM's beta-readiness incident #0 (#1074): a registry cleanup policy with no keep-regex deleted a released image days after it shipped, with no commit to review and no job that went red on its own. 19-check self-test over stubbed <code>RELEASE_IMAGE_PROBE</code> / <code>RELEASE_ARCH_PROBE</code> — both registries missing, one registry healthy, both healthy, a present tag whose manifest silently dropped <code>arm64</code> (#1197), a manifest that can't be read (reported <code>PROBE-ERROR</code>, not <code>ARCH-MISSING</code>), an explicit empty <code>RELEASE_REGISTRIES</code> override, no resolvable <code>v*</code> tag, and <code>ACCEPTED_GAPS</code> skipping only the named reference. Unlike <code>osv-severity-gate.sh</code>, there's no separate <code>scripts/tests/</code> regression file — the in-script self-test already exercises every branch of the (small) decision logic, so a second copy of the same fixtures would just be duplicate maintenance. See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/check-release-attestations.sh</code></td>
 <td><code>check-release-attestations</code> (Nightly schedule only: <code>CVE_SCAN=true</code>); its <code>--self-test</code> also runs on MRs via <code>check-release-attestations-selftest</code> (MRs touching the script, <code>docs/administration/image-verification.md</code> or <code>.gitlab-ci.yml</code>; also <code>main</code>)</td>
-<td>#1542, follow-up from #1153: <code>check-release-images</code> proves a released image exists, not that its cosign <code>.sig</code> / <code>.att</code> tags do, so a registry sweep or manual delete of them (the GitLab registry's policy swept them ~90 days after a release until #1541's keep-regex went live) turns nothing red. For the newest <code>ATTEST_CHECK_COUNT</code> <code>v*</code> tags (default 3) cut after image signing shipped, on both registries, both images, it runs <code>cosign verify</code> on the index and each platform digest and <code>cosign verify-attestation --type cyclonedx</code> on each platform digest, with the tag-only identity from <a href="../../administration/image-verification/">Verifying release images</a>. A tag is in scope only when the <code>.gitlab-ci.yml</code> at that tag defines every job in <code>ATTEST_SIGNING_JOBS</code> (<code>backend-image-attest</code> and <code>frontend-image-attest</code>), i.e. its own release pipeline signed it. Older releases were never signed, so there is nothing of theirs that could have been swept; the job lists them as <code>not checked</code> (#1606: the first nightly checked the three pre-#1153 <code>v1.2.0-alpha.*</code> tags and reported all 60 of their digests unsigned). Whether an unsigned tag is pre-signing is decided by commit ancestry, not version order: a tag without those jobs that descends from a release that had them fails rather than being skipped. That covers signing dropped from one release and restored in the next, and a patch on an older release line branched from a signed release, both of which sort below a signed tag. A tag that does not resolve to a commit, or whose ancestry <code>git merge-base</code> cannot read, fails; a shallow clone fails, and anything other than a literal <code>false</code> from <code>git rev-parse --is-shallow-repository</code> counts as shallow (the job sets <code>GIT_DEPTH: "0"</code> and unshallows a reused build directory before fetching tags), and the self-test asserts the repo's own <code>.gitlab-ci.yml</code> still defines the jobs, so renaming them cannot quietly empty the check. Until the first release after #1153 is cut, the job prints <code>no release has been cut since image signing shipped</code> and exits 0. A tag listed in <code>ATTEST_BACKFILLED_TAGS</code> (empty by default) is brought into scope even if it predates signing, and uses the main-or-tag identity instead; nothing else is ever widened. <code>ATTEST_TAGS</code> names tags explicitly and bypasses the signing-era filter. Not <code>allow_failure</code>. cosign is the <code>.cosign-pin</code> version shared with <code>image-attest</code> and <code>helm-publish</code>. 42-check self-test over stubbed <code>crane</code> / <code>cosign</code> (the stub cosign rejects any issuer other than <code>https://gitlab.com</code> and any <code>--type</code> other than <code>cyclonedx</code>; the real entry point is also run as a subprocess to pin its exit codes 0, 1 and 2): all good, cosign verifying but returning zero attestations (must fail), an attestation whose in-toto subject is another digest, deleted <code>.att</code>, deleted <code>.sig</code>, a missing image, a platform missing from the index, a platform-digest signature missing while the index signature passes, an unresolvable index digest, <code>ATTEST_CHECK_COUNT</code> bounding the releases checked, pre-signing releases skipped with a notice while a signing-era one is checked (and still fails on a missing signature), a backfilled pre-signing release brought back into scope, a release cut after signing without the signing jobs (must fail), signing dropped then restored (the gap still fails), an older-line patch tag descended from a signed release (must fail), a tag that does not resolve to a commit (must fail, with or without a signed release to compare against), a <code>git merge-base</code> error such as a missing object (must fail, never skip), a shallow clone or an unrecognized shallow answer from an old git (must fail), a backfilled tag not making other pre-signing tags fail, a fixture naming a signing job only in a comment or as an indented key (must not count as signed), the repo's <code>.gitlab-ci.yml</code> still defining the signing jobs, backfill versus tag-only identity, every reference accepted as a gap (zero verified must fail), no tag, no registry, and the two regexps matching the documented ones. Run it on demand from a workstation with registry credentials in <code>~/.docker/config.json</code>: <code>ATTEST_CHECK_COUNT=1 CI_REGISTRY_IMAGE=registry.gitlab.com/visiban/visiban bash scripts/check-release-attestations.sh</code> (needs <code>crane</code>, <code>cosign</code>, <code>jq</code>; read-only). <strong>Red means</strong> a signature or SBOM attestation is missing or does not verify for a named <code>registry/image@digest</code>, or none were found at all. <strong>Runbook:</strong> read the failing line. If <code>.sig</code>/<code>.att</code> tags are gone from the GitLab registry, check the cleanup keep-regex (#1541, <a href="../../administration/container-image-retention/">Container image retention</a>), then re-attach with the manual <code>image-attest-backfill</code> job (<code>BACKFILL_TAG=&lt;tag&gt;</code>) after comparing digests with the release log, and add the tag to <code>ATTEST_BACKFILLED_TAGS</code> in <code>.gitlab-ci.yml</code> because backfilled signatures carry the <code>@refs/heads/main</code> identity. <strong>Pre-signing releases:</strong> releases cut before #1153 are out of scope, not failures. Backfilling one is optional and is a Maintainer decision: run <code>image-attest-backfill</code> (<code>BACKFILL_TAG=&lt;tag&gt;</code>) after comparing digests, then add the tag to <code>ATTEST_BACKFILLED_TAGS</code> so this job starts guarding it. A tag listed there that is not signed fails like any other. Only tags whose own <code>.gitlab-ci.yml</code> defines the signing jobs anchor the ancestry check, so backfilling one old tag does not make the pre-signing tags after it fail; each backfilled tag is checked on its own. <strong>First signed release:</strong> the self-test checks the signing jobs in the working tree's <code>.gitlab-ci.yml</code>, not in any tag, so inspect the first Nightly run after the first release cut since #1153 once. It must show <code>== &lt;that tag&gt;</code> with <code>ok</code> lines, not the <code>no release has been cut since image signing shipped</code> notice. This self-test also runs in merge request pipelines (<code>check-release-attestations-selftest</code>, #1610), so renaming or dropping the signing jobs fails the MR, not the next night. The one-time inspection is tracked in #1610. A red <code>descends from a signed release, but its .gitlab-ci.yml does not define every job in</code> line means a release pipeline ran without the signing jobs: restore them, then backfill that tag. Do not lower <code>ATTEST_CHECK_COUNT</code> to dodge it. Accepting every reference as a gap still fails: the zero-verified guard exits 1 when no attestation was verified at all, so the exception list can never silence the whole job. A <code>manifest not readable</code> line is a missing image, so start with <code>check-release-images</code>.</td>
+<td>#1542, follow-up from #1153. <code>check-release-images</code> proves a released image exists, not that its cosign <code>.sig</code> / <code>.att</code> tags do, so a registry sweep or manual delete of them turns nothing red (the GitLab registry's policy swept them ~90 days after a release until #1541's keep-regex went live). For the newest <code>ATTEST_CHECK_COUNT</code> <code>v*</code> tags (default 3) cut after image signing shipped, on both registries and both images, it runs <code>cosign verify</code> on the index and each platform digest, and <code>cosign verify-attestation --type cyclonedx</code> on each platform digest, with the tag-only identity from <a href="../../administration/image-verification/">Verifying release images</a>. <strong>Scope:</strong> a tag is in scope only when the <code>.gitlab-ci.yml</code> at that tag defines every job in <code>ATTEST_SIGNING_JOBS</code> (<code>backend-image-attest</code> and <code>frontend-image-attest</code>), i.e. its own release pipeline signed it. Older releases were never signed, so there is nothing of theirs that could have been swept; the job lists them as <code>not checked</code> (#1606: the first nightly checked the three pre-#1153 <code>v1.2.0-alpha.*</code> tags and reported all 60 of their digests unsigned). <strong>Ancestry decides</strong> whether an unsigned tag is pre-signing, not version order: a tag without those jobs that descends from a release that had them fails rather than being skipped. That covers signing dropped from one release and restored in the next, and a patch on an older release line branched from a signed release, both of which sort below a signed tag. A tag that doesn't resolve to a commit, or whose ancestry <code>git merge-base</code> can't read, fails. A shallow clone fails too, and anything other than a literal <code>false</code> from <code>git rev-parse --is-shallow-repository</code> counts as shallow (the job sets <code>GIT_DEPTH: "0"</code> and unshallows a reused build directory before fetching tags). The self-test asserts the repo's own <code>.gitlab-ci.yml</code> still defines the jobs, so renaming them can't quietly empty the check. Until the first release after #1153 is cut, the job prints <code>no release has been cut since image signing shipped</code> and exits 0. <strong>Overrides:</strong> a tag listed in <code>ATTEST_BACKFILLED_TAGS</code> (empty by default) is brought into scope even if it predates signing, and uses the main-or-tag identity instead; nothing else is ever widened. <code>ATTEST_TAGS</code> names tags explicitly and bypasses the signing-era filter. The job isn't <code>allow_failure</code>. cosign is the <code>.cosign-pin</code> version shared with <code>image-attest</code> and <code>helm-publish</code>. <strong>Self-test:</strong> 42 checks over stubbed <code>crane</code> / <code>cosign</code> (the stub cosign rejects any issuer other than <code>https://gitlab.com</code> and any <code>--type</code> other than <code>cyclonedx</code>; the real entry point also runs as a subprocess to pin its exit codes 0, 1 and 2). Cases: all good, cosign verifying but returning zero attestations (must fail), an attestation whose in-toto subject is another digest, deleted <code>.att</code>, deleted <code>.sig</code>, a missing image, a platform missing from the index, a platform-digest signature missing while the index signature passes, an unresolvable index digest, <code>ATTEST_CHECK_COUNT</code> bounding the releases checked, pre-signing releases skipped with a notice while a signing-era one is checked (and still fails on a missing signature), a backfilled pre-signing release brought back into scope, a release cut after signing without the signing jobs (must fail), signing dropped then restored (the gap still fails), an older-line patch tag descended from a signed release (must fail), a tag that doesn't resolve to a commit (must fail, with or without a signed release to compare against), a <code>git merge-base</code> error such as a missing object (must fail, never skip), a shallow clone or an unrecognized shallow answer from an old git (must fail), a backfilled tag not making other pre-signing tags fail, a fixture naming a signing job only in a comment or as an indented key (must not count as signed), the repo's <code>.gitlab-ci.yml</code> still defining the signing jobs, backfill versus tag-only identity, every reference accepted as a gap (zero verified must fail), no tag, no registry, and the two regexps matching the documented ones. <strong>Run it on demand</strong> from a workstation with registry credentials in <code>~/.docker/config.json</code>: <code>ATTEST_CHECK_COUNT=1 CI_REGISTRY_IMAGE=registry.gitlab.com/visiban/visiban bash scripts/check-release-attestations.sh</code> (needs <code>crane</code>, <code>cosign</code>, <code>jq</code>; read-only). <strong>Red means</strong> a signature or SBOM attestation is missing or doesn't verify for a named <code>registry/image@digest</code>, or none were found at all. <strong>Runbook:</strong> read the failing line. If <code>.sig</code>/<code>.att</code> tags are gone from the GitLab registry, check the cleanup keep-regex (#1541, <a href="../../administration/container-image-retention/">Container image retention</a>), re-attach with the manual <code>image-attest-backfill</code> job (<code>BACKFILL_TAG=&lt;tag&gt;</code>) after comparing digests with the release log, and add the tag to <code>ATTEST_BACKFILLED_TAGS</code> in <code>.gitlab-ci.yml</code>, because backfilled signatures carry the <code>@refs/heads/main</code> identity. <strong>Pre-signing releases</strong> (cut before #1153) are out of scope, not failures. Backfilling one is optional and a Maintainer decision: run <code>image-attest-backfill</code> (<code>BACKFILL_TAG=&lt;tag&gt;</code>) after comparing digests, then add the tag to <code>ATTEST_BACKFILLED_TAGS</code> so this job starts guarding it. A tag listed there that isn't signed fails like any other. Only tags whose own <code>.gitlab-ci.yml</code> defines the signing jobs anchor the ancestry check, so backfilling one old tag doesn't make the pre-signing tags after it fail; each backfilled tag is checked on its own. <strong>First signed release:</strong> the self-test checks the signing jobs in the working tree's <code>.gitlab-ci.yml</code>, not in any tag, so inspect the first Nightly run after the first release cut since #1153 once. It must show <code>== &lt;that tag&gt;</code> with <code>ok</code> lines, not the <code>no release has been cut since image signing shipped</code> notice. The self-test also runs in merge request pipelines (<code>check-release-attestations-selftest</code>, #1610), so renaming or dropping the signing jobs fails the MR, not the next night. The one-time inspection is tracked in #1610. A red <code>descends from a signed release, but its .gitlab-ci.yml does not define every job in</code> line means a release pipeline ran without the signing jobs: restore them, then backfill that tag. Don't lower <code>ATTEST_CHECK_COUNT</code> to dodge it. Accepting every reference as a gap still fails: the zero-verified guard exits 1 when no attestation was verified at all, so the exception list can never silence the whole job. A <code>manifest not readable</code> line is a missing image, so start with <code>check-release-images</code>.</td>
 </tr>
 <tr>
 <td><code>scripts/docker-push-retry.sh</code></td>
@@ -4368,7 +4390,7 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/check_mutation_score.py</code></td>
 <td><code>mutation-score-selftest</code> (MRs touching the script, the CI file or any <code>backend/**/*.py</code>; also main) and <code>backend-mutation-report</code> (the Weekly mutation testing schedule only, with <code>MUTATION_TEST=true</code>)</td>
-<td>#1384, ported from TruePPM's <code>check_mutation_score.py</code>. Exports mutmut 2.5.1's <code>.mutmut-cache</code> to a stats JSON (2.x has no <code>export-cicd-stats</code>), merges the parallel shards per target and then over all targets (<code>--expect-shards NAME=N,...</code>, printed by <code>backend/mutmut_config.py expect-shards</code>: a missing shard, a missing or unexpected target is exit 2, so a dead shard is never summed into a smaller complete run; a target's shards must also agree on <code>total</code> and their non-skipped mutants must add up to it), prints each target's score and the merged one, and gates the merged adjusted score with <code>MUTATION_MIN=0.90</code> (#1384; exit 1 below it, the jobs stay <code>allow_failure: true</code> until the follow-up on #1384). <code>--export-cache</code> drops mutmut 2.5.1's phantom cache rows (a mutant filed under another line with the same text, which is never run) and limits a class target to its lines (<code>--line-range</code>). Reports a <strong>raw</strong> and an <strong>adjusted</strong> score (#1503): adjusted leaves out mutants proven equivalent with <code># pragma: no mutate -- &lt;reason&gt;</code>, which mutmut never generates, so <code>--export-cache</code> counts them from the source (<code>excluded</code>, per target like <code>total</code>; a class target counts only its own lines); <code>MUTATION_MIN</code> gates the adjusted number. <code>--check-pragmas backend</code> (also run by <code>mutation-score-selftest</code>) fails any pragma with no reason and exits 2 on a missing path or a tree with no <code>.py</code> files; <code>--export-cache</code> exits 2 if a file with pragmas yields equal mutant counts, if the cache holds no generated mutant (or, with <code>--source</code>, none for the target's file: the run died before mutating), or if a non-generated row carries a verdict; the report exits 2 for any target with <code>total</code> 0 or nothing scoreable, so a dead target never drops out of the merged score. Report-only when <code>MUTATION_MIN</code> is unset (the weekly job sets it); exit 2 (not measured: missing, malformed or inconsistent shard stats, untested mutants, or zero scoreable mutants) applies even then, and a floor outside (0, 1], such as <code>95</code> or <code>0</code>, is also exit 2 (a config error, raised before any stats are read, so no merged file is written). 111-check self-test (120 with mutmut importable; the weekly <code>backend-mutation</code> job runs it with mutmut installed) (run on MRs by <code>mutation-score-selftest</code>, and in the report <code>script:</code> before the real call): above, at and one mutant below a floor, a floor of exactly 1, timeouts counted as killed, <code>suspicious</code> not, <code>skipped</code> excluded, shards summed, a missing shard, shards with unequal totals, an uncovered or doubly covered mutant, a shard with no <code>total</code>, malformed and missing inputs, unfinished and empty runs, report-only, out-of-range floors from <code>--min</code> and <code>MUTATION_MIN</code>, <code>--write-merged</code> writing the real module total and still writing (with a <code>not_measured</code> reason) on a not-measured run and a missing shard, raw versus adjusted scores and the pragma reason rule, several targets merged (the floor failing on the merged score while one target passes, a missing, extra or short target, per-target consistency, the per-target lines and artifact section), a cache export that drops a phantom row (and refuses, exit 2, a non-generated row that carries a verdict), counts a generated mutant with no row as untested and honors <code>--line-range</code>, a cache export from a SQLite fixture in mutmut's schema (including a path containing <code>?</code>, <code>#</code>, <code>%</code> and spaces, to prove the read-only URI is percent-quoted), and path containment (a stats, <code>--write-merged</code> or <code>--export-cache</code> path outside the allowed roots, or reached through an escaping symlink, is exit 2 with nothing written).</td>
+<td>#1384, ported from TruePPM's <code>check_mutation_score.py</code>. Exports mutmut 2.5.1's <code>.mutmut-cache</code> to a stats JSON (2.x has no <code>export-cicd-stats</code>), merges the parallel shards per target and then over all targets (<code>--expect-shards NAME=N,...</code>, printed by <code>backend/mutmut_config.py expect-shards</code>: a missing shard, a missing or unexpected target is exit 2, so a dead shard is never summed into a smaller complete run; a target's shards must agree on <code>total</code> and their non-skipped mutants must add up to it), prints each target's score and the merged one, and gates the merged adjusted score with <code>MUTATION_MIN=0.90</code> (#1384; exit 1 below it, the jobs stay <code>allow_failure: true</code> until the follow-up on #1384). <code>--export-cache</code> drops mutmut 2.5.1's phantom cache rows (a mutant filed under another line with the same text, which is never run) and limits a class target to its lines (<code>--line-range</code>). Reports a <strong>raw</strong> and an <strong>adjusted</strong> score (#1503): adjusted leaves out mutants proven equivalent with <code># pragma: no mutate -- &lt;reason&gt;</code>, which mutmut never generates, so <code>--export-cache</code> counts them from the source (<code>excluded</code>, per target like <code>total</code>; a class target counts only its own lines); <code>MUTATION_MIN</code> gates the adjusted number. <code>--check-pragmas backend</code> (also run by <code>mutation-score-selftest</code>) fails any pragma with no reason and exits 2 on a missing path or a tree with no <code>.py</code> files; <code>--export-cache</code> exits 2 if a file with pragmas yields equal mutant counts, if the cache holds no generated mutant (or, with <code>--source</code>, none for the target's file: the run died before mutating), or if a non-generated row carries a verdict; the report exits 2 for any target with <code>total</code> 0 or nothing scoreable, so a dead target never drops out of the merged score. Report-only when <code>MUTATION_MIN</code> is unset (the weekly job sets it); exit 2 (not measured: missing, malformed or inconsistent shard stats, untested mutants, or zero scoreable mutants) applies even then, and a floor outside (0, 1], such as <code>95</code> or <code>0</code>, is exit 2 (a config error, raised before any stats are read, so no merged file is written). 111-check self-test (120 with mutmut importable; the weekly <code>backend-mutation</code> job runs it with mutmut installed) (run on MRs by <code>mutation-score-selftest</code>, and in the report <code>script:</code> before the real call): above, at and one mutant below a floor, a floor of exactly 1, timeouts counted as killed, <code>suspicious</code> not, <code>skipped</code> excluded, shards summed, a missing shard, shards with unequal totals, an uncovered or doubly covered mutant, a shard with no <code>total</code>, malformed and missing inputs, unfinished and empty runs, report-only, out-of-range floors from <code>--min</code> and <code>MUTATION_MIN</code>, <code>--write-merged</code> writing the real module total and still writing (with a <code>not_measured</code> reason) on a not-measured run and a missing shard, raw versus adjusted scores and the pragma reason rule, several targets merged (the floor failing on the merged score while one target passes, a missing, extra or short target, per-target consistency, the per-target lines and artifact section), a cache export that drops a phantom row (and refuses, exit 2, a non-generated row that carries a verdict), counts a generated mutant with no row as untested and honors <code>--line-range</code>, a cache export from a SQLite fixture in mutmut's schema (including a path containing <code>?</code>, <code>#</code>, <code>%</code> and spaces, to prove the read-only URI is percent-quoted), and path containment (a stats, <code>--write-merged</code> or <code>--export-cache</code> path outside the allowed roots, or reached through an escaping symlink, is exit 2 with nothing written).</td>
 </tr>
 <tr>
 <td><code>backend/mutmut_config.py</code></td>
@@ -4378,12 +4400,12 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/fuzz_deep_file_issue.py</code></td>
 <td><code>backend-schema-fuzz-deep</code> (Nightly schedule only)</td>
-<td>#1383: the deep fuzz job is <code>allow_failure: true</code>, so a finding shows as a yellow job in a green pipeline and emails nobody. This script, run from <code>after_script</code> on failure, keeps one open tracking issue: it files it, or comments on it when it is already open. Self-test (run in <code>script:</code> before the fuzz) covers report-only with no token (no API call at all), a comment on an existing exact-title match (a near-miss search hit must not count), a new issue via the <code>KAIZEN_API_TOKEN</code> fallback, failing open on an API error, and quick-action smuggling: a multi-line <code>FUZZ_SEED</code> becomes <code>invalid</code>, and no CI-variable text can start a body line with <code>/</code>. The job files only when a marker written after the self-test exists, so a self-test or setup failure is never reported as a schema-fuzz finding.</td>
+<td>#1383: the deep fuzz job is <code>allow_failure: true</code>, so a finding shows as a yellow job in a green pipeline and emails nobody. This script, run from <code>after_script</code> on failure, keeps one open tracking issue: it files it, or comments on it when it's already open. Self-test (run in <code>script:</code> before the fuzz) covers report-only with no token (no API call at all), a comment on an existing exact-title match (a near-miss search hit must not count), a new issue via the <code>KAIZEN_API_TOKEN</code> fallback, failing open on an API error, and quick-action smuggling: a multi-line <code>FUZZ_SEED</code> becomes <code>invalid</code>, and no CI-variable text can start a body line with <code>/</code>. The job files only when a marker written after the self-test exists, so a self-test or setup failure is never reported as a schema-fuzz finding.</td>
 </tr>
 <tr>
 <td><code>scripts/resolve_fuzz_seed.py</code></td>
 <td><code>backend-schema-fuzz</code> (and, via <code>extends:</code>, the deep nightly and <code>backend-schema-fuzz-git-lens</code>)</td>
-<td>#1207: MR pipelines cannot take pipeline variables, so the documented <code>FUZZ_SEED</code> replay was impossible on a feature branch. The script picks the seed: explicit <code>FUZZ_SEED</code> variable, then a <code>Fuzz-Seed: &lt;n&gt;</code> trailer on the MR head commit (<code>CI_COMMIT_MESSAGE</code>, merge request pipelines only), then random, and logs which. Every value is validated as a plain non-negative integer below 2**64 because it comes from a commit message. Self-test (run in <code>script:</code> before the fuzz) covers trailer parsing, case-insensitivity, last-trailer-wins, variable precedence, ignoring the trailer off MR pipelines, and rejecting non-integer, shell-metacharacter, negative, empty, unicode-digit and oversized values.</td>
+<td>#1207: MR pipelines can't take pipeline variables, so the documented <code>FUZZ_SEED</code> replay was impossible on a feature branch. The script picks the seed: explicit <code>FUZZ_SEED</code> variable, then a <code>Fuzz-Seed: &lt;n&gt;</code> trailer on the MR head commit (<code>CI_COMMIT_MESSAGE</code>, merge request pipelines only), then random, and logs which. Every value is validated as a plain non-negative integer below 2**64 because it comes from a commit message. Self-test (run in <code>script:</code> before the fuzz) covers trailer parsing, case-insensitivity, last-trailer-wins, variable precedence, ignoring the trailer off MR pipelines, and rejecting non-integer, shell-metacharacter, negative, empty, unicode-digit and oversized values.</td>
 </tr>
 <tr>
 <td><code>scripts/sonar-scan.sh</code></td>
@@ -4398,19 +4420,16 @@ own header — is never mistaken for a real exemption.</p>
 <tr>
 <td><code>scripts/wait-for-main-pipeline.py</code></td>
 <td><code>release-main-pipeline-guard</code> (release tags; on <code>main</code> it runs the self-test and <code>--check-ci-file</code>, then exits) and <code>release-main-pipeline-guard-selftest</code> (MRs touching the script, <code>scripts/_paths.py</code>, or the CI file; also main)</td>
-<td>#1154: every tag-pipeline publish job <code>needs:</code> the guard, which refuses unless the tagged commit's own <code>main</code> pipeline is green job by job, <code>allow_failure</code> jobs included. The self-test stubs the GitLab API and covers: green, any top-level pipeline status (<code>manual</code>, <code>running</code>, <code>failed</code>, ...) when every required job is green, top-level <code>success</code> with a required job failed, a failed <code>allow_failure</code> job, a missing always-required job, a legitimately absent change-conditional job, skipped/manual/canceled, no pipeline, HTTP/non-JSON/wrong-shape errors, newest push pipeline over a schedule one, a failure on the second jobs page, retried jobs in either order, running then timeout, the <code>dep-scan-osv</code> warn exit, parallel instances, an unknown status, an unset <code>GITLAB_API_TOKEN</code> (refused before any request), 401/403/404 refusing at once while 429/5xx are retried, and the token never being sent as <code>JOB-TOKEN</code> or printed. <code>--check-ci-file</code> fails when a listed job is not in <code>.gitlab-ci.yml</code> or a publish job does not list the guard in its <code>needs:</code>. It also fails when a publish job needs the guard only with <code>optional: true</code>, when an <code>ALWAYS_REQUIRED</code> job no longer runs automatically on every <code>main</code> pipeline (<code>changes:</code> or <code>when: manual</code> on its main rule), when a job outside <code>EXEMPT_JOBS</code> can be <code>manual</code> on <code>main</code>, and when an unlisted job that can run on a tag pipeline sits in the <code>deploy</code> stage or <code>needs:</code> a publish job without being in <code>PUBLISH_JOBS</code> or <code>TAG_READONLY</code>. Rules are read through <code>extends:</code> and <code>&lt;&lt;:</code> anchors, first match wins. Each <code>if:</code> is evaluated (<code>||</code>, <code>&amp;&amp;</code>, <code>==</code>/<code>!=</code>), and an unknown condition always counts against the job. The one shape it does not claim to catch is a job that publishes from a non-deploy stage and needs no publish job. The self-test also covers a pipeline with no jobs, and a <code>CI_COMMIT_SHA</code> overridden to a commit other than the checked-out one. Both refuse.</td>
+<td>#1154: every tag-pipeline publish job <code>needs:</code> the guard, which refuses unless the tagged commit's own <code>main</code> pipeline is green job by job, <code>allow_failure</code> jobs included. The self-test stubs the GitLab API and covers: green, any top-level pipeline status (<code>manual</code>, <code>running</code>, <code>failed</code>, ...) when every required job is green, top-level <code>success</code> with a required job failed, a failed <code>allow_failure</code> job, a missing always-required job, a legitimately absent change-conditional job, skipped/manual/canceled, no pipeline, HTTP/non-JSON/wrong-shape errors, newest push pipeline over a schedule one, a failure on the second jobs page, retried jobs in either order, running then timeout, the <code>dep-scan-osv</code> warn exit, parallel instances, an unknown status, an unset <code>GITLAB_API_TOKEN</code> (refused before any request), 401/403/404 refusing at once while 429/5xx are retried, and the token never being sent as <code>JOB-TOKEN</code> or printed. <code>--check-ci-file</code> fails when a listed job isn't in <code>.gitlab-ci.yml</code> or a publish job doesn't list the guard in its <code>needs:</code>. It fails when a publish job needs the guard only with <code>optional: true</code>, when an <code>ALWAYS_REQUIRED</code> job no longer runs automatically on every <code>main</code> pipeline (<code>changes:</code> or <code>when: manual</code> on its main rule), when a job outside <code>EXEMPT_JOBS</code> can be <code>manual</code> on <code>main</code>, and when an unlisted job that can run on a tag pipeline sits in the <code>deploy</code> stage or <code>needs:</code> a publish job without being in <code>PUBLISH_JOBS</code> or <code>TAG_READONLY</code>. Rules are read through <code>extends:</code> and <code>&lt;&lt;:</code> anchors, first match wins. Each <code>if:</code> is evaluated (<code>||</code>, <code>&amp;&amp;</code>, <code>==</code>/<code>!=</code>), and an unknown condition always counts against the job. The one shape it doesn't claim to catch is a job that publishes from a non-deploy stage and needs no publish job. The self-test also covers a pipeline with no jobs, and a <code>CI_COMMIT_SHA</code> overridden to a commit other than the checked-out one. Both refuse.</td>
 </tr>
 </tbody>
 </table>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,
-covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
+covering the exact version-dotted-slug incident that motivated #1093), but isn't wired into
 any CI job — see below.</p>
 <h2 id="what-trivy-scan-covers-in-the-helm-chart">What <code>trivy-scan</code> covers in the Helm chart<a class="headerlink" href="#what-trivy-scan-covers-in-the-helm-chart" title="Permanent link">&para;</a></h2>
-<p><code>trivy fs</code> renders a Helm chart before it scans it, and the chart's render-time guards
-(<code>templates/_validate.tpl</code>) reject placeholder values. Without help trivy logs
-<code>Skipping chart ... validate.yaml</code> and scans no template (#1536). The job therefore passes
-<code>--helm-values helm/ci/trivy-values.yaml</code>, a render-only values file (arbitrary, non-secret
-values; never use it to install), and fails if <code>trivy-report.json</code> has no result for <code>helm/visiban/templates/</code> or if the <code>Skipping chart</code> line ever reappears (two checks, so a reworded log line cannot hide a skip).</p>
+<p><code>trivy fs</code> renders a Helm chart before it scans it, and the chart's render-time guards (<code>templates/_validate.tpl</code>) reject placeholder values. Without help, trivy logs <code>Skipping chart ... validate.yaml</code> and scans no template (#1536).</p>
+<p>The job therefore passes <code>--helm-values helm/ci/trivy-values.yaml</code>, a render-only values file (arbitrary, non-secret values; <strong>never use it to install</strong>). It fails if <code>trivy-report.json</code> has no result for <code>helm/visiban/templates/</code> or if the <code>Skipping chart</code> line ever reappears. Two checks mean a reworded log line can't hide a skip.</p>
 <ul>
 <li><strong>Scanned:</strong> the chart's default render plus NetworkPolicies, the scheduled-job CronJobs,
   the OIDC env block and the SMTP env block (those are switched on in the values file so
@@ -4419,22 +4438,20 @@ values; never use it to install), and fails if <code>trivy-report.json</code> ha
 <li><strong>Not scanned:</strong> public demo mode (<code>values-demo.yaml</code> is a different render shape that
   conflicts with the SMTP/OIDC settings above), the bundled <code>postgresql</code> subchart tarball,
   and the other <code>values-*.yaml</code> overlays. Add a template or a new optional resource to the
-  values file when it is gated behind a flag that is off by default.</li>
+  values file when it's gated behind a flag that's off by default.</li>
 </ul>
 <h2 id="path-containment-for-cli-arguments">Path containment for CLI arguments<a class="headerlink" href="#path-containment-for-cli-arguments" title="Permanent link">&para;</a></h2>
 <p>Gate scripts that open files named on the command line or via <code>--root</code> do so through <code>scripts/_paths.py::resolve_within</code> (#1377). It canonicalizes the path (collapsing <code>..</code> and following symlinks) and only then checks it sits under an allowed root, so a symlink that leaves the tree is rejected too. A rejected path is a "cannot run" outcome (exit 2 for the rbac, ws-event and broadcast gates), never a clean result.</p>
 <ul>
 <li><code>--root</code>-based gates (<code>check-rbac-coverage.py</code>, <code>check-ws-event-reachability.py</code>, <code>check-broadcast-deferral.py</code>) confine every read to <code>--root</code>.</li>
-<li>Other file arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>, <code>--token-file</code>, <code>--budget-file</code>, <code>--check-ci-file</code>, <code>--output</code>, <code>--schema</code>, <code>--types</code>, <code>--evidence-out</code>) must resolve under the repository, the current directory, or the system temp directory (Python's <code>tempfile.gettempdir()</code>: <code>/tmp</code> on the Linux CI runners, <code>$TMPDIR</code> such as <code>/var/folders/...</code> on macOS, where a literal <code>/tmp/...</code> path is rejected; use <code>"${TMPDIR:-/tmp}/..."</code>). <code>kaizen_fastpath_proposal.py --table</code> may also resolve under <code>~/.claude/</code>, where the global fast-path table lives; it is read only. The temp roots are trusted only on ephemeral single-tenant runners; there is no ownership check. A filesystem-root working directory is never treated as a root.</li>
+<li>Other file arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>, <code>--token-file</code>, <code>--budget-file</code>, <code>--check-ci-file</code>, <code>--output</code>, <code>--schema</code>, <code>--types</code>, <code>--evidence-out</code>) must resolve under the repository, the current directory, or the system temp directory (Python's <code>tempfile.gettempdir()</code>: <code>/tmp</code> on the Linux CI runners, <code>$TMPDIR</code> such as <code>/var/folders/...</code> on macOS, where a literal <code>/tmp/...</code> path is rejected; use <code>"${TMPDIR:-/tmp}/..."</code>). <code>kaizen_fastpath_proposal.py --table</code> may also resolve under <code>~/.claude/</code>, where the global fast-path table lives; it's read only. The temp roots are trusted only on ephemeral single-tenant runners; there's no ownership check. A filesystem-root working directory is never treated as a root.</li>
 <li><code>kaizen_gate_ledger.py</code> validates <code>--window</code> (1..100) and <code>--project</code> (an allowlist: <code>visiban/visiban</code> or <code>visiban/visiban-enterprise</code>) before they reach the <code>glab</code> argv.</li>
 <li><code>check-added-files-covered.mjs</code> rejects a <code>--target-ref</code> that starts with <code>-</code>.</li>
 </ul>
 <p>Run <code>python scripts/_paths.py --self-test</code> to exercise the helper (<code>..</code> traversal, symlink escape, filesystem-root cwd); the <code>rbac-coverage</code> job runs it.</p>
 <h2 id="scheduled-pipelines">Scheduled pipelines<a class="headerlink" href="#scheduled-pipelines" title="Permanent link">&para;</a></h2>
-<p>A scheduled pipeline on <code>main</code> runs the <strong>whole</strong> pipeline, not just the schedule-gated jobs:
-the <code>$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code> rules match a schedule, and <code>changes:</code> rules
-evaluate true on one. Every extra schedule therefore costs a full pipeline (about 48 jobs).
-So the project keeps <strong>three</strong> schedules (#1383, #1384), not one per job. All three use the <code>America/New_York</code> time zone so their local start times hold across daylight saving, and they sit in the 00:00 to 07:00 ET window, at least 90 minutes apart, clear of the TruePPM project's own schedules:</p>
+<p><strong>Why it matters:</strong> A scheduled pipeline on <code>main</code> runs the <strong>whole</strong> pipeline, not just the schedule-gated jobs: the <code>$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code> rules match a schedule, and <code>changes:</code> rules evaluate true on one. Every extra schedule costs a full pipeline (about 48 jobs).</p>
+<p>So the project keeps <strong>three</strong> schedules (#1383, #1384), not one per job. All three use the <code>America/New_York</code> time zone so their local start times hold across daylight saving. They sit in the 00:00 to 07:00 ET window, at least 90 minutes apart, clear of the TruePPM project's own schedules:</p>
 <table>
 <thead>
 <tr>
@@ -4453,7 +4470,7 @@ So the project keeps <strong>three</strong> schedules (#1383, #1384), not one pe
 <td><code>CVE_SCAN</code>, <code>OSV_SCAN</code>, <code>SONAR_SCHEDULED</code>, <code>FUZZ_DEEP</code>, <code>KAIZEN_YIELD_WATCH</code> (all <code>true</code>)</td>
 <td>maintainers (schedule owner: <code>kellyhair</code>)</td>
 <td><code>backend-dep-scan</code>, <code>frontend-dep-scan</code> (blocking); <code>dep-scan-osv</code> (blocking on HIGH/CRITICAL, warns otherwise); <code>trivy-scan</code> (blocking since #1072: HIGH/CRITICAL vulnerability, misconfiguration and secret findings all count; it runs on MRs that change its inputs and on Nightly via <code>CVE_SCAN=true</code>, not on every <code>main</code> push (#1267), and accepted findings live in <code>.trivyignore.yaml</code> with an expiry); <code>sonar:scan</code>, <code>backend-schema-fuzz-deep</code>, <code>check-release-attestations</code> (blocking, #1542); <code>kaizen-yield-watch</code> (<code>allow_failure: true</code>)</td>
-<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, a <code>trivy-scan</code> finding appears (a new misconfiguration or secret counts too) or a <code>.trivyignore.yaml</code> entry expires, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard did not refresh that night.</td>
+<td><strong>Red:</strong> a dependency on <code>main</code> has a new HIGH/CRITICAL advisory, a <code>trivy-scan</code> finding appears (a new misconfiguration or secret counts too) or a <code>.trivyignore.yaml</code> entry expires, or an ordinary <code>main</code> job failed. Fix or document it (an expiring <code>IgnoredVulns</code> entry for OSV). <strong>Yellow <code>backend-schema-fuzz-deep</code>:</strong> a real API contract defect, never a flake (#1165); see its tracking issue. <strong>Yellow <code>sonar:scan</code>:</strong> the SonarCloud dashboard didn't refresh that night.</td>
 </tr>
 <tr>
 <td>Nightly load test (#1082) (4463581)</td>
@@ -4469,48 +4486,44 @@ So the project keeps <strong>three</strong> schedules (#1383, #1384), not one pe
 <td><code>MUTATION_TEST=true</code></td>
 <td>maintainers (schedule owner: <code>kellyhair</code>)</td>
 <td><code>backend-mutation</code> (50 shards) and <code>backend-mutation-report</code> (both <code>allow_failure: true</code> until the follow-up on #1384 makes the report blocking)</td>
-<td><strong>Yellow <code>backend-mutation-report</code>:</strong> either the merged adjusted mutation score is under the 0.90 floor (exit 1; the log names any target under it on its own), or the run was not measured (exit 2: a shard or target died, or finished with untested mutants). The log says which. See <a href="../mutation-testing/">Mutation testing</a>.</td>
+<td><strong>Yellow <code>backend-mutation-report</code>:</strong> either the merged adjusted mutation score is under the 0.90 floor (exit 1; the log names any target under it on its own), or the run wasn't measured (exit 2: a shard or target died, or finished with untested mutants). The log says which. See <a href="../mutation-testing/">Mutation testing</a>.</td>
 </tr>
 </tbody>
 </table>
-<p>All three schedules also run every ordinary <code>main</code> job, plus the jobs that use any scheduled
-pipeline as their slot: <code>schedule-config-check</code>, <code>check-release-images</code>,
-<code>cleanup-merged-branches</code>. <code>check-release-attestations</code> is narrower: it runs only on the
-schedule that sets <code>CVE_SCAN</code> (Nightly), so it needs no schedule of its own. The helm and compose drills (<code>helm-install</code>, <code>helm-netpol</code>,
-<code>compose-prod-drill</code>) skip any schedule that sets <code>SONAR_SCHEDULED</code>, so they run on the
-load-test and weekly mutation schedules. The load test keeps its own schedule, three hours
-earlier than the Nightly one, because its latency budgets are noisy on a busy runner. Mutation
-testing keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see
-<a href="../mutation-testing/#runner-load">Runner load</a>), which did not fit alongside the Nightly jobs. <code>backend-schema-fuzz</code>, the MR job, never runs on
-a schedule; <code>backend-schema-fuzz-deep</code> replaces it there.</p>
-<p><code>seed-demo-data</code> has no schedule on purpose (#1232): it is manual-only on <code>main</code>, because the
-try.visiban.com demo now runs from the Helm chart's demo mode (see
-<a href="../../maintainers/demo-deploy/">Demo deployment</a>) rather than a weekly CI reseed.
-<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code> is empty, so every schedule-gated variable must have an active
-schedule. Its last temporary entry, <code>MUTATION_TEST</code> (#1384), was removed once a schedule
-carried the variable (first the Nightly one, now the Weekly mutation testing one).</p>
+<p>All three schedules also run every ordinary <code>main</code> job, plus the jobs that use any scheduled pipeline as their slot: <code>schedule-config-check</code>, <code>check-release-images</code>, <code>cleanup-merged-branches</code>.</p>
+<ul>
+<li><strong><code>check-release-attestations</code></strong> is narrower: it runs only on the schedule that sets <code>CVE_SCAN</code> (Nightly), so it needs no schedule of its own.</li>
+<li><strong>Helm and compose drills</strong> (<code>helm-install</code>, <code>helm-netpol</code>, <code>compose-prod-drill</code>) skip any schedule that sets <code>SONAR_SCHEDULED</code>, so they run on the load-test and weekly mutation schedules.</li>
+<li><strong>Load test:</strong> it keeps its own schedule, three hours earlier than the Nightly one, because its latency budgets are noisy on a busy runner.</li>
+<li><strong>Mutation testing:</strong> it keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see <a href="../mutation-testing/#runner-load">Runner load</a>), which didn't fit alongside the Nightly jobs.</li>
+<li>
+<p><strong><code>backend-schema-fuzz</code></strong>, the MR job, never runs on a schedule; <code>backend-schema-fuzz-deep</code> replaces it there.</p>
+</li>
+<li>
+<p><strong><code>seed-demo-data</code></strong> has no schedule on purpose (#1232). It's manual-only on <code>main</code>, because the try.visiban.com demo now runs from the Helm chart's demo mode (see <a href="../../maintainers/demo-deploy/">Demo deployment</a>) rather than a weekly CI reseed.</p>
+</li>
+<li><strong><code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code></strong> is empty, so every schedule-gated variable must have an active schedule. Its last temporary entry, <code>MUTATION_TEST</code> (#1384), was removed once a schedule carried the variable (first the Nightly one, now the Weekly mutation testing one).</li>
+</ul>
 <h3 id="changing-a-schedule">Changing a schedule<a class="headerlink" href="#changing-a-schedule" title="Permanent link">&para;</a></h3>
-<p>Schedules are GitLab project configuration (<strong>Build → Pipeline schedules</strong>), not files in this
-repository. <code>schedule-config-check</code> runs on every scheduled pipeline. It fails if any
-<code>$CI_PIPELINE_SOURCE == "schedule" &amp;&amp; $VAR == "true"</code> rule in <code>.gitlab-ci.yml</code> has no
-active schedule setting <code>VAR=true</code>, unless the variable is listed in
-<code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code>.</p>
+<p>Schedules are GitLab project configuration (<strong>Build → Pipeline schedules</strong>), not files in this repository. <code>schedule-config-check</code> runs on every scheduled pipeline. It fails if any <code>$CI_PIPELINE_SOURCE == "schedule" &amp;&amp; $VAR == "true"</code> rule in <code>.gitlab-ci.yml</code> has no active schedule setting <code>VAR=true</code>, unless the variable is listed in <code>SCHEDULE_AUDIT_ACCEPTED_GAPS</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">The check only asserts anything when <code>GITLAB_API_TOKEN</code> is configured</p>
-<p>A job's <code>CI_JOB_TOKEN</code> cannot read pipeline schedules. Without a <code>GITLAB_API_TOKEN</code> CI
-variable, the lookup is
-inconclusive and the job <strong>warns and passes</strong>, and a schedule missing a variable goes
-unreported, which is the gap #1213 was filed over. The variable has existed on
-<code>visiban/visiban</code> since 2026-10-31 (#1996), owned by a Maintainer bot, so the check
-asserts from the next scheduled pipeline on. A red <code>schedule-config-check</code> there names a
-real gap the check could not see before. If it is ever removed or its owner drops below Maintainer, the check either
-falls back to warning or reports every schedule-only variable as <code>MISSING</code>. Before</p>
-<h1 id="1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying">1383 the script also stopped at the rejected job token instead of trying<a class="headerlink" href="#1383-the-script-also-stopped-at-the-rejected-job-token-instead-of-trying" title="Permanent link">&para;</a></h1>
-<p><code>GITLAB_API_TOKEN</code>. It now falls through to it. The variable is a personal access token
-with <code>read_api</code> scope. For this check its owner needs <strong>Maintainer</strong>, or must own the
-schedules, because GitLab returns schedule <code>variables</code> only to them. Project access tokens
-need Premium on GitLab.com, and the <code>visiban</code> group is on Free. See
-<a href="../../maintainers/tokens-and-rotation/#gitlab_api_token-and-the-release-guard">Tokens and Rotation</a>.</p>
+<p>A job's <code>CI_JOB_TOKEN</code> can't read pipeline schedules. Without a <code>GITLAB_API_TOKEN</code> CI
+variable, the lookup is inconclusive and the job <strong>warns and passes</strong>. A schedule missing a variable then goes
+unreported, which is the gap #1213 was filed over.</p>
+<ul>
+<li>The variable has existed on <code>visiban/visiban</code> since 2026-10-31 (#1996), owned by a Maintainer bot, so the check
+  asserts from the next scheduled pipeline on. A red <code>schedule-config-check</code> there names a
+  real gap the check couldn't see before.</li>
+<li>If it's ever removed or its owner drops below Maintainer, the check either
+  falls back to warning or reports every schedule-only variable as <code>MISSING</code>.</li>
+<li>Before #1383 the script also stopped at the rejected job token instead of trying
+  <code>GITLAB_API_TOKEN</code>. It now falls through to it.</li>
+<li>The variable is a personal access token with <code>read_api</code> scope. For this check its owner needs <strong>Maintainer</strong>, or must own the
+  schedules, because GitLab returns schedule <code>variables</code> only to them. Project access tokens
+  need Premium on GitLab.com, and the <code>visiban</code> group is on Free.</li>
+</ul>
+<p>See <a href="../../maintainers/tokens-and-rotation/#gitlab_api_token-and-the-release-guard">Tokens and Rotation</a>.</p>
 </div>
 <p>Once <code>GITLAB_API_TOKEN</code> is configured, the order of a change matters:</p>
 <ul>
@@ -4523,40 +4536,33 @@ need Premium on GitLab.com, and the <code>visiban</code> group is on Free. See
 <p>The check only reads <code>.gitlab-ci.yml</code> from the commit the schedule runs, so it never fails an
 MR or push pipeline. It fails the next scheduled pipeline on <code>main</code> after the merge.</p>
 <h3 id="the-readme-pipeline-badge">The README pipeline badge<a class="headerlink" href="#the-readme-pipeline-badge" title="Permanent link">&para;</a></h3>
-<p><strong>Decision (#1383): the README badge keeps tracking the latest <code>main</code> pipeline, schedules
-included.</strong> A red scheduled pipeline turns the badge red, which is deliberate. Both schedules
-feed it, including the 03:00 load-test pipeline. GitLab's pipeline badge
-can filter by ref and <code>ignore_skipped</code> but not by pipeline source, and the shields.io GitLab
-pipeline badge reads the same latest-pipeline-per-ref data. A schedule-free badge would mean
-running and maintaining a new endpoint, a service this project does not have. More
-importantly, every reason the badge can go red is a real problem with <code>main</code>, not a stochastic
-or external blip. Visiban is self-hosted, so for someone deciding whether to deploy <code>main</code>,
-that is exactly what a public status badge should show.</p>
+<p><strong>Decision (#1383): the README badge keeps tracking the latest <code>main</code> pipeline, schedules included.</strong> A red scheduled pipeline turns the badge red, which is deliberate. Both schedules feed it, including the 03:00 load-test pipeline.</p>
+<ul>
+<li><strong>No schedule-free option:</strong> GitLab's pipeline badge can filter by ref and <code>ignore_skipped</code> but not by pipeline source, and the shields.io GitLab pipeline badge reads the same latest-pipeline-per-ref data. A schedule-free badge would mean running and maintaining a new endpoint, a service this project doesn't have.</li>
+<li><strong>Every red is real:</strong> every reason the badge can go red is a real problem with <code>main</code>, not a stochastic or external blip. Visiban is self-hosted, so for someone deciding whether to deploy <code>main</code>, that's exactly what a public status badge should show.</li>
+</ul>
 <p>The badge can go red for three reasons:</p>
 <ul>
-<li><code>nightly-load-test</code> goes over a latency budget. It is blocking and the noisiest of the
+<li><code>nightly-load-test</code> goes over a latency budget. It's blocking and the noisiest of the
   three, because budgets move on a busy shared runner. The 2026-09-30 red was this.</li>
 <li>A real HIGH/CRITICAL CVE or OSV advisory lands against a dependency of <code>main</code>, or <code>trivy-scan</code> (blocking since #1072) finds an unsuppressed HIGH/CRITICAL vulnerability, misconfiguration or secret, or an entry in <code>.trivyignore.yaml</code> expires.</li>
-<li>An ordinary <code>main</code> job really fails in a scheduled run (for example, the 2026-10-01
+<li>An ordinary <code>main</code> job fails in a scheduled run (for example, the 2026-10-01
   <code>frontend-test</code> red).</li>
 </ul>
-<p>Deep fuzz, Sonar and kaizen are <code>allow_failure: true</code> and <strong>cannot</strong> turn the badge red. The
-load test is the case most likely to reopen this decision. If its noise starts making the
-badge meaningless, the fix belongs in the load test's budgets, not in the badge. To revisit the
-decision, change this section and <code>README.md</code> together.</p>
+<p>Deep fuzz, Sonar and kaizen are <code>allow_failure: true</code> and <strong>can't</strong> turn the badge red.</p>
+<p><strong>Yes, but:</strong> The load test is the case most likely to reopen this decision. If its noise starts making the badge meaningless, the fix belongs in the load test's budgets, not in the badge. To revisit the decision, change this section and <code>README.md</code> together.</p>
 <h2 id="known-gaps-and-deferred-work">Known gaps and deferred work<a class="headerlink" href="#known-gaps-and-deferred-work" title="Permanent link">&para;</a></h2>
-<p>Not every bespoke script called out when #1093 was filed got a self-test in the same pass.
-Deferred deliberately, not silently:</p>
+<p>Not every bespoke script called out when #1093 was filed got a self-test in the same pass. These are deferred deliberately, not silently:</p>
 <ul>
 <li><strong><code>scripts/close-milestone-issues.sh</code></strong> — an action script (closes GitLab issues via
-  <code>glab</code>), not a detection/gate script: there is no pass/fail verdict to prove still fires.
+  <code>glab</code>), not a detection/gate script: there's no pass/fail verdict to prove still fires.
   A meaningful self-test would need to mock the <code>glab</code> API surface, which is a larger lift
   than this issue's scope. Not wired into <code>.gitlab-ci.yml</code> either, so the parity meta-gate
-  does not (and should not yet) flag it.</li>
+  doesn't (and shouldn't yet) flag it.</li>
 <li><strong><code>manage.py check_migration_concurrency</code></strong> — the Django management command described in
   <code>docs/development/database-migrations.md</code>. Real detection logic with the same silent-green
-  failure mode as everything else on this page, but it is not a file under <code>scripts/</code>, so
-  today's meta-gate cannot point at it. Giving it a <code>--self-test</code> subcommand and extending
+  failure mode as everything else on this page, but it isn't a file under <code>scripts/</code>, so
+  today's meta-gate can't point at it. Giving it a <code>--self-test</code> subcommand and extending
   the meta-gate to management commands is follow-up work, not assumed done here.</li>
 <li><strong>The ~19 inline <code>- |</code> shell blocks in <code>.gitlab-ci.yml</code></strong> (e.g. <code>changelog-check</code>'s
   <code>git merge-base</code> / label-lookup / path-stripping logic) are the same risk class but have no
@@ -4565,15 +4571,12 @@ Deferred deliberately, not silently:</p>
   case-by-case rather than as a single sweep.</li>
 </ul>
 <h2 id="why-this-matters-here-specifically">Why this matters here specifically<a class="headerlink" href="#why-this-matters-here-specifically" title="Permanent link">&para;</a></h2>
-<p>Several CI jobs in this repo run on <code>alpine:3.19</code>, whose <code>grep</code>/<code>sed</code> are BusyBox, not GNU —
-no <code>--exclude-dir</code>, and subtly different behavior under <code>set -o pipefail</code> (a <code>grep -q</code>
-short-circuit sends <code>SIGPIPE</code> upstream, which <code>pipefail</code> turns into a false pipeline
-failure — found and fixed in <code>check-gate-selftest-parity.sh</code> itself while writing it; see the
-comment above <code>set -eu</code> in that script). <code>backend-lint</code> already ends a line with <code>|| true</code>
-(on its secondary Code Quality report step, not its blocking <code>ruff check</code> line — but the
-shape is exactly the hazard this page exists to guard against elsewhere). Write and test
-gate scripts assuming BusyBox and a bare <code>set -eu</code>, not GNU tools or <code>pipefail</code>, unless you
-have verified the specific behavior you rely on.</p>
+<p>Write and test gate scripts assuming BusyBox and a bare <code>set -eu</code>, not GNU tools or <code>pipefail</code>, unless you have verified the specific behavior you rely on.</p>
+<ul>
+<li>Several CI jobs run on <code>alpine:3.19</code>, whose <code>grep</code>/<code>sed</code> are BusyBox, not GNU: no <code>--exclude-dir</code>, and subtly different behavior under <code>set -o pipefail</code>.</li>
+<li>A <code>grep -q</code> short-circuit sends <code>SIGPIPE</code> upstream, which <code>pipefail</code> turns into a false pipeline failure. That was found and fixed in <code>check-gate-selftest-parity.sh</code> itself while writing it; see the comment above <code>set -eu</code> in that script.</li>
+<li><code>backend-lint</code> already ends a line with <code>|| true</code> (on its secondary Code Quality report step, not its blocking <code>ruff check</code> line), but the shape is exactly the hazard this page exists to guard against elsewhere.</li>
+</ul>
 
 
 

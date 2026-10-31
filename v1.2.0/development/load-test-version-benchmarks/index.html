@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#load-test-version-benchmarks" class="md-skip">
+        <a href="#read-path-latency-held-steady-across-10-11-and-12-dev-on-one-fixture" class="md-skip">
           Skip to content
         </a>
       
@@ -4115,21 +4115,18 @@
   
 
 
-<h1 id="load-test-version-benchmarks">Load-test version benchmarks<a class="headerlink" href="#load-test-version-benchmarks" title="Permanent link">&para;</a></h1>
-<p>A point-in-time comparison of API read-path latency across Visiban 1.0, 1.1, and current
-<code>main</code> (pre-alpha, tracked here as "1.2-dev"), plus a search for the card/swimlane count at
-which the board stops feeling responsive. This is a one-off benchmarking pass, not a CI gate —
-for the gate that gets its numbers from a controlled fixture on every scheduled pipeline run,
-see <a href="../nightly-load-test/">Nightly Load Test</a>. Don't substitute these numbers for that job's
-committed budget file.</p>
+<h1 id="read-path-latency-held-steady-across-10-11-and-12-dev-on-one-fixture">Read-path latency held steady across 1.0, 1.1 and 1.2-dev on one fixture<a class="headerlink" href="#read-path-latency-held-steady-across-10-11-and-12-dev-on-one-fixture" title="Permanent link">&para;</a></h1>
+<p><a id="load-test-version-benchmarks"></a></p>
+<p>A point-in-time comparison of API read-path latency across Visiban 1.0, 1.1, and current <code>main</code> (pre-alpha, tracked here as "1.2-dev"), plus a search for the card/swimlane count at which the board stops feeling responsive.</p>
+<p><strong>Why it matters:</strong> This is a one-off benchmarking pass, <strong>not</strong> a CI gate. Don't substitute these numbers for the committed budget file of the gate that gets its numbers from a controlled fixture on every scheduled pipeline run; see <a href="../nightly-load-test/">Nightly Load Test</a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Read the caveats before quoting a number from this page</p>
 <p>Every measurement here was taken on a shared development machine with other active Claude
-Code sessions running concurrently — not a dedicated, isolated benchmark host. It is the
+Code sessions running concurrently — not a dedicated, isolated benchmark host. It's the
 same "measured on a laptop, not a CI runner" caveat <code>nightly-load-test-baseline.json</code>
 already carries for its own provisional numbers, applied to a wider comparison. See
 <a href="#methodology-and-caveats">Methodology and caveats</a> before treating any figure below as
-more precise than it is.</p>
+more precise than it's.</p>
 </div>
 <h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
 <ul>
@@ -4137,7 +4134,7 @@ more precise than it is.</p>
   perform within noise of each other (<code>board_full</code> p95 77-89ms) — no read-path latency
   regression across two major releases on this endpoint set.</li>
 <li>On <code>main</code>, <code>board_full</code> p95 at the existing 2,395-card (2,388 active, 7 archived)
-  nightly-load-test fixture is <strong>580ms</strong>, comfortably under the 955ms budget committed at the time (as of 2026-09; the budget has since been re-derived and is no longer comparable to the laptop figures on this page, because it is an absolute CI-runner figure) and
+  nightly-load-test fixture is <strong>580ms</strong>, comfortably under the 955ms budget committed at the time (as of 2026-09; the budget has since been re-derived and is no longer comparable to the laptop figures on this page, because it's an absolute CI-runner figure) and
   better than the 681ms pre-regression baseline — consistent with !981 (#1212) having just
   merged into <code>main</code>.</li>
 <li><code>board_full</code> latency scales worse than linearly with card count: doubling the card count
@@ -4154,41 +4151,30 @@ more precise than it is.</p>
   <a href="#open-follow-ups">Open follow-ups</a>.</li>
 </ul>
 <h2 id="methodology-and-caveats">Methodology and caveats<a class="headerlink" href="#methodology-and-caveats" title="Permanent link">&para;</a></h2>
-<p><strong>Environment.</strong> All three versions ran as separate, disposable stacks (Postgres 17 +
-Valkey/Redis + a single <code>daphne</code> process each) on one shared development machine that had
-roughly a dozen other Claude Code sessions active throughout — CPU idle hovered 83-89% with a
-1-minute load average of 2-7 on an 18-core machine, not a dedicated benchmark host. This adds
-run-to-run noise (visible directly in the <a href="#finding-the-ceiling-max-cards-and-swimlanes">ceiling escalation</a>
-data below) but does not explain away the two clear signals in this doc — the near-3x latency
-jump from doubling card count, and the concurrency degradation — both of which are far larger
-than the noise band.</p>
-<p><strong>Deployment shape.</strong> Each backend ran as one <code>daphne</code> process in dev settings (<code>DEBUG=true</code>),
-the same way <a href="../nightly-load-test/"><code>nightly-load-test.md</code></a>'s job runs it — not behind multiple
-workers/processes the way a production deployment would be. This matters most for the
-10-concurrent-user result: it measures one process's capacity to interleave concurrent I/O-bound
-requests, not Visiban's ceiling under a horizontally-scaled deployment. Re-measuring behind a
-multi-worker ASGI setup is listed as an open follow-up.</p>
-<p><strong>Fixtures.</strong> <code>manage.py seed_demo_data</code> at <code>main</code> supports <code>--scale N</code> (introduced for #1082,
-after 1.1.0): <code>--scale 1</code> (default) seeds the ~115-card "Visiban Demo Board"; <code>--scale 5</code>
-and <code>--scale 20</code> seed a separate "Visiban Load Test Board" at roughly 600 and 2,400 cards
-respectively. <strong><code>--scale</code> does not exist at the <code>v1.0.0</code> or <code>v1.1.0</code> tags</strong> — those versions
-can only seed the ~115-card default board, so the apples-to-apples comparison across all three
-versions is limited to that one fixture size. The medium (~600-card), large (~2,400-card), and
-ceiling-escalation fixtures are <code>main</code>-only for that reason, not because 1.0/1.1 were found to
-perform worse at scale — they were never tested at scale.</p>
-<p><strong>Endpoint availability at older tags.</strong> <code>v1.0.0</code> and <code>v1.1.0</code> predate the flat
-<code>/api/v1/cards/</code> route (added after 1.1) — card search there used the board-nested
-<code>/api/v1/boards/{id}/cards/?search=</code> route instead, which exercises the same search code path.
-<code>v1.0.0</code> additionally predates the <code>card_timeline</code> endpoint (added with migration <code>0045</code>,
-post-1.0), so that endpoint has no 1.0.0 number at all — reported as N/A, not zero. These
-substitutions were made in unmodified-logic copies of <code>scripts/nightly_load_test.py</code> kept
-outside the repo (this was a one-off comparison, not a tool worth maintaining three URL-shape
-branches of); the production job at <code>main</code> needs no such patching.</p>
-<p><strong>Concurrency harness.</strong> <code>scripts/nightly_load_test.py</code> only measures sequential single-client
-latency by design. The 10-concurrent-user numbers came from a separate ad hoc script
-(<code>ThreadPoolExecutor</code>-based, one <code>requests.Session</code> per worker) written for this pass and not
-added to <code>scripts/</code> — it was not reviewed or wired into any committed budget, and promoting it
-would need its own pass.</p>
+<p><strong>Environment.</strong> All three versions ran as separate, disposable stacks (Postgres 17 + Valkey/Redis + a single <code>daphne</code> process each) on one shared development machine, not a dedicated benchmark host. Roughly a dozen other Claude Code sessions were active throughout: CPU idle hovered 83-89% with a 1-minute load average of 2-7 on an 18-core machine.</p>
+<ul>
+<li>This adds run-to-run noise, visible in the <a href="#finding-the-ceiling-max-cards-and-swimlanes">ceiling escalation</a> data below.</li>
+<li>It doesn't explain away the two clear signals in this doc, the near-3x latency jump from doubling card count and the concurrency degradation. Both are far larger than the noise band.</li>
+</ul>
+<p><strong>Deployment shape.</strong> Each backend ran as one <code>daphne</code> process in dev settings (<code>DEBUG=true</code>), the same way <a href="../nightly-load-test/"><code>nightly-load-test.md</code></a>'s job runs it, not behind multiple workers/processes the way a production deployment would be.</p>
+<ul>
+<li>This matters most for the 10-concurrent-user result. It measures one process's capacity to interleave concurrent I/O-bound requests, not Visiban's ceiling under a horizontally-scaled deployment.</li>
+<li>Re-measuring behind a multi-worker ASGI setup is listed as an open follow-up.</li>
+</ul>
+<p><strong>Fixtures.</strong> <code>manage.py seed_demo_data</code> at <code>main</code> supports <code>--scale N</code> (introduced for #1082, after 1.1.0):</p>
+<ul>
+<li><code>--scale 1</code> (default) seeds the ~115-card "Visiban Demo Board".</li>
+<li><code>--scale 5</code> and <code>--scale 20</code> seed a separate "Visiban Load Test Board" at roughly 600 and 2,400 cards respectively.</li>
+<li><strong><code>--scale</code> doesn't exist at the <code>v1.0.0</code> or <code>v1.1.0</code> tags.</strong> Those versions can only seed the ~115-card default board, so the apples-to-apples comparison across all three versions is limited to that one fixture size.</li>
+<li>The medium (~600-card), large (~2,400-card), and ceiling-escalation fixtures are <code>main</code>-only for that reason, not because 1.0/1.1 were found to perform worse at scale. They were never tested at scale.</li>
+</ul>
+<p><strong>Endpoint availability at older tags.</strong></p>
+<ul>
+<li><code>v1.0.0</code> and <code>v1.1.0</code> predate the flat <code>/api/v1/cards/</code> route (added after 1.1). Card search there used the board-nested <code>/api/v1/boards/{id}/cards/?search=</code> route instead, which exercises the same search code path.</li>
+<li><code>v1.0.0</code> additionally predates the <code>card_timeline</code> endpoint (added with migration <code>0045</code>, post-1.0), so that endpoint has no 1.0.0 number at all: reported as N/A, not zero.</li>
+<li>These substitutions were made in unmodified-logic copies of <code>scripts/nightly_load_test.py</code> kept outside the repo. This was a one-off comparison, not a tool worth maintaining three URL-shape branches of; the production job at <code>main</code> needs no such patching.</li>
+</ul>
+<p><strong>Concurrency harness.</strong> <code>scripts/nightly_load_test.py</code> only measures sequential single-client latency by design. The 10-concurrent-user numbers came from a separate ad hoc script (<code>ThreadPoolExecutor</code>-based, one <code>requests.Session</code> per worker) written for this pass and not added to <code>scripts/</code>. It wasn't reviewed or wired into any committed budget, and promoting it would need its own pass.</p>
 <h2 id="version-comparison-identical-fixture">Version comparison — identical fixture<a class="headerlink" href="#version-comparison-identical-fixture" title="Permanent link">&para;</a></h2>
 <p>~115 cards, 10 swimlanes, single user, 40 timed requests per endpoint (5 warmup, discarded):</p>
 <table>
@@ -4384,22 +4370,19 @@ repeated runs. Take the crossing point as <strong>"somewhere between ~8,500 and 
 and 1,200 swimlanes,"</strong> not as a specific number — tightening it would mean repeated samples
 per scale step on a quieter or dedicated machine.</p>
 <p><strong>Cards and swimlanes were not varied independently.</strong> <code>--scale N</code> multiplies both together
-(10N swimlanes, ~12N cards); this table cannot say whether a 10,000-card board in 50 swimlanes
+(10N swimlanes, ~12N cards); this table can't say whether a 10,000-card board in 50 swimlanes
 degrades the same, worse, or better than one in 1,000 swimlanes. That would need a fixture tool
 that can hold one axis fixed — not built for this pass.</p>
 <p><strong>No hard failure was observed at any scale tested</strong>, up to 24,052 cards — no 500s, no
 timeouts (30s client timeout, never hit). The endpoint gets progressively slower, not broken;
 "unusable" here is a UX judgment call (the 3x-budget line), not a crash point.</p>
 <h2 id="comparison-with-other-oss-and-commercial-boards">Comparison with other OSS and commercial boards<a class="headerlink" href="#comparison-with-other-oss-and-commercial-boards" title="Permanent link">&para;</a></h2>
-<p><strong>This is not a benchmark.</strong> Visiban's numbers above were measured directly, under our own
-conditions, against our own fixtures. Nothing below was — it's what's publicly documented or
-publicly reported about other tools' scale limits, gathered by web search on 2026-09-28, with a
-source link on every line. Where a product's own team has published an official number, it's
-labeled <strong>official</strong>; a GitHub issue, forum thread, or community report is labeled
-<strong>anecdotal</strong>. Do not read any figure below as measured under equivalent conditions to
-Visiban's own numbers, and do not read a product's silence on this table as a performance
-finding — several rows below are "nothing credible found," which is itself the result, not an
-absence of research.</p>
+<p><strong>This isn't a benchmark.</strong> Visiban's numbers above were measured directly, under our own conditions, against our own fixtures. Nothing below was. It's what's publicly documented or publicly reported about other tools' scale limits, gathered by web search on 2026-09-28, with a source link on every line.</p>
+<ul>
+<li>A number the product's own team published is labeled <strong>official</strong>; a GitHub issue, forum thread, or community report is labeled <strong>anecdotal</strong>.</li>
+<li>Don't read any figure below as measured under equivalent conditions to Visiban's own numbers.</li>
+<li>Don't read a product's silence on this table as a performance finding. Several rows are "nothing credible found," which is itself the result, not an absence of research.</li>
+</ul>
 <h3 id="self-hosted-oss">Self-hosted / OSS<a class="headerlink" href="#self-hosted-oss" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4529,15 +4512,8 @@ absence of research.</p>
 </tbody>
 </table>
 <h3 id="reading-this-against-visibans-own-numbers">Reading this against Visiban's own numbers<a class="headerlink" href="#reading-this-against-visibans-own-numbers" title="Permanent link">&para;</a></h3>
-<p>Visiban's <code>board_full</code> has no hard cap and never errored at any scale tested (up to 24,052
-cards) — it just gets slow, crossing a self-imposed 3x-budget line somewhere around 8,500-14,500
-cards. That compares favorably, in scale terms, to Trello's hard 5,000-card wall and Jira's
-5,000-item view cap: Visiban remains functional (if slow) well past where those products stop
-serving a board at all. That comparison has real limits, though — it's a single-user,
-single-process backend number against hosted multi-tenant products under real concurrent load,
-which is the harder problem (see the 10-concurrent-user finding above). Nothing here should be
-read as "Visiban outperforms Trello" — it should be read as "Visiban's failure mode at scale is
-graceful degradation rather than a hard wall, and that's worth knowing," full stop.</p>
+<p>Visiban's <code>board_full</code> has no hard cap and never errored at any scale tested (up to 24,052 cards). It just gets slow, crossing a self-imposed 3x-budget line somewhere around 8,500-14,500 cards. In scale terms that compares favorably to Trello's hard 5,000-card wall and Jira's 5,000-item view cap: Visiban remains functional (if slow) well past where those products stop serving a board at all.</p>
+<p><strong>Yes, but:</strong> The comparison has real limits. It's a single-user, single-process backend number against hosted multi-tenant products under real concurrent load, which is the harder problem (see the 10-concurrent-user finding above). Don't read it as "Visiban outperforms Trello." Read it as "Visiban's failure mode at scale is graceful degradation rather than a hard wall, and that's worth knowing," full stop.</p>
 <h2 id="open-follow-ups">Open follow-ups<a class="headerlink" href="#open-follow-ups" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Frontend render/scroll time was not measured.</strong> This pass only measured backend API

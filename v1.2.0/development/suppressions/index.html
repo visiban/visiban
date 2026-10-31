@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#suppression-markers" class="md-skip">
+        <a href="#tag-every-temporary-suppression-with-the-issue-that-ends-it" class="md-skip">
           Skip to content
         </a>
       
@@ -2858,6 +2858,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#filing-a-new-temporary-suppression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filing a new temporary suppression
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-ci-enforces" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2890,17 +2901,6 @@
     <span class="md-ellipsis">
       
         Scope
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#filing-a-new-temporary-suppression" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Filing a new temporary suppression
       
     </span>
   </a>
@@ -4082,178 +4082,107 @@
   
 
 
-<h1 id="suppression-markers">Suppression markers<a class="headerlink" href="#suppression-markers" title="Permanent link">&para;</a></h1>
-<p>A suppression — <code>pytest.mark.skip</code>, <code>eslint-disable</code>, a coverage <code>omit</code>, an excluded a11y
-rule — is added for a reason that is true <em>today</em>. Left alone, it stays true forever: nothing
-ever revisits the suppression, so it silently outlives its reason and the gate it disables
-stays green while hiding a real failure.</p>
-<p><code>#1090</code> is the concrete cost: <code>git_lens</code> code read as 0% covered for months because a job was
-uninstrumented, and nothing flagged that the coverage number had stopped meaning anything.</p>
+<h1 id="tag-every-temporary-suppression-with-the-issue-that-ends-it">Tag every temporary suppression with the issue that ends it<a class="headerlink" href="#tag-every-temporary-suppression-with-the-issue-that-ends-it" title="Permanent link">&para;</a></h1>
+<p><a id="suppression-markers"></a></p>
+<p>Mark a temporary suppression with <code>SUPPRESSED-UNTIL(#N)</code>, and CI fails when issue <code>#N</code> closes. Mark a permanent one with a plain reason and no marker.</p>
+<p><strong>Why it matters:</strong> A suppression (<code>pytest.mark.skip</code>, <code>eslint-disable</code>, a coverage <code>omit</code>, an excluded a11y rule) is added for a reason that's true <em>today</em>. Left alone, it stays true forever: nothing revisits it, so it silently outlives its reason and the gate it disables stays green while hiding a real failure.</p>
+<p><strong>The big picture:</strong> <code>#1090</code> is the concrete cost. <code>git_lens</code> code read as 0% covered for months because a job was uninstrumented, and nothing flagged that the coverage number had stopped meaning anything.</p>
 <h2 id="the-convention">The convention<a class="headerlink" href="#the-convention" title="Permanent link">&para;</a></h2>
 <p>Every suppression falls into one of two buckets:</p>
 <ul>
-<li><strong>Permanent</strong> — this will never be re-enabled; the exclusion is a deliberate, lasting design
-  choice (e.g. a hook intentionally excludes a stable setter from its dependency array, or a
-  test mock is intentionally typed loosely). Write a plain reason:</li>
+<li><strong>Permanent</strong> — this will never be re-enabled; the exclusion is a deliberate, lasting design choice (e.g. a hook intentionally excludes a stable setter from its dependency array, or a test mock is intentionally typed loosely). Write a plain reason:</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// eslint-disable-next-line react-hooks/exhaustive-deps -- setPreference is a stable useState setter; including it would re-fire the sync on every render</span>
 </code></pre></div>
 <ul>
-<li><strong>Temporary</strong> — this is waiting on tracked work; once that work lands, the suppression should
-  be removed. Cite the issue that would remove it with a <code>SUPPRESSED-UNTIL(#N)</code> marker:</li>
+<li><strong>Temporary</strong> — this is waiting on tracked work; once that work lands, the suppression should be removed. Cite the issue that would remove it with a <code>SUPPRESSED-UNTIL(#N)</code> marker:</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">"SUPPRESSED-UNTIL(#1084): arm64 images unavailable"</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// eslint-disable-next-line react-hooks/exhaustive-deps -- SUPPRESSED-UNTIL(#1057): deps churn until the token migration lands</span>
 </code></pre></div>
-<p>A marker always names a <strong>specific, already-filed</strong> GitLab issue — never a placeholder, and
-never an issue number invented on the spot. If a temporary suppression doesn't have a tracking
-issue yet, file one first.</p>
-<p><strong>Never force a marker onto a permanent suppression.</strong> A <code>SUPPRESSED-UNTIL(#N)</code> on something
-that's never coming back just produces noise the next time that issue happens to close for an
-unrelated reason. If you're not prepared to say what event should make this suppression go
-away, it's permanent — write a plain reason instead.</p>
-<h2 id="what-ci-enforces">What CI enforces<a class="headerlink" href="#what-ci-enforces" title="Permanent link">&para;</a></h2>
-<p>The <code>suppressions-check</code> CI job (<code>scripts/check-suppression-issues.sh</code>) greps the tree for
-<code>SUPPRESSED-UNTIL(#N)</code>, collects the <em>unique</em> issue numbers cited, resolves all of them in one
-batched GitLab API call via the shared <code>scripts/lib/gitlab-issues.sh</code> helper, and <strong>fails —
-naming file, line, and issue — if any cited issue is already closed, or if the tracker did not
-return it at all</strong> (it doesn't exist, or it's confidential and not visible to the token or
-anonymous request used). An open issue passes silently. A plain <code>-- reason</code> suppression with no
-marker is never touched.</p>
-<p>The same job also scans <code>backend/nightly-load-test-baseline.json</code> for pending budgets (#1812).
-An <code>endpoints</code> entry with <code>"budget_p95_ms": null</code> and <code>"pending_budget": "#NNNN"</code> is measured
-nightly but not gated (see <a href="../nightly-load-test/#pending-budgets">Pending budgets</a>), which makes
-it a temporary exemption exactly like a <code>SUPPRESSED-UNTIL</code> marker. The check applies the same
-rules: it fails, naming the endpoint and the issue, when the cited issue is closed or not
-returned by the tracker, and fails open on an inconclusive lookup. The marker shape matches
-<code>_pending_budget()</code> in <code>scripts/nightly_load_test.py</code>: an entry whose budget is not null is gated
-normally, so a leftover <code>pending_budget</code> on it is ignored, and so is a value that is not <code>#NNNN</code>
-(the load-test self-test rejects that case). A missing or unparseable baseline file fails the
-check instead of reporting a clean scan. When it fires, assign the budget and delete
-<code>pending_budget</code> in the whole-file NUC re-derivation, or re-point it at a new tracked issue.</p>
-<p>This job runs on <strong>merge requests, <code>main</code>, and scheduled pipelines</strong> — deliberately not
-MR-only. The triggering event is "an issue closed," not "a commit landed": the commit that
-added the marker may have merged long before the cited issue closes, so a job that only ran on
-that MR's pipeline would never fire again. Running on <code>main</code>/schedule is what makes the closed
-issue actually get caught.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Run it locally the same way CI does:</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>bash<span class="w"> </span>scripts/check-suppression-issues.sh
-</code></pre></div>
-<p><strong>Authentication (#1694):</strong> the lookup uses <code>GITLAB_API_TOKEN</code> if set, else <code>ISSUES_API_TOKEN</code>,
-else an anonymous request — this project is public, so an anonymous call already sees every
-non-confidential issue. It <strong>never</strong> sends <code>CI_JOB_TOKEN</code>: the Issues API answers 401 to <em>any</em>
-job token, including a valid one, while the identical request with no auth header at all
-answers 200. An earlier version of this gate sent <code>JOB-TOKEN</code> and had <code>curl -sf</code> silently
-swallow that 401 into the same "inconclusive" state as a genuinely unreachable tracker — so it
-had never actually blocked a closed-issue citation in CI. If a configured token <em>is</em> rejected
-(expired, wrong scope), the gate warns once and retries anonymously rather than treating the
-whole lookup as inconclusive.</p>
-<p>The gate fails <strong>open</strong> only on a lookup that genuinely never got a usable response (network
-failure, every retry exhausted, a malformed body) rather than blocking the pipeline on a lookup
-that didn't complete — this is a hygiene gate, not a security gate, and a false block on every
-pipeline would just teach people to ignore it. It fails <strong>closed</strong> on anything the tracker
-<em>did</em> answer conclusively: a confirmed closed issue, or a cited issue the tracker's response
-simply didn't contain.</p>
-<h3 id="self-test">Self-test<a class="headerlink" href="#self-test" title="Permanent link">&para;</a></h3>
-<p>Per the meta-gate that derives the bespoke-gate list from <code>.gitlab-ci.yml</code> (#1093), every
-gate here carries a <code>--self-test</code> mode: it builds a small fixture tree, mocks the issue-state
-lookup (no network, no dependency on a real issue's state), and asserts the detection logic
-fires on a closed-issue marker, passes an open-issue marker, and leaves a plain-reason
-suppression alone.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>bash<span class="w"> </span>scripts/check-suppression-issues.sh<span class="w"> </span>--self-test
-</code></pre></div>
-<p>The CI job runs <code>--self-test</code> immediately before the real invocation, on the same image, so a
-regression in the gate itself fails the pipeline before the gate's real result can be trusted.
-Unlike <code>--self-test</code> (which only drives the <code>CHECK_SUPPRESSION_MOCK_CLOSED</code> mock),
-<code>scripts/tests/gitlab-issues.test.sh</code> and <code>scripts/tests/check-suppression-issues.test.sh</code> —
-both also run in this job — exercise the <em>real</em> fetch path (batching, retries, the
-never-send-<code>JOB-TOKEN</code> guarantee, and the 401-falls-back-to-anonymous behavior) against a fake
-<code>curl</code> on <code>PATH</code>, with no network access.</p>
-<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
-<p>The marker convention and this check apply to <code>frontend/src</code> (eslint-disable) and <code>backend/</code>
-(pytest <code>skip</code>/<code>skipif</code>/<code>xfail</code>), plus the <code>pending_budget</code> entries in
-<code>backend/nightly-load-test-baseline.json</code> described above. Coverage <code>omit</code> entries in <code>backend/.coveragerc</code> are plain
-path globs — <code>configparser</code> (the INI format <code>.coveragerc</code> uses) has no syntax for an inline
-trailing comment on a list item, only a full-line <code>#</code> comment above it, so <code>SUPPRESSED-UNTIL(#N)</code>
-doesn't read naturally there and <code>check-suppression-issues.sh</code> does not scan this file today. A
-genuinely temporary <code>omit</code> entry should still get a plain <code>#</code> comment on the line above citing
-the tracking issue, for a human reader; extending the automated check to <code>.coveragerc</code> is a
-reasonable follow-up if these entries start accumulating the way the <code>eslint-disable</code> sites did.</p>
+<p>A marker always names a <strong>specific, already-filed</strong> GitLab issue. Never use a placeholder or an issue number invented on the spot. If a temporary suppression has no tracking issue yet, file one first.</p>
+<p><strong>Watch out:</strong> Never force a marker onto a permanent suppression. A <code>SUPPRESSED-UNTIL(#N)</code> on something that's never coming back produces noise the next time that issue closes for an unrelated reason. If you can't say what event should make the suppression go away, it's permanent: write a plain reason instead.</p>
 <h2 id="filing-a-new-temporary-suppression">Filing a new temporary suppression<a class="headerlink" href="#filing-a-new-temporary-suppression" title="Permanent link">&para;</a></h2>
 <ol>
 <li>File the tracking issue first (or confirm one already exists for the blocking work).</li>
 <li>Add the suppression with <code>SUPPRESSED-UNTIL(#N)</code> citing that issue's number.</li>
-<li>When the issue closes, remove the suppression in the same MR that resolves it — don't leave
-   it for <code>suppressions-check</code> to catch on <code>main</code> after the fact.</li>
+<li>When the issue closes, remove the suppression in the same MR that resolves it. Don't leave it for <code>suppressions-check</code> to catch on <code>main</code> after the fact.</li>
 </ol>
+<h2 id="what-ci-enforces">What CI enforces<a class="headerlink" href="#what-ci-enforces" title="Permanent link">&para;</a></h2>
+<p>The <code>suppressions-check</code> CI job (<code>scripts/check-suppression-issues.sh</code>) greps the tree for <code>SUPPRESSED-UNTIL(#N)</code> and collects the <em>unique</em> issue numbers cited. It resolves all of them in one batched GitLab API call via the shared <code>scripts/lib/gitlab-issues.sh</code> helper.</p>
+<ul>
+<li><strong>Fails</strong>, naming file, line, and issue, if any cited issue is already closed, or if the tracker didn't return it at all (it doesn't exist, or it's confidential and not visible to the token or anonymous request used).</li>
+<li><strong>Passes silently</strong> on an open issue.</li>
+<li><strong>Never touches</strong> a plain <code>-- reason</code> suppression with no marker.</li>
+</ul>
+<p>The same job also scans <code>backend/nightly-load-test-baseline.json</code> for pending budgets (#1812). An <code>endpoints</code> entry with <code>"budget_p95_ms": null</code> and <code>"pending_budget": "#NNNN"</code> is measured nightly but not gated (see <a href="../nightly-load-test/#pending-budgets">Pending budgets</a>). That makes it a temporary exemption exactly like a <code>SUPPRESSED-UNTIL</code> marker, so the check applies the same rules:</p>
+<ul>
+<li>It fails, naming the endpoint and the issue, when the cited issue is closed or not returned by the tracker, and fails open on an inconclusive lookup.</li>
+<li>The marker shape matches <code>_pending_budget()</code> in <code>scripts/nightly_load_test.py</code>. An entry whose budget isn't null is gated normally, so a leftover <code>pending_budget</code> on it is ignored, and so is a value that isn't <code>#NNNN</code> (the load-test self-test rejects that case).</li>
+<li>A missing or unparseable baseline file fails the check instead of reporting a clean scan.</li>
+<li>When it fires, assign the budget and delete <code>pending_budget</code> in the whole-file NUC re-derivation, or re-point it at a new tracked issue.</li>
+</ul>
+<p>This job runs on <strong>merge requests, <code>main</code>, and scheduled pipelines</strong>, deliberately not MR-only. The triggering event is "an issue closed," not "a commit landed." The commit that added the marker may have merged long before the cited issue closes, so a job that only ran on that MR's pipeline would never fire again. Running on <code>main</code> and on schedules is what makes the closed issue actually get caught.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Run it locally the same way CI does:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>bash<span class="w"> </span>scripts/check-suppression-issues.sh
+</code></pre></div>
+<p><strong>Authentication (#1694).</strong> The lookup uses <code>GITLAB_API_TOKEN</code> if set, else <code>ISSUES_API_TOKEN</code>, else an anonymous request. This project is public, so an anonymous call already sees every non-confidential issue.</p>
+<ul>
+<li>It <strong>never</strong> sends <code>CI_JOB_TOKEN</code>. The Issues API answers 401 to <em>any</em> job token, including a valid one, while the identical request with no auth header at all answers 200.</li>
+<li>An earlier version sent <code>JOB-TOKEN</code> and had <code>curl -sf</code> silently swallow that 401 into the same "inconclusive" state as a genuinely unreachable tracker, so it had never actually blocked a closed-issue citation in CI.</li>
+<li>If a configured token <em>is</em> rejected (expired, wrong scope), the gate warns once and retries anonymously rather than treating the whole lookup as inconclusive.</li>
+</ul>
+<p><strong>Fail-open vs fail-closed.</strong> This is a hygiene gate, not a security gate, and a false block on every pipeline would just teach people to ignore it.</p>
+<ul>
+<li>It fails <strong>open</strong> only on a lookup that genuinely never got a usable response (network failure, every retry exhausted, a malformed body), rather than blocking the pipeline on a lookup that didn't complete.</li>
+<li>It fails <strong>closed</strong> on anything the tracker <em>did</em> answer conclusively: a confirmed closed issue, or a cited issue the tracker's response didn't contain.</li>
+</ul>
+<h3 id="self-test">Self-test<a class="headerlink" href="#self-test" title="Permanent link">&para;</a></h3>
+<p>Per the meta-gate that derives the bespoke-gate list from <code>.gitlab-ci.yml</code> (#1093), every gate here carries a <code>--self-test</code> mode. It builds a small fixture tree, mocks the issue-state lookup (no network, no dependency on a real issue's state), and asserts the detection logic fires on a closed-issue marker, passes an open-issue marker, and leaves a plain-reason suppression alone.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>bash<span class="w"> </span>scripts/check-suppression-issues.sh<span class="w"> </span>--self-test
+</code></pre></div>
+<p>The CI job runs <code>--self-test</code> immediately before the real invocation, on the same image, so a regression in the gate itself fails the pipeline before the gate's real result can be trusted.</p>
+<p><code>--self-test</code> only drives the <code>CHECK_SUPPRESSION_MOCK_CLOSED</code> mock. <code>scripts/tests/gitlab-issues.test.sh</code> and <code>scripts/tests/check-suppression-issues.test.sh</code>, both also run in this job, exercise the <em>real</em> fetch path against a fake <code>curl</code> on <code>PATH</code>, with no network access. They cover batching, retries, the never-send-<code>JOB-TOKEN</code> guarantee, and the 401-falls-back-to-anonymous behavior.</p>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<p>The marker convention and this check apply to <code>frontend/src</code> (eslint-disable) and <code>backend/</code> (pytest <code>skip</code>/<code>skipif</code>/<code>xfail</code>), plus the <code>pending_budget</code> entries in <code>backend/nightly-load-test-baseline.json</code> described above.</p>
+<p><strong>Yes, but:</strong> Coverage <code>omit</code> entries in <code>backend/.coveragerc</code> are plain path globs. <code>configparser</code> (the INI format <code>.coveragerc</code> uses) has no syntax for an inline trailing comment on a list item, only a full-line <code>#</code> comment above it, so <code>SUPPRESSED-UNTIL(#N)</code> doesn't read naturally there and <code>check-suppression-issues.sh</code> doesn't scan this file today. A genuinely temporary <code>omit</code> entry should still get a plain <code>#</code> comment on the line above citing the tracking issue, for a human reader. Extending the automated check to <code>.coveragerc</code> is a reasonable follow-up if these entries start accumulating the way the <code>eslint-disable</code> sites did.</p>
 <h2 id="sonarcloud-suppressions">SonarCloud suppressions<a class="headerlink" href="#sonarcloud-suppressions" title="Permanent link">&para;</a></h2>
-<p><code>sonar.issue.ignore.multicriteria.*</code> criteria in <code>sonar-project.properties</code> follow the same
-two buckets. Each existing criterion is <strong>permanent</strong>: it carries a plain rationale comment
-and a narrow path, with no marker. A criterion that waits on tracked work would carry a
-<code>SUPPRESSED-UNTIL(#N)</code> comment above it, exactly like any other suppression. Never widen a
-glob to hide a finding. The same policy is stated in the header of the properties file.</p>
-<p>The <code>lint:sonar-exclusions</code> job (<code>scripts/check-sonar-exclusions.sh</code>) keeps those criteria
-honest: it fails when a criterion's glob matches no tracked file (dead or silently drifted),
-when the <code>multicriteria=</code> index and the <code>.ruleKey</code>/<code>.resourceKey</code> definitions disagree, or when
-a glob is pinned to <code>*.ts</code>/<code>*.js</code> in a directory that also holds <code>.tsx</code>/<code>.jsx</code>. It is pure
-<code>git ls-files</code> matching, with no network and no <code>SONAR_TOKEN</code>.</p>
-<p>Each criterion's own comment block must also name its rule: cite its <code>S&lt;NNNN&gt;</code> number or quote
-its title from the script's <code>RULE_TITLES</code> table. A criterion under a shared header needs its
-own naming line, because the check cannot otherwise tell a copy-pasted wrong key from a right
-one.</p>
-<p>The nightly <code>sonar:rules-check</code> job runs <code>bash scripts/check-sonar-exclusions.sh --online</code>,
-which additionally asks SonarCloud whether each <code>ruleKey</code> is still active in the project's
-quality profile. It needs <code>SONAR_TOKEN</code> and fails open: with no token, no network, no active rules returned, or an
-unparseable response it prints a warning and exits 0, so only a rule that is really inactive
-turns the job yellow. A key missing from the bulk rule search is re-checked with
-<code>api/rules/show</code> before it is reported, because the search can omit a rule that is active in
-the project's profile. The job then reports either "does not exist in SonarCloud" (the key was
-never valid, or the rule was removed) or "is not active in any quality profile" (the rule was
-deactivated). MR pipelines never run it.</p>
+<p><code>sonar.issue.ignore.multicriteria.*</code> criteria in <code>sonar-project.properties</code> follow the same two buckets. Each existing criterion is <strong>permanent</strong>: it carries a plain rationale comment and a narrow path, with no marker. A criterion that waits on tracked work would carry a <code>SUPPRESSED-UNTIL(#N)</code> comment above it, exactly like any other suppression. Never widen a glob to hide a finding. The same policy is stated in the header of the properties file.</p>
+<p>The <code>lint:sonar-exclusions</code> job (<code>scripts/check-sonar-exclusions.sh</code>) keeps those criteria honest. It's pure <code>git ls-files</code> matching, with no network and no <code>SONAR_TOKEN</code>. It fails when:</p>
+<ul>
+<li>a criterion's glob matches no tracked file (dead or silently drifted),</li>
+<li>the <code>multicriteria=</code> index and the <code>.ruleKey</code>/<code>.resourceKey</code> definitions disagree, or</li>
+<li>a glob is pinned to <code>*.ts</code>/<code>*.js</code> in a directory that also holds <code>.tsx</code>/<code>.jsx</code>.</li>
+</ul>
+<p>Each criterion's own comment block must name its rule: cite its <code>S&lt;NNNN&gt;</code> number or quote its title from the script's <code>RULE_TITLES</code> table. A criterion under a shared header needs its own naming line, because the check can't otherwise tell a copy-pasted wrong key from a right one.</p>
+<p>The nightly <code>sonar:rules-check</code> job runs <code>bash scripts/check-sonar-exclusions.sh --online</code>, which additionally asks SonarCloud whether each <code>ruleKey</code> is still active in the project's quality profile. MR pipelines never run it.</p>
+<ul>
+<li>It needs <code>SONAR_TOKEN</code> and fails open: with no token, no network, no active rules returned, or an unparseable response it prints a warning and exits 0, so only a rule that's inactive turns the job yellow.</li>
+<li>A key missing from the bulk rule search is re-checked with <code>api/rules/show</code> before it's reported, because the search can omit a rule that's active in the project's profile.</li>
+<li>The job then reports either "does not exist in SonarCloud" (the key was never valid, or the rule was removed) or "is not active in any quality profile" (the rule was deactivated).</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>bash<span class="w"> </span>scripts/check-sonar-exclusions.sh<span class="w"> </span>--self-test
 </code></pre></div>
-<p>These properties apply only to CI-based analysis (the <code>sonar:scan</code> job), not to SonarCloud
-Automatic Analysis.</p>
+<p>These properties apply only to CI-based analysis (the <code>sonar:scan</code> job), not to SonarCloud Automatic Analysis.</p>
 <h2 id="trivy-suppressions">Trivy suppressions<a class="headerlink" href="#trivy-suppressions" title="Permanent link">&para;</a></h2>
-<p>The <code>trivy-scan</code> CI job is blocking: an unsuppressed HIGH or CRITICAL vulnerability, IaC
-misconfiguration or secret finding fails the pipeline (<code>--scanners vuln,config,secret
---exit-code 1</code>, no <code>allow_failure</code>). A second, non-blocking pass writes the full
-<code>trivy-report.json</code> artifact. The scanner image is pinned by digest (the comment in
-<code>.gitlab-ci.yml</code> records the version); bump the version and digest together in a reviewed
-commit. Before #1072 the image tag was already pinned to a version, but not to a digest, and
-the job was advisory (<code>--exit-code 0</code> plus <code>allow_failure: true</code>).</p>
+<p>The <code>trivy-scan</code> CI job is blocking: an unsuppressed HIGH or CRITICAL vulnerability, IaC misconfiguration or secret finding fails the pipeline (<code>--scanners vuln,config,secret --exit-code 1</code>, no <code>allow_failure</code>). A second, non-blocking pass writes the full <code>trivy-report.json</code> artifact.</p>
+<p>The scanner image is pinned by digest (the comment in <code>.gitlab-ci.yml</code> records the version). Bump the version and digest together in a reviewed commit. Before #1072 the image tag was already pinned to a version, but not to a digest, and the job was advisory (<code>--exit-code 0</code> plus <code>allow_failure: true</code>).</p>
 <p>Accepted risks go in <code>.trivyignore.yaml</code>. Every entry needs:</p>
 <ul>
-<li>an <code>expired_at</code> date (<code>YYYY-MM-DD</code>), at most 366 days from today (the checker fails a later
-  date, so suppressions are renewed at least yearly), ideally about one minor release out;</li>
-<li>a <code>statement</code> explaining why it is accepted, with a <code>#NNNN</code> link to the issue that would
-  remove the entry. CI checks only that an issue number is present; <strong>reviewers must confirm
-  the issue is open</strong> and really covers the finding.</li>
+<li>an <code>expired_at</code> date (<code>YYYY-MM-DD</code>), at most 366 days from today (the checker fails a later date, so suppressions are renewed at least yearly), ideally about one minor release out;</li>
+<li>a <code>statement</code> explaining why it's accepted, with a <code>#NNNN</code> link to the issue that would remove the entry. CI checks only that an issue number is present; <strong>reviewers must confirm the issue is open</strong> and covers the finding.</li>
 </ul>
-<p>Each entry must start with <code>- id:</code> in block style. The checker fails closed on any other
-entry-level list item (for example <code>- paths:</code> first, or flow style <code>- {id: ...}</code>), because
-such an entry would otherwise escape the checks. Comment-only lines inside a <code>statement</code> are
-ignored, so a <code># see #12</code> comment does not satisfy the issue-reference rule. Every top-level
-section (<code>misconfigurations:</code>, <code>vulnerabilities:</code>, <code>secrets:</code>, ...) is checked, including ones
-that use a different list indent.</p>
-<p>A suppression for a finding that is itself a deferred security risk needs its tracking issue
-labeled <code>security::deferred</code> (for example #1541); that label is what puts it through the
-accepted-risk review described in <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a>.</p>
-<p>Known limit: trivy's config scanner currently skips the Helm chart because of placeholder
-values, so chart misconfigurations are not caught by this job (#1536).</p>
-<p>Trivy itself only stops honoring an expired entry, which would resurface as a confusing red
-scan. <code>scripts/check-trivyignore-expiry.sh</code> makes the policy explicit: it fails the job when an
-entry is past its date, has no valid date, has no <code>#NNNN</code> reference, or does not start with
-<code>- id:</code>. It does not look the issue up, so it cannot tell whether the issue is open. It has a
-<code>--self-test</code> (run in the job before the real check) and a unit test:</p>
+<p>Each entry must start with <code>- id:</code> in block style. The checker fails closed on any other entry-level list item (for example <code>- paths:</code> first, or flow style <code>- {id: ...}</code>), because such an entry would otherwise escape the checks. Comment-only lines inside a <code>statement</code> are ignored, so a <code># see #12</code> comment doesn't satisfy the issue-reference rule. Every top-level section (<code>misconfigurations:</code>, <code>vulnerabilities:</code>, <code>secrets:</code>, ...) is checked, including ones that use a different list indent.</p>
+<p>A suppression for a finding that's itself a deferred security risk needs its tracking issue labeled <code>security::deferred</code> (for example #1541). That label puts it through the accepted-risk review described in <a href="../../maintainers/security-deferred-label/">Deferred security follow-ups</a>.</p>
+<p><strong>Yes, but:</strong> trivy's config scanner currently skips the Helm chart because of placeholder values, so chart misconfigurations aren't caught by this job (#1536).</p>
+<p>Trivy itself only stops honoring an expired entry, which would resurface as a confusing red scan. <code>scripts/check-trivyignore-expiry.sh</code> makes the policy explicit: it fails the job when an entry is past its date, has no valid date, has no <code>#NNNN</code> reference, or doesn't start with <code>- id:</code>. It doesn't look the issue up, so it can't tell whether the issue is open. It has a <code>--self-test</code> (run in the job before the real check) and a unit test:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sh<span class="w"> </span>scripts/check-trivyignore-expiry.sh
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>sh<span class="w"> </span>scripts/check-trivyignore-expiry.sh<span class="w"> </span>--self-test
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>bash<span class="w"> </span>scripts/tests/check-trivyignore-expiry.test.sh
 </code></pre></div>
-<p>When an entry expires, fix the finding and delete the entry, or renew the date in a commit
-that cites the issue's current status.</p>
+<p>When an entry expires, fix the finding and delete the entry, or renew the date in a commit that cites the issue's current status.</p>
 
 
 

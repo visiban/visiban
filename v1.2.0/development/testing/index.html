@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#testing" class="md-skip">
+        <a href="#run-the-test-layer-that-matches-your-change" class="md-skip">
           Skip to content
         </a>
       
@@ -2885,106 +2885,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="CI">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#sonarcloud-coverage-import-1370" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SonarCloud coverage import (#1370)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mutation-score-1384" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Mutation score (#1384)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#coverage-targets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Coverage targets
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#diff-coverage-1076" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diff coverage (#1076)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Diff coverage (#1076)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#diff-coverage-escape-hatch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diff coverage escape hatch
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#added-file-coverage-guard-1091" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Added-file coverage guard (#1091)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#stale-dev-venv" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stale dev venv
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#git-hooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Git hooks
-      
-    </span>
-  </a>
-  
 </li>
       
     </ul>
@@ -4364,8 +4264,10 @@
   
 
 
-<h1 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h1>
-<p>Visiban ships three layers of automated tests. Run the one that matches what you're changing, and add coverage in the same merge request as the behavior change — not in a follow-up.</p>
+<h1 id="run-the-test-layer-that-matches-your-change">Run the test layer that matches your change<a class="headerlink" href="#run-the-test-layer-that-matches-your-change" title="Permanent link">&para;</a></h1>
+<p><a id="testing"></a></p>
+<p>Visiban ships three layers of automated tests. Run the one that matches what you're changing.</p>
+<p><strong>Why it matters:</strong> Add coverage in the same merge request as the behavior change, not in a follow-up.</p>
 <table>
 <thead>
 <tr>
@@ -4523,7 +4425,7 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="c1">// ...</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">})</span>
 </code></pre></div>
-<p>Do not change the viewport mid-test — responsive layout transitions are expensive and flaky.</p>
+<p>Don't change the viewport mid-test — responsive layout transitions are expensive and flaky.</p>
 <h3 id="non-fetch-side-effects">Non-fetch side effects<a class="headerlink" href="#non-fetch-side-effects" title="Permanent link">&para;</a></h3>
 <p>Some components use <code>window.open()</code> rather than <code>fetch()</code> (e.g. board export → server-generated download). Intercept those with an init script that monkey-patches <code>window.open</code> before the page loads:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">await</span><span class="w"> </span><span class="nx">page</span><span class="p">.</span><span class="nx">addInitScript</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
@@ -4561,23 +4463,23 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <p>The Playwright list above has a unit-test counterpart. Every root-caused <code>frontend-test</code> flake so
 far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed, not test noise:</p>
 <ul>
-<li>[ ] <strong>Act only on a settled page.</strong> Finding the first element a fetch renders does not mean the
+<li>[ ] <strong>Act only on a settled page.</strong> Finding the first element a fetch renders doesn't mean the
   page is idle: the commit that shows it can still have mount effects and further fetches queued,
   and on a slow runner <code>waitFor</code> returns inside that window. Before firing events, wait for the
   last thing the page loads. <code>renderAdminPageSettled()</code> in <code>src/test/adminPage.test.tsx</code> is the
   pattern: it waits for <code>EmailSettingsSection</code>'s <code>Host</code> field, the last section to load.</li>
 <li>[ ] <strong>Re-query after an event</strong> (<code>screen.getByLabelText(...)</code>) instead of asserting on a node
-  captured before it, so a remount cannot leave the assertion reading a detached element.</li>
+  captured before it, so a remount can't leave the assertion reading a detached element.</li>
 <li>[ ] <strong>Test the commit-to-effect window when a component holds a local input buffer.</strong> Mount it
   from a resolved promise (outside <code>act()</code>), call <code>stallEventLoopAfterWaitFor()</code> from
   <code>src/test/eventLoopStall.ts</code> inside the <code>waitFor</code> that finds the input, assert the mount effects
-  have not run yet, then type. <code>customFieldValueInput.test.tsx</code> and <code>lensFilterBar.test.tsx</code> show
+  haven't run yet, then type. <code>customFieldValueInput.test.tsx</code> and <code>lensFilterBar.test.tsx</code> show
   it. The component rule this protects is in <code>frontend/CLAUDE.md</code> § Local input buffers and timers.</li>
 <li>[ ] <strong>No timer that can outlive its component.</strong> Hold a delayed timer's id in a ref, clear it
   on unmount, and add a test that unmounts with the timer pending. ESLint <code>no-restricted-syntax</code>
   catches only a call whose id is visibly discarded (a whole statement, an arrow's expression
   body such as <code>.then(() =&gt; setTimeout(...))</code>, or <code>void setTimeout(...)</code>) with a delay other
-  than a literal <code>0</code>. It does not catch a stored id that is never cleared, so review still has
+  than a literal <code>0</code>. It doesn't catch a stored id that's never cleared, so review still has
   to look for the cleanup.</li>
 </ul>
 <h2 id="writing-tests-that-catch-mutations">Writing tests that catch mutations<a class="headerlink" href="#writing-tests-that-catch-mutations" title="Permanent link">&para;</a></h2>
@@ -4628,11 +4530,17 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 </code></pre></div>
 <p>Do the same for broadcast events: assert nothing was queued.</p>
 <h3 id="row-lock-tests-postgresql-only">Row-lock tests (PostgreSQL only)<a class="headerlink" href="#row-lock-tests-postgresql-only" title="Permanent link">&para;</a></h3>
-<p>SQLite has no row locks, so a <code>select_for_update()</code> can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern: pause the first request inside its transaction (after it took the lock and wrote, before it commits), start a second request only once the first is paused, and assert both that the second could not finish before the pause ended and that the final state is consistent (distinct positions, caps respected). Decorate the class with <code>@skipUnless(connection.vendor == "postgresql", ...)</code> and use <code>TransactionTestCase</code>. Every thread that touches the ORM must call <code>connections.close_all()</code> in a <code>finally</code>. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See <code>backend/boards/tests/test_concurrent_moves.py</code> (<code>ConcurrentMoveLockTests</code>) and <code>backend/boards/tests/test_concurrent_lock_sites.py</code>.</p>
+<p>SQLite has no row locks, so a <code>select_for_update()</code> can be deleted without failing the SQLite suite. Test each lock with the hold-the-first-transaction pattern:</p>
+<ol>
+<li>Pause the first request inside its transaction (after it took the lock and wrote, before it commits).</li>
+<li>Start a second request only once the first is paused.</li>
+<li>Assert both that the second couldn't finish before the pause ended and that the final state is consistent (distinct positions, caps respected).</li>
+</ol>
+<p>Decorate the class with <code>@skipUnless(connection.vendor == "postgresql", ...)</code> and use <code>TransactionTestCase</code>. Every thread that touches the ORM must call <code>connections.close_all()</code> in a <code>finally</code>. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See <code>backend/boards/tests/test_concurrent_moves.py</code> (<code>ConcurrentMoveLockTests</code>) and <code>backend/boards/tests/test_concurrent_lock_sites.py</code>.</p>
 <h3 id="what-not-to-do">What not to do<a class="headerlink" href="#what-not-to-do" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Do not write one test per mutant.</strong> Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.</li>
-<li><strong>Do not pin the full wording of logger text.</strong> Assert the level and a stable event-name prefix or key substring (<code>assertLogs(..., level="WARNING")</code> plus <code>assertIn("malformed payload", ...)</code>), not the whole sentence. Pin the full message only when it is a documented contract.</li>
+<li><strong>Do not pin the full wording of logger text.</strong> Assert the level and a stable event-name prefix or key substring (<code>assertLogs(..., level="WARNING")</code> plus <code>assertIn("malformed payload", ...)</code>), not the whole sentence. Pin the full message only when it's a documented contract.</li>
 <li><strong>Do not assert on <code>.get()</code> defaults that are always overridden.</strong> If no production input can reach the default, the mutant is equivalent: mark it <code># pragma: no mutate -- &lt;reason&gt;</code> (a reason is required) instead of leaving it as a survivor. See the <a href="../mutation-testing/#equivalent-mutants-and-the-score-1503">policy</a>.</li>
 <li><strong>Do not chase equivalent mutants</strong> (dead branches, schema constants guarded by <code>migration-check</code>); exclude them with a reasoned pragma. See "How to read the results" in the mutation baseline.</li>
 </ul>
@@ -4640,50 +4548,38 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <ul>
 <li>Backend tests run in the <code>backend-test</code> job (8 parallel shards) on every MR that touches <code>backend/**/*</code> or <code>requirements*.txt</code></li>
 <li>Shards are time-balanced by <code>pytest-split</code> from the committed <code>backend/.test_durations</code> file. Shards never write it (concurrent shards would overwrite each other's slice). Refresh it occasionally, e.g. after a large batch of new tests: <code>cd backend &amp;&amp; pytest --store-durations --durations-path .test_durations</code>, then commit the file. A stale file only degrades balance, never correctness.</li>
-<li><code>backend-benchmark</code> is a <strong>manual</strong> job (#1341) that runs
-  <code>python manage.py benchmark --fail-on-budget</code>. Trigger it from the pipeline page's manual-job
-  play button on an MR or <code>main</code> pipeline; it is <code>allow_failure: true</code> so an unrun job never
-  blocks a merge, and it never runs on schedules or tags. The command seeds its own throw-away
-  board (100 cards) and counts SQL queries for the card list, <code>full/</code>, and <code>summary/</code> against
-  committed budgets. It fails on a non-2xx response, on <code>DEBUG</code> being off, or on any endpoint
-  over budget. To run it locally: <code>cd backend &amp;&amp; DEBUG=True python manage.py benchmark --fail-on-budget</code>.
-  <strong>Why manual:</strong> the same <code>benchmark --fail-on-budget</code> already runs on Postgres inside
-  <code>backend-test</code> on every backend MR via <code>BenchmarkCommandCiGateTests.test_within_budget_passes_with_fail_on_budget</code>,
-  so an automatic job would be near-redundant and cost a Postgres + Valkey pair per MR. Run on
-  demand it adds <code>DEBUG</code> taken from the environment, a run outside a <code>TestCase</code> transaction, and
-  a fresh <code>migrate</code>. Latency regressions that keep the query count identical are covered by
-  <code>nightly-load-test</code> (<a href="../nightly-load-test/">nightly-load-test.md</a>). First measured on Postgres in
-  #1341: cards 9 (budget 12), <code>full/</code> 17 (budget 20), <code>summary/</code> 4 (budget 10).
-  <strong>Budgets:</strong> they partly overlap <code>backend/boards/tests/test_query_counts.py</code>. The benchmark's
-  cards check serializes <code>_card_queryset</code> directly (a subset of the endpoint), so its budget of
-  12 is intentionally different from <code>CardListQueryCountTests.BUDGET</code> (14); it is a coarser
-  check, not a replacement. <code>full/</code> (20) is deliberately 1 above <code>BoardFullQueryCountTests.BUDGET</code>
-  (19) and <code>summary/</code> (10) equals <code>SummaryQueryCountTests.BUDGET</code>; neither should exceed the
-  <code>test_query_counts.py</code> value plus that slack. When a budget legitimately changes, bump both
-  files together following
-  <a href="https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-bench.md">perf-bench.md section 6</a>.</li>
-<li>Frontend unit tests run in <code>frontend-test</code>. Unlike <code>backend-schema-fuzz</code> below, a single
-  failed test retries once automatically under CI (<code>vitest.config.ts</code>'s <code>test.retry</code>, gated
-  on <code>process.env.CI</code> so local runs stay strict) before failing the job. The retry only
-  absorbs a one-off scheduler hiccup. Every occurrence that has been root-caused was a
-  component defect that failed on both attempts: a leaked post-save timer (#1319 occurrence 3)
-  and an effect-seeded input buffer racing the first edit (occurrence 4; occurrence 1 was
-  most likely the same race). So a red job whose test shows <code>(retry x1)</code> means a real bug:
-  investigate it, do not re-run the job until it passes. Do not raise the retry to 2 either.
-  A second retry would not have saved any of these, and it would hide the next one.</li>
+<li><code>backend-benchmark</code> is a <strong>manual</strong> job (#1341) that runs <code>python manage.py benchmark --fail-on-budget</code>.<ul>
+<li><strong>Trigger:</strong> use the pipeline page's manual-job play button on an MR or <code>main</code> pipeline. It's <code>allow_failure: true</code> so an unrun job never blocks a merge, and it never runs on schedules or tags.</li>
+<li><strong>What it does:</strong> the command seeds its own throw-away board (100 cards) and counts SQL queries for the card list, <code>full/</code>, and <code>summary/</code> against committed budgets. It fails on a non-2xx response, on <code>DEBUG</code> being off, or on any endpoint over budget.</li>
+<li><strong>Locally:</strong> <code>cd backend &amp;&amp; DEBUG=True python manage.py benchmark --fail-on-budget</code></li>
+<li><strong>Why manual:</strong> the same <code>benchmark --fail-on-budget</code> already runs on Postgres inside <code>backend-test</code> on every backend MR via <code>BenchmarkCommandCiGateTests.test_within_budget_passes_with_fail_on_budget</code>, so an automatic job would be near-redundant and cost a Postgres + Valkey pair per MR. Run on demand it adds <code>DEBUG</code> taken from the environment, a run outside a <code>TestCase</code> transaction, and a fresh <code>migrate</code>.</li>
+<li><strong>Latency:</strong> regressions that keep the query count identical are covered by <code>nightly-load-test</code> (<a href="../nightly-load-test/">nightly-load-test.md</a>).</li>
+<li><strong>First measured</strong> on Postgres in #1341: cards 9 (budget 12), <code>full/</code> 17 (budget 20), <code>summary/</code> 4 (budget 10).</li>
+<li><strong>Budgets</strong> partly overlap <code>backend/boards/tests/test_query_counts.py</code>. The benchmark's cards check serializes <code>_card_queryset</code> directly (a subset of the endpoint), so its budget of 12 is intentionally different from <code>CardListQueryCountTests.BUDGET</code> (14); it's a coarser check, not a replacement. <code>full/</code> (20) is deliberately 1 above <code>BoardFullQueryCountTests.BUDGET</code> (19) and <code>summary/</code> (10) equals <code>SummaryQueryCountTests.BUDGET</code>. Neither should exceed the <code>test_query_counts.py</code> value plus that slack. When a budget legitimately changes, bump both files together following <a href="https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-bench.md">perf-bench.md section 6</a>.</li>
+</ul>
+</li>
+<li>Frontend unit tests run in <code>frontend-test</code>. Unlike <code>backend-schema-fuzz</code> below, a single failed test retries once automatically under CI (<code>vitest.config.ts</code>'s <code>test.retry</code>, gated on <code>process.env.CI</code> so local runs stay strict) before failing the job.<ul>
+<li>The retry only absorbs a one-off scheduler hiccup.</li>
+<li>Every occurrence that has been root-caused was a component defect that failed on both attempts: a leaked post-save timer (#1319 occurrence 3) and an effect-seeded input buffer racing the first edit (occurrence 4; occurrence 1 was most likely the same race).</li>
+<li><strong>A red job whose test shows <code>(retry x1)</code> means a real bug.</strong> Investigate it; don't re-run the job until it passes.</li>
+<li>Don't raise the retry to 2 either. A second retry wouldn't have saved any of these, and it would hide the next one.</li>
+</ul>
+</li>
 <li>Playwright E2E runs in <code>playwright-e2e</code> — starts its own Vite dev server, no separate build step needed. It's <code>allow_failure: true</code> during rollout; promotion to blocking is tracked separately.</li>
 <li><code>backend-schema-validate</code> checks the generated OpenAPI document is well-formed;
   <code>backend-schema-fuzz</code> goes further and fuzzes a real, running instance with
   <a href="https://schemathesis.readthedocs.io/">schemathesis</a> to catch a response that doesn't match
   its declared schema — see <a href="../../api/openapi/#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz"><code>docs/api/openapi.md</code></a>.
-  Blocking (<code>allow_failure: false</code>) as of #1120; a handful of already-tracked
-  schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in
-  <code>backend/schemathesis-baseline.json</code> rather than blocking on them landing first; #1170
-  pruned the leftovers down to 12 entries (from two full-length runs, different seeds), each
-  now carrying a <code>"reason"</code> field. The
-  undocumented-<code>400</code> gap (#1124) is closed generically by <code>visiban/schema_hooks.py</code> (#1165).
-  A red run is a real defect, never a flake — do not retry it; see the
+  It's blocking (<code>allow_failure: false</code>) as of #1120.<ul>
+<li>A handful of already-tracked schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in <code>backend/schemathesis-baseline.json</code> rather than blocking on them landing first.</li>
+<li>
+<h1 id="1170-pruned-the-leftovers-down-to-12-entries-from-two-full-length-runs-different-seeds-each-now-carrying-a-reason-field">1170 pruned the leftovers down to 12 entries (from two full-length runs, different seeds), each now carrying a <code>"reason"</code> field.<a class="headerlink" href="#1170-pruned-the-leftovers-down-to-12-entries-from-two-full-length-runs-different-seeds-each-now-carrying-a-reason-field" title="Permanent link">&para;</a></h1>
+</li>
+<li>The undocumented-<code>400</code> gap (#1124) is closed generically by <code>visiban/schema_hooks.py</code> (#1165).</li>
+<li><strong>A red run is a real defect, never a flake.</strong> Don't retry it; see the
   <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake">triage steps</a></li>
+</ul>
+</li>
 <li><code>backend-schema-fuzz-git-lens</code> is the same fuzz with <code>GIT_LENS_ENABLED=True</code>, narrowed to
   the Issue Board Lens routes, with its own <code>backend/schemathesis-baseline-git-lens.json</code> and
   the GitHub/GitLab calls answered by an in-process stub (#1338). See
@@ -4691,34 +4587,35 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <li>The <code>changelog-check</code> job blocks the pipeline if no fragment is added under <code>changelog.d/</code></li>
 </ul>
 <h3 id="sonarcloud-coverage-import-1370">SonarCloud coverage import (#1370)<a class="headerlink" href="#sonarcloud-coverage-import-1370" title="Permanent link">&para;</a></h3>
-<p>SonarCloud does not run tests; it imports the reports the <code>test</code> stage already
-produces, via <code>sonar.python.coverage.reportPaths</code> and
-<code>sonar.javascript.lcov.reportPaths</code> in <code>sonar-project.properties</code>. The nightly
-<code>sonar:scan</code> job consumes the <code>backend-test-coverage</code> artifact
-(<code>backend/coverage.xml</code>, Cobertura) and the <code>frontend-test</code> artifact
-(<code>frontend/coverage/lcov.info</code>; <code>lcov</code> is one of the vitest <code>coverage.reporter</code>
-formats alongside <code>text</code> and <code>cobertura</code>, which GitLab's coverage badge and
-<code>coverage_report</code> still depend on).</p>
-<p>Neither report resolves from the repo root as emitted, so
-<code>scripts/sonar-scan.sh --prep-only</code> rewrites them into <code>backend/coverage.sonar.xml</code>
-(injects the <code>&lt;source&gt;</code> root) and <code>frontend/coverage/lcov.sonar.info</code> (prefixes
-<code>SF:src/</code> with <code>frontend/</code>). To reproduce the CI scan locally, generate both
-reports, then run <code>SONAR_TOKEN=... scripts/sonar-scan.sh</code>. <code>--prep-only</code> prints how many
-class entries and <code>SF:</code> files each rewritten report lists (and warns on zero), so the
-nightly log shows whether paths resolved. <code>scripts/sonar-scan.sh --self-test</code> fixtures
-both rewrites and runs in the <code>sonar-scan-selftest</code> CI job.</p>
-<p>Test code, migrations, repo tooling, and seed/factory modules are removed from the
-coverage denominator by <code>sonar.coverage.exclusions</code>; each entry is justified in
-the properties file, and nothing under product source is excluded.</p>
+<p>SonarCloud doesn't run tests. It imports the reports the <code>test</code> stage already produces, via <code>sonar.python.coverage.reportPaths</code> and <code>sonar.javascript.lcov.reportPaths</code> in <code>sonar-project.properties</code>. The nightly <code>sonar:scan</code> job consumes:</p>
+<ul>
+<li>the <code>backend-test-coverage</code> artifact (<code>backend/coverage.xml</code>, Cobertura);</li>
+<li>the <code>frontend-test</code> artifact (<code>frontend/coverage/lcov.info</code>). <code>lcov</code> is one of the vitest <code>coverage.reporter</code> formats alongside <code>text</code> and <code>cobertura</code>, which GitLab's coverage badge and <code>coverage_report</code> still depend on.</li>
+</ul>
+<p>Neither report resolves from the repo root as emitted, so <code>scripts/sonar-scan.sh --prep-only</code> rewrites them into <code>backend/coverage.sonar.xml</code> (injects the <code>&lt;source&gt;</code> root) and <code>frontend/coverage/lcov.sonar.info</code> (prefixes <code>SF:src/</code> with <code>frontend/</code>).</p>
+<ul>
+<li><strong>Reproduce the CI scan locally:</strong> generate both reports, then run <code>SONAR_TOKEN=... scripts/sonar-scan.sh</code>.</li>
+<li><strong><code>--prep-only</code></strong> prints how many class entries and <code>SF:</code> files each rewritten report lists (and warns on zero), so the nightly log shows whether paths resolved.</li>
+<li><strong><code>scripts/sonar-scan.sh --self-test</code></strong> fixtures both rewrites and runs in the <code>sonar-scan-selftest</code> CI job.</li>
+</ul>
+<p>Test code, migrations, repo tooling, and seed/factory modules are removed from the coverage denominator by <code>sonar.coverage.exclusions</code>. Each entry is justified in the properties file, and nothing under product source is excluded.</p>
 <h3 id="mutation-score-1384">Mutation score (#1384)<a class="headerlink" href="#mutation-score-1384" title="Permanent link">&para;</a></h3>
 <p>Coverage says a line ran. A <strong>mutation score</strong> says whether the tests would notice if the line were wrong. The weekly <code>backend-mutation</code> job makes one small change at a time to the code (flip <code>==</code> to <code>!=</code>, change a constant, replace a value with <code>None</code>), re-runs that code's tests, and counts the change as <strong>killed</strong> if a test fails or <strong>survived</strong> if every test still passes. It covers <code>boards/permissions.py</code>, <code>boards/services/cards.py</code>, the <code>CardMovement</code> class in <code>boards/models.py</code> and <code>boards/views/import_export.py</code>; the list and each target's test files are <code>TARGETS</code> in <code>backend/mutmut_config.py</code>.</p>
 <ul>
-<li><strong>What the number means:</strong> 92% means that of every 100 small, plausible bugs introduced into the code, the tests caught 92. The other 8 are <em>survivors</em>: changes the tests could not tell apart from the real code. A survivor is either a missing assertion (worth a test) or an equivalent mutant (a change no production input could observe). It is not a measure of correctness, and a high score in these modules says nothing about code outside them.</li>
-<li><strong>Score:</strong> the <strong>adjusted</strong> score is <code>(killed + timeout) / (killed + timeout + survived + suspicious)</code>; mutants on other shards' lines (<code>skipped</code>) are not counted. Mutants excluded with <code># pragma: no mutate -- &lt;reason&gt;</code> are left out of it. The <strong>raw</strong> score also counts them (as not detected), so exclusions stay visible; both are printed and written to the artifact. A timeout counts as killed because the change hung the suite.</li>
+<li><strong>What the number means:</strong> 92% means that of every 100 small, plausible bugs introduced into the code, the tests caught 92. The other 8 are <em>survivors</em>: changes the tests couldn't tell apart from the real code. A survivor is either a missing assertion (worth a test) or an equivalent mutant (a change no production input could observe). It isn't a measure of correctness, and a high score in these modules says nothing about code outside them.</li>
+<li><strong>Score:</strong> the <strong>adjusted</strong> score is <code>(killed + timeout) / (killed + timeout + survived + suspicious)</code>; mutants on other shards' lines (<code>skipped</code>) aren't counted. Mutants excluded with <code># pragma: no mutate -- &lt;reason&gt;</code> are left out of it. The <strong>raw</strong> score also counts them (as not detected), so exclusions stay visible; both are printed and written to the artifact. A timeout counts as killed because the change hung the suite.</li>
 <li><strong>Where to read it:</strong> the <code>backend-mutation-report</code> job log prints one line per target and then the merged counts and score. The <code>mutmut-cicd-stats.json</code> artifact (kept 30 days) holds the merged numbers at the top level and each target under <code>targets</code>. It runs on the Weekly mutation testing schedule only (Sundays, 06:00 ET), never on an MR.</li>
-<li><strong>Floor:</strong> <code>MUTATION_MIN=0.90</code> gates the <strong>merged adjusted</strong> score over all targets (exit 1 below it). A target under 90% on its own is named in the log but does not fail the job by itself. Until the follow-up on #1384 both jobs are <code>allow_failure: true</code>, so a low score shows as a yellow job, not a red pipeline; a follow-up makes the report blocking. The floor is a fraction (<code>0.90</code>, never <code>90</code>); <code>0</code> or a value outside (0, 1] is rejected (exit 2).</li>
-<li><strong>Yellow can also mean not measured</strong> (exit 2): a shard or a whole target's stats files did not arrive (a shard timed out or failed before writing its file), a file is malformed, a target's shards are not one consistent run (their <code>total</code> mutant counts differ, or their non-skipped mutants do not add up to that total), a run finished with untested mutants, or nothing was scoreable. The export step also exits 2 if mutmut is not importable or if a source file has pragmas that change no mutant count. The artifact is still written and carries a <code>not_measured</code> key with the reason; read the log to tell this from a low score. An invalid <code>MUTATION_MIN</code> fails before any stats are read, so that run has no artifact; fix the variable. Treat not measured as a broken job, not a score.</li>
-<li><strong>Reading survivors:</strong> survivors are not in the artifact. Reproduce the target locally in a throwaway copy of <code>backend/</code> (see <a href="../mutation-testing/#how-to-reproduce">Mutation Testing Baseline</a>), then <code>mutmut results</code> lists them and <code>mutmut show &lt;id&gt;</code> prints the diff of one. For each survivor ask, in order: could any production input observe this change? If not, it is an <strong>equivalent mutant</strong>: mark it with a reasoned <code># pragma: no mutate</code>. Does any test in the target's list reach the line? If not, it is <strong>untested code</strong>. Otherwise it is a <strong>missing assertion</strong>: add the smallest assertion that fails on the mutant (an exact message, a boundary value, an empty case). See <a href="#writing-tests-that-catch-mutations">Writing tests that catch mutations</a>.</li>
+<li><strong>Floor:</strong> <code>MUTATION_MIN=0.90</code> gates the <strong>merged adjusted</strong> score over all targets (exit 1 below it). A target under 90% on its own is named in the log but doesn't fail the job by itself. Until the follow-up on #1384 both jobs are <code>allow_failure: true</code>, so a low score shows as a yellow job, not a red pipeline; a follow-up makes the report blocking. The floor is a fraction (<code>0.90</code>, never <code>90</code>); <code>0</code> or a value outside (0, 1] is rejected (exit 2).</li>
+<li><strong>Yellow can also mean not measured</strong> (exit 2): a shard or a whole target's stats files didn't arrive (a shard timed out or failed before writing its file), a file is malformed, a target's shards aren't one consistent run (their <code>total</code> mutant counts differ, or their non-skipped mutants don't add up to that total), a run finished with untested mutants, or nothing was scoreable. The export step also exits 2 if mutmut isn't importable or if a source file has pragmas that change no mutant count. The artifact is still written and carries a <code>not_measured</code> key with the reason; read the log to tell this from a low score. An invalid <code>MUTATION_MIN</code> fails before any stats are read, so that run has no artifact; fix the variable. Treat not measured as a broken job, not a score.</li>
+<li>
+<p><strong>Reading survivors:</strong> survivors aren't in the artifact. Reproduce the target locally in a throwaway copy of <code>backend/</code> (see <a href="../mutation-testing/#how-to-reproduce">Mutation Testing Baseline</a>), then <code>mutmut results</code> lists them and <code>mutmut show &lt;id&gt;</code> prints the diff of one. For each survivor ask, in order:</p>
+<ol>
+<li>Could any production input observe this change? If not, it's an <strong>equivalent mutant</strong>: mark it with a reasoned <code># pragma: no mutate</code>.</li>
+<li>Does any test in the target's list reach the line? If not, it's <strong>untested code</strong>.</li>
+<li>Otherwise it's a <strong>missing assertion</strong>: add the smallest assertion that fails on the mutant (an exact message, a boundary value, an empty case).</li>
+</ol>
+<p>See <a href="#writing-tests-that-catch-mutations">Writing tests that catch mutations</a>.</p>
+</li>
 </ul>
 <h3 id="coverage-targets">Coverage targets<a class="headerlink" href="#coverage-targets" title="Permanent link">&para;</a></h3>
 <p>Three different numbers apply. They measure different things; see
@@ -4754,30 +4651,24 @@ the properties file, and nothing under product source is excluded.</p>
 </tr>
 </tbody>
 </table>
-<p>The frontend thresholds are a floor that stops the aggregate from regressing; they are lower
-than the Sonar target. A change that leaves the frontend at its threshold can still pull
-Sonar's combined number under 85%, so aim higher on new code instead of treating the
-threshold as the goal. Raise a threshold when the aggregate has stayed comfortably above it;
-never lower one to make a pipeline pass.</p>
+<p><strong>Yes, but:</strong> The frontend thresholds are a floor that stops the aggregate from regressing, and they are lower than the Sonar target. A change that leaves the frontend at its threshold can still pull Sonar's combined number under 85%, so aim higher on new code instead of treating the threshold as the goal.</p>
+<p><strong>Watch out:</strong> Raise a threshold when the aggregate has stayed comfortably above it. Never lower one to make a pipeline pass.</p>
 <h3 id="diff-coverage-1076">Diff coverage (#1076)<a class="headerlink" href="#diff-coverage-1076" title="Permanent link">&para;</a></h3>
-<p><code>backend-test-coverage</code> and <code>frontend-test</code>'s vitest thresholds gate the <em>aggregate</em>
-coverage of the whole codebase. That number moves slowly — a large, well-tested
-codebase can absorb a fully untested new feature and barely notice. <code>backend-diff-coverage</code>
-and <code>frontend-diff-coverage</code> close that gap: they run only on MR pipelines (there's no
-diff to measure on <code>main</code>) and use <a href="https://github.com/Bachmann1234/diff_cover"><code>diff-cover</code></a>
-to measure coverage of only the lines the MR actually adds or changes, against the same
-<code>coverage.xml</code> / <code>cobertura-coverage.xml</code> the aggregate jobs already produce — no test
-re-run. Both are blocking at <strong>80% of changed lines</strong> and print the uncovered line numbers
-in the job log (<code>--show-uncovered</code>), not just a percentage.</p>
-<p>Excluded from the diff denominator on both sides: backend <code>*/migrations/*</code> and <code>manage.py</code>
-(schema, not behavior — see the <code>backend-diff-coverage</code> job comment in <code>.gitlab-ci.yml</code> for
-why the aggregate run <em>does</em> count migrations but the diff gate doesn't), and frontend
-<code>src/test/*</code>, <code>*.test.*</code>, <code>*.spec.*</code> (already excluded from the coverage report itself by
-<code>vitest.config.ts</code>'s <code>coverage.exclude</code>; the CI job's <code>--exclude</code> is belt-and-suspenders).
-Generated files, if any are ever introduced, should be added to the same exclude list.</p>
+<p><strong>Why it matters:</strong> <code>backend-test-coverage</code> and <code>frontend-test</code>'s vitest thresholds gate the <em>aggregate</em> coverage of the whole codebase. That number moves slowly: a large, well-tested codebase can absorb a fully untested new feature and barely notice.</p>
+<p><code>backend-diff-coverage</code> and <code>frontend-diff-coverage</code> close that gap:</p>
+<ul>
+<li>They run only on MR pipelines (there's no diff to measure on <code>main</code>).</li>
+<li>They use <a href="https://github.com/Bachmann1234/diff_cover"><code>diff-cover</code></a> to measure coverage of only the lines the MR adds or changes, against the same <code>coverage.xml</code> / <code>cobertura-coverage.xml</code> the aggregate jobs already produce. No test re-run.</li>
+<li>Both are blocking at <strong>80% of changed lines</strong> and print the uncovered line numbers in the job log (<code>--show-uncovered</code>), not just a percentage.</li>
+</ul>
+<p>Excluded from the diff denominator on both sides:</p>
+<ul>
+<li>backend <code>*/migrations/*</code> and <code>manage.py</code> (schema, not behavior; see the <code>backend-diff-coverage</code> job comment in <code>.gitlab-ci.yml</code> for why the aggregate run <em>does</em> count migrations but the diff gate doesn't);</li>
+<li>frontend <code>src/test/*</code>, <code>*.test.*</code>, <code>*.spec.*</code> (already excluded from the coverage report itself by <code>vitest.config.ts</code>'s <code>coverage.exclude</code>; the CI job's <code>--exclude</code> is belt-and-suspenders).</li>
+</ul>
+<p>Generated files, if any are ever introduced, should be added to the same exclude list.</p>
 <h4 id="diff-coverage-escape-hatch">Diff coverage escape hatch<a class="headerlink" href="#diff-coverage-escape-hatch" title="Permanent link">&para;</a></h4>
-<p>An MR can legitimately fail this gate without meaning "add more tests" — a pure refactor
-that only moves lines, or a vendored file with no realistic local test. When that happens:</p>
+<p>An MR can legitimately fail this gate without meaning "add more tests": a pure refactor that only moves lines, or a vendored file with no realistic local test. When that happens:</p>
 <ol>
 <li>Say so explicitly in the MR description (a line under a <code>## Notes</code> heading is enough:
    <em>"backend-diff-coverage fails on moved-but-unchanged lines in <code>foo.py</code>; no new
@@ -4785,53 +4676,27 @@ that only moves lines, or a vendored file with no realistic local test. When tha
 <li>A reviewer confirms the reasoning and re-runs the job manually with an adjusted
    understanding, or approves the MR with the failing job explicitly acknowledged.</li>
 </ol>
-<p>The override is always visible in the MR discussion and job history — never silence the
-gate by weakening the threshold or broadening <code>--exclude</code> to route around a single MR.</p>
+<p><strong>Watch out:</strong> The override is always visible in the MR discussion and job history. Never silence the gate by weakening the threshold or broadening <code>--exclude</code> to route around a single MR.</p>
 <h3 id="added-file-coverage-guard-1091">Added-file coverage guard (#1091)<a class="headerlink" href="#added-file-coverage-guard-1091" title="Permanent link">&para;</a></h3>
-<p><code>diff-cover</code> has a blind spot that's the inverse of what you'd expect: a <strong>brand-new</strong>
-source file with zero tests never appears in <code>coverage.xml</code> / <code>cobertura-coverage.xml</code> at
-all, so <code>diff-cover</code> finds no rows for it and reports <strong>100%</strong> for that file — a file with
-<em>some</em> tests gets scrutinized, a file with <em>none</em> sails through. (The aggregate-coverage
-version of this same bug — an uninstrumented CI job reading as 0% — is #1090.)</p>
-<p><code>added-files-coverage-check</code> closes this gap. It reuses the same <code>coverage.xml</code> /
-<code>cobertura-coverage.xml</code> artifacts as the diff-coverage jobs above (no test re-run):
-for every file <em>added</em> (not modified) since the MR's merge-base, filtered to
-<code>backend/*.py</code> and <code>frontend/src/*.ts(x)</code> and excluding whatever <code>backend/.coveragerc</code>'s
-<code>omit</code> list and <code>vitest.config.ts</code>'s <code>coverage.exclude</code> list already exclude (plus
-migrations and <code>manage.py</code>, same as the diff-coverage <code>--exclude</code>), it fails the build if
-the file has no <code>&lt;class filename="..."&gt;</code> row in the report at all — naming the file and
-explaining what to do about it in the job log.</p>
-<p>The script (<code>scripts/check-added-files-covered.mjs</code>) ships a <code>--self-test</code> mode, run in
-its own <code>added-files-coverage-check-self-test</code> CI job on the same <code>node:20-alpine</code> image as
-the real check: it builds a synthetic git repo and coverage fixtures in a temp directory
-(no network, no database, no changes to the real working tree) and asserts detection fires
-on a known-bad fixture and stays clean on a known-good one. This is the house pattern for
-bespoke gate scripts described in #1093.</p>
+<p><strong>Why it matters:</strong> <code>diff-cover</code> has an inverted blind spot. A <strong>brand-new</strong> source file with zero tests never appears in <code>coverage.xml</code> / <code>cobertura-coverage.xml</code> at all, so <code>diff-cover</code> finds no rows for it and reports <strong>100%</strong> for that file. A file with <em>some</em> tests gets scrutinized; a file with <em>none</em> sails through. (The aggregate-coverage version of this same bug, an uninstrumented CI job reading as 0%, is #1090.)</p>
+<p><code>added-files-coverage-check</code> closes this gap. It reuses the same <code>coverage.xml</code> / <code>cobertura-coverage.xml</code> artifacts as the diff-coverage jobs above (no test re-run). For every file <em>added</em> (not modified) since the MR's merge-base, it checks:</p>
+<ul>
+<li>the file is in scope: <code>backend/*.py</code> and <code>frontend/src/*.ts(x)</code>, excluding whatever <code>backend/.coveragerc</code>'s <code>omit</code> list and <code>vitest.config.ts</code>'s <code>coverage.exclude</code> list already exclude (plus migrations and <code>manage.py</code>, same as the diff-coverage <code>--exclude</code>);</li>
+<li>the file has a <code>&lt;class filename="..."&gt;</code> row in the report. If not, it fails the build, naming the file and explaining what to do about it in the job log.</li>
+</ul>
+<p>The script (<code>scripts/check-added-files-covered.mjs</code>) ships a <code>--self-test</code> mode, run in its own <code>added-files-coverage-check-self-test</code> CI job on the same <code>node:20-alpine</code> image as the real check. It builds a synthetic git repo and coverage fixtures in a temp directory (no network, no database, no changes to the real working tree) and asserts detection fires on a known-bad fixture and stays clean on a known-good one. This is the house pattern for bespoke gate scripts described in #1093.</p>
 <h3 id="stale-dev-venv">Stale dev venv<a class="headerlink" href="#stale-dev-venv" title="Permanent link">&para;</a></h3>
-<p>Backend tests run against the venv in <code>backend/.venv</code>, which every <code>scripts/wt</code>
-worktree shares by symlink. If <code>backend/requirements.txt</code> moved since the venv was
-last synced, a clean branch can fail with a bare <code>ModuleNotFoundError</code> that reads like
-a regression (#1715: <code>mcp</code> 1.x installed against the <code>mcp==2.3.0</code> pin). Run
-<code>scripts/wt doctor</code> (also run by <code>scripts/wt new</code>): it warns, per drifted <code>==</code> pin,
-<code>&lt;package&gt;: requires X, installed Y</code>. Fix with
-<code>backend/.venv/bin/pip install -r backend/requirements.txt</code>. The check is covered by
-<code>scripts/tests/wt-doctor-drift.test.sh</code>.</p>
-<p>Every <code>glab</code>/<code>gh</code> call in <code>scripts/wt</code> is bounded by <code>WT_FORGE_TIMEOUT</code> (a positive integer, default 20
-seconds). A stalled call degrades to a warning instead of hanging, and <code>scripts/wt release &lt;issue&gt;</code> clears a
-lock left behind. <code>scripts/tests/wt-forge-timeout.test.sh</code> covers this.</p>
+<p><strong>Symptom:</strong> a clean branch fails with a bare <code>ModuleNotFoundError</code> that reads like a regression (#1715: <code>mcp</code> 1.x installed against the <code>mcp==2.3.0</code> pin).</p>
+<p><strong>Cause:</strong> backend tests run against the venv in <code>backend/.venv</code>, which every <code>scripts/wt</code> worktree shares by symlink, and <code>backend/requirements.txt</code> moved since the venv was last synced.</p>
+<p><strong>Fix:</strong> run <code>scripts/wt doctor</code> (also run by <code>scripts/wt new</code>). It warns, per drifted <code>==</code> pin, <code>&lt;package&gt;: requires X, installed Y</code>. Then run <code>backend/.venv/bin/pip install -r backend/requirements.txt</code>. The check is covered by <code>scripts/tests/wt-doctor-drift.test.sh</code>.</p>
+<p>Every <code>glab</code>/<code>gh</code> call in <code>scripts/wt</code> is bounded by <code>WT_FORGE_TIMEOUT</code> (a positive integer, default 20 seconds). A stalled call degrades to a warning instead of hanging, and <code>scripts/wt release &lt;issue&gt;</code> clears a lock left behind. <code>scripts/tests/wt-forge-timeout.test.sh</code> covers this.</p>
 <h2 id="git-hooks">Git hooks<a class="headerlink" href="#git-hooks" title="Permanent link">&para;</a></h2>
-<p><code>scripts/wt</code> (see its <code>--help</code>) applies a <code>status::wip</code> GitLab label when you create a
-worktree with <code>wt new</code>/<code>wt claim</code>, so a parallel agent or teammate doesn't grab the same
-issue — but that lock only covers work that goes through <code>wt</code>. A plain
-<code>git checkout -b feat/N-something</code> bypasses it entirely, and the first sign of a
-collision is two merge requests solving the same issue.</p>
-<p><code>scripts/check-issue-collision.sh</code> closes that gap at push time, regardless of how the
-branch was created. Install it once per clone:</p>
+<p>Run <code>scripts/setup-hooks.sh</code> once per clone to install the push-time collision check and the pre-commit secret scan.</p>
+<p><strong>Why it matters:</strong> <code>scripts/wt</code> (see its <code>--help</code>) applies a <code>status::wip</code> GitLab label when you create a worktree with <code>wt new</code>/<code>wt claim</code>, so a parallel agent or teammate doesn't grab the same issue. That lock only covers work that goes through <code>wt</code>. A plain <code>git checkout -b feat/N-something</code> bypasses it entirely, and the first sign of a collision is two merge requests solving the same issue.</p>
+<p><code>scripts/check-issue-collision.sh</code> closes that gap at push time, regardless of how the branch was created. Install it once per clone:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>scripts/setup-hooks.sh
 </code></pre></div>
-<p>This installs a <code>pre-push</code> hook and a <code>pre-commit</code> hook (shared by every <code>scripts/wt</code>
-worktree of this clone, since hooks live in the git common dir — no need to re-run per
-worktree).</p>
+<p>This installs a <code>pre-push</code> hook and a <code>pre-commit</code> hook. Every <code>scripts/wt</code> worktree of this clone shares them, since hooks live in the git common dir, so there's no need to re-run per worktree.</p>
 <p>Before each push, on a branch named <code>(feat|fix|chore|docs)/&lt;issue&gt;-...</code>, the <code>pre-push</code>
 hook:</p>
 <ul>
@@ -4847,19 +4712,13 @@ hook:</p>
 override a detected collision with:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nv">ALLOW_ISSUE_COLLISION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>...
 </code></pre></div>
-<p>The <code>pre-commit</code> hook runs <code>scripts/gitleaks-precommit.sh</code>, blocking a commit that stages
-a hardcoded secret. It no-ops with a warning if <code>gitleaks</code> isn't installed locally — the
-merge-blocking <code>gitleaks-scan</code> CI job is the hard gate; this hook is just the earliest
-possible local catch. Install gitleaks with <code>brew install gitleaks</code> (or see
-<a href="https://github.com/gitleaks/gitleaks/releases">gitleaks releases</a>).</p>
-<p><code>setup-hooks.sh</code> is idempotent and never clobbers a hook it doesn't manage (e.g. a
-hand-written lint hook) for either <code>pre-push</code> or <code>pre-commit</code> — it prints the line to add
-manually so the two can be chained instead. Run <code>scripts/check-issue-collision.sh
---self-test</code> to exercise the issue-collision check offline against stubbed forge
-responses.</p>
-<p>Both hooks are local, best-effort checks — <code>gitleaks-scan</code> is the CI job that actually
-blocks a merge; <code>check-issue-collision.sh</code> has no CI counterpart (see
-<a href="../ci-gates/#known-gaps-and-deferred-work">CI gate self-tests</a>).</p>
+<p>The <code>pre-commit</code> hook runs <code>scripts/gitleaks-precommit.sh</code>, blocking a commit that stages a hardcoded secret.</p>
+<ul>
+<li>It no-ops with a warning if <code>gitleaks</code> isn't installed locally. The merge-blocking <code>gitleaks-scan</code> CI job is the hard gate; this hook is just the earliest possible local catch.</li>
+<li>Install gitleaks with <code>brew install gitleaks</code> (or see <a href="https://github.com/gitleaks/gitleaks/releases">gitleaks releases</a>).</li>
+</ul>
+<p><code>setup-hooks.sh</code> is idempotent and never clobbers a hook it doesn't manage (e.g. a hand-written lint hook) for either <code>pre-push</code> or <code>pre-commit</code>. It prints the line to add manually so the two can be chained instead. Run <code>scripts/check-issue-collision.sh --self-test</code> to exercise the issue-collision check offline against stubbed forge responses.</p>
+<p><strong>Yes, but:</strong> Both hooks are local, best-effort checks. <code>gitleaks-scan</code> is the CI job that blocks a merge; <code>check-issue-collision.sh</code> has no CI counterpart (see <a href="../ci-gates/#known-gaps-and-deferred-work">CI gate self-tests</a>).</p>
 
 
 

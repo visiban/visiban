@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#websocket-event-contract" class="md-skip">
+        <a href="#add-a-websocket-event-without-breaking-the-contract" class="md-skip">
           Skip to content
         </a>
       
@@ -4065,12 +4065,11 @@
   
 
 
-<h1 id="websocket-event-contract">WebSocket event contract<a class="headerlink" href="#websocket-event-contract" title="Permanent link">&para;</a></h1>
-<p>Visiban's <code>{event, data}</code> WebSocket envelope is a public API contract from 1.0. A
-board-channel or group-channel event name may be <strong>added</strong> freely; renaming or removing
-one, or removing a field from a payload, is a breaking change that requires a major
-version bump.</p>
-<p>Every event name lives in three places:</p>
+<h1 id="add-a-websocket-event-without-breaking-the-contract">Add a WebSocket event without breaking the contract<a class="headerlink" href="#add-a-websocket-event-without-breaking-the-contract" title="Permanent link">&para;</a></h1>
+<p><a id="websocket-event-contract"></a></p>
+<p>Add a board-channel or group-channel event name freely. Renaming or removing one, or removing a field from a payload, needs a major version bump.</p>
+<p><strong>Why it matters:</strong> Visiban's <code>{event, data}</code> WebSocket envelope is a public API contract from 1.0, and the <code>ws-event-reachability</code> CI job fails when a name is missing from any of the three places below.</p>
+<p><strong>The big picture:</strong> Every event name lives in three places:</p>
 <table>
 <thead>
 <tr>
@@ -4093,14 +4092,11 @@ version bump.</p>
 </tr>
 </tbody>
 </table>
-<p>The <code>ws-event-reachability</code> CI job reconciles all three and fails when a name is missing
-from any of them. A name present in only two of the three looks complete from every angle
-you would normally check — which is exactly why it needs a machine to check it.</p>
+<p>The <code>ws-event-reachability</code> CI job reconciles all three and fails when a name is missing from any of them. A name present in only two of the three looks complete from every angle you would normally check, which is why a machine has to check it.</p>
 <h2 id="adding-an-event">Adding an event<a class="headerlink" href="#adding-an-event" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
-<p><strong>Declare it.</strong> Add a constant to the registry for the channel it rides, and add that
-   constant to <code>BOARD_CHANNEL_EVENTS</code> or <code>GROUP_CHANNEL_EVENTS</code>.</p>
+<p><strong>Declare it.</strong> Add a constant to the registry for the channel it rides, and add that constant to <code>BOARD_CHANNEL_EVENTS</code> or <code>GROUP_CHANNEL_EVENTS</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># backend/boards/broadcast.py</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">EVT_CARD_PINNED</span> <span class="o">=</span> <span class="s2">"card.pinned"</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -4115,74 +4111,55 @@ you would normally check — which is exactly why it needs a machine to check it
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">_broadcast</span><span class="o">.</span><span class="n">record_board_event</span><span class="p">(</span><span class="n">board_id</span><span class="p">,</span> <span class="n">_broadcast</span><span class="o">.</span><span class="n">EVT_CARD_PINNED</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                             <span class="n">actor_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
 </code></pre></div>
-<p>A bare string at an emit site fails the gate. The registry has to be the authoritative
-list, and a literal is invisible to it — including the ones a grep would miss, like
-<code>EVT_MEMBER_ADDED if created else EVT_MEMBER_UPDATED</code>.</p>
+<p>A bare string at an emit site fails the gate. The registry has to be the authoritative list, and a literal is invisible to it, including the ones a grep would miss, like <code>EVT_MEMBER_ADDED if created else EVT_MEMBER_UPDATED</code>.</p>
 </li>
 <li>
-<p><strong>Document it</strong> — add a row to the right channel's table in <code>docs/api/websockets.md</code>,
-   with the real <code>data</code> shape.</p>
+<p><strong>Document it.</strong> Add a row to the right channel's table in <code>docs/api/websockets.md</code>, with the real <code>data</code> shape.</p>
 </li>
 <li>
 <p><strong>Handle it</strong> in the frontend, or exempt it with a reason (see below).</p>
 </li>
 </ol>
 <h2 id="exempting-an-event-with-no-frontend-handler">Exempting an event with no frontend handler<a class="headerlink" href="#exempting-an-event-with-no-frontend-handler" title="Permanent link">&para;</a></h2>
-<p>Some events are legitimately not acted on by this frontend — for example a board-channel
-<code>board.created</code>, which can only reach a client already subscribed to a board that did not
-exist a moment earlier. Record it in <code>INTENTIONALLY_UNHANDLED_BOARD_EVENTS</code> (or the group
-equivalent) <strong>with the reason</strong>:</p>
+<p>Some events are legitimately not acted on by this frontend. For example, a board-channel <code>board.created</code> can only reach a client already subscribed to a board that didn't exist a moment earlier. Record it in <code>INTENTIONALLY_UNHANDLED_BOARD_EVENTS</code> (or the group equivalent) <strong>with the reason</strong>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">INTENTIONALLY_UNHANDLED_BOARD_EVENTS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">EVT_BOARD_CREATED</span><span class="p">:</span> <span class="s2">"no client can be subscribed to a board that did not exist ..."</span><span class="p">,</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">}</span>
 </code></pre></div>
-<p>The reason is not decoration: without it the gate cannot tell a considered omission from a
-forgotten one, and the exemption becomes a rubber stamp. An exemption for an event that
-now <em>has</em> a handler also fails — stale exemptions are removed, not left lying around.</p>
+<ul>
+<li><strong>The reason is required:</strong> without it the gate can't tell a considered omission from a forgotten one, and the exemption becomes a rubber stamp.</li>
+<li><strong>Stale exemptions fail:</strong> an exemption for an event that now <em>has</em> a handler fails too. Remove stale exemptions.</li>
+</ul>
 <h2 id="retiring-an-event">Retiring an event<a class="headerlink" href="#retiring-an-event" title="Permanent link">&para;</a></h2>
-<p>Never delete a documented name outright. Move it from the channel frozenset to
-<code>DEPRECATED_BOARD_EVENTS</code> / <code>DEPRECATED_GROUP_EVENTS</code>, mapping the wire name to the
-release it was deprecated in, and <strong>keep the docs row</strong> — the deprecation notice has to
-stand for at least one minor release before the name can go. The gate enforces both
-halves: a deprecated name that is still emitted fails, and so does one whose docs row was
-removed early.</p>
+<p>Never delete a documented name outright. Move it from the channel frozenset to <code>DEPRECATED_BOARD_EVENTS</code> / <code>DEPRECATED_GROUP_EVENTS</code>, mapping the wire name to the release it was deprecated in, and <strong>keep the docs row</strong>. The deprecation notice has to stand for at least one minor release before the name can go.</p>
+<p>The gate enforces both halves: a deprecated name that's still emitted fails, and so does one whose docs row was removed early.</p>
 <h2 id="running-the-gate-locally">Running the gate locally<a class="headerlink" href="#running-the-gate-locally" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>scripts/check-ws-event-reachability.py<span class="w">            </span><span class="c1"># reconcile this checkout</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>python<span class="w"> </span>scripts/check-ws-event-reachability.py<span class="w"> </span>--self-test<span class="w">  </span><span class="c1"># prove the detectors still fire</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>bash<span class="w"> </span>scripts/tests/check-ws-event-reachability.test.sh<span class="w">     </span><span class="c1"># CLI surface + exit codes</span>
 </code></pre></div>
-<p>Exit codes: <code>0</code> everything reconciles, <code>1</code> findings, <code>2</code> the checker could not run (a
-missing file or an unparseable registry). It fails closed on purpose — "I could not look"
-must never read as "I looked and it was fine".</p>
-<p>CI runs <code>--self-test</code> immediately before the real invocation, on the same image. A bespoke
-gate whose detectors have silently stopped detecting is worse than no gate, because the
-green tick still reads as a verdict.</p>
+<p>Exit codes: <code>0</code> everything reconciles, <code>1</code> findings, <code>2</code> the checker couldn't run (a missing file or an unparseable registry). It fails closed on purpose: "I could not look" must never read as "I looked and it was fine".</p>
+<p>CI runs <code>--self-test</code> immediately before the real invocation, on the same image. A bespoke gate whose detectors have silently stopped detecting is worse than no gate, because the green tick still reads as a verdict.</p>
 <h2 id="eviction-must-not-depend-on-a-frame">Eviction must not depend on a frame<a class="headerlink" href="#eviction-must-not-depend-on-a-frame" title="Permanent link">&para;</a></h2>
-<p>Every publish is best-effort (#1462). A lost <em>data</em> frame is recoverable, because the
-client resyncs or replays the change feed. A lost frame that the <strong>consumer</strong> acts on is
-not, because no client-side resync runs consumer code. <code>member.removed</code> is that kind of
-frame: it closes the removed user's own socket. So it is only the fast path for
-eviction. <code>BoardConsumer</code> and <code>GroupConsumer</code> also re-check access before they forward
-any frame (<code>_access_close_code</code>, cached per socket for <code>ACCESS_RECHECK_SECONDS</code> plus up to
-<code>ACCESS_RECHECK_JITTER_SECONDS</code> of jitter, so about 7 s at most). They use the same
-predicate as <code>connect()</code>, and they close with <code>4003</code> when access is gone (#1477). A check
-that raises fails closed too: the frame is dropped and the socket closes with <code>1011</code>,
-which clients reconnect on, so with database-backed sessions (the default) <code>4003</code> means a
-definitive denial (#2003). Cache-only session backends are a known exception: a cache
-outage reads as a revoked session and closes with <code>4003</code> (#2014). See
-<a href="../../api/websockets/#access-re-check-and-eviction">Access re-check and eviction</a>.</p>
-<p>If you add an event that the consumer acts on, and especially one that revokes
-something, it needs the same backstop. Make sure the consumer reaches a correct state on
-its own when the frame never arrives.</p>
+<p>Every publish is best-effort (#1462). A lost <em>data</em> frame is recoverable, because the client resyncs or replays the change feed. A lost frame that the <strong>consumer</strong> acts on isn't, because no client-side resync runs consumer code.</p>
+<p><code>member.removed</code> is that kind of frame: it closes the removed user's own socket. So it's only the fast path for eviction:</p>
+<ul>
+<li><code>BoardConsumer</code> and <code>GroupConsumer</code> also re-check access before they forward any frame (<code>_access_close_code</code>, cached per socket for <code>ACCESS_RECHECK_SECONDS</code> plus up to <code>ACCESS_RECHECK_JITTER_SECONDS</code> of jitter, so about 7 s at most).</li>
+<li>They use the same predicate as <code>connect()</code>, and they close with <code>4003</code> when access is gone (#1477).</li>
+<li>A check that raises fails closed too: the frame is dropped and the socket closes with <code>1011</code>, which clients reconnect on. With database-backed sessions (the default), <code>4003</code> therefore means a definitive denial (#2003).</li>
+<li><strong>Yes, but:</strong> cache-only session backends are a known exception. A cache outage reads as a revoked session and closes with <code>4003</code> (#2014).</li>
+</ul>
+<p>See <a href="../../api/websockets/#access-re-check-and-eviction">Access re-check and eviction</a>.</p>
+<p><strong>Watch out:</strong> If you add an event that the consumer acts on, and especially one that revokes something, it needs the same backstop. Make sure the consumer reaches a correct state on its own when the frame never arrives.</p>
 <h2 id="what-the-gate-does-not-cover">What the gate does not cover<a class="headerlink" href="#what-the-gate-does-not-cover" title="Permanent link">&para;</a></h2>
-<p><code>CARD_MUTATION_HOOKS</code> (<code>backend/boards/hooks.py</code>) is a <em>separate</em> frozen contract for
-enterprise add-ons, and it is not the WebSocket surface. The two agree on five card event
-names and deliberately diverge on one: unarchiving a card broadcasts <code>card.unarchived</code>
-over the socket but fires the hook event <code>card.restored</code>. Both strings are frozen
-independently; neither may be "corrected" to match the other. Hook handlers run after commit; a raising handler is logged and swallowed and cannot veto or roll back the write. <code>card.deleted</code> hooks fire only from <code>services.cards.delete_card</code>; admin card deletes and container cascades fire no hook; consume the <a href="../../api/events/">change feed</a> to observe them (see <a href="../../api/websockets/#deleting-a-container-deletes-its-cards">Deleting a container deletes its cards</a>). The mapping table in
-<code>hooks.py</code> is the only place that correspondence is written down.</p>
-<p>The gate also does not check payload <em>shapes</em> — only names. A docs row whose <code>data</code> column
-lies about the payload still passes, so keep the row honest when you change a serializer.</p>
+<ul>
+<li><strong><code>CARD_MUTATION_HOOKS</code></strong> (<code>backend/boards/hooks.py</code>) is a <em>separate</em> frozen contract for enterprise add-ons, not the WebSocket surface. The two agree on five card event names and deliberately diverge on one: unarchiving a card broadcasts <code>card.unarchived</code> over the socket but fires the hook event <code>card.restored</code>. Both strings are frozen independently; neither may be "corrected" to match the other. The mapping table in <code>hooks.py</code> is the only place that correspondence is written down.<ul>
+<li>Hook handlers run after commit. A raising handler is logged and swallowed and can't veto or roll back the write.</li>
+<li><code>card.deleted</code> hooks fire only from <code>services.cards.delete_card</code>. Admin card deletes and container cascades fire no hook; consume the <a href="../../api/events/">change feed</a> to observe them (see <a href="../../api/websockets/#deleting-a-container-deletes-its-cards">Deleting a container deletes its cards</a>).</li>
+</ul>
+</li>
+<li><strong>Payload shapes.</strong> The gate checks only names. A docs row whose <code>data</code> column lies about the payload still passes, so keep the row honest when you change a serializer.</li>
+</ul>
 
 
 

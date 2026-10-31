@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api-compatibility-gate" class="md-skip">
+        <a href="#see-what-changed-in-the-rest-schema-and-env-var-names-since-the-last-ga-tag" class="md-skip">
           Skip to content
         </a>
       
@@ -4121,18 +4121,14 @@
   
 
 
-<h1 id="api-compatibility-gate">API compatibility gate<a class="headerlink" href="#api-compatibility-gate" title="Permanent link">&para;</a></h1>
-<p>Visiban 1.0+ treats the REST schema and the operator-facing environment variable names as a
-public contract (see "Backward compatibility" in <code>CLAUDE.md</code>). The <code>api-compat-check</code> CI job
-(#1667) diffs both against the last GA tag on every MR and on <code>main</code>, so a removal can no
-longer slip through on a green pipeline.</p>
-<p>It is a sibling of <code>backend-schema-validate</code> (is the document well formed?) and
-<code>backend-schema-fuzz</code> (does the API match the document?). This job asks a third question: does
-today's contract still contain everything the last release promised?</p>
+<h1 id="see-what-changed-in-the-rest-schema-and-env-var-names-since-the-last-ga-tag">See what changed in the REST schema and env var names since the last GA tag<a class="headerlink" href="#see-what-changed-in-the-rest-schema-and-env-var-names-since-the-last-ga-tag" title="Permanent link">&para;</a></h1>
+<p><a id="api-compatibility-gate"></a></p>
+<p>Run <code>python3 scripts/check-api-compat.py</code> to see what the <code>api-compat-check</code> CI job (#1667) sees: it diffs the REST schema and the operator-facing environment variable names against the last GA tag on every MR and on <code>main</code>.</p>
+<p><strong>Why it matters:</strong> Visiban 1.0+ treats the REST schema and the operator-facing environment variable names as a public contract (see "Backward compatibility" in <code>CLAUDE.md</code>). The job exists so a removal can no longer slip through on a green pipeline.</p>
+<p><strong>The big picture:</strong> It's a sibling of <code>backend-schema-validate</code> (is the document well formed?) and <code>backend-schema-fuzz</code> (does the API match the document?). This job asks a third question: does today's contract still contain everything the last release promised?</p>
+<p><strong>Go deeper:</strong> <a href="#allow-listing-a-deliberate-break">Allow-list a deliberate break</a>, <a href="#experimental-operations">mark an operation experimental</a>, and <a href="#regenerating-the-baseline-at-each-ga-tag">roll the baseline at each GA tag</a>.</p>
 <h2 id="what-it-checks">What it checks<a class="headerlink" href="#what-it-checks" title="Permanent link">&para;</a></h2>
-<p><strong>OpenAPI</strong> — the schema <code>manage.py spectacular</code> emits for the branch is compared with
-<code>scripts/compat-baseline/v1.1.0/openapi.json</code>. <code>$ref</code> and <code>allOf</code> are resolved on both sides,
-so a renamed component is not a finding; only what a client can observe is.</p>
+<p><strong>OpenAPI.</strong> The schema <code>manage.py spectacular</code> emits for the branch is compared with <code>scripts/compat-baseline/v1.1.0/openapi.json</code>. <code>$ref</code> and <code>allOf</code> are resolved on both sides, so a renamed component isn't a finding; only what a client can observe is.</p>
 <table>
 <thead>
 <tr>
@@ -4171,7 +4167,7 @@ so a renamed component is not a finding; only what a client can observe is.</p>
 </tr>
 <tr>
 <td><code>REQUEST_STOPPED_ACCEPTING_NULL</code>, <code>REQUEST_ENUM_VALUE_REMOVED</code></td>
-<td>A request value that used to be accepted is not</td>
+<td>A request value that used to be accepted isn't</td>
 </tr>
 <tr>
 <td><code>REMOVED_PARAMETER</code>, <code>PARAMETER_BECAME_REQUIRED</code>, <code>NEW_REQUIRED_PARAMETER</code>, <code>PARAMETER_TYPE_CHANGED</code></td>
@@ -4183,96 +4179,48 @@ so a renamed component is not a finding; only what a client can observe is.</p>
 </tr>
 </tbody>
 </table>
-<p>Additions (new endpoints, new optional fields, new optional parameters) always pass. Error
-statuses (4xx/5xx) are not part of the checked contract. A baseline property that is a bare
-read-only <code>string</code> is treated as untyped: it is drf-spectacular's fallback for an unannotated
-<code>SerializerMethodField</code>, so correcting it to its real type is not a break.</p>
-<p><strong>Settings</strong> — every env var name that <code>backend/visiban/settings.py</code> reads at the GA tag
-(<code>env(...)</code>, <code>env.&lt;type&gt;(...)</code>, <code>_secret_env(...)</code>, <code>os.environ</code>/<code>os.getenv</code>, the legacy
-name passed to <code>_warn_deprecated_env_alias</code>, and both names passed to <code>_env_alias_name</code>) must
-still be read at HEAD. A deprecated alias
-that is kept counts as present, which is exactly the rename policy in <code>CLAUDE.md</code>. The
-baseline is <code>scripts/compat-baseline/v1.1.0/settings-env.txt</code>.</p>
-<h2 id="component-names-are-not-part-of-the-contract">Component names are not part of the contract<a class="headerlink" href="#component-names-are-not-part-of-the-contract" title="Permanent link">&para;</a></h2>
-<p>The gate resolves <code>$ref</code> and <code>allOf</code>, so a renamed component is never a finding. A generated
-client does turn a component name into a type name, so a rename is still worth a decision, made
-once and recorded:</p>
 <ul>
-<li><strong>Pin the old name</strong> (<code>@extend_schema_serializer(component_name=...)</code>) only when a plain
-  rename is the whole change, as #1825 did for dj-rest-auth's password request bodies.</li>
-<li><strong>Otherwise keep the new name</strong> and list the old-to-new mapping in the upgrade guide. #1834
-  did this for <code>/auth/user/</code> (<code>User</code> to <code>CurrentUser</code>) and for the dj-rest-auth response
-  components: pinning <code>User</code> back would have collided with <code>UserSerializer</code>'s component, which
-  <code>POST /auth/choose-username/</code> returns, so one of the two would have needed a rename anyway.</li>
+<li><strong>Always passes:</strong> additions (new endpoints, new optional fields, new optional parameters).</li>
+<li><strong>Not checked:</strong> error statuses (4xx/5xx).</li>
+<li><strong>Untyped fallback:</strong> a baseline property that's a bare read-only <code>string</code> is treated as untyped. It's drf-spectacular's fallback for an unannotated <code>SerializerMethodField</code>, so correcting it to its real type isn't a break.</li>
 </ul>
-<p>Decide before the baseline roll: the roll freezes whatever names the schema has that day.</p>
-<p>Decided in #1874, ahead of the first baseline roll that contains them (none of the names
-below exist in the v1.1.0 baseline, so nothing shipped was renamed):</p>
+<p><strong>Settings.</strong> Every env var name that <code>backend/visiban/settings.py</code> reads at the GA tag must still be read at HEAD. The gate counts these reads: <code>env(...)</code>, <code>env.&lt;type&gt;(...)</code>, <code>_secret_env(...)</code>, <code>os.environ</code>/<code>os.getenv</code>, the legacy name passed to <code>_warn_deprecated_env_alias</code>, and both names passed to <code>_env_alias_name</code>. A deprecated alias that's kept counts as present, which is exactly the rename policy in <code>CLAUDE.md</code>. The baseline is <code>scripts/compat-baseline/v1.1.0/settings-env.txt</code>.</p>
+<h2 id="component-names-are-not-part-of-the-contract">Component names are not part of the contract<a class="headerlink" href="#component-names-are-not-part-of-the-contract" title="Permanent link">&para;</a></h2>
+<p>The gate resolves <code>$ref</code> and <code>allOf</code>, so a renamed component is never a finding. A generated client does turn a component name into a type name, so decide a rename once and record it:</p>
 <ul>
-<li><strong>No <code>*RequestRequest</code> components.</strong> <code>COMPONENT_SPLIT_REQUEST</code> already appends <code>Request</code>
-  to a request component, so an <code>inline_serializer(name="...")</code> on a <code>request=</code> must not end
-  in <code>Request</code>. Use <code>name="CardMove"</code> to get <code>CardMoveRequest</code>. This applied to the card
-  move, checklist/column/custom-field/swimlane/swimlane-custom-field reorder, board share,
-  add-or-update-member, and personal-access-token create bodies. The share body's expiry enum
-  is now <code>ShareBoardExpiresInDaysEnum</code>.</li>
-<li><strong>List endpoints get <code>_list</code> operationIds.</strong> <code>api_v1_admin_action_log_list</code>,
-  <code>api_v1_admin_board_invite_links_list</code> and <code>api_v1_boards_events_list</code> are set explicitly
-  with <code>operation_id=</code> because the generator names a non-<code>ViewSet</code> <code>APIView</code> GET, and the
-  <code>events</code> action, <code>_retrieve</code>.</li>
+<li><strong>Pin the old name</strong> (<code>@extend_schema_serializer(component_name=...)</code>) only when a plain rename is the whole change, as #1825 did for dj-rest-auth's password request bodies.</li>
+<li><strong>Otherwise keep the new name</strong> and list the old-to-new mapping in the upgrade guide. #1834 did this for <code>/auth/user/</code> (<code>User</code> to <code>CurrentUser</code>) and for the dj-rest-auth response components. Pinning <code>User</code> back would have collided with <code>UserSerializer</code>'s component, which <code>POST /auth/choose-username/</code> returns, so one of the two would have needed a rename anyway.</li>
+</ul>
+<p><strong>Watch out:</strong> Decide before the baseline roll. The roll freezes whatever names the schema has that day.</p>
+<p>Decided in #1874, ahead of the first baseline roll that contains them (none of the names below exist in the v1.1.0 baseline, so nothing shipped was renamed):</p>
+<ul>
+<li><strong>No <code>*RequestRequest</code> components.</strong> <code>COMPONENT_SPLIT_REQUEST</code> already appends <code>Request</code> to a request component, so an <code>inline_serializer(name="...")</code> on a <code>request=</code> must not end in <code>Request</code>. Use <code>name="CardMove"</code> to get <code>CardMoveRequest</code>. This applied to the card move, checklist/column/custom-field/swimlane/swimlane-custom-field reorder, board share, add-or-update-member, and personal-access-token create bodies. The share body's expiry enum is now <code>ShareBoardExpiresInDaysEnum</code>.</li>
+<li><strong>List endpoints get <code>_list</code> operationIds.</strong> <code>api_v1_admin_action_log_list</code>, <code>api_v1_admin_board_invite_links_list</code> and <code>api_v1_boards_events_list</code> are set explicitly with <code>operation_id=</code>, because the generator names a non-<code>ViewSet</code> <code>APIView</code> GET, and the <code>events</code> action, <code>_retrieve</code>.</li>
 <li>A 1.1 name that shipped keeps its name; only 1.2-new names were changed.</li>
 </ul>
-<p><code>backend/boards/tests/test_schema_generated_names_1874.py</code> fails if a <code>*RequestRequest</code>
-component or one of those <code>_retrieve</code> operationIds reappears.</p>
+<p><code>backend/boards/tests/test_schema_generated_names_1874.py</code> fails if a <code>*RequestRequest</code> component or one of those <code>_retrieve</code> operationIds reappears.</p>
 <h2 id="environment-variable-naming">Environment variable naming<a class="headerlink" href="#environment-variable-naming" title="Permanent link">&para;</a></h2>
-<p>Env var names freeze the same way, and the gate cannot tell a good name from a bad one. Decided
-in #1873 for every name added from 1.2 on:</p>
+<p>Env var names freeze the same way, and the gate can't tell a good name from a bad one. Decided in #1873 for every name added from 1.2 on:</p>
 <ul>
-<li><strong>No product prefix on functional settings.</strong> Name them <code>&lt;FEATURE&gt;_&lt;NOUN&gt;[_&lt;UNIT&gt;]</code>, like
-  <code>BOARD_EVENT_RETENTION_DAYS</code>, <code>NOTIFICATION_EMAIL_TIMEOUT</code> and <code>GIT_LENS_ENABLED</code>. Almost every
-  pre-1.2 variable is already unprefixed, and a prefix on some settings but not others is how
-  the inconsistency starts.</li>
-<li><strong>Put the unit in the name when the value has one</strong>: <code>_BYTES</code>, <code>_DAYS</code>, <code>_SECONDS</code>. A size
-  without <code>_BYTES</code> reads as megabytes to half of all operators.</li>
-<li><strong>A name that mirrors an upstream setting keeps the upstream name and unit.</strong> Django,
-  DRF and allauth settings read from the environment use their own names (<code>EMAIL_TIMEOUT</code>,
-  <code>NUM_PROXIES</code>), and a feature-scoped copy of one follows it: <code>NOTIFICATION_EMAIL_TIMEOUT</code> is
-  in seconds, like the <code>EMAIL_TIMEOUT</code> it mirrors, so it carries no <code>_SECONDS</code>.</li>
-<li><strong>Feature on/off switches end in <code>_ENABLED</code></strong> (<code>MCP_SERVER_ENABLED</code>, <code>GIT_LENS_ENABLED</code>). A
-  boolean that picks a mode of a feature that is already on says what the mode is
-  (<code>NOTIFICATION_EMAIL_ASYNC</code>).</li>
-<li><strong>A switch that turns the whole instance into a named mode ends in <code>_MODE</code></strong> (<code>DEMO_MODE</code>).
-  It is not a feature toggle: it changes what the instance is (a public, write-fenced demo).
-  The name states the mode, so it has no <code>_ENABLED</code>.</li>
-<li><strong>Throttle rates are <code>&lt;FEATURE&gt;_THROTTLE_&lt;SCOPE&gt;_RATE</code></strong>, like <code>MCP_THROTTLE_READ_RATE</code> and
-  <code>DEMO_THROTTLE_USER_RATE</code>, so a feature's limits sort together.</li>
-<li><strong>The <code>VISIBAN_</code> prefix is reserved for two kinds of variable.</strong> One is key material that
-  Visiban itself uses to protect data (<code>VISIBAN_SECRET_ENCRYPTION_KEY</code>). The other is a
-  test- or CI-only input that a production install must never set
-  (<code>VISIBAN_DISABLE_THROTTLING</code>, <code>VISIBAN_GIT_LENS_STUB_PROVIDERS</code>, <code>VISIBAN_FUZZ_TOKEN_FILE</code>).
-  The prefix marks them as not ordinary tuning knobs. Other secrets are credentials for an
-  external service or an account, such as <code>REDIS_URL_PASSWORD</code> or <code>DEMO_LOGIN_PASSWORD</code>. They
-  are named like any other setting, <code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code>, without the prefix.</li>
-<li><strong>Fixing a name that has shipped</strong> (in any release, pre-releases included) means adding the
-  new name and keeping the old one as a working, deprecated alias. Use the helpers in
-  <code>backend/visiban/env_aliases.py</code>. They are pure stdlib, so <code>settings.py</code> and code outside it,
-  such as a management command, can both import them without a cycle. <strong>Import them under
-  their underscore names</strong>, as <code>settings.py</code> and <code>migrate_with_lock.py</code> do:</li>
+<li><strong>No product prefix on functional settings.</strong> Name them <code>&lt;FEATURE&gt;_&lt;NOUN&gt;[_&lt;UNIT&gt;]</code>, like <code>BOARD_EVENT_RETENTION_DAYS</code>, <code>NOTIFICATION_EMAIL_TIMEOUT</code> and <code>GIT_LENS_ENABLED</code>. Almost every pre-1.2 variable is already unprefixed, and a prefix on some settings but not others is how the inconsistency starts.</li>
+<li><strong>Put the unit in the name when the value has one</strong>: <code>_BYTES</code>, <code>_DAYS</code>, <code>_SECONDS</code>. A size without <code>_BYTES</code> reads as megabytes to half of all operators.</li>
+<li><strong>A name that mirrors an upstream setting keeps the upstream name and unit.</strong> Django, DRF and allauth settings read from the environment use their own names (<code>EMAIL_TIMEOUT</code>, <code>NUM_PROXIES</code>), and a feature-scoped copy follows it. <code>NOTIFICATION_EMAIL_TIMEOUT</code> is in seconds, like the <code>EMAIL_TIMEOUT</code> it mirrors, so it carries no <code>_SECONDS</code>.</li>
+<li><strong>Feature on/off switches end in <code>_ENABLED</code></strong> (<code>MCP_SERVER_ENABLED</code>, <code>GIT_LENS_ENABLED</code>). A boolean that picks a mode of a feature that's already on says what the mode is (<code>NOTIFICATION_EMAIL_ASYNC</code>).</li>
+<li><strong>A switch that turns the whole instance into a named mode ends in <code>_MODE</code></strong> (<code>DEMO_MODE</code>). It isn't a feature toggle: it changes what the instance is (a public, write-fenced demo). The name states the mode, so it has no <code>_ENABLED</code>.</li>
+<li><strong>Throttle rates are <code>&lt;FEATURE&gt;_THROTTLE_&lt;SCOPE&gt;_RATE</code></strong>, like <code>MCP_THROTTLE_READ_RATE</code> and <code>DEMO_THROTTLE_USER_RATE</code>, so a feature's limits sort together.</li>
+<li><strong>The <code>VISIBAN_</code> prefix is reserved for two kinds of variable.</strong> One is key material that Visiban itself uses to protect data (<code>VISIBAN_SECRET_ENCRYPTION_KEY</code>). The other is a test- or CI-only input that a production install must never set (<code>VISIBAN_DISABLE_THROTTLING</code>, <code>VISIBAN_GIT_LENS_STUB_PROVIDERS</code>, <code>VISIBAN_FUZZ_TOKEN_FILE</code>). The prefix marks them as not ordinary tuning knobs. Other secrets are credentials for an external service or an account, such as <code>REDIS_URL_PASSWORD</code> or <code>DEMO_LOGIN_PASSWORD</code>. They are named like any other setting, <code>&lt;FEATURE&gt;_&lt;NOUN&gt;</code>, without the prefix.</li>
+<li><strong>Fixing a name that has shipped</strong> (in any release, pre-releases included) means adding the new name and keeping the old one as a working, deprecated alias. Use the helpers in <code>backend/visiban/env_aliases.py</code>. They are pure stdlib, so <code>settings.py</code> and code outside it, such as a management command, can both import them without a cycle. <strong>Import them under their underscore names</strong>, as <code>settings.py</code> and <code>migrate_with_lock.py</code> do:</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban.env_aliases</span><span class="w"> </span><span class="kn">import</span> <span class="n">env_alias_name</span> <span class="k">as</span> <span class="n">_env_alias_name</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban.env_aliases</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn_deprecated_env_alias</span> <span class="k">as</span> <span class="n">_warn_deprecated_env_alias</span>
 </code></pre></div>
-<p>This gate (<code>scripts/check-api-compat.py</code>) and the chart's reader check
-  (<code>scripts/helm-structure-check.sh</code> section 3) match calls to <code>_env_alias_name(...)</code> and
-  <code>_warn_deprecated_env_alias(...)</code> by those names, with the variable names as string
-  literals. A call under any other name, or with a name passed through a variable, is
-  invisible to both. <code>_env_alias_name("NEW", "OLD")</code> picks which name to read: the new name
-  wins when it is non-empty. <code>_warn_deprecated_env_alias("OLD", "NEW")</code> logs the startup
-  warning. Pass <code>removed=True</code> for an old name that is no longer read at all, so the warning
-  says it has no effect. List the alias in the deprecated-names table in
-  <code>docs/administration/configuration.md</code>.</p>
-<p>Applied in #1873, before the first baseline roll that contains them. None of the old names is
-in the v1.1.0 baseline, but all of them shipped in 1.2 pre-releases (from <code>v1.2.0-alpha.1</code>
-on), so all of them are still read:</p>
+<ul>
+<li><strong>Why the names matter:</strong> This gate (<code>scripts/check-api-compat.py</code>) and the chart's reader check (<code>scripts/helm-structure-check.sh</code> section 3) match calls to <code>_env_alias_name(...)</code> and <code>_warn_deprecated_env_alias(...)</code> by those names, with the variable names as string literals. A call under any other name, or with a name passed through a variable, is invisible to both.</li>
+<li><code>_env_alias_name("NEW", "OLD")</code> picks which name to read: the new name wins when it's non-empty.</li>
+<li><code>_warn_deprecated_env_alias("OLD", "NEW")</code> logs the startup warning. Pass <code>removed=True</code> for an old name that's no longer read at all, so the warning says it has no effect.</li>
+<li>List the alias in the deprecated-names table in <code>docs/administration/configuration.md</code>.</li>
+</ul>
+<p>Applied in #1873, before the first baseline roll that contains them. None of the old names is in the v1.1.0 baseline, but all of them shipped in 1.2 pre-releases (from <code>v1.2.0-alpha.1</code> on), so all of them are still read:</p>
 <table>
 <thead>
 <tr>
@@ -4304,16 +4252,9 @@ on), so all of them are still read:</p>
 </tr>
 </tbody>
 </table>
-<p>The Django setting <code>settings.VISIBAN_IMPORT_MAX_SIZE</code> keeps its name. Settings attributes are
-internal, and renaming it would only churn callers.
-<code>backend/accounts/tests/test_deprecated_env_aliases.py</code> and
-<code>backend/boards/tests/test_migrate_with_lock.py</code> cover the resolution order.</p>
+<p>The Django setting <code>settings.VISIBAN_IMPORT_MAX_SIZE</code> keeps its name. Settings attributes are internal, and renaming it would only churn callers. <code>backend/accounts/tests/test_deprecated_env_aliases.py</code> and <code>backend/boards/tests/test_migrate_with_lock.py</code> cover the resolution order.</p>
 <h3 id="inventory-of-the-names-new-in-12">Inventory of the names new in 1.2<a class="headerlink" href="#inventory-of-the-names-new-in-12" title="Permanent link">&para;</a></h3>
-<p>How the list was derived, so it can be re-checked. <code>--dump-env</code> given a directory runs the
-gate's AST-based <code>env_names()</code> over every non-test <code>.py</code> file under it. It skips <code>tests/</code>
-directories, <code>test_*.py</code> and <code>conftest.py</code>. That covers lookups split across lines and the
-<code>JobSpec(name, "ENV", default)</code> entries in <code>run_scheduler.py</code>, which a per-line grep misses.
-Run it from the repository root:</p>
+<p><code>--dump-env</code> given a directory runs the gate's AST-based <code>env_names()</code> over every non-test <code>.py</code> file under it. It skips <code>tests/</code> directories, <code>test_*.py</code> and <code>conftest.py</code>. That covers lookups split across lines and the <code>JobSpec(name, "ENV", default)</code> entries in <code>run_scheduler.py</code>, which a per-line grep misses. Run it from the repository root to re-check the list:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">TMP</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>git<span class="w"> </span>archive<span class="w"> </span>v1.1.0<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-x<span class="w"> </span>-C<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">"</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python3<span class="w"> </span><span class="s2">"</span><span class="nv">$OLDPWD</span><span class="s2">/scripts/check-api-compat.py"</span><span class="w"> </span>--dump-env<span class="w"> </span>backend<span class="w"> </span><span class="o">)</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/old.txt"</span>
@@ -4321,9 +4262,7 @@ Run it from the repository root:</p>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>comm<span class="w"> </span>-13<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/old.txt"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/new.txt"</span><span class="w">   </span><span class="c1"># names new since v1.1.0</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>comm<span class="w"> </span>-23<span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/old.txt"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$TMP</span><span class="s2">/new.txt"</span><span class="w">   </span><span class="c1"># names gone since v1.1.0 (must be empty)</span>
 </code></pre></div>
-<p>The <code>cd</code> matters: the script only reads paths under the repository, the system temp
-directory or the current directory. When this was last run for #1873, no name was gone. Every
-new name is either one of the four renamed pairs above or in this table:</p>
+<p>The <code>cd</code> matters: the script only reads paths under the repository, the system temp directory or the current directory. When this was last run for #1873, no name was gone. Every new name is either one of the four renamed pairs above or in this table:</p>
 <table>
 <thead>
 <tr>
@@ -4342,7 +4281,7 @@ new name is either one of the four renamed pairs above or in this table:</p>
 </tr>
 <tr>
 <td><code>NOTIFICATION_EMAIL_ASYNC</code></td>
-<td>mode of a feature that is already on</td>
+<td>mode of a feature that's already on</td>
 </tr>
 <tr>
 <td><code>NOTIFICATION_EMAIL_TIMEOUT</code></td>
@@ -4390,13 +4329,9 @@ new name is either one of the four renamed pairs above or in this table:</p>
 </tr>
 </tbody>
 </table>
-<p>Out of scope: <code>MUTATION_SHARD</code>, <code>MUTATION_SHARDS</code>, <code>MUTATION_TARGET</code>, <code>CI_NODE_INDEX</code> and
-<code>CI_NODE_TOTAL</code> are read only by <code>backend/mutmut_config.py</code>, the mutation-testing harness (see
-<a href="../mutation-testing/">Mutation testing</a>). They are CI inputs, not operator settings.</p>
+<p>Out of scope: <code>MUTATION_SHARD</code>, <code>MUTATION_SHARDS</code>, <code>MUTATION_TARGET</code>, <code>CI_NODE_INDEX</code> and <code>CI_NODE_TOTAL</code> are read only by <code>backend/mutmut_config.py</code>, the mutation-testing harness (see <a href="../mutation-testing/">Mutation testing</a>). They are CI inputs, not operator settings.</p>
 <h2 id="allow-listing-a-deliberate-break">Allow-listing a deliberate break<a class="headerlink" href="#allow-listing-a-deliberate-break" title="Permanent link">&para;</a></h2>
-<p>A break that is intentional (a planned major bump, or a removal of an item already deprecated
-for a full release) goes in <code>scripts/compat-baseline/allowlist.json</code>. Every entry needs an
-<code>issue</code> (<code>#1234</code>) and a <code>reason</code>, and exactly one target:</p>
+<p>Put an intentional break (a planned major bump, or a removal of an item already deprecated for a full release) in <code>scripts/compat-baseline/allowlist.json</code>. Every entry needs an <code>issue</code> (<code>#1234</code>) and a <code>reason</code>, and exactly one target:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="nt">"allow"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p">{</span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"REMOVED_RESPONSE_FIELD GET /api/v1/boards/ response 200 application/json .results[] .legacy_name"</span><span class="p">,</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">   </span><span class="nt">"issue"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#1700"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deprecated in 1.2, removal scheduled for 2.0"</span><span class="p">},</span>
@@ -4407,17 +4342,10 @@ for a full release) goes in <code>scripts/compat-baseline/allowlist.json</code>.
 <li><code>key</code> is the exact text the gate prints (<code>*</code> is a wildcard).</li>
 <li><code>operation</code> (<code>"METHOD /path/"</code>) covers every finding under that one operation.</li>
 </ul>
-<p>An entry that no longer matches any finding is <strong>stale and fails the job</strong>, so the list can
-only shrink toward the truth. Entries without an issue reference fail the job outright.</p>
-<p>Prefer <code>key</code> entries. An <code>operation</code> entry silently covers every future finding under that
-operation, so use it only when the whole operation is deliberately retired (the five
-<code>#1080</code> catch-all entries are an example). The self-test pins the opposite behavior for
-<code>key</code> entries: a <em>new</em> finding under an operation that already has entries still fails.</p>
+<p><strong>Watch out:</strong> An entry that no longer matches any finding is <strong>stale and fails the job</strong>, so the list can only shrink toward the truth. Entries without an issue reference fail the job outright.</p>
+<p>Prefer <code>key</code> entries. An <code>operation</code> entry silently covers every future finding under that operation, so use it only when the whole operation is deliberately retired (the five <code>#1080</code> catch-all entries are an example). The self-test pins the opposite behavior for <code>key</code> entries: a <em>new</em> finding under an operation that already has entries still fails.</p>
 <h2 id="experimental-operations">Experimental operations<a class="headerlink" href="#experimental-operations" title="Permanent link">&para;</a></h2>
-<p>An operation documented as experimental (no stability promise until it graduates) must not
-freeze when the baseline is rolled. List it in <code>scripts/compat-baseline/experimental.json</code>
-(#1875), which is separate from the allow-list: the allow-list excuses one specific break,
-this keeps a whole operation out of the contract.</p>
+<p>An operation documented as experimental (no stability promise until it graduates) must not freeze when the baseline is rolled. List it in <code>scripts/compat-baseline/experimental.json</code> (#1875). That file is separate from the allow-list: the allow-list excuses one specific break, this keeps a whole operation out of the contract.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">"experimental"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p">{</span><span class="nt">"path_pattern"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/api/v1/git-lens/*"</span><span class="p">,</span><span class="w"> </span><span class="nt">"issue"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#1875"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"documented experimental in docs/api/git-lens.md"</span><span class="p">}</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">]}</span>
@@ -4425,109 +4353,53 @@ this keeps a whole operation out of the contract.</p>
 <ul>
 <li><code>path_pattern</code> is an <code>fnmatch</code> pattern against the schema path (<code>*</code> is a wildcard).</li>
 <li>Every entry needs an <code>issue</code> and a <code>reason</code>; the gate fails without them.</li>
-<li>Matching operations are skipped on both sides of the diff, and the gate prints each skipped
-  <code>METHOD /path/</code> in the CI log so the exemption is visible.</li>
-<li>An entry that matches no operation in the baseline or at HEAD is <strong>dead and fails the job</strong>.
-  With <code>--schema FILE</code>, generate the schema with <code>GIT_LENS_ENABLED=True</code>, otherwise the Git Lens
-  entries report as dead (the default run sets it for you).</li>
-<li><code>--normalize</code> honors the list, so a baseline regenerated at a GA tag never contains these
-  operations (see "Regenerating the baseline"). Components are compared only through the
-  operations that reference them, so a component shared with a non-experimental operation is
-  still checked through that operation.</li>
-<li><strong>When to add an entry:</strong> only for a surface the public docs already call experimental, with
-  a tracking issue. Do not use it to get a pipeline green.</li>
-<li><strong>Leaving experimental:</strong> remove the entry <strong>before</strong> the baseline roll that should freeze the
-  operation, and update the API doc's experimental notice in the same MR. Removing it after the
-  roll leaves the operation permanently unfrozen.</li>
+<li>Matching operations are skipped on both sides of the diff, and the gate prints each skipped <code>METHOD /path/</code> in the CI log so the exemption is visible.</li>
+<li>An entry that matches no operation in the baseline or at HEAD is <strong>dead and fails the job</strong>. With <code>--schema FILE</code>, generate the schema with <code>GIT_LENS_ENABLED=True</code>, otherwise the Git Lens entries report as dead (the default run sets it for you).</li>
+<li><code>--normalize</code> honors the list, so a baseline regenerated at a GA tag never contains these operations (see "Regenerating the baseline"). Components are compared only through the operations that reference them, so a component shared with a non-experimental operation is still checked through that operation.</li>
+<li><strong>When to add an entry:</strong> only for a surface the public docs already call experimental, with a tracking issue. Don't use it to get a pipeline green.</li>
+<li><strong>Leaving experimental:</strong> remove the entry <strong>before</strong> the baseline roll that should freeze the operation, and update the API doc's experimental notice in the same MR. Removing it after the roll leaves the operation permanently unfrozen.</li>
 </ul>
-<p>The only entries today are the Git Lens REST endpoints. The <code>lens_connection.*</code> WebSocket
-events and the <code>git_lens_enabled</code> user field are deliberately frozen (#1666) and are not listed.</p>
+<p>The only entries today are the Git Lens REST endpoints. The <code>lens_connection.*</code> WebSocket events and the <code>git_lens_enabled</code> user field are deliberately frozen (#1666) and aren't listed.</p>
 <h3 id="frozen-snapshot-of-the-v110-baseline-drift">Frozen snapshot of the v1.1.0 baseline drift<a class="headerlink" href="#frozen-snapshot-of-the-v110-baseline-drift" title="Permanent link">&para;</a></h3>
-<p>The v1.1.0 schema was generated before the schema-hygiene work (#1135-#1138, #1209, #1080) and
-documented fallback or wrong serializers for a number of operations (for example a card
-serializer standing in for the request body of <code>checklist/</code> and <code>comments/</code>). Diffing against
-it yields findings that look like documentation corrections rather than runtime changes.</p>
-<p>A read-only comparison of the v1.1.0 and current runtime code verified these classes as
-<strong>documentation-only baseline errors, not breaks</strong>:</p>
+<p>The v1.1.0 schema was generated before the schema-hygiene work (#1135-#1138, #1209, #1080) and documented fallback or wrong serializers for a number of operations (for example a card serializer standing in for the request body of <code>checklist/</code> and <code>comments/</code>). Diffing against it yields findings that look like documentation corrections rather than runtime changes.</p>
+<p>A read-only comparison of the v1.1.0 and current runtime code verified these classes as <strong>documentation-only baseline errors, not breaks</strong>:</p>
 <ul>
-<li><code>card_count</code> / <code>member_count</code> on <code>GET /boards/{id}/full/</code>: the v1.1.0 <code>BoardFullSerializer</code>
-  never had them; the v1.1.0 schema showed the viewset's default <code>BoardSerializer</code>.</li>
-<li><code>assignee</code> / <code>created_by</code> nullable on cards: v1.1.0 already returned <code>null</code> for the
-  <code>SET_NULL</code> foreign keys; only the schema (<code>allow_null=True</code>) changed.</li>
-<li><code>POST /boards/import/</code> <code>file</code>: v1.1.0 was already multipart-only and answered 400
-  "No file provided." without it.</li>
-<li><code>object</code> -&gt; <code>array</code> list responses (activities, attachments, movements, saved-filters, and
-  the group boards / descendant-boards / invite-links / labels / subgroups actions): these
-  hand-written <code>@action</code>s returned bare arrays in both versions; only the schema's
-  <code>pagination_class</code> was fixed.</li>
+<li><code>card_count</code> / <code>member_count</code> on <code>GET /boards/{id}/full/</code>: the v1.1.0 <code>BoardFullSerializer</code> never had them; the v1.1.0 schema showed the viewset's default <code>BoardSerializer</code>.</li>
+<li><code>assignee</code> / <code>created_by</code> nullable on cards: v1.1.0 already returned <code>null</code> for the <code>SET_NULL</code> foreign keys; only the schema (<code>allow_null=True</code>) changed.</li>
+<li><code>POST /boards/import/</code> <code>file</code>: v1.1.0 was already multipart-only and answered 400 "No file provided." without it.</li>
+<li><code>object</code> -&gt; <code>array</code> list responses (activities, attachments, movements, saved-filters, and the group boards / descendant-boards / invite-links / labels / subgroups actions): these hand-written <code>@action</code>s returned bare arrays in both versions; only the schema's <code>pagination_class</code> was fixed.</li>
 <li>2xx status changes: an AST scan found none that differ at runtime.</li>
 </ul>
-<p>The same comparison found no serializer field and no URL route removed between v1.1.0 and
-<code>main</code> (the <code>dj_rest_auth</code> <code>include()</code> became explicit routes, and five declarations were
-rewritten as same-name <code>SerializerMethodField</code>s).</p>
-<p>Those findings are therefore frozen as exact per-finding <code>key</code> entries (generated once from
-the gate's own output with an empty allow-list, sorted for stable diffs). The snapshot is
-closed: anything not already in it, including a further change to an operation that has
-entries, fails the job. Never add to it to get a pipeline green; a new finding is a real break
-or needs its own issue-referenced entry. The temporary <code>#1788</code>, <code>#1783</code> and <code>#1792</code> entries described
-below are such entries; none of them is part of the burn-down count above.
-The exception is an operation covered by an <code>operation</code> entry (the <code>#1783</code> ones): every finding
-under it passes, including a new one. That is why those entries must be deleted at the v1.2.0
-roll.</p>
-<p><strong>Burn-down result</strong> (#1695). Every one of the 51 operations with entries was checked against
-the v1.1.0 <em>view code</em> (<code>git show v1.1.0:backend/...</code>), not the v1.1.0 schema, and each entry's
-<code>reason</code> now records what v1.1.0 actually read and returned. The outcome:</p>
+<p>The same comparison found no serializer field and no URL route removed between v1.1.0 and <code>main</code> (the <code>dj_rest_auth</code> <code>include()</code> became explicit routes, and five declarations were rewritten as same-name <code>SerializerMethodField</code>s).</p>
+<p>Those findings are therefore frozen as exact per-finding <code>key</code> entries (generated once from the gate's own output with an empty allow-list, sorted for stable diffs). The snapshot is closed: anything not already in it, including a further change to an operation that has entries, fails the job.</p>
+<p><strong>Watch out:</strong> Never add to the snapshot to get a pipeline green. A new finding is a real break or needs its own issue-referenced entry. The temporary <code>#1788</code>, <code>#1783</code> and <code>#1792</code> entries described below are such entries; none of them is part of the burn-down count below. The exception is an operation covered by an <code>operation</code> entry (the <code>#1783</code> ones): every finding under it passes, including a new one. That is why those entries must be deleted at the v1.2.0 roll.</p>
+<p><strong>Burn-down result</strong> (#1695). Every one of the 51 operations with entries was checked against the v1.1.0 <em>view code</em> (<code>git show v1.1.0:backend/...</code>), not the v1.1.0 schema, and each entry's <code>reason</code> now records what v1.1.0 read and returned:</p>
 <ul>
-<li><strong>556 entries under <code>#1695</code> are documentation-only.</strong> The v1.1.0 schema showed a fallback
-  serializer for hand-written <code>@action</code>s and <code>APIView</code>s (a card serializer for <code>move/</code>,
-  <code>checklist/</code>, <code>comments/</code>, <code>attachments/</code>, <code>status/</code>, <code>timeline/</code>, <code>archived/</code>; a board
-  serializer for <code>share/</code>, <code>members/</code>, <code>movements/</code>, <code>export-history/</code>; a group serializer for
-  the group <code>labels/</code>, <code>members/</code>, <code>star/</code>, <code>invite-links/</code>, <code>boards/</code> actions), echoed the
-  request serializer as the response for the dj-rest-auth subclasses (<code>login/</code>,
-  <code>password/reset/</code>, <code>password/reset/confirm/</code>, <code>registration/</code>), and documented <code>200</code> where
-  the view returned <code>201</code> (or <code>204</code> where <code>DELETE share/</code> returned <code>200</code>). None of the listed
-  fields or statuses was ever on the wire.</li>
-<li><strong>4 entries under <code>#1302</code> are a real, deliberate runtime change</strong>, already announced in
-  <code>CHANGELOG.md</code>: <code>columns/reorder/</code> and <code>swimlanes/reorder/</code> used to treat a missing <code>order</code> as
-  a <code>200</code> no-op and now answer <code>400</code> unless <code>order</code> is the board's full ID list. The
-  upgrade-guide note for this is tracked in #1782.</li>
-<li><strong>3 <code>REMOVED_REQUEST_MEDIA_TYPE</code> entries on <code>POST /auth/password/change/</code> were a HEAD
-  schema defect, not a removal</strong> (#1781, fixed). <code>VisibanPasswordChangeSerializer.__init__</code>
-  called <code>has_usable_password()</code> on <code>AnonymousUser</code> during schema generation, so HEAD's schema
-  lost the request body. The fix replaced them with three
-  <code>NEW_REQUIRED_REQUEST_FIELD ... .old_password</code> entries under <code>#1257</code>, the deliberate security
-  break.</li>
+<li><strong>556 entries under <code>#1695</code> are documentation-only.</strong> The v1.1.0 schema showed a fallback serializer for hand-written <code>@action</code>s and <code>APIView</code>s:<ul>
+<li>a card serializer for <code>move/</code>, <code>checklist/</code>, <code>comments/</code>, <code>attachments/</code>, <code>status/</code>, <code>timeline/</code>, <code>archived/</code>;</li>
+<li>a board serializer for <code>share/</code>, <code>members/</code>, <code>movements/</code>, <code>export-history/</code>;</li>
+<li>a group serializer for the group <code>labels/</code>, <code>members/</code>, <code>star/</code>, <code>invite-links/</code>, <code>boards/</code> actions.</li>
 </ul>
-<p>Until the baseline is rolled at the next GA, these entries stay in the file because the drift lives in the frozen baseline itself: deleting
-an entry whose finding still fires turns the job red, whether the finding is drift or a real
-break. Entries are only ever deleted (when one goes stale) or re-justified, never added.
-The exceptions are the #1781 replacement above and the temporary #1788 entries below.
-The temporary #1783 entries below are a third exception, and the #1792 entry a fourth.</p>
-<p>A fifth exception is permanent, not temporary: the <code>REMOVED_RESPONSE_STATUS DELETE /api/v1/admin/invite-links/{id}/ 204</code>
-entry under <code>#1912</code>. The v1.1.0 baseline listed <code>204</code> there (drf-spectacular's DELETE default), but
-v1.1.0 always answered <code>200</code> with the revoked link and <code>400</code> on a repeat revoke. That runtime
-contract is frozen for all of 1.x, so the schema now declares it and the entry is not removed at
-the v1.2.0 roll.</p>
-<p>Four temporary <code>key</code> entries under <code>#1788</code> cover <code>NEW_REQUIRED_REQUEST_BODY</code> on <code>POST swimlanes/</code>,
-<code>PUT swimlanes/{id}/</code>, and <code>PATCH swimlanes/{id}/set-collapsed/</code> and <code>set_collapsed/</code>. The v1.1.0
-baseline lacks those bodies because <code>SwimlaneViewSet</code> crashed during schema generation; #1788
-fixes the schema, and the endpoints always required the body. Delete all four entries when the
-baseline is rolled at the v1.2.0 GA.</p>
-<p>Sixteen temporary <code>operation</code> entries under <code>#1783</code> cover hand-written actions and <code>APIView</code>s
-whose schema showed a fallback serializer, no body, or a wrong status (for example <code>star/</code>,
-<code>move-group/</code>, <code>saved-filters/</code>, card <code>archive/</code> and <code>unarchive/</code>, <code>summary/</code>, <code>analytics/</code>,
-<code>export/</code>, the group <code>members/{user_id}/</code>, <code>transfer-ownership/</code> and <code>board-defaults/</code> actions,
-<code>auth/change-password/</code>, <code>auth/choose-username/</code> and <code>auth/registration/resend-email/</code>).
-The v1.1.0 baseline holds those wrong shapes, so each correction reads as a removal; no runtime
-behavior changed. Delete all sixteen when the baseline is rolled at the v1.2.0 GA.</p>
-<p>One temporary <code>key</code> entry under <code>#1792</code> covers <code>REQUEST_BODY_BECAME_REQUIRED</code> on <code>POST boards/import/</code>: the
-baseline published the multipart upload body as optional, but the view has always answered 400 without
-<code>file</code>. Delete it when the baseline is rolled at the v1.2.0 GA.</p>
-<p>The GA roll does not fix the schema by itself. It freezes the schema HEAD generates at that tag
-as the new baseline, so an operation that still documents a fallback serializer at the tag
-carries that error into the next baseline. #1783 corrected the cases its sweep confirmed. The
-board import request bodies were corrected in #1792; hand-written <code>GET</code>s that
-publish no response body are tracked in #1793; any found later needs the same fix before the following roll.</p>
+</li>
+</ul>
+<p>It also echoed the request serializer as the response for the dj-rest-auth subclasses (<code>login/</code>, <code>password/reset/</code>, <code>password/reset/confirm/</code>, <code>registration/</code>), and documented <code>200</code> where the view returned <code>201</code> (or <code>204</code> where <code>DELETE share/</code> returned <code>200</code>). None of the listed fields or statuses was ever on the wire.
+- <strong>4 entries under <code>#1302</code> are a real, deliberate runtime change</strong>, already announced in <code>CHANGELOG.md</code>: <code>columns/reorder/</code> and <code>swimlanes/reorder/</code> used to treat a missing <code>order</code> as a <code>200</code> no-op and now answer <code>400</code> unless <code>order</code> is the board's full ID list. The upgrade-guide note for this is tracked in #1782.
+- <strong>3 <code>REMOVED_REQUEST_MEDIA_TYPE</code> entries on <code>POST /auth/password/change/</code> were a HEAD schema defect, not a removal</strong> (#1781, fixed). <code>VisibanPasswordChangeSerializer.__init__</code> called <code>has_usable_password()</code> on <code>AnonymousUser</code> during schema generation, so HEAD's schema lost the request body. The fix replaced them with three <code>NEW_REQUIRED_REQUEST_FIELD ... .old_password</code> entries under <code>#1257</code>, the deliberate security break.</p>
+<p>Until the baseline is rolled at the next GA, these entries stay in the file, because the drift lives in the frozen baseline itself. Deleting an entry whose finding still fires turns the job red, whether the finding is drift or a real break. Entries are only ever deleted (when one goes stale) or re-justified, never added. Exceptions:</p>
+<ol>
+<li>the #1781 replacement above;</li>
+<li>the temporary #1788 entries below;</li>
+<li>the temporary #1783 entries below;</li>
+<li>the #1792 entry below;</li>
+<li>a permanent one: the <code>REMOVED_RESPONSE_STATUS DELETE /api/v1/admin/invite-links/{id}/ 204</code> entry under <code>#1912</code>. The v1.1.0 baseline listed <code>204</code> there (drf-spectacular's DELETE default), but v1.1.0 always answered <code>200</code> with the revoked link and <code>400</code> on a repeat revoke. That runtime contract is frozen for all of 1.x, so the schema now declares it and the entry isn't removed at the v1.2.0 roll.</li>
+</ol>
+<p>Delete every temporary entry below when the baseline is rolled at the v1.2.0 GA:</p>
+<ul>
+<li><strong>Four <code>key</code> entries under <code>#1788</code></strong> cover <code>NEW_REQUIRED_REQUEST_BODY</code> on <code>POST swimlanes/</code>, <code>PUT swimlanes/{id}/</code>, and <code>PATCH swimlanes/{id}/set-collapsed/</code> and <code>set_collapsed/</code>. The v1.1.0 baseline lacks those bodies because <code>SwimlaneViewSet</code> crashed during schema generation; #1788 fixes the schema, and the endpoints always required the body.</li>
+<li><strong>Sixteen <code>operation</code> entries under <code>#1783</code></strong> cover hand-written actions and <code>APIView</code>s whose schema showed a fallback serializer, no body, or a wrong status (for example <code>star/</code>, <code>move-group/</code>, <code>saved-filters/</code>, card <code>archive/</code> and <code>unarchive/</code>, <code>summary/</code>, <code>analytics/</code>, <code>export/</code>, the group <code>members/{user_id}/</code>, <code>transfer-ownership/</code> and <code>board-defaults/</code> actions, <code>auth/change-password/</code>, <code>auth/choose-username/</code> and <code>auth/registration/resend-email/</code>). The v1.1.0 baseline holds those wrong shapes, so each correction reads as a removal; no runtime behavior changed.</li>
+<li><strong>One <code>key</code> entry under <code>#1792</code></strong> covers <code>REQUEST_BODY_BECAME_REQUIRED</code> on <code>POST boards/import/</code>. The baseline published the multipart upload body as optional, but the view has always answered 400 without <code>file</code>.</li>
+</ul>
+<p><strong>Yes, but:</strong> The GA roll doesn't fix the schema by itself. It freezes the schema HEAD generates at that tag as the new baseline, so an operation that still documents a fallback serializer at the tag carries that error into the next baseline. #1783 corrected the cases its sweep confirmed. The board import request bodies were corrected in #1792; hand-written <code>GET</code>s that publish no response body are tracked in #1793. Any found later need the same fix before the following roll.</p>
 <h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">   </span><span class="c1"># the same env the backend tests use</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">cd</span><span class="w"> </span>..<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python3<span class="w"> </span>scripts/check-api-compat.py<span class="w"> </span>--self-test
@@ -4535,8 +4407,7 @@ publish no response body are tracked in #1793; any found later needs the same fi
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>bash<span class="w"> </span>scripts/tests/check-api-compat.test.sh
 </code></pre></div>
 <h2 id="regenerating-the-baseline-at-each-ga-tag">Regenerating the baseline (at each GA tag)<a class="headerlink" href="#regenerating-the-baseline-at-each-ga-tag" title="Permanent link">&para;</a></h2>
-<p>Do this once, when a new GA tag is cut, from a clean checkout of the tag. Run it in a
-temporary worktree outside the repo and delete it afterward.</p>
+<p>Do this once, when a new GA tag is cut, from a clean checkout of the tag. Run it in a temporary worktree outside the repo and delete it afterward.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.0
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">VENV_PY</span><span class="o">=</span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/backend/.venv/bin/python"</span><span class="w">   </span><span class="c1"># run from the repository root</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>git<span class="w"> </span>worktree<span class="w"> </span>add<span class="w"> </span>--detach<span class="w"> </span>/tmp/visiban-<span class="nv">$TAG</span><span class="w"> </span><span class="nv">$TAG</span>
@@ -4550,38 +4421,27 @@ temporary worktree outside the repo and delete it afterward.</p>
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span>&gt;<span class="w"> </span>scripts/compat-baseline/<span class="nv">$TAG</span>/settings-env.txt
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>git<span class="w"> </span>worktree<span class="w"> </span>remove<span class="w"> </span>/tmp/visiban-<span class="nv">$TAG</span>
 </code></pre></div>
-<p>Then, as a manual step on the
-release checklist, point <code>BASELINE_SCHEMA</code> / <code>BASELINE_ENV</code> in <code>scripts/check-api-compat.py</code>
-(lines 52-53) at the new
-directory, delete every allow-list entry the new baseline no longer needs, and delete the old
-baseline directory. <code>--normalize</code> strips prose, examples, and <code>x-</code> extensions so the fixture
-stays small and docs edits never read as contract changes, and drops every operation listed in
-<code>experimental.json</code>. Before the roll, remove the entry of any operation that should now freeze.</p>
-<p>Every allow-list entry is a diff against the v1.1.0 baseline. Once the baseline is the v1.2.0
-schema and HEAD matches it, none of those findings fire, so all entries go stale, and a stale
-entry fails the job. After regenerating, run <code>python3 scripts/check-api-compat.py</code>, delete every
-entry it reports as stale (expected: the whole list, leaving <code>{"allow": []}</code>), and re-run until
-it prints OK with no stale entries. As a safety net for the temporary entries (those whose
-<code>reason</code> starts with <code>temporary:</code>, citing #1783, #1788, #1789 or #1792), this lists any left
-behind; after deleting, it must print nothing:</p>
+<p>Then, as a manual step on the release checklist:</p>
+<ol>
+<li>Point <code>BASELINE_SCHEMA</code> / <code>BASELINE_ENV</code> in <code>scripts/check-api-compat.py</code> (lines 52-53) at the new directory.</li>
+<li>Delete every allow-list entry the new baseline no longer needs, and delete the old baseline directory.</li>
+</ol>
+<p><code>--normalize</code> strips prose, examples, and <code>x-</code> extensions so the fixture stays small and docs edits never read as contract changes, and drops every operation listed in <code>experimental.json</code>. Before the roll, remove the entry of any operation that should now freeze.</p>
+<p>Every allow-list entry is a diff against the v1.1.0 baseline. Once the baseline is the v1.2.0 schema and HEAD matches it, none of those findings fire, so all entries go stale, and a stale entry fails the job. After regenerating, run <code>python3 scripts/check-api-compat.py</code>, delete every entry it reports as stale (expected: the whole list, leaving <code>{"allow": []}</code>), and re-run until it prints OK with no stale entries.</p>
+<p>As a safety net for the temporary entries (those whose <code>reason</code> starts with <code>temporary:</code>, citing #1783, #1788, #1789 or #1792), this lists any left behind. After deleting, it must print nothing:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import json;[print(e['issue'],e.get('operation') or e['key']) for e in json.load(open('scripts/compat-baseline/allowlist.json'))['allow'] if e['reason'].startswith('temporary:') or e['issue'] in ('#1783','#1788','#1789','#1792')]"</span>
 </code></pre></div>
-<p>A temporary entry left behind fails the roll MR loudly. Then, in this file, delete every sentence
-or paragraph that describes temporary entries or counts exceptions to the "never added" rule
-(including any added for #1789 or #1792), keeping the existing "never added" sentence as is, and
-revise the prose that describes the v1.1.0 baseline drift and allow-list burn-down (the
-"Frozen snapshot of the v1.1.0 baseline drift" section, the <code>#1080</code> catch-all mentions, the
-<code>v1.1.0/</code> paths, and the paragraph above) to the new baseline.</p>
+<p>A temporary entry left behind fails the roll MR loudly. Then, in this file:</p>
+<ul>
+<li>delete every sentence or paragraph that describes temporary entries or counts exceptions to the "never added" rule (including any added for #1789 or #1792), keeping the existing "never added" sentence as is, and</li>
+<li>revise the prose that describes the v1.1.0 baseline drift and allow-list burn-down (the "Frozen snapshot of the v1.1.0 baseline drift" section, the <code>#1080</code> catch-all mentions, the <code>v1.1.0/</code> paths, and the paragraph above) to the new baseline.</li>
+</ul>
 <h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Serializer fields that never reach the schema (the schema is the source of truth here;
-  <code>serializer-ts-parity</code> covers frontend interfaces).</li>
+<li>Serializer fields that never reach the schema (the schema is the source of truth here; <code>serializer-ts-parity</code> covers frontend interfaces).</li>
 <li>WebSocket events: see <a href="../websocket-event-contract/">WebSocket event contract</a>.</li>
 <li>Settings <em>values</em> and defaults; only names are compared.</li>
-<li>Env vars read outside <code>backend/visiban/settings.py</code>, such as the <code>MIGRATE_*_TIMEOUT_SECONDS</code>
-  pair in <code>migrate_with_lock</code>. <code>scripts/helm-structure-check.sh</code> section 3 proves that every
-  name the chart injects has a reader under <code>backend/</code>, but nothing diffs these names against
-  a release.</li>
+<li>Env vars read outside <code>backend/visiban/settings.py</code>, such as the <code>MIGRATE_*_TIMEOUT_SECONDS</code> pair in <code>migrate_with_lock</code>. <code>scripts/helm-structure-check.sh</code> section 3 proves that every name the chart injects has a reader under <code>backend/</code>, but nothing diffs these names against a release.</li>
 </ul>
 
 

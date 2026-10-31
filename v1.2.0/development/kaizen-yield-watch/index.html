@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#kaizen-yield-watch" class="md-skip">
+        <a href="#find-the-ci-gates-that-have-stopped-finding-anything" class="md-skip">
           Skip to content
         </a>
       
@@ -2981,17 +2981,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running it
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#argument-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4076,18 +4065,20 @@
   
 
 
-<h1 id="kaizen-yield-watch">Kaizen yield watch<a class="headerlink" href="#kaizen-yield-watch" title="Permanent link">&para;</a></h1>
-<p><code>/kaizen</code> (#1094) reads the MR <code>## Gates</code> ledger and computes per-gate yield, but only when
-someone remembers to run it. The yield watch (#1144) makes that signal continuous: a scheduled
-job keeps a running count and reports gates that have stopped finding anything. It is the same
-problem the memory-discipline rules describe: a signal that only has value if someone
-remembers to read it.</p>
-<p>It changes nothing on its own. It never edits <code>CLAUDE.md</code> or the fast-path table; that stays a
-reviewed change. <a href="../kaizen-fastpath-proposal/">Kaizen fast-path proposal</a> (#1145) turns this
-state into a proposed table diff with cited evidence for that review.</p>
+<h1 id="find-the-ci-gates-that-have-stopped-finding-anything">Find the CI gates that have stopped finding anything<a class="headerlink" href="#find-the-ci-gates-that-have-stopped-finding-anything" title="Permanent link">&para;</a></h1>
+<p><a id="kaizen-yield-watch"></a></p>
+<p>A scheduled job counts consecutive <code>0 findings</code> runs per gate and diff shape, and reports gates that hit 10 in a row (the yield watch, #1144).</p>
+<p><strong>Why it matters:</strong> <code>/kaizen</code> (#1094) reads the MR <code>## Gates</code> ledger and computes per-gate yield, but only when someone remembers to run it. This is the same problem the memory-discipline rules describe: a signal that only has value if someone remembers to read it. The watch makes it continuous.</p>
+<p><strong>Watch out:</strong> It changes nothing on its own. It never edits <code>CLAUDE.md</code> or the fast-path table; that stays a reviewed change.</p>
+<p><strong>Go deeper:</strong> <a href="../kaizen-fastpath-proposal/">Kaizen fast-path proposal</a> (#1145) turns this state into a proposed table diff with cited evidence for that review.</p>
+<p><a id="running-it"></a></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w">                              </span><span class="c1"># report only</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--write-state<span class="w"> </span>/tmp/s.json<span class="w">   </span><span class="c1"># also emit new state</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--input<span class="w"> </span>mrs.json<span class="w">            </span><span class="c1"># offline</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--self-test<span class="w">                 </span><span class="c1"># gate self-test (#1093)</span>
+</code></pre></div>
 <h2 id="what-it-counts">What it counts<a class="headerlink" href="#what-it-counts" title="Permanent link">&para;</a></h2>
-<p>For each <strong>gate</strong> and <strong>diff shape</strong> it tracks the current streak of consecutive runs that
-reported <code>0 findings</code>.</p>
+<p>For each <strong>gate</strong> and <strong>diff shape</strong> it tracks the current streak of consecutive runs that reported <code>0 findings</code>.</p>
 <table>
 <thead>
 <tr>
@@ -4106,7 +4097,7 @@ reported <code>0 findings</code>.</p>
 </tr>
 <tr>
 <td><code>n/a (...)</code></td>
-<td>gate did not apply; ignored</td>
+<td>gate didn't apply; ignored</td>
 </tr>
 <tr>
 <td><code>skipped (...)</code></td>
@@ -4118,55 +4109,44 @@ reported <code>0 findings</code>.</p>
 </tr>
 </tbody>
 </table>
-<p><code>changelog</code>, <code>docs-writer</code>, and <code>test-scaffold</code> are deliverable gates and are never tracked.
-The ledger grammar is the one in <code>scripts/kaizen_gate_ledger.py</code>, which this script imports.</p>
-<p><strong>Threshold: 10 consecutive 0-finding runs.</strong> This reuses <code>/kaizen</code>'s <code>MIN_RUNS_FOR_VERDICT</code>.
-<code>/kaizen</code> states no <em>consecutive</em> rule and has no diff-shape dimension (it computes
-per-gate totals over a window), so "consecutive" and "shape" are defined here.</p>
-<p><strong>Diff shape</strong> is the MR source-branch prefix: <code>feat</code>, <code>fix</code>, <code>docs</code>, <code>chore</code>, or <code>other</code>.
-These mirror the rows of the fast-path table and are available from the API without fetching
-diffs. Zeros are never pooled across shapes.</p>
+<ul>
+<li><strong>Never tracked:</strong> <code>changelog</code>, <code>docs-writer</code>, and <code>test-scaffold</code> are deliverable gates. The ledger grammar is the one in <code>scripts/kaizen_gate_ledger.py</code>, which this script imports.</li>
+<li><strong>Threshold: 10 consecutive 0-finding runs.</strong> This reuses <code>/kaizen</code>'s <code>MIN_RUNS_FOR_VERDICT</code>. <code>/kaizen</code> states no <em>consecutive</em> rule and has no diff-shape dimension (it computes per-gate totals over a window), so "consecutive" and "shape" are defined here.</li>
+<li><strong>Diff shape</strong> is the MR source-branch prefix: <code>feat</code>, <code>fix</code>, <code>docs</code>, <code>chore</code>, or <code>other</code>. These mirror the rows of the fast-path table and come from the API without fetching diffs. Zeros are never pooled across shapes.</li>
+</ul>
 <h2 id="where-the-count-lives">Where the count lives<a class="headerlink" href="#where-the-count-lives" title="Permanent link">&para;</a></h2>
-<p><code>.claude/kaizen-yield-state.json</code>, committed, like <code>backend/schemathesis-baseline.json</code>.
-CI cache and artifacts expire; a committed file is reviewable and survives. Each run folds in
-only MRs merged after the file's <code>(last_merged_at, last_iid)</code> watermark, so re-running against
-an unchanged file never double counts. The job runs with the file as its baseline and uploads
-the updated state as an artifact; commit it in a chore MR to advance the baseline. Even if
-nobody does, the next run re-derives the same result.</p>
-<h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w">                              </span><span class="c1"># report only</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--write-state<span class="w"> </span>/tmp/s.json<span class="w">   </span><span class="c1"># also emit new state</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--input<span class="w"> </span>mrs.json<span class="w">            </span><span class="c1"># offline</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--self-test<span class="w">                 </span><span class="c1"># gate self-test (#1093)</span>
-</code></pre></div>
+<p><code>.claude/kaizen-yield-state.json</code>, committed, like <code>backend/schemathesis-baseline.json</code>. CI cache and artifacts expire; a committed file is reviewable and survives.</p>
+<ul>
+<li>Each run folds in only MRs merged after the file's <code>(last_merged_at, last_iid)</code> watermark, so re-running against an unchanged file never double counts.</li>
+<li>The job uses the file as its baseline and uploads the updated state as an artifact. Commit it in a chore MR to advance the baseline.</li>
+<li>If nobody does, the next run re-derives the same result.</li>
+</ul>
 <h2 id="argument-validation">Argument validation<a class="headerlink" href="#argument-validation" title="Permanent link">&para;</a></h2>
 <p>The kaizen scripts reject malformed arguments up front (#1377):</p>
 <ul>
 <li><code>--window</code> must be an integer from 1 to 100 (GitLab's <code>per_page</code> cap).</li>
-<li><code>--project</code> must be a plain <code>group/project</code> path (letters, digits, <code>_</code>, <code>.</code>, <code>-</code>; no leading <code>-</code>, no <code>.</code>/<code>..</code> segments); a malformed value is rejected by argparse (exit 2). <code>kaizen_gate_ledger.py</code> is stricter: when it fetches from GitLab (not with <code>--input</code>), it accepts only <code>visiban/visiban</code> (the default) or <code>visiban/visiban-enterprise</code> and exits 1 for anything else.</li>
-<li>File-path arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>) must resolve under the repository, the current directory, or the temp directory, through <code>scripts/_paths.py</code>. A path that escapes (via <code>..</code> or a symlink) exits non-zero; a bad <code>--declined</code> path is never treated as "nothing declined".</li>
+<li><code>--project</code> must be a plain <code>group/project</code> path (letters, digits, <code>_</code>, <code>.</code>, <code>-</code>; no leading <code>-</code>, no <code>.</code>/<code>..</code> segments); argparse rejects a malformed value (exit 2). <code>kaizen_gate_ledger.py</code> is stricter: when it fetches from GitLab (not with <code>--input</code>), it accepts only <code>visiban/visiban</code> (the default) or <code>visiban/visiban-enterprise</code> and exits 1 for anything else.</li>
+<li>File-path arguments (<code>--input</code>, <code>--state</code>, <code>--declined</code>, <code>--write-state</code>) must resolve under the repository, the current directory, or the temp directory, through <code>scripts/_paths.py</code>. A path that escapes (via <code>..</code> or a symlink) exits non-zero. A bad <code>--declined</code> path is never treated as "nothing declined".</li>
 </ul>
 <p>See <a href="../ci-gates/#path-containment-for-cli-arguments">CI gate scripts and path containment</a> for the shared helper.</p>
 <h2 id="scheduled-job">Scheduled job<a class="headerlink" href="#scheduled-job" title="Permanent link">&para;</a></h2>
-<p><code>kaizen-yield-watch</code> runs only in scheduled pipelines that set <code>KAIZEN_YIELD_WATCH=true</code>,
-which the consolidated Nightly schedule does (#1383; see
-<a href="../ci-gates/#scheduled-pipelines">Scheduled pipelines</a>). Daily is more often than it needs,
-but it is one small job in a pipeline that runs anyway; a separate weekly schedule would
-spawn a whole extra full pipeline just for this report. Each run folds only MRs past the
-committed watermark, so a daily cadence never double counts. It is <code>allow_failure: true</code> and <strong>fails open</strong>: an
-inconclusive GitLab API lookup is a warning and exit 0, matching
-<code>scripts/check-suppression-issues.sh</code>.</p>
+<p><code>kaizen-yield-watch</code> runs only in scheduled pipelines that set <code>KAIZEN_YIELD_WATCH=true</code>, which the consolidated Nightly schedule does (#1383; see <a href="../ci-gates/#scheduled-pipelines">Scheduled pipelines</a>).</p>
+<ul>
+<li><strong>Why daily:</strong> it's more often than needed, but it's one small job in a pipeline that runs anyway. A separate weekly schedule would spawn a whole extra full pipeline just for this report.</li>
+<li><strong>No double counting:</strong> each run folds only MRs past the committed watermark.</li>
+<li><strong>Fails open:</strong> the job is <code>allow_failure: true</code>, and an inconclusive GitLab API lookup is a warning and exit 0, matching <code>scripts/check-suppression-issues.sh</code>.</li>
+</ul>
 <h2 id="auto-filing-issues-opt-in">Auto-filing issues (opt-in)<a class="headerlink" href="#auto-filing-issues-opt-in" title="Permanent link">&para;</a></h2>
-<p>Default is a dry run that prints what would be filed. To enable filing, set
-<code>KAIZEN_FILE_ISSUES=true</code> and a <code>KAIZEN_API_TOKEN</code> variable (project token, <code>api</code> scope) on the
-schedule. Each new candidate becomes one issue titled
-<code>harness: narrow `&lt;gate&gt;` trigger on &lt;shape&gt; diffs (N consecutive 0-finding runs)</code>, with the
-evidence (streak, lifetime runs, recent MRs) attached. Filing is deduplicated against open issues
-with the same title, skips gates recorded in <code>.claude/kaizen-declined.json</code>, and a pair is not
-re-raised until its streak breaks. Proposals narrow a gate's trigger; they never delete a gate.</p>
+<p>Default is a dry run that prints what would be filed. To enable filing, set <code>KAIZEN_FILE_ISSUES=true</code> and a <code>KAIZEN_API_TOKEN</code> variable (project token, <code>api</code> scope) on the schedule.</p>
+<ul>
+<li>Each new candidate becomes one issue titled <code>harness: narrow `&lt;gate&gt;` trigger on &lt;shape&gt; diffs (N consecutive 0-finding runs)</code>, with the evidence (streak, lifetime runs, recent MRs) attached.</li>
+<li>Filing is deduplicated against open issues with the same title.</li>
+<li>It skips gates recorded in <code>.claude/kaizen-declined.json</code>.</li>
+<li>A pair isn't re-raised until its streak breaks.</li>
+<li>Proposals narrow a gate's trigger; they never delete a gate.</li>
+</ul>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
-<p><code>bash scripts/tests/kaizen_yield_watch.test.sh</code> (no network). CI runs
-<code>--self-test</code> immediately before the real invocation.</p>
+<p><code>bash scripts/tests/kaizen_yield_watch.test.sh</code> (no network). CI runs <code>--self-test</code> immediately before the real invocation.</p>
 
 
 

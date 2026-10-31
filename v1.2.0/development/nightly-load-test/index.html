@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#nightly-load-test" class="md-skip">
+        <a href="#a-nightly-job-fails-the-pipeline-when-an-endpoint-gets-slower" class="md-skip">
           Skip to content
         </a>
       
@@ -3054,28 +3054,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-fixture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The fixture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#auth" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Auth
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#running-it" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3104,10 +3082,43 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-fixture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fixture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
         The schedule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure notifications
       
     </span>
   </a>
@@ -3203,67 +3214,6 @@
     <span class="md-ellipsis">
       
         What #1800 did not explain
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-october-2026-card_search-and-notifications_unread-drift-1805" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The October 2026 card_search and notifications_unread drift — #1805
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="The October 2026 card_search and notifications_unread drift — #1805">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#what-the-scheduled-runs-show_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What the scheduled runs show
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#card_search-the-access-filter-rewrite-1723" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        card_search: the access-filter rewrite (#1723)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#runner-04-nuc-one-slower-run" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        runner-04-NUC: one slower run
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-oct-45-step-on-the-light-endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Oct 4/5 step on the light endpoints
       
     </span>
   </a>
@@ -4232,22 +4182,15 @@
   
 
 
-<h1 id="nightly-load-test">Nightly load test<a class="headerlink" href="#nightly-load-test" title="Permanent link">&para;</a></h1>
-<p><code>nightly-load-test</code> is a nightly, schedule-only CI job (<code>.gitlab-ci.yml</code>) that measures real
-wall-clock p50/p95/p99 latency against a large seeded fixture and fails the pipeline if any
-covered endpoint exceeds its committed budget.</p>
-<p><strong>Why it matters:</strong> a query-count guard is not a latency guard. <code>perf-check</code> (static N+1
-review) and <code>perf-bench</code> (query counts on demand) both measure query <em>count</em> — a regression
-from a missing index, a data-volume change, or a query-plan flip can leave the query count
-and query text identical while making the same queries slower. Neither of those gates can
-see that class of regression; this job can.</p>
+<h1 id="a-nightly-job-fails-the-pipeline-when-an-endpoint-gets-slower">A nightly job fails the pipeline when an endpoint gets slower<a class="headerlink" href="#a-nightly-job-fails-the-pipeline-when-an-endpoint-gets-slower" title="Permanent link">&para;</a></h1>
+<p><a id="nightly-load-test"></a></p>
+<p><code>nightly-load-test</code> is a nightly, schedule-only CI job (<code>.gitlab-ci.yml</code>). It measures real wall-clock p50/p95/p99 latency against a large seeded fixture and fails the pipeline if any covered endpoint exceeds its committed budget.</p>
+<p><strong>Why it matters:</strong> A query-count guard isn't a latency guard. <code>perf-check</code> (static N+1 review) and <code>perf-bench</code> (query counts on demand) both measure query <em>count</em>. A missing index, a data-volume change, or a query-plan flip can leave the query count and query text identical while making the same queries slower. Neither of those gates can see that class of regression; this job can.</p>
+<p><strong>The default:</strong> 40 timed requests per endpoint (after 5 warmup), p95 against a budget derived as <code>ceil(measured_p95_ms * 1.4 / 5) * 5</code>, on a <code>nuc</code>-tagged runner. See <a href="#running-it">Running it</a> and <a href="#budget-derivation-the-rule">Budget derivation</a>.</p>
+<p><strong>Watch out:</strong> The schedule is GitLab configuration, not a file in this repo, and it was once silently missing (#1213). See <a href="#the-schedule">The schedule</a>.</p>
 <div class="admonition info">
 <p class="admonition-title">Where this came from</p>
-<p>Filed as #1082 from a TruePPM audit finding: a real p95 regression (<code>GET /tasks/</code> at
-3.3x baseline) was "fixed" by a query-count guard that its own description said could not
-detect that class of regression — the fix never touched the actual root cause, and the
-regression sat inside a budget loose enough to hide it. See the issue for the full
-postmortem.</p>
+<p>Filed as #1082 from a TruePPM audit finding: a real p95 regression (<code>GET /tasks/</code> at 3.3x baseline) was "fixed" by a query-count guard that its own description said couldn't detect that class of regression. The fix never touched the actual root cause, and the regression sat inside a budget loose enough to hide it. See the issue for the full postmortem.</p>
 </div>
 <h2 id="what-it-covers">What it covers<a class="headerlink" href="#what-it-covers" title="Permanent link">&para;</a></h2>
 <table>
@@ -4272,7 +4215,7 @@ postmortem.</p>
 <tr>
 <td>Card search</td>
 <td><code>GET /api/v1/cards/?search=...</code></td>
-<td>The cross-board card query: access filter, a 51-row cursor page and a row-by-row substring filter. It does <strong>not</strong> use the <code>pg_trgm</code> GIN indexes from migration <code>0030_card_trigram_search_indexes</code>, because <code>icontains</code> renders as <code>UPPER(col) LIKE</code>, which they cannot serve (<a href="https://gitlab.com/visiban/visiban/-/issues/1809">#1809</a>). The <code>card_search</code> scenario runs as a one-board user, so it measures only the single-board plan; <code>card_search_multi_board</code> runs the same request as <code>demo3</code>, who can access 200 boards (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>; see <a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">#1805</a>)</td>
+<td>The cross-board card query: access filter, a 51-row cursor page and a row-by-row substring filter. It does <strong>not</strong> use the <code>pg_trgm</code> GIN indexes from migration <code>0030_card_trigram_search_indexes</code>, because <code>icontains</code> renders as <code>UPPER(col) LIKE</code>, which they can't serve (<a href="https://gitlab.com/visiban/visiban/-/issues/1809">#1809</a>). The <code>card_search</code> scenario runs as a one-board user, so it measures only the single-board plan; <code>card_search_multi_board</code> runs the same request as <code>demo3</code>, who can access 200 boards (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>; see <a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">#1805</a>)</td>
 </tr>
 <tr>
 <td>Card search, many boards</td>
@@ -4296,130 +4239,98 @@ postmortem.</p>
 </tr>
 </tbody>
 </table>
-<p><code>perf-check</code> and <code>perf-bench</code> are unchanged and still run where they already did — this job is
-additive, not a replacement. <code>perf-check</code>'s own description
-(<a href="https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-check.md"><code>.claude/agents/perf-check.md</code></a>)
-now states this division of labor explicitly: a query-count guard does not satisfy a latency
-budget.</p>
-<h2 id="the-fixture">The fixture<a class="headerlink" href="#the-fixture" title="Permanent link">&para;</a></h2>
-<p>The job seeds a dedicated, larger board — never the real demo board — with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--scale<span class="w"> </span><span class="m">20</span><span class="w"> </span>--extra-boards<span class="w"> </span><span class="m">199</span><span class="w"> </span>--with-notifications
-</code></pre></div>
-<ul>
-<li><code>--scale 20</code> replicates the demo board's 10-swimlane layout 20 times: <strong>200 swimlanes,
-  ~2,400 cards</strong> (11-13 cards per swimlane, same distribution <code>seed_demo_data</code> always uses —
-  see its docstring). The board is named <strong>"Visiban Load Test Board"</strong>, distinct from
-  <code>"Visiban Demo Board"</code>, so this job can never collide with or overwrite the
-  manual <code>seed-demo-data</code> job's data, in CI or on the shared demo environment.</li>
-<li><strong>20 members</strong> on that board (the 5 demo users plus 15 <code>loadtest*</code> filler accounts with
-  unusable passwords, <code>--scale &gt; 1</code> only). Members x cards is the shape that made the board
-  list's count annotations expensive (two multi-valued joins multiplying, #1723), and a
-  5-member fixture could not expose it; with ~2,400 cards it now exercises that endpoint.
-  <code>GET /api/v1/boards/</code> computes <code>member_count</code> / <code>card_count</code> / <code>archived_card_count</code> as
-  independent correlated subqueries, and the access filter uses an <code>EXISTS</code> membership predicate
-  rather than a join, so the members x cards row blow-up is gone. The job times that endpoint as
-  the <code>board_list</code> scenario, as the board owner (<code>demo1</code>, via <code>--owner-token-file</code>) so the
-  20 memberships are on the measured path; <code>card_search_multi_board</code> runs as <code>demo3</code>; every other scenario still runs as <code>demo2</code>. It has
-  a committed budget in <code>backend/nightly-load-test-baseline.json</code> (added by
-  <a href="https://gitlab.com/visiban/visiban/-/issues/1767">#1767</a>).</li>
-<li><code>--extra-boards 199</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>) adds 199
-  small boards ("Visiban Load Test Extra Board 001" and on; one swimlane and 8 cards each,
-  1,592 cards) owned by <code>demo3</code>. With the load-test board, <code>demo3</code> can access <strong>200 boards</strong>,
-  the many-board side of the card query's plan switch. The boards belong to <code>demo3</code> alone, so
-  the <code>demo1</code> <code>board_list</code> scenario and every <code>demo2</code> scenario can see the same boards as before.
-  The <code>cards</code> table does grow by about 67% (about 3,980 cards in total), so those scenarios are
-  expected, not proven, to be unaffected; <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>
-  re-derived the whole file from the first NUC run with this fixture (job 17348200339).
-  The job's <code>LOAD_TEST_EXTRA_BOARDS</code> variable sets the count, and the script fails before
-  timing anything if <code>demo3</code> can access fewer than <code>--min-multi-boards</code> boards (default 50; the CI job
-  passes <code>LOAD_TEST_EXTRA_BOARDS + 1</code>, so a seed that silently shrinks fails).
-  The baseline's <code>fixture</code> block records <code>extra_board_count</code> and
-  <code>multi_board_accessible_boards</code>.</li>
-<li><code>--with-notifications</code> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user — more than
-  the 50-row cap <code>NotificationListView</code> / <code>NotificationUnreadCountView</code> apply, so the job
-  exercises the same "more unread than the cap" path a busy real inbox hits.</li>
-<li><strong>A fixture size with no stated card/swimlane count is meaningless</strong> — a p95 number is only
-  interpretable next to the data volume it was measured against. <code>nightly-load-test-results.json</code>
-  (the job's artifact) always records the fixture's actual card and swimlane count alongside
-  the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets
-  were derived against.</li>
-</ul>
-<p>The large fixture is regenerated fresh in an ephemeral CI database on every run and is never
-committed anywhere.</p>
-<h2 id="auth">Auth<a class="headerlink" href="#auth" title="Permanent link">&para;</a></h2>
-<p>The job reuses <code>manage.py provision_fuzz_token</code> (already used by <code>backend-schema-fuzz</code>) to mint
-a scoped, non-admin Personal Access Token for <code>demo2</code> and writes it to a CI-only file
-(<code>VISIBAN_LOAD_TEST_TOKEN_FILE</code>, mode <code>0600</code>, never logged). No credential is hardcoded anywhere
-in the job or the script — this follows the same "no hardcoded credentials" rule as every other
-backend job in <code>.gitlab-ci.yml</code>.</p>
-<p>The job passes <code>--set-random-password</code>, the same flag the schema-fuzz jobs use
-(<a href="https://gitlab.com/visiban/visiban/-/issues/1607">#1607</a>). <code>demo2</code> is seeded with no usable
-password, and a password change revokes every token. The flag gives <code>demo2</code> a random password
-that is never recorded, so the password-change routes require a current password and no request
-can revoke the job's token mid-run. The flag is off by default, and the command is for throwaway
-CI databases like this job's only.</p>
-<p>The job provisions a third token for <code>demo3</code> (<code>VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE</code>) the
-same way, used by <code>card_search_multi_board</code> alone. <code>--multi-board-token-file</code> has no default and
-the script refuses to run without it, for the same reason as <code>--owner-token-file</code>: measured as
-<code>demo2</code>, the scenario would time the one-board plan again and report a number that says
-nothing about the many-board plan.</p>
+<p>This job is additive. <code>perf-check</code> and <code>perf-bench</code> are unchanged and still run where they already did. <code>perf-check</code>'s own description (<a href="https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-check.md"><code>.claude/agents/perf-check.md</code></a>) now states the division of labor: a query-count guard doesn't satisfy a latency budget.</p>
 <h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python3<span class="w"> </span>scripts/nightly_load_test.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span>--base-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--token-file<span class="w"> </span>/tmp/visiban_load_test_token<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--owner-token-file<span class="w"> </span>/tmp/visiban_load_test_owner_token<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--multi-board-token-file<span class="w"> </span>/tmp/visiban_load_test_multi_board_token<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>--board-name<span class="w"> </span><span class="s2">"Visiban Load Test Board"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span>--budget-file<span class="w"> </span>backend/nightly-load-test-baseline.json<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span>--iterations<span class="w"> </span><span class="m">40</span><span class="w"> </span>--warmup<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span>--output<span class="w"> </span>nightly-load-test-results.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python3<span class="w"> </span>scripts/nightly_load_test.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>--base-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--token-file<span class="w"> </span>/tmp/visiban_load_test_token<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span>--owner-token-file<span class="w"> </span>/tmp/visiban_load_test_owner_token<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span>--multi-board-token-file<span class="w"> </span>/tmp/visiban_load_test_multi_board_token<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span>--board-name<span class="w"> </span><span class="s2">"Visiban Load Test Board"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span>--budget-file<span class="w"> </span>backend/nightly-load-test-baseline.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span>--iterations<span class="w"> </span><span class="m">40</span><span class="w"> </span>--warmup<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span>--output<span class="w"> </span>nightly-load-test-results.json
 </code></pre></div>
-<p>The CI job provisions three tokens: <code>--token-file</code> (<code>demo2</code>, a plain member) for every scenario
-except two, <code>--owner-token-file</code> (<code>demo1</code>, the board owner) for <code>board_list</code> alone, and
-<code>--multi-board-token-file</code> (<code>demo3</code>, who can access 200 boards) for <code>card_search_multi_board</code>
-alone. <code>--owner-token-file</code>
-has no default and the script refuses to run without it: <code>board_list</code>'s 55ms budget was derived
-as the owner, whose access query spans all 20 memberships, so measuring it as <code>demo2</code> would
-compare a cheaper path against that budget and hide a regression. The other flags shown are the
-script's defaults.</p>
-<p>For each endpoint: 5 warmup requests (discarded), then 40 timed requests. Percentiles use
-nearest-rank (no interpolation), so every reported number was an actually-observed latency, not
-a synthetic average of two samples. The job fails (<code>sys.exit(1)</code>) if any endpoint's measured p95
-exceeds its budget, and always writes the full per-endpoint results as a CI artifact
-(<code>nightly-load-test-results.json</code>, kept 90 days) regardless of pass/fail.</p>
-<p>The Django <code>runserver</code> output is not written to the job log (a noisy run could hit GitLab's
-16 MB log cap). It goes to the <code>nightly-load-test-server.log</code> artifact, which shares the results
-file's 90-day expiry and is restricted to developers. On failure the job log prints the last
-200 lines of it.</p>
-<p>Like every bespoke gate script in this repo, it ships a <code>--self-test</code> mode
-(<code>python scripts/nightly_load_test.py --self-test</code>) that proves the percentile calculation and
-budget-comparison logic still fire on a known-bad and known-good input, run in CI immediately
-before the real invocation — see <a href="../ci-gates/">CI gate self-tests</a>. It also fails if any scenario
-the script measures has no <code>budget_p95_ms</code> in the committed baseline, so a new scenario cannot
-silently stay measure-only, unless the entry carries an explicit pending budget (below). The
-<code>nightly-load-test-selftest</code> job runs it on merge requests that touch the script or the baseline.</p>
-<h3 id="pending-budgets">Pending budgets<a class="headerlink" href="#pending-budgets" title="Permanent link">&para;</a></h3>
-<p>A budget may only come from a NUC run, so a new scenario can land before its budget can.
-For that case a baseline entry may set <code>"budget_p95_ms": null</code> together with
-<code>"pending_budget": "#NNNN"</code>, the issue that will assign the budget. The script then:</p>
+<p>The other flags shown are the script's defaults. The CI job provisions three tokens:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>User</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--token-file</code></td>
+<td><code>demo2</code> (a plain member)</td>
+<td>every scenario except two</td>
+</tr>
+<tr>
+<td><code>--owner-token-file</code></td>
+<td><code>demo1</code> (the board owner)</td>
+<td><code>board_list</code> alone</td>
+</tr>
+<tr>
+<td><code>--multi-board-token-file</code></td>
+<td><code>demo3</code> (can access 200 boards)</td>
+<td><code>card_search_multi_board</code> alone</td>
+</tr>
+</tbody>
+</table>
+<p><code>--owner-token-file</code> and <code>--multi-board-token-file</code> have no default, and the script refuses to run without them. <code>board_list</code>'s 55ms budget was derived as the owner, whose access query spans all 20 memberships, so measuring it as <code>demo2</code> would compare a cheaper path against that budget and hide a regression. Measured as <code>demo2</code>, <code>card_search_multi_board</code> would time the one-board plan again and report a number that says nothing about the many-board plan.</p>
+<p><strong>How it measures.</strong></p>
 <ul>
-<li>measures the scenario and records it in the results artifact, with <code>budget_pending</code> in its
-  entry, so the NUC run needed to derive the budget produces its number;</li>
-<li>prints <code>PENDING BUDGET: &lt;name&gt; is measured but NOT gated until #NNNN assigns its budget.</code>
-  next to the scenario, a <code>WARNING: PENDING BUDGET</code> line on stderr at the end, and says
-  "(N pending, NOT gated: ...)" in its final line, every run;</li>
+<li>Per endpoint: 5 warmup requests (discarded), then 40 timed requests.</li>
+<li>Percentiles use nearest-rank (no interpolation), so every reported number was an actually-observed latency.</li>
+<li>The job fails (<code>sys.exit(1)</code>) if any endpoint's measured p95 exceeds its budget.</li>
+<li>It always writes the full per-endpoint results as a CI artifact (<code>nightly-load-test-results.json</code>, kept 90 days), pass or fail.</li>
+<li>The Django <code>runserver</code> output isn't written to the job log (a noisy run could hit GitLab's 16 MB log cap). It goes to the <code>nightly-load-test-server.log</code> artifact, which shares the results file's 90-day expiry and is restricted to developers. On failure the job log prints the last 200 lines of it.</li>
+</ul>
+<p><strong>Self-test.</strong> Like every bespoke gate script here, it ships <code>python scripts/nightly_load_test.py --self-test</code>. It proves the percentile calculation and budget-comparison logic still fire on a known-bad and known-good input, and CI runs it immediately before the real invocation (see <a href="../ci-gates/">CI gate self-tests</a>). It fails if any scenario the script measures has no <code>budget_p95_ms</code> in the committed baseline, so a new scenario can't silently stay measure-only, unless the entry carries an explicit pending budget (below). The <code>nightly-load-test-selftest</code> job runs it on merge requests that touch the script or the baseline.</p>
+<h3 id="pending-budgets">Pending budgets<a class="headerlink" href="#pending-budgets" title="Permanent link">&para;</a></h3>
+<p>A budget may only come from a NUC run, so a new scenario can land before its budget can. For that case a baseline entry may set <code>"budget_p95_ms": null</code> together with <code>"pending_budget": "#NNNN"</code>, the issue that will assign the budget. The script then:</p>
+<ul>
+<li>measures the scenario and records it in the results artifact, with <code>budget_pending</code> in its entry, so the NUC run needed to derive the budget produces its number;</li>
+<li>prints <code>PENDING BUDGET: &lt;name&gt; is measured but NOT gated until #NNNN assigns its budget.</code> next to the scenario, a <code>WARNING: PENDING BUDGET</code> line on stderr at the end, and says "(N pending, NOT gated: ...)" in its final line, every run;</li>
 <li>never fails the job on it.</li>
 </ul>
-<p>It is not a silent default: the self-test fails a scenario whose budget is null without a valid
-<code>#NNNN</code> reference, or with no baseline entry at all, and asserts that a pending scenario can
-never produce a violation. When the issue assigns the budget, replace <code>budget_p95_ms</code> and delete
-<code>pending_budget</code> in the same whole-file re-derivation. Nothing is pending now:
-<code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the
-scenario) got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.
-The <code>suppressions-check</code> CI job fails, naming the entry and the issue, if the cited issue
-closes while the entry is still pending (<a href="https://gitlab.com/visiban/visiban/-/issues/1812">#1812</a>;
-see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</p>
+<p>It isn't a silent default. The self-test fails a scenario whose budget is null without a valid <code>#NNNN</code> reference, or with no baseline entry at all, and asserts that a pending scenario can never produce a violation.</p>
+<ul>
+<li>When the issue assigns the budget, replace <code>budget_p95_ms</code> and delete <code>pending_budget</code> in the same whole-file re-derivation.</li>
+<li>Nothing is pending now: <code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the scenario) got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.</li>
+<li>The <code>suppressions-check</code> CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending (<a href="https://gitlab.com/visiban/visiban/-/issues/1812">#1812</a>; see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</li>
+</ul>
+<h2 id="the-fixture">The fixture<a class="headerlink" href="#the-fixture" title="Permanent link">&para;</a></h2>
+<p>The job seeds a dedicated, larger board, never the real demo board:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>backend
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--scale<span class="w"> </span><span class="m">20</span><span class="w"> </span>--extra-boards<span class="w"> </span><span class="m">199</span><span class="w"> </span>--with-notifications
+</code></pre></div>
+<p>The large fixture is regenerated fresh in an ephemeral CI database on every run and is never committed anywhere.</p>
+<ul>
+<li><strong><code>--scale 20</code></strong> replicates the demo board's 10-swimlane layout 20 times: <strong>200 swimlanes, ~2,400 cards</strong> (11-13 cards per swimlane, same distribution <code>seed_demo_data</code> always uses; see its docstring). The board is named <strong>"Visiban Load Test Board"</strong>, distinct from <code>"Visiban Demo Board"</code>, so this job can never collide with or overwrite the manual <code>seed-demo-data</code> job's data, in CI or on the shared demo environment.</li>
+<li><strong>20 members</strong> on that board: the 5 demo users plus 15 <code>loadtest*</code> filler accounts with unusable passwords (<code>--scale &gt; 1</code> only). Members x cards made the board list's count annotations expensive (two multi-valued joins multiplying, #1723), and a 5-member fixture couldn't expose it.<ul>
+<li><code>GET /api/v1/boards/</code> now computes <code>member_count</code> / <code>card_count</code> / <code>archived_card_count</code> as independent correlated subqueries, and the access filter uses an <code>EXISTS</code> membership predicate rather than a join, so the members x cards row blow-up is gone.</li>
+<li>The job times that endpoint as the <code>board_list</code> scenario, as the board owner (<code>demo1</code>, via <code>--owner-token-file</code>) so the 20 memberships are on the measured path. <code>card_search_multi_board</code> runs as <code>demo3</code>; every other scenario still runs as <code>demo2</code>.</li>
+<li>It has a committed budget in <code>backend/nightly-load-test-baseline.json</code> (added by <a href="https://gitlab.com/visiban/visiban/-/issues/1767">#1767</a>).</li>
+</ul>
+</li>
+<li><strong><code>--extra-boards 199</code></strong> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>) adds 199 small boards ("Visiban Load Test Extra Board 001" and on; one swimlane and 8 cards each, 1,592 cards) owned by <code>demo3</code>. With the load-test board, <code>demo3</code> can access <strong>200 boards</strong>, the many-board side of the card query's plan switch.<ul>
+<li>The boards belong to <code>demo3</code> alone, so the <code>demo1</code> <code>board_list</code> scenario and every <code>demo2</code> scenario can see the same boards as before.</li>
+<li>The <code>cards</code> table does grow by about 67% (about 3,980 cards in total), so those scenarios are expected, not proven, to be unaffected. <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a> re-derived the whole file from the first NUC run with this fixture (job 17348200339).</li>
+<li>The job's <code>LOAD_TEST_EXTRA_BOARDS</code> variable sets the count. The script fails before timing anything if <code>demo3</code> can access fewer than <code>--min-multi-boards</code> boards (default 50). The CI job passes <code>LOAD_TEST_EXTRA_BOARDS + 1</code>, so a seed that silently shrinks fails.</li>
+<li>The baseline's <code>fixture</code> block records <code>extra_board_count</code> and <code>multi_board_accessible_boards</code>.</li>
+</ul>
+</li>
+<li><strong><code>--with-notifications</code></strong> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user. That is more than the 50-row cap <code>NotificationListView</code> / <code>NotificationUnreadCountView</code> apply, so the job exercises the same "more unread than the cap" path a busy real inbox hits.</li>
+<li><strong>A fixture size with no stated card/swimlane count is meaningless</strong>: a p95 is only interpretable next to its data volume. <code>nightly-load-test-results.json</code> (the job's artifact) records the actual card and swimlane count with the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets were derived against.</li>
+</ul>
+<h2 id="auth">Auth<a class="headerlink" href="#auth" title="Permanent link">&para;</a></h2>
+<p>The job reuses <code>manage.py provision_fuzz_token</code> (already used by <code>backend-schema-fuzz</code>) to mint a scoped, non-admin Personal Access Token for <code>demo2</code>. It writes the token to a CI-only file (<code>VISIBAN_LOAD_TEST_TOKEN_FILE</code>, mode <code>0600</code>, never logged). No credential is hardcoded anywhere in the job or the script, following the same "no hardcoded credentials" rule as every other backend job in <code>.gitlab-ci.yml</code>.</p>
+<ul>
+<li><strong><code>--set-random-password</code></strong> is the same flag the schema-fuzz jobs use (<a href="https://gitlab.com/visiban/visiban/-/issues/1607">#1607</a>). <code>demo2</code> is seeded with no usable password, and a password change revokes every token. The flag gives <code>demo2</code> a random password that's never recorded, so the password-change routes require a current password and no request can revoke the job's token mid-run. The flag is off by default, and the command is for throwaway CI databases like this job's only.</li>
+<li><strong>Third token:</strong> the job provisions one for <code>demo3</code> (<code>VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE</code>) the same way, used by <code>card_search_multi_board</code> alone.</li>
+</ul>
 <h2 id="the-schedule">The schedule<a class="headerlink" href="#the-schedule" title="Permanent link">&para;</a></h2>
 <p>Configure once in GitLab: <strong>CI/CD → Schedules → New schedule</strong></p>
 <ul>
@@ -4427,35 +4338,29 @@ see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</p>
 <li>Cron: <code>0 0 * * *</code>, timezone <code>America/New_York</code> (daily at midnight Eastern, 04:00 UTC during daylight time and 05:00 UTC in winter; schedule 4463581)</li>
 <li>Variables: <code>LOAD_TEST_SCHEDULE=true</code></li>
 </ul>
-<p>The job can also be run manually at any time (advisory — <code>allow_failure: true</code> on the manual
-path only; the scheduled run is blocking) via "Run pipeline" or the job's manual play button.</p>
+<p>The job can be run manually at any time, via "Run pipeline" or the job's manual play button. The manual path is advisory (<code>allow_failure: true</code>); the scheduled run is blocking.</p>
 <div class="admonition warning">
 <p class="admonition-title">This step is easy to skip silently — #1213</p>
 <p>This is GitLab project configuration, not a file in this repo, so nothing in a diff or a
 review catches it being missed. It <em>was</em> missed: the schedule above was never created
-after this job merged, and the gap sat undetected until #1213 found it — by which point a
+after this job merged, and the gap sat undetected until #1213 found it, by which point a
 real ~40% p95 regression on <code>GET /boards/{id}/full/</code> had already shipped past it. The
 <code>schedule-config-check</code> job (<code>scripts/check-pipeline-schedules.sh</code>) now asserts this
 schedule (and every other <code>$CI_PIPELINE_SOURCE == "schedule" &amp;&amp; $VAR == "true"</code> rule in
-<code>.gitlab-ci.yml</code>) has an active GitLab schedule actually setting its variable, on every
-scheduled pipeline run — see <a href="../ci-gates/">CI gate self-tests</a>.</p>
+<code>.gitlab-ci.yml</code>) has an active GitLab schedule setting its variable, on every
+scheduled pipeline run. See <a href="../ci-gates/">CI gate self-tests</a>.</p>
 </div>
+<h2 id="failure-notifications">Failure notifications<a class="headerlink" href="#failure-notifications" title="Permanent link">&para;</a></h2>
+<p>The scheduled run is blocking (not <code>allow_failure</code>), so a budget violation fails the pipeline. GitLab emails every project maintainer who has "Failed pipeline" notifications enabled (<strong>Profile → Notifications → Global notification level → "Watch"</strong>, or per-project under <strong>Project → Notification settings</strong>). The nightly CVE scan (<code>backend-dep-scan</code> / <code>frontend-dep-scan</code>, on the separate Nightly schedule) relies on the same mechanism.</p>
+<p>The load test keeps its own schedule rather than joining that one because its latency budgets are noisy on a busy runner. See <a href="../ci-gates/#scheduled-pipelines">Scheduled pipelines</a>.</p>
 <h2 id="budget-derivation-the-rule">Budget derivation — the rule<a class="headerlink" href="#budget-derivation-the-rule" title="Permanent link">&para;</a></h2>
-<p><strong>Budgets are committed to the repo, in <code>backend/nightly-load-test-baseline.json</code>, and every
-<code>budget_p95_ms</code> must trace to a <code>measured_p95_ms</code> via a stated formula — never a round number
-picked because it looked reasonable.</strong> TruePPM's postmortem is explicit about why: its 2000ms
-budget was loose enough that a 2x regression (683-851ms baseline &rarr; 1330ms) sat inside it
-without ever firing.</p>
+<p><strong>Budgets are committed to the repo, in <code>backend/nightly-load-test-baseline.json</code>, and every <code>budget_p95_ms</code> must trace to a <code>measured_p95_ms</code> via a stated formula — never a round number picked because it looked reasonable.</strong> TruePPM's postmortem is explicit about why: its 2000ms budget was loose enough that a 2x regression (683-851ms baseline &rarr; 1330ms) sat inside it without ever firing.</p>
 <p>The formula this repo uses:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
 </code></pre></div>
 <ul>
-<li><strong>1.4x</strong> is the midpoint of the 1.3-1.5x range #1082 specifies — tight enough that a
-  meaningful regression still trips the budget, loose enough to absorb ordinary CI-runner
-  noise between runs.</li>
-<li>Rounding up to the nearest <strong>5ms</strong> gives the comparison a small amount of headroom for
-  measurement jitter without the number itself being arbitrary — it is still fully determined
-  by the measured baseline, just not reported to sub-millisecond precision.</li>
+<li><strong>1.4x</strong> is the midpoint of the 1.3-1.5x range #1082 specifies. It's tight enough that a meaningful regression still trips the budget, and loose enough to absorb ordinary CI-runner noise between runs.</li>
+<li><strong>Rounding up to the nearest 5ms</strong> gives the comparison a small amount of headroom for measurement jitter. The number is still fully determined by the measured baseline, just not reported to sub-millisecond precision.</li>
 </ul>
 <div class="admonition warning">
 <p class="admonition-title">Budgets are only valid on NUC runners</p>
@@ -4472,15 +4377,9 @@ changes.</p>
 <ol>
 <li>Trigger the <code>nightly-load-test</code> job (wait for the schedule, or run it manually).</li>
 <li>Download its <code>nightly-load-test-results.json</code> artifact.</li>
-<li>For each endpoint, recompute <code>budget_p95_ms</code> from that run's <code>p95_ms</code> using the formula
-   above.</li>
-<li>Update <code>backend/nightly-load-test-baseline.json</code>'s <code>measured_p95_ms</code>, <code>measured_p99_ms</code>, and
-   <code>budget_p95_ms</code> fields (and, for an entry with a <code>pending_budget</code> key, delete that key once
-   its budget is set), its top-level <code>measured_at</code>, and its <code>fixture</code> block if the fixture
-   size changed. Recompute the whole file in one pass — never hand-adjust a single
-   <code>budget_p95_ms</code> without also updating the <code>measured_p95_ms</code> it supposedly came from.</li>
-<li>Flip <code>status</code> from <code>"provisional"</code> to <code>"ci-derived"</code> the first time this is done from a real
-   scheduled pipeline run (see the note below).</li>
+<li>For each endpoint, recompute <code>budget_p95_ms</code> from that run's <code>p95_ms</code> using the formula above.</li>
+<li>Update <code>backend/nightly-load-test-baseline.json</code>'s <code>measured_p95_ms</code>, <code>measured_p99_ms</code>, and <code>budget_p95_ms</code> fields (and, for an entry with a <code>pending_budget</code> key, delete that key once its budget is set), its top-level <code>measured_at</code>, and its <code>fixture</code> block if the fixture size changed. Recompute the whole file in one pass. Never hand-adjust a single <code>budget_p95_ms</code> without also updating the <code>measured_p95_ms</code> it supposedly came from.</li>
+<li>Flip <code>status</code> from <code>"provisional"</code> to <code>"ci-derived"</code> the first time this is done from a real scheduled pipeline run (see the note below).</li>
 </ol>
 <div class="admonition note">
 <p class="admonition-title">Re-derived from the first real CI run — #1233</p>
@@ -4510,59 +4409,46 @@ hand-adjusted, and all moved up: <code>board_full</code> 1430 to 1695ms, <code>c
 1172-1375ms on Oct 9-19). The new <code>board_full</code> budget leaves
 under 3% headroom over the worst past run (1650.7ms, the Oct 12 failure against the old
 1430ms budget). <a href="https://gitlab.com/visiban/visiban/-/issues/1800">#1800</a> partly attributed
-the <code>board_full</code> rise to the psycopg 3 migration and mitigated it with a backport. See
-<a href="#the-october-2026-board_full-drift-1800">The October 2026 <code>board_full</code> drift</a> below.
-<a href="https://gitlab.com/visiban/visiban/-/issues/1807">#1807</a> attributed the remainder of that
-step. See <a href="#the-remaining-driver-step-1807">The remaining driver step</a> below. The rises on <code>card_search</code>,
-<code>card_timeline</code>, <code>notifications_list</code> and <code>notifications_unread</code> were investigated in
-<a href="https://gitlab.com/visiban/visiban/-/issues/1805">#1805</a>. See
-<a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">The October 2026 <code>card_search</code> and <code>notifications_unread</code> drift</a>
-below. The previous derivation ran
-on <code>gitlab-runner-nuc-2-visiban</code>; both are NUC-class
-(<code>nuc</code>-tagged) runners, so the file was re-derived as a whole rather than patched.</p>
+the <code>board_full</code> rise to the psycopg 3 migration and mitigated it with a backport
+(<a href="#the-october-2026-board_full-drift-1800">drift</a>); <a href="https://gitlab.com/visiban/visiban/-/issues/1807">#1807</a>
+attributed the rest (<a href="#the-remaining-driver-step-1807">remaining step</a>). The other rises
+were investigated in <a href="https://gitlab.com/visiban/visiban/-/issues/1805">#1805</a>
+(<a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">drift</a>). The previous derivation ran
+on <code>gitlab-runner-nuc-2-visiban</code>; both are NUC-class (<code>nuc</code>-tagged) runners, so the file was re-derived as a whole rather than patched.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Re-derived after the #1800, #1805 and #1810 changes — #1808</p>
 <p>The whole file was re-derived on 2026-10-21 from job 17348200339 (pipeline 2971900609, a
 manual run of the nightly schedule on <code>main</code> at <code>58a4299b5</code>, on
-<code>gitlab-runner-nuc-2-visiban</code>, tag <code>nuc</code>). It is the first NUC run with the #1800 backport,
+<code>gitlab-runner-nuc-2-visiban</code>, tag <code>nuc</code>). It's the first NUC run with the #1800 backport,
 the #1805 card filter and the #1810 <code>card_search_multi_board</code> scenario with its 199 extra
 boards. Measured p95 and budget, in ms: <code>board_list</code> 38.3 / 55, <code>board_full</code> 1227.5 / 1720,
 <code>card_search</code> 73.1 / 105, <code>card_search_multi_board</code> 85.2 / 120 (its first budget),
 <code>card_timeline</code> 40.1 / 60, <code>notifications_list</code> 38.5 / 55, <code>notifications_unread</code> 27.6 / 40.
 <code>card_search</code> fell from 155 to 105ms and the three light endpoints fell by 0-5ms. <strong><code>board_full</code>
 went up from 1695 to 1720ms:</strong> this sample's p95 (1227.5ms) is above the previous
-derivation's (1210.5ms), so the #1800 backport does not show as a lowering on it. This is
+derivation's (1210.5ms), so the #1800 backport doesn't show as a lowering on it. This is
 one run, and the two derivations ran on different runners (<code>runner-04-NUC</code> before), so
-it is not a clean before/after of the code. <code>card_search_multi_board</code> p95 was 85.2ms against 73.1ms for the one-board
+it isn't a clean before/after of the code. <code>card_search_multi_board</code> p95 was 85.2ms against 73.1ms for the one-board
 <code>card_search</code>; no <code>EXPLAIN</code> was run on this fixture, so the plan is still unconfirmed.</p>
 </div>
 <h2 id="the-october-2026-board_full-drift-1800">The October 2026 <code>board_full</code> drift — #1800<a class="headerlink" href="#the-october-2026-board_full-drift-1800" title="Permanent link">&para;</a></h2>
-<p><strong>Verdict: a real regression, partly attributed and mitigated in code.</strong> The evidence for it
-is the local experiment below, not the CI history. Two parts:</p>
+<p><strong>Verdict: a real regression, partly attributed and mitigated in code.</strong> The evidence is the local experiment below, not the CI history. Two parts:</p>
 <ul>
-<li>In a local 2x2 run, switching from psycopg2 to psycopg 3
-  (<a href="https://gitlab.com/visiban/visiban/-/issues/1252">#1252</a>, merged 2026-10-04 at 10:47 EDT)
-  added 11-12% to the <code>board_full</code> mean. The endpoint ran the same 17 queries and returned
-  byte-identical JSON.</li>
-<li>Django ticket <a href="https://code.djangoproject.com/ticket/36960">#36960</a> is the mechanism for
-  the largest identified part of that cost.</li>
+<li>In a local 2x2 run, switching from psycopg2 to psycopg 3 (<a href="https://gitlab.com/visiban/visiban/-/issues/1252">#1252</a>, merged 2026-10-04 at 10:47 EDT) added 11-12% to the <code>board_full</code> mean. The endpoint ran the same 17 queries and returned byte-identical JSON.</li>
+<li>Django ticket <a href="https://code.djangoproject.com/ticket/36960">#36960</a> is the mechanism for the largest identified part of that cost.</li>
 </ul>
-<p>A backport mitigates the parser part. <a href="https://gitlab.com/visiban/visiban/-/issues/1807">#1807</a>
-attributed the remainder of the driver step and fixed nothing further in Visiban code. One
-in-app option is untried and tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1813">#1813</a>.
-See <a href="#the-remaining-driver-step-1807">The remaining driver step</a>.</p>
+<p>A backport mitigates the parser part. <a href="https://gitlab.com/visiban/visiban/-/issues/1807">#1807</a> attributed the rest and fixed nothing further in Visiban code; one in-app option is untried (<a href="https://gitlab.com/visiban/visiban/-/issues/1813">#1813</a>). See <a href="#the-remaining-driver-step-1807">The remaining driver step</a>.</p>
 <h3 id="what-the-scheduled-runs-show">What the scheduled runs show<a class="headerlink" href="#what-the-scheduled-runs-show" title="Permanent link">&para;</a></h3>
-<p>The CI history is consistent with a step after #1252 but does not establish one on its own.
-The data before Oct 5 is too noisy.</p>
-<p>There were 25 completed scheduled <code>nightly-load-test</code> jobs between 2026-09-29 and 2026-10-20,
-including 3 retried jobs on Sep 29-30 that a default job listing hides. Card count was 2388 in
-every one. The jobs ran on <code>gitlab-runner-nuc-2-visiban</code> (12), <code>Runner-03-NUC</code> (11),
-<code>gitlab-runner-dell-01-visiban</code> (1, Oct 8, before the <code>nuc</code> pin) and <code>runner-04-NUC</code> (1,
-Oct 20). This table uses <code>board_full</code> p50, which is less noisy than p95. It covers all 23
-NUC jobs from Sep 29 to Oct 19, split at the first run that included #1252 (Oct 5). It
-leaves out the dell-01 job (different hardware class) and the runner-04 job (a single run,
-after the #1723 fixture change).</p>
+<p>The CI history is consistent with a step after #1252 but doesn't establish one on its own. The data before Oct 5 is too noisy.</p>
+<p>There were 25 completed scheduled <code>nightly-load-test</code> jobs between 2026-09-29 and 2026-10-20, including 3 retried jobs on Sep 29-30 that a default job listing hides. Card count was 2388 in every one. The jobs ran on:</p>
+<ul>
+<li><code>gitlab-runner-nuc-2-visiban</code> (12),</li>
+<li><code>Runner-03-NUC</code> (11),</li>
+<li><code>gitlab-runner-dell-01-visiban</code> (1, Oct 8, before the <code>nuc</code> pin),</li>
+<li><code>runner-04-NUC</code> (1, Oct 20).</li>
+</ul>
+<p>The table uses <code>board_full</code> p50, which is less noisy than p95. It covers all 23 NUC jobs from Sep 29 to Oct 19, split at the first run that included #1252 (Oct 5). It leaves out the dell-01 job (different hardware class) and the runner-04 job (a single run, after the #1723 fixture change).</p>
 <table>
 <thead>
 <tr>
@@ -4586,110 +4472,54 @@ after the #1723 fixture change).</p>
 </table>
 <p>Per job, before Oct 5 (job id, p50):</p>
 <ul>
-<li><code>gitlab-runner-nuc-2-visiban</code>: 16796278537 1143.7ms (Sep 29, retried, where the lighter
-  endpoints were also slow), 16796708105 959.1ms (Sep 29), 16825562214 1124.0ms (Sep 30,
-  retried), 16854145294 995.5ms, 16885874829 910.5ms, 16918108892 965.1ms (Oct 1-4).</li>
-<li><code>Runner-03-NUC</code>: 16796417688 1230.8ms (Sep 29, retried), 16826298383 1179.5ms (Sep 30),
-  16909453148 943.6ms (Oct 3).</li>
+<li><code>gitlab-runner-nuc-2-visiban</code>: 16796278537 1143.7ms (Sep 29, retried, where the lighter endpoints were slow), 16796708105 959.1ms (Sep 29), 16825562214 1124.0ms (Sep 30, retried), 16854145294 995.5ms, 16885874829 910.5ms, 16918108892 965.1ms (Oct 1-4).</li>
+<li><code>Runner-03-NUC</code>: 16796417688 1230.8ms (Sep 29, retried), 16826298383 1179.5ms (Sep 30), 16909453148 943.6ms (Oct 3).</li>
 </ul>
-<p>Four of the 9 NUC jobs before Oct 5 fall inside the "after" range, all of them on Sep 29-30.
-The other 5 (one on Sep 29 and the 4 from Oct 1-4) were 910-996ms. On <code>gitlab-runner-nuc-2-visiban</code> the medians moved
-from 980ms to 1128ms (+15%). On <code>Runner-03-NUC</code> they did not move: 1180ms before, 1154ms
-after. A reader who sets Sep 29-30 aside sees a clean step, and one who keeps it does not.
-That is why the verdict rests on the local measurement.</p>
-<p>Between the last job without #1252 (Oct 4, <code>7dee839ca</code>) and the first job with it (Oct 5,
-<code>724fbdd4b</code>), the job used the same <code>python:3.12-slim</code> image and the same job definition,
-and neither the load-test script nor <code>seed_demo_data</code> changed. Two direct dependency bumps in
-<code>backend/requirements.lock</code> account for every lock change between them:</p>
+<p>Four of the 9 NUC jobs before Oct 5 fall inside the "after" range, all of them on Sep 29-30. The other 5 (one on Sep 29 and the 4 from Oct 1-4) were 910-996ms.</p>
+<ul>
+<li>On <code>gitlab-runner-nuc-2-visiban</code> the medians moved from 980ms to 1128ms (+15%).</li>
+<li>On <code>Runner-03-NUC</code> they didn't move: 1180ms before, 1154ms after.</li>
+<li>A reader who sets Sep 29-30 aside sees a clean step, and one who keeps it doesn't. That is why the verdict rests on the local measurement.</li>
+</ul>
+<p>Between the last job without #1252 (Oct 4, <code>7dee839ca</code>) and the first job with it (Oct 5, <code>724fbdd4b</code>), the job used the same <code>python:3.12-slim</code> image and the same job definition, and neither the load-test script nor <code>seed_demo_data</code> changed. Two direct dependency bumps in <code>backend/requirements.lock</code> account for every lock change between them:</p>
 <ul>
 <li><code>psycopg2-binary</code> 2.9.11 became <code>psycopg</code> 3.3.6 plus <code>psycopg-binary</code> 3.3.6 (#1252).</li>
 <li><code>mcp</code> 1.30.0 became 2.3.0 (#1253). Its transitive set changed with it:</li>
-<li><code>httpx</code> and <code>httpcore</code> were replaced by <code>httpx2</code> and <code>httpcore2</code>, and <code>httpx2-jsfetch</code>
-    was added.</li>
+<li><code>httpx</code> and <code>httpcore</code> were replaced by <code>httpx2</code> and <code>httpcore2</code>, and <code>httpx2-jsfetch</code> was added.</li>
 <li><code>mcp-types</code>, <code>opentelemetry-api</code> and <code>truststore</code> were added.</li>
 <li><code>httpx-sse</code>, <code>pydantic-settings</code> and <code>python-dotenv</code> were dropped.</li>
 </ul>
-<p>The MCP SDK and its dependencies are not on the request path (<code>MCP_SERVER_ENABLED</code> is off in
-the job, so the SDK is never imported). The <code>board_full</code> serializer change in the same window (#1077) only adds schema
-<code>help_text</code>.</p>
-<p>The 2026-10-12 failure (job 17100891040, p95 1650.7ms against the then-1430ms budget) was a
-tail outlier. Its p50 was 1304ms, inside the post-Oct-5 range. The next two runs, on a commit
-with no change to the board serializer, view or requirements, measured p95 1228ms and 1155ms.</p>
+<p>The MCP SDK and its dependencies aren't on the request path (<code>MCP_SERVER_ENABLED</code> is off in the job, so the SDK is never imported). The <code>board_full</code> serializer change in the same window (#1077) only adds schema <code>help_text</code>.</p>
+<p>The 2026-10-12 failure (job 17100891040, p95 1650.7ms against the then-1430ms budget) was a tail outlier. Its p50 was 1304ms, inside the post-Oct-5 range. The next two runs, on a commit with no change to the board serializer, view or requirements, measured p95 1228ms and 1155ms.</p>
 <h3 id="root-cause-measured">Root cause, measured<a class="headerlink" href="#root-cause-measured" title="Permanent link">&para;</a></h3>
-<p>Django 5.2 parses every <code>timestamptz</code> value through
-<code>django.db.backends.postgresql.psycopg_any.BaseTzLoader</code>. That class subclasses psycopg's
-<strong>pure-Python</strong> <code>TimestamptzLoader</code>, so each datetime is parsed by a regex in Python, even
-with <code>psycopg[binary]</code> installed. The C loader that package ships is never used. This is
-Django ticket <a href="https://code.djangoproject.com/ticket/36960">#36960</a>, fixed upstream only in
-Django 6.1 (commit <code>994fa77</code>). psycopg2 parsed these values in C. One <code>board_full</code> response
-on the load-test board loads about 44,000 <code>timestamptz</code> values (cards, movements and the
-other prefetched rows).</p>
-<p>The cause was measured locally on a scale-20 fixture against PostgreSQL 17. It was not
-inferred from the dates.</p>
+<p>Django 5.2 parses every <code>timestamptz</code> value through <code>django.db.backends.postgresql.psycopg_any.BaseTzLoader</code>. That class subclasses psycopg's <strong>pure-Python</strong> <code>TimestamptzLoader</code>, so each datetime is parsed by a regex in Python, even with <code>psycopg[binary]</code> installed. The C loader that package ships is never used.</p>
 <ul>
-<li><strong>Same SQL, same payload.</strong> Under both drivers the endpoint runs 17 queries and returns
-  byte-identical JSON. A query-count guard cannot see this regression.</li>
-<li><strong>The driver accounts for the step.</strong> A 2x2 run crossed pre-drift code (<code>7dee839ca</code>) and
-  current code with each driver: 4 interleaved rounds of 40 requests each, <code>DEBUG=True</code> as
-  in CI. Changing the driver added about 11-12% to the mean on either code base:
-  622ms to 696ms on the old code, 630ms to 700ms on the current code. Changing the code
-  under psycopg2 added about 1% (622ms to 630ms). p95 rose more than the mean (about 667ms
-  to 839ms on the old code), which matches the ~25% p95 rise CI saw.</li>
-<li><strong>The Python timestamptz parser is the largest single identified part.</strong> A profile of 5
-  requests showed about 44,000 calls per request to <code>psycopg/types/datetime.py</code> <code>_load_iso</code>.
-  In a micro-benchmark that loads 14,014 <code>timestamptz</code> values from the fixture, the
-  per-value cost was about 1.5µs under psycopg 3 and 0.47µs under psycopg2. At 44,000
-  values that comes to about 45ms per request, out of a 74ms mean step on the old code.
-  #1800 did not attribute the rest of the driver difference.
-  <a href="https://gitlab.com/visiban/visiban/-/issues/1807">#1807</a> did. See
-  <a href="#the-remaining-driver-step-1807">The remaining driver step</a>.</li>
+<li>This is Django ticket <a href="https://code.djangoproject.com/ticket/36960">#36960</a>, fixed upstream only in Django 6.1 (commit <code>994fa77</code>).</li>
+<li>psycopg2 parsed these values in C.</li>
+<li>One <code>board_full</code> response on the load-test board loads about 44,000 <code>timestamptz</code> values (cards, movements and the other prefetched rows).</li>
+</ul>
+<p>The cause was measured locally on a scale-20 fixture against PostgreSQL 17, not inferred from the dates.</p>
+<ul>
+<li><strong>Same SQL, same payload.</strong> Under both drivers the endpoint runs 17 queries and returns byte-identical JSON. A query-count guard can't see this regression.</li>
+<li><strong>The driver accounts for the step.</strong> A 2x2 run crossed pre-drift code (<code>7dee839ca</code>) and current code with each driver: 4 interleaved rounds of 40 requests each, <code>DEBUG=True</code> as in CI. Changing the driver added about 11-12% to the mean on either code base: 622ms to 696ms on the old code, 630ms to 700ms on the current code. Changing the code under psycopg2 added about 1% (622ms to 630ms). p95 rose more than the mean (about 667ms to 839ms on the old code), which matches the ~25% p95 rise CI saw.</li>
+<li><strong>The Python timestamptz parser is the largest single identified part.</strong> A profile of 5 requests showed about 44,000 calls per request to <code>psycopg/types/datetime.py</code> <code>_load_iso</code>. In a micro-benchmark that loads 14,014 <code>timestamptz</code> values from the fixture, the per-value cost was about 1.5µs under psycopg 3 and 0.47µs under psycopg2. At 44,000 values that comes to about 45ms per request, out of a 74ms mean step on the old code. #1800 didn't attribute the rest of the driver difference. <a href="https://gitlab.com/visiban/visiban/-/issues/1807">#1807</a> did. See <a href="#the-remaining-driver-step-1807">The remaining driver step</a>.</li>
 </ul>
 <h3 id="the-mitigation">The mitigation<a class="headerlink" href="#the-mitigation" title="Permanent link">&para;</a></h3>
-<p><code>backend/visiban/db_psycopg.py</code> backports Django 6.1's change onto 5.2's <code>BaseTzLoader</code>. It
-wraps the loader psycopg registers by default (the C one with <code>psycopg[binary]</code>) and then
-re-applies the connection timezone exactly as Django did before. <code>boards.apps.BoardsConfig.ready()</code>
-applies it. Results are byte-identical to psycopg2's for the whole <code>board_full</code> response.
-With the backport in place:</p>
+<p><code>backend/visiban/db_psycopg.py</code> backports Django 6.1's change onto 5.2's <code>BaseTzLoader</code>. It wraps the loader psycopg registers by default (the C one with <code>psycopg[binary]</code>) and then re-applies the connection timezone exactly as Django did before. <code>boards.apps.BoardsConfig.ready()</code> applies it. Results are byte-identical to psycopg2's for the whole <code>board_full</code> response. With the backport in place:</p>
 <ul>
-<li>In the micro-benchmark, per-value loading drops from about 1.5µs to about 0.69µs
-  (psycopg2: 0.47µs). At 44,000 values per response that saves about 36ms per request. The
-  remaining 0.22µs per value is the Python wrapper and <code>.replace(tzinfo=...)</code>, which upstream
-  Django 6.1 keeps too.</li>
-<li>End to end, a 3-arm run on current code (psycopg2, psycopg 3, psycopg 3 with the
-  backport) was too noisy to resolve the effect well. It used 6 interleaved rounds of 30
-  requests each, <code>DEBUG=True</code>, on a development machine. The median of the per-round means
-  was 649ms, 722ms and 701ms. The median per-round saving from the backport was 35ms, against
-  a median driver step of 98ms. Several individual rounds had the opposite sign, so read this
-  only as agreeing with the micro-benchmark.</li>
+<li>In the micro-benchmark, per-value loading drops from about 1.5µs to about 0.69µs (psycopg2: 0.47µs). At 44,000 values per response that saves about 36ms per request. The remaining 0.22µs per value is the Python wrapper and <code>.replace(tzinfo=...)</code>, which upstream Django 6.1 keeps too.</li>
+<li>End to end, a 3-arm run on current code (psycopg2, psycopg 3, psycopg 3 with the backport) was too noisy to resolve the effect well. It used 6 interleaved rounds of 30 requests each, <code>DEBUG=True</code>, on a development machine. The median of the per-round means was 649ms, 722ms and 701ms. The median per-round saving from the backport was 35ms, against a median driver step of 98ms. Several individual rounds had the opposite sign, so read this only as agreeing with the micro-benchmark.</li>
 <li><code>boards/tests/test_db_psycopg.py</code> pins the backport:</li>
-<li>Values, tzinfo and errors must match Django's original <code>load</code>, captured from the
-    unpatched class, for three session TimeZones and three Django timezones. The inputs
-    include the overflow fallback, <code>infinity</code>, <code>-infinity</code> and BC values.</li>
-<li>A real query on PostgreSQL must never call the Python ISO parser. That check fails
-    without the backport.</li>
-<li>The backport turns itself off on a Django that already has the upstream fix, and on a
-    <code>BaseTzLoader</code> whose source no longer matches the reviewed fingerprint (logged as a
-    warning).</li>
+<li>Values, tzinfo and errors must match Django's original <code>load</code>, captured from the unpatched class, for three session TimeZones and three Django timezones. The inputs include the overflow fallback, <code>infinity</code>, <code>-infinity</code> and BC values.</li>
+<li>A real query on PostgreSQL must never call the Python ISO parser. That check fails without the backport.</li>
+<li>The backport turns itself off on a Django that already has the upstream fix, and on a <code>BaseTzLoader</code> whose source no longer matches the reviewed fingerprint (logged as a warning).</li>
 <li><strong>Delete the module once the <code>Django</code> pin reaches 6.1.</strong></li>
 </ul>
-<p>The backport removes roughly a third to a half of the driver step, not all of it. The
-remainder is attributed in <a href="#the-remaining-driver-step-1807">the next section</a>. Expect
-<code>board_full</code> to settle above its level without psycopg 3, not back at it. The committed budget
-(1695ms) was derived from a run before this fix. <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>
-re-derived it from a NUC run that includes the fix (job 17348200339): measured p95 was 1227.5ms
-and the budget is now 1720ms, higher than before, so the backport does not show as a lowering
-on that single sample. Never hand-edit it.</p>
+<p>The backport removes roughly a third to a half of the driver step, not all of it. The remainder is attributed in <a href="#the-remaining-driver-step-1807">the next section</a>. Expect <code>board_full</code> to settle above its level without psycopg 3, not back at it.</p>
+<p>The committed budget (1695ms) was derived from a run before this fix. <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a> re-derived it from a NUC run that includes the fix (job 17348200339): measured p95 was 1227.5ms and the budget is now 1720ms, higher than before, so the backport doesn't show as a lowering on that single sample. Never hand-edit it.</p>
 <h3 id="the-remaining-driver-step-1807">The remaining driver step — #1807<a class="headerlink" href="#the-remaining-driver-step-1807" title="Permanent link">&para;</a></h3>
-<p><strong>Verdict: the remaining step comes from psycopg 3, from Django's timestamptz loader and from
-the garbage collector's response to psycopg 3. Nothing further was fixed in Visiban code. One
-in-app option is untried and tracked in
-<a href="https://gitlab.com/visiban/visiban/-/issues/1813">#1813</a>.</strong> With the backport in place,
-psycopg 3 still made the local <code>board_full</code> mean about 45ms slower (7%). That is the median of
-the four per-round differences against psycopg2, measured in the same round. The medians of the
-per-round means in the table at the end of this section give a slightly larger 52ms (668ms
-against 720ms), because a median of differences is not the difference of two medians. Every
-step and part in this section is such a paired per-round median, and every absolute time is a
-median of per-round means.</p>
+<p><strong>Verdict: the remaining step comes from psycopg 3, from Django's timestamptz loader and from the garbage collector's response to psycopg 3. Nothing further was fixed in Visiban code. One in-app option is untried and tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1813">#1813</a>.</strong></p>
+<p>With the backport in place, psycopg 3 still made the local <code>board_full</code> mean about 45ms slower (7%): the median of the four per-round differences against psycopg2. The medians of the per-round means in the table at the end of this section give a larger 52ms (668ms against 720ms), because a median of differences isn't the difference of two medians. Every step and part here is a paired per-round median; every absolute time is a median of per-round means.</p>
 <p>With the collector on, which is how CI runs, the 45ms splits by phase of the request:</p>
 <table>
 <thead>
@@ -4727,135 +4557,55 @@ median of per-round means.</p>
 </tr>
 </tbody>
 </table>
-<p>The parts add up to 45ms. Each one is the median of its own per-round differences, so in
-general they add up only to within a millisecond or two.</p>
-<p>With the collector off, the step was +26ms. The same split gives +27ms for the wrapper, +10ms
-for the binding, -15ms for row loading and +4ms for everything else. That view helps isolate
-CPU costs, but do not combine it with the one above. Turning the collector off is not the same
-as removing its pauses: no reference cycle is freed, so the heap grows from request to request
-and the other phases change too. That is why the binding costs 10ms there and 5ms with the
-collector on, and why the step with the collector off (+26ms) plus the pauses (+40ms) is more
-than the step with it on (+45ms).</p>
+<p>The parts add up to 45ms. Each one is the median of its own per-round differences, so in general they add up only to within a millisecond or two.</p>
+<p>With the collector off, the step was +26ms. The same split gives +27ms for the wrapper, +10ms for the binding, -15ms for row loading and +4ms for everything else.</p>
+<p><strong>Watch out:</strong> Don't combine the collector-off view with the one above. Turning the collector off isn't the same as removing its pauses: no reference cycle is freed, so the heap grows from request to request and the other phases change too. That is why the binding costs 10ms there and 5ms with the collector on, and why the step with the collector off (+26ms) plus the pauses (+40ms) is more than the step with it on (+45ms). The off view only helps isolate CPU costs.</p>
 <ul>
-<li><strong>Garbage-collector pauses (+40ms).</strong> <code>gc.callbacks</code> measured 204ms of collector pauses per
-  request under psycopg 3 and 161ms under psycopg2. Most of that is in the three full
-  collections each request runs under both drivers: 179ms against 137ms. The C-loader arm below
-  had the same pauses as the shipped arm, 1ms apart, so the wrapper is not the cause. Python
-  starts a collection after a set number of container allocations. psycopg 3 runs add about
-  29,000 of them per request: 418 young-generation collections against 377, at the default
-  threshold of 700. The likely mechanism is that more allocations move the request's full
-  collections to later points, when more of the board is in memory. That the extra
-  allocations come from the placeholder parsing below is <strong>inferred</strong>, not isolated. The
-  parsing creates objects per placeholder, both psycopg 3 arms show the same 418 collections,
-  and the import footprint is ruled out below. But no arm removes the parsing on its own. The
-  collector is a large share of this endpoint under either driver: 161ms of psycopg2's 668ms
-  mean. A step made of collector timing moves with allocation patterns, so expect it to vary
-  more between runs and runners than plain CPU time does.</li>
-<li><strong>The timestamptz wrapper (+26ms).</strong> The backport delegates to psycopg's C loader and then
-  calls <code>.replace(tzinfo=self.timezone)</code> on each value, exactly as Django 6.1 does. That is a
-  Python call per value, about 43,800 per response. A counterfactual arm registered psycopg's C
-  loader directly, with no Python wrapper. Its fetch phase was 26ms shorter than the shipped
-  arm's (24.3ms against 50.7ms), and its whole request was 23ms shorter (per round +24, +27,
-  +22, +14). In the request, the wrapper costs about 0.6µs per value, more than the 0.22µs the
-  #1800 micro-benchmark measured in isolation.</li>
-<li><strong>Client-side binding (+5ms).</strong> <code>prefetch_related</code> renders as
-  <code>WHERE card_id IN (%s, %s, ...)</code>, with one placeholder per card. Six of the request's
-  queries carry 2,388 or 2,389 placeholders each, 14,329 in total. Django's psycopg 3 backend
-  binds parameters client-side (<code>ClientCursor</code>). psycopg 3 splits the query text on its
-  placeholders in Python (<code>psycopg/_queries.py</code>, <code>_split_query</code>). That creates a regex match,
-  a tuple and a <code>QueryPart</code> for every placeholder. psycopg caches the split only for queries of
-  at most 4,096 bytes and 50 parameters (<code>MAX_CACHED_STATEMENT_LENGTH</code>,
-  <code>MAX_CACHED_STATEMENT_PARAMS</code>), so these six are split again on every request. psycopg2
-  did this in C. Composing one of them took about 2.5ms under psycopg 3 and 1.1ms under
-  psycopg2, about 8ms over the six.</li>
-<li><strong>Row loading (-22ms).</strong> Without the wrapper, psycopg 3's fetch phase was 22ms shorter than
-  psycopg2's (24.3ms against 45.6ms). psycopg 3's C row loading is faster, and it absorbs most
-  of the wrapper's cost.</li>
+<li><strong>Garbage-collector pauses (+40ms).</strong> <code>gc.callbacks</code> measured 204ms of collector pauses per request under psycopg 3 and 161ms under psycopg2. Most of that's in the three full collections each request runs under both drivers: 179ms against 137ms.</li>
+<li>The C-loader arm below had the same pauses as the shipped arm, 1ms apart, so the wrapper isn't the cause.</li>
+<li>Python starts a collection after a set number of container allocations. psycopg 3 adds about 29,000 per request: 418 young-generation collections against 377, at the default threshold of 700. More allocations likely move the full collections to later points, when more of the board is in memory.</li>
+<li>That the extra allocations come from the placeholder parsing below is <strong>inferred</strong>, not isolated: the parsing creates objects per placeholder, both psycopg 3 arms show the same 418 collections, and the import footprint is ruled out below. But no arm removes the parsing on its own.</li>
+<li>The collector is 161ms of psycopg2's 668ms mean. A step made of collector timing varies more between runs and runners than plain CPU time does.</li>
+<li><strong>The timestamptz wrapper (+26ms).</strong> The backport delegates to psycopg's C loader and then calls <code>.replace(tzinfo=self.timezone)</code> on each value, exactly as Django 6.1 does. That is a Python call per value, about 43,800 per response. A counterfactual arm registered psycopg's C loader directly, with no Python wrapper. Its fetch phase was 26ms shorter than the shipped arm's (24.3ms against 50.7ms), and its whole request was 23ms shorter (per round +24, +27, +22, +14). In the request, the wrapper costs about 0.6µs per value, more than the 0.22µs the #1800 micro-benchmark measured in isolation.</li>
+<li><strong>Client-side binding (+5ms).</strong> <code>prefetch_related</code> renders as <code>WHERE card_id IN (%s, %s, ...)</code>, with one placeholder per card. Six of the request's queries carry 2,388 or 2,389 placeholders each, 14,329 in total.</li>
+<li>Django's psycopg 3 backend binds parameters client-side (<code>ClientCursor</code>).</li>
+<li>psycopg 3 splits the query text on its placeholders in Python (<code>psycopg/_queries.py</code>, <code>_split_query</code>). That creates a regex match, a tuple and a <code>QueryPart</code> for every placeholder.</li>
+<li>psycopg caches the split only for queries of at most 4,096 bytes and 50 parameters (<code>MAX_CACHED_STATEMENT_LENGTH</code>, <code>MAX_CACHED_STATEMENT_PARAMS</code>), so these six are split again on every request. psycopg2 did this in C.</li>
+<li>Composing one of them took about 2.5ms under psycopg 3 and 1.1ms under psycopg2, about 8ms over the six.</li>
+<li><strong>Row loading (-22ms).</strong> Without the wrapper, psycopg 3's fetch phase was 22ms shorter than psycopg2's (24.3ms against 45.6ms). psycopg 3's C row loading is faster, and it absorbs most of the wrapper's cost.</li>
 </ul>
 <p>Ruled out, each by measurement or by reading the path:</p>
 <ul>
-<li><strong>psycopg 3's import footprint.</strong> psycopg 3 adds about 8,100 GC-tracked objects at startup,
-  so it looked like a cause of the slower collections. A psycopg2 arm with psycopg 3
-  imported, but not used, measured the same as plain psycopg2: 8ms faster with the collector
-  on and 3ms faster with it off, both within noise.</li>
-<li><strong>Network and server time.</strong> Replaying the request's <code>SELECT</code>s with their SQL already
-  composed took 103.7ms under psycopg2 and 101.7ms under psycopg 3.</li>
-<li><strong>Other Python-side loaders.</strong> Every other column type in the response (varchar, text,
-  bool, int2, int4, int8, uuid, date, jsonb) loads through psycopg's C loaders. Django
-  registers psycopg's <code>TextLoader</code> for jsonb, inet and cidr, and psycopg substitutes its C
-  version for it.</li>
-<li><strong>Row factory.</strong> Django uses psycopg 3's default tuple rows, built in C. They are faster
-  than psycopg2's (above).</li>
-<li><strong>Server-side cursors.</strong> Not used on this path. Django opens a named cursor only for
-  chunked <code>.iterator()</code> reads, and <code>board_full</code> makes none.</li>
-<li><strong>Server-side binding.</strong> Django's <code>OPTIONS["server_side_binding"]</code> would not help. psycopg's
-  server-side <code>PostgresQuery</code> splits the query with the same <code>_split_query</code>, behind the same
-  4,096-byte and 50-parameter cache limits as the client-side <code>PostgresClientQuery</code>
-  (<code>psycopg/_queries.py</code>, the two <code>convert</code> methods).</li>
-<li><strong>Pipeline mode.</strong> Django does not use it. Each prefetch query also needs the ids returned
-  by the query before it, so the round trips could not be pipelined anyway.</li>
-<li><strong>The previous response staying in memory.</strong> Each request's first full collection frees
-  about 207,000 objects from the previous <code>board_full</code> response. The <code>@extend_schema</code>
-  decorator on the <code>full</code> action passes its schema class through the view's init kwargs, and
-  DRF's schema descriptor then stores each new view instance on that class. So the last view,
-  its response and the serialized board stay referenced until the next request to the same
-  action. Removing that reference did not change latency: the objects are reference cycles
-  that only the collector frees in either case. It is the same under both drivers and is not
-  part of this step. This is recorded as an observation only. No work on it is planned.</li>
+<li><strong>psycopg 3's import footprint.</strong> psycopg 3 adds about 8,100 GC-tracked objects at startup, so it looked like a cause of the slower collections. A psycopg2 arm with psycopg 3 imported, but not used, measured the same as plain psycopg2: 8ms faster with the collector on and 3ms faster with it off, both within noise.</li>
+<li><strong>Network and server time.</strong> Replaying the request's <code>SELECT</code>s with their SQL already composed took 103.7ms under psycopg2 and 101.7ms under psycopg 3.</li>
+<li><strong>Other Python-side loaders.</strong> Every other column type in the response (varchar, text, bool, int2, int4, int8, uuid, date, jsonb) loads through psycopg's C loaders. Django registers psycopg's <code>TextLoader</code> for jsonb, inet and cidr, and psycopg substitutes its C version for it.</li>
+<li><strong>Row factory.</strong> Django uses psycopg 3's default tuple rows, built in C. They are faster than psycopg2's (above).</li>
+<li><strong>Server-side cursors.</strong> Not used on this path. Django opens a named cursor only for chunked <code>.iterator()</code> reads, and <code>board_full</code> makes none.</li>
+<li><strong>Server-side binding.</strong> Django's <code>OPTIONS["server_side_binding"]</code> wouldn't help. psycopg's server-side <code>PostgresQuery</code> splits the query with the same <code>_split_query</code>, behind the same 4,096-byte and 50-parameter cache limits as the client-side <code>PostgresClientQuery</code> (<code>psycopg/_queries.py</code>, the two <code>convert</code> methods).</li>
+<li><strong>Pipeline mode.</strong> Django doesn't use it. Each prefetch query also needs the ids returned by the query before it, so the round trips couldn't be pipelined anyway.</li>
+<li><strong>The previous response staying in memory.</strong> Each request's first full collection frees about 207,000 objects from the previous <code>board_full</code> response.</li>
+<li>The <code>@extend_schema</code> decorator on the <code>full</code> action passes its schema class through the view's init kwargs, and DRF's schema descriptor then stores each new view instance on that class. So the last view, its response and the serialized board stay referenced until the next request to the same action.</li>
+<li>Removing that reference didn't change latency: the objects are reference cycles that only the collector frees in either case.</li>
+<li>It's the same under both drivers and isn't part of this step. Observation only; no work on it is planned.</li>
 </ul>
-<p>Why the parts are not fixed here:</p>
+<p>Why the parts aren't fixed here:</p>
 <ul>
-<li><strong>The wrapper.</strong> Registering psycopg's C loader directly returns the same values when the
-  session TimeZone is UTC, which Django sets. It does not return the same values for the
-  overflow fallback values that <code>boards/tests/test_db_psycopg.py</code> pins: Django relabels a
-  fixed-offset fallback value with its own timezone, and the C loader keeps the offset. Django's
-  <code>create_cursor</code> also reads <code>.timezone</code> from the registered loader class, which the C class
-  does not have, so this would need a second patch to Django. Django 6.1 keeps the wrapper,
-  so the change would depart from upstream instead of backporting it.</li>
-<li><strong>The binding.</strong> Raising psycopg's cache limits would keep a parsed copy of each large query
-  in memory for each distinct board size. Those would be long-lived objects for the collector
-  to walk, so the change would add to its work instead of removing it. The real fix is to not
-  send thousands of placeholders. Inside Django, that would mean one array parameter with
-  <code>= ANY(%s)</code>, a change to how Django builds <code>prefetch_related</code> lookups. Visiban could also do
-  it without a Django change: <code>board_full</code> loads a single board, so it could fetch each child
-  relation filtered by the board and attach the rows to the cards itself. That would remove
-  the <code>IN</code> lists under psycopg2 too. It is untried. The experiment is tracked in
-  <a href="https://gitlab.com/visiban/visiban/-/issues/1813">#1813</a>.</li>
-<li><strong>The collector.</strong> Tuning it is a process-wide change to every endpoint, not a driver
-  change. As a data point, calling <code>gc.freeze()</code> after startup made each arm faster than the
-  same arm with default settings in the same round: by about 53ms under psycopg2 (668ms to
-  616ms in the table) and about 77ms under psycopg 3 (720ms to 646ms). It also shrank the
-  psycopg 3 step from about 45ms to about 24ms (30ms from the table's medians). This is
-  recorded as an observation only. No work on collector tuning is planned.</li>
+<li><strong>The wrapper.</strong> Registering psycopg's C loader directly returns the same values when the session TimeZone is UTC, which Django sets. It doesn't return the same values for the overflow fallback values that <code>boards/tests/test_db_psycopg.py</code> pins: Django relabels a fixed-offset fallback value with its own timezone, and the C loader keeps the offset. Django's <code>create_cursor</code> also reads <code>.timezone</code> from the registered loader class, which the C class doesn't have, so this would need a second patch to Django. Django 6.1 keeps the wrapper, so the change would depart from upstream instead of backporting it.</li>
+<li><strong>The binding.</strong> Raising psycopg's cache limits would keep a parsed copy of each large query in memory for each distinct board size. Those would be long-lived objects for the collector to walk, so the change would add to its work instead of removing it. The real fix is to not send thousands of placeholders.</li>
+<li>Inside Django, that would mean one array parameter with <code>= ANY(%s)</code>, a change to how Django builds <code>prefetch_related</code> lookups.</li>
+<li>Visiban could also do it without a Django change: <code>board_full</code> loads a single board, so it could fetch each child relation filtered by the board and attach the rows to the cards itself. That would remove the <code>IN</code> lists under psycopg2 too.</li>
+<li>It's untried. The experiment is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1813">#1813</a>.</li>
+<li><strong>The collector.</strong> Tuning it is a process-wide change to every endpoint, not a driver change. As a data point, calling <code>gc.freeze()</code> after startup made each arm faster than the same arm with default settings in the same round: by about 53ms under psycopg2 (668ms to 616ms in the table) and about 77ms under psycopg 3 (720ms to 646ms). It shrank the psycopg 3 step from about 45ms to about 24ms (30ms from the table's medians). This is recorded as an observation only. No work on collector tuning is planned.</li>
 </ul>
 <p>How it was measured, so it can be repeated:</p>
 <ul>
-<li><strong>Setup.</strong> A throwaway <code>postgres:17-alpine</code> container (PostgreSQL 17.11). The fixture was
-  seeded with <code>manage.py seed_demo_data --force --scale 20 --with-notifications</code> (2,395
-  cards). The run used Python 3.12.6, Django 5.2.17, psycopg 3.3.6 with <code>psycopg-binary</code>, and
-  psycopg2-binary 2.9.11, on a development machine. The measurement predates
-  <a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>, which adds 199 small boards to the
-  nightly fixture and makes the cards table about 67% larger. To repeat it on the current
-  nightly fixture, seed with <code>manage.py seed_demo_data --force --scale 20 --extra-boards 199
-  --with-notifications</code>. The extra boards belong to <code>demo3</code> and are separate from the
-  <code>board_full</code> board, but this measurement was not repeated on that fixture.</li>
-<li><strong>Requests.</strong> Each request ran in-process through Django's test <code>Client</code>, with <code>demo2</code>'s PAT
-  from <code>manage.py provision_fuzz_token</code> and <code>DEBUG=True</code> as in CI. That is 19 queries per
-  request: the 17 the endpoint runs, plus the two token queries.</li>
-<li><strong>Arms.</strong> Each arm ran in a fresh process. The psycopg2 arm sets <code>sys.modules["psycopg"] =
-  None</code> before Django loads, so <code>psycopg_any</code> falls back to psycopg2. The C-loader arm
-  replaces <code>psycopg_any.register_tzloader</code> to register psycopg's default timestamptz loader
-  for UTC, and skips the <code>.timezone</code> check in <code>create_cursor</code>. It is a timing counterfactual,
-  not a candidate fix. Its responses were byte-identical to the other arms' on this fixture.</li>
-<li><strong>Phases.</strong> Phase times come from wrapping <code>django.db.backends.utils.CursorWrapper._execute</code>
-  and its <code>fetchone</code>, <code>fetchmany</code> and <code>fetchall</code>. Collector time comes from <code>gc.callbacks</code>.
-  "Collector off" means <code>gc.disable()</code> in that process. "<code>gc.freeze()</code>" means <code>gc.collect()</code>
-  then <code>gc.freeze()</code> after Django loads, before the warm-up requests.</li>
-<li><strong>Rounds.</strong> Four interleaved rounds. Each round ran every arm under each collector setting
-  once, with 3 warm-up requests and 15 timed requests. The table gives the median of the four
-  per-round means. The step column gives the median of the four differences against
-  psycopg2 under the same collector setting in the same round. Phase times in the text are
-  medians of per-round means too.</li>
+<li><strong>Setup.</strong> A throwaway <code>postgres:17-alpine</code> container (PostgreSQL 17.11). The fixture was seeded with <code>manage.py seed_demo_data --force --scale 20 --with-notifications</code> (2,395 cards). The run used Python 3.12.6, Django 5.2.17, psycopg 3.3.6 with <code>psycopg-binary</code>, and psycopg2-binary 2.9.11, on a development machine.</li>
+<li>The measurement predates <a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>, which adds 199 small boards to the nightly fixture and makes the cards table about 67% larger.</li>
+<li>To repeat it on the current nightly fixture, seed with <code>manage.py seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications</code>. The extra boards belong to <code>demo3</code> and are separate from the <code>board_full</code> board, but this measurement wasn't repeated on that fixture.</li>
+<li><strong>Requests.</strong> Each request ran in-process through Django's test <code>Client</code>, with <code>demo2</code>'s PAT from <code>manage.py provision_fuzz_token</code> and <code>DEBUG=True</code> as in CI. That is 19 queries per request: the 17 the endpoint runs, plus the two token queries.</li>
+<li><strong>Arms.</strong> Each arm ran in a fresh process. The psycopg2 arm sets <code>sys.modules["psycopg"] = None</code> before Django loads, so <code>psycopg_any</code> falls back to psycopg2. The C-loader arm replaces <code>psycopg_any.register_tzloader</code> to register psycopg's default timestamptz loader for UTC, and skips the <code>.timezone</code> check in <code>create_cursor</code>. It's a timing counterfactual, not a candidate fix. Its responses were byte-identical to the other arms' on this fixture.</li>
+<li><strong>Phases.</strong> Phase times come from wrapping <code>django.db.backends.utils.CursorWrapper._execute</code> and its <code>fetchone</code>, <code>fetchmany</code> and <code>fetchall</code>. Collector time comes from <code>gc.callbacks</code>. "Collector off" means <code>gc.disable()</code> in that process. "<code>gc.freeze()</code>" means <code>gc.collect()</code> then <code>gc.freeze()</code> after Django loads, before the warm-up requests.</li>
+<li><strong>Rounds.</strong> Four interleaved rounds. Each round ran every arm under each collector setting once, with 3 warm-up requests and 15 timed requests. The table gives the median of the four per-round means. The step column gives the median of the four differences against psycopg2 under the same collector setting in the same round. Phase times in the text are medians of per-round means too.</li>
 </ul>
 <table>
 <thead>
@@ -4908,58 +4658,27 @@ than the step with it on (+45ms).</p>
 </tr>
 </tbody>
 </table>
-<p>Per round, the psycopg 3 step was +45, +78, +44 and +36ms with the collector on, and +25, +27,
-+25 and +28ms with it off. This was measured on a development machine, not a NUC runner.
-The <code>board_full</code> budget was re-derived from a NUC run that includes #1800 in
-<a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>; see the note under "Re-deriving the baseline".</p>
+<p>Per round, the psycopg 3 step was +45, +78, +44 and +36ms with the collector on, and +25, +27, +25 and +28ms with it off. This was measured on a development machine, not a NUC runner. The <code>board_full</code> budget was re-derived from a NUC run that includes #1800 in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>; see the note under "Re-deriving the baseline".</p>
 <h3 id="what-1800-did-not-explain">What #1800 did not explain<a class="headerlink" href="#what-1800-did-not-explain" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>card_search</code> (p50 about 80ms to 84-90ms over the same period, and 100.7ms on
-  <code>runner-04-NUC</code>) and <code>notifications_unread</code> show no driver effect locally: psycopg2,
-  psycopg 3 and psycopg 3 with the backport measured within noise of each other. Their
-  smaller rise is not the timestamptz loader. Locally, <code>card_search</code> was also about 14%
-  slower on current code than on <code>7dee839ca</code>, with the same queries on both. (Measured with
-  token auth, as in the load test, that is 10 queries. The token lookup and the token
-  <code>last_used_at</code> update account for the extra two.) That comparison spans two separately
-  seeded databases and was not taken further here. #1805 explains these two, and also the
-  <code>card_timeline</code> and <code>notifications_list</code> rises that the #1767 re-derivation absorbed. See
-  <a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">the #1805 section</a> below.</li>
-<li>The job installs <code>backend/requirements.txt</code>, not the hash-pinned <code>requirements.lock</code>, and
-  its <code>python:3.12-slim</code> and <code>postgres:17-alpine</code> images are floating tags. Transitive
-  dependency and base-image versions can therefore change between two runs on the same
-  commit. Those unpinned versions are not visible in the lock diff above, and this
-  investigation did not rule them out from the CI data. The local measurement reproduces a
-  step of the observed size from the driver alone. When attributing a future drift, check
-  them.</li>
+<li><strong><code>card_search</code> and <code>notifications_unread</code></strong> show no driver effect locally: psycopg2, psycopg 3 and psycopg 3 with the backport measured within noise of each other. Their smaller rise (<code>card_search</code> p50 about 80ms to 84-90ms over the same period, and 100.7ms on <code>runner-04-NUC</code>) isn't the timestamptz loader.</li>
+<li>Locally, <code>card_search</code> was about 14% slower on current code than on <code>7dee839ca</code>, with the same queries on both. (Measured with token auth, as in the load test, that's 10 queries. The token lookup and the token <code>last_used_at</code> update account for the extra two.)</li>
+<li>That comparison spans two separately seeded databases and wasn't taken further here.</li>
+<li>
+<h1 id="1805-explains-these-two-and-also-the-card_timeline-and-notifications_list-rises-that-the-1767-re-derivation-absorbed-see-the-1805-section-below">1805 explains these two, and also the <code>card_timeline</code> and <code>notifications_list</code> rises that the #1767 re-derivation absorbed. See <a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">the #1805 section</a> below.<a class="headerlink" href="#1805-explains-these-two-and-also-the-card_timeline-and-notifications_list-rises-that-the-1767-re-derivation-absorbed-see-the-1805-section-below" title="Permanent link">&para;</a></h1>
+</li>
+<li><strong>Unpinned inputs.</strong> The job installs <code>backend/requirements.txt</code>, not the hash-pinned <code>requirements.lock</code>, and its <code>python:3.12-slim</code> and <code>postgres:17-alpine</code> images are floating tags. Transitive dependency and base-image versions can therefore change between two runs on the same commit. Those unpinned versions aren't visible in the lock diff above, and this investigation didn't rule them out from the CI data. The local measurement reproduces a step of the observed size from the driver alone. When attributing a future drift, check them.</li>
 </ul>
 <h2 id="the-october-2026-card_search-and-notifications_unread-drift-1805">The October 2026 <code>card_search</code> and <code>notifications_unread</code> drift — #1805<a class="headerlink" href="#the-october-2026-card_search-and-notifications_unread-drift-1805" title="Permanent link">&para;</a></h2>
-<p><strong>Verdict: three separate effects. One was a code regression, now fixed. One was a runner
-change. The third is unattributed, sits inside the budget headroom, and was not pursued.</strong></p>
+<p><strong>Verdict: three separate effects. One was a code regression, now fixed. One was a runner change. The third is unattributed, sits inside the budget headroom, and wasn't pursued.</strong></p>
 <ol>
-<li><strong><code>card_search</code> on Oct 20 was a regression in the code.</strong>
-   <a href="https://gitlab.com/visiban/visiban/-/issues/1723">#1723</a> rewrote the board access
-   filter (merged Oct 19) and made the cross-board card query slower to <em>plan</em>. The
-   query count and the payload stayed the same. #1805 fixes it in
-   <code>CardQueryViewSet.get_queryset()</code>.</li>
-<li><strong>All four light endpoints on Oct 20 ran on a different runner.</strong> That run was the first
-   scheduled run on <code>runner-04-NUC</code>. On endpoints whose code did not change, it measured 6-10%
-   slower than the other two NUC runners. This is one sample.</li>
-<li><strong>All four light endpoints stepped up 2-6% at p50 at the Oct 4/5 boundary</strong>, on both
-   NUC runners. That is 0.8-2.1ms on the three lightest and 3.2-4.4ms on <code>card_search</code>. It is
-   the same boundary as the <code>board_full</code> step above. A local driver A/B did not reproduce
-   it, so it is <strong>unattributed</strong>. It sits inside the 1.4x budget headroom and was not
-   pursued.</li>
+<li><strong><code>card_search</code> on Oct 20 was a regression in the code.</strong> <a href="https://gitlab.com/visiban/visiban/-/issues/1723">#1723</a> rewrote the board access filter (merged Oct 19) and made the cross-board card query slower to <em>plan</em>. The query count and the payload stayed the same. #1805 fixes it in <code>CardQueryViewSet.get_queryset()</code>.</li>
+<li><strong>All four light endpoints on Oct 20 ran on a different runner.</strong> That run was the first scheduled run on <code>runner-04-NUC</code>. On endpoints whose code didn't change, it measured 6-10% slower than the other two NUC runners. This is one sample.</li>
+<li><strong>All four light endpoints stepped up 2-6% at p50 at the Oct 4/5 boundary</strong>, on both NUC runners. That is 0.8-2.1ms on the three lightest and 3.2-4.4ms on <code>card_search</code>. It's the same boundary as the <code>board_full</code> step above. A local driver A/B didn't reproduce it, so it's <strong>unattributed</strong>. It sits inside the 1.4x budget headroom and wasn't pursued.</li>
 </ol>
-<p><code>card_timeline</code> and <code>notifications_list</code>, which the #1767 re-derivation also moved up, rose
-only through effects 2 and 3. The budgets were <strong>not</strong> re-derived here, because no NUC run
-had measured the fix yet. <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a> then re-derived
-them from job 17348200339: the <code>card_search</code> budget fell from 155 to 105ms against a NUC p95 of
-73.1ms (about 57ms locally).</p>
+<p><code>card_timeline</code> and <code>notifications_list</code>, which the #1767 re-derivation also moved up, rose only through effects 2 and 3. The budgets were <strong>not</strong> re-derived here, because no NUC run had measured the fix yet. <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a> then re-derived them from job 17348200339: the <code>card_search</code> budget fell from 155 to 105ms against a NUC p95 of 73.1ms (about 57ms locally).</p>
 <h3 id="what-the-scheduled-runs-show_1">What the scheduled runs show<a class="headerlink" href="#what-the-scheduled-runs-show_1" title="Permanent link">&para;</a></h3>
-<p>This uses the same 25 scheduled jobs and the same per-runner p50 method as #1800 above. The
-dell-01 job is excluded, and so is job 16796278537 (Sep 29, retried), where
-<code>notifications_unread</code>, <code>notifications_list</code> and <code>card_timeline</code> were 50-60% slower than in
-every other job. Each cell gives the median p50 across that runner's jobs:</p>
+<p>This uses the same 25 scheduled jobs and the same per-runner p50 method as #1800 above. The dell-01 job is excluded, and so is job 16796278537 (Sep 29, retried), where <code>notifications_unread</code>, <code>notifications_list</code> and <code>card_timeline</code> were 50-60% slower than in every other job. Each cell gives the median p50 across that runner's jobs:</p>
 <table>
 <thead>
 <tr>
@@ -4996,41 +4715,21 @@ every other job. Each cell gives the median p50 across that runner's jobs:</p>
 </tr>
 </tbody>
 </table>
-<p>On the Oct 20 run, the light endpoints were above both other runners' post-Oct-5 medians
-(84.2, 25.5, 34.3 and 33.5ms): <code>card_search</code> by 20%, <code>notifications_unread</code> by 10%,
-<code>card_timeline</code> by 9% and <code>notifications_list</code> by 6%. <code>board_full</code> was not: 1136ms against a
-1151ms median. That run is also the first after #1723 and #1721 merged (<code>37ad2d8e0</code> to
-<code>b1f1cf76b</code>), so the CI data alone cannot separate the runner from the code. The local A/B
-below does.</p>
+<p>On the Oct 20 run, the light endpoints were above both other runners' post-Oct-5 medians (84.2, 25.5, 34.3 and 33.5ms): <code>card_search</code> by 20%, <code>notifications_unread</code> by 10%, <code>card_timeline</code> by 9% and <code>notifications_list</code> by 6%. <code>board_full</code> wasn't: 1136ms against a 1151ms median. That run is the first after #1723 and #1721 merged (<code>37ad2d8e0</code> to <code>b1f1cf76b</code>), so the CI data alone can't separate the runner from the code. The local A/B below does.</p>
 <h3 id="card_search-the-access-filter-rewrite-1723"><code>card_search</code>: the access-filter rewrite (#1723)<a class="headerlink" href="#card_search-the-access-filter-rewrite-1723" title="Permanent link">&para;</a></h3>
-<p>Measured locally on one scale-20 database (PostgreSQL 17, <code>DEBUG=True</code> and no
-<code>CONN_MAX_AGE</code>, as in CI). The method was 6 interleaved rounds of 40 timed requests per
-endpoint, with the servers for both commits running against that same database. This
-answers the open question #1800 left: its 14% difference spanned two separately seeded
-databases.</p>
+<p>Measured locally on one scale-20 database (PostgreSQL 17, <code>DEBUG=True</code> and no <code>CONN_MAX_AGE</code>, as in CI). The method was 6 interleaved rounds of 40 timed requests per endpoint, with the servers for both commits running against that same database. This answers #1800's open question: its 14% difference spanned two separately seeded databases.</p>
 <ul>
-<li><strong>Only <code>card_search</code> moved.</strong> From <code>37ad2d8e0</code> (Oct 19 run) to <code>b1f1cf76b</code> (Oct 20 run),
-  the median per-round p50 went from 69.1ms to 77.6ms, slower in every round, and p95 went
-  from 72.9ms to 106.7ms. <code>notifications_unread</code>, <code>notifications_list</code> and <code>card_timeline</code>
-  were unchanged within 1ms. All four returned byte-identical JSON on both commits.</li>
-<li><strong>Same queries, slower planning.</strong> Both commits ran 10 queries with token auth (8 without
-  the token lookup and its <code>last_used_at</code> update). Only the main card SELECT
-  got slower, 25ms to 33ms. <code>EXPLAIN ANALYZE</code> on that statement:</li>
+<li><strong>Only <code>card_search</code> moved.</strong> From <code>37ad2d8e0</code> (Oct 19 run) to <code>b1f1cf76b</code> (Oct 20 run), the median per-round p50 went from 69.1ms to 77.6ms, slower in every round, and p95 went from 72.9ms to 106.7ms. <code>notifications_unread</code>, <code>notifications_list</code> and <code>card_timeline</code> were unchanged within 1ms. All four returned byte-identical JSON on both commits.</li>
+<li><strong>Same queries, slower planning.</strong> Both commits ran 10 queries with token auth (8 without the token lookup and its <code>last_used_at</code> update). Only the main card SELECT got slower, 25ms to 33ms. <code>EXPLAIN ANALYZE</code> on that statement:</li>
 <li>Execution: unchanged (15.2ms and 15.1ms).</li>
 <li>Planning: 11-15ms before, 19-23ms after, in fresh and warm sessions alike.</li>
-<li><strong>Mechanism.</strong> The view filters cards with <code>board_id__in=get_accessible_boards_queryset(user)</code>.
-  Before #1723 that subquery was <code>SELECT DISTINCT ... LEFT JOIN board_memberships</code>. #1723
-  replaced it with <code>owner = ... OR EXISTS(...)</code>. PostgreSQL pulls the subquery up into the
-  card SELECT's 7-table join (cards, board, column, swimlane, two users, external ref). With
-  the <code>OR EXISTS</code> form, the planner spends longer on that join than the executor spends
-  running it. #1723's <code>Exists()</code> alone accounts for the rise (planning 19-20ms).
-  <a href="https://gitlab.com/visiban/visiban/-/issues/1721">#1721</a>'s role filter added nothing
-  measurable.</li>
+<li><strong>Mechanism.</strong> The view filters cards with <code>board_id__in=get_accessible_boards_queryset(user)</code>. Before #1723 that subquery was <code>SELECT DISTINCT ... LEFT JOIN board_memberships</code>. #1723 replaced it with <code>owner = ... OR EXISTS(...)</code>.</li>
+<li>PostgreSQL pulls the subquery up into the card SELECT's 7-table join (cards, board, column, swimlane, two users, external ref). With the <code>OR EXISTS</code> form, the planner spends longer on that join than the executor spends running it.</li>
+<li>
+<h1 id="1723s-exists-alone-accounts-for-the-rise-planning-19-20ms-1721s-role-filter-added-nothing-measurable">1723's <code>Exists()</code> alone accounts for the rise (planning 19-20ms). <a href="https://gitlab.com/visiban/visiban/-/issues/1721">#1721</a>'s role filter added nothing measurable.<a class="headerlink" href="#1723s-exists-alone-accounts-for-the-rise-planning-19-20ms-1721s-role-filter-added-nothing-measurable" title="Permanent link">&para;</a></h1>
+</li>
 </ul>
-<p><strong>The fix.</strong> <code>get_queryset()</code> now evaluates the accessible board ids as a list (one small
-extra query) and passes the literal list to <code>board_id__in</code>. The access rule itself is
-untouched: the same <code>get_accessible_boards_queryset()</code> decides which ids are in the list.
-On the same statement:</p>
+<p><strong>The fix.</strong> <code>get_queryset()</code> now evaluates the accessible board ids as a list (one small extra query) and passes the literal list to <code>board_id__in</code>. The access rule itself is untouched: the same <code>get_accessible_boards_queryset()</code> decides which ids are in the list. On the same statement:</p>
 <table>
 <thead>
 <tr>
@@ -5067,12 +4766,8 @@ On the same statement:</p>
 </tr>
 </tbody>
 </table>
-<p>With this fixture's single board, the planner can also walk <code>card_board_updated_idx</code> in
-cursor order and stop at the 51st row instead of sorting every match. With 200 ids it went
-back to the old scan-and-sort, at the old execution time. Even 20,000 ids plan faster than
-the subquery did after #1723.</p>
-<p>End to end, with all three servers on one database (6 interleaved rounds, median per-round
-p50 / p95):</p>
+<p>With this fixture's single board, the planner can walk <code>card_board_updated_idx</code> in cursor order and stop at the 51st row instead of sorting every match. With 200 ids it went back to the old scan-and-sort, at the old execution time. Even 20,000 ids plan faster than the subquery did after #1723.</p>
+<p>End to end, with all three servers on one database (6 interleaved rounds, median per-round p50 / p95):</p>
 <table>
 <thead>
 <tr>
@@ -5099,82 +4794,36 @@ p50 / p95):</p>
 </tr>
 </tbody>
 </table>
-<p>The other three endpoints were unchanged within noise in all three arms. The response
-was byte-identical, and the request now runs 11 queries instead of 10.
-<code>CardQueryCountTests.test_access_filter_is_a_literal_id_list</code> in
-<code>boards/tests/test_card_query.py</code> pins the shape. It fails if the card SELECT's <code>WHERE</code>
-contains a <code>boards</code> or <code>board_memberships</code> subquery, or if the inlined ids are not exactly
-the caller's accessible boards. <code>test_access_filter_is_a_literal_id_list_for_site_admin</code>
-pins the same shape for a <code>can_access_all_content</code> user, whose list holds every board. Like
-the #1800 regression, this one left the query count unchanged, so a query-count guard would
-not have caught it.</p>
-<p><strong>What the <code>card_search</code> scenario now measures, and what it does not.</strong></p>
+<p>The other three endpoints were unchanged within noise in all three arms. The response was byte-identical, and the request now runs 11 queries instead of 10.</p>
 <ul>
-<li><strong>It measures only the single-board plan.</strong> The scenario runs as <code>demo2</code>, who can access
-  one board, so after the fix it times the single-board index walk on
-  <code>card_board_updated_idx</code>. The plan most multi-board users get (scan and sort, 13.5ms
-  execution at 200 ids in the table above) is not measured by this scenario. A budget derived
-  from it cannot see a regression on that path.</li>
-<li><strong><code>card_search_multi_board</code> measures the many-board plan.</strong>
-  <a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added it: the same request as
-  <code>card_search</code>, run as <code>demo3</code>, who owns 199 small extra boards (<code>--extra-boards 199</code>) and is a
-  member of the load-test board, so the card SELECT filters on a 200-id literal list. Its
-  budget is 120ms (<a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>, from NUC job
-  17348200339, measured p95 85.2ms). Do not hand-edit it.</li>
-<li><strong>It never exercised the trigram indexes.</strong> Django's <code>icontains</code> renders as
-  <code>UPPER(col) LIKE UPPER('%term%')</code>. The <code>card_title_trgm_idx</code> and <code>card_desc_trgm_idx</code>
-  indexes from migration 0030 are on the bare columns, so PostgreSQL cannot use them for
-  that expression:</li>
-<li>Before the fix the plan is a sequential scan on <code>cards</code>.</li>
-<li>After the fix it is the index walk above.</li>
-<li>With a selective term and <code>enable_seqscan=off</code>, the planner picks <code>cards_board_id_*</code>
-    and filters, still without the trigram indexes. They are used only by <code>ILIKE</code>, which
-    no card query issues.</li>
+<li><code>CardQueryCountTests.test_access_filter_is_a_literal_id_list</code> in <code>boards/tests/test_card_query.py</code> pins the shape. It fails if the card SELECT's <code>WHERE</code> contains a <code>boards</code> or <code>board_memberships</code> subquery, or if the inlined ids aren't exactly the caller's accessible boards.</li>
+<li><code>test_access_filter_is_a_literal_id_list_for_site_admin</code> pins the same shape for a <code>can_access_all_content</code> user, whose list holds every board.</li>
+<li>Like the #1800 regression, this one left the query count unchanged, so a query-count guard wouldn't have caught it.</li>
 </ul>
-<p>Neither search site (<code>boards/views/cards.py</code> or <code>boards/views/card_query.py</code>) can use the
-  indexes, yet they still cost a GIN update on every card write. This defect is tracked in
-  <a href="https://gitlab.com/visiban/visiban/-/issues/1809">#1809</a>.</p>
-<p>So the scenario measures the access filter, the per-card serialization of one 51-row page,
-  and the substring filter applied row by row.</p>
+<p><strong>What the <code>card_search</code> scenario now measures, and what it doesn't.</strong></p>
+<ul>
+<li><strong>It measures only the single-board plan.</strong> The scenario runs as <code>demo2</code>, who can access one board, so after the fix it times the single-board index walk on <code>card_board_updated_idx</code>. The plan most multi-board users get (scan and sort, 13.5ms execution at 200 ids in the table above) isn't measured by this scenario. A budget derived from it can't see a regression on that path.</li>
+<li><strong><code>card_search_multi_board</code> measures the many-board plan.</strong> <a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added it: the same request as <code>card_search</code>, run as <code>demo3</code>, who owns 199 small extra boards (<code>--extra-boards 199</code>) and is a member of the load-test board, so the card SELECT filters on a 200-id literal list. Its budget is 120ms (<a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>, from NUC job 17348200339, measured p95 85.2ms). Don't hand-edit it.</li>
+<li><strong>It never exercised the trigram indexes.</strong> Django's <code>icontains</code> renders as <code>UPPER(col) LIKE UPPER('%term%')</code>. The <code>card_title_trgm_idx</code> and <code>card_desc_trgm_idx</code> indexes from migration 0030 are on the bare columns, so PostgreSQL can't use them for that expression:</li>
+<li>Before the fix the plan is a sequential scan on <code>cards</code>.</li>
+<li>After the fix it's the index walk above.</li>
+<li>With a selective term and <code>enable_seqscan=off</code>, the planner picks <code>cards_board_id_*</code> and filters, still without the trigram indexes. They are used only by <code>ILIKE</code>, which no card query issues.</li>
+</ul>
+<p>Neither search site (<code>boards/views/cards.py</code> or <code>boards/views/card_query.py</code>) can use the indexes, yet they still cost a GIN update on every card write. This defect is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1809">#1809</a>.</p>
+<p>So the scenario measures the access filter, the per-card serialization of one 51-row page, and the substring filter applied row by row.</p>
 <h3 id="runner-04-nuc-one-slower-run"><code>runner-04-NUC</code>: one slower run<a class="headerlink" href="#runner-04-nuc-one-slower-run" title="Permanent link">&para;</a></h3>
-<p>Locally, the <code>37ad2d8e0</code> to <code>b1f1cf76b</code> change did not move <code>notifications_unread</code>,
-<code>notifications_list</code> or <code>card_timeline</code>. So their Oct 20 rise (6-10% over the other NUC
-runners' medians, above) is not the code. <code>runner-04-NUC</code> is <code>nuc</code>-tagged and was correctly
-eligible, but this was its first scheduled <code>nightly-load-test</code> run, and there is no second
-sample yet. <code>card_search</code>'s 20% on that run fits both causes together: about 10% from #1723
-and about 10% from the runner.</p>
-<p>Do not treat <code>runner-04-NUC</code> as interchangeable with the other two NUC runners until more
-runs land on it. When a budget fails on that runner, first compare its p50 with the other
-runners' recent runs, as above. The current baseline was derived from this run, so its light
-endpoint budgets carry the runner's extra 6-10%.</p>
+<p>Locally, the <code>37ad2d8e0</code> to <code>b1f1cf76b</code> change didn't move <code>notifications_unread</code>, <code>notifications_list</code> or <code>card_timeline</code>. So their Oct 20 rise (6-10% over the other NUC runners' medians, above) isn't the code. <code>runner-04-NUC</code> is <code>nuc</code>-tagged and was correctly eligible, but this was its first scheduled <code>nightly-load-test</code> run, and there's no second sample yet. <code>card_search</code>'s 20% on that run fits both causes together: about 10% from #1723 and about 10% from the runner.</p>
+<p><strong>Watch out:</strong> Don't treat <code>runner-04-NUC</code> as interchangeable with the other two NUC runners until more runs land on it. When a budget fails on that runner, first compare its p50 with the other runners' recent runs, as above. The current baseline was derived from this run, so its light endpoint budgets carry the runner's extra 6-10%.</p>
 <h3 id="the-oct-45-step-on-the-light-endpoints">The Oct 4/5 step on the light endpoints<a class="headerlink" href="#the-oct-45-step-on-the-light-endpoints" title="Permanent link">&para;</a></h3>
-<p>All four light endpoints rose 2-6% (0.8-2.1ms at p50, 3.2-4.4ms on <code>card_search</code>) between the
-Oct 4 run on <code>7dee839ca</code> and the runs from Oct 5 on, on both NUC runners. That is the
-boundary where #1800 found the <code>board_full</code> step. Per #1800, the only lock changes in that
-window are psycopg 3 (#1252) and the MCP SDK, and the MCP SDK is not imported in the job. The
-settings changes in the window add no per-request work.</p>
-<p>The driver does not reproduce it locally. On <code>b1f1cf76b</code>, with one database and 8
-interleaved rounds, psycopg 3 was not slower than psycopg2 on any of these endpoints. On the
-three lightest it was 1.4-2.2ms faster at p50, and <code>card_search</code> measured 77.5ms against
-77.9ms. That commit predates #1800's backport, so psycopg 3 was still parsing <code>timestamptz</code>
-in Python and was still not slower. psycopg2 was forced by shadowing the <code>psycopg</code> import,
-so Django fell back to psycopg2 2.9.11. A new
-connection per request (<code>CONN_MAX_AGE</code> unset) is part of both arms. The development machine
-is macOS on arm64, while CI is <code>python:3.12-slim</code> on x86_64. This test does not cover a
-platform-specific driver cost, nor the unpinned transitive dependencies and floating images</p>
-<h1 id="1800-lists">1800 lists.<a class="headerlink" href="#1800-lists" title="Permanent link">&para;</a></h1>
-<p>This step is therefore <strong>unattributed</strong>. It is 0.8-2.1ms per request on the three lightest
-endpoints and 3.2-4.4ms on <code>card_search</code>, which is 2-6% and well inside the 1.4x budget factor,
-so it was not pursued. If it grows, run the same driver A/B on a NUC runner rather than on a
-development machine.</p>
-<h2 id="failure-notifications">Failure notifications<a class="headerlink" href="#failure-notifications" title="Permanent link">&para;</a></h2>
-<p>The scheduled run is blocking (not <code>allow_failure</code>), so a budget violation fails the pipeline.
-GitLab emails every project maintainer who has "Failed pipeline" notifications enabled
-(<strong>Profile → Notifications → Global notification level → "Watch"</strong>, or per-project under
-<strong>Project → Notification settings</strong>) — the same mechanism the nightly CVE scan
-(<code>backend-dep-scan</code> / <code>frontend-dep-scan</code>, on the separate Nightly schedule) already relies
-on. The load test keeps its own schedule rather than joining that one because its latency
-budgets are noisy on a busy runner — see <a href="../ci-gates/#scheduled-pipelines">Scheduled pipelines</a>.</p>
+<p>All four light endpoints rose 2-6% (0.8-2.1ms at p50, 3.2-4.4ms on <code>card_search</code>) between the Oct 4 run on <code>7dee839ca</code> and the runs from Oct 5 on, on both NUC runners. That is the boundary where #1800 found the <code>board_full</code> step. Per #1800, the only lock changes in that window are psycopg 3 (#1252) and the MCP SDK, and the MCP SDK isn't imported in the job. The settings changes in the window add no per-request work.</p>
+<p>The driver doesn't reproduce it locally. On <code>b1f1cf76b</code>, with one database and 8 interleaved rounds, psycopg 3 wasn't slower than psycopg2 on any of these endpoints. On the three lightest it was 1.4-2.2ms faster at p50, and <code>card_search</code> measured 77.5ms against 77.9ms.</p>
+<ul>
+<li>That commit predates #1800's backport, so psycopg 3 was still parsing <code>timestamptz</code> in Python and was still not slower.</li>
+<li>psycopg2 was forced by shadowing the <code>psycopg</code> import, so Django fell back to psycopg2 2.9.11.</li>
+<li>A new connection per request (<code>CONN_MAX_AGE</code> unset) is part of both arms.</li>
+<li>The development machine is macOS on arm64, while CI is <code>python:3.12-slim</code> on x86_64. This test doesn't cover a platform-specific driver cost, nor the unpinned transitive dependencies and floating images #1800 lists.</li>
+</ul>
+<p>This step is therefore <strong>unattributed</strong>. It's 0.8-2.1ms per request on the three lightest endpoints and 3.2-4.4ms on <code>card_search</code>, which is 2-6% and well inside the 1.4x budget factor, so it wasn't pursued. If it grows, run the same driver A/B on a NUC runner rather than on a development machine.</p>
 
 
 

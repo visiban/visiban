@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#authorization-entry-points" class="md-skip">
+        <a href="#which-function-each-entry-point-calls-to-enforce-a-security-rule" class="md-skip">
           Skip to content
         </a>
       
@@ -4087,22 +4087,14 @@
   
 
 
-<h1 id="authorization-entry-points">Authorization Entry Points<a class="headerlink" href="#authorization-entry-points" title="Permanent link">&para;</a></h1>
-<p>Visiban can be reached over several transports: the REST API, the MCP server,
-the board and group WebSocket consumers, invite links and the allauth OAuth
-adapter. Some security rules apply on all of them. This page says which shared
-function each entry point calls, and how the test that enforces it works, so a
-new view, consumer or transport knows what to call before it merges.</p>
-<p>The rules themselves, and the surfaces each one covers, are listed in the
-<a href="../security-invariants/">Security Invariants Registry</a>. This page covers the
-code you call to apply them.</p>
+<h1 id="which-function-each-entry-point-calls-to-enforce-a-security-rule">Which function each entry point calls to enforce a security rule<a class="headerlink" href="#which-function-each-entry-point-calls-to-enforce-a-security-rule" title="Permanent link">&para;</a></h1>
+<p><a id="authorization-entry-points"></a></p>
+<p>A new view, consumer, or transport calls the shared function for each rule that applies to it, and a CI test fails if it doesn't.</p>
+<p><strong>Why it matters:</strong> Visiban can be reached over several transports: the REST API, the MCP server, the board and group WebSocket consumers, invite links and the allauth OAuth adapter. Some security rules apply on all of them, so this page says what to call before you merge.</p>
+<p><strong>Go deeper:</strong> The rules themselves, and the surfaces each one covers, are in the <a href="../security-invariants/">Security Invariants Registry</a>. This page covers the code you call to apply them.</p>
 <h2 id="why-one-function-per-rule">Why one function per rule<a class="headerlink" href="#why-one-function-per-rule" title="Permanent link">&para;</a></h2>
-<p>Each rule used to be written again on every transport. A fix to one copy then
-left the other copies unfixed, and each gap was found only when a reviewer
-happened to look at the other transport. Now each rule has one definition in
-<code>backend/visiban/authorization.py</code>. Every entry point calls it, and
-<code>backend/accounts/tests/test_auth_entry_points.py</code> fails CI when an entry point
-does not.</p>
+<p>Each rule has one definition in <code>backend/visiban/authorization.py</code>. Every entry point calls it, and <code>backend/accounts/tests/test_auth_entry_points.py</code> fails CI when an entry point doesn't.</p>
+<p><strong>Why it matters:</strong> Each rule used to be written again on every transport. A fix to one copy left the other copies unfixed, and a reviewer found each gap only by happening to look at the other transport.</p>
 <h2 id="the-shared-functions">The shared functions<a class="headerlink" href="#the-shared-functions" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4156,7 +4148,7 @@ does not.</p>
 <tr>
 <td>Import user scoping (Rule 5)</td>
 <td><code>boards/services/trello_import.py</code> <code>visible_users</code> (unchanged); JSON and CSV reach it through <code>boards/views/import_export.py</code> <code>_resolve_import_users</code></td>
-<td><code>BoardImportExportMixin</code> only. Intentionally outside the enumeration test: it is already one shared function, and every import format enters through the one mixin, so there is no second transport for a copy to drift on. <code>boards/tests/test_import_user_scope.py</code> covers it</td>
+<td><code>BoardImportExportMixin</code> only. Intentionally outside the enumeration test: it's already one shared function, and every import format enters through the one mixin, so there's no second transport for a copy to drift on. <code>boards/tests/test_import_user_scope.py</code> covers it</td>
 </tr>
 </tbody>
 </table>
@@ -4168,14 +4160,14 @@ account they apply the forced-change gates through
 account's session already resolves to an anonymous user). The enumeration test
 checks that every routed top-level path segment is either one of that
 middleware's gated prefixes or listed in <code>NOT_SESSION_HTML</code> with a reason, so a
-new top-level HTML mount is reported until someone decides. It also gives every
+new top-level HTML mount is reported until someone decides. It gives every
 route under the gated prefixes a forced-change decision in
 <code>FORCED_CHANGE_ROUTE_DECISIONS</code>, either <code>gated</code> or <code>exempt: &lt;reason&gt;</code>, and
 checks the middleware's answer for each pending flag: a gated route redirects
 GET to <code>FRONTEND_URL</code> and refuses POST with 403, an exempt one reaches its
 view. Django admin site views are <code>gated</code> by rule, with <code>admin/logout/</code> the
 recorded exception, and each of their routes is exercised too. A new route
-with no decision, a decision the middleware does not keep, and a decision for a
+with no decision, a decision the middleware doesn't keep, and a decision for a
 route that no longer exists all fail the test. An installed extension package
 gates its own session-based HTML prefixes through the setting
 <code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code> and exempts its own views through
@@ -4184,17 +4176,14 @@ gates its own session-based HTML prefixes through the setting
 resolves to (<code>PENDING_ACTION_EXEMPT_VIEWS</code>, by URL name, or by dotted view path
 for an unnamed route), never on the shape of the path. A view qualifies only
 when an anonymous visitor reaches it with the same effect, so a pending session
-gains nothing a signed-out browser does not have (logout, the password-reset
+gains nothing a signed-out browser doesn't have (logout, the password-reset
 pages, the email-confirmation redirect, static result pages), or when it
 applies the forced-change gate itself: the SSO login and callback of each
 installed provider qualify because <code>SocialRegistrationAdapter.pre_social_login</code>
 refuses a <code>process=connect</code> callback for an inactive account or one with a pending change. A view that changes
 the signed-in account (email addresses, connected providers, passwords) is
 never exempt.</p>
-<p>The admission rule above is documented policy. What the code enforces is a
-subset (<code>visiban.middleware.oss_gated_view_names</code>): the middleware ignores, and
-system check <code>accounts.E007</code> reports, a <code>PENDING_ACTION_EXTRA_EXEMPT_VIEWS</code>
-entry that names, other than a view already exempt in OSS,</p>
+<p>The admission rule above is documented policy. The code enforces a subset (<code>visiban.middleware.oss_gated_view_names</code>). The middleware ignores, and system check <code>accounts.E007</code> reports, a <code>PENDING_ACTION_EXTRA_EXEMPT_VIEWS</code> entry that names, other than a view already exempt in OSS,</p>
 <ul>
 <li>any view that can serve a path under the built-in <code>/accounts/</code> or <code>/admin/</code>
   prefixes, whoever mounted it (including admin model views whose routes take
@@ -4202,31 +4191,22 @@ entry that names, other than a view already exempt in OSS,</p>
 <li>any OSS view that can serve a path under a <code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code>
   entry.</li>
 </ul>
-<p>"Can serve" is decided on each URL pattern's matching rules, not on its printed
-route (#1593): a regex alternation such as <code>^(?:accounts|admin)/</code>, a leading
-converter such as <code>&lt;str:section&gt;/</code> (which can be <code>accounts</code>), a <code>path</code>
-converter and an unanchored regex (Django applies it with <code>search()</code>) all
-count. A route whose reach the walk cannot bound (a regex that would have to
-match past the end of the gated prefix, a custom converter, an unknown pattern
-class such as <code>LocalePrefixPattern</code>) is counted, so the check fails safe and may
-reject a name that could not in fact reach a gated path; rename that URL.</p>
-<p>An extension's own views are the top-level patterns the root URLconf took from
-its extension point: <code>visiban/urls.py</code> keeps them in <code>extension_urlpatterns</code>
-(filled from <code>enterprise.urls.enterprise_urlpatterns</code>). Those count only under
-the built-in prefixes, so an extension can exempt its own view under its own
-prefix. A root URLconf without <code>extension_urlpatterns</code> (a project that replaces
-<code>ROOT_URLCONF</code> instead of using the extension point) marks every route as OSS;
-such a project must declare <code>extension_urlpatterns</code> in its root module for its
-own views under an extra prefix to be exemptible.</p>
-<p>Extension routes are identified by object identity: a top-level pattern counts
-as the extension's own only if it is the same object listed in
-<code>enterprise_urlpatterns</code> (and so in <code>extension_urlpatterns</code>). An extension must
-register the very pattern objects it exposes. Wrapping or copying them, or
-listing an OSS pattern object in <code>enterprise_urlpatterns</code>, mislabels routes, and
-an OSS <code>include()</code> wrapped inside an extension's own include is treated as
-extension routes in full. A literal endpoint regex without an end anchor
-(<code>^acc</code>) is matched with <code>search()</code> by Django and so counts as open-ended: it can
-serve <code>/accounts/x</code>.</p>
+<p>"Can serve" is decided on each URL pattern's matching rules, not on its printed route (#1593). All of these count:</p>
+<ul>
+<li>a regex alternation such as <code>^(?:accounts|admin)/</code>,</li>
+<li>a leading converter such as <code>&lt;str:section&gt;/</code> (which can be <code>accounts</code>),</li>
+<li>a <code>path</code> converter, and</li>
+<li>an unanchored regex (Django applies it with <code>search()</code>).</li>
+</ul>
+<p>A route whose reach the walk can't bound (a regex that would have to match past the end of the gated prefix, a custom converter, an unknown pattern class such as <code>LocalePrefixPattern</code>) is counted. The check fails safe and may reject a name that couldn't in fact reach a gated path; rename that URL.</p>
+<p><strong>Extension routes.</strong> An extension's own views are the top-level patterns the root URLconf took from its extension point: <code>visiban/urls.py</code> keeps them in <code>extension_urlpatterns</code> (filled from <code>enterprise.urls.enterprise_urlpatterns</code>).</p>
+<ul>
+<li>Those count only under the built-in prefixes, so an extension can exempt its own view under its own prefix.</li>
+<li>A root URLconf without <code>extension_urlpatterns</code> (a project that replaces <code>ROOT_URLCONF</code> instead of using the extension point) marks every route as OSS. Such a project must declare <code>extension_urlpatterns</code> in its root module for its own views under an extra prefix to be exemptible.</li>
+<li>Extension routes are identified by object identity: a top-level pattern counts as the extension's own only if it's the same object listed in <code>enterprise_urlpatterns</code> (and so in <code>extension_urlpatterns</code>). An extension must register the pattern objects it exposes.</li>
+<li>Wrapping or copying them, or listing an OSS pattern object in <code>enterprise_urlpatterns</code>, mislabels routes. An OSS <code>include()</code> wrapped inside an extension's own include is treated as extension routes in full.</li>
+<li>A literal endpoint regex without an end anchor (<code>^acc</code>) is matched with <code>search()</code> by Django and so counts as open-ended: it can serve <code>/accounts/x</code>.</li>
+</ul>
 <p>REST keeps DRF permission classes. They evaluate the same gate objects as the
 other transports, one gate per class, so that an endpoint a pending user must
 reach to clear the flag (for example <code>ChooseUsernameView</code>) can leave out exactly
@@ -4235,16 +4215,16 @@ one gate.</p>
 <p><strong>A REST view.</strong> Do nothing. A view that keeps <code>DEFAULT_PERMISSION_CLASSES</code>
 gets both forced-change gates. If the view declares its own
 <code>permission_classes</code>, include <code>MustNotHavePendingPasswordChange</code> and
-<code>MustNotHavePendingUsernameChange</code> in the list. If the view really must serve
-a user who has not authenticated, or one with a pending change, add it to
+<code>MustNotHavePendingUsernameChange</code> in the list. If the view must serve
+a user who hasn't authenticated, or one with a pending change, add it to
 <code>REST_GATE_ALLOWLIST</code> in the test with a one-line reason and the exact routes
-it is mounted at. To exempt only one method, use the key <code>"module.View:GET"</code>.
+it's mounted at. To exempt only one method, use the key <code>"module.View:GET"</code>.
 An entry covers only the routes it lists, so mounting the same view somewhere
 new needs a new decision. A route ending in <code>*</code> is a prefix: <code>accounts/oidc/*</code>
 covers every route under <code>accounts/oidc/</code>. A bare <code>*</code> (or <code>/*</code>), which would
 cover every mount, is refused, and so is an entry with no reason or no routes.
 An entry marked <code>optional</code> may match nothing, for a view that exists only in
-some configurations; it is never reported as stale, whether its routes are
+some configurations; it's never reported as stale, whether its routes are
 exact or prefixes.</p>
 <p><strong>A non-DRF Django view.</strong> No DRF permission class runs on it. Write a DRF
 view instead, or add it to <code>NON_DRF_ALLOWLIST</code> with a reason and its routes.
@@ -4252,40 +4232,39 @@ Mount it under <code>/accounts/</code> or <code>/admin/</code> so <code>PendingA
 applies the forced-change gates, and record its decision in
 <code>FORCED_CHANGE_ROUTE_DECISIONS</code> (an exemption also needs its view name in
 <code>PENDING_ACTION_EXEMPT_VIEWS</code> and must meet the rule above); a new top-level
-path segment fails the test until it is added to the middleware's prefixes or
+path segment fails the test until it's added to the middleware's prefixes or
 to <code>NOT_SESSION_HTML</code>.
 Entries name exact view classes, not modules, so a view that a new allauth
 release adds is reported until someone reviews it. Views served by
 <code>django.contrib.admin.site</code> itself are recognized per view (they require an
-active staff session); a view merely mounted under an <code>admin</code> namespace is not.</p>
+active staff session); a view merely mounted under an <code>admin</code> namespace isn't.</p>
 <p><strong>A new DRF authentication class.</strong> The REST inactive-account gate is applied
 by the authentication classes, so the test accepts only the ones in
 <code>ACTIVE_CHECKING_AUTHENTICATORS</code>. Check that the new class refuses an inactive
 user, then add it to that list.</p>
 <p><strong>A WebSocket consumer.</strong> In <code>connect</code>, refuse an unauthenticated scope or one
 with no recorded credential (4001). Then call <code>authorize_account(user)</code> before
-any database lookup, and close with 4003 when it returns false. Do not pass
+any database lookup, and close with 4003 when it returns false. Don't pass
 <code>exempt</code>: the handshake has no forced-change flow. Run the
 periodic access re-check through <code>load_live_ws_user(self.scope)</code>. The test
 opens a socket to every consumer routed by <code>visiban.asgi.application</code>,
-including enterprise patterns, and fails if the handshake does not consult the
+including enterprise patterns, and fails if the handshake doesn't consult the
 shared gates.</p>
 <p><strong>An MCP tool.</strong> Do nothing. Tools are reachable only through the mounted MCP
 app, and <code>BearerAuthMiddleware</code> wraps that app and applies the gates to every
-request. A new MCP <em>transport</em> must also be wrapped in <code>BearerAuthMiddleware</code>.</p>
+request. A new MCP <em>transport</em> must be wrapped in <code>BearerAuthMiddleware</code>.</p>
 <p><strong>An invite link kind.</strong> A model with a <code>token_hash</code> and a <code>created_by</code> field
 is treated as an invite link. Register its creator rule in
 <code>INVITE_CREATOR_RULES</code> (<code>invite_creator_is_valid</code> dispatches through that
 table), and call <code>invite_creator_is_valid</code> at preview and at redemption. Claim the token atomically under a lock (Rule 4).</p>
 <p><strong>An allauth hook.</strong> Override it on <code>RegistrationAdapter</code> or
-<code>SocialRegistrationAdapter</code>. Do not rely on allauth's default. The test checks
+<code>SocialRegistrationAdapter</code>. Don't rely on allauth's default. The test checks
 that the configured adapters are the project's own classes and that they
 override the signup hooks. <code>RegistrationAdapter.set_password</code> is such a hook: allauth's
 change, set and reset-from-key flows store the password through it, and it saves the
 password and runs <code>finalize_password_change</code> in one transaction.</p>
 <h2 id="how-the-enforcement-test-finds-entry-points">How the enforcement test finds entry points<a class="headerlink" href="#how-the-enforcement-test-finds-entry-points" title="Permanent link">&para;</a></h2>
-<p>The test discovers entry points from the running configuration. It does not
-keep a list of them, so a new entry point is checked without anyone adding it:</p>
+<p>The test discovers entry points from the running configuration. It keeps no list of them, so a new entry point is checked without anyone adding it:</p>
 <ul>
 <li><strong>REST:</strong> walks the root URL resolver. For each DRF view and each HTTP method
   it serves (each viewset action, plus <code>OPTIONS</code>), it builds the view and reads
@@ -4297,9 +4276,9 @@ keep a list of them, so a new entry point is checked without anyone adding it:</
   the <code>URLRouter</code> and opens a socket to each routed consumer. During that
   handshake, the shared gate evaluator is replaced by a spy that refuses
   everyone. A consumer passes when the spy saw the scope user with no gate
-  exempted and the socket was not accepted. The test also parses each
+  exempted and the socket wasn't accepted. The test also parses each
   consumer's source (and its project base classes) and requires a call to
-  <code>load_live_ws_user</code> for its re-check; a mention in a comment does not count.</li>
+  <code>load_live_ws_user</code> for its re-check; a mention in a comment doesn't count.</li>
 <li><strong>MCP:</strong> calls the transport's <code>_authenticate_and_authorize</code> with the spy in
   place. When the MCP SDK is installed, it also checks that the mounted app is
   wrapped in <code>BearerAuthMiddleware</code>.</li>
@@ -4316,25 +4295,16 @@ keep a list of them, so a new entry point is checked without anyone adding it:</
   checked as real calls in the parsed source, so a mention in a comment does
   not count.</li>
 </ul>
-<p>Each checker also has a negative test. A synthetic view, viewset action,
-consumer, authenticator or invite model that skips the shared check must be
-reported. This proves the checker can fail.</p>
-<p>The allowlists cannot go stale. A view and route pair that matches no
-discovered entry point fails the test, and so does an allowlisted view that
-already applies both gates. Entries for views that exist only in some
-configurations (an OIDC provider installed only when its settings are present)
-are marked optional.</p>
+<p>Each checker also has a negative test: a synthetic view, viewset action, consumer, authenticator or invite model that skips the shared check must be reported. This proves the checker can fail.</p>
+<p><strong>The allowlists can't go stale.</strong> A view and route pair that matches no discovered entry point fails the test, and so does an allowlisted view that already applies both gates. Entries for views that exist only in some configurations (an OIDC provider installed only when its settings are present) are marked optional.</p>
 <h2 id="advisory-copies-of-the-creator-rule">Advisory copies of the creator rule<a class="headerlink" href="#advisory-copies-of-the-creator-rule" title="Permanent link">&para;</a></h2>
-<p>A few places restate part of the invite creator rule inline instead of calling
-the shared function. They are not entry points: none of them decides whether a
-link admits anyone, so a drift there cannot grant access. Registration and
-joining re-check through the shared functions, under the invite's row lock.</p>
+<p>A few places restate part of the invite creator rule inline instead of calling the shared function. They aren't entry points. None of them decides whether a link admits anyone, so a drift there can't grant access: registration and joining re-check through the shared functions, under the invite's row lock.</p>
 <table>
 <thead>
 <tr>
 <th>Location</th>
-<th>What it is</th>
-<th>Why it is not routed through the shared function</th>
+<th>What it's</th>
+<th>Why it isn't routed through the shared function</th>
 </tr>
 </thead>
 <tbody>
@@ -4362,47 +4332,43 @@ WebSocket routes registered through the extension points are discovered and
 checked like OSS ones.</p>
 <p>Enterprise records its own exceptions without editing the OSS test, through an
 optional module, <code>enterprise.auth_entry_point_allowlist</code>. The test imports it
-when it is installed and skips it when it is not. The module may define:</p>
+when it's installed and skips it when it isn't. The module may define:</p>
 <ul>
 <li><code>REST_GATE_ALLOWLIST</code> and <code>NON_DRF_ALLOWLIST</code>: dicts keyed like the OSS ones
   (<code>"module.View"</code> or <code>"module.View:GET"</code>). Each value is a dict
   <code>{"reason": "...", "routes": ["api/v1/..."], "optional": False}</code>, so the
-  module does not have to import the test.</li>
+  module doesn't have to import the test.</li>
 <li><code>NOT_SESSION_HTML</code>: a dict of top-level URL segment to reason, for segments
   that serve no session-based HTML (for example a DRF-only <code>scim</code>). Single
-  segments only, a reason is required, and an OSS segment cannot be redefined.</li>
+  segments only, a reason is required, and an OSS segment can't be redefined.</li>
 <li><code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code>: the extension's session-based HTML
   prefixes (for example <code>("/sso/",)</code>). This declares them for the test only;
-  the middleware gates a prefix when it is in the Django setting
+  the middleware gates a prefix when it's in the Django setting
   <code>PENDING_ACTION_EXTRA_GATED_PREFIXES</code> (default <code>()</code>), so the enterprise
   settings include must set that too. The test fails for a declared prefix the
-  setting does not contain.</li>
+  setting doesn't contain.</li>
 <li><code>FORCED_CHANGE_ROUTE_DECISIONS</code>: a dict of route to <code>"gated"</code> or
   <code>"exempt: &lt;reason&gt;"</code> for the extension's routes under the extension's own
-  gated prefix. An exempt route's view name must also be in the Django setting
+  gated prefix. An exempt route's view name must be in the Django setting
   <code>PENDING_ACTION_EXTRA_EXEMPT_VIEWS</code> (default <code>()</code>; exact view names only,
   checked by <code>accounts.E006</code> and <code>accounts.E007</code>), which is what the middleware
   reads. Views under <code>/accounts/</code> and <code>/admin/</code>, and OSS views under the
-  extension's prefix, cannot be exempted by this setting; the extension's own
+  extension's prefix, can't be exempted by this setting; the extension's own
   views are the routes it adds through <code>enterprise_urlpatterns</code>. The route must
   meet the rule under "Which views may be exempt" above. An
-  OSS route cannot be redefined.</li>
+  OSS route can't be redefined.</li>
 <li><code>ACTIVE_CHECKING_AUTHENTICATORS</code>: a tuple of additional authenticator classes
   that refuse inactive accounts. Each must be a concrete DRF authenticator:
-  <code>BaseAuthentication</code> itself, a subclass that does not implement
-  <code>authenticate</code>, or anything that is not a class is refused, because it would
+  <code>BaseAuthentication</code> itself, a subclass that doesn't implement
+  <code>authenticate</code>, or anything that isn't a class is refused, because it would
   make the check accept every authenticator.</li>
 </ul>
 <p>The entries are merged with the OSS lists, validated by the same rules as the
 OSS entries (a reason, at least one route, no bare <code>*</code>), and get the same
 checks, including the stale-entry check. An entry that repeats an OSS key fails the test: the
-module adds decisions, it does not override OSS ones.</p>
+module adds decisions, it doesn't override OSS ones.</p>
 <h2 id="feature-flagged-routes">Feature-flagged routes<a class="headerlink" href="#feature-flagged-routes" title="Permanent link">&para;</a></h2>
-<p>The Issue Board Lens views are mounted only with <code>GIT_LENS_ENABLED</code>. The main
-backend CI job runs with the flag off, so the <code>backend-test-git-lens</code> job also
-runs this test with the flag on, and the lens views are enumerated there. The
-allowlists contain no flag-dependent entries, so the stale-entry check passes
-either way.</p>
+<p>The Issue Board Lens views are mounted only with <code>GIT_LENS_ENABLED</code>. The main backend CI job runs with the flag off, so the <code>backend-test-git-lens</code> job also runs this test with the flag on, and the lens views are enumerated there. The allowlists contain no flag-dependent entries, so the stale-entry check passes either way.</p>
 <h2 id="how-the-group-placement-scan-finds-them">How the group-placement scan finds them<a class="headerlink" href="#how-the-group-placement-scan-finds-them" title="Permanent link">&para;</a></h2>
 <p><code>GroupPlacementEntryPointTests</code> parses every non-test module of the installed
 apps with <code>ast</code> and reports each function that assigns <code>.group</code> or <code>.group_id</code>,

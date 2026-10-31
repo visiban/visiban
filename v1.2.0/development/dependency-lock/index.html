@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#backend-dependency-lock" class="md-skip">
+        <a href="#edit-requirementstxt-then-regenerate-the-lock" class="md-skip">
           Skip to content
         </a>
       
@@ -4043,9 +4043,11 @@
   
 
 
-<h1 id="backend-dependency-lock">Backend Dependency Lock<a class="headerlink" href="#backend-dependency-lock" title="Permanent link">&para;</a></h1>
-<p>The backend images install from <code>backend/requirements.lock</code>, a fully resolved,
-hash-pinned file, not from <code>backend/requirements.txt</code>.</p>
+<h1 id="edit-requirementstxt-then-regenerate-the-lock">Edit requirements.txt, then regenerate the lock<a class="headerlink" href="#edit-requirementstxt-then-regenerate-the-lock" title="Permanent link">&para;</a></h1>
+<p><a id="backend-dependency-lock"></a></p>
+<p>Edit <code>backend/requirements.txt</code>, run <code>scripts/lock-backend-requirements.sh</code>, and commit the result.</p>
+<p><strong>Why it matters:</strong> Backend images install from <code>backend/requirements.lock</code>, a fully resolved, hash-pinned file, not from <code>backend/requirements.txt</code>. Pip never runs a package's <code>setup.py</code> and rejects any file whose hash isn't in the lock.</p>
+<p><strong>Watch out:</strong> Never edit <code>backend/requirements.lock</code> by hand.</p>
 <table>
 <thead>
 <tr>
@@ -4069,82 +4071,44 @@ hash-pinned file, not from <code>backend/requirements.txt</code>.</p>
 </tbody>
 </table>
 <p>Both <code>backend/Dockerfile</code> and <code>backend/Dockerfile.prod</code> install with
-<code>--only-binary :all: --require-hashes</code>. Pip therefore never runs a package's
-<code>setup.py</code> and rejects any file whose hash is not in the lock (SonarCloud
-<code>docker:S8541</code> / <code>docker:S8544</code>, #1378).</p>
+<code>--only-binary :all: --require-hashes</code>. That satisfies SonarCloud <code>docker:S8541</code> / <code>docker:S8544</code> (#1378).</p>
 <h2 id="regenerating-the-lock">Regenerating the lock<a class="headerlink" href="#regenerating-the-lock" title="Permanent link">&para;</a></h2>
-<p>After any change to <code>backend/requirements.txt</code>:</p>
+<p>Run this after any change to <code>backend/requirements.txt</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--require-hashes<span class="w"> </span>-r<span class="w"> </span>scripts/uv-requirements.txt<span class="w">   </span><span class="c1"># pinned uv; or brew install uv at the same version</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>scripts/lock-backend-requirements.sh
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>git<span class="w"> </span>add<span class="w"> </span>backend/requirements.txt<span class="w"> </span>backend/requirements.lock<span class="w"> </span>backend/requirements-build.lock
 </code></pre></div>
-<p>The script runs <code>uv pip compile --universal --python-version 3.12
---generate-hashes</code>, so one lock covers every platform for the images' Python
-(<code>python:3.12-slim</code>). uv (Apache-2.0 / MIT, 0.13.4) is pinned in the script so output is
-identical locally and in CI. Existing pins are kept unless <code>requirements.txt</code>
-forces a change; to pick up newer transitive versions, delete
-<code>backend/requirements.lock</code> and rerun the script.</p>
-<p>The <code>backend-lock-check</code> CI job runs <code>scripts/lock-backend-requirements.sh
---check</code> (after a network-free <code>--self-test</code>) on any MR touching <code>requirements.txt</code>, the locks or the script and fails when they
-disagree.</p>
-<h2 id="the-dj-rest-auth-sdist-exception">The dj-rest-auth sdist exception<a class="headerlink" href="#the-dj-rest-auth-sdist-exception" title="Permanent link">&para;</a></h2>
-<p><code>dj-rest-auth</code> publishes only a source distribution on PyPI (re-checked for
-7.1.1; it is the only such package). The Dockerfiles pass
-<code>--no-binary dj-rest-auth</code>, which overrides <code>--only-binary :all:</code> for that single
-package and builds it into a wheel in the builder stage. Exactly what is and is
-not verified:</p>
 <ul>
-<li>Verified: every wheel and the <code>dj-rest-auth</code> sdist against their <code>sha256</code> in
-  <code>requirements.lock</code>.</li>
-<li>Verified: the build backend. <code>backend/requirements-build.lock</code> hash-pins
-  <code>setuptools</code>; the builder installs it with <code>--only-binary :all:
-  --require-hashes</code>, then builds with <code>--no-build-isolation</code>, so pip fetches no
-  unpinned build requirement. The package's <code>setup.py</code> does run, in the builder
-  stage only.</li>
-<li>Not verifiable: the hash of the locally built <code>dj-rest-auth</code> wheel. The runtime
-  stage installs <code>/wheels/*.whl</code> with <code>--no-index --no-deps</code>; the other wheels in
-  it were hash-checked in the builder. Both Dockerfiles use a builder/runtime
-  split, so <code>setuptools</code> and the build toolchain never ship in the images.</li>
+<li><strong>How it works:</strong> The script runs <code>uv pip compile --universal --python-version 3.12 --generate-hashes</code>, so one lock covers every platform for the images' Python (<code>python:3.12-slim</code>).</li>
+<li><strong>Pinned tool:</strong> uv (Apache-2.0 / MIT, 0.13.4) is pinned in the script, so output is identical locally and in CI.</li>
+<li><strong>Existing pins stay</strong> unless <code>requirements.txt</code> forces a change. To pick up newer transitive versions, delete <code>backend/requirements.lock</code> and rerun the script.</li>
+<li><strong>CI:</strong> the <code>backend-lock-check</code> job runs <code>scripts/lock-backend-requirements.sh --check</code> (after a network-free <code>--self-test</code>) on any MR touching <code>requirements.txt</code>, the locks, or the script. It fails when they disagree.</li>
+</ul>
+<h2 id="the-dj-rest-auth-sdist-exception">The dj-rest-auth sdist exception<a class="headerlink" href="#the-dj-rest-auth-sdist-exception" title="Permanent link">&para;</a></h2>
+<p><code>dj-rest-auth</code> is the only dependency that publishes just a source distribution on PyPI (re-checked for 7.1.1). The Dockerfiles pass <code>--no-binary dj-rest-auth</code>, which overrides <code>--only-binary :all:</code> for that package and builds it into a wheel in the builder stage.</p>
+<p>What is and isn't verified:</p>
+<ul>
+<li>Verified: every wheel and the <code>dj-rest-auth</code> sdist against their <code>sha256</code> in <code>requirements.lock</code>.</li>
+<li>Verified: the build backend. <code>backend/requirements-build.lock</code> hash-pins <code>setuptools</code>. The builder installs it with <code>--only-binary :all: --require-hashes</code>, then builds with <code>--no-build-isolation</code>, so pip fetches no unpinned build requirement. The package's <code>setup.py</code> does run, in the builder stage only.</li>
+<li>Not verifiable: the hash of the locally built <code>dj-rest-auth</code> wheel. The runtime stage installs <code>/wheels/*.whl</code> with <code>--no-index --no-deps</code>; the other wheels in it were hash-checked in the builder. Both Dockerfiles use a builder/runtime split, so <code>setuptools</code> and the build toolchain never ship in the images.</li>
 <li>CI installs uv from <code>scripts/uv-requirements.txt</code> with <code>--require-hashes</code>.</li>
 </ul>
-<p>If upstream starts publishing a wheel, drop <code>--no-binary</code>,
-<code>--no-build-isolation</code> and <code>requirements-build.*</code>. If another sdist-only package
-appears, <code>uv pip compile --only-binary :all:</code> fails loudly; add it to the same
-<code>--no-binary</code> list with a note here and make sure its build requirements are in
-<code>requirements-build.in</code>.</p>
+<p>If upstream starts publishing a wheel, drop <code>--no-binary</code>, <code>--no-build-isolation</code> and <code>requirements-build.*</code>. If another sdist-only package appears, <code>uv pip compile --only-binary :all:</code> fails loudly. Add it to the same <code>--no-binary</code> list with a note here, and put its build requirements in <code>requirements-build.in</code>.</p>
 <h2 id="pip-floor-emudhra-emsign-ca-incident-1927">pip floor (eMudhra emSign CA incident, #1927)<a class="headerlink" href="#pip-floor-emudhra-emsign-ca-incident-1927" title="Permanent link">&para;</a></h2>
-<p>pip older than 26.2.2 always uses its own vendored <code>certifi</code>, so the runtime
-<code>certifi</code> floor does not protect pip's TLS to PyPI against the compromised
-eMudhra emSign intermediates (2026-10-20). <code>python:3.12-slim</code> still ships an
-older pip, so:</p>
+<p><strong>Why it matters:</strong> pip older than 26.2.2 always uses its own vendored <code>certifi</code>, so the runtime <code>certifi</code> floor doesn't protect pip's TLS to PyPI against the compromised eMudhra emSign intermediates (2026-10-20). <code>python:3.12-slim</code> still ships an older pip, so:</p>
 <ul>
-<li>Both Dockerfile builder stages get pip from <code>backend/requirements-build.lock</code>
-  (hash-pinned, <code>pip&gt;=26.2.2</code> in <code>requirements-build.in</code>) in the same step that
-  installs the build backend, and assert the installed version before
-  <code>pip wheel</code>.</li>
-<li>CI jobs on <code>python:3.12-slim</code> run the <code>.pip-floor</code> step
-  (<code>scripts/ensure-pip.sh</code>, hash-pinned in <code>scripts/pip-requirements.txt</code>)
-  before their first <code>pip install</code>. The script fails the job if pip is older
-  than 26.2.2; <code>backend-lock-check</code> also runs its <code>--self-test</code>.</li>
+<li>Both Dockerfile builder stages get pip from <code>backend/requirements-build.lock</code> (hash-pinned, <code>pip&gt;=26.2.2</code> in <code>requirements-build.in</code>) in the same step that installs the build backend, and assert the installed version before <code>pip wheel</code>.</li>
+<li>CI jobs on <code>python:3.12-slim</code> run the <code>.pip-floor</code> step (<code>scripts/ensure-pip.sh</code>, hash-pinned in <code>scripts/pip-requirements.txt</code>) before their first <code>pip install</code>. The script fails the job if pip is older than 26.2.2; <code>backend-lock-check</code> also runs its <code>--self-test</code>.</li>
 <li>uv in <code>scripts/uv-requirements.txt</code> is 0.13.4 or newer.</li>
 </ul>
-<p>The first fetch of the fixed pip is still made by the older pip, so it relies on
-<code>--require-hashes</code> rather than TLS: a wrong certificate cannot substitute a file
-whose sha256 is not in the lock.</p>
-<p>All of this is removable once the base image ships pip 26.2.2 or newer. Each
-location carries a comment saying so. Bump the floor in three places together:
-<code>requirements-build.in</code> (then re-lock), <code>scripts/pip-requirements.txt</code>, and
-<code>PIP_MIN</code> in <code>scripts/ensure-pip.sh</code>.</p>
+<p><strong>Yes, but:</strong> The first fetch of the fixed pip is still made by the older pip. It relies on <code>--require-hashes</code> rather than TLS: a wrong certificate can't substitute a file whose sha256 isn't in the lock.</p>
+<p>All of this is removable once the base image ships pip 26.2.2 or newer. Each location carries a comment saying so. Bump the floor in three places together: <code>requirements-build.in</code> (then re-lock), <code>scripts/pip-requirements.txt</code>, and <code>PIP_MIN</code> in <code>scripts/ensure-pip.sh</code>.</p>
 <h2 id="ci-test-jobs">CI test jobs<a class="headerlink" href="#ci-test-jobs" title="Permanent link">&para;</a></h2>
-<p>Test jobs still <code>pip install -r backend/requirements.txt</code>. They do not build
-images, so by design they track the latest compatible releases and catch
-upstream breakage early; only the shipped images install from the lock.</p>
-<p><code>backend-dep-scan</code> audits <code>requirements.lock</code> with <code>pip-audit --require-hashes</code>.
-Because <code>pip-audit</code> has no ignore list, its JSON report is gated through
-<code>scripts/pip-audit-gate.py</code>, which skips advisories accepted in
-<code>backend/osv-scanner.toml</code> (matched on id or alias, and only until their
-<code>ignoreUntil</code> date). That file is the single source of truth shared with
-<code>dep-scan-osv</code>; the frontend counterpart is <code>scripts/npm-audit-gate.mjs</code>.</p>
+<ul>
+<li><strong>Test jobs</strong> <code>pip install -r backend/requirements.txt</code>. They don't build images, so by design they track the latest compatible releases and catch upstream breakage early. Only the shipped images install from the lock.</li>
+<li><strong><code>backend-dep-scan</code></strong> audits <code>requirements.lock</code> with <code>pip-audit --require-hashes</code>. <code>pip-audit</code> has no ignore list, so its JSON report is gated through <code>scripts/pip-audit-gate.py</code>. That script skips advisories accepted in <code>backend/osv-scanner.toml</code> (matched on id or alias, and only until their <code>ignoreUntil</code> date).</li>
+<li><strong>Shared source of truth:</strong> <code>backend/osv-scanner.toml</code> is shared with <code>dep-scan-osv</code>. The frontend counterpart is <code>scripts/npm-audit-gate.mjs</code>.</li>
+</ul>
 
 
 
