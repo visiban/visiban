@@ -89,7 +89,7 @@ The lower-frequency actions live behind the **More actions** (`⋮`) button at t
 - **Clear lockout**
 - **Restart onboarding tour**
 
-Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is a fully keyboard-navigable, screen-reader-labeled control, not just a mouse target.
+Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is keyboard-navigable and screen-reader-labeled.
 
 #### Add user
 
@@ -112,7 +112,7 @@ Deactivated accounts cannot log in. No data is deleted. Click **Reactivate** to 
 - You cannot deactivate your own account from this panel.
 - On a superuser account, **Deactivate** and **Reactivate** are available to superusers only.
 
-**If the user owns any boards**, deactivation opens a **Transfer boards & deactivate** dialog first. You cannot deactivate a board owner without reassigning ownership. Search for a new owner per board (any existing member counts: a direct board member or one who has access through group membership) and confirm. Deactivation and the ownership transfers happen together, atomically.
+**If the user owns any boards**, deactivation first opens a **Transfer boards & deactivate** dialog, because you cannot deactivate a board owner without reassigning ownership. Search for a new owner per board (any existing member counts, direct or through group membership) and confirm. Deactivation and the transfers happen together, atomically.
 
 **What else deactivation does:** it revokes any invite links the departing user created:
 
@@ -166,7 +166,7 @@ It is shown only when the user has already completed the tour, since there is no
 
 Clears the per-account login lockout immediately, so the user can log in again without waiting out the rest of the 5-minute window. The lockout is 5 failed login or password-change attempts within 5 minutes; see [Rate limiting](../architecture/deployment.md#rate-limiting). On a superuser account this is available to superusers only.
 
-**Yes, but:** a successful password reset already clears the lockout automatically. Use **Clear lockout** when that isn't an option, for example the user contacts support directly instead of using the reset-password flow, or reset emails aren't reaching them. It is safe to click at any time: if the account isn't currently locked out, nothing happens.
+**Yes, but:** a successful password reset already clears the lockout. Use **Clear lockout** when that isn't an option, for example the user contacts support instead of using the reset flow, or reset emails aren't arriving. It is safe at any time: if the account isn't locked out, nothing happens.
 
 ## Invite Links tab
 
@@ -174,7 +174,7 @@ Clears the per-account login lockout immediately, so the user can log in again w
 
 Create and manage invite links for instance-wide registration. Links matter only when registration mode is **Invite-only** (see [Settings tab](#settings-tab)), but you can create them in any mode and activate them later.
 
-Invite links work for both password-based and OAuth registration (Google, GitHub, GitLab, OIDC). When a new user follows a join link and chooses OAuth, the token is carried through the IdP redirect automatically and consumed on successful signup.
+Invite links work for password and OAuth registration (Google, GitHub, GitLab, OIDC). When a new user follows a join link and chooses OAuth, the token is carried through the IdP redirect and consumed on successful signup.
 
 ### Link list
 
@@ -233,11 +233,11 @@ Pick a **Status** (Pending, the default; Used; Expired; Revoked; or All). Each r
 - when it expires
 - who created it (**—** when that account was removed)
 
-An **Existing accounts only** tag means a new person couldn't create an account from the invite on this site right now. That is always the case for a shareable link on an invite-only site. The list shows 50 invites per page.
+An **Existing accounts only** tag means a new person couldn't create an account from the invite on this site right now (always so for a shareable link on an invite-only site). The list shows 50 invites per page.
 
 To stop an invite immediately, select **Revoke** on a pending invite and then **Confirm**. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in [Admin API — Board invites](../api/admin.md#board-invites).
 
-**Yes, but:** the tab shows each invite's **stored** status. Unlike the board's own list, it does not check whether the invite's creator is still an admin of the board. An invite whose creator was demoted can show **Pending** here while the board's list shows it as revoked and nobody can join with it. Revoke it here to make that permanent. The **Existing accounts only** tag is likewise a best-effort hint; registration re-checks everything.
+**Yes, but:** the tab shows each invite's **stored** status and, unlike the board's own list, does not check whether the creator is still a board admin. An invite whose creator was demoted can show **Pending** here while the board's list shows it revoked and nobody can join with it. Revoke it here to make that permanent. The **Existing accounts only** tag is a best-effort hint; registration re-checks everything.
 
 ## CLI alternatives
 
