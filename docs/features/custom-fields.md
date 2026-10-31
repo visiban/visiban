@@ -15,7 +15,7 @@ Board admins define typed fields in **Board Settings → Card fields** (or **Swi
 
 **By the numbers:** up to **30 card fields**, with up to **2 of them pinned** to the card face. Swimlane fields have smaller caps; see [Swimlane (row) custom fields](#swimlane-row-custom-fields).
 
-**Yes, but:** `is_required` isn't enforced and filters match exact values only. See [Limitations in this release](#limitations-in-this-release).
+**Yes, but:** `is_required` isn't enforced ([#1433](https://gitlab.com/visiban/visiban/-/issues/1433)) and filters match exact values only ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)). See [Limitations in this release](#limitations-in-this-release).
 
 ## Field types
 
@@ -212,7 +212,7 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 | Multi-select | Checklist of choices; matches a card holding **any** of the checked choices |
 
 !!! note
-    Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release.
+    Number and date filters match an exact value only — there is no range filter (e.g. "between" or "greater than") in this release ([#1847](https://gitlab.com/visiban/visiban/-/issues/1847)).
 
 - A multi-select filter matches whole values only: checking `web` matches a card holding `web`, never one holding only `webhooks`.
 - Within one field the checked choices are **or**-ed; different fields, and every other filter, are **and**-ed.
@@ -304,4 +304,4 @@ This page covers the UI. For the wire format:
 | `is_required` not enforced (swimlane fields) | Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal. Tracked in [#1433](https://gitlab.com/visiban/visiban/-/issues/1433) |
 | No aggregates | Custom field values cannot be summed or otherwise rolled up on swimlane headers or in board and report widgets. Tracked in [#1851](https://gitlab.com/visiban/visiban/-/issues/1851) |
 
-The backend also exposes a `CUSTOM_FIELD_VALIDATORS` extension point that lets an extension register additional per-type value validators. See the [open-core boundary](../architecture/open-core-boundary.md).
+The backend also exposes a `CUSTOM_FIELD_VALIDATORS` extension point that lets an extension register additional per-type validators for card values, and a separate `SWIMLANE_CUSTOM_FIELD_VALIDATORS` list for swimlane-row values. See the [open-core boundary](../architecture/open-core-boundary.md).
