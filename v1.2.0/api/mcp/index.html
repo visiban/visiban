@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mcp-server" class="md-skip">
+        <a href="#let-an-ai-agent-read-and-write-your-boards-over-mcp" class="md-skip">
           Skip to content
         </a>
       
@@ -2075,17 +2075,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#stability-and-versioning" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stability and versioning
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#enabling-the-server" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2465,6 +2454,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stability-and-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stability and versioning
+      
+    </span>
+  </a>
   
 </li>
       
@@ -4404,9 +4404,15 @@
   
 
 
-<h1 id="mcp-server">MCP Server<a class="headerlink" href="#mcp-server" title="Permanent link">&para;</a></h1>
-<p>Set <code>MCP_SERVER_ENABLED=true</code>, then point an MCP client at <code>/mcp</code> with a Personal Access Token.</p>
+<h1 id="let-an-ai-agent-read-and-write-your-boards-over-mcp">Let an AI agent read and write your boards over MCP<a class="headerlink" href="#let-an-ai-agent-read-and-write-your-boards-over-mcp" title="Permanent link">&para;</a></h1>
+<p>Set <code>MCP_SERVER_ENABLED=true</code>, create a Personal Access Token with the <code>mcp:read</code> scope, and point an MCP client at <code>/mcp</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">MCP_SERVER_ENABLED</span><span class="o">=</span><span class="nb">true</span><span class="w">   </span><span class="c1"># backend environment; restart the backend</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># client header:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Authorization: Bearer vbn_0123456789abcdef0123456789abcdef01234567</span>
+</code></pre></div>
 <p><strong>Why it matters:</strong> the server is off by default, and <code>/mcp</code> returns <code>404 Not Found</code> until you enable it.</p>
+<p><strong>Watch out:</strong> <code>/mcp</code> takes <code>Bearer</code>, while the REST API takes <code>Token</code>. Write tools also need the <code>mcp:write</code> scope. See <a href="#authentication">Authentication</a>.</p>
+<p><strong>Go deeper:</strong> <a href="#enabling-the-server">Enabling the server</a>, <a href="#connecting-a-client">Connecting a client</a>, <a href="#tools">Tools</a>, <a href="#resources">Resources</a>, <a href="#stability-and-versioning">Stability and versioning</a> (the last section before the roadmap).</p>
 <p><strong>The big picture:</strong> Visiban can expose its boards to AI agents over the <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a> (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to <code>/mcp</code>, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.</p>
 <p>The feature is flag-gated: <code>/mcp</code> returns <code>404 Not Found</code> unless the server is started with <code>MCP_SERVER_ENABLED=true</code>.</p>
 <div class="admonition note">
@@ -4414,31 +4420,17 @@
 <p>This is the Phase 1 (OSS core) surface: board discovery, full card CRUD, and the <code>board://</code>/<code>card://</code> resources below. A full setup guide is tracked separately.</p>
 </div>
 <hr />
-<h2 id="stability-and-versioning">Stability and versioning<a class="headerlink" href="#stability-and-versioning" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
-<ul>
-<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
-<li><strong>Argument schemas</strong> change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.</li>
-<li><strong>Results and error payloads</strong> only gain fields; existing fields keep their name and type. The error <code>code</code> values listed under <a href="#tool-errors">Tool errors</a> are never removed.</li>
-<li>A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
-<li>New tools, resources, optional arguments, and result fields can appear in any minor release, so clients should ignore fields they do not recognize.</li>
-<li>The configuration names <code>MCP_SERVER_ENABLED</code>, <code>MCP_ALLOWED_HOSTS</code>, <code>MCP_THROTTLE_*_RATE</code>, and the <code>/mcp</code> path follow the environment-variable rules: they are not renamed, and a rename keeps the old name as a deprecated alias for at least one minor release.</li>
-</ul>
-<hr />
 <h2 id="enabling-the-server">Enabling the server<a class="headerlink" href="#enabling-the-server" title="Permanent link">&para;</a></h2>
 <p>Set the environment variable on the backend and restart it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">MCP_SERVER_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">MCP_SERVER_ENABLED</span><span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Docker Compose</label><label for="__tabbed_1_2">Helm</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">services</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">MCP_SERVER_ENABLED</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">services</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">MCP_SERVER_ENABLED</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
@@ -4476,20 +4468,20 @@
 </tbody>
 </table>
 <p>The server runs <strong>stateless</strong>: every request is self-contained and no session state is pinned to a single process. This means a deployment running several backend replicas needs no sticky-session configuration.</p>
-<p>If you terminate TLS behind a reverse proxy, the <code>/mcp</code> location must disable response buffering — the transport holds a long-lived Server-Sent Events response open, and a buffering proxy will withhold event frames. The bundled Nginx templates and the Helm chart already include a correct <code>/mcp</code> block.</p>
+<p>If you terminate TLS behind a reverse proxy, the <code>/mcp</code> location must disable response buffering: the transport holds a long-lived Server-Sent Events response open, and a buffering proxy withholds event frames. The bundled Nginx templates and the Helm chart already include a correct <code>/mcp</code> block.</p>
 <h3 id="dns-rebinding-protection">DNS rebinding protection<a class="headerlink" href="#dns-rebinding-protection" title="Permanent link">&para;</a></h3>
-<p>The transport validates the <code>Host</code> and <code>Origin</code> headers of every request against the server's <code>ALLOWED_HOSTS</code> and <code>CORS_ALLOWED_ORIGINS</code> settings. This stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser. A request whose <code>Host</code> is not allowed is rejected with <code>421 Misdirected Request</code>. If you reach the server on a hostname the backend does not know about, add it to <code>ALLOWED_HOSTS</code>.</p>
+<p>The transport checks every request's <code>Host</code> and <code>Origin</code> headers against <code>ALLOWED_HOSTS</code> and <code>CORS_ALLOWED_ORIGINS</code>, which stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser. A request whose <code>Host</code> is not allowed gets <code>421 Misdirected Request</code>. If you reach the server on a hostname the backend does not know, add it to <code>ALLOWED_HOSTS</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">If <code>ALLOWED_HOSTS</code> is <code>*</code></p>
-<p>A wildcard cannot serve as a rebinding allowlist — the two settings guard different threats, and inheriting the wildcard would silently switch this protection off. Set <code>MCP_ALLOWED_HOSTS</code> to the hostnames clients actually reach <code>/mcp</code> on:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">MCP_ALLOWED_HOSTS</span><span class="o">=</span>visiban.example.com,visiban.internal
+<p>A wildcard cannot serve as a rebinding allowlist: the two settings guard different threats, and inheriting the wildcard would silently switch this protection off. Set <code>MCP_ALLOWED_HOSTS</code> to the hostnames clients actually reach <code>/mcp</code> on:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">MCP_ALLOWED_HOSTS</span><span class="o">=</span>visiban.example.com,visiban.internal
 </code></pre></div>
 <p>Until you do, the backend logs a warning at startup and only <code>Origin</code> checking (from <code>CORS_ALLOWED_ORIGINS</code>) applies. <code>MCP_ALLOWED_HOSTS</code> takes precedence over <code>ALLOWED_HOSTS</code> whenever it is set.</p>
 </div>
 <hr />
 <h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
 <p>Every request to <code>/mcp</code> must carry a Visiban <a href="../../features/personal-access-tokens/">Personal Access Token</a> in an <code>Authorization</code> header using the <strong><code>Bearer</code></strong> scheme:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Authorization: Bearer vbn_0123456789abcdef0123456789abcdef01234567
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Authorization: Bearer vbn_0123456789abcdef0123456789abcdef01234567
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title"><code>Bearer</code> here, <code>Token</code> everywhere else</p>
@@ -4497,10 +4489,10 @@
 <p>Both resolve the <strong>same</strong> Personal Access Token records, so a token that is revoked, expired, or dropped by a password change stops working for MCP at the same moment it stops working for the REST API.</p>
 </div>
 <p>In the web app, open Settings &gt; Access Tokens, tick <strong>mcp:read</strong> (add <strong>mcp:write</strong> for write tools) and generate the token. A token made with only the default <code>read</code> and <code>write</code> scopes is refused at <code>/mcp</code>. Or create it via the API:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/auth/tokens/<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token &lt;your-session-token&gt;"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "claude-desktop", "scopes": ["mcp:read"]}'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/auth/tokens/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token &lt;your-session-token&gt;"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "claude-desktop", "scopes": ["mcp:read"]}'</span>
 </code></pre></div>
 <p>The plaintext token is shown <strong>once</strong>, at creation. Only a SHA-256 hash is stored.</p>
 <h3 id="the-mcpread-scope-is-required">The <code>mcp:read</code> scope is required<a class="headerlink" href="#the-mcpread-scope-is-required" title="Permanent link">&para;</a></h3>
@@ -4513,15 +4505,15 @@
 <li>a token created <strong>before 1.2</strong> (no scopes recorded) is <strong>refused</strong> at <code>/mcp</code>, even though it still works across the whole REST API</li>
 <li><code>mcp:write</code> does not imply <code>mcp:read</code></li>
 </ul>
-<p>The reason is consent, not capability. A PAT is a credential a user is instructed to paste into an agent, and an agent is a fundamentally different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.</p>
+<p>The reason is consent, not capability. Users paste a PAT into an agent, a different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.</p>
 <p>Scopes never widen access: an <code>mcp:read</code> token still sees exactly the boards its owner can see, with the same roles.</p>
 <p>A token intended for both an agent and a script needs both sets of scopes, e.g. <code>["read", "mcp:read"]</code>.</p>
 <h3 id="write-tools-additionally-require-mcpwrite">Write tools additionally require <code>mcp:write</code><a class="headerlink" href="#write-tools-additionally-require-mcpwrite" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p><code>mcp:read</code> opens a session and is enough to call every read tool below. Calling any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) additionally requires the <strong><code>mcp:write</code></strong> scope on the same token — non-hierarchically, exactly like every other scope pair: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
-<p>Unlike a missing <code>mcp:read</code> (rejected at the transport, before any tool runs), a missing <code>mcp:write</code> is reported by the tool itself as a <a href="#tool-errors">tool error</a> — an <code>isError: true</code> result carrying <code>{"error": {"code": "missing_scope", "detail": "..."}}</code> — not a <code>401</code>. The session is valid; only that one call was declined.</p>
+<p><code>mcp:read</code> opens a session and is enough for every read tool below. Any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) additionally requires <strong><code>mcp:write</code></strong> on the same token. Scopes are non-hierarchical: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
+<p>Unlike a missing <code>mcp:read</code> (rejected at the transport, before any tool runs), a missing <code>mcp:write</code> is reported by the tool as a <a href="#tool-errors">tool error</a>: an <code>isError: true</code> result carrying <code>{"error": {"code": "missing_scope", "detail": "..."}}</code>, not a <code>401</code>. The session is valid; only that call was declined.</p>
 <h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4553,7 +4545,7 @@
 </tr>
 </tbody>
 </table>
-<p>Authentication is enforced at the transport layer, before any MCP protocol frame is parsed — an unauthenticated caller cannot reach the protocol machinery at all. The <code>401</code> body is a JSON-RPC error envelope so that spec-compliant clients surface a useful message.</p>
+<p>Authentication is enforced at the transport layer, before any MCP protocol frame is parsed, so an unauthenticated caller never reaches the protocol machinery. The <code>401</code> body is a JSON-RPC error envelope, so spec-compliant clients surface a useful message.</p>
 <h3 id="protocol-errors-and-limits">Protocol errors and limits<a class="headerlink" href="#protocol-errors-and-limits" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Changed in 1.2</strong> (MCP SDK 2.3.0), except the <code>Accept</code> row, which is unchanged.</p>
@@ -4599,7 +4591,7 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>DRF's request throttles (<code>DEFAULT_THROTTLE_RATES</code>) never apply to <code>/mcp</code> — the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view. <code>/mcp</code> instead has its own per-token limiter, keyed on the presented Personal Access Token (never on IP, and never on the raw token value), so limits hold regardless of which network or proxy a caller connects through, and hold across every backend replica because they share the same cache backend the REST throttles already use.</p>
+<p>DRF's request throttles (<code>DEFAULT_THROTTLE_RATES</code>) never apply to <code>/mcp</code>: the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view. <code>/mcp</code> has its own per-token limiter, keyed on the presented Personal Access Token (never on IP or the raw token value). Limits therefore hold whatever network or proxy a caller uses, and across every backend replica, because they share the cache backend the REST throttles use.</p>
 <p>Two limits stack on every call:</p>
 <table>
 <thead>
@@ -4625,11 +4617,11 @@
 </tr>
 </tbody>
 </table>
-<p>A call to <code>list_cards</code> or <code>board://{board_id}</code> spends a unit from <strong>both</strong> buckets; every other tool/resource spends only the baseline unit. There is no <code>DEBUG</code>-time bypass — unlike the REST throttle rates, these apply the same way in local development, since a runaway loop in an agent under development is exactly the case the compute bucket exists to catch.</p>
+<p>A call to <code>list_cards</code> or <code>board://{board_id}</code> spends a unit from <strong>both</strong> buckets; every other tool/resource spends only the baseline unit. There is no <code>DEBUG</code>-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.</p>
 <p>This applies uniformly to every token, including a site admin's — there is no admin exemption from the throttle, unlike maintenance mode.</p>
-<p>Both settings accept the same <code>&lt;count&gt;/&lt;period&gt;</code> syntax as DRF's throttle rates (<code>m</code>/<code>min</code>, <code>h</code>/<code>hour</code>, <code>s</code>/<code>sec</code>, <code>d</code>/<code>day</code> — e.g. <code>"300/min"</code>, <code>"20/hour"</code>). An operator who never sets either variable still gets the defaults above, not an unlimited server. A rate string that fails to parse raises <code>ImproperlyConfigured</code> at startup rather than silently disabling the limit.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">MCP_THROTTLE_READ_RATE</span><span class="o">=</span><span class="m">300</span>/min
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">MCP_THROTTLE_COMPUTE_RATE</span><span class="o">=</span><span class="m">30</span>/min
+<p>Both settings accept the same <code>&lt;count&gt;/&lt;period&gt;</code> syntax as DRF's throttle rates (<code>m</code>/<code>min</code>, <code>h</code>/<code>hour</code>, <code>s</code>/<code>sec</code>, <code>d</code>/<code>day</code> — e.g. <code>"300/min"</code>, <code>"20/hour"</code>). Leaving both unset still gives the defaults above, not an unlimited server. A rate string that fails to parse raises <code>ImproperlyConfigured</code> at startup rather than silently disabling the limit.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">MCP_THROTTLE_READ_RATE</span><span class="o">=</span><span class="m">300</span>/min
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">MCP_THROTTLE_COMPUTE_RATE</span><span class="o">=</span><span class="m">30</span>/min
 </code></pre></div>
 <h3 id="failed-authentication-limit-per-ip">Failed-authentication limit (per IP)<a class="headerlink" href="#failed-authentication-limit-per-ip" title="Permanent link">&para;</a></h3>
 <blockquote>
@@ -4657,13 +4649,13 @@
 <p>Only failed lookups spend this budget. A valid token that merely lacks the <code>mcp:read</code> scope is not counted, and neither are successful requests, but the check runs before the lookup for every request. Once an IP has used its budget, further requests from it, <strong>valid ones included</strong>, are answered <code>429</code> (a <code>Retry-After</code> header and a JSON-RPC error with <code>data.code: "throttled"</code> and <code>data.retry_after</code>) until the window slides. Valid agents that share an IP with a client that keeps failing (an agent looping on a revoked token, or a hostile host behind the same NAT) are therefore blocked too. This is a best-effort brake on guessing, not a hard cap: the counter is approximate, and concurrent or multi-replica failures can exceed the budget or lose counts. The client IP is resolved with the same <code>NUM_PROXIES</code> logic as the REST throttles; set <code>NUM_PROXIES</code> to match your proxy chain or all clients behind a proxy will share one bucket. The setting is optional, uses the same <code>&lt;count&gt;/&lt;period&gt;</code> syntax as the others, and an unparseable value raises <code>ImproperlyConfigured</code>. Like the per-token buckets, the limiter fails closed: if the cache backend is unavailable the request errors rather than skipping the check.</p>
 <h3 id="throttled-tool-calls">Throttled tool calls<a class="headerlink" href="#throttled-tool-calls" title="Permanent link">&para;</a></h3>
 <p>A tool call over its limit returns a structured <a href="#tool-errors">tool error</a> (<code>isError: true</code>), exactly like every other tool-level error — never a <code>429</code> or a transport-level failure. The error payload is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"throttled"</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rate limit exceeded for this token (mcp_read). Retry after 12 second(s)."</span><span class="p">,</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">"retry_after"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"throttled"</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rate limit exceeded for this token (mcp_read). Retry after 12 second(s)."</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">"retry_after"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">}</span>
 </code></pre></div>
 <p><code>retry_after</code> is a whole number of seconds; an agent should wait at least that long before retrying the same call.</p>
 <h3 id="throttled-resource-reads">Throttled resource reads<a class="headerlink" href="#throttled-resource-reads" title="Permanent link">&para;</a></h3>
@@ -4671,7 +4663,7 @@
 <hr />
 <h2 id="connecting-a-client">Connecting a client<a class="headerlink" href="#connecting-a-client" title="Permanent link">&para;</a></h2>
 <p>Point any MCP client at the endpoint with the token as a Bearer credential. For example, with the reference inspector:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>npx<span class="w"> </span>@modelcontextprotocol/inspector
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>npx<span class="w"> </span>@modelcontextprotocol/inspector
 </code></pre></div>
 <p>Then connect to <code>http://localhost:8000/mcp</code> using <strong>Streamable HTTP</strong> transport, adding the <code>Authorization: Bearer vbn_...</code> header. The inspector will list the server and its tools.</p>
 <hr />
@@ -4742,20 +4734,20 @@
 </tbody>
 </table>
 <p><strong>Example</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">[</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p">{</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5930ca070e34672b"</span><span class="p">,</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform Roadmap"</span><span class="p">,</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Q3 delivery"</span><span class="p">,</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin"</span><span class="p">,</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="nt">"column_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="nt">"swimlane_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="nt">"card_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725480+00:00"</span><span class="p">,</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">    </span><span class="nt">"updated_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725490+00:00"</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">[</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5930ca070e34672b"</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform Roadmap"</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Q3 delivery"</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin"</span><span class="p">,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nt">"column_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nt">"swimlane_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="nt">"card_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725480+00:00"</span><span class="p">,</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">    </span><span class="nt">"updated_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725490+00:00"</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="p">]</span>
 </code></pre></div>
 <h4 id="which-boards-are-returned">Which boards are returned<a class="headerlink" href="#which-boards-are-returned" title="Permanent link">&para;</a></h4>
 <p>The tool applies exactly the same access rule as <code>GET /api/v1/boards/</code>, so an agent sees the same boards the user sees in the web UI. A board is included when the user owns it, holds a membership on it, inherits access through a group, or is a site admin with access to all content.</p>
@@ -4798,31 +4790,31 @@
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>A tool that can fail for a reason other than "your token can't reach <code>/mcp</code> at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as its tool result — never a <code>500</code>, and never an unstructured exception message. The error payload has a top-level <code>error</code> key instead of the tool's normal payload:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">}</span>
 </code></pre></div>
 <h4 id="result-envelope">Result envelope<a class="headerlink" href="#result-envelope" title="Permanent link">&para;</a></h4>
 <blockquote>
 <p><strong>Changed in 1.2</strong> (before GA, #2004)</p>
 </blockquote>
 <p>A failed call is a <code>CallToolResult</code> with <code>isError: true</code>. The error payload above is in <code>structuredContent</code> under <code>result</code>, exactly where a successful call puts its payload, and the same payload is repeated as a single JSON text block in <code>content</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"isError"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"structuredContent"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">      </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"board_not_found"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"No Board matches the given query."</span><span class="p">}</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"{\n  \"error\": {\n    \"code\": \"board_not_found\", ..."</span><span class="p">}</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"isError"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">"structuredContent"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"board_not_found"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"No Board matches the given query."</span><span class="p">}</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"{\n  \"error\": {\n    \"code\": \"board_not_found\", ..."</span><span class="p">}</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="p">}</span>
 </code></pre></div>
 <p>A successful call has <code>isError: false</code> and its payload in <code>structuredContent.result</code>. Clients that check <code>isError</code> see every Visiban failure as a failure, and on a tool error clients that read <code>structuredContent</code> get every field (<code>code</code>, counters, <code>retry_after</code>, ...) just as they get the payload on success. The advertised <code>outputSchema</code> is unchanged, and an error result still conforms to it (its <code>result</code> is an object). The MCP Python SDK's client checks <code>structuredContent</code> against <code>outputSchema</code> only when <code>isError</code> is <code>false</code>.</p>
 <p><em>Changed in 1.2 (before GA, #2004): the 1.2 pre-releases returned these errors with <code>isError: false</code>. The payload, its location and its text block did not change; only <code>isError</code> did. Verified against the MCP Python SDK <code>mcp</code> 2.3.0, which passes a tool's error result through with its <code>structuredContent</code> intact.</em></p>
@@ -4972,7 +4964,7 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>A <strong>resource</strong> is MCP's second kind of server capability, alongside a tool. Where a tool is invoked with <code>tools/call</code> and takes arguments an agent chooses per call, a resource is addressed by a URI and read with <code>resources/read</code> — it exists so an agent can load a whole board's or card's context in a single round trip, instead of chaining several <code>list_*</code> tool calls together. Visiban registers two resource templates: <code>board://{board_id}</code> and <code>card://{card_id}</code>.</p>
+<p>A <strong>resource</strong> is MCP's second kind of server capability, alongside a tool. A tool is invoked with <code>tools/call</code> and takes arguments an agent chooses per call; a resource is addressed by a URI and read with <code>resources/read</code>, so an agent can load a whole board's or card's context in one round trip instead of chaining <code>list_*</code> tool calls. Visiban registers two resource templates: <code>board://{board_id}</code> and <code>card://{card_id}</code>.</p>
 <p>Like every other endpoint under <code>/mcp</code>, reading a resource requires the <code>mcp:read</code> scope. Neither resource needs <code>mcp:write</code> — both are read-only.</p>
 <p><code>/mcp</code> also now sends <code>Access-Control-*</code> headers — including a response to preflight <code>OPTIONS</code> requests — for origins listed in <code>CORS_ALLOWED_ORIGINS</code>, the same setting already used by the REST API and the WebSocket, so a browser-based MCP client can reach the server directly.</p>
 <h3 id="boardboard_id"><code>board://{board_id}</code><a class="headerlink" href="#boardboard_id" title="Permanent link">&para;</a></h3>
@@ -5088,9 +5080,23 @@
 </tbody>
 </table>
 <h3 id="resource-errors">Resource errors<a class="headerlink" href="#resource-errors" title="Permanent link">&para;</a></h3>
-<p>Resources fail differently from tools. A tool that cannot complete returns a structured <code>{"error": {"code": ...}}</code> result (see <a href="#tool-errors">Tool errors</a> above); a resource read has no equivalent channel. A failed read — a bad id, or an id on a board the caller cannot access — instead surfaces as a plain JSON-RPC-level error, with a message like <code>No Board matches the given query.</code> or <code>No Card matches the given query.</code></p>
-<p>That message is deliberately identical whether the id does not exist or exists on a board the caller cannot see — the same IDOR-prevention reasoning the <code>board_not_found</code>/<code>card_not_found</code> tool error codes already document above. There is no way to distinguish the two cases from the response, by design.</p>
+<p>Resources fail differently from tools. A tool that cannot complete returns a structured <code>{"error": {"code": ...}}</code> result (see <a href="#tool-errors">Tool errors</a> above); a resource read has no such channel. A failed read (a bad id, or an id on a board the caller cannot access) surfaces as a plain JSON-RPC-level error, with a message like <code>No Board matches the given query.</code> or <code>No Card matches the given query.</code></p>
+<p>That message is deliberately identical whether the id does not exist or sits on a board the caller cannot see, for the same IDOR-prevention reason as the <code>board_not_found</code>/<code>card_not_found</code> tool error codes above. The two cases cannot be told apart, by design.</p>
 <p>The same "raise, don't return" rule applies to a throttled resource read — see <a href="#throttled-resource-reads">Throttled resource reads</a> above.</p>
+<hr />
+<h2 id="stability-and-versioning">Stability and versioning<a class="headerlink" href="#stability-and-versioning" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
+<ul>
+<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
+<li><strong>Argument schemas</strong> change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.</li>
+<li><strong>Results and error payloads</strong> only gain fields; existing fields keep their name and type. The error <code>code</code> values listed under <a href="#tool-errors">Tool errors</a> are never removed.</li>
+<li>A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
+<li>New tools, resources, optional arguments, and result fields can appear in any minor release, so clients should ignore fields they do not recognize.</li>
+<li>The configuration names <code>MCP_SERVER_ENABLED</code>, <code>MCP_ALLOWED_HOSTS</code>, <code>MCP_THROTTLE_*_RATE</code>, and the <code>/mcp</code> path follow the environment-variable rules: they are not renamed, and a rename keeps the old name as a deprecated alias for at least one minor release.</li>
+</ul>
 <hr />
 <h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
 <p>Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the <code>board://</code>/<code>card://</code> resources (this release). A full setup guide is tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>

@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#version-api" class="md-skip">
+        <a href="#check-the-server-version-with-one-authenticated-get" class="md-skip">
           Skip to content
         </a>
       
@@ -4010,10 +4010,11 @@
   
 
 
-<h1 id="version-api">Version API<a class="headerlink" href="#version-api" title="Permanent link">&para;</a></h1>
-<p>A single endpoint that reports the running server's version string.</p>
+<h1 id="check-the-server-version-with-one-authenticated-get">Check the server version with one authenticated GET<a class="headerlink" href="#check-the-server-version-with-one-authenticated-get" title="Permanent link">&para;</a></h1>
+<p><code>GET /api/v1/version/</code> returns <code>{ "version": "1.2.0" }</code> to any authenticated caller.</p>
 <p><strong>Why it matters:</strong> it's the frozen 1.x contract clients rely on to check compatibility before
 calling anything else — see the stability commitment below.</p>
+<p><strong>Watch out:</strong> an unauthenticated request gets <code>401 Unauthorized</code>, so send a session or token even for this call.</p>
 <h2 id="get-apiv1version"><code>GET /api/v1/version/</code><a class="headerlink" href="#get-apiv1version" title="Permanent link">&para;</a></h2>
 <p>Returns the running server version string. Authentication is required.</p>
 <p><strong>Authentication:</strong> requires a valid session or personal access token (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>401 Unauthorized</code> (with a <code>WWW-Authenticate: Token</code> header).</p>

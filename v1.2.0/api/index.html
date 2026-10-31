@@ -27,7 +27,7 @@
     
     
       
-        <title>API Reference - Visiban</title>
+        <title>Call the Visiban REST API - Visiban</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api-reference" class="md-skip">
+        <a href="#call-the-visiban-rest-api" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API Reference
+              Call the Visiban REST API
             
           </span>
         </div>
@@ -3952,9 +3952,12 @@
   
 
 
-<h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
+<h1 id="call-the-visiban-rest-api">Call the Visiban REST API<a class="headerlink" href="#call-the-visiban-rest-api" title="Permanent link">&para;</a></h1>
 <p>Send authenticated JSON requests to <code>/api/v1</code>; start with <a href="authentication/">Authentication</a>.</p>
-<p><strong>Why it matters:</strong> every endpoint lives under the <code>/api/v1/</code> prefix and needs a valid token or session, so an unauthenticated request fails before it reaches any board data.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span>http://localhost:8000/api/v1/boards/
+</code></pre></div>
+<p><strong>Why it matters:</strong> versioned REST endpoints live under the <code>/api/v1/</code> prefix. Most need a valid token or session, and an unauthenticated request gets <code>401</code>; the health endpoints are the exception.</p>
+<p><strong>Go deeper:</strong> the reference table below, <a href="#versioning-policy">versioning policy</a>, and <a href="#common-conventions">common conventions</a> (errors, pagination, maintenance mode).</p>
 <p><strong>The big picture:</strong> Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.</p>
 <p><strong>Base URL:</strong> <code>http://localhost:8000/api/v1</code> (dev) or <code>https://&lt;your-domain&gt;/api/v1</code> (production)</p>
 <table>
@@ -4049,14 +4052,14 @@
 </table>
 <h3 id="message-envelope">Message envelope<a class="headerlink" href="#message-envelope" title="Permanent link">&para;</a></h3>
 <p>All messages from the server use the following shape:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;event_type&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">"event_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;event_type&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">"event_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<p>The <code>data</code> object contains the serialized resource (card, column, swimlane, etc.) relevant to the event. <code>event_id</code> (since 1.2) is the frame's id in the <a href="events/">change feed</a> — keep the last one you processed and resume from it after a reconnect.</p>
+<p><code>data</code> holds the serialized resource (card, column, swimlane, etc.) for the event. <code>event_id</code> (since 1.2) is the frame's id in the <a href="events/">change feed</a>: keep the last one you processed and resume from it after a reconnect.</p>
 <h3 id="event-types">Event types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h3>
 <p>Every event follows the <code>{ "event": "&lt;event_type&gt;", "data": { ... } }</code> envelope shown above. The full, CI-enforced list of event types — board, column, swimlane, label, custom field, swimlane field, card, member, and Git Lens events — is maintained in one place: see <a href="websockets/#event-reference">WebSockets → Event reference</a>.</p>
 <hr />
 <h2 id="versioning-policy">Versioning policy<a class="headerlink" href="#versioning-policy" title="Permanent link">&para;</a></h2>
-<p>All REST endpoints are served under the <code>/api/v1/</code> prefix. This is a literal path segment — the version string is not a header or query parameter. An unsupported version prefix (e.g. <code>/api/v2/</code>) returns <code>406 Not Acceptable</code>.</p>
+<p>All REST endpoints are served under the <code>/api/v1/</code> prefix, a literal path segment (not a header or query parameter). An unsupported version prefix (e.g. <code>/api/v2/</code>) returns <code>406 Not Acceptable</code>.</p>
 <p>The <code>/api/v1/</code> surface is the stable 1.x contract. Breaking changes (field removals, type changes, endpoint removals) will be introduced under <code>/api/v2/</code> with at least one minor-release deprecation notice. Additive changes (new optional response fields, new optional request parameters, new endpoints) are non-breaking and may appear in any 1.x patch or minor release.</p>
 <p>Operators and integrators may treat the <code>/api/v1/</code> surface as stable for the lifetime of all Visiban 1.x releases.</p>
 <hr />
@@ -4071,14 +4074,14 @@
 </ul>
 <h3 id="error-responses">Error responses<a class="headerlink" href="#error-responses" title="Permanent link">&para;</a></h3>
 <p>Many errors carry a machine-readable <code>code</code> next to the human-readable <code>detail</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Query param 'days' must not exceed 365."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_query_param"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Query param 'days' must not exceed 365."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_query_param"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><code>code</code> is a stable string (for example <code>export_restricted</code>, <code>feature_disabled</code>, <code>invite_email_cap_reached</code>, <code>group_owner_protected</code>). When a response has a <code>code</code>, compare it rather than <code>detail</code>: the <code>detail</code> text is for people and may be reworded in any release. Not every error has a <code>code</code>; each endpoint's page documents its error bodies. Validation errors on a request body are usually field-keyed (<code>{"&lt;field&gt;": [...]}</code>), but some hand-validated bodies answer <code>{"detail": "..."}</code> with no <code>code</code> instead, for example an invalid <code>role</code> on <code>PATCH /groups/{id}/members/{user_id}/</code> (<code>{"detail": "Must be one of: admin, member, collaborator, viewer"}</code>).</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p><strong>Bad query parameters.</strong> The query parameters listed below answer a refused value (not an integer, out of range, not one of the allowed values, a cursor the server cannot use) with <code>400 Bad Request</code>, <code>{detail, code}</code> and <code>code: "invalid_query_param"</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"offset must not exceed 4611686018427387904."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_query_param"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"offset must not exceed 4611686018427387904."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_query_param"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>This covers:</p>
 <ul>
@@ -4093,18 +4096,18 @@
 <li><code>GET /cards/</code>: a <code>cursor</code> that cannot be decoded, or whose position is not a timestamp Postgres can store (not a valid date and time, or a UTC offset of 16 hours or more)</li>
 <li>Card filter parameters whose value fails the filter's type check, on <code>GET /boards/{id}/cards/</code> and <code>GET /cards/</code>. These also keep the field-keyed entry the board card list has answered with since 1.1, so a 1.1 client that reads it is unaffected:</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Enter a number."</span><span class="p">],</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assignee: Enter a number."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_query_param"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Enter a number."</span><span class="p">],</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assignee: Enter a number."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_query_param"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>Branch on <code>code</code>, not on which parameter key is present.</p>
 <p>Some parameters are clamped or ignored rather than refused; each endpoint's page says which.</p>
 <h3 id="pagination">Pagination<a class="headerlink" href="#pagination" title="Permanent link">&para;</a></h3>
 <p>Most list endpoints return the <strong>standard paginated envelope</strong>. A client must read the list from <code>results</code>, not from the top level of the response:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">123</span><span class="p">,</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">"page_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">]</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">123</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">"page_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">]</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4181,7 +4184,7 @@
 <p>While a site admin has <a href="admin/#maintenance-mode">maintenance mode</a> turned on, <strong>any</strong>
 non-safe-method request (anything other than <code>GET</code>, <code>HEAD</code>, <code>OPTIONS</code>, <code>TRACE</code>) from a non-site-admin
 caller — on any endpoint documented in this reference — is rejected with <code>503 Service Unavailable</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"maintenance_mode"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Upgrading to 1.2 — back by 14:00 UTC."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"maintenance_mode"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Upgrading to 1.2 — back by 14:00 UTC."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The response carries <code>Retry-After: 120</code> so clients back off rather than retry immediately.
 <code>detail</code> is the operator's configured notice, or a built-in default when they left it blank.
@@ -4247,7 +4250,7 @@ family stays uniform; no other resource gains a new <code>*_username</code> fiel
 </table>
 <p>The snake_case path remains routable through every 1.x release. It will be removed in 2.0 after a full minor-release deprecation window. <em>(1.2+)</em> The OpenAPI schema marks the alias operation <code>deprecated: true</code>.</p>
 <h3 id="expanding-foreign-key-fields">Expanding foreign-key fields<a class="headerlink" href="#expanding-foreign-key-fields" title="Permanent link">&para;</a></h3>
-<p>Endpoints that return a foreign key as an integer id may also support a nested companion field gated on the <code>?expand=&lt;name&gt;</code> query parameter. The default response shape is unchanged; passing <code>expand</code> adds a parallel <code>_detail</code> field populated with a minimal nested object.</p>
+<p>Endpoints that return a foreign key as an integer id may support a nested companion field behind the <code>?expand=&lt;name&gt;</code> query parameter. The default shape is unchanged; <code>expand</code> adds a parallel <code>_detail</code> field holding a minimal nested object.</p>
 <table>
 <thead>
 <tr>
@@ -4290,7 +4293,7 @@ family stays uniform; no other resource gains a new <code>*_username</code> fiel
 </tbody>
 </table>
 <p>Multiple expansions may be combined with a comma, e.g. <code>?expand=group,members</code>. Unknown values are silently ignored. The original FK id fields (<code>group</code>, <code>group_name</code>) always remain in the response for backward compatibility.</p>
-<p>The <code>ancestors</code> field on the expanded <code>group_detail</code> payload is root-first and excludes the group itself (callers already have that in <code>name</code>). Useful for rendering breadcrumbs without a follow-up request. Added in 1.1 (#845).</p>
+<p>The <code>ancestors</code> field on the expanded <code>group_detail</code> payload is root-first and excludes the group itself (already in <code>name</code>), which lets you render breadcrumbs without a follow-up request. Added in 1.1 (#845).</p>
 
 
 

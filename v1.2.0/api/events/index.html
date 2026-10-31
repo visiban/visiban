@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#board-change-feed-api" class="md-skip">
+        <a href="#replay-missed-board-changes-with-one-cursor-request" class="md-skip">
           Skip to content
         </a>
       
@@ -2131,17 +2131,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#stability-and-versioning" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stability and versioning
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#how-the-two-surfaces-fit-together" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2246,6 +2235,17 @@
     <span class="md-ellipsis">
       
         Sizing the window
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stability-and-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stability and versioning
       
     </span>
   </a>
@@ -4121,35 +4121,23 @@
   
 
 
-<h1 id="board-change-feed-api">Board Change Feed API<a class="headerlink" href="#board-change-feed-api" title="Permanent link">&para;</a></h1>
-<p>Read what happened on a board with a cursor, instead of holding a WebSocket open.</p>
-<p><strong>Why it matters:</strong> a consumer that drops offline can resume from its last cursor and miss nothing.</p>
+<h1 id="replay-missed-board-changes-with-one-cursor-request">Replay missed board changes with one cursor request<a class="headerlink" href="#replay-missed-board-changes-with-one-cursor-request" title="Permanent link">&para;</a></h1>
+<p><code>GET /api/v1/boards/{id}/events/?after=&lt;last event_id&gt;</code> returns what happened on a board since your last event, in order.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="s2">"http://localhost:8000/api/v1/boards/3/events/?after=84200"</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># 200 {"results": [{"id": 84213, "event": "card.moved", ...}], "next_cursor": 84213, "next": 84213}</span>
+</code></pre></div>
+<p><strong>Why it matters:</strong> a consumer that drops offline can resume from its last cursor and miss nothing, without re-fetching the whole board.</p>
 <p><strong>How it works:</strong> every board mutation is appended to a durable, ordered feed that a consumer outside the
 Django process — a second front end, a CRM sync job, the MCP REST client — can read with a
 cursor instead of holding a WebSocket open and hoping it never drops.</p>
+<p><strong>Yes, but:</strong> history is bounded by an operator-set retention window, so handle <code>410 Gone</code> by re-fetching <code>GET /api/v1/boards/{id}/full/</code>. See <a href="#retention">Retention</a>.</p>
+<p><strong>Go deeper:</strong> <a href="#get-apiv1boardsidevents">the endpoint</a>, <a href="#stability-and-versioning">stability guarantees</a> (the last section), <a href="#fields-that-depend-on-who-is-reading">what each reader sees</a>.</p>
 <div class="admonition info">
 <p class="admonition-title">Since 1.2</p>
 <p>The change feed is new in Visiban 1.2.</p>
 </div>
-<p>The feed does not replace the <a href="../websockets/">WebSocket API</a>; it completes it.
-The socket is how you learn about a change <em>now</em>; the feed is how you find out
-what happened while you were not listening. Both carry the same payloads, so one
-handler serves both.</p>
-<hr />
-<h2 id="stability-and-versioning">Stability and versioning<a class="headerlink" href="#stability-and-versioning" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
-<ul>
-<li><strong>The endpoint, its <code>after</code> and <code>limit</code> parameters, and the response envelope</strong> (<code>results</code>, <code>next_cursor</code>, and the deprecated <code>next</code>) are never removed or renamed in a minor or patch release. The cursor semantics (<code>after</code> is exclusive, ordering is by <code>id</code>, <code>next_cursor</code> is <code>null</code> once a page comes back short) and the <code>400</code>, <code>404</code>, and <code>410</code> error behavior described below do not change.</li>
-<li><strong>Row fields</strong> (<code>id</code>, <code>event</code>, <code>data</code>, <code>actor_id</code>, <code>actor</code>, <code>created_at</code>) only gain fields; an existing field keeps its name and type and is never removed.</li>
-<li><strong>Event types and payloads</strong> carry the same <code>{event, data}</code> payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in <a href="../../development/websocket-event-contract/#retiring-an-event">Retiring an event</a>.</li>
-<li><strong>Per-reader fields are the exception.</strong> The fields documented under <a href="#fields-that-depend-on-who-is-reading">Fields that depend on who is reading</a> are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.</li>
-<li><strong><code>next_cursor</code> is the cursor; <code>next</code> is deprecated.</strong> <code>next_cursor</code> is the documented cursor field. <code>next</code> was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read <code>next_cursor</code>. <code>next</code> is removed only at a major version bump. See <a href="#pagination-shapes">Pagination shapes</a>.</li>
-<li>A part of the feed that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
-<li><strong>Not covered:</strong> how long history is kept. The retention window is an operator setting (<code>BOARD_EVENT_RETENTION_DAYS</code>), so a consumer must handle <code>410 Gone</code> rather than assume any particular depth of history. See <a href="#retention">Retention</a>.</li>
-</ul>
+<p>The feed completes the <a href="../websockets/">WebSocket API</a> rather than replacing it. The socket tells you about a change <em>now</em>; the feed tells you what happened while you were not listening. Both carry the same payloads, so one handler serves both.</p>
 <hr />
 <h2 id="how-the-two-surfaces-fit-together">How the two surfaces fit together<a class="headerlink" href="#how-the-two-surfaces-fit-together" title="Permanent link">&para;</a></h2>
 <ol>
@@ -4162,8 +4150,7 @@ handler serves both.</p>
    window. Re-fetch <code>GET /api/v1/boards/{id}/full/</code>, then resume from the newest
    <code>event_id</code> you see after that.</li>
 </ol>
-<p>A consumer with no socket at all can poll the feed on its own schedule — the
-cursor makes repeat reads exact rather than approximate.</p>
+<p>A consumer with no socket can poll the feed on its own schedule; the cursor makes repeat reads exact.</p>
 <hr />
 <h2 id="get-apiv1boardsidevents"><code>GET /api/v1/boards/{id}/events/</code><a class="headerlink" href="#get-apiv1boardsidevents" title="Permanent link">&para;</a></h2>
 <p>Returns committed events for one board, in ascending <code>id</code> order.</p>
@@ -4196,27 +4183,22 @@ which match what the WebSocket sends that reader.</p>
 </tr>
 </tbody>
 </table>
-<p>Both parameters are validated rather than clamped. A malformed <code>after</code> is a
-<code>400</code>, not a silent restart from the beginning of the feed, because a consumer
-that quietly replayed history it had already processed would have no way to
-notice. A <code>limit</code> outside the range is a <code>400</code> for the same reason: a consumer
-that asked for <code>10000</code> and silently received <code>500</code> would read
-<code>len(results) &lt; limit</code> as "caught up" and stop paging with events still unread.</p>
+<p>Both parameters are validated, not clamped. A malformed <code>after</code> is a <code>400</code>, not a silent restart from the start of the feed, because a consumer that quietly replayed processed history would never notice. A <code>limit</code> outside the range is a <code>400</code> for the same reason: a consumer that asked for <code>10000</code> and silently got <code>500</code> would read <code>len(results) &lt; limit</code> as "caught up" and stop paging with events unread.</p>
 <p><strong>Response</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">"movement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">"actor_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-15T10:22:41.881Z"</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">"next_cursor"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="nt">"next"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">"movement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">"actor_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-15T10:22:41.881Z"</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">"next_cursor"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="nt">"next"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4270,17 +4252,12 @@ that asked for <code>10000</code> and silently received <code>500</code> would r
 </tbody>
 </table>
 <h3 id="paging">Paging<a class="headerlink" href="#paging" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_..."</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="s2">"http://localhost:8000/api/v1/boards/42/events/?after=0&amp;limit=200"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_..."</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="s2">"http://localhost:8000/api/v1/boards/42/events/?after=0&amp;limit=200"</span>
 </code></pre></div>
-<p>Keep calling with <code>after</code> set to the previous response's <code>next_cursor</code> until
-<code>next_cursor</code> is <code>null</code>. Order is by <code>id</code>, which is the commit order — never re-sort by
-<code>created_at</code>, since two events can share a timestamp.</p>
+<p>Call again with <code>after</code> set to the previous <code>next_cursor</code> until <code>next_cursor</code> is <code>null</code>. Order is by <code>id</code>, the commit order. Never re-sort by <code>created_at</code>: two events can share a timestamp.</p>
 <h3 id="pagination-shapes">Pagination shapes<a class="headerlink" href="#pagination-shapes" title="Permanent link">&para;</a></h3>
-<p>Besides the standard offset envelope (<code>{count, offset, page_size, results}</code>) and bare
-arrays for small bounded lists, the API has three cursor/link shapes. See
-<a href="../#pagination">Pagination</a> for the full list. The three differ on purpose, and
-each is frozen by the release that introduced it (decision recorded for #1869):</p>
+<p>Besides the standard offset envelope (<code>{count, offset, page_size, results}</code>) and bare arrays for small bounded lists, the API has three cursor/link shapes (see <a href="../#pagination">Pagination</a> for the full list). They differ on purpose, and each is frozen by the release that introduced it (decision recorded for #1869):</p>
 <table>
 <thead>
 <tr>
@@ -4307,8 +4284,7 @@ each is frozen by the release that introduced it (decision recorded for #1869):<
 </tr>
 </tbody>
 </table>
-<p>New cursor-paginated endpoints should name the response key <code>next_cursor</code>, but must document their own request parameter and cursor type; a client cannot reuse the feed's <code>after</code> for <code>/cards/</code>, nor <code>cursor</code> for the feed (the feed ignores an unknown <code>cursor</code> and would return page 1 again). The feed's earlier <code>next</code> key
-(1.2.0-beta.1) is kept as a deprecated duplicate so the rename is not a breaking change.</p>
+<p>New cursor-paginated endpoints should name the response key <code>next_cursor</code> but document their own request parameter and cursor type. A client cannot reuse the feed's <code>after</code> for <code>/cards/</code>, nor <code>cursor</code> for the feed (the feed ignores an unknown <code>cursor</code> and returns page 1 again). The feed's earlier <code>next</code> key (1.2.0-beta.1) stays as a deprecated duplicate, so the rename is not breaking.</p>
 <h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4343,11 +4319,7 @@ each is frozen by the release that introduced it (decision recorded for #1869):<
 </table>
 <div class="admonition note">
 <p class="admonition-title">410 is deliberately narrow</p>
-<p>A pruned cursor returns <code>410</code> only when there are newer events the consumer
-might have skipped past. A cursor that was pruned with <em>nothing newer behind
-it</em> returns an ordinary empty page — a consumer that has simply been idle
-longer than the retention window has missed nothing, and does not need to
-re-sync.</p>
+<p>A pruned cursor returns <code>410</code> only when newer events exist that the consumer might have skipped. A cursor pruned with <em>nothing newer behind it</em> returns an ordinary empty page: a consumer idle longer than the retention window has missed nothing and need not re-sync.</p>
 </div>
 <hr />
 <h2 id="event-coverage">Event coverage<a class="headerlink" href="#event-coverage" title="Permanent link">&para;</a></h2>
@@ -4419,40 +4391,41 @@ for both surfaces.</p>
 </ul>
 <hr />
 <h2 id="retention">Retention<a class="headerlink" href="#retention" title="Permanent link">&para;</a></h2>
-<p>Events are kept for <code>BOARD_EVENT_RETENTION_DAYS</code> days (default <code>30</code>) and removed
-by a management command. Nothing expires on its own — <strong>an install that never
-runs the pruner grows the <code>board_events</code> table forever</strong>. Retention bounds how
-much history the feed returns: any reader with access to the board receives
-every retained row for it, whenever they joined, each filtered for that reader
-by the rules in
-<a href="#fields-that-depend-on-who-is-reading">Fields that depend on who is reading</a>.
-Run the pruner on a schedule:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># See what would go, without deleting anything</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--dry-run
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Prune using the configured window</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Override the window for one run</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--days<span class="w"> </span><span class="m">7</span>
+<p>Events are kept for <code>BOARD_EVENT_RETENTION_DAYS</code> days (default <code>30</code>) and removed by a management command. Nothing expires on its own: <strong>an install that never runs the pruner grows the <code>board_events</code> table forever</strong>. Retention bounds how much history the feed returns: any reader with access to the board receives every retained row for it, whenever they joined, each filtered by the rules in <a href="#fields-that-depend-on-who-is-reading">Fields that depend on who is reading</a>. Run the pruner on a schedule:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># See what would go, without deleting anything</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--dry-run
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Prune using the configured window</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Override the window for one run</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--days<span class="w"> </span><span class="m">7</span>
 </code></pre></div>
-<p>Schedule it nightly. Both deployment paths ship an opt-in scheduler with this
-job <strong>off</strong> by default. To turn it on, set <code>SCHEDULE_PRUNE_BOARD_EVENTS=03:00</code>
-in <code>.env</code> for the Compose <code>scheduler</code> profile, or set
-<code>scheduledJobs.pruneBoardEvents.enabled=true</code> in Helm. You can also use host cron:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>0 3 * * * docker compose run --rm backend python manage.py prune_board_events
+<p>Schedule it nightly. Both deployment paths ship an opt-in scheduler with this job <strong>off</strong> by default. Turn it on with <code>SCHEDULE_PRUNE_BOARD_EVENTS=03:00</code> in <code>.env</code> for the Compose <code>scheduler</code> profile, or <code>scheduledJobs.pruneBoardEvents.enabled=true</code> in Helm. Host cron also works:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>0 3 * * * docker compose run --rm backend python manage.py prune_board_events
 </code></pre></div>
 <p>See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
-<p>Deletion happens in batches (<code>--batch-size</code>, default <code>5000</code>) so a large cleanup
-does not hold locks against concurrent writers for the length of the run.</p>
+<p>Deletion runs in batches (<code>--batch-size</code>, default <code>5000</code>), so a large cleanup does not hold locks against concurrent writers for the whole run.</p>
 <p>See <a href="../../administration/configuration/">Configuration</a> for
 <code>BOARD_EVENT_RETENTION_DAYS</code>.</p>
 <hr />
 <h2 id="sizing-the-window">Sizing the window<a class="headerlink" href="#sizing-the-window" title="Permanent link">&para;</a></h2>
-<p>Pick a retention window longer than the longest outage a consumer is expected to
-survive. A consumer offline for longer than the window is not broken by it — it
-gets a <code>410</code> and re-syncs — but every such re-sync is a full <code>/full/</code> fetch, so a
-window that is too short turns routine restarts into expensive ones.</p>
+<p>Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: it gets a <code>410</code> and re-syncs. But every re-sync is a full <code>/full/</code> fetch, so a too-short window makes routine restarts expensive.</p>
+<hr />
+<h2 id="stability-and-versioning">Stability and versioning<a class="headerlink" href="#stability-and-versioning" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
+<ul>
+<li><strong>The endpoint, its <code>after</code> and <code>limit</code> parameters, and the response envelope</strong> (<code>results</code>, <code>next_cursor</code>, and the deprecated <code>next</code>) are never removed or renamed in a minor or patch release. The cursor semantics (<code>after</code> is exclusive, ordering is by <code>id</code>, <code>next_cursor</code> is <code>null</code> once a page comes back short) and the <code>400</code>, <code>404</code>, and <code>410</code> error behavior described on this page do not change.</li>
+<li><strong>Row fields</strong> (<code>id</code>, <code>event</code>, <code>data</code>, <code>actor_id</code>, <code>actor</code>, <code>created_at</code>) only gain fields; an existing field keeps its name and type and is never removed.</li>
+<li><strong>Event types and payloads</strong> carry the same <code>{event, data}</code> payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in <a href="../../development/websocket-event-contract/#retiring-an-event">Retiring an event</a>.</li>
+<li><strong>Per-reader fields are the exception.</strong> The fields documented under <a href="#fields-that-depend-on-who-is-reading">Fields that depend on who is reading</a> are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.</li>
+<li><strong><code>next_cursor</code> is the cursor; <code>next</code> is deprecated.</strong> <code>next_cursor</code> is the documented cursor field. <code>next</code> was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read <code>next_cursor</code>. <code>next</code> is removed only at a major version bump. See <a href="#pagination-shapes">Pagination shapes</a>.</li>
+<li>A part of the feed that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
+<li><strong>Not covered:</strong> how long history is kept. The retention window is an operator setting (<code>BOARD_EVENT_RETENTION_DAYS</code>), so a consumer must handle <code>410 Gone</code> rather than assume any particular depth of history. See <a href="#retention">Retention</a>.</li>
+</ul>
 
 
 
