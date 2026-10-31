@@ -28,12 +28,9 @@ cd backend
 python manage.py check_migration_concurrency
 ```
 
-The check is a syntactic scan of `backend/*/migrations/*.py` — it needs no database and will
-flag a migration that would not even import on the current backend. There are **five** ways to
-build an index or a uniqueness constraint in a Django migration and it checks all five.
-Catching only the first would leave the rule trivially evadable, and that is not hypothetical:
-three of the other four are already used in this repo's history, by migrations that never
-mention `AddIndex` at all.
+The check is a syntactic scan of `backend/*/migrations/*.py`. It needs no database and will flag a migration that would not even import on the current backend.
+
+There are **five** ways to build an index or a uniqueness constraint in a Django migration, and it checks all five. Catching only the first would leave the rule trivially evadable, and that is not hypothetical: three of the other four are already used in this repo's history, by migrations that never mention `AddIndex` at all.
 
 | Pattern | Flagged | Example in the tree |
 |---|---|---|
@@ -46,29 +43,17 @@ mention `AddIndex` at all.
 | `Meta.indexes` / `Meta.constraints` in `CreateModel` `options` | **no** | same reason — built with the new table (e.g. `boards/0061_add_card_external_ref`) |
 | `AddIndex` under `SeparateDatabaseAndState(state_operations=...)` | **no** | state only, emits no DDL |
 
-The field-level ones are the easiest to reach for and the easiest to miss in review:
-`makemigrations` generates them silently from a one-word model change, and nothing in the
-generated file says "index". `unique=True` in particular does not look like an index at all —
-but Django implements it as one, under the same lock. Declare the index in the model's
-`Meta.indexes` (or the uniqueness in `Meta.constraints`) instead, and add it concurrently.
+**Watch out:** The field-level patterns are the easiest to reach for and the easiest to miss in review. `makemigrations` generates them silently from a one-word model change, and nothing in the generated file says "index". `unique=True` in particular does not look like an index at all, but Django implements it as one, under the same lock. Declare the index in the model's `Meta.indexes` (or the uniqueness in `Meta.constraints`) instead, and add it concurrently.
 
-The check also fails a migration that uses a concurrent operation without setting
-`atomic = False`. That combination raises `NotSupportedError` at `migrate` time — loud, but
-only once it reaches an environment that actually runs migrations, which is usually CI at the
-earliest and production at the worst.
+The check also fails a migration that uses a concurrent operation without setting `atomic = False`. That combination raises `NotSupportedError` at `migrate` time. It is loud, but only once it reaches an environment that actually runs migrations: usually CI at the earliest and production at the worst.
 
 ---
 
 ### A NOT NULL column with a default
 
-A `NOT NULL` column added with only a Python-level `default=` is safe for the rows that already
-exist, but not for a rolling deploy. On PostgreSQL, Django adds the column with the default and then
-**drops the database default** at the end of `AddField`. Old application pods keep running during the
-rollout, and an `INSERT` from one of them that does not name the new column then fails with a
-`NOT NULL` violation until that pod drains. Any table written on a user-facing path (signup, login,
-board or card creation, membership changes) is exposed.
+Use `db_default=` for a `NOT NULL` column, so the database keeps the default.
 
-Use `db_default=` so the database keeps the default:
+**Why it matters:** A `NOT NULL` column added with only a Python-level `default=` is safe for the rows that already exist, but not for a rolling deploy. On PostgreSQL, Django adds the column with the default and then **drops the database default** at the end of `AddField`. Old application pods keep running during the rollout, and an `INSERT` from one of them that does not name the new column then fails with a `NOT NULL` violation until that pod drains. Any table written on a user-facing path (signup, login, board or card creation, membership changes) is exposed.
 
 ```python
 migrations.AddField(
@@ -78,11 +63,10 @@ migrations.AddField(
 )
 ```
 
-Put the same `db_default` on the model field so `makemigrations --check` stays clean. A migration
-that has already shipped gets an additive `AlterField` rather than an edit in place. The
-`check_migration_constraint_safety` scan below accepts any `default=` and so does not fail on this;
-`migration-check` enforces it. The scan stays advisory by decision (#1680): its fix hint
-recommends `db_default=` (alongside `default=`), but it never fails a `default=`-only column.
+- Put the same `db_default` on the model field so `makemigrations --check` stays clean.
+- A migration that has already shipped gets an additive `AlterField` rather than an edit in place.
+- The `check_migration_constraint_safety` scan below accepts any `default=` and so does not fail on this; `migration-check` enforces it.
+- The scan stays advisory by decision (#1680): its fix hint recommends `db_default=` (alongside `default=`), but it never fails a `default=`-only column.
 
 ## Adding an index
 
@@ -111,10 +95,7 @@ class Migration(migrations.Migration):
     ]
 ```
 
-Declare the index on the model's `Meta.indexes` as usual — `makemigrations` will generate a
-plain `AddIndex`, and you replace it by hand with `AddIndexConcurrently`. Django has no
-setting that makes the autodetector emit the concurrent form; hand-editing the generated file
-is the intended workflow, and the CI check is what catches the times you forget.
+Declare the index on the model's `Meta.indexes` as usual. `makemigrations` will generate a plain `AddIndex`, and you replace it by hand with `AddIndexConcurrently`. Django has no setting that makes the autodetector emit the concurrent form, so hand-editing the generated file is the intended workflow. The CI check catches the times you forget.
 
 ---
 
@@ -122,24 +103,13 @@ is the intended workflow, and the CI check is what catches the times you forget.
 
 **Never put a concurrent operation in the same migration as any other schema operation.**
 
-`atomic = False` means there is no transaction, and therefore no rollback. If a later
-operation fails, every earlier one stays applied while Django records the migration as *not*
-applied — so the retry re-runs the earlier operations against a database that already has
-them, and fails again. The migration is now wedged and has to be untangled by hand.
+**Why it matters:** `atomic = False` means there is no transaction, and therefore no rollback. If a later operation fails, every earlier one stays applied while Django records the migration as *not* applied. The retry re-runs the earlier operations against a database that already has them, and fails again. The migration is now wedged and has to be untangled by hand.
 
-`boards/0024_enforce_wip_limits_and_card_index` is the shape to avoid: it combines
-`AddField(enforce_wip_limits)` with an `AddIndex` on `cards`. It is safe today precisely
-*because* it is atomic. Adding `atomic = False` to it to make the index concurrent would trade
-a guaranteed-atomic migration for one that can leave the column added and the migration
-unrecorded. Split instead: one migration for the field, a second one — non-atomic, single
-operation — for the index.
+`boards/0024_enforce_wip_limits_and_card_index` is the shape to avoid: it combines `AddField(enforce_wip_limits)` with an `AddIndex` on `cards`. It is safe today precisely *because* it is atomic. Adding `atomic = False` to it to make the index concurrent would trade a guaranteed-atomic migration for one that can leave the column added and the migration unrecorded. Split instead: one migration for the field, and a second one (non-atomic, single operation) for the index.
 
 ### Recovering from a failed concurrent build
 
-A `CREATE INDEX CONCURRENTLY` that is interrupted does not roll back. It leaves a real, named
-index in the catalog marked **`INVALID`**: it is maintained on every write but used by no
-query, so the symptom is a slow database with an index that looks present. Check for it and
-drop it before retrying:
+An interrupted `CREATE INDEX CONCURRENTLY` does not roll back. It leaves a real, named index in the catalog marked **`INVALID`**. The index is maintained on every write but used by no query, so the symptom is a slow database with an index that looks present. Check for it and drop it before retrying:
 
 ```bash
 psql "$DATABASE_URL" -c "SELECT indexrelid::regclass AS name, indisvalid
@@ -147,9 +117,7 @@ psql "$DATABASE_URL" -c "SELECT indexrelid::regclass AS name, indisvalid
 psql "$DATABASE_URL" -c "DROP INDEX CONCURRENTLY <name>;"
 ```
 
-Then re-run `migrate`. The same applies to a `ValidateConstraint` that fails: the constraint
-stays in place as `NOT VALID`, enforced for new rows but unverified for old ones. Clean up the
-offending rows and re-run.
+Then re-run `migrate`. A `ValidateConstraint` that fails is the same case: the constraint stays in place as `NOT VALID`, enforced for new rows but unverified for old ones. Clean up the offending rows and re-run.
 
 ---
 
@@ -182,13 +150,9 @@ class Migration(migrations.Migration):
     ]
 ```
 
-`atomic = False` is not optional here. Run both operations inside one transaction and the
-brief `ACCESS EXCLUSIVE` from step one is held until commit — across the whole validation scan
-— which is precisely the outage the split exists to avoid.
+**Watch out:** `atomic = False` is not optional here. Run both operations inside one transaction and the brief `ACCESS EXCLUSIVE` from step one is held until commit, across the whole validation scan. That is precisely the outage the split exists to avoid.
 
-A `NOT VALID` constraint is enforced for new and updated rows immediately; only the scan of
-pre-existing rows is deferred. If the validation step fails, the constraint stays in place as
-`NOT VALID` and the fix is a data cleanup followed by a re-run.
+A `NOT VALID` constraint is enforced for new and updated rows immediately; only the scan of pre-existing rows is deferred. If the validation step fails, the constraint stays in place as `NOT VALID` and the fix is a data cleanup followed by a re-run.
 
 ---
 
