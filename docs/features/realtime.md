@@ -1,17 +1,21 @@
 # Board changes appear instantly for everyone
 
-WebSockets (Django Channels + Valkey) push every board change to all connected clients, with no polling.
+WebSockets (Django Channels + Valkey) push every board change to all connected clients, with no polling. Valkey ships in the default `docker-compose.yml`, so there is nothing to set up.
 
 **Why it matters:** Open tabs and teammates stay in sync without a page refresh.
 
+**Yes, but:** background tabs can miss events. Visiban re-fetches the board when a tab returns to the foreground and after every reconnect; see [Tab-focus reconciliation](#tab-focus-reconciliation).
+
+**Watch out:** production needs a Valkey instance, set via `REDIS_URL`; see [Requirements](#requirements).
+
 ## How it works
 
-1. When a user opens a board, the frontend opens a WebSocket connection to `ws://{host}/ws/boards/{board_id}/`
-2. The browser SPA authenticates with the session cookie; unauthenticated connections are closed with code `4001`, connections from a non-member are closed with `4003`, and so are connections from an account with a pending password or username change (the same account-state checks apply to REST, MCP, and WebSocket connections)
-3. Any mutation — card, column, swimlane, label, member, or board setting change — broadcasts an event to all clients subscribed to that board's channel group
-4. The frontend applies the event to local state, keeping all open tabs in sync without a page refresh
+1. When a user opens a board, the frontend opens a WebSocket connection to `ws://{host}/ws/boards/{board_id}/`.
+2. The browser SPA authenticates with the session cookie. Unauthenticated connections are closed with code `4001`, connections from a non-member are closed with `4003`, and so are connections from an account with a pending password or username change (the same account-state checks apply to REST, MCP, and WebSocket connections).
+3. Any mutation (card, column, swimlane, label, member, or board setting change) broadcasts an event to all clients subscribed to that board's channel group.
+4. The frontend applies the event to local state, keeping all open tabs in sync without a page refresh.
 
-Native, CLI, and agent clients have no cookie jar to send, so they authenticate with a short-lived **ticket** (since 1.2) obtained over the REST API instead — see [WebSocket API → Ticket authentication](../api/websockets.md#ticket-authentication-since-12) for the full flow.
+Native, CLI, and agent clients have no cookie jar to send, so they authenticate with a short-lived **ticket** (since 1.2) obtained over the REST API instead. See [WebSocket API → Ticket authentication](../api/websockets.md#ticket-authentication-since-12) for the full flow.
 
 ## Connection status
 
@@ -23,7 +27,11 @@ The top-right corner of the board toolbar shows the connection state via the **C
 - 🟡 **Connecting…** — initial connection attempt in progress; amber pill
 - 🔴 **Offline** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect
 
-The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**. If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code `1011` instead, and the client keeps reconnecting until the server recovers (since 1.2).
+**Reconnect rules:**
+
+- The client reconnects automatically after 3 seconds if the connection drops.
+- If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted. The indicator switches directly to **Offline**.
+- If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code `1011` instead, and the client keeps reconnecting until the server recovers (since 1.2).
 
 After you log out or change your password, open board and group tabs show the connection indicator as **Offline** within about 30–40 seconds. Reload the page to reconnect. This includes the tab you changed your password in. Logging out in one browser does not affect tabs signed in through another session. See [Credential revocation](../api/websockets.md#credential-revocation-since-12).
 
@@ -35,9 +43,9 @@ Board-channel events fall into a few categories:
 - **Members** — added, role changed, or removed (removing the current user also closes their connection; if that event is lost, the server's access re-check still closes the connection, with code `4003`, at the first board change, or the first keepalive ping (sent every 30 seconds), more than about 7 seconds after the server last confirmed their access — see [Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction))
 - **Cards** — created, field changes, moves between columns/swimlanes, deletion, archive, and restore
 - **Columns, swimlanes, and labels** — created, updated, deleted, and (for columns and swimlanes) reordered
-- **Feature-specific families** riding the same board channel: saved-filter events (see [Saved Filters](saved-filters.md)), custom field and swimlane field events (see [Custom Fields](custom-fields.md#api-and-real-time-events)), and — when [Issue Board Lens](issue-board-lens.md) is enabled — Git Lens connection events
+- **Feature-specific families** riding the same board channel: saved-filter events (see [Saved Filters](saved-filters.md)), custom field and swimlane field events (see [Custom Fields](custom-fields.md#api-and-real-time-events)), and, when [Issue Board Lens](issue-board-lens.md) is enabled, Git Lens connection events
 
-For the complete, canonical event list, trigger conditions, and `data` shape for every event, see **[WebSocket API — Event reference](../api/websockets.md#event-reference)** — that table is CI-enforced against the backend event registry and frontend handlers, so it cannot drift the way a second hand-maintained copy would.
+For the complete, canonical event list, trigger conditions, and `data` shape for every event, see **[WebSocket API — Event reference](../api/websockets.md#event-reference)**. That table is CI-enforced against the backend event registry and frontend handlers, so it cannot drift the way a second hand-maintained copy would.
 
 ## Event payload structure
 
@@ -96,11 +104,11 @@ The reorder events include the full list of objects in their new order. The serv
 ```
 
 !!! note
-    The legacy plural event names (`columns.reordered`, `swimlanes.reordered`) emitted in 1.0 were dropped in 1.1 (#944) — only the singular forms above are emitted. Subscribe to `column.reordered` / `swimlane.reordered`.
+    The legacy plural event names (`columns.reordered`, `swimlanes.reordered`) emitted in 1.0 were dropped in 1.1 (#944). Only the singular forms above are emitted. Subscribe to `column.reordered` / `swimlane.reordered`.
 
 ### `card.moved` payload
 
-The `card.moved` event includes both the updated card and the movement record — the same shape returned by `POST /api/v1/boards/{id}/cards/{id}/move/`:
+The `card.moved` event includes both the updated card and the movement record, the same shape returned by `POST /api/v1/boards/{id}/cards/{id}/move/`:
 
 ```json
 {
@@ -119,19 +127,19 @@ The `card.moved` event includes both the updated card and the movement record �
 }
 ```
 
-`movement` is `null` if only the position changed within the same column/swimlane cell (pure reorder — no column or swimlane change occurred).
+`movement` is `null` if only the position changed within the same column/swimlane cell (a pure reorder, with no column or swimlane change).
 
 ## Group real-time events
 
 > **Added in 1.1**
 
-In addition to the per-board channel, Visiban exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).
+Visiban also exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).
 
-**Connection URL:** `ws://{host}/ws/groups/{group_id}/`
+- **Connection URL:** `ws://{host}/ws/groups/{group_id}/`
+- **Authentication:** same as the board channel; session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code.
+- **What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations.
 
-**Authentication:** same as the board channel — session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code.
-
-**What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations. Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events — those remain on the per-board channel.
+Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events; those remain on the per-board channel.
 
 For the complete, canonical event list and `data` shape for every event, see **[WebSocket API — Group channel](../api/websockets.md#group-channel-since-11)**.
 
@@ -178,15 +186,19 @@ externalRedis:
 
 When a browser tab is backgrounded, the operating system may throttle or suspend JavaScript timers and WebSocket connections. Events broadcast while the tab is inactive can be lost, causing the board state to drift.
 
-To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (`visibilitychange` event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent" — it does not flash a loading skeleton.
+To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (`visibilitychange` event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent": it does not flash a loading skeleton.
 
-The board is also re-fetched automatically each time the WebSocket reconnects after a dropped connection, regardless of the 30-second throttle, so changes made while you were disconnected appear without a manual refresh. The initial connection does not trigger an extra fetch. If a reconnect happens while you are dragging a card, column, or swimlane, the refresh waits and runs once when the drag ends, so the board can briefly show its pre-disconnect state until then. When several refreshes overlap, only the most recently started one updates the board.
+The board is also re-fetched each time the WebSocket reconnects after a dropped connection, regardless of the 30-second throttle, so changes made while you were disconnected appear without a manual refresh.
+
+- The initial connection does not trigger an extra fetch.
+- If a reconnect happens while you are dragging a card, column, or swimlane, the refresh waits and runs once when the drag ends, so the board can briefly show its pre-disconnect state until then.
+- When several refreshes overlap, only the most recently started one updates the board.
 
 ## Resuming after a dropped connection
 
 > **Added in 1.2**
 
-The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer that lives outside the browser — a second front end, a sync job, the MCP server's REST client — can instead replay exactly what it missed:
+The SPA handles a dropped connection by refetching the full board on reconnect, as described above. A consumer outside the browser (a second front end, a sync job, the MCP server's REST client) can instead replay exactly what it missed:
 
 - Every event the board channel broadcasts is durably persisted in the same transaction as the mutation it describes, and each WebSocket frame carries the matching `event_id`.
 - `GET /api/v1/boards/{id}/events/?after=<event_id>` returns the missed events in order, so a consumer can catch up without re-fetching the whole board.
@@ -196,7 +208,7 @@ See [Board Change Feed API](../api/events.md) for the full reference.
 
 ## Optimistic concurrency control
 
-Card moves use optimistic concurrency control (OCC) to prevent lost updates. Every card carries a `version` number that increments on every mutation (move, field update). When the frontend sends a move request, it includes the card's current `version`. If another user modified the card in the meantime, the server returns `409 Conflict` with a `version_conflict` error code, and the frontend refreshes the board automatically.
+Card moves use optimistic concurrency control (OCC) to prevent lost updates. Every card carries a `version` number that increments on every mutation (move, field update). The frontend includes the card's current `version` in a move request. If another user modified the card in the meantime, the server returns `409 Conflict` with a `version_conflict` error code, and the frontend refreshes the board automatically.
 
 The version check is backward-compatible: clients that omit the `version` field bypass the OCC check entirely.
 
