@@ -4,10 +4,27 @@
 
 Visiban runs comfortably on one server for most teams. Below: the practical ceilings on a single server, and what to change — and when — as load grows.
 
-**Why it matters:** Scaling in the wrong order wastes money. Start with the [Scaling sequence](#scaling-sequence): tune workers first, and move attachments to S3 before adding replicas.
+**Why it matters:** Scaling in the wrong order wastes money. Tune workers first, and move attachments to S3 before adding replicas. The sequence below is the default answer.
+
+## Scaling sequence
+
+Scale in this order. Each step resolves the typical bottleneck before it bites.
+
+| Step | When | What to do |
+|---|---|---|
+| **1. Tune workers** | p95 REST > 300 ms | Increase daphne/uvicorn worker count |
+| **2. Vertical scale** | CPU > 70% sustained | Larger instance (vCPU + RAM) |
+| **3. Migrate to S3** | Before step 4 | Move attachments off local disk |
+| **4. Add pgBouncer** | DB connections > 80% of `max_connections` | Connection pooling in front of PostgreSQL |
+| **5. Add backend replicas** | After steps 3–4 | `backend.replicaCount: 2+` in Helm |
+| **6. PostgreSQL read replica** | Analytics queries affecting write latency | Route analytics ViewSet to replica |
+| **7. Valkey HA** | Valkey CPU > 60% or availability SLA | Sentinel or Cluster |
+| **8. CDN for static** | Multi-region users or high static asset CPU | CloudFront / R2 / Fastly |
+
+Steps 1–2 are operational changes with no code. Steps 3–8 need configuration changes and, for step 6, a small code change to route queries.
 
 !!! note "Managed hosting"
-    Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. What follows is for self-hosted deployments: a single team or organization running their own instance. Same architecture — the operational responsibility is yours.
+    Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. This page covers self-hosted deployments: one team or organization running its own instance. The architecture is the same; the operational responsibility is yours.
 
 ---
 
@@ -32,7 +49,7 @@ Internet → Nginx → daphne (ASGI) → PostgreSQL
 | Cards (total across all boards) | < 500 000 | > 2 000 000 |
 | Attachment storage | < 100 GB | Disk-dependent |
 
-A well-tuned 8 vCPU / 16 GB server comfortably doubles these numbers. The bottleneck on a single server is almost always **concurrent REST requests** (synchronous daphne workers), not memory or the database.
+A well-tuned 8 vCPU / 16 GB server comfortably doubles these numbers. The single-server bottleneck is almost always **concurrent REST requests** (synchronous daphne workers), not memory or the database.
 
 ---
 
@@ -40,10 +57,9 @@ A well-tuned 8 vCPU / 16 GB server comfortably doubles these numbers. The bottle
 
 ### Application server (daphne / ASGI)
 
-Daphne is an ASGI server that handles both HTTP requests and WebSocket connections in a single process. WebSocket connections are handled asynchronously (coroutines); REST API requests are also async-capable but go through synchronous Django views today.
+Daphne is an ASGI server handling HTTP and WebSocket in one process. WebSockets run asynchronously (coroutines). REST requests are async-capable but go through synchronous Django views today.
 
-**What limits it:**
-The REST views are synchronous. Under high concurrent HTTP load, requests queue behind each other. Symptoms: rising p95 latency on the card list and board endpoints before the database shows any stress.
+**What limits it:** the synchronous REST views. Under high concurrent HTTP load, requests queue behind each other. Symptom: rising p95 latency on the card list and board endpoints before the database shows any stress.
 
 **How to tune before scaling out:**
 
@@ -60,15 +76,14 @@ uvicorn visiban.asgi:application --workers 8 --host 0.0.0.0 --port 8000
 
 A good starting point: `(2 × vCPU) + 1` workers.
 
-**How to scale out (horizontal):**
-Run multiple backend replicas behind a load balancer. Requirements before doing this:
+**How to scale out (horizontal):** run multiple backend replicas behind a load balancer. Before you do:
 
 1. **Attachment storage must be on S3/GCS** — local disk is not shared between replicas; see [Attachment storage](#attachment-storage) below.
 2. **Valkey is already required** — the channel layer (WebSocket pub/sub) uses Valkey; this is already in the default stack.
 3. **Sticky sessions are not required** — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.
 4. **Database connections** — each replica opens its own connection pool. Add pgBouncer if the total connection count approaches PostgreSQL's `max_connections` (default 100).
 
-**Kubernetes:** The Helm chart supports `backend.replicaCount`. Set it to 2+ and ensure the `externalDatabase` and `externalRedis` values point to shared instances (not the bundled in-cluster Valkey pod, which is single-replica by default).
+**Kubernetes:** set `backend.replicaCount` to 2+ and point `externalDatabase` and `externalRedis` at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).
 
 **When to act:** When p95 HTTP response time on `/api/v1/boards/{id}/cards/` exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.
 
@@ -76,12 +91,11 @@ Run multiple backend replicas behind a load balancer. Requirements before doing 
 
 ### PostgreSQL
 
-PostgreSQL handles all persistent state: boards, cards, movements, memberships, comments, attachments metadata, and notifications.
+PostgreSQL holds all persistent state: boards, cards, movements, memberships, comments, attachments metadata, and notifications.
 
-**What limits it:**
-Write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Read throughput is less of a concern because the query budgets are tight (≤ 20 queries for full board load) and the ORM uses `select_related`/`prefetch_related` throughout.
+**What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load) and the ORM uses `select_related`/`prefetch_related` throughout.
 
-**Connection count:** Each daphne/uvicorn worker opens a persistent connection. With 4 workers per replica and 3 replicas, you need ~12 connections minimum plus headroom. PostgreSQL's default `max_connections = 100` is fine for small deployments; large deployments should add pgBouncer.
+**Connection count:** each daphne/uvicorn worker opens a persistent connection. With 4 workers per replica and 3 replicas, you need ~12 connections plus headroom. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
 
 **How to tune before scaling out:**
 
@@ -96,8 +110,7 @@ shared_buffers = 256MB   -- 25% of RAM is a common starting point
 effective_cache_size = 1GB
 ```
 
-**Connection pooling (pgBouncer):**
-Add pgBouncer in transaction-mode pooling between the application and PostgreSQL. This is the first step when connection count becomes a concern, before adding a read replica.
+**Connection pooling (pgBouncer):** add pgBouncer in transaction-mode pooling between the application and PostgreSQL. It is the first step when connection count becomes a concern, before a read replica.
 
 ```yaml
 # docker-compose.yml addition
@@ -110,8 +123,7 @@ pgbouncer:
     DEFAULT_POOL_SIZE: 20
 ```
 
-**Read replica:**
-Analytics queries (the dwell-time heatmap, summary endpoint, stalled-cards list) are read-heavy. Route them to a read replica by adding a `DATABASES["analytics"]` entry in `settings.py` and using `queryset.using("analytics")` in the analytics ViewSet. This is not required until the analytics endpoint measurably impacts write latency on the primary.
+**Read replica:** analytics queries (the dwell-time heatmap, summary endpoint, stalled-cards list) are read-heavy. Route them to a replica with a `DATABASES["analytics"]` entry in `settings.py` and `queryset.using("analytics")` in the analytics ViewSet. Not required until analytics measurably hurts write latency on the primary.
 
 **When to act:**
 - Add pgBouncer when connection count regularly exceeds 80% of `max_connections`
@@ -124,14 +136,11 @@ Analytics queries (the dwell-time heatmap, summary endpoint, stalled-cards list)
 
 Valkey (the Redis-compatible, BSD-licensed fork) serves two roles: the Django Channels channel layer (WebSocket pub/sub) and the registration-mode cache.
 
-**What limits it:**
-Valkey is single-threaded per core. The channel layer publish/subscribe pattern means every board mutation triggers one `PUBLISH` and N `SUBSCRIBE` deliveries (one per connected WebSocket client on that board). At 50 users on a single board, that is 50 message deliveries per card move.
+**What limits it:** Valkey is single-threaded per core. Every board mutation triggers one `PUBLISH` and N `SUBSCRIBE` deliveries (one per connected WebSocket client on that board). At 50 users on one board, that is 50 deliveries per card move.
 
-**How to tune:**
-Valkey is rarely the bottleneck for team-scale deployments. The default single-node Valkey handles tens of thousands of pub/sub messages per second. No action required until you see Valkey CPU above 80%.
+**How to tune:** rarely needed at team scale. A default single node handles tens of thousands of pub/sub messages per second. Act only when Valkey CPU exceeds 80%.
 
-**Valkey Cluster / Sentinel:**
-For high availability, use Valkey Sentinel (managed failover) or Valkey Cluster (horizontal sharding). Valkey is wire-compatible with Redis Sentinel protocol, so the `channels_redis` configuration is the same:
+**Valkey Cluster / Sentinel:** for high availability, use Valkey Sentinel (managed failover) or Valkey Cluster (horizontal sharding). Valkey is wire-compatible with the Redis Sentinel protocol, so the `channels_redis` configuration is the same:
 
 ```python
 CHANNEL_LAYERS = {
@@ -156,9 +165,9 @@ CHANNEL_LAYERS = {
 
 **This is the one hard blocker for horizontal scaling.**
 
-The default configuration stores uploaded files on the container's local filesystem (`MEDIA_ROOT`). If you run two backend replicas, each has its own local disk — files uploaded via replica A are invisible to replica B.
+By default uploads live on the container's local filesystem (`MEDIA_ROOT`). With two backend replicas, each has its own disk, so files uploaded via replica A are invisible to replica B.
 
-**Before adding a second backend replica, migrate attachments to S3 (or any S3-compatible store — MinIO, Cloudflare R2, Backblaze B2):**
+**Before adding a second backend replica, migrate attachments to S3 (or any S3-compatible store: MinIO, Cloudflare R2, Backblaze B2):**
 
 ```python
 # settings.py — add django-storages (Django 5 uses STORAGES, not DEFAULT_FILE_STORAGE)
@@ -173,7 +182,7 @@ AWS_DEFAULT_ACL = None  # Private by default
 pip install django-storages boto3
 ```
 
-Existing attachments on local disk must be migrated to S3 before switching. Use `aws s3 sync` or equivalent.
+Migrate existing local-disk attachments to S3 before switching, with `aws s3 sync` or equivalent.
 
 **MinIO for self-hosters who want S3 compatibility without AWS:**
 
@@ -189,13 +198,13 @@ minio:
     - minio_data:/data
 ```
 
-**When to act:** Before adding a second backend replica. There is no workaround — shared filesystem (NFS) is an alternative but significantly slower and operationally complex compared to S3.
+**When to act:** before adding a second backend replica. There is no workaround; a shared filesystem (NFS) is an alternative but much slower and more complex to operate than S3.
 
 ---
 
 ### Static assets (Nginx / CDN)
 
-Static assets (the compiled React frontend, fonts, icons) are served by WhiteNoise from the Django/daphne process. WhiteNoise is efficient and appropriate for single-server deployments — it serves pre-compressed files from memory.
+WhiteNoise serves static assets (the compiled React frontend, fonts, icons) from the Django/daphne process, from memory and pre-compressed. That suits single-server deployments.
 
 **For multi-region or high-traffic deployments**, offload static assets to a CDN:
 
@@ -210,16 +219,15 @@ STORAGES["staticfiles"]["BACKEND"] = "storages.backends.s3boto3.S3StaticStorage"
 
 Disable WhiteNoise once the CDN is serving static files.
 
-**When to act:** When static asset requests are a measurable share of backend CPU, or when you have users in multiple geographic regions and need lower latency for the initial page load. Not required for single-region deployments.
+**When to act:** when static requests are a measurable share of backend CPU, or users in several regions need faster initial page loads. Not required for single-region deployments.
 
 ---
 
 ### Nginx (reverse proxy / load balancer)
 
-Nginx is the entry point in both the Docker Compose and Kubernetes stacks. In a single-server deployment it terminates TLS and proxies to daphne. For horizontal scaling it also load-balances across backend replicas.
+Nginx is the entry point in both the Docker Compose and Kubernetes stacks. On one server it terminates TLS and proxies to daphne; for horizontal scaling it also load-balances across replicas.
 
-**WebSocket handling — critical configuration:**
-Nginx must forward `Upgrade` and `Connection` headers for WebSockets to work:
+**WebSocket handling (critical):** Nginx must forward `Upgrade` and `Connection` headers for WebSockets to work:
 
 ```nginx
 location /ws/ {
@@ -243,26 +251,7 @@ upstream backend {
 }
 ```
 
-`least_conn` is preferred over round-robin because WebSocket connections are long-lived — round-robin would accumulate all WebSocket connections on the first server reached.
-
----
-
-## Scaling sequence
-
-Scale components in this order. Each step resolves the typical bottleneck before it becomes a problem.
-
-| Step | When | What to do |
-|---|---|---|
-| **1. Tune workers** | p95 REST > 300 ms | Increase daphne/uvicorn worker count |
-| **2. Vertical scale** | CPU > 70% sustained | Larger instance (vCPU + RAM) |
-| **3. Migrate to S3** | Before step 4 | Move attachments off local disk |
-| **4. Add pgBouncer** | DB connections > 80% of `max_connections` | Connection pooling in front of PostgreSQL |
-| **5. Add backend replicas** | After steps 3–4 | `backend.replicaCount: 2+` in Helm |
-| **6. PostgreSQL read replica** | Analytics queries affecting write latency | Route analytics ViewSet to replica |
-| **7. Valkey HA** | Valkey CPU > 60% or availability SLA | Sentinel or Cluster |
-| **8. CDN for static** | Multi-region users or high static asset CPU | CloudFront / R2 / Fastly |
-
-Steps 1–2 are operational changes with no code. Steps 3–8 require configuration changes and, for step 6, a small code change to route queries.
+Prefer `least_conn` over round-robin: WebSocket connections are long-lived, so round-robin would accumulate them on the first server reached.
 
 ---
 
