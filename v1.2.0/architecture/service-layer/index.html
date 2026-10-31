@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#service-layer" class="md-skip">
+        <a href="#board-rules-live-in-services-not-views" class="md-skip">
           Skip to content
         </a>
       
@@ -4021,10 +4021,20 @@
   
 
 
-<h1 id="service-layer">Service Layer<a class="headerlink" href="#service-layer" title="Permanent link">&para;</a></h1>
+<p><a id="service-layer"></a></p>
+<h1 id="board-rules-live-in-services-not-views">Board rules live in services, not views<a class="headerlink" href="#board-rules-live-in-services-not-views" title="Permanent link">&para;</a></h1>
 <p>Board mutations that carry invariants live in <code>backend/boards/services/</code>, not in the DRF views that expose them over HTTP.</p>
+<p><strong>Why it matters:</strong> An invariant inside an HTTP handler can only be reached by an HTTP request. Every other writer (MCP, import, webhooks) must then re-implement the rules or skip them.</p>
+<p><strong>The big picture:</strong></p>
+<ul>
+<li>One service function per card state transition owns the role check, concurrency check, row locks, limits, audit trail, transaction, and deferred side effects.</li>
+<li>Views keep parsing, field validation, and serialization.</li>
+<li>Two write paths still bypass the service, on purpose: import/export and the Django admin (see <a href="#write-paths-that-remain-divergent">Write paths that remain divergent</a>).</li>
+</ul>
+<p><strong>Watch out:</strong> The lock order is a deadlock-avoidance contract. Reordering locks in a service function can deadlock concurrent moves.</p>
+<p><strong>Go deeper:</strong> <a href="../field-enforcement/">Field Enforcement</a> lists which limits bind on which write path.</p>
 <h2 id="why-the-layer-exists">Why the layer exists<a class="headerlink" href="#why-the-layer-exists" title="Permanent link">&para;</a></h2>
-<p>Until Visiban 1.2 every card state transition was implemented inline in <code>CardViewSet</code>. That was fine while the REST API was the only writer. It stopped being fine as soon as a second consumer appeared, because an invariant that lives inside an HTTP handler can only be reached by making an HTTP request — so any second code path has to either re-implement the rules or skip them.</p>
+<p>Until Visiban 1.2 every card state transition was implemented inline in <code>CardViewSet</code>. That was fine while the REST API was the only writer. A second consumer broke it: any second code path had to either re-implement the rules or skip them.</p>
 <p>Both failure modes had already happened:</p>
 <ul>
 <li>The MCP tool scaffold carried its own copy of the board-role precedence ladder, with a comment saying it "must be kept in step with" the original. Nothing enforced that.</li>
@@ -4032,7 +4042,7 @@
 </ul>
 <p>The API now has several writers in view — a second front end, MCP write tools, import, and webhooks (planned, #863) — so the invariants need a home that is not a request handler.</p>
 <h2 id="what-a-service-function-owns">What a service function owns<a class="headerlink" href="#what-a-service-function-owns" title="Permanent link">&para;</a></h2>
-<p>For one state transition:</p>
+<p><strong>How it works:</strong> for one state transition, a service function owns:</p>
 <table>
 <thead>
 <tr>

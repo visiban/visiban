@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#field-enforcement" class="md-skip">
+        <a href="#which-api-constraint-fields-the-server-actually-enforces" class="md-skip">
           Skip to content
         </a>
       
@@ -4054,8 +4054,10 @@
   
 
 
-<h1 id="field-enforcement">Field Enforcement<a class="headerlink" href="#field-enforcement" title="Permanent link">&para;</a></h1>
+<p><a id="field-enforcement"></a></p>
+<h1 id="which-api-constraint-fields-the-server-actually-enforces">Which API constraint fields the server actually enforces<a class="headerlink" href="#which-api-constraint-fields-the-server-actually-enforces" title="Permanent link">&para;</a></h1>
 <p>Some API fields read as rules rather than values: <code>wip_limit</code>, <code>allowed_priorities</code>, <code>default_board_member_role</code>, <code>is_required</code>. A client that reads one of them will assume the server enforces it. Since 1.2 some of those clients are AI agents talking to the <a href="../../features/mcp-server/">MCP server</a>, and an agent cannot notice that a rule is only advisory. It reads the schema and acts on it.</p>
+<p><strong>Why it matters:</strong> Do not assume a field that reads as a rule is enforced. Check its class (binding, advisory, or scaffold) in <a href="#the-three-classes">The three classes</a> and the tables below.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1077)</p>
 </blockquote>

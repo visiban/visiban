@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#data-model" class="md-skip">
+        <a href="#data-model-who-owns-which-tables" class="md-skip">
           Skip to content
         </a>
       
@@ -4126,11 +4126,13 @@
   
 
 
-<h1 id="data-model">Data Model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h1>
+<p><a id="data-model"></a></p>
+<h1 id="data-model-who-owns-which-tables">Data model: who owns which tables<a class="headerlink" href="#data-model-who-owns-which-tables" title="Permanent link">&para;</a></h1>
 <p>Three Django apps own the schema: <code>accounts</code> (users, tokens, site settings, admin audit),
 <code>boards</code> (boards, cards, and everything on them), <code>groups</code> (the folder hierarchy boards sit
 in). A fourth, <code>git_lens</code>, adds one model but is off by default — see
 <a href="#git_lens-app-off-by-default">Issue Board Lens</a> at the bottom of this page.</p>
+<p><strong>Why it matters:</strong> <code>CardMovement</code> is the audit trail, and it is append-only. Read <a href="#key-design-decisions">Key design decisions</a> before writing code that touches cards, columns, or tokens.</p>
 <h2 id="core-entities">Core entities<a class="headerlink" href="#core-entities" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>User
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a> ├── avatar_url (str, blank — external avatar URL)

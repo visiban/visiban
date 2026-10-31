@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-overview" class="md-skip">
+        <a href="#one-django-backend-one-react-spa-two-datastores" class="md-skip">
           Skip to content
         </a>
       
@@ -4093,8 +4093,12 @@
   
 
 
-<h1 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h1>
+<p><a id="architecture-overview"></a></p>
+<h1 id="one-django-backend-one-react-spa-two-datastores">One Django backend, one React SPA, two datastores<a class="headerlink" href="#one-django-backend-one-react-spa-two-datastores" title="Permanent link">&para;</a></h1>
 <p>How Visiban's pieces fit together: a Django/DRF backend and a React SPA, talking over REST and WebSocket, backed by PostgreSQL and Valkey. Read this first if you're contributing code or evaluating self-hosting.</p>
+<p><strong>Why it matters:</strong> Visiban is a monolith with no microservices, queues, or search index. Two datastores are all a self-hoster operates.</p>
+<p><strong>The big picture:</strong> the browser talks to a daphne ASGI backend over REST and WebSocket. PostgreSQL 17 holds the data. Valkey 8 carries WebSocket channel messages.</p>
+<p><strong>Go deeper:</strong> <a href="../data-model/">Data Model</a>, <a href="../deployment/">Deployment</a>, <a href="../decisions/">Technology Decisions</a>.</p>
 <h2 id="system-components">System components<a class="headerlink" href="#system-components" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────┐
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│                     Browser                         │

@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#scaling" class="md-skip">
+        <a href="#scale-a-single-server-first-then-in-eight-steps" class="md-skip">
           Skip to content
         </a>
       
@@ -4115,8 +4115,10 @@
   
 
 
-<h1 id="scaling">Scaling<a class="headerlink" href="#scaling" title="Permanent link">&para;</a></h1>
+<p><a id="scaling"></a></p>
+<h1 id="scale-a-single-server-first-then-in-eight-steps">Scale a single server first, then in eight steps<a class="headerlink" href="#scale-a-single-server-first-then-in-eight-steps" title="Permanent link">&para;</a></h1>
 <p>Visiban runs comfortably on one server for most teams. Below: the practical ceilings on a single server, and what to change — and when — as load grows.</p>
+<p><strong>Why it matters:</strong> Scaling in the wrong order wastes money. Start with the <a href="#scaling-sequence">Scaling sequence</a>: tune workers first, and move attachments to S3 before adding replicas.</p>
 <div class="admonition note">
 <p class="admonition-title">Managed hosting</p>
 <p>Managed Visiban hosting (multi-tenant, globally distributed) is an enterprise feature. What follows is for self-hosted deployments: a single team or organization running their own instance. Same architecture — the operational responsibility is yours.</p>
