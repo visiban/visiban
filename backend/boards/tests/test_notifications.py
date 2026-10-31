@@ -380,9 +380,22 @@ class NotificationUnreadCountTests(TestCase):
             return len(ctx)
 
         urls = ["/api/v1/notifications/", "/api/v1/notifications/unread-count/"]
-        baseline = {u: measure(u) for u in urls}
+        # Group-inherited access: the user belongs to a parent group; boards sit
+        # in a nested child. The group walk costs a bounded number of queries
+        # per request (depth, not board count), so it is part of the baseline.
+        from groups.models import Group, GroupMembership
 
         other = User.objects.create_user(username="other_owner5", password="pass")
+        parent = Group.objects.create(name="P1959", owner=other)
+        child = Group.objects.create(name="C1959", owner=other, parent=parent)
+        GroupMembership.objects.create(group=parent, user=self.user, role=GroupMembership.Role.MEMBER)
+        Notification.objects.create(
+            recipient=self.user, verb="g", board=Board.objects.create(name="GB", owner=other, group=child),
+            action_type=Notification.ActionType.BOARD_INVITE, read=False,
+        )
+
+        baseline = {u: measure(u) for u in urls}
+
         for i in range(12):
             b = Board.objects.create(name=f"B{i}", owner=other)
             BoardMembership.objects.create(board=b, user=self.user, role=BoardMembership.Role.VIEWER)
@@ -390,8 +403,15 @@ class NotificationUnreadCountTests(TestCase):
                 recipient=self.user, verb=f"n{i}", board=b,
                 action_type=Notification.ActionType.BOARD_INVITE, read=False,
             )
+        for i in range(4):
+            gb = Board.objects.create(name=f"GB{i}", owner=other, group=child)
+            Notification.objects.create(
+                recipient=self.user, verb=f"g{i}", board=gb,
+                action_type=Notification.ActionType.BOARD_INVITE, read=False,
+            )
         for u in urls:
             self.assertEqual(measure(u), baseline[u], f"{u} query count grew with board count")
+        self.assertEqual(self.client.get(urls[1]).data["count"], 18)
 
 
 class CardAssignmentNotificationTests(TestCase):

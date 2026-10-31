@@ -207,7 +207,7 @@ def _revoked_access(notifications):
     ``Card.assignee`` is *not* cleared when a member is removed from a board, so
     an ex-member can stay assigned to cards indefinitely — and the assignment and
     card-moved events take the assignee as their recipient. In-app that was
-    harmless: ``_filter_to_accessible_boards`` drops those rows when the inbox is
+    harmless: ``_accessible_unread_notifications`` drops those rows when the inbox is
     read, so the ex-member never saw them. Email has no read-time filter; once it
     is sent it is gone. So the check has to happen here, once, before the send,
     rather than being re-derived at each of the six call sites.

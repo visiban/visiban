@@ -902,7 +902,7 @@ class RevokedBoardAccessTests(TestCase):
 
     ``Card.assignee`` is not cleared when a member is removed from a board, and
     the assignment and card-moved events take the assignee as their recipient.
-    In-app that was invisible — ``_filter_to_accessible_boards`` drops the rows on
+    In-app that was invisible — ``_accessible_unread_notifications`` drops the rows on
     read — but an email cannot be unsent.
     """
 
