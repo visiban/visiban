@@ -78,7 +78,7 @@
       "measured_p95_ms": 27.6,
       "measured_p99_ms": 29.4,
       "budget_p95_ms": 40,
-      "note": "Companion to notifications_list -- polled at the same interval, same 50-row cap."
+      "note": "Companion to notifications_list -- polled at the same interval; unlike the list it is uncapped (counts all accessible unread rows)."
     }
   }
 }

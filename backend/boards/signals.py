@@ -114,7 +114,7 @@ swimlane_custom_field_value_changed = Signal()
 # Receiver responsibility — a notification row can outlive the recipient's access
 # to the board it is about. ``Card.assignee`` is not cleared when a member is
 # removed, and a stale scan can still pick that card up. In-app this is invisible
-# (``_filter_to_accessible_boards`` drops such rows when the inbox is read), and
+# (``_accessible_unread_notifications`` drops such rows when the inbox is read), and
 # OSS email re-checks effective membership before sending. A receiver that
 # delivers **off-instance** — Slack, Teams, a webhook — must do the same check
 # itself: ``boards.utils._get_effective_member_ids(notification.board)``. Neither
