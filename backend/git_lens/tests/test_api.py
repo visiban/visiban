@@ -146,6 +146,45 @@ class LensConnectionRBACTests(TestCase):
         self.assertEqual(args[0], self.board.id)
         self.assertEqual(args[1], "lens_connection.configured")
 
+    def test_put_omitting_optional_fields_keeps_stored_values(self):
+        # #1089: a partial PUT must not rewrite stored pivots to the defaults.
+        LensConnection.objects.create(
+            board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner,
+            column_dim="status", swimlane_dim="assignee",
+        )
+        resp = self._client(self.owner).put(
+            self.url, {"provider": "gitlab", "repo_slug": "g/other"}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["column_dim"], "status")
+        self.assertEqual(resp.data["swimlane_dim"], "assignee")
+        conn = LensConnection.objects.get(board=self.board)
+        self.assertEqual((conn.repo_slug, conn.column_dim, conn.swimlane_dim),
+                         ("g/other", "status", "assignee"))
+
+    def test_put_with_explicit_optional_fields_changes_them(self):
+        LensConnection.objects.create(
+            board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner,
+            column_dim="status", swimlane_dim="assignee",
+        )
+        resp = self._client(self.owner).put(
+            self.url,
+            {"provider": "gitlab", "repo_slug": "g/p", "column_dim": "state",
+             "swimlane_dim": "label"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        conn = LensConnection.objects.get(board=self.board)
+        self.assertEqual((conn.column_dim, conn.swimlane_dim), ("state", "label"))
+
+    def test_first_put_omitting_optional_fields_uses_defaults(self):
+        resp = self._client(self.owner).put(
+            self.url, {"provider": "gitlab", "repo_slug": "g/p"}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["column_dim"], "pipeline")
+        self.assertEqual(resp.data["swimlane_dim"], "milestone")
+
     def test_delete_broadcasts_removed_event(self):
         LensConnection.objects.create(
             board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner

@@ -457,16 +457,25 @@ class LensConnectionView(APIView):
         serializer = LensConnectionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        # Optional pivot fields are only written when the client sent them (#1089).
+        # Defaulting an omitted key here would silently rewrite a stored pivot on an
+        # existing connection; leaving it out of ``defaults`` keeps the stored value
+        # on update and lets the model default apply on create. Neither field is
+        # nullable, so there is no "explicit null clears it" case to preserve.
+        # update_or_create reads the row under select_for_update inside this
+        # transaction, so concurrent PUTs serialize rather than interleave.
+        defaults = {
+            "provider": data["provider"],
+            "repo_slug": data["repo_slug"],
+            "created_by": request.user,
+        }
+        for optional in ("column_dim", "swimlane_dim"):
+            if optional in data:
+                defaults[optional] = data[optional]
         with transaction.atomic():
             conn, _created = LensConnection.objects.update_or_create(
                 board=board,
-                defaults={
-                    "provider": data["provider"],
-                    "repo_slug": data["repo_slug"],
-                    "column_dim": data.get("column_dim", "pipeline"),
-                    "swimlane_dim": data.get("swimlane_dim", "milestone"),
-                    "created_by": request.user,
-                },
+                defaults=defaults,
             )
             # Re-fetch with the FK pre-loaded so serializing created_by is one query.
             conn = LensConnection.objects.select_related("created_by").get(pk=conn.pk)
