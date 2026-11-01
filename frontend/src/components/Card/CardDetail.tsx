@@ -8,7 +8,7 @@ import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
-import { limitBlockedMessage, limitCounts, limitRefusal } from "../Board/moveBlockedMessages";
+import { isHardLimit, limitBlockedMessage, limitCounts, limitRefusal } from "../Board/moveBlockedMessages";
 import type { LimitRefusal } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
@@ -695,7 +695,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // the shared failureReason stays generic for the bulk toolbar.
   const moveFailureMessage = (err: unknown): string => {
     const reason = failureReason(err);
-    const body = (err as { response?: { data?: { column_name?: unknown } } } | null)?.response?.data;
+    const body = (err as { response?: { data?: { column_name?: unknown; swimlane_name?: unknown } } } | null)?.response?.data;
+    // A swimlane limit (#1150) is named as the swimlane: the column it also
+    // carries is only the target cell's.
+    if (isLimitFailure(err) && typeof body?.swimlane_name === "string") {
+      return `Card could not be moved — swimlane "${body.swimlane_name}" has reached its limit.`;
+    }
     if (isLimitFailure(err) && typeof body?.column_name === "string") {
       return `Card could not be moved — "${body.column_name}" has reached its limit.`;
     }
@@ -758,7 +763,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         // The link the user activated is gone unless the new failure is again
         // an overridable limit: move focus to the popover's Move button rather
         // than letting it drop to the panel.
-        if (refusal === null || refusal.code === "wip_hard_blocked") focusMoveSubmitRef.current = true;
+        if (refusal === null || isHardLimit(refusal.code)) focusMoveSubmitRef.current = true;
         return;
       }
       setLocalCard((c) => ({ ...c, column: columnId, swimlane: swimlaneId }));
@@ -1076,7 +1081,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // The popover's admin override (#1772): only a soft limit can be forced, so
   // never for wip_hard_blocked, and never without a refusal body.
   const isBoardAdmin = role === "admin" || role === "site_admin";
-  const canForceMove = isBoardAdmin && onForceMoveCard !== undefined && moveRefusal !== null && moveRefusal.code !== "wip_hard_blocked";
+  const canForceMove = isBoardAdmin && onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
   const canManageLabels = role === "site_admin" || role === "admin";
   const canComment = canEdit || role === "collaborator";
   // Hosted demo (#1179): the server fence refuses comments and uploads, so

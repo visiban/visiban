@@ -518,11 +518,17 @@ class CardAdminCellEntryLockTests(_LimitFixture):
         return [c[0] for c in manager.mock_calls]
 
     def test_swimlane_only_change_locks_card_then_column(self):
+        # Since #1150 a swimlane change also runs the placement check (the
+        # target row may have limits), without the column's limits, under the
+        # locks already held.
         card = self._card(self.free)
         m = self._clean_locks(card, column=self.free.pk, swimlane=self.other_lane.pk)
-        self.assertEqual(self._names(m), ["row", "cell"])
+        self.assertEqual(self._names(m), ["row", "cell", "limits"])
         m.row.assert_called_once_with(card.pk)
         m.cell.assert_called_once_with(card_id=None, column_ids={self.free.pk})
+        self.assertIs(m.limits.call_args.kwargs["check_column"], False)
+        self.assertIs(m.limits.call_args.kwargs["lock"], False)
+        self.assertEqual(m.limits.call_args.kwargs["swimlane"].pk, self.other_lane.pk)
 
     def test_archived_card_swimlane_change_locks(self):
         card = self._card(self.free, archived=True)

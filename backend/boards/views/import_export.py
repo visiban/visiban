@@ -738,6 +738,34 @@ def _int_error(value, *, nullable=False):
     return None
 
 
+def _swimlane_limit_error(value):
+    """A swimlane ``wip_limit``/``weight_limit`` (#1150): null or at least 1."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return "must be null or a positive integer"
+    if value > _IMPORT_INT_MAX:
+        return f"must be at most {_IMPORT_INT_MAX}"
+    return None
+
+
+def _limit_enforcement_error(value):
+    """A swimlane ``limit_enforcement`` (#1150): null, "block" or "hard"."""
+    if value is None or (isinstance(value, str) and value in Swimlane.LimitEnforcement.values):
+        return None
+    return 'must be null, "block" or "hard"'
+
+
+def _limit_columns_error(value):
+    """A swimlane ``limit_columns`` (#1150): null, or a non-empty list of
+    column names; each name is checked against the file's columns later."""
+    if value is None:
+        return None
+    if not isinstance(value, list) or not value or not all(isinstance(v, str) for v in value):
+        return "must be null or a non-empty list of column names"
+    return None
+
+
 def _bounded_text(value, limit=_IMPORT_ECHO_MAX):
     """A value for an error message: strings unquoted, both bounded."""
     if isinstance(value, str):
@@ -819,6 +847,11 @@ def _validate_json_import_values(data):
         ("color", _text(_field_max_length(Swimlane, "color"))),
         ("contact_email", _text(_field_max_length(Swimlane, "contact_email"))),
         ("notes", _text()),
+        # Row limits (#1150): restored as exported, never enforced on import.
+        ("wip_limit", _swimlane_limit_error),
+        ("weight_limit", _swimlane_limit_error),
+        ("limit_enforcement", _limit_enforcement_error),
+        ("limit_columns", _limit_columns_error),
     )
     label_specs = (
         ("name", _text(_field_max_length(Label, "name"))),
@@ -843,6 +876,17 @@ def _validate_json_import_values(data):
     positions = [col.get("position", i) for i, col in enumerate(data["columns"])]
     if detail := _duplicates_detail("column positions", positions):
         return detail
+
+    # A swimlane's counted columns name columns of this file (#1150), the way
+    # a card's column does.
+    column_names = {col["name"] for col in data["columns"]}
+    for i, lane in enumerate(data.get("swimlanes", [])):
+        for name in lane.get("limit_columns") or ():
+            if name not in column_names:
+                return (
+                    f"Swimlane at index {i}: 'limit_columns' references undefined "
+                    f"column: {_bounded_repr(name)}"
+                )
 
     card_specs = (
         ("title", _text(_field_max_length(Card, "title"))),
@@ -1690,6 +1734,17 @@ class BoardImportExportMixin:
                     color=sw.get("color", "#3B82F6"),
                     contact_email=sw.get("contact_email", ""),
                     notes=sw.get("notes", ""),
+                    # Row limits (#1150), restored as exported: an import
+                    # never checks them, like the column limits above. The
+                    # counted columns are exported by name and re-keyed to
+                    # this board's new column ids.
+                    wip_limit=sw.get("wip_limit"),
+                    weight_limit=sw.get("weight_limit"),
+                    limit_enforcement=sw.get("limit_enforcement"),
+                    limit_column_ids=(
+                        sorted({column_map[name].pk for name in sw["limit_columns"]})
+                        if sw.get("limit_columns") else None
+                    ),
                 )
                 for i, sw in enumerate(sw_data)
             ])
@@ -2978,6 +3033,8 @@ class BoardImportExportMixin:
             )
             columns = board.columns.all()
             swimlanes = board.swimlanes.all()
+            # From the prefetch cache: no query.
+            column_names_by_id = {col.pk: col.name for col in columns}
             labels = board.labels.all()
             # Manual block history (#1149): JSON only, so the CSV branch does
             # not pay for queries it never reads.
@@ -3106,6 +3163,17 @@ class BoardImportExportMixin:
                         # Row field values (#1140), keyed by name and already
                         # filtered to what this exporter's role may see.
                         "custom_field_values": _swimlane_values_by_name(sw),
+                        # Row limits (#1150). Additive keys in schema_version
+                        # 2, like custom_field_values: an older importer
+                        # ignores them. Counted columns by name, since a file
+                        # keys columns by name and an import mints new ids.
+                        "wip_limit": sw.wip_limit,
+                        "weight_limit": sw.weight_limit,
+                        "limit_enforcement": sw.limit_enforcement,
+                        "limit_columns": (
+                            [column_names_by_id[pk] for pk in sw.limit_column_ids if pk in column_names_by_id]
+                            or None
+                        ) if sw.limit_column_ids is not None else None,
                     }
                     for sw in swimlanes
                 ],

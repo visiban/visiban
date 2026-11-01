@@ -28,7 +28,8 @@ from .services.cards import (
 )
 from .services.share_links import record_share_link_updated, revoke_lapsed_share_links
 from .services.errors import (
-    CardNotFound, SwimlaneNotFound, WeightLimitExceeded, WipHardBlocked, WipLimitExceeded,
+    LIMIT_ERRORS, CardNotFound, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
+    SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded, WipHardBlocked, WipLimitExceeded,
 )
 from .views._helpers import _refetched_card_data, blocked_peers_of, publish_blocked_peers
 from .views.boards import _broadcast_board_group_change
@@ -83,6 +84,24 @@ def _record_board_update_event(board_id, old_group_id, new_group_id, payload, *,
 
 def _limit_error_message(exc):
     """A sentence for the admin form from a card-service limit error."""
+    if isinstance(exc, SwimlaneWipHardBlocked):
+        return (
+            f'Swimlane "{exc.swimlane_name}" is at its WIP limit ({exc.current_count}/'
+            f"{exc.wip_limit}) and enforces it as a hard limit, so no role can add a "
+            "card to it. Move a card out or raise the limit first."
+        )
+    if isinstance(exc, SwimlaneWipLimitExceeded):
+        return (
+            f'Swimlane "{exc.swimlane_name}" is at its WIP limit ({exc.current_count}/'
+            f"{exc.wip_limit}). Raise the limit, or override it as a board admin "
+            "through the API with ?force=true."
+        )
+    if isinstance(exc, SwimlaneWeightLimitExceeded):
+        return (
+            f'Swimlane "{exc.swimlane_name}" would exceed its weight limit '
+            f"({exc.current_weight} + {exc.card_weight} > {exc.weight_limit}). Raise the "
+            "limit, or override it as a board admin through the API with ?force=true."
+        )
     if isinstance(exc, WipHardBlocked):
         return (
             f'Column "{exc.column_name}" is at its WIP limit ({exc.current_count}/'
@@ -221,13 +240,21 @@ class CardAdminForm(forms.ModelForm):
 
         archived_at = cleaned.get("archived_at", getattr(current, "archived_at", None))
         weight = cleaned.get("weight", getattr(current, "weight", original.weight))
+        restoring = not creating and current.archived_at is not None
         entering = (
             creating
-            or current.archived_at is not None  # restore
+            or restoring
             or current.column_id != column.pk  # move
         )
+        # A swimlane change also places the card (#1150): the target row's
+        # limits are checked even when the column stays the same. Whether
+        # the move actually adds to the row's counted total is decided by
+        # the helper from ``source`` below.
+        entering_row = entering or current.swimlane_id != swimlane_id
+        # Growth in place, per container: in the same column (column weight
+        # limit) and in the same cell (row weight limit as well).
         weight_up = not entering and weight > current.weight
-        enforce = archived_at is None and (entering or weight_up)
+        enforce = archived_at is None and (entering_row or weight_up)
 
         if cell_entry or enforce:
             # Columns after the card row, source and target in one pk-ordered
@@ -255,19 +282,41 @@ class CardAdminForm(forms.ModelForm):
             # An archived card does not count toward a column's limits, and an
             # edit that neither enters a column nor grows a card is unchecked.
             return cleaned
+        # The target row's limits (#1150), read fresh: the form's swimlane
+        # choice was resolved before the locks. The helper locks the row
+        # itself, after the columns locked above (card -> column -> swimlane).
+        target_swimlane = (
+            Swimlane.objects.filter(pk=swimlane_id, board_id=board.pk).first()
+            if swimlane_id is not None else None
+        )
+        placed = SimpleNamespace(pk=original.pk, weight=weight)
         try:
+            if weight_up and entering_row:
+                # Grows inside its column while changing swimlane: the column
+                # sees growth (weight only), the new row sees an entry. Two
+                # checks, column first, so each gets the right rule.
+                enforce_column_limits(
+                    board=board, column=column, card=placed, role=SITE_ADMIN, force=False,
+                    check_wip=False, lock=False,
+                )
             enforce_column_limits(
-                board=board, column=column,
-                card=SimpleNamespace(pk=original.pk, weight=weight),
+                board=board, column=column, card=placed,
                 role=SITE_ADMIN, force=False,
-                # A weight change inside the same column does not change its
-                # card count, so it is checked against the weight limit only —
+                # A weight change inside the same cell does not change its
+                # card count, so it is checked against the weight limits only —
                 # same rule as the PATCH path.
-                check_wip=entering,
+                check_wip=entering_row,
+                # A swimlane-only move never trips a column limit, as in
+                # move_card (a weight increase alongside it was checked above).
+                check_column=entering or not entering_row,
+                swimlane=target_swimlane,
+                # Where the card counts now; a create or a restore counts
+                # nowhere yet.
+                source=None if (creating or restoring) else (current.column_id, current.swimlane_id),
                 # Locked above, after the card row.
                 lock=False,
             )
-        except (WipHardBlocked, WipLimitExceeded, WeightLimitExceeded) as exc:
+        except LIMIT_ERRORS as exc:
             raise ValidationError(_limit_error_message(exc)) from None
         return cleaned
 
@@ -688,10 +737,50 @@ class _BoardEventAdminMixin:
             publish_blocked_peers(peers, request)
 
 
+class SwimlaneAdminForm(forms.ModelForm):
+    """Validates ``limit_column_ids`` as the API does (#1150).
+
+    The JSON widget accepts any value, so without this a staff user could store
+    a non-list, an id of another board's column, or an empty list. The rules
+    and the stored form (sorted, deduplicated ids of this board's columns, or
+    ``null``) match ``SwimlaneSerializer.validate_limit_column_ids``.
+    """
+
+    class Meta:
+        model = Swimlane
+        fields = "__all__"
+
+    def clean(self):
+        cleaned = super().clean()
+        value = cleaned.get("limit_column_ids")
+        board = cleaned.get("board")
+        if value is None or board is None:
+            return cleaned
+        if (
+            not isinstance(value, list) or not value
+            or not all(isinstance(pk, int) and not isinstance(pk, bool) for pk in value)
+        ):
+            raise ValidationError({
+                "limit_column_ids": "Enter a non-empty list of column ids, or null for the default.",
+            })
+        wanted = sorted(set(value))
+        known = set(Column.objects.filter(board=board, pk__in=wanted).values_list("pk", flat=True))
+        unknown = [pk for pk in wanted if pk not in known]
+        if unknown:
+            raise ValidationError({
+                "limit_column_ids": (
+                    "Unknown column(s) for this board: " + ", ".join(str(pk) for pk in unknown) + "."
+                ),
+            })
+        cleaned["limit_column_ids"] = wanted
+        return cleaned
+
+
 @admin.register(Swimlane)
 class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.ModelAdmin):
     """Admin for Swimlane that broadcasts mutations (see CardAdmin for rationale)."""
 
+    form = SwimlaneAdminForm
     event_created = _broadcast.EVT_SWIMLANE_CREATED
     event_updated = _broadcast.EVT_SWIMLANE_UPDATED
     event_deleted = _broadcast.EVT_SWIMLANE_DELETED

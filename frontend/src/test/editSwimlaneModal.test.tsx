@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EditSwimlaneModal from '../components/Board/EditSwimlaneModal'
-import type { Swimlane, SwimlaneCustomFieldDefinition } from '../types'
+import type { Card, Column, Swimlane, SwimlaneCustomFieldDefinition } from '../types'
 
 vi.mock('../api/boards', () => ({
   updateSwimlane: vi.fn(),
@@ -22,7 +22,7 @@ function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
     color: '#6B7280',
     position: 0,
     is_collapsed: false,
-    created_at: '2026-01-01T00:00:00Z',
+    created_at: '2026-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null,
     ...overrides,
   }
 }
@@ -447,5 +447,114 @@ describe('EditSwimlaneModal — date format (#1993)', () => {
       />
     )
     expect(screen.getByText('26/11/2026')).toBeInTheDocument()
+  })
+})
+
+describe('EditSwimlaneModal — limits (#1150)', () => {
+  const columns: Column[] = [
+    { id: 10, uid: 'c10', name: 'Backlog', position: 0, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+    { id: 11, uid: 'c11', name: 'Doing', position: 1, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+    { id: 12, uid: 'c12', name: 'Done', position: 2, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: true },
+  ]
+  const card = (id: number, column: number, weight = 1): Card => ({
+    id, uid: `k${id}`, column, swimlane: 1, title: 't', description: '', priority: 'medium', assignee: null,
+    labels: [], due_date: null, weight, position: 0, created_by: { id: 1, username: 'u', display_name: '', avatar_url: '' },
+    created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
+    is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
+  })
+  const laneCards = [card(1, 10, 2), card(2, 11, 3), card(3, 12, 5)]
+
+  function renderModal(swimlane: Swimlane = makeSwimlane(), flags = { enforce_wip_limits: true, enforce_wip_hard: false, enforce_weight_limits: true }) {
+    return render(
+      <EditSwimlaneModal
+        boardId={1} swimlane={swimlane} cardCount={3} onUpdated={vi.fn()} onDeleted={vi.fn()} onClose={vi.fn()}
+        columns={columns} laneCards={laneCards} limitFlags={flags}
+      />,
+    )
+  }
+
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('shows "Now N" over the counted columns (done excluded by default)', () => {
+    renderModal()
+    expect(screen.getByText('Now 2 · 0 = no limit')).toBeInTheDocument()
+    expect(screen.getByText('Now 5 · 0 = no limit')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Backlog' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Done/ })).not.toBeChecked()
+    expect(screen.getByText('Default: every column not marked done.')).toBeInTheDocument()
+  })
+
+  it('saves the limits, the enforcement and null columns when the default is untouched', async () => {
+    mockUpdateSwimlane.mockResolvedValue(makeSwimlane())
+    const user = userEvent.setup()
+    renderModal()
+    await user.type(screen.getByLabelText('WIP limit'), '3')
+    await user.type(screen.getByLabelText('Weight limit'), '8')
+    await user.click(screen.getByRole('radio', { name: /Block for everyone/ }))
+    await user.click(screen.getByRole('button', { name: /Save/ }))
+    expect(mockUpdateSwimlane).toHaveBeenCalledWith(1, 1, expect.objectContaining({
+      wip_limit: 3, weight_limit: 8, limit_enforcement: 'hard', limit_column_ids: null,
+    }))
+  })
+
+  it('a changed selection becomes an explicit, sorted list and updates "Now N"', async () => {
+    mockUpdateSwimlane.mockResolvedValue(makeSwimlane())
+    const user = userEvent.setup()
+    renderModal()
+    await user.click(screen.getByRole('checkbox', { name: 'Backlog' }))
+    await user.click(screen.getByRole('checkbox', { name: /Done/ }))
+    expect(screen.getByText('Now 2 · 0 = no limit')).toBeInTheDocument() // Doing + Done count now
+    expect(screen.getByText('Only cards in the checked columns count.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Save/ }))
+    expect(mockUpdateSwimlane).toHaveBeenCalledWith(1, 1, expect.objectContaining({ limit_column_ids: [11, 12] }))
+  })
+
+  it('refuses to save with no column checked, and says why', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    await user.click(screen.getByRole('checkbox', { name: 'Backlog' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Doing' }))
+    await user.click(screen.getByRole('button', { name: /Save/ }))
+    expect(mockUpdateSwimlane).not.toHaveBeenCalled()
+    expect(screen.getByText(/Choose at least one column/)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Backlog' })).toHaveFocus()
+  })
+
+  it('warns when the new limit is already below the current count', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    await user.type(screen.getByLabelText('WIP limit'), '1')
+    expect(screen.getByText(/Already over: 2 cards count now/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Weight limit'), '4')
+    expect(screen.getByText(/Already over: 5 weight counts now/)).toBeInTheDocument()
+  })
+
+  it('0 or empty clears a limit; null enforcement is "Follow board settings"', async () => {
+    mockUpdateSwimlane.mockResolvedValue(makeSwimlane())
+    const user = userEvent.setup()
+    renderModal(makeSwimlane({ wip_limit: 4, weight_limit: 9, limit_enforcement: 'block', limit_column_ids: [11] }))
+    expect(screen.getByRole('radio', { name: /Block, admins can override/ })).toBeChecked()
+    await user.clear(screen.getByLabelText('WIP limit'))
+    await user.type(screen.getByLabelText('WIP limit'), '0')
+    await user.clear(screen.getByLabelText('Weight limit'))
+    await user.click(screen.getByRole('radio', { name: /Follow board settings/ }))
+    await user.click(screen.getByRole('button', { name: /Save/ }))
+    expect(mockUpdateSwimlane).toHaveBeenCalledWith(1, 1, expect.objectContaining({
+      wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: [11],
+    }))
+  })
+
+  it('describes what the board settings mean right now', () => {
+    const { unmount } = renderModal(makeSwimlane(), { enforce_wip_limits: false, enforce_wip_hard: true, enforce_weight_limits: false })
+    expect(screen.getByText(/Board now: blocks everyone/)).toBeInTheDocument()
+    unmount()
+    renderModal(makeSwimlane(), { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false })
+    expect(screen.getByText(/WIP limits are not enforced/)).toBeInTheDocument()
+  })
+
+  it('the form body is a named, focusable scroll region', () => {
+    renderModal()
+    const region = screen.getByRole('region', { name: 'Swimlane settings' })
+    expect(region).toHaveAttribute('tabIndex', '0')
   })
 })

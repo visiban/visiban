@@ -326,7 +326,24 @@ export interface Swimlane {
    * me", never as "this row has none", if a future variant does omit it.
    */
   custom_field_values?: SwimlaneCustomFieldValue[];
+  /** The row's own WIP limit (#1150); null means no limit. */
+  wip_limit: number | null;
+  /** The row's own weight limit (#1150); null means no limit. */
+  weight_limit: number | null;
+  /**
+   * How the row's limits are enforced (#1150): `block` (board admins can
+   * override), `hard` (the WIP limit has no override), or null to inherit the
+   * board's enforce_* flags, as a column does.
+   */
+  limit_enforcement: SwimlaneLimitEnforcement | null;
+  /**
+   * Ids of the columns whose cards count toward the row's limits, sorted;
+   * null means every column whose `is_done` is false (#1150).
+   */
+  limit_column_ids: number[] | null;
 }
+
+export type SwimlaneLimitEnforcement = "block" | "hard";
 
 /**
  * Swimlane shape served to unauthenticated share-link visitors

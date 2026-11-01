@@ -75,6 +75,7 @@ from .notifications import create_notifications, quoted_card_verb
 from .errors import (
     CardAlreadyBlocked, CardCreationNotAllowed, CardNotBlocked, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted,
     InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
+    SwimlaneWeightLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
     WipLimitExceeded,
 )
@@ -418,35 +419,245 @@ def _board_scoped(model, pk, board, error):
 
 
 # ---------------------------------------------------------------------------
-# Column limits (WIP + weight)
+# Placement limits (WIP + weight, per column and per swimlane)
 # ---------------------------------------------------------------------------
+
+# Enforcement modes a placement constraint can carry. HARD admits no override
+# for any role; BLOCK can be overridden with ``force`` by a board admin.
+_HARD = "hard"
+_BLOCK = "block"
+
+
+@dataclass(frozen=True)
+class PlacementConstraint:
+    """One limit a placement must respect (#1150).
+
+    ``enforce_column_limits`` builds a list of these for the target cell and
+    evaluates them in one pass, so a new kind of limit — a per-class-of-service
+    WIP policy (#1103), say — is one more entry in that list rather than a
+    third enforcement function. Each entry is self-contained:
+
+    * ``kind`` is ``"wip"`` (count the cards in ``cards``, refuse at
+      ``limit``) or ``"weight"`` (sum their weight, refuse when adding the
+      placed card's weight would pass ``limit``). It also picks the
+      ``ForceNotPermitted`` wording.
+    * ``mode`` is ``_HARD`` or ``_BLOCK``.
+    * ``cards`` is the queryset of the cards that count against ``limit``,
+      the placed card already excluded.
+    * ``error`` builds the refusal from the measured total.
+    """
+
+    kind: str
+    mode: str
+    limit: int
+    cards: object
+    error: object
+
+    def measure(self):
+        if self.kind == "wip":
+            return self.cards.count()
+        return self.cards.aggregate(total=Sum("weight"))["total"] or 0
+
+    def is_exceeded(self, measured, card_weight):
+        if self.kind == "wip":
+            return measured >= self.limit
+        return measured + card_weight > self.limit
+
+
+def _column_limit_modes(board):
+    """``(wip_mode, weight_mode)`` the board flags give its columns; ``None``
+    means that limit is not enforced. Hard WIP mode is independent of soft
+    mode: it applies even when ``enforce_wip_limits`` is off."""
+    wip = _HARD if board.enforce_wip_hard else (_BLOCK if board.enforce_wip_limits else None)
+    weight = _BLOCK if board.enforce_weight_limits else None
+    return wip, weight
+
+
+def _swimlane_limit_modes(board, swimlane):
+    """``(wip_mode, weight_mode)`` for a swimlane's own limits (#1150).
+
+    A swimlane that chose a mode uses it whatever the board flags say; one
+    that did not (``NULL``) inherits the board flags exactly as a column does,
+    so a board that never touches the setting behaves as it always has.
+    Weight has no hard mode, for rows as for columns: under ``hard`` the row's
+    weight limit is still a block an admin can override.
+    """
+    chosen = swimlane.limit_enforcement
+    if chosen == Swimlane.LimitEnforcement.HARD:
+        return _HARD, _BLOCK
+    if chosen == Swimlane.LimitEnforcement.BLOCK:
+        return _BLOCK, _BLOCK
+    return _column_limit_modes(board)
+
+
+def _source_counts_for_swimlane(swimlane, source):
+    """Whether the card already counts toward ``swimlane``'s limits where it
+    is now. ``source`` is ``(column, swimlane_id)`` with ``column`` a
+    ``Column`` or a column id, or ``None`` for a card that counts nowhere yet
+    (a create, a restore)."""
+    if source is None:
+        return False
+    source_column, source_swimlane_id = source
+    if source_swimlane_id != swimlane.pk:
+        return False
+    if isinstance(source_column, Column):
+        return swimlane.counts_column(source_column)
+    if swimlane.limit_column_ids is not None:
+        return source_column in swimlane.limit_column_ids
+    # NULL means "every column not marked done"; only the id is known here.
+    is_done = Column.objects.filter(pk=source_column).values_list("is_done", flat=True).first()
+    return is_done is False
+
+
+def _column_constraints(board, column, card, *, check_wip, check_weight):
+    wip_mode, weight_mode = _column_limit_modes(board)
+    counted = Card.objects.filter(board=board, column=column, archived_at__isnull=True).exclude(pk=card.pk)
+    constraints = []
+    if check_wip and wip_mode and column.wip_limit is not None:
+        hard = wip_mode == _HARD
+        constraints.append(PlacementConstraint(
+            kind="wip", mode=wip_mode, limit=column.wip_limit, cards=counted,
+            error=lambda n, hard=hard: (WipHardBlocked if hard else WipLimitExceeded)(
+                column_name=column.name, current_count=n, wip_limit=column.wip_limit,
+            ),
+        ))
+    if check_weight and weight_mode and column.weight_limit is not None:
+        constraints.append(PlacementConstraint(
+            kind="weight", mode=weight_mode, limit=column.weight_limit, cards=counted,
+            error=lambda w: WeightLimitExceeded(
+                column_name=column.name, current_weight=w,
+                weight_limit=column.weight_limit, card_weight=card.weight,
+            ),
+        ))
+    return constraints
+
+
+def _swimlane_constraints(board, swimlane, column, card, *, check_wip, check_weight):
+    wip_mode, weight_mode = _swimlane_limit_modes(board, swimlane)
+    want_wip = check_wip and wip_mode is not None and swimlane.wip_limit is not None
+    want_weight = check_weight and weight_mode is not None and swimlane.weight_limit is not None
+    if not (want_wip or want_weight):
+        return []
+    counted = Card.objects.filter(board=board, swimlane=swimlane, archived_at__isnull=True).exclude(pk=card.pk)
+    if swimlane.limit_column_ids is None:
+        counted = counted.filter(column__is_done=False)
+    else:
+        # A stale id (a column deleted under a concurrent settings save) just
+        # matches nothing.
+        counted = counted.filter(column_id__in=swimlane.limit_column_ids)
+    constraints = []
+    if want_wip:
+        hard = wip_mode == _HARD
+        constraints.append(PlacementConstraint(
+            kind="wip", mode=wip_mode, limit=swimlane.wip_limit, cards=counted,
+            error=lambda n, hard=hard: (SwimlaneWipHardBlocked if hard else SwimlaneWipLimitExceeded)(
+                swimlane_name=swimlane.name, column_name=column.name,
+                current_count=n, wip_limit=swimlane.wip_limit,
+            ),
+        ))
+    if want_weight:
+        constraints.append(PlacementConstraint(
+            kind="weight", mode=weight_mode, limit=swimlane.weight_limit, cards=counted,
+            error=lambda w: SwimlaneWeightLimitExceeded(
+                swimlane_name=swimlane.name, column_name=column.name, current_weight=w,
+                weight_limit=swimlane.weight_limit, card_weight=card.weight,
+            ),
+        ))
+    return constraints
+
+
+def _swimlane_check_applies(board, swimlane, column, *, check_wip, check_weight, source):
+    """Whether this placement must be checked against ``swimlane``'s limits.
+
+    The row's limits cover only the cards in its counted columns, so only a
+    placement that *adds* to that total is checked: the card enters a counted
+    column of the row from outside it (another row, an uncounted column of
+    this row, or nowhere: create, restore), or it grows inside one (a weight
+    increase, ``check_wip=False``). A move that leaves the count unchanged — a
+    reorder, or a move between two counted columns of the row — is never
+    refused by the row (#1150: "moves inside a lane never trip the lane
+    limit"), exactly as a swimlane-only move never trips a column limit.
+    Entering through an uncounted column (Backlog -> Doing within the row) is
+    checked, or the limit could be walked around one card at a time.
+    """
+    wip_mode, weight_mode = _swimlane_limit_modes(board, swimlane)
+    if not (
+        (check_wip and wip_mode and swimlane.wip_limit is not None)
+        or (check_weight and weight_mode and swimlane.weight_limit is not None)
+    ):
+        return False
+    if not swimlane.counts_column(column):
+        return False
+    if not check_wip:
+        # Growing in place: the card already counts here.
+        return True
+    return not _source_counts_for_swimlane(swimlane, source)
+
+
+def _evaluate_constraints(constraints, *, card, role, force):
+    """Raise the strictest refusal among ``constraints``, or return.
+
+    Hard constraints are evaluated first, before ``force`` is consulted, so no
+    role can override one (hard > block). The sort is stable, so among equally
+    strict constraints the caller's order decides which one is reported:
+    column before swimlane, WIP before weight — see
+    ``boards.services.errors`` for why one body names one constraint. A
+    tripped soft constraint raises unless ``force`` is set, and ``force`` is
+    accepted only from a board admin or site admin (``ForceNotPermitted``
+    worded for the first tripped kind otherwise).
+    """
+    for constraint in sorted(constraints, key=lambda c: c.mode != _HARD):
+        measured = constraint.measure()
+        if not constraint.is_exceeded(measured, card.weight):
+            continue
+        if constraint.mode == _HARD or not force:
+            raise constraint.error(measured)
+        _require_force_role(role, constraint.kind)
+
 
 def enforce_column_limits(
     *, board, column, card, role, force=False, check_wip=True, check_weight=True,
-    lock=True,
+    lock=True, swimlane=None, source=None, check_column=True,
 ):
-    """Raise if placing ``card`` in ``column`` breaks its WIP or weight limit.
+    """Raise if placing ``card`` in the cell (``column``, ``swimlane``) breaks
+    a placement limit: the column's WIP or weight limit, or, since #1150, the
+    swimlane's.
 
     The one implementation of WIP, hard-WIP and weight enforcement, shared by
-    every API write path that puts a card into a column or grows one inside it:
+    every API write path that puts a card into a cell or grows one inside it:
     move, create, restore from archive, a weight increase via update, and the
     Django admin (#1428). Before #1428 only ``move_card`` ran it, so a member
-    could exceed even a hard limit by creating or restoring a card.
+    could exceed even a hard limit by creating or restoring a card. The name
+    predates the row limits; it is kept because the lock-order race tests and
+    the admin patch this function by name. It builds one list of
+    ``PlacementConstraint`` for the cell and evaluates it in one pass
+    (``_evaluate_constraints``); a further kind of limit (#1103) adds entries
+    to that list, not a second function.
 
     ``card`` is the card being placed. It is excluded from the counts — it is
     either somewhere else (move), not yet active (restore), or already saved by
     the caller inside its own transaction (create, weight change) — and its
-    ``weight`` is what is added to the column's total.
+    ``weight`` is what is added to the totals.
 
     ``check_wip`` / ``check_weight`` exist for the weight-change path, which
-    does not change how many cards the column holds and so must not be refused
-    for a column that is already over its *WIP* limit.
+    does not change how many cards the cell holds and so must not be refused
+    for a column or row that is already over its *WIP* limit.
 
-    Locking: when any enforced limit applies, the column row is locked with
-    ``select_for_update(no_key=True)`` before counting, so two concurrent
-    writers into the same column queue instead of both observing room for one
-    more card. Call this inside the caller's transaction, after any card-row
-    lock, to keep the card → column lock order ``move_card`` documents.
+    ``swimlane`` (#1150) is the target row; ``None`` checks the column only.
+    ``source`` is ``(column, swimlane_id)`` where the card counts now, or
+    ``None`` when it counts nowhere (create, restore): it decides whether the
+    card enters the row's counted columns (see ``_swimlane_check_applies``).
+    ``check_column=False`` is for a move that keeps the card in its column (a
+    swimlane-only move), which a column limit never refuses.
+
+    Locking: when any enforced limit applies, the column row and then the
+    swimlane row are locked with ``select_for_update(no_key=True)`` before
+    counting, so two concurrent writers into the same column — or into the
+    same row through different columns — queue instead of both observing room
+    for one more card. Call this inside the caller's transaction, after any
+    card-row lock, to keep the card -> column -> swimlane lock order
+    ``move_card`` documents. The swimlane's limits are re-read from the locked
+    row, so a concurrent settings save is either seen or waited for.
 
     ``FOR NO KEY UPDATE`` rather than ``FOR UPDATE`` (#1522): every insert or
     update of a row with a foreign key to the column — a ``CardMovement`` naming
@@ -455,67 +666,45 @@ def enforce_column_limits(
     With ``FOR UPDATE``, a move A -> B racing a move B -> A in another swimlane
     deadlocks: each holds its target column and its audit row needs the other's.
     Two ``FOR NO KEY UPDATE`` locks still conflict, so limit checks still queue.
+    The swimlane row takes the same mode for the same reason: a move out of a
+    limited row holds no lock on it, but its audit row takes ``FOR KEY SHARE``.
 
     Override rules (identical on every path): hard WIP mode is evaluated before
     ``force`` is consulted, so no role can override it; a soft WIP or weight
     limit can be overridden with ``force=True`` only by a board admin or site
-    admin (``ForceNotPermitted`` otherwise). Weight has no hard mode.
+    admin (``ForceNotPermitted`` otherwise), and one ``force`` covers every
+    soft limit the placement trips. Weight has no hard mode. When several
+    limits trip, the strictest is reported (see ``_evaluate_constraints``).
 
     ``lock=False`` is only for a caller that already holds the column row lock
     in the same transaction (``create_card`` takes it for position assignment).
+    It never skips the swimlane lock, which no caller takes beforehand.
     """
-    wip_enforced = check_wip and (board.enforce_wip_limits or board.enforce_wip_hard)
-    weight_enforced = check_weight and board.enforce_weight_limits
-    wip_applies = wip_enforced and column.wip_limit is not None
-    weight_applies = weight_enforced and column.weight_limit is not None
-    if not (wip_applies or weight_applies):
+    constraints = (
+        _column_constraints(board, column, card, check_wip=check_wip, check_weight=check_weight)
+        if check_column else []
+    )
+    lane_applies = swimlane is not None and _swimlane_check_applies(
+        board, swimlane, column, check_wip=check_wip, check_weight=check_weight, source=source,
+    )
+    if not (constraints or lane_applies):
         return
 
-    # One lock covers WIP and weight; acquiring it twice on the same row would
-    # be a redundant round-trip.
-    if lock:
+    # One lock per row covers WIP and weight; acquiring it twice on the same
+    # row would be a redundant round-trip. Column first, then swimlane.
+    if constraints and lock:
         Column.objects.select_for_update(no_key=True).get(pk=column.pk)
-
-    # Hard mode is independent of soft mode: it activates even when soft
-    # enforcement is off, and accepts no override from any role. It is
-    # therefore checked BEFORE `force` is consulted, so the override path is
-    # unreachable while hard mode is on.
-    if wip_applies:
-        wip_count = (
-            Card.objects.filter(board=board, column=column, archived_at__isnull=True)
-            .exclude(pk=card.pk)
-            .count()
+    if lane_applies:
+        locked_swimlane = Swimlane.objects.select_for_update(no_key=True).filter(pk=swimlane.pk).first()
+        if locked_swimlane is None:
+            # Deleted while this waited; callers check existence first, so this
+            # is only reachable under a concurrent delete.
+            raise SwimlaneNotFound()
+        constraints += _swimlane_constraints(
+            board, locked_swimlane, column, card, check_wip=check_wip, check_weight=check_weight,
         )
-        if wip_count >= column.wip_limit:
-            if board.enforce_wip_hard:
-                raise WipHardBlocked(
-                    column_name=column.name,
-                    current_count=wip_count,
-                    wip_limit=column.wip_limit,
-                )
-            if not force:
-                raise WipLimitExceeded(
-                    column_name=column.name,
-                    current_count=wip_count,
-                    wip_limit=column.wip_limit,
-                )
-            _require_force_role(role, "wip")
 
-    if weight_applies:
-        current_weight = (
-            Card.objects.filter(board=board, column=column, archived_at__isnull=True)
-            .exclude(pk=card.pk)
-            .aggregate(total=Sum("weight"))["total"]
-        ) or 0
-        if current_weight + card.weight > column.weight_limit:
-            if not force:
-                raise WeightLimitExceeded(
-                    column_name=column.name,
-                    current_weight=current_weight,
-                    weight_limit=column.weight_limit,
-                    card_weight=card.weight,
-                )
-            _require_force_role(role, "weight")
+    _evaluate_constraints(constraints, card=card, role=role, force=force)
 
 
 # ---------------------------------------------------------------------------
@@ -583,9 +772,12 @@ def create_card(
         max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
         card = save(position=max_pos)
         # The column row is already locked above, so the helper does not lock
-        # it again. The new card is excluded from the count, as in a move.
+        # it again (it still locks the swimlane row, after the column, when the
+        # row has a limit). The new card is excluded from the count, as in a
+        # move.
         enforce_column_limits(
             board=board, column=column, card=card, role=role, force=force, lock=False,
+            swimlane=swimlane,
         )
         CardMovement.objects.create(
             card=card,
@@ -916,9 +1108,12 @@ def update_card(
         # row now keeps the card → column order move_card uses. A refusal
         # raises inside this transaction and rolls the write back.
         if card.weight > old_weight:
+            # The row's weight limit too (#1150), when the card's column counts
+            # toward it: the card grows in place in its swimlane as in its
+            # column. Locked column -> swimlane, after the card row.
             enforce_column_limits(
                 board=board, column=card.column, card=card, role=role, force=force,
-                check_wip=False,
+                check_wip=False, swimlane=card.swimlane,
             )
         # OCC: bump version on every field update (as move_card does on a move) so
         # stale clients detect conflicts. Archive/unarchive, comments, attachments,
@@ -1039,7 +1234,17 @@ def move_card(
     cells, in **one** statement ordered by pk; then, when the card changes
     cell, the source and target column rows, again in one pk-ordered statement
     (``FOR NO KEY UPDATE``) — taken on every move, including a reorder within
-    one cell, whose single column is locked. No card row is locked after a
+    one cell, whose single column is locked; then, only when the target
+    swimlane has a limit the move is checked against (#1150), the target
+    swimlane row (``FOR NO KEY UPDATE``, in ``enforce_column_limits``). So:
+    card -> column -> swimlane. No path takes a card or column row after a
+    swimlane row: a swimlane delete locks its cards and columns first
+    (``lock_cards_for_cascade``), and a swimlane settings save or reorder
+    takes only the board row and swimlane rows. The board row is the one lock
+    a move needs after its swimlane row (``FOR KEY SHARE``, for the
+    ``CardMovement`` insert), which is why every swimlane writer that holds a
+    swimlane row locks the board ``FOR NO KEY UPDATE`` (it does not block
+    ``FOR KEY SHARE``) and never ``FOR UPDATE``. No card row is locked after a
     column row, and no card row the compaction or shift UPDATEs write is locked
     outside that single pk-ordered statement, so concurrent moves queue rather
     than deadlock (#1522: locking the card first and its siblings after
@@ -1699,14 +1904,20 @@ def _move_card_attempt(
             current_version=locked.version,
         )
 
-        # WIP and weight enforcement — only when the card enters a different
-        # column. Pure position reorders within the same cell, and swimlane-only
-        # moves within one column, are exempt. The target column row is already
-        # locked above, so the helper does not lock it again.
-        if column_changed:
+        # WIP and weight enforcement. A column limit applies only when the card
+        # enters a different column, so a swimlane-only move within one column
+        # is exempt from it; a swimlane limit (#1150) applies only when the
+        # move adds to the target row's counted total (see
+        # _swimlane_check_applies), so a reorder, or a move between two
+        # counted columns of one row, is exempt from it. A reorder within one
+        # cell checks nothing. The target column row is already locked above,
+        # so the helper does not lock it again; it locks the target swimlane
+        # row itself, after the columns (card -> column -> swimlane).
+        if column_changed or swimlane_changed:
             enforce_column_limits(
                 board=board, column=target_column, card=card, role=role, force=force,
-                lock=False,
+                lock=False, swimlane=target_swimlane,
+                source=(card.column, card.swimlane_id), check_column=column_changed,
             )
 
         movement = None
@@ -1930,6 +2141,7 @@ def unarchive_card(
         # rolls the restore back.
         enforce_column_limits(
             board=board, column=card.column, card=card, role=role, force=force,
+            swimlane=card.swimlane,
         )
         _archive_movement(card, actor, CardMovement.MovementType.UNARCHIVED)
         # Rendered inside the atomic block so the payload is a plain dict

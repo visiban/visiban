@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { failureReason } from '../utils/moveFailure'
+import { failureReason, isLimitFailure } from '../utils/moveFailure'
 
 const axiosErr = (status?: number, data: unknown = {}) =>
   Object.assign(new Error('x'), { isAxiosError: true, response: status ? { status, data } : undefined })
@@ -14,6 +14,12 @@ describe('failureReason', () => {
       expect(failureReason(axiosErr(409, { code }))).toBe('a column limit was reached')
     }
     expect(failureReason(axiosErr(409, { code: 'version_conflict' }))).toBe('someone else changed a card')
+  })
+  it('names a swimlane limit as a swimlane limit (#1150)', () => {
+    for (const code of ['swimlane_wip_limit_exceeded', 'swimlane_wip_hard_blocked', 'swimlane_weight_limit_exceeded']) {
+      expect(failureReason(axiosErr(409, { code }))).toBe('a swimlane limit was reached')
+      expect(isLimitFailure(axiosErr(409, { code }))).toBe(true)
+    }
   })
   it('names maintenance mode', () => {
     expect(failureReason(axiosErr(503, { code: 'maintenance_mode' }))).toBe('maintenance mode is active')

@@ -7,6 +7,7 @@ import { createCard } from "../../api/cards";
 import { limitBlockedMessage } from "./moveBlockedMessages";
 import GridOverlayLayer from "./GridOverlay/GridOverlayLayer";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
+import { trippedLimitLabel, type TrippedLimit } from "../../utils/placementLimits";
 
 interface Props {
   column: Column;
@@ -41,13 +42,24 @@ interface Props {
   overlayCell?: GridOverlayCellState | null;
   /** The active overlay's label, for the cell's screen-reader text. */
   overlayLabel?: string;
+  /**
+   * The limits dropping card `cardId` here would trip, strictest first
+   * (#1150). Called only while a card drag is over this cell.
+   */
+  getDropVerdict?: (cardId: number, column: Column, swimlane: Swimlane) => TrippedLimit[];
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
   const isDraggingCard = active != null && !String(active.id).startsWith("swim:") && !String(active.id).startsWith("col:");
+  // Drop verdict (#1150): the strictest limit this drop would trip, if any.
+  // The ring and the label below predict the server's answer; the server
+  // still decides, and its refusal still raises MoveBlockedToast.
+  const blockedBy = isOver && isDraggingCard && getDropVerdict
+    ? getDropVerdict(Number(active?.id), column, swimlane)[0] ?? null
+    : null;
   const [adding, setAdding] = useState(false);
   // The card currently expanded over this cell, if any (see the CardItem
   // dimming note in the render below).
@@ -120,7 +132,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       }}
       style={{ width: width ?? 220 }}
       className={`group/cell relative shrink-0 min-h-[80px] p-2 transition-colors bg-canvas ${
-        isOver && isDraggingCard ? "bg-surface-hover/40" : ""
+        blockedBy ? "ring-2 ring-inset ring-danger-emphasis" : isOver && isDraggingCard ? "bg-surface-hover/40" : ""
       } ${cards.length === 0 && !adding ? "border border-dashed border-line/50" : "border-r border-line/50"} ${
         isEmptyAddable ? "cursor-pointer hover:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
       }`}
@@ -135,9 +147,21 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           valueAnnouncedByCell={isEmptyAddable}
         />
       )}
+      {/* Blocked drop target (#1150): the ring is color only, so the limit is
+          also written out (WCAG 1.4.1). aria-hidden: keyboard and screen-reader
+          users get the same verdict from the drag live region. */}
+      {blockedBy && (
+        <span
+          aria-hidden="true"
+          data-testid="cell-drop-blocked"
+          className="absolute inset-x-2 top-1 z-[6] truncate text-xs font-medium text-danger pointer-events-none"
+        >
+          {blockedBy.mode === "hard" ? "⛔ " : "⚠ "}{trippedLimitLabel(blockedBy)}
+        </span>
+      )}
       {/* One scalar per corner: the built-in count stands down while an overlay owns
           the top-right slot, so the cell never shows two different numbers there. */}
-      {!overlay && cards.length >= 2 && (
+      {!overlay && !blockedBy && cards.length >= 2 && (
         // z-[5]: CardItem's root is `relative z-0`, so a z-auto badge paints under the
         // first card (#1162). Same value and reasoning as the overlay badge; see
         // frontend/CLAUDE.md (grid overlay stacking).
@@ -186,7 +210,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         </div>
         {cards.length === 0 && active && (
           <div className={`h-10 rounded border-2 border-dashed transition-colors ${
-            isOver ? "border-primary-emphasis bg-info/20" : "border-line"
+            blockedBy ? "border-danger-emphasis" : isOver ? "border-primary-emphasis bg-info/20" : "border-line"
           }`} />
         )}
       </SortableContext>

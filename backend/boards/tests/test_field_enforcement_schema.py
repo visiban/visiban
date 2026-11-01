@@ -68,6 +68,16 @@ for _component in (
     "CustomFieldDefinition", "CustomFieldDefinitionRequest", "PatchedCustomFieldDefinitionRequest",
 ):
     EXPECTED[_component] = {"is_required": fe.CUSTOM_FIELD_IS_REQUIRED}
+# Per-swimlane limits (#1150): every member reads them (Swimlane), admins
+# write them (SwimlaneAdmin*).
+_SWIMLANE_LIMIT_FIELDS = {
+    "wip_limit": fe.SWIMLANE_WIP_LIMIT,
+    "weight_limit": fe.SWIMLANE_WEIGHT_LIMIT,
+    "limit_enforcement": fe.SWIMLANE_LIMIT_ENFORCEMENT,
+    "limit_column_ids": fe.SWIMLANE_LIMIT_COLUMN_IDS,
+}
+for _component in ("Swimlane", "SwimlaneAdmin", "SwimlaneAdminRequest", "PatchedSwimlaneAdminRequest"):
+    EXPECTED[_component] = _SWIMLANE_LIMIT_FIELDS
 for _component in (
     "SwimlaneCustomFieldDefinition", "SwimlaneCustomFieldDefinitionRequest",
     "PatchedSwimlaneCustomFieldDefinitionRequest",

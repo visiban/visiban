@@ -25,6 +25,7 @@ import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } 
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
+import { placementVerdict, trippedLimitSentence } from "../../utils/placementLimits";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
@@ -1635,6 +1636,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     });
   }, []);
 
+  // What dropping a card into a cell would trip (#1150), strictest first. The
+  // board's own state is the input, so the prediction matches the server's
+  // rules (utils/placementLimits) but never replaces its answer.
+  const getDropVerdict = useCallback(
+    (cardId: number, column: Column, swimlane: Swimlane) => {
+      const card = board.cards.find((c) => c.id === cardId);
+      if (!card) return [];
+      return placementVerdict({ flags: board, columns: board.columns, cards: board.cards, card, column, lane: swimlane });
+    },
+    [board],
+  );
+
   const handleDragStart = (e: DragStartEvent) => {
     clearSelection();
     const id = String(e.active.id);
@@ -1665,7 +1678,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const col = board.columns.find((c) => c.id === Number(colId));
     const swim = board.swimlanes.find((s) => s.id === Number(swimId));
     if (col && swim) {
-      setDndAnnouncement(`Over column '${col.name}', swimlane '${swim.name}'`);
+      // The cell's verdict (#1150): a keyboard drag hears what a pointer drag
+      // sees as the drop ring, e.g. "Swimlane "Payouts" is at its WIP limit
+      // (5/5), admins can override."
+      const cardId = Number(e.active.id);
+      const verdict = Number.isNaN(cardId) ? [] : getDropVerdict(cardId, col, swim);
+      const suffix = verdict.length > 0 ? `. ${verdict.map(trippedLimitSentence).join(" ")}` : "";
+      setDndAnnouncement(`Over column '${col.name}', swimlane '${swim.name}'${suffix}`);
     }
   };
 
@@ -2572,6 +2591,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onCardUpdated={onCardUpdated}
                       overlayCells={gridOverlayState?.cells}
                       overlayLabel={gridOverlayState?.label}
+                      limitFlags={board}
+                      getDropVerdict={getDropVerdict}
                     />
                   </React.Fragment>
                 ));

@@ -673,14 +673,50 @@ class SwimlaneSerializer(serializers.ModelSerializer):
     """
 
     custom_field_values = SwimlaneCustomFieldValuesField(read_only=True)
+    # Per-row limits (#1150). On the public serializer, not only the admin one:
+    # every member sees the row's limit state in its label panel, as every
+    # member sees a column's wip_limit. Writes are admin-gated in the viewset.
+    limit_column_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_null=True, allow_empty=False, required=False,
+        help_text=field_enforcement.SWIMLANE_LIMIT_COLUMN_IDS,
+    )
 
     class Meta:
         model = Swimlane
         fields = [
             "id", "uid", "name", "position", "color", "is_collapsed",
             "created_at", "custom_field_values",
+            "wip_limit", "weight_limit", "limit_enforcement", "limit_column_ids",
         ]
         read_only_fields = ["uid"]
+        extra_kwargs = {
+            "wip_limit": {"help_text": field_enforcement.SWIMLANE_WIP_LIMIT},
+            "weight_limit": {"help_text": field_enforcement.SWIMLANE_WEIGHT_LIMIT},
+            "limit_enforcement": {"help_text": field_enforcement.SWIMLANE_LIMIT_ENFORCEMENT},
+        }
+
+    def validate_limit_column_ids(self, value):
+        """Every id must name a column of this board; stored sorted, deduplicated.
+
+        A foreign or unknown id gets one message whether or not it exists on
+        another board, so the API never confirms a guessed id (IDOR). An empty
+        list is refused rather than stored: a limit that counts no column is a
+        setting no client can show, and ``null`` already says "the default".
+        """
+        if value is None:
+            return None
+        board = self.context.get("board") or (self.instance.board if self.instance else None)
+        wanted = sorted(set(value))
+        if board is None:
+            return wanted
+        known = set(Column.objects.filter(board=board, pk__in=wanted).values_list("pk", flat=True))
+        unknown = [pk for pk in wanted if pk not in known]
+        if unknown:
+            raise serializers.ValidationError(
+                "Unknown column(s) for this board: " + ", ".join(str(pk) for pk in unknown) + "."
+            )
+        return wanted
 
     def validate(self, attrs):
         board = self.context.get("board") or (self.instance.board if self.instance else None)
@@ -737,6 +773,7 @@ class SwimlaneAdminSerializer(SwimlaneSerializer):
         fields = [
             "id", "uid", "name", "contact_email", "notes", "position", "color",
             "is_collapsed", "created_at", "custom_field_values",
+            "wip_limit", "weight_limit", "limit_enforcement", "limit_column_ids",
         ]
 
 

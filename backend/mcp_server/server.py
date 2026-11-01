@@ -376,8 +376,11 @@ def build_mcp_server():
     @mcp.tool(
         name="list_swimlanes",
         description=(
-            "List a board's swimlanes (id, uid, name, position, color, card_count, is_collapsed), "
-            "ordered by position. contact_email is included only for admin/site_admin callers."
+            "List a board's swimlanes (id, uid, name, position, color, card_count, is_collapsed, "
+            "wip_limit, weight_limit), ordered by position. wip_limit/weight_limit are the "
+            "swimlane's own limits (null = none); card_count counts every active card in the "
+            "row, not only the columns that count toward its limits. contact_email is "
+            "included only for admin/site_admin callers."
         ),
     )
     @_throttled()
@@ -507,9 +510,11 @@ def build_mcp_server():
         description=(
             "Create a card in a column/swimlane cell, appended to the end unless position "
             "is given. Requires admin or member board role and the mcp:write scope. "
-            "Enforces the column's WIP and weight limits exactly as move_card does, with no "
-            "override: a create into a full column returns a structured "
-            "wip_limit_exceeded/wip_hard_blocked/weight_limit_exceeded error. "
+            "Enforces the column's and the swimlane's WIP and weight limits exactly as "
+            "move_card does, with no override: a create into a full column or swimlane "
+            "returns a structured wip_limit_exceeded/wip_hard_blocked/weight_limit_exceeded "
+            "(or swimlane_wip_limit_exceeded/swimlane_wip_hard_blocked/"
+            "swimlane_weight_limit_exceeded) error. "
             "assignee is the username of an assignable board member."
         ),
     )
@@ -542,8 +547,8 @@ def build_mcp_server():
         name="move_card",
         description=(
             "Move a card to a new column and/or swimlane and/or position. At least one of "
-            "to_column_id/to_swimlane_id is required. Enforces WIP/weight limits with no "
-            "override. Optional version (the card's version from a prior read) rejects the "
+            "to_column_id/to_swimlane_id is required. Enforces column and swimlane "
+            "WIP/weight limits with no override. Optional version (the card's version from a prior read) rejects the "
             "move with version_conflict if the card changed since. Requires admin or member "
             "board role and the mcp:write scope."
         ),

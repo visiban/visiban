@@ -1,5 +1,5 @@
 import type { MoveBlockedError } from "../../hooks/useBoard";
-import { toastBody, toastTitle } from "./moveBlockedMessages";
+import { hardLimitContainer, isHardLimit, toastBody, toastTitle } from "./moveBlockedMessages";
 
 interface Props {
   error: MoveBlockedError;
@@ -9,14 +9,19 @@ interface Props {
 }
 
 export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {
-  const hardBlocked = error.code === "wip_hard_blocked" || error.code === "permission_denied";
+  const hardBlocked = isHardLimit(error.code) || error.code === "permission_denied";
   // maintenance_mode has no override for anyone — a site admin never sees this
   // toast at all, since their own writes succeed — but it keeps the ⚠ glyph
   // (matching MaintenanceBanner's amber tone, not permission_denied's ⛔):
-  // per frontend/CLAUDE.md, ⛔ is reserved for wip_hard_blocked, so the
-  // no-override condition and the severity glyph are tracked separately.
+  // per frontend/CLAUDE.md, ⛔ is reserved for the hard WIP blocks (column
+  // and, since #1150, swimlane), so the no-override condition and the
+  // severity glyph are tracked separately.
   const noOverride = hardBlocked || error.code === "maintenance_mode" || error.code === "move_failed";
   const versionConflict = error.code === "version_conflict";
+  const hardContainer = hardLimitContainer(error);
+  // Other limits the same move tripped (#1150): the server names only the
+  // strictest, so the second line names the rest from board state.
+  const also = "also" in error ? error.also ?? [] : [];
   return (
     <div
       role="alert"
@@ -29,13 +34,17 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
         <p>
           <span className="font-medium">{toastTitle(error)}</span> — {toastBody(error)}
         </p>
+        {also.length > 0 && (
+          <p className="mt-1 text-xs text-fg-tertiary">Also: {also.join(" ")}</p>
+        )}
         {versionConflict ? null : noOverride ? (
           // Hard mode: no override possible for any role.
-          // wip_hard_blocked shows a column-specific resolution hint; permission_denied
-          // has no actionable hint beyond the body text already shown.
-          error.code === "wip_hard_blocked" && (
+          // A hard WIP block shows a resolution hint naming the column or
+          // swimlane it is on; permission_denied has no actionable hint beyond
+          // the body text already shown.
+          hardContainer !== null && (
             <p className="mt-1.5 text-xs text-fg-tertiary">
-              To unblock, move a card out of {error.column_name}, or ask an admin to raise the WIP limit.
+              To unblock, move a card out of {hardContainer}, or ask an admin to raise the WIP limit.
             </p>
           )
         ) : (

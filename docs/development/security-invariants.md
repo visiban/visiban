@@ -39,7 +39,7 @@ Entry points use file and function names, not line numbers, so the table survive
 **What it doesn't enumerate.**
 
 - Rule 3: the revocation table is a review checklist.
-- Rule 5, Rule 9, Rule 10 and Rule 13: review checklists, pinned by the tests named under each.
+- Rule 5, Rule 9, Rule 10, Rule 13 and Rule 14: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
 
@@ -623,6 +623,59 @@ ones, directly and under `migrate`), `groups/tests/test_groups.py`
 `boards/tests/test_board_invites.py` (the board create serializer),
 `boards/tests/test_seed_demo_data.py`
 (`test_demo_group_has_label_and_invite_link`).
+
+## Rule 14: A card placement respects its column's and its swimlane's limits
+
+**Rule.** A write that puts a card into a cell, or grows a card inside one,
+honors the target column's `wip_limit`/`weight_limit` and, since 1.3 (#1150),
+the target swimlane's, on every transport. A soft limit (`block`, or a board
+flag) refuses the write with `409` unless a board admin or site admin passes
+`?force=true`; a hard WIP limit refuses every role and ignores `force`. When
+several limits trip, the strictest one is reported (hard before block; the
+column first when equal), and one `force` covers every soft limit tripped. A
+swimlane limit applies only when the write adds to the swimlane's counted total
+(a move between two counted columns of one swimlane never trips it). Archived
+cards never count. Board import is exempt by design: it restores a board as
+exported.
+
+**Why.** A limit enforced on one transport is not a limit. Before #1428 only
+the move endpoint checked column limits, so a member could exceed even a hard
+limit by creating or restoring a card; a swimlane limit checked on REST moves
+alone would repeat that on MCP or in the admin.
+
+The one implementation is `boards/services/cards.py` `enforce_column_limits`
+(the name predates swimlane limits). It builds a list of `PlacementConstraint`
+for the cell and evaluates it in one pass, locking the column row and then the
+swimlane row `FOR NO KEY UPDATE` before counting (card -> column -> swimlane).
+It lives in the service layer rather than `visiban/authorization.py`, an
+accepted deviation from step 5 below, like Rules 11 and 12: it is a placement
+invariant shared by the card service's own transitions, not an authorization
+check.
+
+| Surface | Entry point | Enforced via |
+|---|---|---|
+| REST move | `boards/views/cards.py` `CardViewSet.move` | `boards/services/cards.py` `move_card` -> `_move_card_attempt`: `enforce_column_limits(..., swimlane=target_swimlane, source=(card.column, card.swimlane_id), check_column=column_changed)` when the column or the swimlane changes; `force` from `?force=true`, authorized by `_require_force_role` |
+| REST create | `boards/views/cards.py` `CardViewSet.create` | `create_card`: `enforce_column_limits(..., swimlane=swimlane, lock=False)` after the column lock, inside the create transaction (a refusal rolls the insert back) |
+| REST restore | `boards/views/cards.py` `CardViewSet.unarchive` | `unarchive_card`: `enforce_column_limits(..., swimlane=card.swimlane)` under the card lock |
+| REST weight increase | `boards/views/cards.py` `CardViewSet.update` / `partial_update` | `update_card`: `enforce_column_limits(..., check_wip=False, swimlane=card.swimlane)` when `weight` goes up |
+| Bulk move | `frontend/src/components/Board/BulkActionToolbar.tsx` `handleMove` | No server bulk endpoint: one REST move per card, so each is checked as above; a refusal is reported per card (`utils/moveFailure.ts` `LIMIT_CODES`) |
+| MCP | `mcp_server/tools.py` `move_card`, `create_card`, `update_card` | The same service calls (`create_card_at_position` for a create with `position`); no tool exposes `force`, so every soft limit is a refusal over MCP |
+| Django admin card form | `boards/admin.py` `CardAdminForm.clean` | `enforce_column_limits` with `role=SITE_ADMIN, force=False` (no override in the admin), `swimlane` re-read from the database, `source` from the row read under `lock_card_row`, `check_column=False` for a swimlane-only change, and a separate column weight check when a swimlane change also raises the weight; every refusal (`LIMIT_ERRORS`) is a form error |
+| Django admin swimlane form | `boards/admin.py` `SwimlaneAdminForm.clean` | `limit_column_ids` validated as the API does (a non-empty list of this board's column ids, stored sorted) |
+| Swimlane settings (REST) | `boards/views/swimlanes.py` `SwimlaneViewSet.perform_create` / `perform_update` | Board admin or site admin only; `SwimlaneSerializer` validates the four fields (`wip_limit`/`weight_limit` at least 1, `limit_enforcement` `block`/`hard`/`null`, `limit_column_ids` this board's columns, one message for an unknown or foreign id); `_require_live_limit_columns` re-reads the ids under the board lock |
+| Column delete | `boards/signals.py` `prune_swimlane_limit_columns` (`post_delete` on `Column`) | Removes the id from every swimlane of the board on every delete path (REST, admin delete and bulk delete); an emptied list becomes `null` |
+| JSON, CSV and Trello import; seed commands | `boards/views/import_export.py`, `boards/services/trello_import.py`, `boards/management/commands/` | Exempt by design: `bulk_create`, no limit check. JSON import restores swimlane limits as exported (`limit_columns` by name, re-keyed to the new column ids) |
+| WebSocket | none | No consumer writes cards |
+
+Coverage: `boards/tests/test_swimlane_limits.py` (every path above except MCP,
+modes and inheritance, strictest-wins, counted columns, archived cards, the
+query budget, the settings API, column-delete cleanup, import/export, the admin
+forms), `boards/tests/test_swimlane_limit_lock.py` (PostgreSQL: two moves into
+one swimlane through different columns queue; a swimlane reorder queues behind
+a move instead of deadlocking), `boards/tests/test_card_error_bodies.py` (the
+exact `409` bodies), `mcp_server/tests/test_mcp_crud.py` and
+`mcp_server/tests/test_error_codes.py` (MCP), and, for the column limits,
+`boards/tests/test_limit_enforcement_paths.py`.
 
 ## How to add a rule
 

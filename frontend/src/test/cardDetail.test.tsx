@@ -108,7 +108,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }],
-    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }],
+    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null }],
     cards: [], labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
@@ -1564,8 +1564,8 @@ describe('CardDetail', () => {
           { id: 11, uid: 'coluid000002', name: 'In Progress', position: 1, color: '#F59E0B', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
         ],
         swimlanes: [
-          { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
-          { id: 21, uid: 'laneuid00002', name: 'Customer B', contact_email: '', notes: '', position: 1, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
+          { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+          { id: 21, uid: 'laneuid00002', name: 'Customer B', contact_email: '', notes: '', position: 1, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
         ],
       })
     }
@@ -2354,6 +2354,24 @@ describe('CardDetail', () => {
       it('admin + wip_hard_blocked: shows the numbers but no override', async () => {
         await setup({ moveResult: { ok: false, error: axiosFailure(409, hardBody) } })
         expect(screen.getByRole('alert')).toHaveTextContent('Limit 3 cards, 3 active.')
+        expect(screen.queryByRole('button', { name: overrideName })).not.toBeInTheDocument()
+      })
+
+      // #1150: the row's own limits name the row, and only the soft one
+      // offers the override.
+      it('admin + swimlane_wip_limit_exceeded: names the swimlane and offers the override', async () => {
+        const body = { code: 'swimlane_wip_limit_exceeded', column_name: 'In Progress', swimlane_name: 'Customer A', current_count: 2, wip_limit: 2 }
+        await setup({ moveResult: { ok: false, error: axiosFailure(409, body) } })
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent('Card could not be moved — swimlane "Customer A" has reached its limit.')
+        expect(alert).toHaveTextContent('Swimlane "Customer A": limit 2 cards, 2 active.')
+        expect(screen.getByRole('button', { name: overrideName })).toBeInTheDocument()
+      })
+
+      it('admin + swimlane_wip_hard_blocked: no override', async () => {
+        const body = { code: 'swimlane_wip_hard_blocked', detail: 'x', column_name: 'In Progress', swimlane_name: 'Customer A', current_count: 1, wip_limit: 1 }
+        await setup({ moveResult: { ok: false, error: axiosFailure(409, body) } })
+        expect(screen.getByRole('alert')).toHaveTextContent('Swimlane "Customer A": limit 1 card, 1 active.')
         expect(screen.queryByRole('button', { name: overrideName })).not.toBeInTheDocument()
       })
 

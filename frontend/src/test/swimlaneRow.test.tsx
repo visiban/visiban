@@ -43,7 +43,7 @@ const columns: Column[] = [
 
 const swimlane: Swimlane = {
   id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: 'a@test.com', notes: '', position: 0,
-  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01',
+  color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null,
 }
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -383,5 +383,77 @@ describe('SwimlaneRow — keyboard rename (#1376)', () => {
     render(<SwimlaneRow {...defaultProps()} isAdmin={false} />)
     expect(screen.queryByRole('button', { name: 'Customer A' })).not.toBeInTheDocument()
     expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+})
+
+describe('SwimlaneRow — row limit state (#1150)', () => {
+  const cardsIn = (n: number, weight = 1, column = 10) =>
+    Array.from({ length: n }, (_, i) => makeCard({ id: 100 + i, uid: `c${i}`, column, weight }))
+  const stat = () => screen.queryByTestId('swimlane-limit-stat')
+  const limited = (overrides: Partial<Swimlane>) => ({ ...swimlane, ...overrides })
+
+  it('shows nothing for a row without limits', () => {
+    render(<SwimlaneRow {...defaultProps()} cards={cardsIn(3)} />)
+    expect(stat()).toBeNull()
+  })
+
+  it('under: calm WIP n/limit in a tertiary tone, no accent', () => {
+    const { container } = render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 6 })} cards={cardsIn(4)} />)
+    expect(stat()).toHaveTextContent('WIP 4/6')
+    expect(stat()!.className).toContain('text-fg-tertiary')
+    expect(container.querySelector('.bg-danger-emphasis.h-0\\.5')).toBeNull()
+  })
+
+  it('at: says "at limit" in text, not color alone', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5 })} cards={cardsIn(5)} />)
+    expect(stat()).toHaveTextContent('WIP 5/5 · at limit')
+    expect(stat()!.className).toContain('text-fg-secondary')
+  })
+
+  it('over WIP: danger text, the ⚠ glyph and the top accent strip; ⛔ when hard', () => {
+    const { container, rerender } = render(
+      <SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4 })} cards={cardsIn(5)} />,
+    )
+    expect(stat()).toHaveTextContent('⚠ Over WIP · 5/4')
+    expect(stat()!.className).toContain('text-danger')
+    expect(container.querySelector('.bg-danger-emphasis.h-0\\.5')).not.toBeNull()
+    rerender(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4, limit_enforcement: 'hard' })} cards={cardsIn(5)} />)
+    expect(stat()).toHaveTextContent('⛔ Over WIP · 5/4')
+  })
+
+  it('a null mode takes the hard glyph from the board flags', () => {
+    render(
+      <SwimlaneRow
+        {...defaultProps()} swimlane={limited({ wip_limit: 1 })} cards={cardsIn(2)}
+        limitFlags={{ enforce_wip_limits: false, enforce_wip_hard: true, enforce_weight_limits: false }}
+      />,
+    )
+    expect(stat()).toHaveTextContent('⛔ Over WIP · 2/1')
+  })
+
+  it('over weight: warning text naming the weight', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 9, weight_limit: 12 })} cards={cardsIn(3, 6)} />)
+    expect(stat()).toHaveTextContent('Over weight · 18/12')
+    expect(stat()!.className).toContain('text-warning')
+  })
+
+  it('counts only the counted columns and active cards', () => {
+    const cards = [...cardsIn(2), makeCard({ id: 200, uid: 'x1', column: 11 }), makeCard({ id: 201, uid: 'x2', archived_at: '2026-01-01' })]
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5, limit_column_ids: [10] })} cards={cards} />)
+    expect(stat()).toHaveTextContent('WIP 2/5')
+  })
+
+  it('a collapsed row keeps an over-limit state and folds the calm ones', () => {
+    const { rerender } = render(
+      <SwimlaneRow {...defaultProps()} collapsed swimlane={limited({ wip_limit: 4 })} cards={cardsIn(5)} />,
+    )
+    expect(stat()).toHaveTextContent('Over WIP')
+    rerender(<SwimlaneRow {...defaultProps()} collapsed swimlane={limited({ wip_limit: 6 })} cards={cardsIn(5)} />)
+    expect(stat()).toBeNull()
+  })
+
+  it('the meter is decorative', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 6 })} cards={cardsIn(3)} />)
+    expect(stat()!.querySelector('[aria-hidden="true"]')).not.toBeNull()
   })
 })
