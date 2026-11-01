@@ -4436,8 +4436,8 @@ any CI job — see below.</p>
   their templates render). Misconfiguration findings (for example <code>privileged: true</code>) of
   HIGH or CRITICAL severity fail the job like any other finding.</li>
 <li><strong>Not scanned:</strong> public demo mode (<code>values-demo.yaml</code> is a different render shape that
-  conflicts with the SMTP/OIDC settings above), the bundled <code>postgresql</code> subchart tarball,
-  and the other <code>values-*.yaml</code> overlays. Add a template or a new optional resource to the
+  conflicts with the SMTP/OIDC settings above) and the other <code>values-*.yaml</code> overlays. The
+  chart has no subchart tarballs since chart 0.8.0 (#1911). Add a template or a new optional resource to the
   values file when it's gated behind a flag that's off by default.</li>
 </ul>
 <h2 id="path-containment-for-cli-arguments">Path containment for CLI arguments<a class="headerlink" href="#path-containment-for-cli-arguments" title="Permanent link">&para;</a></h2>

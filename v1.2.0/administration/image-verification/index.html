@@ -4177,8 +4177,8 @@ you expect to be signed.</p>
 <li><strong>Third-party images.</strong> Only <code>backend</code> and <code>frontend</code> (and the chart) are signed by
   Visiban. The other images a deployment pulls come from their upstream publishers and carry
   no Visiban signature or SBOM:<ul>
-<li>Helm chart: <code>postgres:17</code>, <code>valkey/valkey</code>, <code>curlimages/curl</code> (the <code>helm test</code> hook)
-  and the Bitnami <code>postgresql</code> subchart, when enabled.</li>
+<li>Helm chart: <code>postgres:17</code>, <code>valkey/valkey</code> and <code>curlimages/curl</code> (the <code>helm test</code>
+  hook).</li>
 <li>Docker Compose: <code>postgres</code>, <code>valkey/valkey</code>, <code>nginx</code> and <code>certbot/certbot</code>.</li>
 </ul>
 </li>
