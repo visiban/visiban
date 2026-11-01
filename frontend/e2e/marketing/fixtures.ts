@@ -27,6 +27,7 @@ import type {
   Label,
   PublicCard,
   PublicSwimlane,
+  SiteEmailSettings,
   SiteSettings,
   Swimlane,
   User,
@@ -618,3 +619,21 @@ export const ADMIN_INVITE_LINKS: AdminInviteLink[] = [
     delivery: 'email',
   },
 ]
+
+export const EMAIL_SETTINGS: SiteEmailSettings = {
+  config_source: 'database',
+  host: 'smtp.meridiancloud.example',
+  port: 587,
+  username: 'notifications',
+  use_tls: true,
+  use_ssl: false,
+  from_email: 'no-reply@meridiancloud.example',
+  timeout: 10,
+  password_set: true,
+  password_decryptable: true,
+  effective_source: 'database',
+  effective_host: 'smtp.meridiancloud.example',
+  effective_port: 587,
+  effective_from_email: 'no-reply@meridiancloud.example',
+  effective_use_tls: true,
+}

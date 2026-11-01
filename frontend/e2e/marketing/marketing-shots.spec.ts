@@ -29,6 +29,7 @@ import {
   COMMENTS,
   CURRENT_USER,
   DETAIL_CARD,
+  EMAIL_SETTINGS,
   GROUPS,
   GROUP_MEMBERS,
   PUBLIC_BOARD,
@@ -162,6 +163,7 @@ async function mockApi(page: Page): Promise<void> {
       return json(route, { count: ADMIN_USERS.length, offset: 0, page_size: 50, results: ADMIN_USERS })
     }
     if (p === '/api/v1/admin/invite-links/') return json(route, ADMIN_INVITE_LINKS)
+    if (p === '/api/v1/admin/email-settings/') return json(route, EMAIL_SETTINGS)
     if (p === '/api/v1/admin/board-invite-links/') {
       return json(route, { count: 0, offset: 0, page_size: 50, results: [] })
     }
@@ -197,6 +199,20 @@ async function shoot(page: Page, name: string): Promise<void> {
   })
 }
 
+/**
+ * Start with the sidebar collapsed so wide views (the board) show every column.
+ * Seeded before first navigation via the app's persisted preference.
+ */
+async function collapseSidebar(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
+    } catch {
+      // storage unavailable: shot falls back to the expanded sidebar
+    }
+  })
+}
+
 test.describe('Marketing snapshots', () => {
   test.beforeEach(async ({ page }) => {
     await setup(page)
@@ -210,6 +226,7 @@ test.describe('Marketing snapshots', () => {
   })
 
   test('02 — Board', async ({ page }) => {
+    await collapseSidebar(page)
     await page.goto(`/boards/${BOARD_ID}`)
     await expect(page.getByText('SSO and SCIM provisioning').first()).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('Fabrikam Health').first()).toBeVisible()
@@ -229,6 +246,11 @@ test.describe('Marketing snapshots', () => {
     await page.goto('/groups/1?tab=settings')
     await expect(page.getByRole('heading', { name: 'Client Delivery' }).first()).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(/Defaults for boards created in this group/)).toBeVisible()
+    // Scroll the Members section to the top so the frame ends on the Invite links
+    // card instead of cutting through it.
+    await page.getByRole('heading', { name: 'Members' }).evaluate((el) => {
+      el.closest('main')!.scrollTop = el.getBoundingClientRect().top - 60
+    })
     await shoot(page, '04-group-settings')
   })
 
