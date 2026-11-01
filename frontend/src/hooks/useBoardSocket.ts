@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { checkAndFlagDemoReset } from "../utils/demoReset";
+import { probeSession } from "../utils/sessionProbe";
 
 export type BoardEvent = {
   event: string;
@@ -43,7 +44,7 @@ const PING_TIMEOUT_MS = 45_000;
  *   - Auth rejection (code 4001 / 4003) — the server closes the socket when
  *     the session cookie is invalid or the user is no longer a board member.
  *     Reconnecting would loop indefinitely in those cases. A 4001 also dispatches
- *     `auth:sessionExpired` (like a REST 401); a 4003 only after a demo reset (#2037).
+ *     `auth:sessionExpired` (like a REST 401); a 4003 probes the session first (#2037).
  *
  * Code 1011 is deliberately NOT in that list: the server sends it when its
  * mid-stream access re-check could not complete (a database outage, say), or
@@ -153,19 +154,20 @@ export function useBoardSocket(
           // route them to the login page's "demo was reset" notice through
           // the same event the REST 401 path uses, instead of a dead socket.
           //
-          // Plain expiry (#2037): 4001 means the server found no valid
-          // credential, which is exactly what a REST 401 means, so it takes
-          // the same path. A socket that is the only thing to notice would
-          // otherwise leave per-user prefs (recent boards) in storage, because
-          // useAuth only clears them on this event. 4003 is deliberately
-          // different: it also means "authenticated but lost access to this
-          // board" or a pending account change, where the session is still
-          // good and signing the user out would be wrong. So 4003 signs out
-          // only on a demo reset. No loop: the event unmounts the socket's
-          // owner (canceled short-circuits onclose), and a close fires once.
-          const resetEnded = checkAndFlagDemoReset();
-          if (e.code === 4001 || resetEnded) {
+          // Plain expiry (#2037): the socket may be the only thing that
+          // notices the session ended, and useAuth clears per-user prefs
+          // (recent boards) only on auth:sessionExpired. 4001 means no valid
+          // credential, so it takes the REST 401 path directly. 4003 is
+          // ambiguous: the server also sends it mid-stream when the socket's
+          // credential was revoked, but also when the user merely lost access
+          // to this board, where signing out would be wrong. So a 4003 probes
+          // the session; a dead one 401s and the interceptor signs out, a live
+          // one stays signed in. No loop: each socket closes once, the probe
+          // runs once per close, and `canceled` skips an unmounted owner.
+          if (checkAndFlagDemoReset() || e.code === 4001) {
             window.dispatchEvent(new Event("auth:sessionExpired"));
+          } else {
+            void probeSession();
           }
           return;
         }

@@ -3,7 +3,7 @@
  *
  * The demo resets on a schedule by wiping the whole database, which also ends
  * every session. The visitor's next request then fails auth — a REST 401 or a
- * WebSocket 4001/4003 close (a 4001 signs out regardless, #2037) — and without this they would see a generic
+ * WebSocket 4001/4003 close — and without this they would see a generic
  * "session expired" (or a dead socket) instead of being told the demo reset.
  *
  * While signed in, useAuth stashes the server-computed next reset instant in
