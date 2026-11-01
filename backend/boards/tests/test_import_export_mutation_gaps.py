@@ -1785,6 +1785,11 @@ class ExportJsonShapeTests(ExportBase):
                 "contact_email",
                 "notes",
                 "custom_field_values",
+                # Row limits (#1150), additive keys.
+                "wip_limit",
+                "weight_limit",
+                "limit_enforcement",
+                "limit_columns",
             ],
         )
         self.assertEqual(
@@ -1796,6 +1801,10 @@ class ExportJsonShapeTests(ExportBase):
                 "contact_email": "lane@example.com",
                 "notes": "secret notes",
                 "custom_field_values": {},
+                "wip_limit": None,
+                "weight_limit": None,
+                "limit_enforcement": None,
+                "limit_columns": None,
             },
         )
         self.assertEqual(data["labels"], [{"name": "Bug", "color": "#FF0000"}])

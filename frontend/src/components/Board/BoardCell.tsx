@@ -154,7 +154,9 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         <span
           aria-hidden="true"
           data-testid="cell-drop-blocked"
-          className="absolute inset-x-2 top-1 z-[6] truncate text-xs font-medium text-danger pointer-events-none"
+          // An opaque pill: the label sits over the first card or the empty
+          // drop target, so it needs its own surface to stay legible.
+          className="absolute left-2 top-1 z-[6] max-w-[calc(100%-1rem)] truncate rounded bg-canvas px-1.5 py-0.5 shadow text-xs font-medium text-danger pointer-events-none"
         >
           {blockedBy.mode === "hard" ? "⛔ " : "⚠ "}{trippedLimitLabel(blockedBy)}
         </span>

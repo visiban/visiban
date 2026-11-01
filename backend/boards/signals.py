@@ -143,22 +143,46 @@ def prune_swimlane_limit_columns(sender, instance, origin=None, **kwargs):
     column not marked done"): an empty list would be a limit that counts
     nothing, which no client can create or show.
 
-    Skipped when a board delete started the cascade: the swimlanes are being
-    deleted with it. Runs inside the delete's transaction, after the
-    container-delete locks (board -> cards -> columns), so the swimlane rows it
-    updates are taken last, in the card -> column -> swimlane order. No event
-    is broadcast: clients drop the id themselves on ``column.deleted``.
+    When the delete started at a column (REST, admin), each swimlane it changed
+    gets a ``swimlane.updated`` event (public serializer, persisted to the
+    change feed and sent on commit like every other board event), so a feed
+    or replay consumer, or a client holding a cached swimlane, learns the new
+    list rather than having to re-derive it from ``column.deleted``. When a
+    board or user delete started the cascade the board itself is going, so
+    the rows are pruned (or are already gone) without an event: a feed row
+    for a board deleted in the same transaction would fail its foreign key.
+
+    Runs inside the delete's transaction, after the container-delete locks
+    (board -> cards -> columns), so the swimlane rows it updates are taken
+    last, in the card -> column -> swimlane order.
     """
     if isinstance(origin, Board) or (isinstance(origin, QuerySet) and origin.model is Board):
         return
     lanes = Swimlane.objects.filter(
         board_id=instance.board_id, limit_column_ids__isnull=False,
     ).only("pk", "limit_column_ids")
+    changed = []
     for lane in lanes:
         if instance.pk not in lane.limit_column_ids:
             continue
         kept = [pk for pk in lane.limit_column_ids if pk != instance.pk]
         Swimlane.objects.filter(pk=lane.pk).update(limit_column_ids=kept or None)
+        changed.append(lane.pk)
+    started_at_column = isinstance(origin, Column) or (
+        isinstance(origin, QuerySet) and origin.model is Column
+    )
+    if not (changed and started_at_column):
+        return
+    # Imported here: serializers and broadcast import models, and this module
+    # is imported by the app config at startup.
+    from . import broadcast as _broadcast
+    from .serializers import SwimlaneSerializer, _swimlane_custom_field_prefetch
+
+    fresh = Swimlane.objects.filter(pk__in=changed).prefetch_related(_swimlane_custom_field_prefetch())
+    for lane in fresh:
+        _broadcast.record_board_event(
+            lane.board_id, _broadcast.EVT_SWIMLANE_UPDATED, SwimlaneSerializer(lane).data,
+        )
 
 
 @receiver(post_save, sender=CardMovement)

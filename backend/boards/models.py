@@ -648,6 +648,10 @@ class Swimlane(models.Model):
         """Whether cards in ``column`` count toward this row's limits."""
         if self.limit_column_ids is None:
             return not column.is_done
+        if not isinstance(self.limit_column_ids, list):
+            # Only a raw ORM write can store a non-list (the API, admin and
+            # import validate it). Fail closed: every column counts.
+            return True
         return column.pk in self.limit_column_ids
 
 

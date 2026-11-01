@@ -1670,22 +1670,26 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (!e.over) return;
     const overId = String(e.over.id);
     if (!overId.startsWith("cell:")) return;
-    if (dndHoverThrottleRef.current) return;
-    dndHoverThrottleRef.current = setTimeout(() => {
-      dndHoverThrottleRef.current = null;
-    }, 300);
     const [, colId, swimId] = overId.split(":");
     const col = board.columns.find((c) => c.id === Number(colId));
     const swim = board.swimlanes.find((s) => s.id === Number(swimId));
-    if (col && swim) {
-      // The cell's verdict (#1150): a keyboard drag hears what a pointer drag
-      // sees as the drop ring, e.g. "Swimlane "Payouts" is at its WIP limit
-      // (5/5), admins can override."
-      const cardId = Number(e.active.id);
-      const verdict = Number.isNaN(cardId) ? [] : getDropVerdict(cardId, col, swim);
-      const suffix = verdict.length > 0 ? `. ${verdict.map(trippedLimitSentence).join(" ")}` : "";
-      setDndAnnouncement(`Over column '${col.name}', swimlane '${swim.name}'${suffix}`);
-    }
+    if (!col || !swim) return;
+    // The cell's verdict (#1150): a keyboard drag hears what a pointer drag
+    // sees as the drop ring, e.g. "Swimlane "Payouts" is at its WIP limit
+    // (5/5), admins can override."
+    const cardId = Number(e.active.id);
+    const verdict = Number.isNaN(cardId) ? [] : getDropVerdict(cardId, col, swim);
+    const suffix = verdict.length > 0 ? `. ${verdict.map(trippedLimitSentence).join(" ")}` : "";
+    // The throttle keeps a fast pointer drag from flooding the live region,
+    // but it must never swallow a blocked cell's verdict, which is the only
+    // non-visual carrier of the drop ring: a cell with a verdict always
+    // announces (ux-review on #1150).
+    if (dndHoverThrottleRef.current && verdict.length === 0) return;
+    if (dndHoverThrottleRef.current) clearTimeout(dndHoverThrottleRef.current);
+    dndHoverThrottleRef.current = setTimeout(() => {
+      dndHoverThrottleRef.current = null;
+    }, 300);
+    setDndAnnouncement(`Over column '${col.name}', swimlane '${swim.name}'${suffix}`);
   };
 
   const handleDragEnd = (e: DragEndEvent) => {

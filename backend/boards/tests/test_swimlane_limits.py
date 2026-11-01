@@ -528,6 +528,33 @@ class ColumnDeleteCleanupTests(_RowFixture):
         # The limit itself is kept.
         self.assertEqual(self.beta.wip_limit, 2)
 
+    def test_rest_delete_broadcasts_swimlane_updated_for_each_changed_row(self):
+        # broadcast-check on #1150: a feed or replay consumer must learn the
+        # new list, not re-derive it from column.deleted.
+        from boards.models import BoardEvent
+
+        self._limit(self.alpha, wip=2, columns=[self.backlog.pk, self.doing.pk])
+        self._limit(self.beta, wip=2, columns=[self.backlog.pk])  # unaffected
+        self.broadcast.reset_mock()
+        self.client.force_authenticate(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.delete(f"/api/v1/boards/{self.board.pk}/columns/{self.doing.pk}/")
+        self.assertEqual(r.status_code, 204, r.content)
+        updates = [c.args[2] for c in self.broadcast.call_args_list if c.args[1] == "swimlane.updated"]
+        self.assertEqual([(u["id"], u["limit_column_ids"]) for u in updates], [(self.alpha.pk, [self.backlog.pk])])
+        self.assertTrue(
+            BoardEvent.objects.filter(board_id=self.board.pk, event="swimlane.updated").exists()
+        )
+
+    def test_a_board_delete_records_no_swimlane_event(self):
+        from boards.models import BoardEvent
+
+        self._limit(self.alpha, wip=2, columns=[self.doing.pk])
+        self.client.force_authenticate(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.client.delete(f"/api/v1/boards/{self.board.pk}/").status_code, 204)
+        self.assertFalse(BoardEvent.objects.filter(event="swimlane.updated").exists())
+
     def test_admin_bulk_delete_prunes_too(self):
         self._limit(self.alpha, wip=2, columns=[self.backlog.pk, self.done.pk])
         from boards.admin import ColumnAdmin
@@ -673,6 +700,39 @@ class AdminTests(_RowFixture):
                 self.assertIn("limit_column_ids", form.errors)
 
 
+class FailClosedTests(_RowFixture):
+    """Values only a raw ORM write can store enforce more, never less (security-review on #1150)."""
+
+    def test_unknown_mode_is_hard(self):
+        Swimlane.objects.filter(pk=self.beta.pk).update(wip_limit=1, limit_enforcement="bogus")
+        self.beta.refresh_from_db()
+        self._card(self.doing, self.beta)
+        with self.assertRaises(SwimlaneWipHardBlocked):
+            card_services.enforce_column_limits(
+                board=self.board, column=self.doing, card=SimpleNamespace(pk=None, weight=1),
+                role="site_admin", force=True, swimlane=self.beta,
+            )
+
+    def test_a_non_list_counts_every_column(self):
+        Swimlane.objects.filter(pk=self.beta.pk).update(wip_limit=1, limit_enforcement="block", limit_column_ids={"x": 1})
+        self.beta.refresh_from_db()
+        self.assertTrue(self.beta.counts_column(self.done))
+        self._card(self.done, self.beta)
+        with self.assertRaises(SwimlaneWipLimitExceeded):
+            card_services.enforce_column_limits(
+                board=self.board, column=self.doing, card=SimpleNamespace(pk=None, weight=1),
+                role="member", swimlane=self.beta, source=(self.done.pk, self.alpha.pk),
+            )
+
+    def test_an_oversized_id_list_is_400(self):
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.pk}/swimlanes/{self.alpha.pk}/",
+            {"limit_column_ids": list(range(1, 202))}, format="json",
+        )
+        self.assertEqual(r.status_code, 400)
+
+
 class ColumnLimitBehaviorUnchangedTests(_RowFixture):
     """A board that never sets a row limit gets exactly the pre-#1150 column errors."""
 
@@ -687,3 +747,80 @@ class ColumnLimitBehaviorUnchangedTests(_RowFixture):
                 board=self.board, column=self.doing, card=SimpleNamespace(pk=None, weight=1),
                 role="member", swimlane=self.alpha,
             )
+
+
+# ---------------------------------------------------------------------------
+# Role boundaries (rbac-check on #1150)
+# ---------------------------------------------------------------------------
+
+class RoleBoundaryTests(_RowFixture):
+    LIMITS = {"wip_limit": 3, "limit_enforcement": "hard"}
+
+    def setUp(self):
+        super().setUp()
+        self.users = {"member": self.member}
+        for role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+            user = User.objects.create_user(username=f"{role}-u", password="pass")
+            BoardMembership.objects.create(board=self.board, user=user, role=role)
+            self.users[role] = user
+        # A site admin with no board membership resolves to the site_admin role.
+        self.site_admin = User.objects.create_user(
+            username="siteadmin", password="pass", can_access_all_content=True,
+        )
+
+    def test_non_admin_roles_cannot_write_limits(self):
+        base = f"/api/v1/boards/{self.board.pk}/swimlanes/"
+        for role, user in self.users.items():
+            self.client.force_authenticate(user)
+            with self.subTest(role=role, verb="patch"):
+                self.assertEqual(self.client.patch(f"{base}{self.alpha.pk}/", self.LIMITS, format="json").status_code, 403)
+            with self.subTest(role=role, verb="put"):
+                r = self.client.put(f"{base}{self.alpha.pk}/", {"name": "Alpha", **self.LIMITS}, format="json")
+                self.assertEqual(r.status_code, 403)
+            with self.subTest(role=role, verb="post"):
+                r = self.client.post(base, {"name": f"New {role}", **self.LIMITS}, format="json")
+                self.assertEqual(r.status_code, 403)
+        self.alpha.refresh_from_db()
+        self.assertEqual((self.alpha.wip_limit, self.alpha.limit_enforcement), (None, None))
+        self.assertFalse(Swimlane.objects.filter(name__startswith="New ").exists())
+
+    def test_member_force_is_403_on_every_non_move_path(self):
+        self._limit(self.beta, wip=1, weight=2)
+        self._card(self.doing, self.beta)
+        self.client.force_authenticate(self.member)
+        create = self.client.post(
+            f"/api/v1/boards/{self.board.pk}/cards/?force=true",
+            {"title": "x", "column": self.backlog.pk, "swimlane": self.beta.pk}, format="json",
+        )
+        self.assertEqual(create.status_code, 403, create.content)
+        archived = self._card(self.backlog, self.beta, archived=True, created_by=self.member)
+        restore = self.client.post(f"/api/v1/boards/{self.board.pk}/cards/{archived.pk}/unarchive/?force=true")
+        self.assertEqual(restore.status_code, 403, restore.content)
+        mine = self._card(self.backlog, self.alpha, created_by=self.member)
+        self._limit(self.alpha, weight=1)
+        heavier = self.client.patch(
+            f"/api/v1/boards/{self.board.pk}/cards/{mine.pk}/?force=true", {"weight": 5}, format="json",
+        )
+        self.assertEqual(heavier.status_code, 403, heavier.content)
+        self.assertEqual(heavier.json(), {"detail": "Only board admins can override a weight limit."})
+
+    def test_site_admin_may_force_a_soft_row_limit_but_not_a_hard_one(self):
+        self._limit(self.beta, wip=1)
+        self._card(self.doing, self.beta)
+        mover = self._card(self.backlog, self.alpha)
+        self.assertEqual(self._move(self.site_admin, mover, self.backlog, self.beta, force=True).status_code, 200)
+        self._limit(self.alpha, wip=1, mode="hard")
+        self._card(self.doing, self.alpha)
+        back = self._move(self.site_admin, mover, self.backlog, self.alpha, force=True)
+        self.assertEqual(back.status_code, 409, back.content)
+        self.assertEqual(back.json()["code"], "swimlane_wip_hard_blocked")
+
+    def test_viewer_and_collaborator_are_refused_before_any_limit(self):
+        self._limit(self.beta, wip=1, mode="hard")
+        self._card(self.doing, self.beta)
+        mover = self._card(self.backlog, self.alpha)
+        for role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+            with self.subTest(role=role):
+                r = self._move(self.users[role], mover, self.backlog, self.beta)
+                self.assertEqual(r.status_code, 403, r.content)
+                self.assertNotIn("swimlane", r.json().get("code", ""))

@@ -76,19 +76,27 @@ export function laneUsage(lane: Swimlane, columns: Column[], cards: Card[], excl
 
 export type LaneLimitState = "under" | "at" | "overWip" | "overWeight";
 
+/** The row header's state and the metric that decided it (ux-review on #1150). */
+export interface LaneLimitReading {
+  state: LaneLimitState;
+  metric: "wip" | "weight";
+}
+
 /**
  * The row header's single state, worst offender first (Over WIP > Over weight
- * > At > Under), mirroring the column header (#973). Null when the lane has no
- * limit at all.
+ * > At > Under), mirroring the column header (#973), and the metric that
+ * produced it, so the line never names one metric while the other tripped.
+ * WIP leads when both are equally placed. Null when the lane has no limit.
  */
-export function laneLimitState(lane: Swimlane, usage: LaneUsage): LaneLimitState | null {
+export function laneLimitState(lane: Swimlane, usage: LaneUsage): LaneLimitReading | null {
   const wip = lane.wip_limit ?? null;
   const weight = lane.weight_limit ?? null;
   if (wip === null && weight === null) return null;
-  if (wip !== null && usage.count > wip) return "overWip";
-  if (weight !== null && usage.weight > weight) return "overWeight";
-  if ((wip !== null && usage.count === wip) || (weight !== null && usage.weight === weight)) return "at";
-  return "under";
+  if (wip !== null && usage.count > wip) return { state: "overWip", metric: "wip" };
+  if (weight !== null && usage.weight > weight) return { state: "overWeight", metric: "weight" };
+  if (wip !== null && usage.count === wip) return { state: "at", metric: "wip" };
+  if (weight !== null && usage.weight === weight) return { state: "at", metric: "weight" };
+  return { state: "under", metric: wip !== null ? "wip" : "weight" };
 }
 
 export interface TrippedLimit {
@@ -162,19 +170,23 @@ export function trippedLimitSentence(t: TrippedLimit): string {
   return `${subject} would go over its weight limit (${t.current + t.cardWeight}/${t.limit}), ${override}.`;
 }
 
-/** Short visible label for a blocked drop target. */
+/**
+ * Short visible label for a blocked drop target: the numbers first, so a long
+ * column or swimlane name is what truncates (ux-review on #1150).
+ */
 export function trippedLimitLabel(t: TrippedLimit): string {
-  const what = t.kind === "wip" ? "WIP" : "weight";
+  const what = t.kind === "wip" ? "WIP" : "Weight";
   const value = t.kind === "wip" ? `${t.current}/${t.limit}` : `${t.current + t.cardWeight}/${t.limit}`;
-  return `${t.name} at ${what} limit · ${value}`;
+  return `${what} limit ${value} · ${t.name}`;
 }
 
 /**
  * Drop a deleted column's id from every swimlane's `limit_column_ids` (#1150),
  * as the server's column-delete cleanup does: a list left empty becomes null
- * (the default). The server sends no swimlane frame for it, so the client
- * applies it on `column.deleted` itself. Returns the same array when no lane
- * named the column.
+ * (the default). The server also sends a `swimlane.updated` for each lane it
+ * changed; applying the prune locally on `column.deleted` keeps this client
+ * right if that frame is missed, and is idempotent when it arrives. Returns
+ * the same array when no lane named the column.
  */
 export function pruneLaneLimitColumn(swimlanes: Swimlane[], columnId: number): Swimlane[] {
   if (!swimlanes.some((s) => s.limit_column_ids?.includes(columnId))) return swimlanes;

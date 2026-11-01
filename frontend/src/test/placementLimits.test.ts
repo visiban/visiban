@@ -80,11 +80,13 @@ describe('laneLimitState', () => {
   it('is null without limits and picks the worst state', () => {
     expect(laneLimitState(lane(1, 'A'), { count: 9, weight: 9 })).toBeNull()
     const both = lane(1, 'A', { wip_limit: 3, weight_limit: 10 })
-    expect(laneLimitState(both, { count: 4, weight: 20 })).toBe('overWip')
-    expect(laneLimitState(both, { count: 3, weight: 20 })).toBe('overWeight')
-    expect(laneLimitState(both, { count: 3, weight: 5 })).toBe('at')
-    expect(laneLimitState(both, { count: 1, weight: 10 })).toBe('at')
-    expect(laneLimitState(both, { count: 1, weight: 5 })).toBe('under')
+    expect(laneLimitState(both, { count: 4, weight: 20 })).toEqual({ state: 'overWip', metric: 'wip' })
+    expect(laneLimitState(both, { count: 3, weight: 20 })).toEqual({ state: 'overWeight', metric: 'weight' })
+    expect(laneLimitState(both, { count: 3, weight: 10 })).toEqual({ state: 'at', metric: 'wip' })
+    // The metric that is at its limit is the one named.
+    expect(laneLimitState(both, { count: 1, weight: 10 })).toEqual({ state: 'at', metric: 'weight' })
+    expect(laneLimitState(both, { count: 1, weight: 5 })).toEqual({ state: 'under', metric: 'wip' })
+    expect(laneLimitState(lane(1, 'A', { weight_limit: 10 }), { count: 9, weight: 5 })).toEqual({ state: 'under', metric: 'weight' })
   })
 })
 
@@ -99,7 +101,7 @@ describe('placementVerdict', () => {
     expect(v).toHaveLength(1)
     expect(v[0]).toMatchObject({ scope: 'swimlane', kind: 'wip', mode: 'block', current: 1, limit: 1 })
     expect(trippedLimitSentence(v[0])).toBe('Swimlane "Payouts" is at its WIP limit (1/1), admins can override.')
-    expect(trippedLimitLabel(v[0])).toBe('Payouts at WIP limit · 1/1')
+    expect(trippedLimitLabel(v[0])).toBe('WIP limit 1/1 · Payouts')
   })
 
   it('never trips a lane on a move between two counted columns', () => {
@@ -146,7 +148,7 @@ describe('placementVerdict', () => {
     ])
     expect(trippedLimitSentence(v[0])).toContain('no one can override it')
     expect(trippedLimitSentence(v[3])).toBe('Swimlane "B" would go over its weight limit (2/1), admins can override.')
-    expect(trippedLimitLabel(v[3])).toBe('B at weight limit · 2/1')
+    expect(trippedLimitLabel(v[3])).toBe('Weight limit 2/1 · B')
   })
 
   it('ignores limits the board and lane do not enforce', () => {

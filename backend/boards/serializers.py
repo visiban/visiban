@@ -678,7 +678,9 @@ class SwimlaneSerializer(serializers.ModelSerializer):
     # member sees a column's wip_limit. Writes are admin-gated in the viewset.
     limit_column_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
-        allow_null=True, allow_empty=False, required=False,
+        # More ids than any board has columns is never valid; the bound keeps
+        # the validation query's IN list small.
+        allow_null=True, allow_empty=False, required=False, max_length=200,
         help_text=field_enforcement.SWIMLANE_LIMIT_COLUMN_IDS,
     )
 

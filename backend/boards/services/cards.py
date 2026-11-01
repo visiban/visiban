@@ -483,11 +483,12 @@ def _swimlane_limit_modes(board, swimlane):
     weight limit is still a block an admin can override.
     """
     chosen = swimlane.limit_enforcement
-    if chosen == Swimlane.LimitEnforcement.HARD:
-        return _HARD, _BLOCK
+    if chosen is None:
+        return _column_limit_modes(board)
     if chosen == Swimlane.LimitEnforcement.BLOCK:
         return _BLOCK, _BLOCK
-    return _column_limit_modes(board)
+    # HARD, and fail closed on a value only a raw ORM write could store.
+    return _HARD, _BLOCK
 
 
 def _source_counts_for_swimlane(swimlane, source):
@@ -502,8 +503,10 @@ def _source_counts_for_swimlane(swimlane, source):
         return False
     if isinstance(source_column, Column):
         return swimlane.counts_column(source_column)
-    if swimlane.limit_column_ids is not None:
+    if isinstance(swimlane.limit_column_ids, list):
         return source_column in swimlane.limit_column_ids
+    if swimlane.limit_column_ids is not None:
+        return True  # non-list: every column counts (Swimlane.counts_column)
     # NULL means "every column not marked done"; only the id is known here.
     is_done = Column.objects.filter(pk=source_column).values_list("is_done", flat=True).first()
     return is_done is False
@@ -543,8 +546,10 @@ def _swimlane_constraints(board, swimlane, column, card, *, check_wip, check_wei
         counted = counted.filter(column__is_done=False)
     else:
         # A stale id (a column deleted under a concurrent settings save) just
-        # matches nothing.
-        counted = counted.filter(column_id__in=swimlane.limit_column_ids)
+        # matches nothing. A non-list (raw ORM write only) counts every column,
+        # as Swimlane.counts_column does.
+        if isinstance(swimlane.limit_column_ids, list):
+            counted = counted.filter(column_id__in=swimlane.limit_column_ids)
     constraints = []
     if want_wip:
         hard = wip_mode == _HARD
@@ -568,6 +573,12 @@ def _swimlane_constraints(board, swimlane, column, card, *, check_wip, check_wei
 
 def _swimlane_check_applies(board, swimlane, column, *, check_wip, check_weight, source):
     """Whether this placement must be checked against ``swimlane``'s limits.
+
+    Decided on the caller's read of the swimlane, before any lock, so that a
+    board without row limits pays no query. A limit saved concurrently after
+    that read is therefore not applied to this one placement (the column
+    check has the same staleness); once the row lock is taken, the limits
+    enforced are the locked row's.
 
     The row's limits cover only the cards in its counted columns, so only a
     placement that *adds* to that total is checked: the card enters a counted

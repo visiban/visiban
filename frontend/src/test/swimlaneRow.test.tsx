@@ -437,6 +437,19 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     expect(stat()!.className).toContain('text-warning')
   })
 
+  it('names the metric that is at its limit, not the other one', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5, weight_limit: 6 })} cards={cardsIn(3, 2)} />)
+    expect(stat()).toHaveTextContent('Weight 6/6 · at limit')
+  })
+
+  it('keeps the numbers whole and lets the meter shrink', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 4 })} cards={cardsIn(5)} />)
+    const [text, meter] = Array.from(stat()!.children) as HTMLElement[]
+    expect(text.className).toContain('shrink-0')
+    expect(text.className).not.toContain('truncate')
+    expect(meter.className).toContain('min-w-0')
+  })
+
   it('counts only the counted columns and active cards', () => {
     const cards = [...cardsIn(2), makeCard({ id: 200, uid: 'x1', column: 11 }), makeCard({ id: 201, uid: 'x2', archived_at: '2026-01-01' })]
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5, limit_column_ids: [10] })} cards={cards} />)

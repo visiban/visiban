@@ -43,8 +43,10 @@ describe('BoardCell drop verdict (#1150)', () => {
     const verdict = vi.fn(() => [tripped('block')])
     const { container } = renderCell(verdict)
     expect(verdict).toHaveBeenCalledWith(7, column, swimlane)
-    expect(screen.getByTestId('cell-drop-blocked')).toHaveTextContent('⚠ Payouts at WIP limit · 5/5')
+    expect(screen.getByTestId('cell-drop-blocked')).toHaveTextContent('⚠ WIP limit 5/5 · Payouts')
     expect(screen.getByTestId('cell-drop-blocked')).toHaveAttribute('aria-hidden', 'true')
+    // An opaque pill, legible over the card beneath it.
+    expect(screen.getByTestId('cell-drop-blocked').className).toContain('bg-canvas')
     const cell = container.querySelector('[data-board-cell]') as HTMLElement
     expect(cell.className).toContain('ring-danger-emphasis')
     expect(container.querySelector('.border-danger-emphasis')).not.toBeNull()
@@ -52,7 +54,7 @@ describe('BoardCell drop verdict (#1150)', () => {
 
   it('uses the hard glyph for a hard limit', () => {
     renderCell(() => [tripped('hard')])
-    expect(screen.getByTestId('cell-drop-blocked')).toHaveTextContent('⛔ Payouts at WIP limit · 5/5')
+    expect(screen.getByTestId('cell-drop-blocked')).toHaveTextContent('⛔ WIP limit 5/5 · Payouts')
   })
 
   it('keeps the ordinary drop feedback when nothing trips', () => {
