@@ -270,7 +270,10 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "without a new event shape. The payloads are re-read in one prefetch "
         "query and record_board_event() defers each publish with on_commit. "
         "Bounded by the board's swimlanes that count the deleted column; none "
-        "is sent when a board or user delete started the cascade."
+        "is sent when a board or user delete started the cascade. An admin bulk "
+        "delete of several columns runs the receiver once per column, so a "
+        "swimlane counting two of them gets two frames; the last carries the "
+        "final list."
     ),
     "backend/boards/views/cards.py::CardViewSet._broadcast_relation_change": (
         "Exactly two frames — one card.updated for each end of the relation — "
