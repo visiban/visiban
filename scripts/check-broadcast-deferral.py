@@ -262,6 +262,16 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "blocked, and the payloads are already rendered in a single prefetch "
         "pass (see the function's docstring)."
     ),
+    "backend/boards/signals.py::prune_swimlane_limit_columns": (
+        "One swimlane.updated per swimlane whose limit_column_ids named a "
+        "deleted column (#1150). Same shape as _broadcast_blocked_peers: one "
+        "board channel, but each frame carries a different swimlane's full "
+        "public payload, so they cannot be collapsed into one swimlane.updated "
+        "without a new event shape. The payloads are re-read in one prefetch "
+        "query and record_board_event() defers each publish with on_commit. "
+        "Bounded by the board's swimlanes that count the deleted column; none "
+        "is sent when a board or user delete started the cascade."
+    ),
     "backend/boards/views/cards.py::CardViewSet._broadcast_relation_change": (
         "Exactly two frames — one card.updated for each end of the relation — "
         "and both feed rows are required for a resumable cursor (#1114). Both "
