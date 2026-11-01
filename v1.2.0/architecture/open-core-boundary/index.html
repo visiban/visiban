@@ -2589,6 +2589,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#board-import-oss-vs-migration-wizard-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board import (OSS) vs migration wizard (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#outgoing-webhooks-oss-vs-webhook-operations-enterprise" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4426,7 +4437,7 @@
 <td>Automation rules (if/then triggers)</td>
 <td>Enterprise</td>
 <td>Advanced automation; small teams work without it</td>
-<td>enterprise #8</td>
+<td>enterprise #69</td>
 </tr>
 <tr>
 <td>IP allowlisting</td>
@@ -4507,9 +4518,9 @@
 <td>enterprise #23</td>
 </tr>
 <tr>
-<td>External tool import wizard</td>
+<td>Guided multi-source migration wizard (visual import-from-external-tools UI)</td>
 <td>Enterprise</td>
-<td>Migration tooling</td>
+<td>Migration tooling for onboarding at scale. The import endpoints and formats themselves (Trello, JSON, CSV) are OSS: see <a href="#board-import-oss-vs-migration-wizard-enterprise">Board import (OSS) vs migration wizard (Enterprise)</a></td>
 <td>enterprise #24</td>
 </tr>
 <tr>
@@ -4624,6 +4635,11 @@
 <p>The OSS analytics summary exposes an <code>ANALYTICS_EXTENSIONS</code> registration point (<code>boards/hooks.py</code>) so enterprise can add panels without modifying OSS view files. The summary returns the panels in <code>extension_panels</code>, and the Summary tab renders <code>stats</code> and <code>table</code> panels below the swimlane table (see the <a href="../../api/boards/#extension-panel-payload">payload contract</a>).</p>
 <p><strong>Authorization is OSS's job, not each panel's (#1826).</strong> A panel declares the lowest board role that may see it with a <code>min_role</code> attribute on the callable. The summary drops every panel above the caller's role before calling any panel, so a panel that forgets a role check cannot leak to viewers. <strong>Behavior change for extension authors in 1.2:</strong> a panel with no <code>min_role</code>, or an invalid one, is admin-only (fail closed). Enterprise panels registered before 1.2 must set <code>min_role</code> to stay visible to non-admin members. See <a href="../../api/boards/#panel-visibility-by-role">panel visibility by role</a> and <a href="../../development/security-invariants/">Security Invariants</a> Rule 12.</p>
 <p><strong>Issue:</strong> #341</p>
+<hr />
+<h3 id="board-import-oss-vs-migration-wizard-enterprise">Board import (OSS) vs migration wizard (Enterprise)<a class="headerlink" href="#board-import-oss-vs-migration-wizard-enterprise" title="Permanent link">&para;</a></h3>
+<p><strong>Decision (#1982, 2026-10-31).</strong> Board import and export are OSS, per the guiding principle: a team must be able to bring its own data in and take it out. OSS owns the import endpoints and formats (Trello, JSON and CSV), their envelopes, and the single-source importer UIs, including the Trello import wizard (#456). Only the cross-source guided/bulk migration flow (enterprise #24) is Enterprise. This clarifies and supersedes the earlier row, "External tool import wizard = Enterprise", which read as if OSS import were out of bounds; the shipped OSS importers stay OSS.</p>
+<p><strong>Import and the custom-field signals (#1897).</strong> A bulk import writes rows with <code>bulk_create</code>, so it does not send <code>custom_field_value_changed</code> or <code>swimlane_custom_field_value_changed</code>, nor any other signal for rows written that way (<code>Board</code> and <code>BoardMembership</code> rows are created individually, so their <code>post_save</code> receivers do fire): an import is not a user edit. An Enterprise audit trail built on those signals therefore will not see imported values. What an import does run is the value-policy hooks (<code>CUSTOM_FIELD_VALIDATORS</code> and <code>SWIMLANE_CUSTOM_FIELD_VALIDATORS</code>), so an extension's validation cannot be bypassed by importing. Those two lists are looked up by name string, so their names are pinned by <code>boards/tests/test_extensibility.py</code>.</p>
+<p><strong>Issue:</strong> #1982 (import ruling), #1897 (signal behavior). Enterprise migration flow in enterprise #24.</p>
 <hr />
 <h3 id="outgoing-webhooks-oss-vs-webhook-operations-enterprise">Outgoing webhooks (OSS) vs webhook operations (Enterprise)<a class="headerlink" href="#outgoing-webhooks-oss-vs-webhook-operations-enterprise" title="Permanent link">&para;</a></h3>
 <blockquote>
@@ -4781,12 +4797,12 @@
 <tr>
 <td><code>custom_field_value_changed</code> signal (<code>boards/signals.py</code>)</td>
 <td>Enterprise custom field change audit trail, <strong>card</strong> values (#371)</td>
-<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code></td>
+<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code>. Not sent by bulk import — see <a href="#board-import-oss-vs-migration-wizard-enterprise">Board import</a>.</td>
 </tr>
 <tr>
 <td><code>swimlane_custom_field_value_changed</code> signal (<code>boards/signals.py</code>)</td>
 <td>Enterprise custom field change audit trail, <strong>swimlane row</strong> values (#1140)</td>
-<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code>. Separate from the card signal for the same reason as the validator list above — reusing it would mean sending <code>card=None</code> to receivers that guarantee a card.</td>
+<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code>. Separate from the card signal for the same reason as the validator list above — reusing it would mean sending <code>card=None</code> to receivers that guarantee a card. Not sent by bulk import — see <a href="#board-import-oss-vs-migration-wizard-enterprise">Board import</a>.</td>
 </tr>
 <tr>
 <td><code>post_notification_created</code> signal (<code>boards/signals.py</code>)</td>
