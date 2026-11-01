@@ -247,9 +247,14 @@ def _provider_get(url, *, headers, params, raise_for, provider, kind, repo):
     no view at all. ``test_every_outbound_call_goes_through_provider_get`` enforces
     that no bare ``requests.get`` remains elsewhere in this module.
 
-    The ``requests.get`` call itself is a pure pass-through (same url, headers,
-    params and timeout), and ``raise_for`` still runs here, so behavior is
-    unchanged; this only observes. ``repo`` is the board-admin-configured public
+    The ``requests.get`` call passes ``allow_redirects=False`` (#1086): it follows
+    redirects by default, so once a per-connection base URL exists (#1645) a 3xx
+    from an attacker-influenced host would become an SSRF primitive that bypasses
+    the hardcoded-host defense. Neither provider API redirects on these paths, so a
+    3xx is an upstream error: both ``raise_for`` callbacks reject any non-200
+    status, mapping it to ``LensError`` (the ``http_error`` outcome) instead of
+    reading a redirect body as success. Otherwise the call is a pass-through (same
+    url, headers, params and timeout) and this only observes. ``repo`` is the board-admin-configured public
     slug. The token lives only inside ``headers``, which are never logged.
     """
     started = time.monotonic()
@@ -261,7 +266,13 @@ def _provider_get(url, *, headers, params, raise_for, provider, kind, repo):
             # outside DEBUG by settings.py and re-checked by enabled().
             resp = fuzz_stub.response(provider, kind, params)
         else:
-            resp = requests.get(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
+            resp = requests.get(
+                url,
+                headers=headers,
+                params=params,
+                timeout=REQUEST_TIMEOUT,
+                allow_redirects=False,
+            )
         status_code = getattr(resp, "status_code", None)
         raise_for(resp)
         return resp
