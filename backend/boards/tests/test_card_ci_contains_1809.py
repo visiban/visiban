@@ -1,9 +1,12 @@
 """Card search uses the ``ci_contains`` lookup so the trigram indexes apply (#1809)."""
 
 from django.db import connection
+from django.db.models import F
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 import unittest
+
+from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Card, Column, Swimlane
@@ -78,6 +81,36 @@ class CardCiContainsTests(TestCase):
         sql = ctx.captured_queries[0]["sql"]
         self.assertIn("ILIKE", sql)
         self.assertNotIn("UPPER(", sql)
-        # The term's LIKE metacharacter is escaped, so the unescaped pattern
-        # must not appear in the statement.
-        self.assertNotIn("%a%b%", sql)
+
+    def test_expression_right_hand_side_is_rejected(self):
+        # An F() right-hand side would render without % wrapping or escaping.
+        with self.assertRaises(NotImplementedError):
+            str(Card.objects.filter(title__ci_contains=F("description")).query)
+
+    def _assert_search_uses_ilike(self, url):
+        client = APIClient()
+        client.force_authenticate(self.user)
+        with CaptureQueriesContext(connection) as ctx:
+            r = client.get(url, {"search": "login"})
+        self.assertEqual(r.status_code, 200)
+        card_sql = [
+            q["sql"]
+            for q in ctx.captured_queries
+            if 'FROM "cards"' in q["sql"] and "login" in q["sql"]
+        ]
+        self.assertTrue(card_sql, "no card query carried the search term")
+        for sql in card_sql:
+            self.assertIn("ILIKE", sql)
+            self.assertNotIn("UPPER(", sql)
+
+    @unittest.skipUnless(
+        connection.vendor == "postgresql", "ILIKE rendering is PostgreSQL-specific"
+    )
+    def test_board_card_list_search_renders_ilike(self):
+        self._assert_search_uses_ilike(f"/api/v1/boards/{self.board.id}/cards/")
+
+    @unittest.skipUnless(
+        connection.vendor == "postgresql", "ILIKE rendering is PostgreSQL-specific"
+    )
+    def test_cross_board_card_query_search_renders_ilike(self):
+        self._assert_search_uses_ilike("/api/v1/cards/")

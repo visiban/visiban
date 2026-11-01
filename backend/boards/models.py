@@ -771,8 +771,11 @@ class Card(models.Model):
             # the bare columns, not Django's icontains (which PostgreSQL gets as
             # UPPER(col) LIKE). Card search therefore filters with the
             # ``ci_contains`` lookup (boards/lookups.py), which renders ILIKE on
-            # PostgreSQL (#1809). Selective terms use these indexes; broad terms
-            # (e.g. "the") still scan.
+            # PostgreSQL (#1809). Selective terms use these indexes (single-run
+            # laptop measurement, 60k rows: 2.8 ms vs 84 ms seq scan). Broad
+            # terms (e.g. "the") and terms under 3 characters still seq-scan;
+            # for "the" the ILIKE scan measured 184 ms vs 112 ms under
+            # icontains (single run, not a regression claim).
             # Requires: CREATE EXTENSION IF NOT EXISTS pg_trgm (migration 0030).
             GinIndex(fields=["title"], name="card_title_trgm_idx", opclasses=["gin_trgm_ops"]),
             GinIndex(fields=["description"], name="card_desc_trgm_idx", opclasses=["gin_trgm_ops"]),

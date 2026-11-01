@@ -24,6 +24,17 @@ class CardTextContains(IContains):
 
     lookup_name = "ci_contains"
 
+    def process_rhs(self, compiler, connection):
+        # PatternLookup wraps expression right-hand sides (F(), Concat) with
+        # connection.pattern_ops; our get_rhs_op bypasses that, so an expression
+        # would render with no % wrapping or escaping. Card search only ever
+        # passes a literal term, so refuse rather than silently mis-match.
+        if not self.rhs_is_direct_value():
+            raise NotImplementedError(
+                "ci_contains supports only literal right-hand values."
+            )
+        return super().process_rhs(compiler, connection)
+
     def as_postgresql(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
