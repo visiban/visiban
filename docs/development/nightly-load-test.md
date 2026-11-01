@@ -273,7 +273,7 @@ Django 5.2 parses every `timestamptz` value through `django.db.backends.postgres
 
 - This is Django ticket [#36960](https://code.djangoproject.com/ticket/36960), fixed upstream only in Django 6.1 (commit `994fa77`).
 - psycopg2 parsed these values in C.
-- One `board_full` response on the load-test board loads about 44,000 `timestamptz` values (cards, movements and the other prefetched rows).
+- One `board_full` response on the load-test board loads about 44,000 `timestamptz` values (cards, movements and the other prefetched rows). *(Measured before #1883, when every card's full movement history was loaded; `board_full` no longer loads movement rows, so the current figure is lower. The full re-measure is tracked in #2039.)*
 
 The cause was measured locally on a scale-20 fixture against PostgreSQL 17, not inferred from the dates.
 

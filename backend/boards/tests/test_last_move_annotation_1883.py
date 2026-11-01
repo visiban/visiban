@@ -212,3 +212,49 @@ class LastMoveAnnotationTests(TestCase):
         with CaptureQueriesContext(connection) as after:
             client.get(url)
         self.assertEqual(len(before), len(after))
+
+
+class StaleAnnotationReuseTests(LastMoveAnnotationTests):
+    # NOTE: subclassing re-runs the parent tests; cheap and keeps one fixture.
+
+    """is_stale now reuses ``_last_moved_at`` instead of its own subquery."""
+
+    # Inherit the fixture only; skip re-running the parent's tests.
+    def _cold_stale(self):
+        return {
+            c.title: CardSerializer(
+                Card.objects.get(pk=c.pk), context={"board": self.board}
+            ).data["is_stale"]
+            for c in Card.objects.filter(board=self.board)
+        }
+
+    def test_annotation_order_is_irrelevant_and_values_match_cold_path(self):
+        from boards.serializers import _annotate_is_stale, _annotate_last_move
+
+        cutoff = self.now - datetime.timedelta(days=7)
+        base = Card.objects.filter(board=self.board)
+        orders = {
+            "stale_then_last": _annotate_last_move(_annotate_is_stale(base, cutoff)),
+            "last_then_stale": _annotate_is_stale(_annotate_last_move(base), cutoff),
+            "stale_only": _annotate_is_stale(base, cutoff),
+        }
+        cold = self._cold_stale()
+        for name, qs in orders.items():
+            got = {c.title: c._is_stale_annotated for c in qs}
+            self.assertEqual(got, cold, name)
+            self.assertEqual(
+                got["unmoved"], False, name
+            )  # 0 moves: created_at fallback
+        # One set of last-move subqueries, not two correlated ones for the same value.
+        self.assertNotIn("_last_moved_at_for_stale", orders["last_then_stale"].query.annotations)
+        self.assertEqual(
+            len(orders["last_then_stale"].query.annotations),
+            len(orders["stale_then_last"].query.annotations),
+        )
+
+    def test_public_is_stale_matches_cold_path(self):
+        data = PublicBoardSerializer(self.board).data
+        by_uid = {str(r["uid"]): r["is_stale"] for r in data["cards"]}
+        cold = self._cold_stale()
+        for c in Card.objects.filter(board=self.board):
+            self.assertEqual(by_uid[str(c.uid)], cold[c.title], c.title)

@@ -2117,6 +2117,10 @@ def _annotate_last_move(qs):
     queryset: ``_last_move()`` falls back to the (slow) movements relation for
     an unannotated card so a missed queryset is slow, never wrong.
     """
+    if "_last_moved_at" in qs.query.annotations:
+        # Idempotent: _annotate_is_stale() also applies this, so either call
+        # order (and calling both) yields one set of subqueries.
+        return qs
     from .models import CardMovement as _CM
     latest = _CM.objects.filter(card=_db_models.OuterRef("pk")).order_by("-moved_at", "-id")
     return qs.annotate(
@@ -2144,23 +2148,20 @@ def _annotate_is_stale(qs, stale_cutoff):
     contract. Clients decide display (the board UI suppresses the tint via
     ``inDoneColumn``); only the ``notify_stale_cards`` digest skips Done cards.
     """
-    from .models import CardMovement as _CM
-    _last_moved_sq = _db_models.Subquery(
-        _CM.objects.filter(card=_db_models.OuterRef("pk"))
-        .order_by("-moved_at")
-        .values("moved_at")[:1]
-    )
+    # Reuse the _last_moved_at annotation (#1883) rather than running a second
+    # correlated subquery for the same value; _annotate_last_move is
+    # idempotent, so callers may apply it before or after this.
+    qs = _annotate_last_move(qs)
     return qs.annotate(
-        _last_moved_at_for_stale=_last_moved_sq,
         _is_stale_annotated=_db_models.Case(
             # Card has at least one movement and it predates the cutoff.
             _db_models.When(
-                _last_moved_at_for_stale__lt=stale_cutoff,
+                _last_moved_at__lt=stale_cutoff,
                 then=_db_models.Value(True),
             ),
             # Never-moved card: fall back to created_at.
             _db_models.When(
-                _last_moved_at_for_stale__isnull=True,
+                _last_moved_at__isnull=True,
                 created_at__lt=stale_cutoff,
                 then=_db_models.Value(True),
             ),
@@ -3909,7 +3910,8 @@ class PublicCardSerializer(serializers.ModelSerializer):
     could expose PII or sensitive board-internal data.
 
     Requires the card queryset to be built via PublicBoardSerializer.get_cards()
-    which sets up the necessary prefetches (checklist_items, movements) and
+    which sets up the necessary prefetches (checklist_items), the last-move
+    annotations (#1883) and
     select_related(board) so that no per-card queries are issued.
     """
     # ParkedLabelListSerializer (#1333, same pattern CardSerializer/
@@ -3948,8 +3950,8 @@ class PublicCardSerializer(serializers.ModelSerializer):
             "last_moved_at", "last_move_is_creation", "is_stale", "blocker_count",
         ]
 
-    # checklist_items and movements are parked with to_attr by get_cards()
-    # below and read through the same _card_* accessors as CardSerializer
+    # checklist_items are parked with to_attr by get_cards() below (the newest
+    # movement comes from annotations, #1883) and read through the same _card_* accessors as CardSerializer
     # (#1212) — see the "Parked prefetches" comment above _card_attachments().
 
     def get_checklist_total(self, obj) -> int:
