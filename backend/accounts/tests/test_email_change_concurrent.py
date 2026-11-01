@@ -18,10 +18,12 @@ from django.core.cache import cache
 from django.db import connection, connections, transaction
 from django.test import TransactionTestCase, override_settings
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from accounts import credentials
 from accounts.models import User
 from accounts.tests.email_change_helpers import PasswordConfirmingAPIClient
+from accounts.tests.provider_sign_in_helpers import link_identity, record_provider_sign_in
 from boards.tests.lock_wait import assert_blocked_on_lock
 
 PASSWORD = (
@@ -159,3 +161,31 @@ class ConcurrentEmailChangeTests(TransactionTestCase):
             responses["resend"].status_code,
             (status.HTTP_200_OK, status.HTTP_429_TOO_MANY_REQUESTS),
         )
+
+    def test_racing_patches_for_an_account_without_a_password_leave_no_orphan(self):
+        """No outer serializer lock here; the lock in ``request_email_change`` is the only one.
+
+        An account without a usable password skips the current-password check,
+        so ``UserSerializer.update`` never takes ``lock_user_row`` for it.
+        """
+        self.user.set_unusable_password()
+        self.user.save(update_fields=["password"])
+        provider, uid = link_identity(self.user, "google")
+        clients = []
+        for _ in range(2):
+            client = APIClient()
+            client.force_login(self.user)
+            record_provider_sign_in(client, provider, uid)
+            clients.append(client)
+        a, b = clients
+        responses = self._run_behind_lock(
+            [
+                ("patch-first", lambda: a.patch(PROFILE, {"email": FIRST}, format="json")),
+                ("patch-second", lambda: b.patch(PROFILE, {"email": SECOND}, format="json")),
+            ]
+        )
+        for response in responses.values():
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self._unverified_secondary_emails(), {SECOND})
+        self.assertEqual(self.user.pending_email_address.email, SECOND)
