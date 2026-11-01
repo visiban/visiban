@@ -177,6 +177,28 @@ class LensConnectionRBACTests(TestCase):
         conn = LensConnection.objects.get(board=self.board)
         self.assertEqual((conn.column_dim, conn.swimlane_dim), ("state", "label"))
 
+    def test_put_with_only_one_optional_field_keeps_the_other(self):
+        # #1089: each optional field is handled independently of the other.
+        for sent, kept in (("column_dim", "swimlane_dim"), ("swimlane_dim", "column_dim")):
+            with self.subTest(sent=sent):
+                LensConnection.objects.filter(board=self.board).delete()
+                LensConnection.objects.create(
+                    board=self.board, provider="gitlab", repo_slug="g/p",
+                    created_by=self.owner, column_dim="status", swimlane_dim="assignee",
+                )
+                new_value = "state" if sent == "column_dim" else "label"
+                resp = self._client(self.owner).put(
+                    self.url,
+                    {"provider": "gitlab", "repo_slug": "g/p", sent: new_value},
+                    format="json",
+                )
+                self.assertEqual(resp.status_code, status.HTTP_200_OK)
+                conn = LensConnection.objects.get(board=self.board)
+                self.assertEqual(getattr(conn, sent), new_value)
+                self.assertEqual(
+                    getattr(conn, kept), "status" if kept == "column_dim" else "assignee"
+                )
+
     def test_first_put_omitting_optional_fields_uses_defaults(self):
         resp = self._client(self.owner).put(
             self.url, {"provider": "gitlab", "repo_slug": "g/p"}, format="json"
