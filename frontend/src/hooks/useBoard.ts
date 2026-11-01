@@ -100,8 +100,16 @@ export interface PendingMove {
  * known value stays correct.
  */
 function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership): EffectiveBoardMember {
-  if ("is_site_admin" in incoming || prev.is_site_admin === undefined) return incoming;
-  return { ...incoming, is_site_admin: prev.is_site_admin };
+  let merged: EffectiveBoardMember = incoming;
+  if (!("is_site_admin" in incoming) && prev.is_site_admin !== undefined) {
+    merged = { ...merged, is_site_admin: prev.is_site_admin };
+  }
+  // Same for the all-content signal (#1301): a membership frame never carries
+  // it, and dropping it would bring the role picker back on a reopened panel.
+  if (prev.has_all_content_access !== undefined) {
+    merged = { ...merged, has_all_content_access: prev.has_all_content_access };
+  }
+  return merged;
 }
 
 /**
