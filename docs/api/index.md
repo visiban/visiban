@@ -123,6 +123,28 @@ Branch on `code`, not on which parameter key is present.
 
 Some parameters are clamped or ignored rather than refused; each endpoint's page says which.
 
+### Rate limits
+
+Requests are throttled per client with DRF throttles. A request over its limit answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header (seconds); wait that long before retrying.
+
+Every endpoint counts against two defaults unless its page names a tighter scope:
+
+| Scope | Default | Keyed on |
+|---|---|---|
+| `anon` | 300 requests/hour | Client IP, unauthenticated requests |
+| `user` | 5000 requests/hour | Authenticated user, shared across every endpoint without its own scope |
+
+Some endpoints have their own scope in place of or alongside these. The ones that are easy to trip from a script:
+
+| Endpoint | Scope | Default |
+|---|---|---|
+| `GET /api/v1/cards/` | `card_query` | 120 requests/minute per user |
+| `POST /api/v1/auth/registration/` | `register` | 10 requests/minute per IP |
+| `POST /api/v1/auth/choose-username/` | `choose_username` | 10 requests/minute per user, shared with username and email changes on `PATCH /api/v1/auth/me/` |
+| `POST /api/v1/auth/password/reset/confirm/` | `password_reset_confirm` | 10 requests/hour per IP |
+
+Each endpoint's page lists its own scope and rate. These are the production defaults; development (`DEBUG`) mode raises most of them to 9999/hour. Nothing here applies to [`/mcp`](mcp.md#rate-limiting), which has its own limiter.
+
 ### Pagination
 
 Most list endpoints return the **standard paginated envelope**. A client must read the list from `results`, not from the top level of the response:

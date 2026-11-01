@@ -526,7 +526,7 @@ Set a new password using the token from the reset email. **No authentication req
 | `new_password1` | The new password (minimum 12 characters) |
 | `new_password2` | Confirmation — must match `new_password1` |
 
-**Response** `200 OK { "detail": "Password has been reset with the new password." }` on success; `400 Bad Request` on invalid/expired token or mismatched passwords.
+**Response** `200 OK { "detail": "Password has been reset with the new password." }` on success; `400 Bad Request` on invalid/expired token or mismatched passwords; `429 Too Many Requests` when the per-IP `password_reset_confirm` throttle (10 requests/hour) is exceeded.
 
 A reset link is accepted once; later use is refused as invalid (this endpoint responds `400` with the invalid-token body, allauth's HTML page shows its invalid-link page, and a submit that overlaps another is refused).
 
@@ -678,7 +678,7 @@ Since 1.2, a body that is not a JSON object returns `400 Bad Request` (it return
 - On success, `must_change_username` is cleared
 - **Changed in 1.2:** changing the username is available from an interactive session only. A request authenticated with a token (a personal access token or the login API token) that sends a different username answers `403 Forbidden` and nothing is written; sending the stored username back unchanged is not a change.
 
-**Response** `200 OK` with the updated user object on success; `400 Bad Request` with `detail` on failure; `403 Forbidden` with `{"detail": "Changing the username is available from an interactive session only."}` when a token credential requests a different username.
+**Response** `200 OK` with the updated user object on success; `400 Bad Request` with `detail` on failure; `403 Forbidden` with `{"detail": "Changing the username is available from an interactive session only."}` when a token credential requests a different username; `429 Too Many Requests` when the per-user `choose_username` throttle (10 requests/minute, shared with a `username` or `email` change on [`PATCH /api/v1/auth/me/`](#patch-apiv1authme)) is exceeded.
 
 !!! note
     This endpoint's response uses the base user serializer, not `CurrentUserSerializer` — it omits `uploads_enabled`, `git_lens_enabled`, `maintenance_mode`, and the other instance-config fields documented under [User profile](#user-profile) below. Re-fetch `GET /api/v1/auth/me/` if you need those.
@@ -1067,6 +1067,7 @@ An emailed site, group or board invite is bound to the address it was sent to. R
 | `400 Bad Request` | Email already registered (only with `EMAIL_VERIFICATION` `optional` or `none`, see [above](#an-address-that-is-already-in-use)), passwords do not match, or password too short |
 | `403 Forbidden` | Registration is `"closed"` — no new accounts can be created |
 | `409 Conflict` (`invite_already_redeemed`, 1.1+) | The same email previously redeemed this multi-use invite link | Use a different invite link or contact the link's creator. The same status with `invite_invalid` is possible if a group or board invite is lost to a concurrent redemption (unreachable while the invite row lock is held); the account is rolled back either way |
+| `429 Too Many Requests` | Per-IP `register` throttle exceeded (10 requests/minute). It exists to slow invite-token guessing and mass account creation, and counts every request, successful or not |
 
 ### `POST /api/v1/auth/registration/verify-email/`
 
@@ -1088,6 +1089,18 @@ Confirm an email address from the key in a confirmation link. The link in the em
 | `429 Too Many Requests` | Too many requests from this IP (`verify_email` throttle scope) |
 
 > **Changed in 1.2** (#1293) — the `409` case used to answer `200 {"detail": "ok"}` without confirming anything. It's only returned to someone holding a valid key, which is only ever emailed to that address, so it reveals nothing the inbox's owner can't already find out. The account that requested the change sees no difference: its `pending_email` stays set either way.
+
+### `GET /accounts/confirm-email/{key}/`
+
+Legacy confirmation URL, kept so a stale email link or a browser pointed straight at the backend still lands somewhere useful. It is **not** under `/api/v1/` and is not part of the JSON API: it validates nothing and changes nothing. It answers `302 Found` with a `Location` of the app's `/confirm-email/<key>` page (which calls [`POST /api/v1/auth/registration/verify-email/`](#post-apiv1authregistrationverify-email)), or `/confirm-email/invalid` when `key` contains characters outside letters, digits, `_`, `-` and `:`. A `key` longer than 200 characters does not match the route (`404`).
+
+**Permission:** None. Anonymous and authenticated callers are treated alike; no credential is read.
+
+| Status | Reason |
+|---|---|
+| `302 Found` | Redirect to the app, as above |
+| `404 Not Found` | `key` is longer than 200 characters or has characters the route does not accept |
+| `429 Too Many Requests` | Per-IP `email_confirm_redirect` throttle (60 requests/hour) |
 
 ### `POST /api/v1/auth/registration/resend-email/`
 
@@ -1115,6 +1128,7 @@ Send the confirmation email again for an address awaiting verification.
 | `401 Unauthorized` | Missing or invalid token | Check the `Authorization` header format: `Token <key>`. For PATs, ensure the full `vbn_...` value is used. |
 | `403 Forbidden` | Valid token but insufficient role | Check the user's role on the board/group |
 | `403 Forbidden` (CSRF) | Session auth without CSRF token | Include `X-CSRFToken` header, or switch to token auth |
+| `429 Too Many Requests` | A DRF throttle scope was exhausted (rates per endpoint on each page; defaults in [Rate limits](index.md#rate-limits)) | Wait for the number of seconds in the `Retry-After` header, then retry |
 | `403 Forbidden` (`must_change_password`) | Admin set a forced password-change flag on this account | Change the password via `POST /api/v1/auth/change-password/` (or `POST /api/v1/auth/password/change/`) to clear the flag; all other endpoints are blocked until then |
 | `403 Forbidden` (`must_change_username`) | Account's auto-generated username collided during migration | Call `POST /api/v1/auth/choose-username/` — the response body includes `"code": "must_change_username"` as a machine-readable signal |
 | `404 Not Found` (PAT delete) | Token ID not found or belongs to another user | Verify the token ID from `GET /api/v1/auth/tokens/` |

@@ -1545,10 +1545,12 @@ Column objects returned by all endpoints include the following fields:
 >
 > Since 1.2 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see [Field Enforcement](../architecture/field-enforcement.md).
 
-### `PUT /api/v1/boards/{id}/columns/{col_id}/`
+### `PUT /api/v1/boards/{id}/columns/{col_id}/` / `PATCH /api/v1/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.
 
 **Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean)
+
+`PUT` and `PATCH` are both accepted. `PATCH` changes only the fields you send. `PUT` requires `name`, as on create (`400` with `{"name": ["This field is required."]}` without it); any other writable field you leave out keeps its current value, it is not reset to its default. To change one field without resending the name, use `PATCH`.
 
 ### `DELETE /api/v1/boards/{id}/columns/{col_id}/`
 Delete a column. Requires board admin.
@@ -1604,14 +1606,16 @@ Swimlane response objects include the following fields:
 
 `contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
 
-### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
+### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/` / `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin.
 
 **Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2)
 
+`PUT` and `PATCH` are both accepted. `PATCH` changes only the fields you send. `PUT` requires `name`; any other writable field you leave out keeps its current value, it is not reset to its default.
+
 > Swimlane names are unique per board. Renaming a swimlane to a name that already exists on the same board returns `400 Bad Request`.
 
-`PATCH` accepts `custom_field_values` writes too. Send only the entries you want to change; a swimlane custom field not named keeps its value. Send `{"field_definition": <id>, "value": ""}` to clear (and delete) a value. At most one entry per `field_definition` per request; a `field_definition` id from another board is rejected with `400 Bad Request`. Writes here are admin-only, so an admin may write an `is_admin_only` field's value; that is expected, not an escalation. There is no separate values endpoint.
+`custom_field_values` writes work with `PUT` and `PATCH` alike. Send only the entries you want to change; a swimlane custom field not named keeps its value. Send `{"field_definition": <id>, "value": ""}` to clear (and delete) a value. At most one entry per `field_definition` per request; a `field_definition` id from another board is rejected with `400 Bad Request`. Writes here are admin-only, so an admin may write an `is_admin_only` field's value; that is expected, not an escalation. There is no separate values endpoint.
 
 !!! note
     The `PUT`/`PATCH` HTTP response always includes `contact_email`, `notes`, and every
@@ -1685,10 +1689,12 @@ Create a label. Requires board admin.
 
 **Request** `{ "name": "Bug", "color": "#EF4444" }`
 
-### `PUT /api/v1/boards/{id}/labels/{label_id}/`
+### `PUT /api/v1/boards/{id}/labels/{label_id}/` / `PATCH /api/v1/boards/{id}/labels/{label_id}/`
 Update a label. Requires board admin.
 
 **Writable fields:** `name`, `color`
+
+`PUT` and `PATCH` are both accepted. `PATCH` changes only the fields you send. `PUT` requires `name`; a `color` you leave out keeps its current value.
 
 ### `DELETE /api/v1/boards/{id}/labels/{label_id}/`
 Delete a label. Requires board admin.
@@ -1921,10 +1927,12 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   (see [Choice colors](#choice-colors)), the board already has 30 definitions, or a
   third field is pinned with `show_on_card`.
 
-### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/`
+### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/` / `PUT /api/v1/boards/{id}/custom-fields/{field_id}/`
 Update a definition. Requires board admin.
 
 **Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
+
+`PATCH` and `PUT` are both accepted. `PATCH` changes only the fields you send and is the one to use for a rename or a single-option change. `PUT` requires `name`; any other writable field you leave out keeps its current value, it is not reset to its default. Every rule and error below applies to both.
 
 > Removing (or renaming) a choice on a dropdown or multi-select does **not** rewrite cards
 > that already hold it: the stored value keeps reading back. A dropdown value that is no
@@ -2032,10 +2040,12 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   (see [Choice colors](#choice-colors)), the board already has 15
   swimlane field definitions, or a ninth field is pinned with `show_on_row`.
 
-### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
+### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/` / `PUT /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
 Update a definition. Requires board admin.
 
 **Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`, `number_prefix`, `number_suffix`, `number_decimals`, `choice_colors`
+
+`PATCH` and `PUT` are both accepted. `PATCH` changes only the fields you send. `PUT` requires `name`; any other writable field you leave out keeps its current value, it is not reset to its default. Every rule and error below applies to both.
 
 **Errors:**
 - `400 Bad Request` with a `field_type` key if the request changes `field_type` and at
