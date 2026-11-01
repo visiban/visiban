@@ -831,7 +831,7 @@ class LensBoardRenderTests(TestCase):
         must never fall through to an issue request once resolution has failed."""
         self._connect("github")
 
-        def boom(url, headers=None, params=None, timeout=None):
+        def boom(url, headers=None, params=None, timeout=None, allow_redirects=True):
             self.assertTrue(
                 url.endswith("/milestones"), "must fail before any issue request"
             )
