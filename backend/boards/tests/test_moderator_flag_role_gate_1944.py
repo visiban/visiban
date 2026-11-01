@@ -75,7 +75,9 @@ class ModeratorFlagRoleGateTests(TestCase):
         self._assert_delete(self._flagged("c1944", Role.COLLABORATOR), status.HTTP_403_FORBIDDEN)
 
     def test_flagged_viewer_cannot_delete_others_content(self):
-        # A viewer is refused outright by the role gate; the row must still survive.
+        # Defense-in-depth pin: a viewer is refused earlier by the annotation role
+        # gate, so this passes with or without #1944; the helper test below is
+        # what proves the flag itself is ignored on a viewer row.
         self.client.force_authenticate(self._flagged("v1944", Role.VIEWER))
         for name, (url, model, pk) in self._targets().items():
             with self.subTest(target=name):
