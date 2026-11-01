@@ -600,7 +600,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # with 404 first.
         q = query_text(self.request, "search").strip()
         if q:
-            qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
+            qs = qs.filter(Q(title__ci_contains=q) | Q(description__ci_contains=q))
         return qs
 
     # Hard row cap on /cards/ list responses. The /full/ endpoint is the only
