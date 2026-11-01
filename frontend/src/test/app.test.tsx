@@ -40,8 +40,14 @@ vi.mock('../contexts/BoardContext', () => {
 })
 
 vi.mock('../components/Auth/LoginPage', () => ({
-  default: () => <div data-testid="login-page">Login</div>,
+  default: ({ onLogin }: { onLogin?: (u: unknown) => void }) => (
+    <div data-testid="login-page">
+      Login
+      <button onClick={() => onLogin?.(mockLoginUser)}>complete-login</button>
+    </div>
+  ),
 }))
+let mockLoginUser: unknown = null
 
 vi.mock('../components/Auth/ForceChangePasswordModal', () => ({
   default: () => <div data-testid="force-password">Change Password</div>,
@@ -87,6 +93,10 @@ vi.mock('../pages/GroupDetail', () => ({
 
 vi.mock('../pages/JoinPage', () => ({
   default: () => <div data-testid="join-page">Join</div>,
+}))
+
+vi.mock('../pages/ShareBoardPage', () => ({
+  default: () => <div data-testid="share-page">Share</div>,
 }))
 
 vi.mock('../pages/SettingsPage', () => ({
@@ -262,10 +272,94 @@ describe('App', () => {
     expect(screen.queryByTestId('connect-provider')).not.toBeInTheDocument()
   })
 
-  it('redirects unknown paths to / when authenticated', () => {
+  it('renders the not-found page (no silent redirect) for unknown paths when authenticated (#1740)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    render(<MemoryRouter initialEntries={['/nonexistent']}><App /></MemoryRouter>)
+    const previousTitle = document.title
+    function Probe() { return <span data-testid="path">{useLocation().pathname}</span> }
+    const { unmount } = render(<MemoryRouter initialEntries={['/nonexistent']}><App /><Probe /></MemoryRouter>)
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
+    expect(screen.getByTestId('path')).toHaveTextContent('/nonexistent')
+    expect(document.title).toBe('Page not found – Visiban')
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toHaveFocus()
+    unmount()
+    expect(document.title).toBe(previousTitle)
+  })
+
+  it('mounts the shell palette on a not-found page under /boards/* (#1740)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    paletteUserIds.length = 0
+    render(<MemoryRouter initialEntries={['/boards/1/typo/extra']}><App /></MemoryRouter>)
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(paletteUserIds).toContain(fakeUser.id)
+  })
+
+  it('the not-found page links back to the dashboard (#1740)', async () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter initialEntries={['/boards/1/typo/extra']}><App /></MemoryRouter>)
+    const link = screen.getByRole('link', { name: 'Go to dashboard' })
+    expect(link).toHaveAttribute('href', '/')
+    act(() => { link.click() })
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+  })
+
+  it('known routes do not show the not-found page (#1740)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
     expect(screen.getByTestId('dashboard')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+  })
+
+  it('share links keep their own route and never hit not-found (#1740)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter initialEntries={['/share/abc']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('share-page')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+  })
+
+  it('unauthenticated unknown paths still reach login, not not-found (#1740)', () => {
+    mockUseAuth.mockReturnValue({ user: null, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter initialEntries={['/nonexistent']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('login-page')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+  })
+
+  describe('signing in from a URL that matches no route (#1740)', () => {
+    function loginFrom(path: string) {
+      const authState: { user: User | null } = { user: null }
+      const updateUser = vi.fn((u: User) => { authState.user = u })
+      mockLoginUser = fakeUser
+      mockUseAuth.mockImplementation(() => ({ user: authState.user, loading: false, logout: vi.fn(), updateUser }))
+      const ui = <MemoryRouter initialEntries={[path]}><App /></MemoryRouter>
+      const { rerender } = render(ui)
+      act(() => { screen.getByText('complete-login').click() })
+      mockUseAuth.mockImplementation(() => ({ user: authState.user, loading: false, logout: vi.fn(), updateUser }))
+      rerender(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
+    }
+
+    it('lands on the dashboard after signing in at /login', async () => {
+      loginFrom('/login')
+      expect(await screen.findByTestId('dashboard')).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+    })
+
+    it('shows the not-found page after signing in at an unmatched URL', async () => {
+      loginFrom('/nonexistent')
+      expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+      expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
+    })
+
+    it('stays on a real page (/settings) after signing in', async () => {
+      loginFrom('/settings')
+      expect(await screen.findByTestId('settings-page')).toBeInTheDocument()
+    })
+
+    it('an already-signed-in visitor to /login goes to the dashboard', () => {
+      mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+      render(<MemoryRouter initialEntries={['/login']}><App /></MemoryRouter>)
+      expect(screen.getByTestId('dashboard')).toBeInTheDocument()
+    })
   })
 
   it('handleLogin navigates to sessionStorage returnTo and clears it', () => {

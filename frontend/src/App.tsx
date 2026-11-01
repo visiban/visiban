@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "./hooks/useEscapeStack";
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useInstanceFlagsState } from "./hooks/useInstanceFlagsState";
 import { InstanceFlagsContext, useInstanceFlags } from "./contexts/InstanceFlagsContext";
@@ -29,6 +29,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import type { ImportSummary, User } from "./types";
 import { joinBoard, starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
@@ -113,7 +114,11 @@ export default function App() {
     // construct the URL, not to bypass any authorization.
     if (loggedInUser.default_board_id) {
       void navigate(`/boards/${loggedInUser.default_board_id}`);
+      return;
     }
+    // Signing in at an unmatched URL deliberately keeps the URL, so the user
+    // sees "Page not found" for it (#1740). /login is the exception: it has its
+    // own authenticated route that redirects to the dashboard.
   };
 
   if (loading) {
@@ -234,7 +239,7 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
   // routes. Board routes mount their own palette inside BoardProvider so
   // that instance can see board cards. Mutually exclusive by pathname so
   // only one ⌘K keydown listener is ever active. (#869)
-  const showShellPalette = !pathname.startsWith("/boards/");
+  const showShellPalette = !matchPath("/boards/:id", pathname);
   return (
     <>
       {showShellPalette && <GlobalCommandPalette userId={user.id} />}
@@ -244,7 +249,10 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
         <Route path="/boards/:id" element={<BoardProvider><BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} /></BoardProvider>} />
         <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
         <Route path="/admin" element={<AdminPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* /login is a real URL (bookmarks, the demo's Cloudflare challenge);
+            an already-signed-in visitor goes to the dashboard, not a 404. */}
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
       </Routes>
     </>
   );

@@ -130,6 +130,22 @@ describe('SettingsPage', () => {
     expect(screen.getByDisplayValue('j@example.com')).toBeInTheDocument()
   })
 
+  it('?tab=security opens the Security tab; an unknown tab falls back to Profile (#1740)', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/settings?tab=security']}>
+        <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('New password')).toBeInTheDocument()
+    unmount()
+    render(
+      <MemoryRouter initialEntries={['/settings?tab=bogus']}>
+        <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByPlaceholderText('How you appear on the board')).toBeInTheDocument()
+  })
+
   it('tab navigation: clicking Security shows security form', async () => {
     const user = userEvent.setup()
     renderSettings()

@@ -1522,7 +1522,9 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
     if (connectError) return { provider: searchParams.get("provider") ?? "", error: connectError };
     return null;
   });
-  const [activeTab, setActiveTab] = useState<Tab>(connectResult ? "security" : "profile");
+  // ?tab=<id> deep-links a tab (e.g. the lens "Manage connected accounts" link).
+  const requestedTab = TABS.find((t) => t.id === searchParams.get("tab"))?.id;
+  const [activeTab, setActiveTab] = useState<Tab>(connectResult ? "security" : requestedTab ?? "profile");
 
   useEffect(() => {
     if (searchParams.has("connected") || searchParams.has("connect_error")) {

@@ -4,7 +4,8 @@ import { renderHook } from '@testing-library/react'
 const mockPathname = vi.fn(() => '/')
 const mockIsMacPlatform = vi.fn(() => false)
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
   useLocation: () => ({ pathname: mockPathname() }),
 }))
 
@@ -25,6 +26,12 @@ describe('useNavbarSearchLabel', () => {
     const { result } = renderHook(() => useNavbarSearchLabel())
     expect(result.current.placeholder).toBe('Search cards…')
     expect(result.current.ariaLabel).toContain('Search cards')
+  })
+
+  it('does not treat an unmatched /boards/* path as a board (#1740)', () => {
+    mockPathname.mockReturnValue('/boards/1/typo/extra')
+    const { result } = renderHook(() => useNavbarSearchLabel())
+    expect(result.current.placeholder).toBe('Jump to…')
   })
 
   it('returns Jump to board on the dashboard route', () => {

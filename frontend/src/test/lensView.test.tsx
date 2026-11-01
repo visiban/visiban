@@ -76,6 +76,18 @@ function labelledData() {
 describe('LensView', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('auth_required links "Manage connected accounts" to the Security tab (#1740)', () => {
+    mockUseLensData.mockReturnValue({
+      data: null, error: { code: 'auth_required', detail: 'Connect' }, loading: false, refetching: false, refresh,
+    })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <LensView boardId={5} connection={conn} cardLayout="expanded" showFilters={false} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Manage connected accounts' })).toHaveAttribute('href', '/settings?tab=security')
+  })
+
   it('hides the filter row unless showFilters is set', () => {
     setup('/')
     expect(screen.queryByRole('button', { name: /clear filters/i })).not.toBeInTheDocument()

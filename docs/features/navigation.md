@@ -131,3 +131,7 @@ In the expanded state, a footer pinned to the bottom of the sidebar offers two q
 - **New group** — opens the group creation modal directly
 
 The footer is hidden entirely when the sidebar is collapsed to the icon rail.
+
+## Unknown pages
+
+A link to a page that doesn't exist, such as a mistyped address or an out-of-date bookmark, shows a "Page not found" page with a **Go to dashboard** button instead of silently sending you to the dashboard. Expired share links keep their own messages. A missing or revoked board or group still redirects to the dashboard for now (tracked in #2041). `/login` takes a signed-in user to the dashboard. If you sign in from an address that doesn't exist, you see the same "Page not found" page.
