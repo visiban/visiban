@@ -173,13 +173,16 @@ def user_deletion_refusals(targets, actor):
     admin outside the set (``groups.services.groups_left_without_admin``).
     Under the delete's locks the rows of those groups are held from statement
     1 on (``lock_groups_administered_by``), so a membership removal, demotion
-    or ownership transfer on them queues behind the delete. The lock covers
-    the groups the targets actively administer when statement 1 runs; a group
-    in which a target becomes an admin after that is counted by the statement
-    3 re-check but its row is not held. The other admins' account rows are not
-    locked, so their active flag is the one read at check time; a superuser
-    ownership transfer to an active member recovers a group left without an
-    active admin.
+    or ownership transfer on them queues behind the delete. Statement 1 also
+    holds the account rows of those groups' other admins
+    (``admin_accounts_of_groups_administered_by``), so their active flag
+    cannot change under the count: a concurrent deactivation queues (#1814).
+    A promotion of a target, or an ownership transfer to one, locks the
+    target's account row first (``groups.services.lock_member_accounts``), so
+    it queues behind the delete too. An account made a group admin after
+    statement 1 is counted by the statement 3 re-check without its row held;
+    a superuser ownership transfer to an active member recovers a group left
+    without an active admin.
     """
     from .admin_views import deactivation_refusal
 
@@ -539,8 +542,9 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
     def _lock_and_check_admins(request, pks):
         """Statement 1: lock the targets, the actor and the active administrators.
 
-        One pk-ordered ``FOR NO KEY UPDATE`` over the targets, the actor and
-        every active site admin and superuser (the order ``save_model`` uses).
+        One pk-ordered ``FOR NO KEY UPDATE`` over the targets, the actor,
+        every active site admin and superuser (the order ``save_model`` uses)
+        and every admin of a group a target actively administers (#1814).
         Row flags (``is_active``, ``is_site_admin``, ``is_superuser``) change
         only through an UPDATE, which conflicts with this lock, and a second
         delete conflicts with it too, so the last-administrator, actor and
@@ -554,6 +558,8 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         statement does *not* protect the owned-boards rule; statement 3 does.
         """
         actor = request.user
+        from groups.services import admin_accounts_of_groups_administered_by
+
         locked = list(
             User.objects.select_for_update(no_key=True)
             .filter(
@@ -561,6 +567,10 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
                 | Q(pk=actor.pk)
                 | Q(is_site_admin=True, is_active=True)
                 | Q(is_superuser=True, is_active=True)
+                # The other admins of the groups the targets administer, so
+                # the group-admin count judges active flags that a concurrent
+                # deactivation cannot change before this delete commits (#1814).
+                | Q(pk__in=admin_accounts_of_groups_administered_by(pks))
             )
             .order_by("pk")
         )
@@ -571,9 +581,11 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         # those groups the last-admin count in ``user_deletion_refusals`` (and
         # its re-check in statement 3) judges admin rows that no member change
         # or ownership transfer can alter until this transaction ends. Group
-        # rows after user rows: a group writer holding a group row needs at
-        # most ``FOR KEY SHARE`` on a user row, which this statement's
-        # ``FOR NO KEY UPDATE`` does not block.
+        # rows after user rows, the lock order recorded in groups.services
+        # (above ``lock_member_accounts``): a group writer that locks an
+        # account row takes it before the group row, and one holding a group
+        # row needs at most ``FOR KEY SHARE`` on a user row, which this
+        # statement's ``FOR NO KEY UPDATE`` does not block.
         from groups.services import lock_groups_administered_by
 
         lock_groups_administered_by(pks)

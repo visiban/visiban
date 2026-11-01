@@ -52,10 +52,10 @@ For one state transition, a service function owns:
 **Deleting a user from the Django admin (#1616):** locks go user, group, card, user, in three statements.
 
 1. **Statement 1.**
-    - Locks the targets, the acting administrator, and the active site-admin and superuser rows `FOR NO KEY UPDATE`. That does not block the `FOR KEY SHARE` that card writes and board inserts take on a user row.
+    - Locks the targets, the acting administrator, the active site-admin and superuser rows, and the account rows of every admin of a group a target actively administers (`groups.services.admin_accounts_of_groups_administered_by`, #1814) `FOR NO KEY UPDATE`. That does not block the `FOR KEY SHARE` that card writes and board inserts take on a user row.
     - Then locks, `FOR NO KEY UPDATE` and in pk order, the rows of every group a target actively administers (`groups.services.lock_groups_administered_by`). Every group member removal, demotion, and ownership transfer takes this lock first, so for those groups the "keep an active group admin" refusal judges admin rows that nothing can alter before the delete commits.
-    - The set is the groups the targets actively administer when statement 1 runs. A group in which a target becomes an admin afterward is counted by the statement 3 re-check, but its row is not held. The other admins' active flag is read at check time, not locked.
-    - A group writer needs at most `FOR KEY SHARE` on a user row, which statement 1 does not block, so taking the group rows after the user rows cannot invert.
+    - The set is the groups the targets actively administer when statement 1 runs. A promotion of a target, or an ownership transfer to one, locks the target's account row first, so it queues behind the delete and then finds the membership gone. The other admins' account rows are held, so a deactivation of one of them queues too. An account made a group admin after statement 1 is counted by the statement 3 re-check without its row held.
+    - Account rows before group rows is the order every group writer that locks an account row follows (Rule 11 of `docs/development/security-invariants.md`, and `groups/services.py` above `lock_member_accounts`). Any other group writer needs at most `FOR KEY SHARE` on a user row, which statement 1 does not block, so taking the group rows after the user rows cannot invert.
 2. **Statement 2.** Locks the owned boards' rows `FOR NO KEY UPDATE`, then the cards the cascade will write (the owned boards' cards and every card carrying a reference to a target) `FOR UPDATE`, then the owned boards' entry columns (`lock_cards_for_cascade()` with `boards=` and `entry_columns=`, #1602). The board -> card -> column order matches every other container delete.
 3. **Statement 3.** Locks the target rows `FOR UPDATE` and judges the refusals again, so a board committed by then is seen and the delete is refused.
 
@@ -173,7 +173,7 @@ Every other case was a `500`. Now every one of them locks the group row before i
 | Invite revoke | `FOR NO KEY UPDATE` (`lock_group_row`), ahead of the invite row as redemptions take them |
 | Invite link create | `FOR NO KEY UPDATE`; it conflicts with itself, so it serializes its cap count without blocking the `FOR KEY SHARE` writers |
 | Emailed-invite send | keeps the `FOR UPDATE` it already took for its cap |
-| Member role change or removal | group row `FOR NO KEY UPDATE`, then the membership rows; refuses to remove or demote the owner or the last active admin under those locks |
+| Member role change or removal | the admins' and the target's account rows `FOR NO KEY UPDATE` (#1814), then the group row `FOR NO KEY UPDATE`, then the membership rows; refuses to remove or demote the owner or the last active admin under those locks |
 | Board imports into a group, board admin save | `lock_group_for_board_placement` before the board insert or the board row |
 
 - The ownership transfer already locked the group row. The group `PATCH` and a subgroup create lock it with its ancestor chain (#1690). They now answer a row that is gone once they hold the lock: `404` for the transfer and the `PATCH`, and for a subgroup create the unknown-parent `400` in its documented `{"parent": [...]}` shape (it was a bare list).
