@@ -467,7 +467,7 @@ Read the notes for every version between your current release and the target bef
 
 - **Helm:** `NUM_PROXIES`, `ALLOWED_HOSTS`, `allowedHosts` render failures, values-schema validation, the PostgreSQL password, `redis:` to `valkey:`, hardened pods.
 - **Compose:** `DOMAIN` in `ALLOWED_HOSTS`, `APP_VERSION`, re-rendering the nginx config.
-- **API clients:** status codes, `409` on WIP limits, `old_password`, `reorder/`, PAT scopes, MCP, token callers refused for username and pending-email changes, `avatar_url` validation.
+- **API clients:** status codes, `409` on WIP limits, `old_password`, `reorder/`, PAT scopes, MCP (including in-band truncation flags on `list_cards` and `board://`), token callers refused for username and pending-email changes, `avatar_url` validation.
 - **Browsers and proxies:** the Content-Security-Policy `connect-src` is now scoped to your own origin (split-origin WebSocket setups).
 - **Data cleanup:** `clear_viewer_assignees`, `find_cross_board_cards`, `backfill_card_movement_snapshots`.
 
@@ -743,6 +743,11 @@ Read the notes for every version between your current release and the target bef
     - Transport-level errors carry `id: null` instead of `"server-error"`.
 
     The main changes are listed in the [MCP API reference](../api/mcp.md#protocol-errors-and-limits).
+
+!!! note "MCP `list_cards` and `board://` now flag a truncated result in-band"
+    Both return at most 200 cards, as before, but a capped result is no longer silent (#1762). A truncated `list_cards` call keeps the same card array and adds one extra text content block, `Showing N of M cards; call again with offset=K`, plus `_meta` of `{"visiban/total": M, "visiban/truncated": true}`. A complete result has neither. `list_cards` also takes optional `limit`, `offset` and `include_meta`; with `include_meta: true` it returns `{cards, total, truncated, limit, offset}` instead of an array. The `board://{board_id}` snapshot gains `cards_total` and `cards_truncated`.
+
+    A client that JSON-parses every content block of a `list_cards` result will hit the notice block on a truncated call. Read `structuredContent` instead (unchanged), or pass `include_meta: true`. See [`list_cards`](../api/mcp.md#list_cards) and [`board://{board_id}`](../api/mcp.md#boardboard_id).
 
 !!! note "MCP tool errors now set `isError`, and `assignee_email` left the schema"
     Both changes are new since v1.2.0-beta.1, so clients written against any 1.2 pre-release see them (#2004):
