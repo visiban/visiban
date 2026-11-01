@@ -5736,13 +5736,13 @@ within each group.</p>
 </tr>
 <tr>
 <td><code>relation_type</code></td>
-<td>string</td>
-<td><code>blocks</code> or <code>relates_to</code> — the stored type</td>
+<td>string (enum)</td>
+<td><code>blocks</code> or <code>relates_to</code> — the <strong>stored</strong> type, identical from both ends of the relation (<em>Changed in 1.3, #1976</em>: published as the <code>RelationTypeEnum</code> enum in OpenAPI; values unchanged)</td>
 </tr>
 <tr>
 <td><code>direction</code></td>
-<td>string</td>
-<td><code>blocks</code>, <code>blocked_by</code>, or <code>relates_to</code> — the type as read from the card in the URL</td>
+<td>string (enum)</td>
+<td><code>blocks</code>, <code>blocked_by</code>, or <code>relates_to</code> — the type as read from the card in the URL (<em>Changed in 1.3, #1976</em>: published as the <code>DirectionEnum</code> enum in OpenAPI; values unchanged)</td>
 </tr>
 <tr>
 <td><code>card</code></td>
@@ -5756,6 +5756,15 @@ within each group.</p>
 </tr>
 </tbody>
 </table>
+<div class="admonition warning">
+<p class="admonition-title">Read <code>direction</code>, not <code>relation_type</code></p>
+<p><code>relation_type</code> is the stored type and does not change with the viewer. From
+the blocked card's side a row reads <code>relation_type: "blocks"</code> with
+<code>direction: "blocked_by"</code>; a client that reads <code>relation_type</code> alone gets
+the wrong sentence. Always render from <code>direction</code>. Since 1.3 (#1976) both
+fields are published as enums in the OpenAPI schema (<code>RelationTypeEnum</code>,
+<code>DirectionEnum</code>); the wire values have not changed.</p>
+</div>
 <p><code>card.archived</code> is <code>true</code> when the linked card has been archived. Such a
 relation is still listed so it can be found and removed, but an archived
 blocker does <strong>not</strong> count toward <code>blocker_count</code>.</p>
