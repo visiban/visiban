@@ -42,7 +42,8 @@ const PING_TIMEOUT_MS = 45_000;
  *   - Normal closure (code 1000) — e.g. component unmount.
  *   - Auth rejection (code 4001 / 4003) — the server closes the socket when
  *     the session cookie is invalid or the user is no longer a board member.
- *     Reconnecting would loop indefinitely in those cases.
+ *     Reconnecting would loop indefinitely in those cases. A 4001 also dispatches
+ *     `auth:sessionExpired` (like a REST 401); a 4003 only after a demo reset (#2037).
  *
  * Code 1011 is deliberately NOT in that list: the server sends it when its
  * mid-stream access re-check could not complete (a database outage, say), or
@@ -151,7 +152,19 @@ export function useBoardSocket(
           // scheduled reset ended the session. If the reset time has passed,
           // route them to the login page's "demo was reset" notice through
           // the same event the REST 401 path uses, instead of a dead socket.
-          if (checkAndFlagDemoReset()) {
+          //
+          // Plain expiry (#2037): 4001 means the server found no valid
+          // credential, which is exactly what a REST 401 means, so it takes
+          // the same path. A socket that is the only thing to notice would
+          // otherwise leave per-user prefs (recent boards) in storage, because
+          // useAuth only clears them on this event. 4003 is deliberately
+          // different: it also means "authenticated but lost access to this
+          // board" or a pending account change, where the session is still
+          // good and signing the user out would be wrong. So 4003 signs out
+          // only on a demo reset. No loop: the event unmounts the socket's
+          // owner (canceled short-circuits onclose), and a close fires once.
+          const resetEnded = checkAndFlagDemoReset();
+          if (e.code === 4001 || resetEnded) {
             window.dispatchEvent(new Event("auth:sessionExpired"));
           }
           return;

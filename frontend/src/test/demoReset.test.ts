@@ -138,13 +138,37 @@ describe('useBoardSocket — idle visitor across a reset', () => {
     expect(instances).toHaveLength(2)
   })
 
-  it('an auth close before the reset time keeps the old behavior (no sign-out event)', () => {
+  it('a 4001 close with no demo reset is a plain expiry: signs out once (#2037)', () => {
+    const expired = vi.fn()
+    window.addEventListener('auth:sessionExpired', expired)
+    renderHook(() => useBoardSocket(1, vi.fn()))
+    act(() => { instances[instances.length - 1].onclose?.({ code: 4001 }) })
+    window.removeEventListener('auth:sessionExpired', expired)
+    expect(expired).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBeNull()
+    act(() => { vi.advanceTimersByTime(10_000) })
+    expect(instances).toHaveLength(1)
+  })
+
+  it('a 4001 close before the reset time still signs out, with no reset notice (#2037)', () => {
     vi.setSystemTime(Date.parse(RESET) - 1_000)
     stashDemoNextReset(RESET)
     const expired = vi.fn()
     window.addEventListener('auth:sessionExpired', expired)
     renderHook(() => useBoardSocket(1, vi.fn()))
     act(() => { instances[instances.length - 1].onclose?.({ code: 4001 }) })
+    window.removeEventListener('auth:sessionExpired', expired)
+    expect(expired).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBeNull()
+  })
+
+  it('a 4003 close before the reset time (lost board access) does not sign out (#2037)', () => {
+    vi.setSystemTime(Date.parse(RESET) - 1_000)
+    stashDemoNextReset(RESET)
+    const expired = vi.fn()
+    window.addEventListener('auth:sessionExpired', expired)
+    renderHook(() => useBoardSocket(1, vi.fn()))
+    act(() => { instances[instances.length - 1].onclose?.({ code: 4003 }) })
     window.removeEventListener('auth:sessionExpired', expired)
     expect(expired).not.toHaveBeenCalled()
   })
