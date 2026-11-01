@@ -10,6 +10,11 @@ ujson>=5.13.0
 # transitively via daphne, which does not constrain it, so without a floor the lock resolves
 # the vulnerable 26.7.1. No upper bound is needed: daphne imposes none.
 autobahn>=26.10.1
+# Floor twisted at 26.10.0 (first stable release past 26.4.0) to clear GHSA-8pqf-f4m5-798g and
+# the other twisted <= 26.4.0 advisories. Pulled transitively via daphne, which does not
+# constrain it, so without a floor the lock keeps the vulnerable 26.4.0. No upper bound:
+# daphne imposes none.
+twisted>=26.10.0
 channels==4.3.2
 channels-redis==4.3.0
 # Pin redis-py below 6: redis-py 8.0.0 enforces a 5s socket read timeout on
