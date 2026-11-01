@@ -298,7 +298,10 @@ The board always lands in the group in the URL. A `group` key in the body is ign
 | `400 Bad Request` | Field-keyed, for example `{"name": ["This field is required."]}` | Missing `name`, or any field fails validation (for example an `export_min_role` or `card_density` outside its allowed values). A body that is not a JSON object, or a non-string `swimlane_name`, also answers `400` (1.2+) |
 | `400 Bad Request` | `{"code": "unknown_template", "detail": "..."}` | `template` is a non-blank value that matches no active template |
 | `401 Unauthorized` | `{"detail": "..."}` | No valid credentials |
+| `403 Forbidden` | `{"detail": "You must be a group member to perform this action."}` | The caller reaches the group only through a descendant subgroup (it is [navigation-only](#ancestor-groups-navigation-only) for them), so they are not a member of it or of an ancestor. Checked before the admin rule below |
 | `403 Forbidden` | `{"detail": "You must be a group admin to perform this action."}` | The caller can see the group but is not an admin of it or of an ancestor group |
+| `403 Forbidden` | `{"detail": "You must change your password before continuing.", "code": "permission_denied"}` or `{"detail": "You must choose a new username before continuing.", "code": "must_change_username"}` | The account has a forced password or username change pending (see [Common errors](authentication.md#common-errors)) |
+| `403 Forbidden` | `{"detail": "This token is missing the required scope: <scope>."}` | The request used a scoped personal access token that lacks the scope needed for a write (see [Scopes](authentication.md#scopes)) |
 | `404 Not Found` | `{"detail": "Not found."}` | The group does not exist, the caller cannot see it, or it is being deleted |
 | `429 Too Many Requests` | `{"detail": "Request was throttled. ..."}`, `Retry-After` header | The caller's per-user API budget is spent (`user` scope, see [Rate limits](index.md#rate-limits)) |
 

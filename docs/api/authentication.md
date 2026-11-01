@@ -1092,15 +1092,16 @@ Confirm an email address from the key in a confirmation link. The link in the em
 
 ### `GET /accounts/confirm-email/{key}/`
 
-Legacy confirmation URL, kept so a stale email link or a browser pointed straight at the backend still lands somewhere useful. It is **not** under `/api/v1/` and is not part of the JSON API: it validates nothing and changes nothing. It answers `302 Found` with a `Location` of the app's `/confirm-email/<key>` page (which calls [`POST /api/v1/auth/registration/verify-email/`](#post-apiv1authregistrationverify-email)), or `/confirm-email/invalid` when `key` contains characters outside letters, digits, `_`, `-` and `:`. A `key` longer than 200 characters does not match the route (`404`).
+Legacy confirmation URL, kept so a stale email link or a browser pointed straight at the backend still lands somewhere useful. It is **not** under `/api/v1/` and is not part of the JSON API: it validates nothing and changes nothing. It answers `302 Found` with a `Location` of the app's `/confirm-email/<key>` page, which calls [`POST /api/v1/auth/registration/verify-email/`](#post-apiv1authregistrationverify-email).
 
-**Permission:** None. Anonymous and authenticated callers are treated alike; no credential is read.
+**Permission:** None. No credential is read, so anonymous and authenticated callers are treated alike.
 
 | Status | Reason |
 |---|---|
 | `302 Found` | Redirect to the app, as above |
-| `404 Not Found` | `key` is longer than 200 characters or has characters the route does not accept |
 | `429 Too Many Requests` | Per-IP `email_confirm_redirect` throttle (60 requests/hour) |
+
+A `key` is matched against letters, digits, `_`, `-` and `:`, at most 200 characters. A value that does not match is not handled by this endpoint at all: the request falls through to the server-rendered confirmation page, so it is not a stable API response and clients should not rely on it.
 
 ### `POST /api/v1/auth/registration/resend-email/`
 

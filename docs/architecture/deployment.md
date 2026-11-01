@@ -438,7 +438,7 @@ With `DEBUG=False` (production) the API enforces the per-client limits below.
 | User search (`/api/v1/users/`) | 30 / minute | Tighter limit to prevent username enumeration |
 | Invite link redemption (`/api/v1/groups/join/.../` and, 1.2+, `/api/v1/boards/join/.../`) | 10 / hour per IP | Low ceiling to prevent invite token brute-force scanning. One `join_group` bucket shared by group and board join requests, preview and redeem alike |
 
-Exceeding a DRF throttle scope returns `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set, so clients should back off exponentially.
+Exceeding a DRF throttle scope returns `HTTP 429 Too Many Requests`. DRF sets the standard `Retry-After` header (seconds) on the response; clients should wait that long before retrying.
 
 **Login lockout (allauth `login_failed`):** `ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"`. It is not a DRF throttle and applies to **both** `/api/v1/auth/login/` (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at `/accounts/login/`, which the DRF throttle does not wrap at all. The gate is two rates, both enforced everywhere it applies:
 
