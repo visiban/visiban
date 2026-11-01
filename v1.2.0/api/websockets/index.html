@@ -2314,6 +2314,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#share-link-events-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Share link events (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#git-lens-events-since-12" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4476,7 +4487,7 @@ build. If you are adding an event, see
 <a href="../../development/websocket-event-contract/">WebSocket event contract</a>.</p>
 </div>
 <h3 id="board-events">Board events<a class="headerlink" href="#board-events" title="Permanent link">&para;</a></h3>
-<p>Board and group <code>board.*</code> event payloads never carry the share-link fields (<code>share_token</code>, <code>share_token_expires_at</code>, and from 1.2 <code>share_link_active</code>), and neither does the change feed. Board admins read them over REST from <a href="../boards/"><code>GET /api/v1/boards/{id}/full/</code></a> and from the share action response (<code>share_token</code> on <code>/full/</code> is deprecated since 1.2; the share action response is where the token is meant to be read).</p>
+<p>Board and group <code>board.*</code> event payloads never carry the share-link fields (<code>share_token</code>, <code>share_token_expires_at</code>, and from 1.2 <code>share_link_active</code>), and neither does the change feed. Board admins read them over REST from <a href="../boards/"><code>GET /api/v1/boards/{id}/full/</code></a> and from the share action response (<code>share_token</code> on <code>/full/</code> is deprecated since 1.2; the share action response is where the token is meant to be read). A change to the share link reaches admin sockets as <a href="#share-link-events-since-13"><code>share_link.updated</code></a> (since 1.3), which carries the link's state but never the token.</p>
 <table>
 <thead>
 <tr>
@@ -4879,6 +4890,64 @@ invite list keeps showing it as pending until it is next fetched.
 <p>These rows are also stored in the board's <a href="../events/">change feed</a>, where any
 board member can read them — with the same <code>{ "id": &lt;int&gt; }</code> payload and
 nothing more.</p>
+<h3 id="share-link-events-since-13">Share link events (since 1.3)<a class="headerlink" href="#share-link-events-since-13" title="Permanent link">&para;</a></h3>
+<p>Emitted when the board's <a href="../boards/#post-apiv1boardsidshare">public share link</a>
+is enabled, rotated or revoked, and when its expiry is edited in the Django
+admin. It is also emitted when the server turns the link off on its own: when
+the admin who enabled it loses admin rights on the board or their account is
+deactivated or deleted, or when the public page refuses a link that has no
+recorded enabler. <strong>Admin-only:</strong> the server sends the frame only to sockets
+whose user is a board <code>admin</code> or <code>site_admin</code>, re-checked with the same
+access check every frame gets (see
+<a href="#access-re-check-and-eviction">Access re-check and eviction</a>). Other
+subscribers receive nothing, and their socket stays open. The
+<a href="../events/">change feed</a> applies the same rule to its rows.</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+<th><code>data</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>share_link.updated</code></td>
+<td>A board admin enabled, rotated or revoked the share link; a Django admin user changed the link's expiry; or the server turned the link off because its enabler lost admin standing on the board</td>
+<td><code>{ "board_uid": &lt;string&gt;, "active": &lt;bool&gt;, "expires_at": &lt;string or null&gt;, "issued_at": &lt;string or null&gt; }</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>active</code> and <code>expires_at</code> hold the values <code>GET /api/v1/boards/{id}/full/</code>
+returns as <code>share_link_active</code> and <code>share_token_expires_at</code>. The names differ
+because those two keys are removed from every frame, this one included.
+<code>expires_at</code> is an ISO-8601 timestamp, or <code>null</code> for a link that never expires
+and whenever <code>active</code> is <code>false</code>. A link past its expiry stays <code>active: true</code>
+until it is rotated or revoked, as on <code>/full/</code>; no frame is sent when a link
+expires.</p>
+<p><code>issued_at</code> tells a rotation apart. A rotation replaces the link but leaves
+<code>active</code> at <code>true</code>, and with a never-expiring link <code>expires_at</code> does not change
+either. On the frame for an enable or a rotate, <code>issued_at</code> is the ISO-8601
+time the new link was issued. It is the same value the share action returned
+to its caller as <code>share_token_issued_at</code>. On every other change (a revoke, a
+server-side clear, an expiry edit) it is <code>null</code>, because no new link was
+issued. A client that is still showing a link it received can compare the two
+values: a non-null <code>issued_at</code> later than the one its own request returned
+means that link was replaced and no longer works. Compare the times, not just
+equality: the links of one board are issued one at a time, so a newer link
+always has a later <code>issued_at</code>, and a delayed frame for an older link can
+arrive after the response for a newer one. <code>issued_at</code> is a timestamp, not
+derived from the token.</p>
+<p>The payload never carries the token: show it to the admin from the share
+action response, once. Nor does it carry the admin who enabled the link.
+<code>share_link.updated</code> rows in the <a href="../events/">change feed</a> are stored with no
+actor, so their <code>actor_id</code> and <code>actor</code> are <code>null</code>.</p>
+<p>Each of these changes also sends <code>board.updated</code>, as before 1.3. That frame
+cannot carry the share state, so clients should read it from
+<code>share_link.updated</code>. The Visiban web app merges this event into the open
+board, so the <strong>Sharing</strong> tab follows another admin's change without a reload,
+even while it is open. If the tab is still showing a link that was then
+revoked or rotated elsewhere, it removes that link and says why.</p>
 <h3 id="git-lens-events-since-12">Git Lens events (since 1.2)<a class="headerlink" href="#git-lens-events-since-12" title="Permanent link">&para;</a></h3>
 <p>Emitted by the <a href="../git-lens/">Git Lens</a> connection endpoints. They ride the
 <strong>board</strong> channel, not a channel of their own, so a board member with the Lens tab open

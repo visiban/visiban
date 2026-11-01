@@ -4132,6 +4132,14 @@
 <li>
 <p><strong>Handle it</strong> in the frontend, or exempt it with a reason (see below).</p>
 </li>
+<li>
+<p><strong>Decide who may receive it.</strong> Every board-channel frame goes to every subscriber and its feed row to every reader, unless the event is in one of the recipient sets in <code>backend/boards/permissions.py</code>:</p>
+<ul>
+<li><code>PER_USER_EVENTS</code>: one user's own state (stars, saved filters), sent only to the user in <code>data.user_id</code>.</li>
+<li><code>ADMIN_ONLY_EVENTS</code> (since 1.3): admin-only state, sent only to board <code>admin</code> and <code>site_admin</code> recipients. <code>share_link.updated</code> is the first such event.</li>
+</ul>
+<p>The consumer and the change-feed view both read these sets, so adding a name to one covers both surfaces. Keep an admin-only payload's keys out of <code>ADMIN_ONLY_BOARD_FIELDS</code>, because those keys are stripped from every payload. See <a href="../security-invariants/">security invariants Rule 8</a>.</p>
+</li>
 </ol>
 <h2 id="exempting-an-event-with-no-frontend-handler">Exempting an event with no frontend handler<a class="headerlink" href="#exempting-an-event-with-no-frontend-handler" title="Permanent link">&para;</a></h2>
 <p>Some events are legitimately not acted on by this frontend. For example, a board-channel <code>board.created</code> can only reach a client already subscribed to a board that didn't exist a moment earlier. Record it in <code>INTENTIONALLY_UNHANDLED_BOARD_EVENTS</code> (or the group equivalent) <strong>with the reason</strong>:</p>
