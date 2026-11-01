@@ -55,6 +55,16 @@ vi.mock('../components/Auth/ConnectProviderModal', () => ({
   default: ({ provider }: { provider: string }) => <div data-testid="connect-provider">Connect {provider}</div>,
 }))
 
+// #1955 — record the userId the shell passes to each palette instance so a
+// dropped prop (which silently disables per-user recents) fails a test.
+const paletteUserIds: Array<number | null | undefined> = []
+vi.mock('../components/Common/GlobalCommandPalette', () => ({
+  default: ({ userId }: { userId?: number | null }) => {
+    paletteUserIds.push(userId)
+    return null
+  },
+}))
+
 vi.mock('../components/Layout/Navbar', () => ({
   default: () => <div data-testid="navbar">Navbar</div>,
 }))
@@ -538,5 +548,33 @@ describe('App — pending invite after OAuth (#1444)', () => {
     render(<MemoryRouter initialEntries={['/']}><App /><Probe /></MemoryRouter>)
     await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('/groups/4'))
     expect(mockJoinBoard).not.toHaveBeenCalled()
+  })
+})
+
+describe('App — palette receives the signed-in user id (#1955)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setFlags()
+    paletteUserIds.length = 0
+    mockUseBoardContext.mockReturnValue(defaultBoardHook)
+    mockUseAuth.mockReturnValue({ user: { ...fakeUser, id: 77 }, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+  })
+
+  it('shell-level palette (off-board route) gets user.id', () => {
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(paletteUserIds.length).toBeGreaterThan(0)
+    expect(paletteUserIds.every((id) => id === 77)).toBe(true)
+  })
+
+  it('board-route palette gets user.id', () => {
+    const fakeBoard = {
+      id: 1, name: 'My Board', description: '', group: null, group_name: null,
+      columns: [], swimlanes: [], cards: [], labels: [], members: [],
+      created_at: '', updated_at: '', current_user_role: 'admin' as const,
+    }
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    expect(paletteUserIds.length).toBeGreaterThan(0)
+    expect(paletteUserIds.every((id) => id === 77)).toBe(true)
   })
 })
