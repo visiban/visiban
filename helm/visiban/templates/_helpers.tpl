@@ -286,7 +286,7 @@ scripts/helm-structure-check.sh section 7 asserts every rendered workload is on
 the list or deliberately excluded, for the default AND the demo render.
 */}}
 {{- define "visiban.datastoreClients" -}}
-backend scheduler{{ if include "visiban.demoEnabled" . }} demo-seed{{ end }}
+backend scheduler webhook-dispatcher{{ if include "visiban.demoEnabled" . }} demo-seed{{ end }}
 {{- end }}
 
 {{/*

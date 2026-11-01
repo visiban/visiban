@@ -172,3 +172,40 @@ CUSTOM_FIELD_VALIDATORS: list = []
 #
 # OSS behaviour is unchanged when this list is empty.
 SWIMLANE_CUSTOM_FIELD_VALIDATORS: list = []
+
+# Board change-feed nudge hook (#863).
+# Callable signature: (board_id: int, event_type: str, event_id: int) -> None
+#
+# Fired once per persisted change-feed row (``boards.broadcast.persist_board_event``),
+# so it covers every writer: ``record_board_event`` and every site that calls
+# ``persist_board_event`` directly, bulk board import included (one call per row,
+# so an import of thousands of cards makes thousands of calls).
+#
+# The contract:
+#   * It is a NUDGE, not a delivery. The arguments are ids only and carry no
+#     payload. A handler that wants the event reads it from the feed. A handler
+#     that misses a call (process restart, exception) catches up from its own
+#     cursor, so nothing is lost by a missed nudge.
+#   * Readers MUST go through ``boards.services.feed.feed_queryset`` and
+#     ``serialize_feed_rows`` with an explicit role and reader id, never
+#     ``BoardEvent.data`` directly: the stored row is unredacted, and the feed's
+#     two redaction layers are what keep it in line with the socket
+#     (security-invariants Rules 8 and 10).
+#   * Registered with ``transaction.on_commit(..., robust=True)``, so it fires
+#     only after the row commits, and never for a rolled-back write.
+#   * It runs SYNCHRONOUSLY on the committing request's thread, after commit.
+#     No blocking I/O: an HTTP call here holds up the request that wrote the
+#     row. Queue work and return.
+#   * No ordering guarantee across rows: two transactions can commit in the
+#     opposite order to their row ids (#2053), so a handler must not assume it
+#     sees ids in increasing order.
+#   * A handler that raises is logged (hook name, ids, exception class, no
+#     payload) and swallowed; it never fails the request and never prevents the
+#     next handler from running.
+#
+# OSS registers nothing here; the OSS webhook dispatcher polls the feed on its
+# own schedule. Stable for 1.x, append-only, pinned by
+# boards/tests/test_board_event_hooks.py.
+# Register via: from boards.hooks import BOARD_EVENT_HOOKS
+#               BOARD_EVENT_HOOKS.append(my_nudge)
+BOARD_EVENT_HOOKS: list = []

@@ -16,6 +16,7 @@ Start with [Board & Cards](board.md); every other feature builds on the grid.
 | Organize boards and invite a team | [Groups](groups.md) |
 | Control who can do what | [Roles & Permissions](rbac/roles.md) |
 | Script the API or connect an AI agent | [Personal Access Tokens](personal-access-tokens.md) · [MCP Server](mcp-server.md) |
+| Send board changes to Zapier, n8n or your own script | [Webhooks](webhooks.md) |
 
 ---
 
@@ -218,6 +219,16 @@ Tokens created from 1.2 onward carry explicit **scopes** (`read`, `write`, `admi
 Connect Claude Desktop, Copilot, or any [Model Context Protocol](https://spec.modelcontextprotocol.io)-compatible AI agent to Visiban so it can read your boards and, with a suitably scoped token, create, move, update, and archive cards. Authenticates with the same Personal Access Token used elsewhere in the API. Off by default; operators enable it with `MCP_SERVER_ENABLED=true`.
 
 → [MCP Server](mcp-server.md) · [Ask your agent about the demo data](mcp-demo-walkthrough.md)
+
+---
+
+## Webhooks
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Board admins can register URLs that receive a signed `POST` for every change on the board, in order, with retry. Each request carries one change-feed event as a viewer sees it, so members' private activity is never sent. Off by default; operators enable it with `WEBHOOKS_ENABLED=true` and start the webhook dispatcher.
+
+→ [Webhooks](webhooks.md) · [Webhooks API](../api/webhooks.md)
 
 ---
 

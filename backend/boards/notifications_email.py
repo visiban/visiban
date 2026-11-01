@@ -57,6 +57,18 @@ EMAIL_PREFERENCE_BY_ACTION = {
     Notification.ActionType.COMMENT_ADDED: "email_notif_comment_added",  # #1295
 }
 
+# Action types emailed whatever the recipient's opt-in (#863, owner decision D7).
+# A webhook that stopped delivering is an operational alarm for a board admin,
+# not a courtesy: an integration that silently stops is the failure mode the
+# notice exists to surface, and an opt-in default of False would hide it on
+# almost every install. The bypass covers the PREFERENCE only. Every other gate
+# still applies: an active recipient, a sendable address, current access to the
+# board, and an address the recipient has VERIFIED, required here even when the
+# install's EMAIL_VERIFICATION is "optional", because the recipient never asked
+# for this mail. The message carries no URL and no response text: the board
+# name, the subscription id and a reason code (webhooks.notices).
+MANDATORY_EMAIL_ACTIONS = frozenset({Notification.ActionType.WEBHOOK_DISABLED})
+
 # Mail headers must not contain a newline. Django raises BadHeaderError on one,
 # which would turn a card title containing CR/LF into a failed send at best and
 # a header-injection vector on any less careful mailer at worst. Subjects are
@@ -135,6 +147,9 @@ def card_link(notification):
     base = _frontend_url()
     if notification.board_id is None:
         return base
+    if notification.action_type == Notification.ActionType.WEBHOOK_DISABLED:
+        # Same target as the bell (Navbar.tsx): the board's Webhooks settings tab.
+        return f"{base}/boards/{notification.board_id}?settings=webhooks"
     if notification.card_id is None:
         return f"{base}/boards/{notification.board_id}"
     return f"{base}/boards/{notification.board_id}?card={notification.card_id}"
@@ -162,13 +177,21 @@ def _build_body(notification):
         card_link(notification),
         "",
         "--",
-        "You are receiving this because you turned on email for this notification.",
-        f"Change your notification settings: {_frontend_url()}/settings",
     ]
+    if notification.action_type in MANDATORY_EMAIL_ACTIONS:
+        lines.append(
+            "You are receiving this because you are an admin of this board. "
+            "This notice is sent whatever your email settings."
+        )
+    else:
+        lines += [
+            "You are receiving this because you turned on email for this notification.",
+            f"Change your notification settings: {_frontend_url()}/settings",
+        ]
     return "\n".join(lines)
 
 
-def _unverified_recipient_ids(candidates):
+def _unverified_recipient_ids(candidates, *, always=False):
     """Recipients whose address is not confirmed, when the install requires confirmation.
 
     Mailing board content — card titles, board names, who said what — to an
@@ -180,7 +203,9 @@ def _unverified_recipient_ids(candidates):
     addresses. The install's own policy decides: the gate applies only when the
     operator set ``EMAIL_VERIFICATION=mandatory``.
     """
-    if getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "optional") != "mandatory":
+    if not always and getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "optional") != "mandatory":
+        return set()
+    if not candidates:
         return set()
     from allauth.account.models import EmailAddress
 
@@ -251,8 +276,9 @@ def eligible_recipients(notifications):
     """Filter ``notifications`` down to the ones that should produce an email."""
     candidates = []
     for notification in notifications:
+        mandatory = notification.action_type in MANDATORY_EMAIL_ACTIONS
         preference = EMAIL_PREFERENCE_BY_ACTION.get(notification.action_type)
-        if preference is None:
+        if preference is None and not mandatory:
             continue
         recipient = notification.recipient
         if recipient is None:
@@ -261,7 +287,7 @@ def eligible_recipients(notifications):
         # it must not keep receiving mail about them.
         if not recipient.is_active or not _address_is_sendable(recipient.email):
             continue
-        if not getattr(recipient, preference, False):
+        if not mandatory and not getattr(recipient, preference, False):
             continue
         candidates.append(notification)
 
@@ -276,8 +302,13 @@ def eligible_recipients(notifications):
     if not candidates:
         return []
 
-    unverified = _unverified_recipient_ids(candidates)
-    return [n for n in candidates if n.recipient_id not in unverified]
+    optional = [n for n in candidates if n.action_type not in MANDATORY_EMAIL_ACTIONS]
+    mandatory = [n for n in candidates if n.action_type in MANDATORY_EMAIL_ACTIONS]
+    unverified_optional = _unverified_recipient_ids(optional)
+    unverified_mandatory = _unverified_recipient_ids(mandatory, always=True)
+    return [n for n in optional if n.recipient_id not in unverified_optional] + [
+        n for n in mandatory if n.recipient_id not in unverified_mandatory
+    ]
 
 
 def deliver_notification_emails(notifications, context=None):

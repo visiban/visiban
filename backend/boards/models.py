@@ -1401,6 +1401,11 @@ class Notification(models.Model):
         # no CHECK constraint, so migration 0062 is state-only. Recipients are the
         # card's implicit watchers (creator + assignee); see card_watcher_ids().
         COMMENT_ADDED = "comment_added", "comment added"
+        # Added in 1.3 (#863). State-only like the two above. Sent to the
+        # board's admins when a webhook subscription is disabled automatically;
+        # it is the one action type that is emailed regardless of the
+        # recipient's email opt-in (notifications_email.MANDATORY_EMAIL_ACTIONS).
+        WEBHOOK_DISABLED = "webhook_disabled", "webhook disabled"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"

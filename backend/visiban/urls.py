@@ -290,6 +290,9 @@ urlpatterns = [
     path("api/v1/", include("boards.urls")),
     path("api/v1/", include("accounts.urls")),
     path("api/v1/", include("groups.urls")),
+    # Outbound webhooks (#863): always routed; WEBHOOKS_ENABLED is checked per
+    # request so `status/` can tell an admin the feature is off.
+    path("api/v1/", include("webhooks.urls")),
     # Public board share-link — unversioned; token is the credential and the URL
     # is shared externally. Intentionally outside the versioned namespace.
     path("api/share/<str:token>/", ShareBoardView.as_view(), name="share-board"),

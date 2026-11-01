@@ -310,6 +310,9 @@ refused here rather than escaped wherever it is used.
 {{- fail "\n\nVisiban: demo.loginHint is set but demo.enabled is false.\nDEMO_MODE would not be rendered, so the write fence (DemoModeMiddleware) is OFF — this would publish a working login to a WRITABLE instance.\n\nEither turn the demo on (start from values-demo.yaml):\n    --set demo.enabled=true\nor clear demo.loginHint.\n" -}}
 {{- end -}}
 {{- if include "visiban.demoEnabled" . -}}
+{{- if .Values.backend.settings.webhooksEnabled -}}
+{{- fail "\n\nVisiban: backend.settings.webhooksEnabled cannot be true while demo.enabled is true.\nA public demo publishes a login, and webhooks send requests to addresses that login chooses (the backend refuses the combination too: system check webhooks.E001).\n\n    --set backend.settings.webhooksEnabled=false\n" -}}
+{{- end -}}
 {{- if not (and $user $pass) -}}
 {{- fail "\n\nVisiban: demo.enabled is true but demo.loginHint.username and demo.loginHint.password are not both set.\nThe public demo IS a published login: without one the login page has nothing to offer, the seed creates no visitor, and `helm test` fails.\n\nSet both to the credential you intend to publish, e.g.:\n    --set demo.loginHint.username=visitor\n    --set demo.loginHint.password=\"$(openssl rand -base64 18 | tr -d '=+/')\"\n" -}}
 {{- end -}}
