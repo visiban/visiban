@@ -4,7 +4,7 @@ Find every secret, credential, and environment variable Visiban needs in local d
 
 **Why it matters:** In production, `DB_PASSWORD`, `REDIS_PASSWORD`, and `APP_VERSION` are required, and `DJANGO_SECRET_KEY` must be unique and kept secret.
 
-**The big picture:** start with your environment ([local development](#local-development), [GitLab CI pipeline](#gitlab-ci-pipeline), [production](#production-deployment)), then the feature sections: [reverse proxies](#reverse-proxies-and-the-client-ip), [optional features](#optional-features-off-by-default), [import limits](#import-limits), [email](#email-smtp), [demo mode](#demo-mode), [health checks](#health-check-endpoints), [deprecated names](#deprecated-environment-variable-names).
+**The big picture:** start with your environment ([local development](#local-development), [GitLab CI pipeline](#gitlab-ci-pipeline), [production](#production-deployment)), then the feature sections: [reverse proxies](#reverse-proxies-and-the-client-ip), [optional features](#optional-features-off-by-default), [import limits](#import-limits), [email](#email-smtp), [demo mode](#demo-mode), [variables documented elsewhere](#variables-documented-on-other-pages), [health checks](#health-check-endpoints), [deprecated names](#deprecated-environment-variable-names).
 
 ---
 
@@ -359,6 +359,23 @@ If `DEMO_LOGIN_USERNAME` or `DEMO_LOGIN_PASSWORD` is set while `DEMO_MODE` is of
     When `DEMO_MODE` is on, `DEMO_LOGIN_USERNAME` and `DEMO_LOGIN_PASSWORD` are returned to anyone by `GET /api/v1/auth/site-config/`. Enable it only on a dedicated, throwaway instance with its own database, no SSO or real SMTP, and a scheduled reset. Never enable it on an instance with real data.
 
 See [Demo data](demo-data.md#hosted-demo-instance) for seeding, and [Public demo mode](demo-data.md#public-demo-mode-helm) for the Helm deployment that sets all of these.
+
+## Variables documented on other pages
+
+These variables are set in the same `.env` file but are explained where they matter. Each row links to the authoritative page, which holds the default and the full behavior.
+
+| Variable | What it controls | Details |
+|---|---|---|
+| `FRONTEND_URL` | Full URL of the SPA. allauth redirects here after OAuth login and logout. Must be set in production. | [Installation](../getting-started/installation.md#environment-variables) |
+| `SITE_DOMAIN` | Public hostname for OAuth callback URLs. Re-synced to the Sites framework on every backend start. | [Installation](../getting-started/installation.md#environment-variables), [First boot](../getting-started/first-boot.md) |
+| `FORCE_INSECURE_COOKIES` | Turns off secure session and CSRF cookies for plain-HTTP deployments. `init-prod.sh` sets it with `TLS_MODE=none`. | [Installation](../getting-started/installation.md#environment-variables) |
+| `SECURE_HSTS_SECONDS` | `Strict-Transport-Security` max-age. In the production Compose stack it also drives the nginx header. | [Installation](../getting-started/installation.md#environment-variables) |
+| `DJANGO_ADMIN_ALLOWED_IPS` | IPs and CIDR ranges allowed to reach `/admin/`. Production default is loopback only. | [Installation](../getting-started/installation.md#environment-variables), [Secret rotation](secret-rotation.md) |
+| `USE_X_ACCEL_REDIRECT` | How `/media/` downloads are delivered after the board-membership check. | [Media security](media-security.md) |
+| `BOARD_EVENT_RETENTION_DAYS` (default `30`), `NOTIFICATION_RETENTION_DAYS` (default `90`, minimum `14`) | Retention windows for the board change feed and in-app notifications. Enforced only when the matching prune job is scheduled. | [Scheduled jobs](scheduled-jobs.md) |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SERVER_URL`, `OIDC_PROVIDER_NAME` | Generic OIDC single sign-on. Set the first three together to enable it; the provider name labels the login button (default `SSO`). | [OAuth and SSO](../getting-started/oauth.md), [Authentication](authentication.md) |
+| `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_EMAIL` | Override the bootstrap site admin's username and email. | [First boot](../getting-started/first-boot.md) |
+| `VISIBAN_ADMIN_PASSWORD_FILE` | Where the generated bootstrap admin password is written (default `/tmp/visiban_admin_password`). | [First boot](../getting-started/first-boot.md) |
 
 ## Health check endpoints
 
