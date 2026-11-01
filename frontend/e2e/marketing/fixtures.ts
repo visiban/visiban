@@ -18,6 +18,7 @@ import type {
   BoardUser,
   Board,
   Card,
+  CardChecklistItem,
   CardComment,
   CardMovement,
   CardTimelineEntry,
@@ -27,6 +28,7 @@ import type {
   Label,
   PublicCard,
   PublicSwimlane,
+  SiteConfig,
   SiteEmailSettings,
   SiteSettings,
   Swimlane,
@@ -104,9 +106,9 @@ export const CURRENT_USER: User = {
   demo_next_reset_at: null,
 }
 
-export const SITE_CONFIG = {
+export const SITE_CONFIG: SiteConfig = {
   registration_open: false,
-  registration_mode: 'invite_only' as const,
+  registration_mode: 'invite_only',
   demo_mode: false,
   demo_login: null,
   demo_reset_schedule: null,
@@ -400,6 +402,22 @@ export const COMMENTS: CardComment[] = [
     imported_from_username: null,
   },
 ]
+
+/** Checklist for the detail card (shot 03), in server order. */
+export const CHECKLIST: CardChecklistItem[] = [
+  ['Map IdP groups to Meridian roles', true],
+  ['Confirm just-in-time provisioning', true],
+  ['Test deprovisioning in the sandbox', true],
+  ['Share the access review report', true],
+  ['Customer sign-off on role mapping', false],
+  ['Schedule production cutover', false],
+].map(([text, done], position) => ({
+  id: position + 1,
+  text: text as string,
+  is_checked: done as boolean,
+  position,
+  created_by: PRIYA,
+}))
 
 // ---------------------------------------------------------------------------
 // Dashboard (shot 01): boards + groups

@@ -25,6 +25,7 @@ import {
   BOARD_FULL,
   BOARD_ID,
   CARDS,
+  CHECKLIST,
   CLOCK,
   COMMENTS,
   CURRENT_USER,
@@ -56,6 +57,12 @@ test.use({
 
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+
+/** Empty fallback; logs under MARKETING_DEBUG so a page that starts calling an unmocked endpoint is visible. */
+function emptyFallback(route: Route): Promise<void> {
+  if (process.env.MARKETING_DEBUG) console.log(`[marketing-shots] unmocked GET ${new URL(route.request().url()).pathname}`)
+  return json(route, [])
+}
 
 const page_ = <T,>(results: T[]) => ({ count: results.length, next: null, previous: null, results })
 
@@ -118,16 +125,9 @@ async function mockApi(page: Page): Promise<void> {
         case 'comments':
           return json(route, COMMENTS)
         case 'checklist':
-          return json(route, [
-            { id: 1, text: 'Map IdP groups to Meridian roles', is_checked: true, position: 0 },
-            { id: 2, text: 'Confirm just-in-time provisioning', is_checked: true, position: 1 },
-            { id: 3, text: 'Test deprovisioning in the sandbox', is_checked: true, position: 2 },
-            { id: 4, text: 'Share the access review report', is_checked: true, position: 3 },
-            { id: 5, text: 'Customer sign-off on role mapping', is_checked: false, position: 4 },
-            { id: 6, text: 'Schedule production cutover', is_checked: false, position: 5 },
-          ])
+          return json(route, CHECKLIST)
         default:
-          return json(route, [])
+          return emptyFallback(route)
       }
     }
 
@@ -153,7 +153,7 @@ async function mockApi(page: Page): Promise<void> {
         case 'labels':
           return json(route, g.shared_labels)
         default:
-          return json(route, [])
+          return emptyFallback(route)
       }
     }
 
@@ -168,8 +168,7 @@ async function mockApi(page: Page): Promise<void> {
       return json(route, { count: 0, offset: 0, page_size: 50, results: [] })
     }
 
-    if (process.env.MARKETING_DEBUG) console.log(`[marketing-shots] unmocked GET ${p}${url.search}`)
-    return json(route, [])
+    return emptyFallback(route)
   })
 
   // Boards open a WebSocket; answer the handshake so the board never shows "disconnected".

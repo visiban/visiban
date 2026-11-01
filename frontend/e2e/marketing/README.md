@@ -6,7 +6,9 @@ never run in the regular E2E suite or in CI.
 
 Every API call is answered from `fixtures.ts` (no backend or dev database needed), the
 clock is pinned, animations are disabled, and the viewport is 1440x900 at 2x, so the
-output is the same on any machine on any day.
+content is the same on any machine on any day. The app uses system fonts, so pixels differ
+across operating systems; byte-identical PNGs are guaranteed only on the same OS and
+browser build.
 
 ## Run it
 
