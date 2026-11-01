@@ -374,33 +374,64 @@ Read the notes for every version between your current release and the target bef
 
     **Who is affected.** Only values files that set `postgresql.subchartEnabled: true`. An explicit `postgresql.subchartEnabled: false` still renders, and nothing changes for the default StatefulSet or an external database (`postgresql.enabled=false`). Other Bitnami-only keys left under `postgresql:` (for example `postgresql.auth.postgresPassword` or `postgresql.primary.resources`) are accepted and not read, as before.
 
-    **If a release really runs the subchart** (a pre-1.0 chart, or a values file that replaced `postgresql.image` with a Bitnami map), its data lives in the subchart's layout on the claim `data-<release>-postgresql-0`, which is the claim the StatefulSet would use. That is why the setting fails instead of being ignored. Move the data first:
+    **Why `true` fails instead of being ignored.** Ignoring it would not move anyone's data. The chart's StatefulSet has the subchart's name, `<release>-postgresql`, but a different pod selector, and Kubernetes refuses to change a StatefulSet selector in place. `helm upgrade` would stop on that error only after re-pointing the `<release>-postgresql` Service at pods that do not exist, cutting the running backend off from its database. Failing the render stops the upgrade before anything is applied.
 
-    1. Back up the database from the running subchart pod:
+    **If a release really runs the subchart.** Charts 1.0 and 1.1 (and earlier) rendered it when the values file replaced `postgresql.image` with a Bitnami image map. The 1.2 values schema already rejects that map (`got object, want string`), so such a release is still on a 1.0 or 1.1 chart. Its data is in the subchart's layout on the claim `data-<release>-postgresql-0`. Move it with a dump and restore, with the backend stopped, and do not delete anything until the dump is verified:
 
-        ```bash
-        kubectl -n <namespace> exec <release>-postgresql-0 -- \
-          pg_dump -U visiban visiban > visiban-backup-$(date +%Y%m%d%H%M%S).sql
-        ```
-
-    2. **To use an external database,** restore the dump into it, then upgrade with `postgresql.enabled=false`, `postgresql.subchartEnabled=false` and `externalDatabase.*`.
-
-    3. **To use the bundled StatefulSet,** plan for downtime. Delete the subchart's StatefulSet and its claim: the StatefulSet has the same name as the chart's own, and its selector cannot change in place, so `helm upgrade` would otherwise stop on it. Then upgrade, wait for the new pod, and restore:
+    1. **Stop the writers.** Scale the backend to zero (1.0 and 1.1 charts render no CronJobs):
 
         ```bash
-        kubectl -n <namespace> delete statefulset <release>-postgresql
-        kubectl -n <namespace> delete pvc data-<release>-postgresql-0
-        helm upgrade <release> helm/visiban -f my-values.yaml \
-          --set postgresql.subchartEnabled=false \
-          --set-string postgresql.auth.password="$PG_PASSWORD"
-        kubectl -n <namespace> wait pod <release>-postgresql-0 --for=condition=Ready --timeout=120s
-        kubectl -n <namespace> exec -i <release>-postgresql-0 -- \
-          psql -U visiban visiban < visiban-backup-<timestamp>.sql
-        # The backend Deployment is visiban-backend for a release named visiban
-        kubectl -n <namespace> rollout restart deployment <backend-deployment>
+        kubectl -n <namespace> scale deployment/<backend-deployment> --replicas=0
+        # The backend Deployment is visiban-backend for a release named visiban (kubectl get deploy)
         ```
 
-        The restore and restart follow [Upgrading PostgreSQL major versions](../architecture/deployment.md#upgrading-postgresql-major-versions).
+    2. **Dump the database.** The subchart's pod reads its password from a file, not an environment variable, so pass it to `pg_dump` explicitly:
+
+        ```bash
+        kubectl -n <namespace> exec <release>-postgresql-0 -c postgresql -- sh -c \
+          'PGPASSWORD="$(cat "${POSTGRES_PASSWORD_FILE:-/opt/bitnami/postgresql/secrets/password}" 2>/dev/null || printf %s "$POSTGRES_PASSWORD")" pg_dump -U visiban -d visiban' \
+          > visiban-backup.sql
+        ```
+
+    3. **Verify the dump before going further.** A failed `pg_dump` (for example "no password supplied") leaves an empty or truncated file, and the later steps delete the only other copy:
+
+        ```bash
+        if [ -s visiban-backup.sql ] && grep -q 'PostgreSQL database dump complete' visiban-backup.sql; then
+          echo "dump OK"
+        else
+          echo "DUMP INCOMPLETE: stop here and fix the dump"
+        fi
+        ```
+
+        Continue only on `dump OK`. Keep a copy of the file somewhere other than this machine.
+
+    4. **Fix your values file.** Remove `postgresql.subchartEnabled: true` (or set it to `false`) and remove the Bitnami `postgresql.image` map. With the key gone the chart uses `postgres:17`; to pin another image, set it as one string such as `postgres:17.6`. Set `postgresql.auth.password` (or `postgresql.auth.existingSecret`), which the placeholder check requires. Other Bitnami-only `postgresql.*` keys are ignored.
+
+    5. **Move the data.** Choose one:
+
+        - **External database:** restore the dump into an empty database there, then upgrade with `postgresql.enabled=false` and `externalDatabase.*`. Helm removes the subchart's StatefulSet; its claim stays until you delete it.
+
+            ```bash
+            psql -h <host> -U <user> -d <empty-database> -v ON_ERROR_STOP=1 < visiban-backup.sql
+            helm upgrade <release> helm/visiban -f my-values.yaml
+            ```
+
+        - **Bundled StatefulSet:** delete the subchart's StatefulSet and its claim, which the chart's StatefulSet reuses by name. Then upgrade with the backend still at zero replicas, so it cannot migrate or seed the new, empty database before the restore. Restore with `ON_ERROR_STOP`, so a failure stops instead of leaving a partial database. Finally, upgrade again to start the backend, whose `migrate` init container brings the restored data up to this release's schema:
+
+            ```bash
+            kubectl -n <namespace> delete statefulset <release>-postgresql
+            kubectl -n <namespace> delete pvc data-<release>-postgresql-0
+            helm upgrade <release> helm/visiban -f my-values.yaml --set backendReplicaCount=0
+            kubectl -n <namespace> wait pod <release>-postgresql-0 --for=condition=Ready --timeout=180s
+            kubectl -n <namespace> exec <release>-postgresql-0 -- \
+              dropdb -U visiban --force --if-exists visiban
+            kubectl -n <namespace> exec <release>-postgresql-0 -- createdb -U visiban visiban
+            kubectl -n <namespace> exec -i <release>-postgresql-0 -- \
+              psql -U visiban -d visiban -v ON_ERROR_STOP=1 < visiban-backup.sql
+            helm upgrade <release> helm/visiban -f my-values.yaml
+            ```
+
+        The user and database names above are the chart defaults (`postgresql.auth.username` and `postgresql.auth.database`). Read the other upgrade notes between your release and this one before the final `helm upgrade`, as for any upgrade.
 
 ### Upgrading to 1.2.x
 

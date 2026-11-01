@@ -91,13 +91,17 @@ manage the Secret in that case and cannot inspect its contents.
     - The render-time guards (the password check below) and CI only ever
       exercised the StatefulSet, so the mode was documented but untested.
 
-  true FAILS rather than being ignored: an install that really ran the
-  subchart (pre-1.0 charts, or a values file that replaced postgresql.image
-  with a Bitnami map) has its data under the subchart's layout in the PVC
-  data-<release>-postgresql-0, the same name the StatefulSet claims. Silently
-  switching it would start the official image against that volume. Failing
-  stops `helm upgrade` before anything is applied, so the running release
-  keeps serving while the operator migrates. An explicit false still renders.
+  true FAILS rather than being ignored. A release can really be running the
+  subchart: charts 1.0 and 1.1 (and earlier) rendered it when the values file
+  replaced postgresql.image with a Bitnami image map (the 1.2 schema rejects
+  that map). Ignoring the flag on such a release would not move its data:
+  the chart's StatefulSet has the subchart's name, <release>-postgresql, with
+  a different selector, which Kubernetes refuses to change in place, so
+  `helm upgrade` would fail partway -- after re-pointing the
+  <release>-postgresql Service at pods that do not exist, cutting the running
+  backend off from its database. Failing the render stops the upgrade before
+  anything is applied; the upgrade note has the dump-and-restore path. An
+  explicit false still renders.
 */ -}}
 {{- if .Values.postgresql.subchartEnabled }}
 {{- fail "\n\nVisiban: postgresql.subchartEnabled is true, but the bitnami/postgresql subchart was removed in chart 0.8.0 (#1911).\nIt did not render with this chart's values (postgresql.image is the bundled StatefulSet's image string, not the subchart's image map), and Bitnami no longer publishes versioned tags for its default images.\n\nUse the bundled PostgreSQL StatefulSet on the official postgres image (the default):\n    --set postgresql.subchartEnabled=false\nor an external database:\n    --set postgresql.enabled=false --set postgresql.subchartEnabled=false --set externalDatabase.host=<host>\n\nIf a release is running the subchart today, migrate its data first (pg_dump, then restore into the new database). Nothing has been applied yet.\nSee \"Helm: the Bitnami PostgreSQL subchart is removed\" in docs/administration/upgrade.md.\n" -}}
