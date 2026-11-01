@@ -3490,7 +3490,7 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
                   "on rows backed by a membership on this board (id not null).",
     )
     # Not read_only, same reason as is_site_admin: get_members() omits it for
-    # readers who are not site admins (#1301).
+    # readers below board admin who are not site admins either (#1301).
     has_all_content_access = serializers.BooleanField(
         required=False,
         help_text="Whether the member has all-content access, which always "

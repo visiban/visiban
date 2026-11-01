@@ -504,6 +504,10 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     expect(screen.getByText('Site admin')).toHaveAttribute(
       'title', 'Site administrator — role managed at the instance level',
     )
+    // The visible note carries the lock reason too, so it does not depend on the tooltip.
+    const note = document.getElementById(`member-allcontent-note-${both.user.id}`)
+    expect(note).toHaveTextContent('This membership is managed at the instance level and cannot be removed here.')
+    expect(screen.getByText('Site admin')).toHaveAttribute('aria-describedby', note!.id)
   })
 
   it('picks up the all-content signal from a re-read board for an already-listed row (#1301)', async () => {
