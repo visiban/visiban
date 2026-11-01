@@ -260,7 +260,7 @@ The body is validated by the same serializer as [`POST /api/v1/boards/`](boards.
 
 The board always lands in the group in the URL. A `group` key in the body is ignored, not validated and not an error (#1655), so a client that echoes a board object back does not get a `400`. To put the board somewhere else, create it with `POST /api/v1/boards/` and a `group`, or use [`POST /api/v1/boards/{id}/move-group/`](boards.md#post-apiv1boardsidmove-group).
 
-**Response** `201 Created` with the board object, in the same shape as `GET /api/v1/boards/{id}/`. The caller becomes the board's owner and an `admin` member, and the board starts with the template's columns and one swimlane. `group_detail` is `null` (it is only populated with `?expand=group`). `allowed_priorities` is `[]` unless the group defines its own list. Example:
+**Response** `201 Created` with the board object, in the same shape as `GET /api/v1/boards/{id}/`. The caller becomes the board's owner and an `admin` member, and the board starts with the template's columns and one swimlane. `group_detail` is `null` (it is only populated with `?expand=group`). `allowed_priorities` is `[]` unless the request supplied a list or the group defines its own. Example:
 
 ```json
 {
