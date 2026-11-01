@@ -721,14 +721,18 @@ class FailClosedTests(_RowFixture):
     """Values only a raw ORM write can store enforce more, never less (security-review on #1150)."""
 
     def test_unknown_mode_is_hard(self):
-        Swimlane.objects.filter(pk=self.beta.pk).update(wip_limit=1, limit_enforcement="bogus")
-        self.beta.refresh_from_db()
+        # "" included: the serializer stores null for it, but a raw ORM write
+        # of "" still fails closed at the service.
         self._card(self.doing, self.beta)
-        with self.assertRaises(SwimlaneWipHardBlocked):
-            card_services.enforce_column_limits(
-                board=self.board, column=self.doing, card=SimpleNamespace(pk=None, weight=1),
-                role="site_admin", force=True, swimlane=self.beta,
-            )
+        for stored in ("bogus", ""):
+            with self.subTest(stored=stored):
+                Swimlane.objects.filter(pk=self.beta.pk).update(wip_limit=1, limit_enforcement=stored)
+                self.beta.refresh_from_db()
+                with self.assertRaises(SwimlaneWipHardBlocked):
+                    card_services.enforce_column_limits(
+                        board=self.board, column=self.doing, card=SimpleNamespace(pk=None, weight=1),
+                        role="site_admin", force=True, swimlane=self.beta,
+                    )
 
     def test_a_non_list_counts_every_column(self):
         Swimlane.objects.filter(pk=self.beta.pk).update(wip_limit=1, limit_enforcement="block", limit_column_ids={"x": 1})
@@ -875,6 +879,11 @@ class RoleBoundaryTests(_RowFixture):
     def test_non_admin_roles_cannot_write_limits(self):
         base = f"/api/v1/boards/{self.board.pk}/swimlanes/"
         for role, user in self.users.items():
+            # A blank mode (normalized to null for an admin) is refused too.
+            self.client.force_authenticate(user)
+            with self.subTest(role=role, verb="patch-blank"):
+                r = self.client.patch(f"{base}{self.alpha.pk}/", {"limit_enforcement": "", "wip_limit": 2}, format="json")
+                self.assertEqual(r.status_code, 403)
             self.client.force_authenticate(user)
             with self.subTest(role=role, verb="patch"):
                 self.assertEqual(self.client.patch(f"{base}{self.alpha.pk}/", self.LIMITS, format="json").status_code, 403)
