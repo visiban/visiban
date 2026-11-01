@@ -658,8 +658,9 @@ class Card(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     # Optimistic concurrency control — incremented by a field update
     # (update_card), a move (move_card) and a Django admin change save
-    # (CardAdmin.save_model, #2040) only; archive/unarchive, comments,
-    # attachments, checklists and relations leave it unchanged.
+    # (CardAdmin.save_model, #2040, including one that only archives or
+    # restores) only; archive_card/unarchive_card, comments, attachments,
+    # checklists and relations leave it unchanged.
     # Clients send the version they have; the server rejects the request with
     # 409 if it has been modified in the meantime. The web client also drops a
     # card copy whose version is lower than the one it holds (#1969), so the

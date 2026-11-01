@@ -84,8 +84,9 @@ CARD_VERSION = (
     "Enforcement: binding only when a client sends it back as `version` on the "
     "card move endpoint (409 version_conflict on mismatch). PATCH/PUT do not "
     "accept or check it. Optimistic concurrency counter; increments when the "
-    "card's fields are updated or it is moved (not on archive, restore, or "
-    "comment, attachment, checklist or relation changes), and never decreases."
+    "card's fields are updated or it is moved, and on every Django admin save "
+    "of the card (not on an API or MCP archive or restore, or on comment, "
+    "attachment, checklist or relation changes), and never decreases."
 )
 
 # -- Custom field definitions ------------------------------------------------

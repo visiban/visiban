@@ -22,6 +22,7 @@ from unittest.mock import patch
 from django.contrib.admin.sites import AdminSite
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -116,6 +117,19 @@ class CardAdminVersionTests(TestCase):
         _, event_type, payload = mock_broadcast.call_args_list[0][0]
         self.assertEqual(event_type, "card.updated")
         self.assertEqual(payload["version"], 6)
+
+    def test_admin_archive_only_save_bumps_version(self):
+        # Deliberate (#2040): every admin change save bumps, including one that
+        # only sets ``archived_at``. archive_card/unarchive_card (REST, MCP)
+        # do not bump; the admin does not special-case it.
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            self._admin_change(archived_at=timezone.now())
+        self.assertIsNotNone(self.card.archived_at)
+        self.assertEqual(self.card.version, 6)
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            self._admin_change(archived_at=None)
+        self.assertIsNone(self.card.archived_at)
+        self.assertEqual(self.card.version, 7)
 
     def test_save_bumps_a_version_bumped_after_the_instance_was_loaded(self):
         # The admin loaded the card at version 5; an update or move committed
