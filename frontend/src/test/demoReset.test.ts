@@ -12,6 +12,8 @@ import {
   DEMO_RESET_NOTICE_KEY,
 } from '../utils/demoReset'
 import { useBoardSocket } from '../hooks/useBoardSocket'
+import client from '../api/client'
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
 const RESET = '2026-09-27T13:00:00Z'
 
@@ -115,11 +117,17 @@ describe('useBoardSocket — idle visitor across a reset', () => {
     vi.setSystemTime(Date.parse(RESET) + 1_000)
     stashDemoNextReset(RESET)
     const expired = vi.fn()
+    // The dispatch goes out directly; the session probe must not run (#2037).
+    const origAdapter = client.defaults.adapter
+    const probe = vi.fn()
+    client.defaults.adapter = probe as never
     window.addEventListener('auth:sessionExpired', expired)
     renderHook(() => useBoardSocket(1, vi.fn()))
     act(() => { instances[instances.length - 1].onclose?.({ code }) })
     window.removeEventListener('auth:sessionExpired', expired)
+    client.defaults.adapter = origAdapter
     expect(expired).toHaveBeenCalledTimes(1)
+    expect(probe).not.toHaveBeenCalled()
     expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBe(RESET)
   })
 
@@ -138,7 +146,19 @@ describe('useBoardSocket — idle visitor across a reset', () => {
     expect(instances).toHaveLength(2)
   })
 
-  it('an auth close before the reset time keeps the old behavior (no sign-out event)', () => {
+  it('a 4001 close with no demo reset is a plain expiry: signs out once (#2037)', () => {
+    const expired = vi.fn()
+    window.addEventListener('auth:sessionExpired', expired)
+    renderHook(() => useBoardSocket(1, vi.fn()))
+    act(() => { instances[instances.length - 1].onclose?.({ code: 4001 }) })
+    window.removeEventListener('auth:sessionExpired', expired)
+    expect(expired).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBeNull()
+    act(() => { vi.advanceTimersByTime(10_000) })
+    expect(instances).toHaveLength(1)
+  })
+
+  it('a 4001 close before the reset time still signs out, with no reset notice (#2037)', () => {
     vi.setSystemTime(Date.parse(RESET) - 1_000)
     stashDemoNextReset(RESET)
     const expired = vi.fn()
@@ -146,6 +166,44 @@ describe('useBoardSocket — idle visitor across a reset', () => {
     renderHook(() => useBoardSocket(1, vi.fn()))
     act(() => { instances[instances.length - 1].onclose?.({ code: 4001 }) })
     window.removeEventListener('auth:sessionExpired', expired)
-    expect(expired).not.toHaveBeenCalled()
+    expect(expired).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBeNull()
+  })
+
+  describe('4003 close with no demo reset probes the session (#2037)', () => {
+    const origAdapter = client.defaults.adapter
+    afterEach(() => { client.defaults.adapter = origAdapter })
+
+    const closeWith4003 = async (adapter: (c: InternalAxiosRequestConfig) => Promise<unknown>) => {
+      const probe = vi.fn(adapter)
+      client.defaults.adapter = probe as never
+      const expired = vi.fn()
+      window.addEventListener('auth:sessionExpired', expired)
+      renderHook(() => useBoardSocket(1, vi.fn()))
+      await act(async () => { instances[instances.length - 1].onclose?.({ code: 4003 }) })
+      window.removeEventListener('auth:sessionExpired', expired)
+      return { probe, expired }
+    }
+    const reject = (status?: number) => (c: InternalAxiosRequestConfig) =>
+      Promise.reject(new AxiosError('x', status ? 'ERR_BAD_REQUEST' : 'ERR_NETWORK', c, null,
+        status ? ({ status, data: {}, statusText: '', headers: {}, config: c } as never) : undefined))
+
+    it('dead session: the probe 401s and signs out once', async () => {
+      const { probe, expired } = await closeWith4003(reject(401))
+      expect(probe).toHaveBeenCalledTimes(1)
+      expect(expired).toHaveBeenCalledTimes(1)
+    })
+
+    it('live session (lost board access): probe succeeds, no sign-out', async () => {
+      const { probe, expired } = await closeWith4003(async (c) => ({ data: {}, status: 200, statusText: 'OK', headers: {}, config: c }))
+      expect(probe).toHaveBeenCalledTimes(1)
+      expect(expired).not.toHaveBeenCalled()
+    })
+
+    it('probe network error: no sign-out, no crash', async () => {
+      const { probe, expired } = await closeWith4003(reject())
+      expect(probe).toHaveBeenCalledTimes(1)
+      expect(expired).not.toHaveBeenCalled()
+    })
   })
 })

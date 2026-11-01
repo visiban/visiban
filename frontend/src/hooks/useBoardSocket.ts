@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { checkAndFlagDemoReset } from "../utils/demoReset";
+import { probeSession } from "../utils/sessionProbe";
 
 export type BoardEvent = {
   event: string;
@@ -42,7 +43,8 @@ const PING_TIMEOUT_MS = 45_000;
  *   - Normal closure (code 1000) — e.g. component unmount.
  *   - Auth rejection (code 4001 / 4003) — the server closes the socket when
  *     the session cookie is invalid or the user is no longer a board member.
- *     Reconnecting would loop indefinitely in those cases.
+ *     Reconnecting would loop indefinitely in those cases. A 4001 also dispatches
+ *     `auth:sessionExpired` (like a REST 401); a 4003 probes the session first (#2037).
  *
  * Code 1011 is deliberately NOT in that list: the server sends it when its
  * mid-stream access re-check could not complete (a database outage, say), or
@@ -151,8 +153,21 @@ export function useBoardSocket(
           // scheduled reset ended the session. If the reset time has passed,
           // route them to the login page's "demo was reset" notice through
           // the same event the REST 401 path uses, instead of a dead socket.
-          if (checkAndFlagDemoReset()) {
+          //
+          // Plain expiry (#2037): the socket may be the only thing that
+          // notices the session ended, and useAuth clears per-user prefs
+          // (recent boards) only on auth:sessionExpired. 4001 means no valid
+          // credential, so it takes the REST 401 path directly. 4003 is
+          // ambiguous: the server also sends it mid-stream when the socket's
+          // credential was revoked, but also when the user merely lost access
+          // to this board, where signing out would be wrong. So a 4003 probes
+          // the session; a dead one 401s and the interceptor signs out, a live
+          // one stays signed in. No loop: each socket closes once, the probe
+          // runs once per close, and `canceled` skips an unmounted owner.
+          if (checkAndFlagDemoReset() || e.code === 4001) {
             window.dispatchEvent(new Event("auth:sessionExpired"));
+          } else {
+            void probeSession();
           }
           return;
         }

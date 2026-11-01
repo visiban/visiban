@@ -3,6 +3,10 @@ import { renderHook, act } from '@testing-library/react'
 import { useBoardSocket } from '../hooks/useBoardSocket'
 import type { BoardEvent } from '../hooks/useBoardSocket'
 
+// A 4003 close probes the session (#2037); stub it so these tests make no real
+// network call. The probe's own behavior is covered in demoReset.test.ts.
+vi.mock('../utils/sessionProbe', () => ({ probeSession: vi.fn().mockResolvedValue(undefined) }))
+
 // ---------------------------------------------------------------------------
 // Mock WebSocket
 // ---------------------------------------------------------------------------
