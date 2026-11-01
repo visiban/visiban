@@ -675,3 +675,40 @@ class FilterTests(SimpleTestCase):
         ])
         data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
         self.assertEqual(data.available_milestones, ["1.2"])  # None dropped, deduped, sorted
+
+
+class NoRedirectTests(SimpleTestCase):
+    """#1086: outbound provider calls must never follow redirects (SSRF guard for
+    the future per-connection base URL, #1645), and a 3xx is an upstream error."""
+
+    def setUp(self):
+        cache.clear()
+
+    @patch("git_lens.providers.requests.get")
+    def test_every_github_call_disables_redirects(self, mock_get):
+        mock_get.return_value = _resp([])
+        providers.github_fetch("tok", "o/r", LensConfig("status", "milestone"), LensFilters())
+        self.assertGreater(mock_get.call_count, 0)
+        for call in mock_get.call_args_list:
+            self.assertIs(call.kwargs.get("allow_redirects"), False)
+
+    @patch("git_lens.providers.requests.get")
+    def test_every_gitlab_call_disables_redirects(self, mock_get):
+        mock_get.return_value = _resp([])
+        providers.gitlab_fetch(None, "g/p", LensConfig("status", "milestone"), LensFilters())
+        self.assertGreater(mock_get.call_count, 0)
+        for call in mock_get.call_args_list:
+            self.assertIs(call.kwargs.get("allow_redirects"), False)
+
+    @patch("git_lens.providers.requests.get")
+    def test_3xx_maps_to_provider_error_not_success(self, mock_get):
+        # Regression pin for the 3xx -> LensError mapping only. It passes with or
+        # without the fix (the raise_for callbacks already reject non-200); the
+        # allow_redirects kwarg tests above are what guard the redirect fix.
+        for status in (301, 302, 307, 308):
+            for fetch, token in ((providers.github_fetch, "tok"), (providers.gitlab_fetch, None)):
+                mock_get.return_value = _resp([], status=status, headers={"Location": "http://169.254.169.254/"})
+                with self.assertRaises(providers.LensError) as cm:
+                    fetch(token, "o/r", LensConfig(), LensFilters())
+                # Generic upstream error, not a more specific subclass.
+                self.assertIs(type(cm.exception), providers.LensError)

@@ -247,6 +247,7 @@ The cap applies per refresh and cannot be raised in this release.
 | The Lens tab doesn't appear. | The operator hasn't set `GIT_LENS_ENABLED=true`, or you're not a board member. Confirm the environment variable is set and restart the backend. |
 | "Repository not found" error after saving settings. | The repository is private or doesn't exist. The Issue Board Lens only supports public repositories. |
 | "GitHub account not linked" prompt. | Link your GitHub account in **Settings → Connected accounts** and reload the Lens tab. |
+| "GitHub API error (301)" or another upstream error after the repository was renamed or transferred. | The Lens does not follow redirects, so a moved repository returns an upstream error. Update the connection's repository slug to the new `owner/name`. |
 | Issues are missing or stale. | Click **Refresh** in the Lens toolbar to pull the latest data from the provider. |
 | The 300-issue cap notice appears. | Filter the view by milestone, label, or assignee to focus on a subset of work. Those filters are applied at the provider, so they reach issues beyond the cap. The cap itself can't be removed in this release. |
 | A GitHub milestone filter returns an empty board. | No milestone with that exact title exists in the repository. Milestone titles are matched exactly, including capitalization, so pick one from the suggestions to be sure. |
