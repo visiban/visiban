@@ -1269,6 +1269,13 @@ class AdminUserDetailView(APIView):
             # Atomic with the revocations below: a rolled-back deactivation must
             # not leave links revoked (and the on_commit broadcasts never fire).
             with transaction.atomic():
+                # Also what serializes a deactivation with the group
+                # admin-minimum guard (#1814): a member removal or demotion
+                # holds its group's admin account rows while it counts active
+                # admins (groups.services.lock_member_accounts), so this
+                # waits for it, and it waits for this. The revocations below
+                # lock invite and board rows, never a group row, so the lock
+                # order (account rows before group rows) holds.
                 locked = lock_user_row(target.pk)
                 # Re-check on the locked row: the serializer saw an unlocked
                 # read, and superuser status may have been granted since.
@@ -1765,7 +1772,9 @@ class AdminUserDeactivateView(APIView):
             # deadlock. FOR NO KEY UPDATE still serializes concurrent
             # deactivations and access changes of this user (it conflicts
             # with itself and with FOR UPDATE) and is the mode the is_active
-            # UPDATE takes anyway.
+            # UPDATE takes anyway. It is also what serializes a deactivation
+            # with the group admin-minimum guard, which holds the group's
+            # admin account rows while it counts active admins (#1814).
             target = User.objects.select_for_update(no_key=True).get(pk=pk)
         except User.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)

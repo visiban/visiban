@@ -888,9 +888,10 @@ class GroupViewSet(viewsets.ModelViewSet):
             # landing in between can let this one change through, accepted
             # because invite senders' standing is re-checked at preview and
             # redemption.
-            # The helper takes the group row first (``FOR NO KEY UPDATE``, which
-            # also queues behind a group delete and then finds the group gone,
-            # so a missing group answers 404) and refuses to demote the owner
+            # The helper takes the admins' and the target's account rows, then
+            # the group row (``FOR NO KEY UPDATE``, which also queues behind a
+            # group delete and then finds the group gone, so a missing group
+            # answers 404), then the membership rows (#1814), and refuses to demote the owner
             # or the last active admin, judged under the same locks as the write.
             # Taking a weaker group lock first would risk a lock-upgrade
             # deadlock against an ownership transfer.

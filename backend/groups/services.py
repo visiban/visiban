@@ -5,6 +5,7 @@ Keeping the ownership-transfer rules in one function means the REST endpoint
 (``groups.admin.GroupAdmin``) cannot drift apart.
 """
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 
@@ -190,7 +191,8 @@ def transfer_group_ownership(
 ):
     """Make ``new_owner_id`` the owner of the group and keep the previous owner as admin.
 
-    Judged under row locks (the group row, then the new owner's membership) so
+    Judged under row locks (the new owner's account row, then the group row,
+    then the new owner's membership, #1814) so
     the owner and the membership the rules read cannot change between the check
     and the write. ``expected_owner_id`` makes the transfer refuse if the owner
     is no longer who the caller authorized.
@@ -208,6 +210,17 @@ def transfer_group_ownership(
     the group (#1719); the REST view answers it with 404.
     """
     with transaction.atomic():
+        # The new owner's account row before the group row, the lock order
+        # recorded above ``lock_member_accounts`` (#1814). This lookup used
+        # to lock that row through the membership join, after the group row,
+        # which could deadlock against a member change on the same group: that
+        # holds the admins' account rows while it waits for the group row.
+        # Holding it also fixes ``is_active`` for the ``require_active`` check.
+        # Locks the row; the result is unused (pinned by
+        # test_transfer_takes_the_new_owner_account_before_the_group_row).
+        get_user_model().objects.select_for_update(no_key=True).filter(
+            pk=new_owner_id
+        ).values_list("pk", flat=True).first()
         group = Group.objects.select_for_update().filter(pk=group_id).first()
         if group is None:
             raise GroupGone()
@@ -216,7 +229,7 @@ def transfer_group_ownership(
 
         try:
             membership = (
-                GroupMembership.objects.select_for_update()
+                GroupMembership.objects.select_for_update(of=("self",))
                 .select_related("user")
                 .get(group=group, user_id=new_owner_id)
             )
@@ -312,16 +325,34 @@ def lock_membership_for_removal_or_demotion(group_id, user_id, new_role=None):
     Why: an owner holds the admin role, and a group with no active admin can only be
     repaired by its owner (transfer or delete), so both rules protect the
     invariant "the owner is a member and the group has an active admin". The checks
-    are judged under locks, not on a read taken before the write. The group
-    row (``FOR NO KEY UPDATE``) is what serializes callers of this function
-    with each other and with ``transfer_group_ownership``: without it, two
-    requests that each remove a different one of two admins would each count
-    two admins, both pass, and leave none. The admin and target membership
-    rows are then locked in pk order as defense in depth, for a writer that
-    changes a membership row without taking the group lock first. Whether an
-    account is active is read at check time; the group lock does not cover the
-    account's active flag.
+    are judged under locks, not on a read taken before the write:
+
+    1. The account rows of the group's admins and of the target
+       (``lock_member_accounts``), ``FOR NO KEY UPDATE`` in pk order. Every
+       write of ``User.is_active`` (the admin ``PATCH`` and deactivate
+       endpoints, the Django admin user form, a user delete) updates or locks
+       that row, so the active flag counted here cannot change until this
+       transaction ends (#1814). ``FOR NO KEY UPDATE`` does not block the
+       ``FOR KEY SHARE`` a foreign key to the user takes (a card write
+       recording its author), so it adds no conflict with ordinary writes.
+    2. The group row (``FOR NO KEY UPDATE``), which serializes callers of this
+       function with each other and with ``transfer_group_ownership``: without
+       it, two requests that each remove a different one of two admins would
+       each count two admins, both pass, and leave none.
+    3. The admin and target membership rows, in pk order, as defense in depth
+       for a writer that changes a membership row without taking the group
+       lock first.
+
+    This is the lock order recorded above ``lock_member_accounts``: account
+    rows, then the group row, then membership rows. The user delete takes its account
+    rows before the group rows too, so the two queue instead of deadlocking.
+
+    The account set is read when statement 1 runs. An admin promoted between
+    that statement and the group lock has an account row this call does not
+    hold, so that admin is not counted: the result can only be a refusal that
+    a retry would not repeat, never a change that leaves no active admin.
     """
+    account_ids = lock_member_accounts(group_id, user_id)
     locked_group = (
         Group.objects.select_for_update(no_key=True).filter(pk=group_id)
         .values_list("owner_id", flat=True)
@@ -331,6 +362,7 @@ def lock_membership_for_removal_or_demotion(group_id, user_id, new_role=None):
         return None
     owner_id = owner_ids[0]
     # One statement locks every admin row and the target's row, in pk order.
+    # of=("self",): the account rows are already held by statement 1.
     rows = list(
         GroupMembership.objects.select_for_update(of=("self",))
         .select_related("user")
@@ -338,7 +370,11 @@ def lock_membership_for_removal_or_demotion(group_id, user_id, new_role=None):
         .order_by("pk")
     )
     # Only active admins count toward the minimum: a deactivated admin cannot act.
-    active_admin_count = sum(1 for m in rows if counts_toward_admin_minimum(m))
+    # An admin whose account row is not held (promoted after statement 1) is
+    # left out, so its active flag, which nothing here locks, cannot decide it.
+    active_admin_count = sum(
+        1 for m in rows if m.user_id in account_ids and counts_toward_admin_minimum(m)
+    )
     membership = next((m for m in rows if m.user_id == user_id), None)
     if membership is None:
         return None
@@ -351,6 +387,47 @@ def lock_membership_for_removal_or_demotion(group_id, user_id, new_role=None):
     if is_active_admin and new_role != GroupMembership.Role.ADMIN and active_admin_count <= 1:
         raise MembershipChangeRefused(LAST_ADMIN_MESSAGE, LAST_ADMIN_CODE)
     return membership
+
+
+# Lock order for the group admin minimum (#1814), recorded in Rule 11 of
+# docs/development/security-invariants.md. Every path that takes more than one
+# of these locks takes them in this order:
+#
+#   1. account (``User``) rows, in pk order, in one statement
+#      (``FOR NO KEY UPDATE`` or stronger);
+#   2. group rows (in pk order when there are several);
+#   3. group membership rows, in pk order.
+#
+# ``lock_membership_for_removal_or_demotion``, ``transfer_group_ownership`` and
+# the user delete (``accounts.admin.VisibanUserAdmin._lock_and_check_admins``)
+# hold an account row while they wait for a group row, so a path that held a
+# group row and then waited for an account row could deadlock against them. A
+# group writer that needs only ``FOR KEY SHARE`` on an account row (the
+# foreign key check of a membership or invite insert) is not affected: no step
+# above conflicts with it.
+
+
+def lock_member_accounts(group_id, *user_ids):
+    """Lock the accounts of ``group_id``'s admins and of ``user_ids``, ``FOR NO KEY UPDATE``, in pk order.
+
+    Returns the set of locked account pks. Step 1 of the lock order above:
+    call it before the group row. Holding these rows keeps every account's
+    ``is_active`` (and its existence: a user delete locks the same rows) fixed
+    while the admin minimum is counted. One pk-ordered statement, the order
+    the user delete and the Django admin user form lock account rows in, so
+    two such statements cannot wait on each other in a cycle. On SQLite there
+    is no row lock and only the read remains. Must run inside
+    ``transaction.atomic()``.
+    """
+    admins = GroupMembership.objects.filter(
+        group_id=group_id, role=GroupMembership.Role.ADMIN
+    ).values("user_id")
+    return set(
+        get_user_model().objects.select_for_update(no_key=True)
+        .filter(Q(pk__in=admins) | Q(pk__in=list(user_ids)))
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
 
 
 # -- The at-least-one-admin minimum, as seen by a user delete ------------------
@@ -366,6 +443,22 @@ def _groups_administered_by(user_ids):
     return GroupMembership.objects.filter(admin_minimum_q(), user_id__in=user_ids).values("group_id")
 
 
+def admin_accounts_of_groups_administered_by(user_ids):
+    """Subquery: the account pks of every admin of a group ``user_ids`` actively administer.
+
+    The user delete adds these to the account rows its statement 1 locks
+    (#1814), so the other admins' active flag, which
+    ``groups_left_without_admin`` counts, cannot change before the delete
+    commits: a concurrent deactivation of one of them queues behind it.
+    Account rows before the group rows (``lock_groups_administered_by``),
+    the lock order recorded above ``lock_member_accounts``.
+    """
+    return GroupMembership.objects.filter(
+        role=GroupMembership.Role.ADMIN,
+        group_id__in=_groups_administered_by(list(user_ids)),
+    ).values("user_id")
+
+
 def lock_groups_administered_by(user_ids):
     """Lock the rows of every group ``user_ids`` actively administer, ``FOR NO KEY UPDATE``, in pk order.
 
@@ -374,9 +467,12 @@ def lock_groups_administered_by(user_ids):
     ownership transfer takes first (``lock_membership_for_removal_or_demotion``,
     ``transfer_group_ownership``), so holding it keeps those callers from
     changing the locked groups' admin rows between the count and the delete.
-    The set is the groups ``user_ids`` actively administer when this runs; a
-    group they become admins of later is not locked by this call, and the
-    admins' active flag is read, not locked. ``FOR NO KEY UPDATE``
+    The set is the groups ``user_ids`` actively administer when this runs. A
+    later promotion of one of ``user_ids`` (or an ownership transfer to one)
+    locks that account row first, which the delete already holds, so it
+    queues behind the delete. The admins' active flag is held by the account
+    rows the caller locked before this call
+    (``admin_accounts_of_groups_administered_by``). ``FOR NO KEY UPDATE``
     leaves the ``FOR KEY SHARE`` writers (board placement, subgroup create)
     unblocked. Must run inside ``transaction.atomic()``.
     """

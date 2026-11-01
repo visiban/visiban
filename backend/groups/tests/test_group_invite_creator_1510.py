@@ -390,7 +390,9 @@ class RevokeQueryCountTests(TestCase):
         none = self._delete_count(False)
         # Constant: the no-links path adds one links query and no subtree BFS.
         self.assertEqual(none, self._delete_count(False))
-        self.assertLessEqual(none, 16)
+        # 17: the last-admin guard locks the admins' account rows in one
+        # constant statement before the group row (#1814).
+        self.assertLessEqual(none, 17)
 
 
 class JoinPostQueryCountTests(TestCase):
