@@ -54,7 +54,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | Service account tokens (board-scoped, read-only/write) | Enterprise | Strict security policy orgs; small teams work around it with PATs | enterprise #17 |
 | SAML 2.0 / ADFS | Enterprise | Separate library; enterprise identity buyers | enterprise #4 |
 | SCIM directory sync / JIT provisioning | Enterprise | Identity management at scale; invite links cover OSS onboarding | #714 |
-| Automation rules (if/then triggers) | Enterprise | Advanced automation; small teams work without it | enterprise #8 |
+| Automation rules (if/then triggers) | Enterprise | Advanced automation; small teams work without it | enterprise #69 |
 | IP allowlisting | Enterprise | Organization-scale access control | enterprise #7 |
 | Custom RBAC roles | Enterprise | Granular permissions beyond admin/member/viewer | enterprise #6 |
 | SLA tracking and aging alerts | Enterprise | Advanced time-tracking; small teams use cycle time data in OSS | enterprise #10 |
@@ -68,7 +68,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | Multi-tenancy / organization management | Enterprise | Multiple groups under one billing entity | enterprise #21 |
 | Usage quotas and plan limits | Enterprise | SaaS tier management | enterprise #22 |
 | White-labeling | Enterprise | Custom branding | enterprise #23 |
-| External tool import wizard | Enterprise | Migration tooling | enterprise #24 |
+| Guided multi-source migration wizard (visual import-from-external-tools UI) | Enterprise | Migration tooling for onboarding at scale. The import endpoints and formats themselves (Trello, JSON, CSV) are OSS: see [Board import (OSS) vs migration wizard (Enterprise)](#board-import-oss-vs-migration-wizard-enterprise) | enterprise #24 |
 | Form engine for card intake | Enterprise | Borderline; revisit if intake teams are a common OSS persona | enterprise #32 |
 | Google Calendar integration | Enterprise | External service | enterprise #2 |
 
@@ -166,6 +166,16 @@ The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (
 
 ---
 
+### Board import (OSS) vs migration wizard (Enterprise)
+
+**Decision (#1982, 2026-10-31).** Board import and export are OSS, per the guiding principle: a team must be able to bring its own data in and take it out. OSS owns the import endpoints and formats (Trello, JSON and CSV), their envelopes, and the single-source importer UIs, including the Trello import wizard (#456). Only the cross-source guided/bulk migration flow (enterprise #24) is Enterprise. This clarifies and supersedes the earlier row, "External tool import wizard = Enterprise", which read as if OSS import were out of bounds; the shipped OSS importers stay OSS.
+
+**Import and the custom-field signals (#1897).** A bulk import writes rows with `bulk_create`, so it does not send `custom_field_value_changed` or `swimlane_custom_field_value_changed`, nor any other signal for rows written that way (`Board` and `BoardMembership` rows are created individually, so their `post_save` receivers do fire): an import is not a user edit. An Enterprise audit trail built on those signals therefore will not see imported values. What an import does run is the value-policy hooks (`CUSTOM_FIELD_VALIDATORS` and `SWIMLANE_CUSTOM_FIELD_VALIDATORS`), so an extension's validation cannot be bypassed by importing. Those two lists are looked up by name string, so their names are pinned by `boards/tests/test_extensibility.py`.
+
+**Issue:** #1982 (import ruling), #1897 (signal behavior). Enterprise migration flow in enterprise #24.
+
+---
+
 ### Outgoing webhooks (OSS) vs webhook operations (Enterprise)
 
 > **Status.** The OSS ruling is decided, but the feature is **planned and not yet implemented**: #863 is open on the 1.3 milestone and no webhook model, view, or dispatch command exists in the codebase.
@@ -258,8 +268,8 @@ The feature doc's ["Upgrade path to enterprise"](../features/mcp-server.md#upgra
 | `TEMPLATE_PROVIDERS` list (`boards/hooks.py`) | External board-template registration by installed packages (#1115; tracked further in #504) | ✅ Implemented — `boards/hooks.py` + `boards/template_sync.py`, synced via `post_migrate` in `BoardsConfig.ready()` |
 | `CUSTOM_FIELD_VALIDATORS` list (`boards/hooks.py`) | Enterprise per-type custom field validators, **card** values (#371) | ✅ Implemented — `boards/hooks.py`, applied at the serializer boundary |
 | `SWIMLANE_CUSTOM_FIELD_VALIDATORS` list (`boards/hooks.py`) | Enterprise per-type custom field validators, **swimlane row** values (#1140) | ✅ Implemented — `boards/hooks.py`, applied at the serializer boundary. A separate list from the card one, not a widening of it: a validator registered against the card signature may read card-only attributes, so feeding it a swimlane definition could raise. A validator that is generic across both levels registers in both lists. |
-| `custom_field_value_changed` signal (`boards/signals.py`) | Enterprise custom field change audit trail, **card** values (#371) | ✅ Implemented — `boards/signals.py`, sent from `boards/services/custom_fields.py` |
-| `swimlane_custom_field_value_changed` signal (`boards/signals.py`) | Enterprise custom field change audit trail, **swimlane row** values (#1140) | ✅ Implemented — `boards/signals.py`, sent from `boards/services/custom_fields.py`. Separate from the card signal for the same reason as the validator list above — reusing it would mean sending `card=None` to receivers that guarantee a card. |
+| `custom_field_value_changed` signal (`boards/signals.py`) | Enterprise custom field change audit trail, **card** values (#371) | ✅ Implemented — `boards/signals.py`, sent from `boards/services/custom_fields.py`. Not sent by bulk import — see [Board import](#board-import-oss-vs-migration-wizard-enterprise). |
+| `swimlane_custom_field_value_changed` signal (`boards/signals.py`) | Enterprise custom field change audit trail, **swimlane row** values (#1140) | ✅ Implemented — `boards/signals.py`, sent from `boards/services/custom_fields.py`. Separate from the card signal for the same reason as the validator list above — reusing it would mean sending `card=None` to receivers that guarantee a card. Not sent by bulk import — see [Board import](#board-import-oss-vs-migration-wizard-enterprise). |
 | `post_notification_created` signal (`boards/signals.py`) | Enterprise channel delivery (enterprise #34) | ✅ Implemented — `boards/signals.py`, sent from `boards/services/notifications.py` (#356). **Opposite dispatch convention to the two custom-field signals above:** sent *after* the enclosing transaction commits (via `transaction.on_commit`) and with `send_robust`, so a receiver that raises is logged and dropped and cannot roll back the notification it is reporting or fail the request. When no transaction is open — both notification management commands, and the description-mention path — `on_commit` runs the callback immediately and synchronously, so a receiver doing network I/O owns its own timeout. Kwargs: `notification`, `recipient`, `actor`, `context` (a per-`action_type` dict carrying detail that is not reachable from the row, such as the comment body or the from/to column names). |
 | `BaseSnapshotStorage` / `SNAPSHOT_STORAGE_BACKEND` | Enterprise S3 snapshots (enterprise #37) | Not yet implemented |
 | `post_reminder_due` signal | Enterprise reminder delivery (enterprise #35) | Not yet implemented |

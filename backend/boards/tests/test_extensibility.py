@@ -130,3 +130,85 @@ class NotificationDeliveryExtensionPointTests(TestCase):
             "post_notification_created never fires for them: "
             f"{offenders}",
         )
+
+
+class StringNamedHookListTests(TestCase):
+    """Hook lists looked up by *name string* must keep those names (#1897).
+
+    ``_run_custom_field_validator_hooks`` resolves its list with
+    ``getattr(boards.hooks, hook_name)``, and the card/swimlane import paths
+    pass the names as string literals. A rename of the list in ``boards/hooks.py``
+    would not fail an import or a type check: the lookup would raise (or an
+    enterprise registration would land on a list nothing reads). The names are
+    a 1.0+ commitment, so they are pinned here.
+    """
+
+    HOOK_NAMES = ("CUSTOM_FIELD_VALIDATORS", "SWIMLANE_CUSTOM_FIELD_VALIDATORS")
+
+    def test_named_lists_exist_and_are_lists(self):
+        from boards import hooks
+
+        for name in self.HOOK_NAMES:
+            with self.subTest(hook=name):
+                self.assertIsInstance(getattr(hooks, name, None), list)
+
+    def test_every_literal_hook_name_in_source_is_pinned(self):
+        """Any ``*_VALIDATORS`` string literal in non-test backend source is a pinned name.
+
+        Scans every non-test, non-migration ``.py`` file (single or double
+        quotes), so a new string-named lookup in a third file is caught too.
+        """
+        import re
+        from pathlib import Path
+
+        import boards
+
+        backend = Path(boards.__file__).parent.parent
+        pattern = re.compile(r"""["']([A-Z][A-Z_]*_VALIDATORS)["']""")
+        found = set()
+        for path in backend.rglob("*.py"):
+            parts = path.relative_to(backend).parts
+            if "tests" in parts or "migrations" in parts or path.name.startswith("test_"):
+                continue
+            if parts[0] in {".venv", "venv", "node_modules"}:
+                continue
+            found |= set(pattern.findall(path.read_text(encoding="utf-8")))
+        self.assertTrue(found, "expected string-named hook lookups in the source")
+        self.assertLessEqual(found, set(self.HOOK_NAMES))
+
+    def test_validator_registered_on_each_list_is_run(self):
+        from unittest import mock
+
+        from boards import hooks
+        from boards.serializers import _run_custom_field_validator_hooks
+
+        definition = mock.Mock(field_type="text")
+        for name in self.HOOK_NAMES:
+            with self.subTest(hook=name):
+                calls = []
+                registered = getattr(hooks, name)
+                validator = lambda d, v: calls.append(v) or v  # noqa: E731
+                registered.append(validator)
+                try:
+                    if name == "CUSTOM_FIELD_VALIDATORS":
+                        _run_custom_field_validator_hooks(definition, "x")
+                    else:
+                        _run_custom_field_validator_hooks(definition, "x", hook_name=name)
+                finally:
+                    registered.remove(validator)
+                self.assertEqual(calls, ["x"])
+
+
+class BoardCapabilitiesContractTests(TestCase):
+    """``capabilities`` on the board payload is an additive-only contract (#1897).
+
+    Adding a key means updating ``docs/api/boards.md`` and this test.
+    """
+
+    def test_capabilities_keys_are_pinned(self):
+        """``capabilities`` exposes exactly ``movement_export`` in OSS (#1897)."""
+        from boards.serializers import BoardFullSerializer
+
+        self.assertEqual(
+            BoardFullSerializer().get_capabilities(None), {"movement_export": False},
+        )
