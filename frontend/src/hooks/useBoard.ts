@@ -64,14 +64,34 @@ function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership): 
  * socket frame for the same card travel on different transports, so the older
  * of the two can land last; it must not put the older card back on screen.
  * Returns the same array when nothing is replaced, so callers can keep the
- * board's identity. Every whole-card replacement in this hook goes through
- * here; see isStaleCard for why an equal version still replaces.
+ * board's identity. Every single-card replacement in this hook (socket frames
+ * and HTTP card responses) goes through here; see isStaleCard for why an equal
+ * version still replaces. The full-board fetches in `load` / `silentReload`
+ * still replace every card with whatever the server returned (#2038).
  */
 function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card) => Card = (c) => c): Card[] {
   const i = cards.findIndex((c) => c.id === incoming.id);
   if (i === -1 || isStaleCard(incoming, cards[i])) return cards;
   const next = cards.slice();
   next[i] = prepare(incoming);
+  return next;
+}
+
+/**
+ * Undo an optimistic move that failed (#1969). Only the moved card is touched:
+ * restoring the whole pre-request list would also undo every frame that landed
+ * while the request was in flight (other cards' edits, a card created, deleted
+ * or archived meanwhile). Only its location is put back, and only while the
+ * stored copy is still the optimistic one: a newer version that arrived since
+ * already carries the server's real location, so it is kept. A card that left
+ * the board meanwhile stays gone.
+ */
+function rollbackMovedCard(cards: Card[], before: Card | undefined): Card[] {
+  if (!before) return cards;
+  const i = cards.findIndex((c) => c.id === before.id);
+  if (i === -1 || isStaleCard(before, cards[i])) return cards;
+  const next = cards.slice();
+  next[i] = { ...cards[i], column: before.column, swimlane: before.swimlane, position: before.position };
   return next;
 }
 
@@ -177,9 +197,9 @@ export function useBoard() {
   ): Promise<MoveOutcome> => {
     if (!boardRef.current) return { ok: false, error: new Error("board not loaded") };
 
-    // Optimistic update — capture current cards for rollback via the ref
-    // so this callback does not depend on the `board` state value.
-    const prev = boardRef.current.cards;
+    // Optimistic update — capture the card's pre-move copy for rollback via
+    // the ref so this callback does not depend on the `board` state value.
+    const before = boardRef.current.cards.find((c) => c.id === cardId);
     setBoard((b) => {
       if (!b) return b;
       return {
@@ -210,8 +230,12 @@ export function useBoard() {
       clearMoveError();
       return { ok: true };
     } catch (err: unknown) {
-      // Roll back the optimistic update unconditionally.
-      setBoard((b) => b ? { ...b, cards: prev } : b);
+      // Roll back the optimistic update, leaving frames that landed meanwhile.
+      setBoard((b) => {
+        if (!b) return b;
+        const cards = rollbackMovedCard(b.cards, before);
+        return cards === b.cards ? b : { ...b, cards };
+      });
       // On 409, surface a structured error for the UI to display.
       let surfaced = false;
       const axiosErr = err as { response?: { status?: number; data?: unknown } };
@@ -269,7 +293,7 @@ export function useBoard() {
     const { cardId, columnId, swimlaneId, position } = move;
     clearMoveError();
 
-    const prev = boardRef.current.cards;
+    const before = boardRef.current.cards.find((c) => c.id === cardId);
     setBoard((b) => {
       if (!b) return b;
       return {
@@ -293,7 +317,11 @@ export function useBoard() {
       });
       return { ok: true };
     } catch (err: unknown) {
-      setBoard((b) => b ? { ...b, cards: prev } : b);
+      setBoard((b) => {
+        if (!b) return b;
+        const cards = rollbackMovedCard(b.cards, before);
+        return cards === b.cards ? b : { ...b, cards };
+      });
       // Surface any structured error so the user knows the override failed
       // (e.g. a server error or unexpected 409) rather than silently reverting.
       // This generic pass-through already covers the maintenance_mode 503

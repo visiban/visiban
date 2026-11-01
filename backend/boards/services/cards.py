@@ -1272,7 +1272,8 @@ def lock_card_cell_entry(*, card_id, column_ids):
 
 
 def lock_card_row(card_id):
-    """Lock one card row ``FOR UPDATE`` and return its placement fields.
+    """Lock one card row ``FOR UPDATE`` and return its placement fields and
+    ``version`` (the admin keeps the locked version on save, #1969).
 
     The first half of ``lock_card_cell_entry``, exposed on its own for a
     caller that must decide *which* columns to lock from the card's current
@@ -1284,7 +1285,7 @@ def lock_card_row(card_id):
     return (
         Card.objects.filter(pk=card_id)
         .select_for_update(of=("self",))
-        .only("pk", "column_id", "swimlane_id", "archived_at", "weight")
+        .only("pk", "column_id", "swimlane_id", "archived_at", "weight", "version")
         .first()
     )
 

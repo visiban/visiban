@@ -83,8 +83,9 @@ BOARD_ALLOWED_PRIORITIES = (
 CARD_VERSION = (
     "Enforcement: binding only when a client sends it back as `version` on the "
     "card move endpoint (409 version_conflict on mismatch). PATCH/PUT do not "
-    "accept or check it. Optimistic concurrency counter; increments on every "
-    "card mutation."
+    "accept or check it. Optimistic concurrency counter; increments when the "
+    "card's fields are updated or it is moved (not on archive, restore, or "
+    "comment, attachment, checklist or relation changes), and never decreases."
 )
 
 # -- Custom field definitions ------------------------------------------------

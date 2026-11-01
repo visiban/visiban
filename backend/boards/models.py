@@ -656,9 +656,13 @@ class Card(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    # Optimistic concurrency control — incremented on every mutation (move,
-    # update, archive).  Clients send the version they have; the server
-    # rejects the request with 409 if it has been modified in the meantime.
+    # Optimistic concurrency control — incremented by a field update
+    # (update_card) and a move (move_card) only; archive/unarchive, comments,
+    # attachments, checklists, relations and admin edits leave it unchanged.
+    # Clients send the version they have; the server rejects the request with
+    # 409 if it has been modified in the meantime. The web client also drops a
+    # card copy whose version is lower than the one it holds (#1969), so the
+    # value must never go down.
     # Source of change: Gemini Pro external codebase review (2026-04-01).
     version = models.PositiveIntegerField(default=1)
     # Soft-delete: set when a card is archived; null for active cards.

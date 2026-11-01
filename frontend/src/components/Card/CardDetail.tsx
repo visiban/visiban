@@ -522,10 +522,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const localLocationRef = useRef({ column: localCard.column, swimlane: localCard.swimlane });
   localLocationRef.current = { column: localCard.column, swimlane: localCard.swimlane };
   useEffect(() => {
-    // Only a version that goes UP is a change. useBoard's rollback of a failed
-    // move restores the snapshot taken before the request, whose version can
-    // be older than one a socket event delivered meanwhile; that is not a
-    // remote change and must not close the popover or erase its error.
+    // Only a version that goes UP is a change. A copy older than one already
+    // seen (useBoard drops those since #1969, and a failed move's rollback now
+    // keeps a newer copy, but a full board reload can still deliver one, #2038)
+    // is not a remote change and must not close the popover or erase its error.
     if (card.version <= lastSeenVersionRef.current) return;
     lastSeenVersionRef.current = card.version;
     // Our own save, or our own move: handleMoveSubmit and save() apply their

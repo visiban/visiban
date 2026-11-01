@@ -315,14 +315,27 @@ class CardAdmin(admin.ModelAdmin):
     WIP, weight and ``allow_card_creation`` are enforced by ``CardAdminForm``
     (#1428); the version bump, ``CardMovement`` audit row and hooks are still
     skipped (see ``docs/architecture/service-layer.md``).
+
+    ``version`` is read-only here and is re-read under the card lock before
+    the save (#1969). Clients order the copies of a card they receive by it
+    and drop one whose version is lower than the copy they hold, so an admin
+    save that wrote a typed-in or stale-loaded lower number would make every
+    client drop this edit's ``card.updated`` frame until the version caught up.
     """
 
     form = CardAdminForm
+    readonly_fields = ("version",)
 
     def save_model(self, request, obj, form, change):
         peers = {}
         with transaction.atomic():
             stored = self._lock_cell_entry(obj, change)
+            if stored is not None:
+                # ``obj`` was loaded before the lock, and the save writes every
+                # column: keep the locked row's version so an update or move
+                # that committed in between is not rolled back to a lower
+                # number (#1969; see the class docstring).
+                obj.version = stored.version
             # The form edits archived_at (fields="__all__"), so a save can
             # archive or restore the card. That moves the blocker_count of
             # every card it blocks, as archive_card / unarchive_card do, so
