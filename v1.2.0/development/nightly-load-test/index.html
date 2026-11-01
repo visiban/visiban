@@ -3082,6 +3082,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pooled-connections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pooled connections
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-fixture" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4301,6 +4312,11 @@
 <li>Nothing is pending now: <code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the scenario) got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.</li>
 <li>The <code>suppressions-check</code> CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending (<a href="https://gitlab.com/visiban/visiban/-/issues/1812">#1812</a>; see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</li>
 </ul>
+<h2 id="pooled-connections">Pooled connections<a class="headerlink" href="#pooled-connections" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1958).</p>
+</blockquote>
+<p>The nightly job runs unpooled: <code>DATABASE_POOL</code> is unset and so is <code>CONN_MAX_AGE</code>, so every request opens its own PostgreSQL connection. The latency budgets therefore do not exercise the <a href="../../administration/configuration/#database-connection-pool">connection pool</a>. To measure the pooled path, run the load test against a backend started with <code>DATABASE_POOL=true</code> (and, if needed, <code>DATABASE_POOL_MAX_SIZE</code>) in its environment. No pooled run has been recorded yet (tracked in #2035, along with a saturation check, pgBouncer and the default decision), so the budgets make no claim about it.</p>
 <h2 id="the-fixture">The fixture<a class="headerlink" href="#the-fixture" title="Permanent link">&para;</a></h2>
 <p>The job seeds a dedicated, larger board, never the real demo board:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>backend
@@ -4820,7 +4836,7 @@ it isn't a clean before/after of the code. <code>card_search_multi_board</code> 
 <ul>
 <li>That commit predates #1800's backport, so psycopg 3 was still parsing <code>timestamptz</code> in Python and was still not slower.</li>
 <li>psycopg2 was forced by shadowing the <code>psycopg</code> import, so Django fell back to psycopg2 2.9.11.</li>
-<li>A new connection per request (<code>CONN_MAX_AGE</code> unset) is part of both arms.</li>
+<li>A new connection per request (<code>CONN_MAX_AGE</code> unset, <code>DATABASE_POOL</code> off) is part of both arms.</li>
 <li>The development machine is macOS on arm64, while CI is <code>python:3.12-slim</code> on x86_64. This test doesn't cover a platform-specific driver cost, nor the unpinned transitive dependencies and floating images #1800 lists.</li>
 </ul>
 <p>This step is therefore <strong>unattributed</strong>. It's 0.8-2.1ms per request on the three lightest endpoints and 3.2-4.4ms on <code>card_search</code>, which is 2-6% and well inside the 1.4x budget factor, so it wasn't pursued. If it grows, run the same driver A/B on a NUC runner rather than on a development machine.</p>
