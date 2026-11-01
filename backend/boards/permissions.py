@@ -533,11 +533,26 @@ def _is_demo_visitor(role, user):
     return username.lower() == published
 
 
+# Roles whose ``is_moderator`` flag is honored (#1944). The members endpoint
+# refuses the flag on a collaborator or viewer, but the Django admin, a shell or
+# a future writer can still store one; honoring it there would let a role that
+# is deliberately read-only for cards delete other users' comments, attachments
+# and checklist items. Gate on the stored role, not just "in the enum".
+MODERATOR_ELIGIBLE_ROLES = (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN)
+
+
+def _moderator_flag_honored(membership):
+    """True only for a moderator-flagged membership whose role may moderate."""
+    return bool(membership.is_moderator) and membership.role in MODERATOR_ELIGIBLE_ROLES
+
+
 def can_modify_others_content(board, role, user):
     """Return True if the user may edit/delete/archive content created by others.
 
     Admins, site admins, and board owners always can. Members with the
-    ``is_moderator`` flag can. Regular members and collaborators cannot.
+    ``is_moderator`` flag can (the flag counts only on a member or admin row;
+    a stored collaborator/viewer flag is ignored, #1944). Regular members and
+    collaborators cannot.
 
     Uses the membership cached by ``get_board_role`` when available to avoid a
     redundant database query.
@@ -568,18 +583,18 @@ def can_modify_others_content(board, role, user):
     # nothing; on a mismatch we fall through to the scan and the live query,
     # which are correct rather than fast (security-review, #1107).
     if membership is not None and membership.user_id == user.id:
-        return membership.is_moderator and membership.role in BoardMembership.Role.values
+        return _moderator_flag_honored(membership)
     # _prefetched_memberships is loaded by get_board_for_user() — scan it first
     # before issuing a live query on every mutation request.
     prefetched = getattr(board, "_prefetched_memberships", None)
     if prefetched is not None:
         for m in prefetched:
             if m.user_id == user.id:
-                return m.is_moderator and m.role in BoardMembership.Role.values
+                return _moderator_flag_honored(m)
         return False
     try:
         membership = BoardMembership.objects.get(board=board, user=user)
-        return membership.is_moderator and membership.role in BoardMembership.Role.values
+        return _moderator_flag_honored(membership)
     except BoardMembership.DoesNotExist:
         return False
 
