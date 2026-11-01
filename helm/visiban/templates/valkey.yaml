@@ -5,9 +5,10 @@ Replaces the bitnami/valkey subchart, whose default image was the mutable
 bitnami/valkey:latest — Bitnami no longer publishes versioned tags, so every
 install and every pod reschedule pulled whatever `latest` meant that day
 (Valkey 9.x on 2026-09-27) while the Compose stacks pinned 8. Same move the
-chart already made for PostgreSQL (templates/postgresql.yaml) — except that
-there is no `subchartEnabled` escape hatch back to Bitnami here: the only thing
-that path would restore is the unpinned image this template exists to remove.
+chart already made for PostgreSQL (templates/postgresql.yaml), with no
+`subchartEnabled` escape hatch back to Bitnami: the only thing that path would
+restore is the unpinned image this template exists to remove. (PostgreSQL's
+escape hatch never rendered and was removed in chart 0.8.0, #1911.)
 
 Names are chosen for a non-breaking `helm upgrade` from the subchart:
   - The Service keeps the subchart's name, <release>-valkey-primary, so the

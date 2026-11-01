@@ -79,13 +79,15 @@ edit it:
 **The values schema is closed.** `values.schema.json` declares
 `additionalProperties: false` at the root and on every chart-owned object, so a
 misspelled or invented key is rejected by `helm install` instead of being
-silently accepted and doing nothing. Blocks handed to a subchart or to `toYaml`
-— `global`, `postgresql`, `ingress.annotations`, `*.resources`,
+silently accepted and doing nothing. Helm's cross-chart `global` block and the
+blocks handed to `toYaml` — `ingress.annotations`, `*.resources`,
 `backend.securityContext.pod` / `.container`, `postgresql.securityContext.pod`
 / `.container`, `frontend.securityContext.pod` / `.container` — stay open,
-because the chart is not the authority on what is valid inside them.
-`valkey` also stays open, so a values file written for the Bitnami subchart the
-chart used before 0.5.0 still upgrades. `redis` is open too, but only to carry
+because the chart is not the authority on what is valid inside them. `valkey` and `postgresql` also
+stay open, so a values file written for the Bitnami subcharts the chart used
+before (Valkey until 0.5.0, the opt-in PostgreSQL one until 0.8.0) still
+upgrades. `postgresql.subchartEnabled=true` fails the render, since that
+subchart is gone (#1911). `redis` is open too, but only to carry
 the deprecated 1.1 `redis.enabled` alias for `valkey.enabled` (removed no earlier
 than 1.3); any other `redis.*` key fails the render with a message naming the
 rename to `valkey:`; see [Bundled Valkey](#bundled-valkey).

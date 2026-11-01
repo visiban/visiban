@@ -78,12 +78,53 @@ manage the Secret in that case and cannot inspect its contents.
 {{- end }}
 
 {{- /*
-  Bundled PostgreSQL password (#1864). Applies in BOTH bundled modes -- the
-  default StatefulSet (templates/postgresql.yaml) and the bitnami subchart --
-  so it keys on postgresql.enabled OR subchartEnabled (the Chart.yaml
-  dependency condition is subchartEnabled alone). A literal default in a
-  published values.yaml is not a secret, and an empty value is no better, so
-  the render refuses both.
+  Removed bitnami/postgresql subchart (#1911). Chart 0.8.0 dropped the
+  dependency rather than fixing it, for three reasons:
+    - It never rendered with this chart's own values: postgresql.image is the
+      bundled StatefulSet's image STRING (schema-enforced since 1.2), and Helm
+      hands the whole postgresql block to the subchart, whose templates need an
+      image MAP under the same key. Keeping both would mean renaming a key
+      every default install reads, to save a mode no install could deploy.
+    - Its default images are Bitnami's, and Bitnami no longer publishes
+      versioned tags to Docker Hub -- the reason the chart moved PostgreSQL
+      (and, in #1200, Valkey) to its own StatefulSet on official images.
+    - The render-time guards (the password check below) and CI only ever
+      exercised the StatefulSet, so the mode was documented but untested.
+
+  true FAILS rather than being ignored. A release can really be running the
+  subchart: charts 1.0 and 1.1 (and earlier) rendered it when the values file
+  replaced postgresql.image with a Bitnami image map (the 1.2 schema rejects
+  that map) or set it to null. Ignoring the flag on such a release would not move its data:
+  the chart's StatefulSet has the subchart's name, <release>-postgresql, with
+  a different selector, which Kubernetes refuses to change in place, so
+  `helm upgrade` would fail partway -- after re-pointing the
+  <release>-postgresql Service at pods that do not exist, cutting the running
+  backend off from its database. Failing the render stops the upgrade before
+  anything is applied; the upgrade note has the dump-and-restore path. An
+  explicit false still renders.
+*/ -}}
+{{- if .Values.postgresql.subchartEnabled }}
+{{- fail "\n\nVisiban: postgresql.subchartEnabled is true, but the bitnami/postgresql subchart was removed in chart 0.8.0 (#1911).\nIt did not render with this chart's values (postgresql.image is the bundled StatefulSet's image string, not the subchart's image map), and Bitnami no longer publishes versioned tags for its default images.\n\nUse the bundled PostgreSQL StatefulSet on the official postgres image (the default):\n    --set postgresql.subchartEnabled=false\nor an external database:\n    --set postgresql.enabled=false --set postgresql.subchartEnabled=false --set externalDatabase.host=<host>\n\nIf a release is running the subchart today, migrate its data first (pg_dump, then restore into the new database). Nothing has been applied yet.\nSee \"Helm: the Bitnami PostgreSQL subchart is removed\" in docs/administration/upgrade.md.\n" -}}
+{{- end }}
+
+{{- /*
+  Empty postgresql.image (#1911). `postgresql.image: null` -- how a values file
+  let the removed subchart fall back to its own image map -- deletes the key,
+  so the schema's string type never sees it and the StatefulSet would render
+  `image:` with nothing after it, which only the API server rejects, at apply
+  time. An operator following the subchart migration would hit that after
+  deleting the old claim, so it fails here, before anything is applied.
+*/ -}}
+{{- if and .Values.postgresql.enabled (eq (toString (.Values.postgresql.image | default "")) "") }}
+{{- fail "\n\nVisiban: postgresql.image is empty or null. The bundled PostgreSQL StatefulSet needs one repository:tag string.\nRemove the key from your values file to use the default (postgres:17), or set it explicitly:\n    --set postgresql.image=postgres:17\nA values file written for the removed bitnami/postgresql subchart may set it to null or to an image map; neither applies to this chart (#1911).\n" -}}
+{{- end }}
+
+{{- /*
+  Bundled PostgreSQL password (#1864), for the bundled StatefulSet
+  (templates/postgresql.yaml). Until #1911 it also keyed on subchartEnabled;
+  that mode now fails the render above. A literal default in a published
+  values.yaml is not a secret, and an empty value is no better, so the render
+  refuses both.
 
   With postgresql.auth.existingSecret the bundled PostgreSQL AND the backend
   both read the password from that Secret (the backend via DATABASE_URL_PASSWORD,
@@ -92,7 +133,7 @@ manage the Secret in that case and cannot inspect its contents.
   the check is likewise skipped (as before #1910).
 */ -}}
 {{- $pgPw := toString .Values.postgresql.auth.password -}}
-{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret) }}
+{{- if and .Values.postgresql.enabled (not .Values.postgresql.auth.existingSecret) }}
 {{- if or (eq $pgPw "visiban") (eq $pgPw "") }}
 {{- fail "\n\nVisiban: postgresql.auth.password is empty or set to the chart's placeholder \"visiban\".\nThe placeholder is the literal default in values.yaml, so it is not a secret.\n\nGenerate a strong password and pass it via:\n    --set-string postgresql.auth.password=<password>\nor in your values.secret.yaml file.\n\npostgresql.auth.existingSecret clears this check: with it set, both PostgreSQL and the backend take the password from that Secret (key \"password\").\n\nExisting installs: set the password BEFORE upgrading. See \"Helm: the placeholder PostgreSQL password fails the render\" in docs/administration/upgrade.md.\n" -}}
 {{- end }}

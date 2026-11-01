@@ -2003,16 +2003,22 @@ check_allowed_hosts_not_widened() {
 }
 
 check_postgres_password_guard() {
-  section "15. The placeholder PostgreSQL password is refused with the default bundled PostgreSQL (#1864)"
+  section "15. The placeholder PostgreSQL password is refused with the default bundled PostgreSQL (#1864); the removed subchart mode fails the render (#1911)"
 
   local errf bad=0
   errf="$(mktemp)"
   # Re-apply the literal values.yaml placeholder AFTER RENDER_ARGS' real-looking
-  # password. Only the default StatefulSet mode is rendered here: every
-  # postgresql.subchartEnabled=true render fails offline because the schema-
-  # enforced string `postgresql.image` collides with the subchart's `image` map
-  # (predates #1864; tracked in #1911), so the subchart branches of the guard
-  # are not asserted.
+  # password. The bundled StatefulSet is the only bundled mode: the
+  # bitnami/postgresql subchart (postgresql.subchartEnabled) was removed in
+  # chart 0.8.0 (#1911), and true must FAIL the render rather than be ignored:
+  # on a release that runs the subchart, the chart's StatefulSet has the same
+  # name with an immutable, different selector, so `helm upgrade` would fail
+  # partway after re-pointing the <release>-postgresql Service at no pods.
+  # That guard is asserted below, with the placeholder and with a real
+  # password, so it cannot be mistaken for (or masked by) the password guard.
+  # So is the empty-image guard: `postgresql.image: null` (how such a values
+  # file reached the subchart's own image) would otherwise render `image:`
+  # empty and fail only at apply time.
   local case_ name
   # Must FAIL on the password guard: name|flags
   local must_fail=(
@@ -2031,8 +2037,44 @@ check_postgres_password_guard() {
       bad=1
     fi
   done
+  # Must FAIL on the removed-subchart guard (#1911): name|flags
+  local subchart_fail=(
+    "subchart with a real password|--set postgresql.subchartEnabled=true"
+    "subchart with the placeholder password|--set postgresql.subchartEnabled=true --set-string postgresql.auth.password=visiban"
+    "subchart with postgresql.auth.existingSecret|--set postgresql.subchartEnabled=true --set postgresql.auth.existingSecret=my-pg-secret"
+    "subchart with an external database|--set postgresql.subchartEnabled=true --set postgresql.enabled=false"
+  )
+  for case_ in "${subchart_fail[@]}"; do
+    name="${case_%%|*}"
+    # shellcheck disable=SC2086  # flags are deliberately word-split
+    if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" ${case_#*|} >/dev/null 2>"$errf"; then
+      fail "removed-subchart guard '$name': the render SUCCEEDED -- postgresql.subchartEnabled=true must fail, not be ignored (#1911)"
+      bad=1
+    elif ! grep -qF 'postgresql.subchartEnabled is true, but the bitnami/postgresql subchart was removed' "$errf"; then
+      fail "removed-subchart guard '$name': the render failed, but not on the removed-subchart guard: $(head -3 "$errf" | tr '\n' ' ')"
+      bad=1
+    fi
+  done
+  # Must FAIL on the empty-image guard (#1911): name|flags
+  local image_fail=(
+    "postgresql.image null|--set postgresql.image=null"
+    "postgresql.image empty|--set-string postgresql.image="
+  )
+  for case_ in "${image_fail[@]}"; do
+    name="${case_%%|*}"
+    # shellcheck disable=SC2086  # flags are deliberately word-split
+    if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" ${case_#*|} >/dev/null 2>"$errf"; then
+      fail "empty-image guard '$name': the render SUCCEEDED -- the StatefulSet would carry an empty image (#1911)"
+      bad=1
+    elif ! grep -qF 'postgresql.image is empty or null' "$errf"; then
+      fail "empty-image guard '$name': the render failed, but not on the empty-image guard: $(head -3 "$errf" | tr '\n' ' ')"
+      bad=1
+    fi
+  done
   # Must render: name|flags
   local must_pass=(
+    "postgresql.image null with an external database|--set postgresql.image=null --set postgresql.enabled=false"
+    "postgresql.subchartEnabled=false set explicitly (#1911)|--set postgresql.subchartEnabled=false"
     "a real password with only postgresql.auth.existingSecret (backward compatible, #1910)|--set-string postgresql.auth.password=a-real-looking-password --set postgresql.auth.existingSecret=my-pg-secret"
     "the placeholder password with postgresql.auth.existingSecret (the password is unused, #1910)|--set-string postgresql.auth.password=visiban --set postgresql.auth.existingSecret=my-pg-secret"
     "both existing Secrets set|--set-string postgresql.auth.password=visiban --set postgresql.auth.existingSecret=my-pg-secret --set secret.existingSecret=my-secret"
@@ -2097,7 +2139,7 @@ check_postgres_password_guard() {
 
   rm -f "$errf"
 
-  [ "$bad" -eq 0 ] && pass "the placeholder PostgreSQL password (and an empty one) fails the render with the default bundled StatefulSet; postgresql.auth.existingSecret (the password is unused) clears it and feeds the backend via DATABASE_URL_PASSWORD (#1910); otherwise only a real password, both existing Secrets, or an external database clear it"
+  [ "$bad" -eq 0 ] && pass "the placeholder PostgreSQL password (and an empty one) fails the render with the default bundled StatefulSet; postgresql.auth.existingSecret (the password is unused) clears it and feeds the backend via DATABASE_URL_PASSWORD (#1910); otherwise only a real password, both existing Secrets, or an external database clear it; postgresql.subchartEnabled=true fails the render in every mode, and an empty or null postgresql.image fails it with the bundled StatefulSet (#1911)"
 }
 
 # ---------------------------------------------------------------------------
@@ -2424,7 +2466,13 @@ self_test() {
     "10 demo unsafe-hosts opt-in guard removed|templates/_validate.tpl|s/{{- if .Values.backend.settings.allowUnsafeHosts -}}/{{- if false -}}/"
     # 15 (#1864): the guard stops covering postgresql.enabled, so the default
     # bundled StatefulSet accepts the placeholder password again.
-    "15 postgres password guard limited to the subchart|templates/_validate.tpl|s/{{- if and (or .Values.postgresql.enabled .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret)/{{- if and (or false .Values.postgresql.subchartEnabled) (not .Values.postgresql.auth.existingSecret)/"
+    "15 postgres password guard no longer keyed on postgresql.enabled|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (not .Values.postgresql.auth.existingSecret) }}/{{- if and false (not .Values.postgresql.auth.existingSecret) }}/"
+    # 15 (#1911): postgresql.subchartEnabled=true is silently ignored again, so
+    # on a release that runs the removed subchart `helm upgrade` fails partway
+    # (immutable StatefulSet selector) after re-pointing the Service.
+    "15 removed-subchart guard removed|templates/_validate.tpl|s/{{- if .Values.postgresql.subchartEnabled }}/{{- if false }}/"
+    # 15 (#1911): an empty or null postgresql.image renders `image:` empty again.
+    "15 empty postgresql.image guard removed|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (eq (toString (.Values.postgresql.image | default \"\")) \"\") }}/{{- if false }}/"
   )
 
   for fixture in "${fixtures[@]}"; do
@@ -2440,8 +2488,8 @@ self_test() {
 
     broken="$tmp/$(echo "$name" | tr ' #()' '____')"
     rm -rf "$broken"
-    # Copied WHOLE, subchart tarballs included: Chart.yaml declares postgresql
-    # as a dependency, so a copy without charts/ fails to render at
+    # Copied WHOLE. When Chart.yaml still declared the postgresql subchart
+    # (removed in 0.8.0, #1911), a copy without charts/ failed to render at
     # all — and a render failure is indistinguishable from a detection unless
     # the two are separated, as they are below. That mistake scored a perfect
     # 6/6 on the first run of this self-test; the control is what exposed it.
@@ -2491,7 +2539,7 @@ self_test() {
     return 0
   fi
 
-  # Control: the UNDAMAGED chart (minus subcharts) must pass. Without this, a
+  # Control: the UNDAMAGED chart must pass. Without this, a
   # check that fails on everything would score a perfect self-test.
   local control="$tmp/control" control_log="$tmp/control-run.log"
   cp -R "$CHART_DIR" "$control"

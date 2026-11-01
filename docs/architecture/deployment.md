@@ -66,19 +66,13 @@ The chart lives in `helm/visiban/` and pulls images from the GitLab container re
 | PostgreSQL | 17 | Built-in StatefulSet using the official `postgres:17` image (default) |
 | Valkey | 8 | Built-in StatefulSet using the official `valkey/valkey:8-alpine` image (the same major as `docker-compose.prod.yml`) |
 
-> **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is off by default (`postgresql.subchartEnabled: false`): Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart's own StatefulSet deploys PostgreSQL instead. Set `postgresql.subchartEnabled: true` to revert.
+> **Note (Bitnami PostgreSQL):** Chart 0.8.0 removed the opt-in Bitnami `postgresql` subchart (`postgresql.subchartEnabled`), which never rendered with the chart's values; `postgresql.subchartEnabled: true` now fails the render. The chart has no subchart dependencies (#1911). See the [upgrade note](../administration/upgrade.md#upgrading-to-13x) if a release still runs it.
 
 > **Note:** Compose and Helm both run **PostgreSQL 17**. Coming from a release that used PostgreSQL 16, export your data first: major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
 
 ### Install
 
-```bash
-# The only remaining subchart is the opt-in Bitnami PostgreSQL one
-# (postgresql.subchartEnabled). Valkey is part of the chart itself since 0.5.0.
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-helm dependency update helm/visiban
-```
+The chart has no subchart dependencies, so there is no `helm dependency update` step.
 
 Create a secret values file (never committed — `values.secret.yaml` is gitignored):
 
@@ -241,7 +235,7 @@ helm install visiban helm/visiban \
 | `backend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Backend image tag — bumped by `scripts/release.sh` on every release |
 | `frontend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Frontend image tag — bumped by `scripts/release.sh` on every release |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
-| `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
+| `postgresql.subchartEnabled` | `false` | Removed in chart 0.8.0 (#1911). Must stay `false`; `true` fails the render |
 | `valkey.enabled` | `true` | Use bundled Valkey 8; set `false` to use `externalRedis.url` |
 | `valkey.image.tag` | `8-alpine` | Official `valkey/valkey` image tag. Never `latest` or empty — the chart refuses both |
 | `valkey.primary.persistence.enabled` | `false` | Keep Valkey's AOF in a PVC across restarts. Not needed: Valkey holds only rebuildable data |
@@ -368,38 +362,59 @@ values lack the keys 1.2 added, so the render fails. The 1.1
 
 ### Upgrading PostgreSQL major versions
 
-The bundled PostgreSQL subchart does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data manually:
+The bundled PostgreSQL does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data with a dump and restore. The user and database names below are the chart defaults (`postgresql.auth.username` and `postgresql.auth.database`).
 
-1. **Export data from the running PostgreSQL 16 pod:**
+1. **Set the names once, and stop the writers:** scale the backend to zero, and suspend the scheduled-job CronJobs if you enabled them:
    ```bash
-   kubectl exec -n visiban visiban-postgresql-0 -- \
-     pg_dump -U visiban visiban > visiban_backup.sql
+   NS=visiban
+   RELEASE=visiban
+   BACKEND=visiban-backend   # the backend Deployment (kubectl -n "$NS" get deploy)
+   kubectl -n "$NS" scale deployment/"$BACKEND" --replicas=0
+   for cj in $(kubectl -n "$NS" get cronjob -o name); do
+     kubectl -n "$NS" patch "$cj" -p '{"spec":{"suspend":true}}'
+   done
    ```
 
-2. **Delete the existing PersistentVolumeClaim** (this removes the old data volume):
+2. **Export data from the running PostgreSQL 16 pod.** `--no-owner --no-privileges` keeps the dump restorable as a different database user:
    ```bash
-   kubectl delete pvc -n visiban data-visiban-postgresql-0
+   kubectl -n "$NS" exec "$RELEASE-postgresql-0" -- \
+     pg_dump --no-owner --no-privileges -U visiban -d visiban > visiban_backup.sql
    ```
 
-3. **Upgrade the Helm release** — this provisions a fresh PostgreSQL 17 pod. The
-   new data directory takes its password from `postgresql.auth.password`, which must
-   be your own value (the placeholder fails the render):
+3. **Verify the dump before deleting anything.** A failed `pg_dump` leaves an empty or truncated file, and the next step deletes the only other copy:
    ```bash
-   helm upgrade visiban helm/visiban -f my-values.yaml \
-     --set-string postgresql.auth.password="$PG_PASSWORD"
+   if [ -s visiban_backup.sql ] && grep -q 'PostgreSQL database dump complete' visiban_backup.sql; then
+     echo "dump OK"
+   else
+     echo "DUMP INCOMPLETE: stop here and fix the dump"
+   fi
+   ```
+   Continue only on `dump OK`.
+
+4. **Delete the StatefulSet and its PersistentVolumeClaim** (this removes the old data volume). Deleting the StatefulSet first lets the claim go away instead of staying in `Terminating` under a running pod; the next upgrade recreates both:
+   ```bash
+   kubectl -n "$NS" delete statefulset "$RELEASE-postgresql"
+   kubectl -n "$NS" delete pvc "data-$RELEASE-postgresql-0"
    ```
 
-4. **Wait for PostgreSQL to become ready**, then restore:
+5. **Upgrade the Helm release with the backend still at zero.** This provisions a fresh PostgreSQL 17 pod, and keeps the backend from migrating and seeding the empty database before the restore. The new data directory takes its password from `postgresql.auth.password`, which must be your own value (the placeholder fails the render):
    ```bash
-   kubectl wait pod -n visiban visiban-postgresql-0 --for=condition=Ready --timeout=120s
-   kubectl exec -i -n visiban visiban-postgresql-0 -- \
-     psql -U visiban visiban < visiban_backup.sql
+   helm upgrade "$RELEASE" helm/visiban --namespace "$NS" -f my-values.yaml \
+     --set-string postgresql.auth.password="$PG_PASSWORD" \
+     --set backendReplicaCount=0
+   kubectl -n "$NS" rollout status statefulset/"$RELEASE-postgresql" --timeout=180s
    ```
 
-5. **Restart the backend** to re-run migrations:
+6. **Restore, then start the backend.** `psql -1 -v ON_ERROR_STOP=1` runs the whole file as one transaction, so a failure rolls everything back and leaves the database empty; `ON_ERROR_STOP` alone would not, because each statement of a plain dump commits on its own. The final upgrade (without `backendReplicaCount=0`) runs only if `psql` exits 0. If it does not, the backend stays at zero: fix the cause and run this block again, which recreates the database first:
    ```bash
-   kubectl rollout restart deployment -n visiban visiban-backend
+   kubectl -n "$NS" exec "$RELEASE-postgresql-0" -- dropdb -U visiban --force --if-exists visiban
+   kubectl -n "$NS" exec "$RELEASE-postgresql-0" -- createdb -U visiban visiban
+   kubectl -n "$NS" exec -i "$RELEASE-postgresql-0" -- \
+     psql -U visiban -d visiban -1 -v ON_ERROR_STOP=1 < visiban_backup.sql \
+     && helm upgrade "$RELEASE" helm/visiban --namespace "$NS" -f my-values.yaml \
+          --set-string postgresql.auth.password="$PG_PASSWORD"
    ```
+   The upgrade does not resume CronJobs suspended in step 1; resume each one with `kubectl -n "$NS" patch cronjob <name> -p '{"spec":{"suspend":false}}'`.
 
 ## Scaling out
 

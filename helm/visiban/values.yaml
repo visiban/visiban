@@ -278,13 +278,17 @@ secret:
   # Generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
   djangoSecretKey: "change-me-in-production"
 
-# Built-in PostgreSQL subchart (bitnami/postgresql).
-# Set enabled: false and supply externalDatabase to use an existing DB.
+# Built-in PostgreSQL (templates/postgresql.yaml): a StatefulSet on the
+# official postgres image. Set enabled: false and supply externalDatabase to
+# use an existing DB.
 postgresql:
   enabled: true
-  # subchartEnabled: true deploys the bitnami/postgresql subchart.
-  # Disabled by default — Bitnami no longer publishes versioned tags to Docker Hub.
-  # The chart instead deploys a StatefulSet using the official postgres image.
+  # Removed in chart 0.8.0 (#1911); must stay false. It selected the
+  # bitnami/postgresql subchart, which never rendered with these values (the
+  # subchart needs an image map where postgresql.image is a string) and whose
+  # Bitnami images are no longer published as versioned Docker Hub tags.
+  # true fails the render with migration steps; see "Helm: the Bitnami
+  # PostgreSQL subchart is removed" in docs/administration/upgrade.md.
   subchartEnabled: false
   image: "postgres:17"
   auth:
@@ -306,10 +310,9 @@ postgresql:
       size: 5Gi
   # Pod- and container-level securityContext for the bundled PostgreSQL
   # StatefulSet, matching the hardening in templates/valkey.yaml (#1200) —
-  # see #1210. Not read when subchartEnabled is true (the bitnami/postgresql
-  # subchart owns its own security settings). An operator on a postgres image
-  # that cannot run as this numeric UID, or that needs a writable root
-  # filesystem, can relax either block without forking the chart.
+  # see #1210. An operator on a postgres image that cannot run as this numeric
+  # UID, or that needs a writable root filesystem, can relax either block
+  # without forking the chart.
   securityContext:
     pod:
       runAsNonRoot: true

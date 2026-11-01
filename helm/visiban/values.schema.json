@@ -1,12 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Visiban Helm chart values",
-  "description": "Structural contract for the Visiban chart's values (#1116). The ROOT is additionalProperties:false on purpose: Helm silently accepts a values key no template reads, so a wrong or invented top-level key -- a typo, or a name lifted from another chart's docs -- used to change nothing on the pod while the operator believed it was applied. That failure is indistinguishable from the setting having no effect, and it fails identically for the next wrong key. Blocks the chart hands wholesale to a subchart or to toYaml (global, backend.resources, frontend.resources, backend.securityContext.pod/.container, postgresql.securityContext.pod/.container, frontend.securityContext.pod/.container, ingress.annotations, postgresql, valkey) stay OPEN, because the chart is not the authority on what is valid inside them. No key is 'required': values.yaml supplies a default for everything the chart reads, and the render-time guards in templates/_validate.tpl own the cross-field rules a JSON Schema cannot express (placeholder SECRET_KEY, placeholder or catch-all/loopback allowedHosts, smtp-without-a-From-address).",
+  "description": "Structural contract for the Visiban chart's values (#1116). The ROOT is additionalProperties:false on purpose: Helm silently accepts a values key no template reads, so a wrong or invented top-level key -- a typo, or a name lifted from another chart's docs -- used to change nothing on the pod while the operator believed it was applied. That failure is indistinguishable from the setting having no effect, and it fails identically for the next wrong key. Helm's global block, blocks the chart hands wholesale to toYaml, and blocks earlier Bitnami subcharts read (global, backend.resources, frontend.resources, backend.securityContext.pod/.container, postgresql.securityContext.pod/.container, frontend.securityContext.pod/.container, ingress.annotations, postgresql, valkey) stay OPEN, because the chart is not the authority on what is valid inside them. No key is 'required': values.yaml supplies a default for everything the chart reads, and the render-time guards in templates/_validate.tpl own the cross-field rules a JSON Schema cannot express (placeholder SECRET_KEY, placeholder or catch-all/loopback allowedHosts, smtp-without-a-From-address).",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "global": {
-      "description": "Values shared with the bundled subcharts. Open by design -- Helm's global block is a cross-chart channel, not something this chart can enumerate.",
+      "description": "Helm's cross-chart global block, which Helm always supplies. Open by design -- it is a channel to and from other charts, not something this chart can enumerate. The chart has had no subcharts since 0.8.0 (#1911) and reads nothing from it.",
       "type": "object"
     },
     "nameOverride": {
@@ -246,18 +246,21 @@
       }
     },
     "postgresql": {
-      "description": "OPEN, deliberately. This block is shared with the bitnami/postgresql subchart, which reads far more keys than this chart does -- closing it would reject every legitimate subchart value. The keys listed below are the ones VISIBAN's own templates read; they are typed so a wrong type still fails, while unknown keys pass through to the subchart.",
+      "description": "OPEN, deliberately. Until chart 0.8.0 (#1911) this block was also handed to the bitnami/postgresql subchart, so existing values files may carry its keys (auth.postgresPassword, primary.resources, ...); closing it would fail their upgrade. The keys listed below are the ones VISIBAN's own templates read; they are typed so a wrong type still fails, while other keys are accepted and not read.",
       "type": "object",
       "properties": {
         "enabled": {
-          "description": "Use an in-cluster PostgreSQL (either the bundled StatefulSet or the subchart). false requires externalDatabase.",
+          "description": "Use the bundled PostgreSQL StatefulSet. false requires externalDatabase.",
           "type": "boolean"
         },
         "subchartEnabled": {
-          "description": "Deploy the bitnami/postgresql subchart instead of the chart's own StatefulSet.",
+          "description": "Removed in chart 0.8.0 (#1911): the bitnami/postgresql subchart it selected never rendered with this chart's values. Still accepted so values files that set it keep working: false renders, true fails the render in templates/_validate.tpl with migration steps.",
           "type": "boolean"
         },
-        "image": { "type": "string" },
+        "image": {
+          "description": "Image of the bundled PostgreSQL StatefulSet, as one repository:tag string.",
+          "type": "string"
+        },
         "auth": {
           "type": "object",
           "properties": {
@@ -280,7 +283,7 @@
           }
         },
         "securityContext": {
-          "description": "Pod- and container-level securityContext for the bundled PostgreSQL StatefulSet (#1210), not read when subchartEnabled is true. Passed through with toYaml -- the chart is not the authority on the PodSecurityContext/SecurityContext schema.",
+          "description": "Pod- and container-level securityContext for the bundled PostgreSQL StatefulSet (#1210). Passed through with toYaml -- the chart is not the authority on the PodSecurityContext/SecurityContext schema.",
           "type": "object",
           "properties": {
             "pod": { "type": "object" },

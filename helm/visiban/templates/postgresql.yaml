@@ -1,9 +1,11 @@
 {{/*
 Built-in PostgreSQL using the official postgres image.
-Deployed when postgresql.enabled=true and postgresql.subchartEnabled=false.
+Deployed when postgresql.enabled=true. The bitnami/postgresql subchart
+alternative (postgresql.subchartEnabled) was removed in chart 0.8.0 (#1911);
+true fails the render in _validate.tpl instead of reaching this template.
 The Service is named {release}-postgresql to match the URL helper in _helpers.tpl.
 */}}
-{{- if and .Values.postgresql.enabled (not .Values.postgresql.subchartEnabled) }}
+{{- if .Values.postgresql.enabled }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
