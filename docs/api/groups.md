@@ -260,7 +260,7 @@ The body is validated by the same serializer as [`POST /api/v1/boards/`](boards.
 
 The board always lands in the group in the URL. A `group` key in the body is ignored, not validated and not an error (#1655), so a client that echoes a board object back does not get a `400`. To put the board somewhere else, create it with `POST /api/v1/boards/` and a `group`, or use [`POST /api/v1/boards/{id}/move-group/`](boards.md#post-apiv1boardsidmove-group).
 
-**Response** `201 Created` with the board object, in the same shape as `GET /api/v1/boards/{id}/`. The caller becomes the board's owner and an `admin` member, and the board starts with the template's columns and one swimlane. `group_detail` is `null` (it is only populated with `?expand=group`). Abridged:
+**Response** `201 Created` with the board object, in the same shape as `GET /api/v1/boards/{id}/`. The caller becomes the board's owner and an `admin` member, and the board starts with the template's columns and one swimlane. `group_detail` is `null` (it is only populated with `?expand=group`). `allowed_priorities` is `[]` unless the group defines its own list. Example:
 
 ```json
 {
@@ -277,7 +277,7 @@ The board always lands in the group in the URL. A `group` key in the body is ign
   "archived_card_count": 0,
   "staleness_threshold_days": 7,
   "stale_warning_pct": 50,
-  "allowed_priorities": ["low", "medium", "high", "urgent"],
+  "allowed_priorities": [],
   "enforce_wip_limits": true,
   "enforce_wip_hard": false,
   "enforce_weight_limits": true,
@@ -300,7 +300,7 @@ The board always lands in the group in the URL. A `group` key in the body is ign
 | `401 Unauthorized` | `{"detail": "..."}` | No valid credentials |
 | `403 Forbidden` | `{"detail": "You must be a group member to perform this action."}` | The caller reaches the group only through a descendant subgroup (it is [navigation-only](#ancestor-groups-navigation-only) for them), so they are not a member of it or of an ancestor. Checked before the admin rule below |
 | `403 Forbidden` | `{"detail": "You must be a group admin to perform this action."}` | The caller can see the group but is not an admin of it or of an ancestor group |
-| `403 Forbidden` | `{"detail": "You must change your password before continuing.", "code": "permission_denied"}` or `{"detail": "You must choose a new username before continuing.", "code": "must_change_username"}` | The account has a forced password or username change pending (see [Common errors](authentication.md#common-errors)) |
+| `403 Forbidden` | `{"detail": "You must change your password before continuing."}` or `{"detail": "You must choose a new username before continuing."}` (no `code`) | The account has a forced password or username change pending (see [Common errors](authentication.md#common-errors)) |
 | `403 Forbidden` | `{"detail": "This token is missing the required scope: <scope>."}` | The request used a scoped personal access token that lacks the scope needed for a write (see [Scopes](authentication.md#scopes)) |
 | `404 Not Found` | `{"detail": "Not found."}` | The group does not exist, the caller cannot see it, or it is being deleted |
 | `429 Too Many Requests` | `{"detail": "Request was throttled. ..."}`, `Retry-After` header | The caller's per-user API budget is spent (`user` scope, see [Rate limits](index.md#rate-limits)) |
