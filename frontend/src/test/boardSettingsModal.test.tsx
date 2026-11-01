@@ -23,6 +23,14 @@ vi.mock('../api/boards', () => ({
   createBoardInviteLink: vi.fn(),
 }))
 
+// #863 — the Webhooks tab loads its own status/list when it mounts.
+vi.mock('../api/webhooks', () => ({
+  getWebhookStatus: vi.fn().mockResolvedValue({
+    enabled: true, dispatcher_last_run_at: null, dispatcher_stale: true, subscribable_event_types: ['card.moved'],
+  }),
+  listWebhooks: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
   getSiteConfig: vi.fn().mockResolvedValue({
@@ -2519,5 +2527,33 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1))
     rerender(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={1} />)
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe('BoardSettingsModal — Webhooks tab (#863)', () => {
+  const tabNames = () => screen.getAllByRole('button').map((b) => b.textContent ?? '')
+
+  it('board admins get a Webhooks tab between Sharing and Data', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const names = tabNames()
+    const sharing = names.indexOf('Sharing')
+    const webhooks = names.indexOf('Webhooks')
+    expect(webhooks).toBeGreaterThan(sharing)
+    expect(names.indexOf('Data')).toBeGreaterThan(webhooks)
+  })
+
+  it('non-admins and the hosted demo get no Webhooks tab at all', () => {
+    const { unmount } = render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
+    unmount()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode={true} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
+  })
+
+  it('initialTab="webhooks" opens the tab and loads it', async () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" focusFirstStoppedWebhook />)
+    expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
+    expect(await screen.findByText('No webhooks yet.')).toBeInTheDocument()
+    expect(screen.getByText(/has never run on this server/)).toBeInTheDocument()
   })
 })

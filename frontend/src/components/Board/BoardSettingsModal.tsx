@@ -7,6 +7,7 @@ import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
+import BoardSettingsWebhooksTab from "./BoardSettingsWebhooksTab";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
 import type { BoardExportLogEntry, BoardExportMinRole } from "../../types";
@@ -38,7 +39,9 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
+  initialTab?: "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "webhooks" | "data";
+  /** #863 — opened from a `webhook_disabled` notification: the Webhooks tab focuses its first Stopped row. */
+  focusFirstStoppedWebhook?: boolean;
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -107,7 +110,7 @@ function isLaterShareIssue(a: string, b: string): boolean {
   return ta > tb;
 }
 
-type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
+type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "webhooks" | "data";
 
 interface StagedInvite {
   user: User;
@@ -136,7 +139,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // Focus the selected tab button only when a caller deep-linked a tab (#1458);
@@ -708,7 +711,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-line px-6 gap-1 overflow-x-auto">
-          {(["members", "display", "rules", "fields", "swimlane-fields", ...(isAdmin ? ["sharing"] : []), "data"] as Tab[]).map((t) => {
+          {/* #863: Webhooks is omitted from the DOM in demo mode and for non-admins, never DemoInert. */}
+          {(["members", "display", "rules", "fields", "swimlane-fields", ...(isAdmin ? ["sharing"] : []), ...(isAdmin && !demoMode ? ["webhooks"] : []), "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
               : t === "display" ? "Display"
@@ -716,6 +720,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               : t === "fields" ? "Card fields"
               : t === "swimlane-fields" ? "Swimlane fields"
               : t === "sharing" ? "Sharing"
+              : t === "webhooks" ? "Webhooks"
               : "Data";
             return (
               <button
@@ -1379,6 +1384,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               </section>
             </div>
             </DemoInert>
+          )}
+
+          {/* ── Webhooks tab (#863) ── */}
+          {tab === "webhooks" && isAdmin && !demoMode && (
+            <BoardSettingsWebhooksTab boardId={board.id} focusFirstStopped={focusFirstStoppedWebhook} />
           )}
 
           {/* ── Data tab ── */}

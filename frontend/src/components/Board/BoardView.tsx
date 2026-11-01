@@ -826,6 +826,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
   }, [focusedSwimlaneId]);
 
+  // Open Board settings → Webhooks from ?settings=webhooks, the deep link a
+  // webhook_disabled notification carries (#863). The param is always
+  // stripped; a non-admin (or the demo, where the tab does not exist) sees no
+  // error, just the board.
+  useEffect(() => {
+    if (searchParams.get("settings") !== "webhooks") return;
+    if (isAdmin && !demoMode) {
+      setSettingsInitialTab("webhooks");
+      setWebhookDeepLink(true);
+      setShowSettings(true);
+    }
+    setSearchParams((prev) => { prev.delete("settings"); return prev; }, { replace: true });
+  }, [isAdmin, demoMode, searchParams, setSearchParams]);
+
   // Auto-open card from ?card= query param (e.g. from notification deep-link).
   // When the card is not in the active board view, call the /status/ endpoint to
   // distinguish "archived" (show targeted message) from "deleted/missing" (generic).
@@ -870,10 +884,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [showSettings, setShowSettings] = useState(false);
   // Set only by the swimlane +N popover shortcut (#1458); every other opener
   // leaves it undefined so Board settings opens on Members as before.
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | undefined>(undefined);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | undefined>(undefined);
+  // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
+  const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {
     setShowSettings(false);
     setSettingsInitialTab(undefined);
+    setWebhookDeepLink(false);
   }, []);
   const openSwimlaneFieldOrder = useCallback(() => {
     setSettingsInitialTab("swimlane-fields");
@@ -2808,6 +2825,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           isAdmin={isAdmin}
           onClose={closeSettings}
           initialTab={settingsInitialTab}
+          focusFirstStoppedWebhook={webhookDeepLink}
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
