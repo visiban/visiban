@@ -5634,12 +5634,12 @@
 <tr>
 <td><code>done_30d</code></td>
 <td>integer</td>
-<td>Cards completed in the last 30 days (cards moved into any column with <code>is_done: true</code>)</td>
+<td>Moves into any column with <code>is_done: true</code> in the last 30 days, for cards that are not archived; the same value as <code>velocity_30d</code>. Counts moves, not cards: a card that enters a done column twice counts twice</td>
 </tr>
 <tr>
 <td><code>avg_cycle_days</code></td>
 <td>float|null</td>
-<td>Average number of days from a card's first movement to its done-column entry; <code>null</code> if no completed cards</td>
+<td>Average number of days from a card's first movement of any kind to its earliest entry into a done column within the last 30 days, over cards that are not archived, rounded to one decimal; <code>null</code> if there are none. This starts at the creation movement, so it is closer to lead time than to cycle time as the <a href="../../architecture/decisions/#flow-metric-definitions">flow metric definitions</a> define them</td>
 </tr>
 <tr>
 <td><code>stage_distribution</code></td>
@@ -5649,12 +5649,12 @@
 <tr>
 <td><code>velocity_7d</code></td>
 <td>integer</td>
-<td>Cards moved into any column with <code>is_done: true</code> in the last 7 days</td>
+<td>Moves into any column with <code>is_done: true</code> in the last 7 days, for cards that are not archived (counts moves, not cards)</td>
 </tr>
 <tr>
 <td><code>velocity_30d</code></td>
 <td>integer</td>
-<td>Cards moved into any column with <code>is_done: true</code> in the last 30 days</td>
+<td>Moves into any column with <code>is_done: true</code> in the last 30 days, for cards that are not archived (counts moves, not cards)</td>
 </tr>
 <tr>
 <td><code>extension_panels</code></td>
@@ -5921,7 +5921,7 @@
 <tr>
 <td><code>swimlanes[].deal_velocity_days</code></td>
 <td>number or null</td>
-<td>Average days between a card's first and last movement within the period for this swimlane. <code>null</code> when there is no velocity data.</td>
+<td>Average days from a card's first movement ever to its most recent movement, over this swimlane's cards whose most recent movement falls in the period. Cards count whether or not they reached a done column. <code>null</code> when there is no velocity data.</td>
 </tr>
 <tr>
 <td><code>swimlanes[].stalled_cards</code></td>

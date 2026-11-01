@@ -1194,6 +1194,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#flow-metric-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow metric definitions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary-view" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4184,11 +4195,26 @@
 <p>To mark a column as done: <strong>Board → Column header overflow menu → Edit → "Mark as done column" checkbox</strong>.</p>
 <p>The Summary view's velocity counts rely on this flag too: only movements into marked-done columns are counted as completed work. See <a href="../../getting-started/board-setup/">Board Setup</a> for a step-by-step walkthrough.</p>
 </div>
+<h2 id="flow-metric-definitions">Flow metric definitions<a class="headerlink" href="#flow-metric-definitions" title="Permanent link">&para;</a></h2>
+<p>These are the definitions every flow metric follows. They are quoted verbatim from the <a href="../../architecture/decisions/#flow-metric-definitions">flow metric definitions</a> decision record, which also covers reopened cards, missing history, percentiles and time zones.</p>
+<ul>
+<li><strong>Lead time:</strong> the time from when a card was created to its first entry into a done column. A card created in a done column has no lead time.</li>
+<li><strong>Cycle time:</strong> the time from a card's first move out of the column it was created in, to a column that is not done, until its first entry into a done column. A card created in a done column, or moved straight from its first column to done, has no cycle time.</li>
+<li><strong>Dwell time:</strong> how long a card stayed in one column, from entering it to leaving it, or until now if it is still there. Moving to another swimlane does not end a stay. Archiving ends it, and restoring starts a new one.</li>
+<li><strong>Age:</strong> how long an in-progress card has been in progress: the time since it first moved out of the column it was created in, or since it last left a done column, whichever is later.</li>
+<li><strong>Throughput:</strong> the number of cards whose first entry into a done column falls in a period.</li>
+<li><strong>WIP:</strong> the number of cards, not archived, currently in each column that is not done.</li>
+<li><strong>Cumulative flow:</strong> for each day, the number of cards in each column at the end of that day.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Decided in 1.3 (#1532)</p>
+<p>The Summary and Analytics views below were built before these definitions, and some of their numbers differ. For example, the Summary view's <code>avg_cycle_days</code> starts at a card's first movement, and the heatmap's <strong>Age</strong> mode shows current dwell time. The decision record lists each difference. The 1.3 metrics dashboard (#448) brings them in line.</p>
+</div>
 <h2 id="summary-view">Summary view<a class="headerlink" href="#summary-view" title="Permanent link">&para;</a></h2>
 <p>A table of all swimlanes with:</p>
 <ul>
 <li>the total card count and an inline proportional bar</li>
-<li><strong>7-day velocity:</strong> cards that moved into any column marked <code>is_done = true</code> in the last 7 days</li>
+<li><strong>7-day velocity:</strong> moves into any column marked <code>is_done = true</code> in the last 7 days, for cards that are not archived. It counts moves, not cards: a card that enters a done column twice counts twice, and a card archived since leaves the count.</li>
 <li><strong>30-day velocity:</strong> the same over 30 days</li>
 </ul>
 <p>Mark columns as done in the <strong>Edit Column</strong> modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts movements into either as completed. See <a href="../board/#columns">Board &amp; Cards — Columns</a>.</p>
@@ -4212,7 +4238,7 @@
 <h4 id="done-column-exclusion">Done column exclusion<a class="headerlink" href="#done-column-exclusion" title="Permanent link">&para;</a></h4>
 <p>Columns marked <code>is_done = true</code> are excluded from dwell-time calculations and hidden from the heatmap, because time in a done column is post-completion idle time. The API response lists the excluded column names in <code>done_columns</code>, and a footer note reads "N done column(s) not shown".</p>
 <h4 id="velocity-column">Velocity column<a class="headerlink" href="#velocity-column" title="Permanent link">&para;</a></h4>
-<p>The rightmost column shows <strong>Velocity</strong> per swimlane: the average <code>deal_velocity_days</code>, the number of days between a card's first and last movement within the selected period. A dash (<code>—</code>) means no velocity data for that swimlane.</p>
+<p>The rightmost column shows <strong>Velocity</strong> per swimlane: the average <code>deal_velocity_days</code>, the number of days from a card's first movement ever to its most recent movement, for cards whose most recent movement falls in the selected period. It counts cards whether or not they reached a done column, so it is not cycle time. A dash (<code>—</code>) means no velocity data for that swimlane.</p>
 <h4 id="color-coding">Color-coding<a class="headerlink" href="#color-coding" title="Permanent link">&para;</a></h4>
 <p>Cells are colored from the board's <code>staleness_threshold_days</code> and <code>stale_warning_pct</code>. The warning boundary is <code>threshold * stale_warning_pct / 100</code>, the share of the threshold a card has used.</p>
 <ul>
@@ -4291,7 +4317,7 @@
 <ul>
 <li><strong>Archived card:</strong> dwell time in its most recent stage uses the <strong>archive timestamp</strong> as the exit time, not the current date. Dwell stops accumulating when the card is archived.</li>
 <li><strong>Active card:</strong> keeps accumulating dwell time in its current stage until it moves again.</li>
-<li><strong>Which events count:</strong> only <code>movement_type = move</code> events. Archive and restore events are excluded, so archiving doesn't distort time-in-stage for surrounding cards.</li>
+<li><strong>Archive and restore events:</strong> these are recorded as movements in the card's current column, and the heatmap does not skip them yet. A restored card's archived period is counted as time in its stage, and an archived card adds a near-zero stay to <strong>Throughput</strong> mode. The <a href="../../architecture/decisions/#flow-metric-definitions">flow metric definitions</a> treat archiving as the end of a stay and restoring as the start of a new one. The 1.3 metrics dashboard (#448) applies them.</li>
 </ul>
 <h3 id="stalled-cards">Stalled cards<a class="headerlink" href="#stalled-cards" title="Permanent link">&para;</a></h3>
 <p>Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: <strong>Swimlane</strong>, <strong>Card</strong> (title), and <strong>Days Stalled</strong>. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.</p>
