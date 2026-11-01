@@ -227,7 +227,7 @@ helm install visiban helm/visiban \
   --set backend.settings.siteDomain=boards.internal
 ```
 
-**Watch out: WebSockets and the Content-Security-Policy.** On Helm installs, the frontend's CSP names `ingress.host` for WebSocket connections: `wss://`, plus `ws://` when `ingress.tls.enabled` is `false`. Nothing is added when the ingress is disabled or no host is set. Then WebSocket connections rely on `'self'`, as does reaching the app through a different host name or `kubectl port-forward`. Set `ingress.host` if your browser doesn't map `'self'` to `ws`/`wss`. The frame policy is `X-Frame-Options: DENY`, matching the Compose templates.
+**Watch out: WebSockets and the Content-Security-Policy.** On Helm installs, the frontend's CSP names `ingress.host` for WebSocket connections: `wss://`, plus `ws://` when `ingress.tls.enabled` is `false`. Nothing is added when the ingress is disabled or no host is set. Then WebSocket connections rely on `'self'`, as does reaching the app through a different host name or `kubectl port-forward`. Set `ingress.host` if your browser doesn't map `'self'` to `ws`/`wss`. The frame policy is `X-Frame-Options: DENY` and the referrer policy is `Referrer-Policy: same-origin`, matching the Compose templates.
 
 !!! danger "Insecure cookies"
     `forceInsecureCookies: true` removes the `Secure` flag from session and CSRF cookies. Use it only when the whole path from browser to Visiban is inside a trusted network, or when an upstream proxy terminates TLS and sets `X-Forwarded-Proto: https`.

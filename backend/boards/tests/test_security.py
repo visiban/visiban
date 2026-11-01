@@ -398,3 +398,20 @@ class SanitizeAttachmentFilenameTests(TestCase):
         result = self._sanitize("C:\\Users\\admin\\secret.docx")
         self.assertNotIn("\\", result)
         self.assertNotIn(":", result)
+
+
+class ReferrerPolicyHeaderTests(TestCase):
+    """Django sends Referrer-Policy: same-origin (#1531).
+
+    Share and invite tokens travel in URLs; no Referer may leave for another
+    origin. nginx sends the same value, so the two layers agree.
+    """
+
+    def test_setting_is_same_origin(self):
+        from django.conf import settings
+
+        self.assertEqual(settings.SECURE_REFERRER_POLICY, "same-origin")
+
+    def test_response_carries_referrer_policy(self):
+        response = self.client.get("/api/health/liveness/")
+        self.assertEqual(response["Referrer-Policy"], "same-origin")

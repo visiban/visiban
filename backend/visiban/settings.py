@@ -849,7 +849,12 @@ SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=_HSTS_DEFAULT)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG and not _FORCE_INSECURE_COOKIES
 SECURE_CONTENT_TYPE_NOSNIFF = not DEBUG
 X_FRAME_OPTIONS = "DENY"
-SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+# "same-origin" (#1531): share and invite tokens travel in URLs, so no Referer
+# may leave for another origin (strict-origin-when-cross-origin still sent the
+# bare origin cross-origin). Same-origin requests keep the full Referer, which
+# CsrfViewMiddleware needs on HTTPS when Origin is absent. nginx sends the same
+# value; keep them in agreement.
+SECURE_REFERRER_POLICY = "same-origin"
 
 # django-allauth
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"

@@ -560,6 +560,11 @@ check_frontend_security_headers() {
     bad=1
   fi
 
+  if ! grep -qE "^[[:space:]]*add_header[[:space:]]+Referrer-Policy[[:space:]]+same-origin[[:space:]]+always;" <<< "$conf"; then
+    fail "nginx does not send 'Referrer-Policy same-origin always' (the bundled templates do) (#1531)"
+    bad=1
+  fi
+
   # The policy value of an add_header line, or empty. `|| true`: grep exits 1
   # on no match and set -e/pipefail would otherwise kill the script before the
   # explicit FAIL below can print.
@@ -651,7 +656,7 @@ check_frontend_image_headers() {
     grep -E "^[[:space:]]*add_header[[:space:]]+$2[[:space:]]" "$1" | head -1 \
       | sed -E 's/"//g; s/connect-src[^;]*/connect-src X/; s/[[:space:]]+/ /g; s/^ //' || true
   }
-  for h in X-Frame-Options X-Content-Type-Options Content-Security-Policy; do
+  for h in X-Frame-Options X-Content-Type-Options Referrer-Policy Content-Security-Policy; do
     local a b
     a="$(norm "$img" "$h")"
     b="$(norm "$tpl" "$h")"
@@ -2608,6 +2613,7 @@ self_test() {
   local ic_cases=(
     "img-src differs from template|s/img-src 'self' data: blob:/img-src * data: blob:/"
     "x-frame-options differs from template|s/X-Frame-Options           \"DENY\"/X-Frame-Options           \"SAMEORIGIN\"/"
+    "referrer-policy absent|s/add_header Referrer-Policy /add_header X-Removed-RP /"
     "x-content-type-options absent|s/add_header X-Content-Type-Options /add_header X-Removed /"
     "location-level add_header present|s/index  index.html index.htm;/index index.html; add_header X-Loc 1;/"
     "Dockerfile COPY absent|DOCKERFILE"

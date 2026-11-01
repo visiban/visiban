@@ -40,6 +40,7 @@ server {
 
     add_header X-Frame-Options           "DENY" always;
     add_header X-Content-Type-Options    "nosniff" always;
+    add_header Referrer-Policy           "same-origin" always;
     # Cache-Control per $visiban_cache_control (see map above); no `always`, so error
     # responses (e.g. a 404 under /assets/) are never marked cacheable.
     add_header Cache-Control $visiban_cache_control;
