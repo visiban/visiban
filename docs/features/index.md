@@ -127,7 +127,7 @@ Three views are available from the board toolbar:
 | **Summary** | Weekly standup — card counts and velocity per swimlane |
 | **Analytics** | Spotting bottlenecks — which stage is slowing things down? |
 
-The **Analytics** view computes median dwell time per stage from historical movement records, highlights outlier cells in red, and lists cards that have been stuck in the same column for too long.
+The **Analytics** view computes average dwell time per stage from historical movement records, highlights outlier cells in red, and lists cards that have been stuck in the same column for too long.
 
 → [Analytics](analytics.md)
 

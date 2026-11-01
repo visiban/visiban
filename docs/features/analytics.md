@@ -13,6 +13,18 @@ Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where c
 
     The Summary view's velocity counts rely on this flag too: only movements into marked-done columns are counted as completed work. See [Board Setup](../getting-started/board-setup.md) for a step-by-step walkthrough.
 
+## Flow metric definitions
+
+These are the definitions every flow metric follows. They are quoted verbatim from the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) decision record, which also covers reopened cards, missing history, percentiles and time zones.
+
+- **Lead time:** the time from when a card was created to its first entry into a done column.
+- **Cycle time:** the time from a card's first move out of the column it was created in to its first entry into a done column.
+- **Dwell time:** how long a card stayed in one column, from entering it to leaving it, or until now if it is still there. Moving to another swimlane does not end a stay. Archiving ends it, and restoring starts a new one.
+- **Age:** how long an in-progress card has been in progress: the time since its first move out of the column it was created in, or since it last left a done column if it was reopened.
+
+!!! note "Proposed in 1.3 (#1532)"
+    The Summary and Analytics views below were built before these definitions, and some of their numbers differ. For example, the Summary view's `avg_cycle_days` starts at a card's first movement, and the heatmap's **Age** mode shows current dwell time. The decision record lists each difference. The 1.3 metrics dashboard (#448) brings them in line.
+
 ## Summary view
 
 A table of all swimlanes with:
@@ -101,7 +113,7 @@ Analytics includes archived cards as part of the historical record.
 
 - **Archived card:** dwell time in its most recent stage uses the **archive timestamp** as the exit time, not the current date. Dwell stops accumulating when the card is archived.
 - **Active card:** keeps accumulating dwell time in its current stage until it moves again.
-- **Which events count:** only `movement_type = move` events. Archive and restore events are excluded, so archiving doesn't distort time-in-stage for surrounding cards.
+- **Archive and restore events:** these are recorded as movements in the card's current column, and the heatmap does not skip them yet. A restored card's archived period is counted as time in its stage, and an archived card adds a near-zero stay to **Throughput** mode. The [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) treat archiving as the end of a stay and restoring as the start of a new one. The 1.3 metrics dashboard (#448) applies them.
 
 ### Stalled cards
 

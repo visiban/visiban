@@ -100,7 +100,9 @@ Exports carry the field too: JSON export writes `imported_from_username` on ever
 
 ## How dwell time is calculated
 
-Dwell time is the gap between two consecutive `CardMovement` records. The Analytics view uses these gaps to compute median dwell time per stage and flag outliers. See [Analytics](analytics.md).
+**Dwell time:** how long a card stayed in one column, from entering it to leaving it, or until now if it is still there. Moving to another swimlane does not end a stay. Archiving ends it, and restoring starts a new one.
+
+That definition comes from the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) decision record (proposed in 1.3, #1532). Today the Analytics view still measures the gap between two consecutive `CardMovement` records and averages those gaps per stage to flag outliers. See [Analytics](analytics.md#flow-metric-definitions).
 
 ## Stale card detection
 
