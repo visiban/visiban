@@ -78,7 +78,7 @@ It isn't a silent default. The self-test fails a scenario whose budget is null w
 
 > **Added in 1.3** (#1958).
 
-The nightly job runs unpooled: `DATABASE_POOL` is unset and so is `CONN_MAX_AGE`, so every request opens its own PostgreSQL connection. The latency budgets therefore do not exercise the [connection pool](../administration/configuration.md#database-connection-pool). To measure the pooled path, run the load test against a backend started with `DATABASE_POOL=true` (and, if needed, `DATABASE_POOL_MAX_SIZE`) in its environment. No pooled run has been recorded yet, so the budgets make no claim about it.
+The nightly job runs unpooled: `DATABASE_POOL` is unset and so is `CONN_MAX_AGE`, so every request opens its own PostgreSQL connection. The latency budgets therefore do not exercise the [connection pool](../administration/configuration.md#database-connection-pool). To measure the pooled path, run the load test against a backend started with `DATABASE_POOL=true` (and, if needed, `DATABASE_POOL_MAX_SIZE`) in its environment. No pooled run has been recorded yet (tracked in #2035, along with a saturation check, pgBouncer and the default decision), so the budgets make no claim about it.
 
 ## The fixture
 

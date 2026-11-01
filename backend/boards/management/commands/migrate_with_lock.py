@@ -36,6 +36,9 @@ here, and each one rules out an alternative that looks equivalent:
 
 3. **Held on a dedicated connection.** The lock is taken on a connection created
    solely for that purpose, never on the connection ``migrate`` itself uses.
+   With ``DATABASE_POOL`` on (#1958) it is also built WITHOUT the pool: a pooled
+   connection's ``close()`` returns the session to the pool instead of ending
+   it, so the lock would outlive this command inside a pooled session.
    Anything ``migrate`` does to its own connection — a non-atomic migration that
    closes and reopens it, a backend that reconnects after an error — would
    silently drop a lock held there, and the drop would be invisible: the
@@ -65,6 +68,7 @@ import time
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DEFAULT_DB_ALIAS, OperationalError, connections
+from django.db.utils import load_backend
 
 from visiban.env_aliases import env_alias_name as _env_alias_name
 from visiban.env_aliases import warn_deprecated_env_alias as _warn_deprecated_env_alias
@@ -137,6 +141,30 @@ def _lock_timeout_from_env() -> int:
     return _positive_int(os.environ.get(name, ""), DEFAULT_LOCK_TIMEOUT)
 
 
+def _unpooled_settings(settings_dict: dict) -> dict:
+    """Copy of a DATABASES entry with OPTIONS["pool"] removed (#1958).
+
+    The lock relies on its session ending when the connection closes. With the
+    psycopg pool on, close() hands the session back to the pool instead, so the
+    lock connection must bypass it.
+    """
+    copy = dict(settings_dict)
+    options = dict(copy.get("OPTIONS") or {})
+    options.pop("pool", None)
+    copy["OPTIONS"] = options
+    return copy
+
+
+def _create_unpooled_connection():
+    """Build an unregistered, never-pooled connection from the default alias.
+
+    Equivalent to ``connections.create_connection(DEFAULT_DB_ALIAS)`` except for
+    the pool; see _unpooled_settings.
+    """
+    db = _unpooled_settings(connections.settings[DEFAULT_DB_ALIAS])
+    return load_backend(db["ENGINE"]).DatabaseWrapper(db, DEFAULT_DB_ALIAS)
+
+
 class Command(BaseCommand):
     help = (
         "Run `migrate` under a session-scoped PostgreSQL advisory lock so that "
@@ -190,15 +218,16 @@ class Command(BaseCommand):
         # WITHOUT registering it in the handler, which is exactly what is wanted:
         # `migrate` keeps using connections["default"], and nothing it does to
         # that connection can touch the session holding the lock.
-        lock_conn = connections.create_connection(DEFAULT_DB_ALIAS)
+        lock_conn = _create_unpooled_connection()
         try:
             self._acquire_lock(lock_conn, lock_timeout)
             self.stdout.write("migrate_with_lock: lock held, applying migrations")
             call_command("migrate", interactive=False, verbosity=verbosity)
             self.stdout.write("migrate_with_lock: migrations applied")
         finally:
-            # close() alone would end the session and so release the lock, but
-            # unlocking explicitly keeps the intent legible and releases it even
+            # The connection is never pooled (see _create_unpooled_connection),
+            # so close() ends the session and so releases the lock. Unlocking
+            # explicitly as well keeps the intent legible and releases it even
             # if close() is slow to be noticed by the server.
             self._release_lock(lock_conn)
             lock_conn.close()
@@ -271,7 +300,7 @@ class Command(BaseCommand):
 
         Never raises: this runs in a `finally`, and masking the real migration
         failure with an unlock error would hide the thing the operator needs.
-        Closing the session releases the lock regardless.
+        Closing the (never pooled) lock session releases the lock regardless.
         """
         try:
             with lock_conn.cursor() as cursor:

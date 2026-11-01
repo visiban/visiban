@@ -193,7 +193,9 @@ By default each HTTP request opens and closes its own PostgreSQL connection. Set
 | `DATABASE_POOL_MIN_SIZE` | Connections each process keeps open. Must be at least 1. Helm: `backend.settings.dbPool.minSize`. | `2` |
 | `DATABASE_POOL_MAX_SIZE` | Most connections each process opens. Must be at least `DATABASE_POOL_MIN_SIZE`. Helm: `backend.settings.dbPool.maxSize`. | `10` |
 
-**Sizing:** the pool is per process, so the worst case is `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas. Keep that below PostgreSQL's `max_connections` (default 100), leaving headroom for migrations and admin sessions, or put pgBouncer in front. See [Scaling](../architecture/scaling.md).
+**When the pool is full:** a request needs a connection for as long as its view runs, on its own thread. When more than `DATABASE_POOL_MAX_SIZE` requests are in flight in one process, the extra ones queue for a free connection and raise `PoolTimeout` (a `500`) after Django's default pool timeout of 30 seconds. Raise `DATABASE_POOL_MAX_SIZE` before `max_connections` is the limit you hit, or add replicas.
+
+**Sizing:** the pool is per process, so the worst case is `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas. Keep that below PostgreSQL's `max_connections` (default 100), leaving headroom for migrations and admin sessions, or put pgBouncer in front. The migrate init container, the CronJobs and the scheduler inherit the same environment, so each of them also opens up to `DATABASE_POOL_MIN_SIZE` connections while it runs; count them too. The migration lock connection deliberately bypasses the pool. See [Scaling](../architecture/scaling.md).
 
 ## Import limits
 

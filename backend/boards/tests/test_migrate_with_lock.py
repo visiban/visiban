@@ -41,6 +41,7 @@ from boards.management.commands.migrate_with_lock import (
     _connect_timeout_from_env,
     _lock_timeout_from_env,
     _positive_int,
+    _unpooled_settings,
 )
 
 POSTGRES_ONLY = unittest.skipUnless(
@@ -64,6 +65,19 @@ def _lock_is_free() -> bool:
         if acquired:
             cursor.execute("SELECT pg_advisory_unlock(%s)", [MIGRATION_LOCK_KEY])
         return acquired
+
+
+class UnpooledLockConnectionTests(SimpleTestCase):
+    """The lock session must never come from the psycopg pool (#1958)."""
+
+    def test_pool_option_is_removed_and_other_options_kept(self):
+        original = {"ENGINE": "django.db.backends.postgresql", "OPTIONS": {"sslmode": "require", "pool": {"min_size": 2}}}
+        cleaned = _unpooled_settings(original)
+        self.assertEqual(cleaned["OPTIONS"], {"sslmode": "require"})
+        self.assertIn("pool", original["OPTIONS"])  # the registered connection is untouched
+
+    def test_missing_options_is_tolerated(self):
+        self.assertEqual(_unpooled_settings({"ENGINE": "x"})["OPTIONS"], {})
 
 
 class PositiveIntTests(TransactionTestCase):

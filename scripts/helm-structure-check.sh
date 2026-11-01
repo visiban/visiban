@@ -2277,6 +2277,30 @@ check_feature_flags() {
   [ "$bad" -eq 0 ] && pass "MCP_SERVER_ENABLED and GIT_LENS_ENABLED are absent by default and when false, and true in the backend container, migrate init container and CronJobs when their backend.settings value is true"
 }
 
+# ---------------------------------------------------------------------------
+# 18. The opt-in DB connection pool renders only when enabled (#1958).
+# ---------------------------------------------------------------------------
+check_db_pool() {
+  section "18. DATABASE_POOL is absent by default and renders without error when backend.settings.dbPool is missing or null (#1958)"
+  local got bad=0
+  got="$(backend_env_value DATABASE_POOL)"
+  if [ -n "$got" ]; then
+    fail "DATABASE_POOL renders by default, expected absent: $got"; bad=1
+  fi
+  # `helm upgrade --reuse-values` from 1.2 carries no dbPool key at all.
+  got="$(backend_env_value DATABASE_POOL --set backend.settings.dbPool=null)"
+  if [ "$got" = "RENDER-ERROR" ]; then
+    fail "backend.settings.dbPool=null does not render (nil pointer on .enabled?)"; bad=1
+  elif [ -n "$got" ]; then
+    fail "backend.settings.dbPool=null renders DATABASE_POOL, expected absent: $got"; bad=1
+  fi
+  got="$(backend_env_value DATABASE_POOL --set backend.settings.dbPool.enabled=true)"
+  if ! grep -qE '^deployment/backend=true$' <<< "$got"; then
+    fail "backend.settings.dbPool.enabled=true: the backend container does not get DATABASE_POOL=true: ${got:-<none>}"; bad=1
+  fi
+  [ "$bad" -eq 0 ] && pass "DATABASE_POOL is absent by default and with dbPool null, and true in the backend container when enabled"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -2302,6 +2326,7 @@ run_all_checks() {
   check_postgres_password_guard
   check_num_proxies_default
   check_feature_flags
+  check_db_pool
 }
 
 # ---------------------------------------------------------------------------
