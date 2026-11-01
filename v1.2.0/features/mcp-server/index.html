@@ -4128,7 +4128,7 @@
 <p>Any Streamable HTTP MCP client can connect: Claude Desktop, Claude.ai (via a remote MCP connector), or a custom agent built on the MCP SDK. This guide uses Claude Desktop as the worked example.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A Visiban 1.2+ self-hosted instance (Docker Compose) with <code>MCP_SERVER_ENABLED=true</code> set on the backend</li>
+<li>A Visiban 1.2+ self-hosted instance (Docker Compose or Helm) with <code>MCP_SERVER_ENABLED=true</code> set on the backend (Helm: <code>backend.settings.mcpServerEnabled: true</code>, available from Visiban 1.3)</li>
 <li>A Visiban account to generate a Personal Access Token. Any account can generate one; which boards the token can see depends on that account's own access, not on any special admin privilege.</li>
 <li>An MCP-compatible AI client: Claude Desktop, or any client supporting the Streamable HTTP transport</li>
 </ul>

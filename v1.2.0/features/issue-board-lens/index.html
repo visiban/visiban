@@ -4236,7 +4236,16 @@
 <p>In Docker Compose add it to your <code>.env</code> file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">GIT_LENS_ENABLED</span><span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
-<p>The Helm chart does not yet expose this flag. Support is tracked in #1835.</p>
+<p>With the Helm chart, set the chart value instead:</p>
+<blockquote>
+<p><strong>Added in 1.3</strong></p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">settings</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">gitLensEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div>
+<p>Pass the values file on every install and upgrade (<code>helm upgrade --install visiban helm/visiban -f my-values.yaml</code>). Chart versions before 0.8.0 reject this key.</p>
+<p>The chart renders <code>GIT_LENS_ENABLED=true</code> on every backend pod. Turning it on adds the <code>git_lens</code> tables, so the backend pod's <code>migrate</code> init container applies them on rollout.</p>
 <p>When the variable isn't set, or is <code>false</code>, the feature is completely absent from the UI and API. No frontend restart is needed: the UI reads a capability flag from the backend on load.</p>
 <p>To monitor how many GitHub/GitLab API calls the lens makes on your instance, see <a href="../../administration/issue-board-lens-usage/">Issue Board Lens Usage</a>.</p>
 <hr />

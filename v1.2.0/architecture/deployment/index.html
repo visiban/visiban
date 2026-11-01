@@ -4463,6 +4463,16 @@
 <td>Disable secure cookie flags for plain-HTTP deployments</td>
 </tr>
 <tr>
+<td><code>backend.settings.mcpServerEnabled</code></td>
+<td><code>false</code></td>
+<td>Renders <code>MCP_SERVER_ENABLED=true</code> so the <a href="../../api/mcp/">MCP server</a> is mounted at <code>/mcp</code> (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>backend.settings.gitLensEnabled</code></td>
+<td><code>false</code></td>
+<td>Renders <code>GIT_LENS_ENABLED=true</code>, enabling the <a href="../../features/issue-board-lens/">Issue Board Lens</a> (adds the <code>git_lens</code> tables; added in 1.3)</td>
+</tr>
+<tr>
 <td><code>backend.settings.numProxies</code></td>
 <td>unset (renders <code>2</code> with the ingress enabled and a <code>ClusterIP</code> frontend Service, otherwise the backend default of <code>1</code>)</td>
 <td><code>NUM_PROXIES</code>: trusted proxy hops that append to <code>X-Forwarded-For</code>, so per-client rate limits and the <code>/admin/</code> allowlist see the real client address. An explicit value always wins</td>
@@ -4641,7 +4651,7 @@
 <h3 id="init-containers">Init containers<a class="headerlink" href="#init-containers" title="Permanent link">&para;</a></h3>
 <p>The Helm chart runs three init containers on every deploy:</p>
 <ol>
-<li><strong>migrate</strong> — <code>python manage.py migrate --noinput</code>. Since 1.2 every index and constraint Visiban adds is built without an <code>ACCESS EXCLUSIVE</code> lock, so this init container does not block the running pods it is replacing — see <a href="../../development/database-migrations/">Database migrations</a>.</li>
+<li><strong>migrate</strong> — <code>python manage.py migrate_with_lock</code> (takes a lock so concurrent rollouts do not race, then runs <code>migrate</code>). Since 1.2 every index and constraint Visiban adds is built without an <code>ACCESS EXCLUSIVE</code> lock, so this init container does not block the running pods it is replacing — see <a href="../../development/database-migrations/">Database migrations</a>.</li>
 <li><strong>collectstatic</strong> — <code>python manage.py collectstatic --noinput</code> (populates whitenoise static files)</li>
 <li><strong>bootstrap</strong> — <code>python manage.py ensure_site_admin</code> (creates the admin account on first install and writes the one-time password to <code>/run/visiban/admin_password</code>)</li>
 </ol>

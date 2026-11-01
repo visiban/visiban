@@ -4593,7 +4593,7 @@
 <p>Two features are dormant until an operator opts in. Set these in your <code>.env</code> file, then run <code>docker compose up -d</code> to recreate the backend with them (<code>docker compose restart</code> does not re-read <code>.env</code>).</p>
 <ul>
 <li><strong>Migration:</strong> turning <code>GIT_LENS_ENABLED</code> on adds the <code>git_lens</code> app and its tables, so a migration must run. In the production stack the <code>backend-init</code> service does that on <code>up -d</code>.</li>
-<li><strong>Helm:</strong> support for these flags is tracked in #1835.</li>
+<li><strong>Helm:</strong> the chart exposes only the two enable flags, <code>backend.settings.mcpServerEnabled</code> and <code>backend.settings.gitLensEnabled</code> (both default <code>false</code>; see <a href="../../architecture/deployment/">Kubernetes deployment</a>). The other variables in the table below (<code>GIT_LENS_OUTBOUND_LOG_LEVEL</code>, <code>MCP_ALLOWED_HOSTS</code>, <code>MCP_THROTTLE_*_RATE</code>) are Compose/env-only; the chart has no values for them.</li>
 <li><strong>Names are stable:</strong> a rename keeps the old name as a deprecated alias for at least one minor release.</li>
 </ul>
 <table>
