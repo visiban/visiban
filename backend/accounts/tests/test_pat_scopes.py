@@ -1026,3 +1026,14 @@ class LastUsedWriteThrottleTests(APITestCase):
         stale_snapshot = PersonalAccessToken.objects.get(pk=self.pat.pk)
         self._use(SCOPE_READ)
         self.assertIsNone(record_token_usage(stale_snapshot, SCOPE_READ))
+
+    def test_fresh_stamp_with_null_scope_still_writes_the_scope(self):
+        """Upgrade path: a row stamped before last_used_scope existed has a
+        fresh last_used_at but a NULL scope; the scope must still be recorded."""
+        from django.utils import timezone
+
+        PersonalAccessToken.objects.filter(pk=self.pat.pk).update(
+            last_used_at=timezone.now(), last_used_scope=None
+        )
+        self._use(SCOPE_READ)
+        self.assertEqual(self._stored()[1], SCOPE_READ)

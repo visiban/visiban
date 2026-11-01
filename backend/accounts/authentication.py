@@ -163,8 +163,8 @@ def record_token_usage(pat, presented_scope: str) -> None:
 
     Raises :class:`InvalidPersonalAccessToken` if the row has disappeared since
     it was resolved. That is a real race, not a theoretical one: a concurrent
-    ``DELETE /auth/tokens/{id}/``, a password change (which revokes every token),
-    or an admin deactivation can land between the SELECT and this UPDATE. It is
+    ``DELETE /auth/tokens/{id}/`` or a password change (which revokes every
+    token by deleting the rows) can land between the SELECT and this UPDATE. It is
     translated into the same generic failure every other revocation path uses
     instead of surfacing as a 500 on what is really a revoked credential.
 

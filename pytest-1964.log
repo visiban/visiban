@@ -1,0 +1,14 @@
+........................................................................ [ 60%]
+...............................................                          [100%]
+=============================== warnings summary ===============================
+groups/models.py:498
+  /Users/kelly/repos/visiban-wt/1964-pat-auth-writes-last-used-on-every-reque/backend/groups/models.py:498: RemovedInDjango60Warning: CheckConstraint.check is deprecated in favor of `.condition`.
+    CheckConstraint(
+
+accounts/tests/test_pat_scopes.py: 57 warnings
+accounts/tests/test_personal_access_tokens.py: 28 warnings
+  /opt/homebrew/lib/python3.11/site-packages/django/core/handlers/base.py:61: UserWarning: No directory at: /Users/kelly/repos/visiban-wt/1964-pat-auth-writes-last-used-on-every-reque/backend/staticfiles/
+    mw_instance = middleware(adapted_handler)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+119 passed, 1 skipped, 86 warnings in 32.63s
