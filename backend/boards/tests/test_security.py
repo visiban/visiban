@@ -407,11 +407,11 @@ class ReferrerPolicyHeaderTests(TestCase):
     origin. nginx sends the same value, so the two layers agree.
     """
 
-    def test_setting_is_same_origin(self):
-        from django.conf import settings
-
-        self.assertEqual(settings.SECURE_REFERRER_POLICY, "same-origin")
-
     def test_response_carries_referrer_policy(self):
         response = self.client.get("/api/health/liveness/")
         self.assertEqual(response["Referrer-Policy"], "same-origin")
+
+    # The password-reset key redirect keeps its stricter per-view `no-referrer`
+    # (SecurityMiddleware only sets a default); asserted in
+    # accounts/tests/test_password_reset_redirects.py::
+    # test_key_redirect_is_not_cached_and_sends_no_referrer.

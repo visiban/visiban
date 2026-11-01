@@ -656,7 +656,7 @@ class FrontendImageHeaderParityTests(SimpleTestCase):
     REPO_ROOT = Path(__file__).resolve().parents[3]
     IMAGE_CONF = "frontend/nginx.default.conf"
     TEMPLATE = "nginx/app-http.conf.template"
-    HEADERS = ("X-Frame-Options", "X-Content-Type-Options", "Content-Security-Policy")
+    HEADERS = ("X-Frame-Options", "X-Content-Type-Options", "Referrer-Policy", "Content-Security-Policy")
 
     @classmethod
     def _header(cls, text, name):
@@ -665,7 +665,8 @@ class FrontendImageHeaderParityTests(SimpleTestCase):
         m = re.search(rf'^\s*add_header\s+{name}\s+(.*?)\s*;\s*$', text, re.M)
         if not m:
             return None
-        return re.sub(r"connect-src[^;]*", "connect-src X", m.group(1).replace('"', ""))
+        value = m.group(1).replace('"', "").replace("$visiban_referrer_policy", "same-origin")
+        return re.sub(r"connect-src[^;]*", "connect-src X", value)
 
     def _read(self, rel):
         path = self.REPO_ROOT / rel
@@ -679,6 +680,32 @@ class FrontendImageHeaderParityTests(SimpleTestCase):
             with self.subTest(name):
                 self.assertIsNotNone(self._header(template, name))
                 self.assertEqual(self._header(image, name), self._header(template, name))
+
+    def test_proxying_configs_defer_referrer_policy_to_django(self):
+        """Every config that proxies Django sends Referrer-Policy via the fallback map (#1531).
+
+        A literal server-level ``add_header`` would be appended to Django's own
+        header, and the browser honors the last one, silently weakening the
+        password-reset redirect's ``no-referrer`` (#1554). The map yields an empty
+        value (no header) when the upstream set one and ``same-origin`` otherwise.
+        """
+        import re
+
+        for rel in (
+            "nginx/app.conf.template",
+            "nginx/app-http.conf.template",
+            "helm/visiban/templates/frontend-configmap.yaml",
+        ):
+            text = self._read(rel)
+            with self.subTest(rel):
+                self.assertRegex(
+                    text,
+                    r"(?m)^\s*add_header\s+Referrer-Policy\s+\$visiban_referrer_policy\s+always;",
+                )
+                self.assertRegex(
+                    re.sub(r"\s+", " ", text),
+                    r'map \$upstream_http_referrer_policy \$visiban_referrer_policy \{ default ""; "" "same-origin"; \}',
+                )
 
     def test_headers_are_server_level(self):
         import re

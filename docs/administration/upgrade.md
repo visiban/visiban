@@ -368,6 +368,9 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "Referrer-Policy is now `same-origin` everywhere"
+    The bundled nginx templates, the Helm chart's frontend nginx, the frontend image's default nginx config and Django now all send `Referrer-Policy: same-origin` (#1531). Django previously sent `strict-origin-when-cross-origin`. Share and invite tokens travel in URLs, so no `Referer` header may reach another origin. As a result, outbound links from Visiban pages no longer send a `Referer` to other sites. Requests within your own origin still carry the full `Referer`, which Django's CSRF check relies on over HTTPS. nginx only adds `same-origin` when the response has no `Referrer-Policy` of its own, so a stricter view-level policy (the password-reset link redirect's `no-referrer`) is preserved.
+
 !!! warning "Helm: the Bitnami PostgreSQL subchart is removed"
     Chart 0.8.0 removes the opt-in `bitnami/postgresql` subchart and its `postgresql.subchartEnabled` switch (#1911). The bundled PostgreSQL is the chart's own StatefulSet on the official `postgres:17` image, as it has been by default since before 1.0. `postgresql.subchartEnabled=true` now **fails** `helm install`, `helm upgrade` and `helm template` with an explanation, before anything is applied.
 
@@ -1067,7 +1070,7 @@ endpoint (#1112). It touches the existing, likely-large `cards` table, so it use
     As with `backend.securityContext` and `postgresql.securityContext`, Helm deep-merges nested maps, so a single-leaf `--set` keeps the chart's other `frontend.securityContext.container` defaults in place.
 
 !!! note "Frontend image default nginx config: response headers aligned with the bundled templates"
-    The frontend image's default server config (`frontend/nginx.default.conf`, installed as `/etc/nginx/conf.d/default.conf`) sends the same `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin` headers as `nginx/app.conf.template`, `nginx/app-http.conf.template` and the Helm chart's frontend ConfigMap. It serves only the static files (no `/api/` or `/ws/` proxying), and its `connect-src` is `'self'` only.
+    The frontend image's default server config (`frontend/nginx.default.conf`, installed as `/etc/nginx/conf.d/default.conf`) sends the same `Content-Security-Policy`, `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff` headers as `nginx/app.conf.template`, `nginx/app-http.conf.template` and the Helm chart's frontend ConfigMap. It serves only the static files (no `/api/` or `/ws/` proxying), and its `connect-src` is `'self'` only.
 
     You cannot mount the bundled templates over it as they are: they contain a literal `${DOMAIN}` that needs `envsubst`, listen on port 80 (the image runs as a non-root user on 8080), and proxy to an upstream named `backend` that only resolves under Compose. To name your hostname for the WebSocket or to proxy `/api/` and `/ws/`, copy a template and adapt the port, domain and upstream, or use the Helm chart's rendered frontend ConfigMap `nginx.conf` (already on 8080). Mount the result over `/etc/nginx/conf.d/default.conf`.
 
