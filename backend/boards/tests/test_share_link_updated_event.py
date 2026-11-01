@@ -109,22 +109,39 @@ class RegistryTests(TestCase):
 class ShareActionTests(_Fixtures):
     def test_enable_records_active_with_expiry_on_commit(self):
         with self.captureOnCommitCallbacks(execute=True):
-            self.share(body={"expires_in_days": 7})
+            r = self.share(body={"expires_in_days": 7})
             # Deferred: nothing is published before the transaction commits.
             self.assertEqual(self.broadcast_payloads(), [])
         expected = {
             "board_uid": self.board.uid,
             "active": True,
             "expires_at": self.board.share_token_expires_at.isoformat(),
+            # The rotation signal is the value the response handed this caller.
+            "issued_at": r.data["share_token_issued_at"],
         }
+        self.assertIsNotNone(r.data["share_token_issued_at"])
         [row] = _rows(self.board)
         self.assertEqual(row.data, expected)
-        self.assertEqual(row.actor_id, self.enabler.pk)
         self.assertEqual(self.broadcast_payloads(), [expected])
-        # Published with the feed row's id and the actor beside the envelope.
         call = next(c for c in self.bc.call_args_list if c.args[1] == EVENT)
         self.assertEqual(call.kwargs["event_id"], row.pk)
-        self.assertEqual(call.kwargs["actor_id"], self.enabler.pk)
+
+    def test_recorded_with_no_actor_so_the_feed_never_names_the_enabler(self):
+        """The enabler is not returned by any endpoint or event (#1865)."""
+        self.share()
+        self.share("delete")
+        for row in _rows(self.board):
+            self.assertIsNone(row.actor_id)
+        for c in self.bc.call_args_list:
+            if c.args[1] == EVENT:
+                self.assertIsNone(c.kwargs.get("actor_id"))
+        feed = _client(self.owner).get(f"/api/v1/boards/{self.board.pk}/events/").data["results"]
+        share_rows = [r for r in feed if r["event"] == EVENT]
+        self.assertEqual(len(share_rows), 2)
+        for r in share_rows:
+            self.assertIsNone(r["actor_id"])
+            self.assertIsNone(r["actor"])
+            self.assertNotIn(self.enabler.username, json.dumps(r, default=str))
 
     def test_enable_without_ttl_records_null_expiry(self):
         self.share()
@@ -145,9 +162,13 @@ class ShareActionTests(_Fixtures):
             self.share("delete")
         self.assertEqual(
             _rows(self.board)[-1].data,
-            {"board_uid": self.board.uid, "active": False, "expires_at": None},
+            {"board_uid": self.board.uid, "active": False, "expires_at": None, "issued_at": None},
         )
         self.assertEqual(self.broadcast_payloads()[-1]["active"], False)
+
+    def test_revoke_response_carries_a_null_issued_at(self):
+        self.share()
+        self.assertIsNone(self.share("delete").data["share_token_issued_at"])
 
     def test_rotate_records_a_new_state(self):
         self.share(body={"expires_in_days": 7})
@@ -155,7 +176,16 @@ class ShareActionTests(_Fixtures):
         first, second = _rows(self.board)
         self.assertTrue(first.data["active"] and second.data["active"])
         self.assertNotEqual(first.data["expires_at"], second.data["expires_at"])
-        self.assertEqual(second.actor_id, self.owner.pk)
+
+    def test_rotation_changes_issued_at_even_with_the_same_expiry(self):
+        """With a never-expiring link only issued_at tells a rotation apart (#1967)."""
+        first_r = self.share()
+        second_r = self.share(user=self.owner)
+        first, second = _rows(self.board)
+        self.assertEqual(first.data["expires_at"], second.data["expires_at"])
+        self.assertNotEqual(first.data["issued_at"], second.data["issued_at"])
+        self.assertEqual(first.data["issued_at"], first_r.data["share_token_issued_at"])
+        self.assertEqual(second.data["issued_at"], second_r.data["share_token_issued_at"])
 
     def test_refused_request_records_nothing(self):
         r = _client(self.member).post(f"/api/v1/boards/{self.board.pk}/share/", {}, format="json")
@@ -173,7 +203,7 @@ class ShareActionTests(_Fixtures):
             raw = json.dumps(row.data)
             self.assertNotIn(token, raw)
             self.assertNotIn(self.board.share_token_hash, raw)
-            self.assertEqual(set(row.data), {"board_uid", "active", "expires_at"})
+            self.assertEqual(set(row.data), {"board_uid", "active", "expires_at", "issued_at"})
         for payload in self.broadcast_payloads():
             self.assertNotIn(token, json.dumps(payload))
 
@@ -189,9 +219,9 @@ class ServerDrivenClearTests(_Fixtures):
             )
             self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
             self.assertEqual(self.broadcast_payloads(), [])
-        state = {"board_uid": self.board.uid, "active": False, "expires_at": None}
+        state = {"board_uid": self.board.uid, "active": False, "expires_at": None, "issued_at": None}
         self.assertEqual(_rows(self.board)[-1].data, state)
-        self.assertEqual(_rows(self.board)[-1].actor_id, self.owner.pk)
+        self.assertIsNone(_rows(self.board)[-1].actor_id)
         self.assertEqual(self.broadcast_payloads(), [state])
 
     def test_sweep_that_clears_nothing_records_nothing(self):
@@ -216,7 +246,10 @@ class ServerDrivenClearTests(_Fixtures):
         self.enabler.delete()
         rows = _rows(self.board)
         self.assertEqual(len(rows), before + 1)
-        self.assertEqual(rows[-1].data, {"board_uid": self.board.uid, "active": False, "expires_at": None})
+        self.assertEqual(
+            rows[-1].data,
+            {"board_uid": self.board.uid, "active": False, "expires_at": None, "issued_at": None},
+        )
 
 
 class StatePayloadTests(TestCase):
@@ -228,6 +261,18 @@ class StatePayloadTests(TestCase):
         board.share_enabled_by = None
         self.assertEqual(share_link_state_payload(board)["active"], False)
         self.assertIsNone(share_link_state_payload(board)["expires_at"])
+
+    def test_issued_at_only_for_a_live_link(self):
+        from django.utils import timezone
+
+        owner = User.objects.create_user(username="sp2_1967", password=PW)
+        board = Board.objects.create(name="SP2_1967", owner=owner)
+        now = timezone.now()
+        self.assertIsNone(share_link_state_payload(board, issued_at=now)["issued_at"])
+        board.issue_share_token()
+        board.share_enabled_by = owner
+        self.assertEqual(share_link_state_payload(board, issued_at=now)["issued_at"], now.isoformat())
+        self.assertIsNone(share_link_state_payload(board)["issued_at"])
 
 
 def _deliver(consumer, payload):
@@ -372,8 +417,11 @@ class DjangoAdminExpiryEditTests(_Fixtures):
             "board_uid": self.board.uid,
             "active": True,
             "expires_at": self.board.share_token_expires_at.isoformat(),
+            # Same link, so no rotation signal: an open reveal stays valid.
+            "issued_at": None,
         })
         self.assertTrue(rows[-1].data["expires_at"].startswith("2999-01-02"))
+        self.assertIsNone(rows[-1].actor_id)
         self.assertEqual(len(self.broadcast_payloads()), 1)
 
     def test_save_that_leaves_the_expiry_alone_records_nothing(self):

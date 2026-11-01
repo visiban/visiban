@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stripPerUserBoardFields, neutralizePerUserBoardFields, shareLinkPatchFromEvent } from '../utils/boardEventPayload'
+import { stripPerUserBoardFields, neutralizePerUserBoardFields, shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent } from '../utils/boardEventPayload'
 
 describe('boardEventPayload (#1559)', () => {
   it('stripPerUserBoardFields drops is_starred and keeps everything else', () => {
@@ -58,5 +58,21 @@ describe('shareLinkPatchFromEvent (#1967)', () => {
   it('never carries anything but the two share fields', () => {
     const out = shareLinkPatchFromEvent({ board_uid: 'b1', active: true, expires_at: null, share_token: 'tok' } as never)
     expect(Object.keys(out).sort()).toEqual(['share_link_active', 'share_token_expires_at'])
+  })
+})
+
+describe('shareLinkIssuedAtFromEvent (#1967)', () => {
+  it('returns issued_at for an active link that was just issued', () => {
+    expect(shareLinkIssuedAtFromEvent({ active: true, expires_at: null, issued_at: '2026-11-01T10:00:00+00:00' }))
+      .toBe('2026-11-01T10:00:00+00:00')
+  })
+
+  it('fails closed to null', () => {
+    expect(shareLinkIssuedAtFromEvent({ active: true, expires_at: null, issued_at: null })).toBeNull()
+    expect(shareLinkIssuedAtFromEvent({ active: false, issued_at: '2026-11-01T10:00:00+00:00' })).toBeNull()
+    expect(shareLinkIssuedAtFromEvent({ active: true, issued_at: 5 as unknown as string })).toBeNull()
+    expect(shareLinkIssuedAtFromEvent({ active: true })).toBeNull()
+    expect(shareLinkIssuedAtFromEvent(null)).toBeNull()
+    expect(shareLinkIssuedAtFromEvent(undefined)).toBeNull()
   })
 })

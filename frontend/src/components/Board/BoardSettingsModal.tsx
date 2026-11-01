@@ -87,6 +87,12 @@ interface Props {
    *  stale load-time values. Never carries the token: the link stays in this
    *  component's state only. */
   onShareChanged?: (patch: Pick<BoardFull, "share_link_active" | "share_token_expires_at">) => void;
+  /** #1967 — `issued_at` of the latest share_link.updated frame that issued a
+   *  link (an enable or rotate, by anyone). When it differs from the value this
+   *  tab's own enable/rotate response returned, the link this tab is revealing
+   *  was replaced and no longer works, so the reveal is withdrawn. Null until
+   *  such a frame arrives. */
+  shareLinkIssuedAt?: string | null;
 }
 
 const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
@@ -120,7 +126,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // Focus the selected tab button only when a caller deep-linked a tab (#1458);
@@ -256,6 +262,52 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  // Neutral (non-error) announcement for the status slot (#1967): set when a
+  // change made elsewhere withdraws this tab's one-time reveal.
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+  // Mirrors for effects that must not re-run when these change (#1967).
+  const revealedShareTokenRef = useRef<string | null>(null);
+  revealedShareTokenRef.current = revealedShareToken;
+  // `share_token_issued_at` from the response that created the current
+  // reveal; null when nothing is revealed (or an older server sent none).
+  const revealIssuedAtRef = useRef<string | null>(null);
+  const shareRevealRef = useRef<HTMLDivElement>(null);
+  const shareHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusHeadingAfterWithdrawRef = useRef(false);
+  // Focus follows the reveal so it never drops to <body>: when the reveal
+  // mounts (enable or rotate; Rotate link itself unmounts), focus goes to
+  // Copy, whose aria-describedby announces the one-time warning; when Done
+  // unmounts it, focus goes to Rotate link.
+  const rotateShareButtonRef = useRef<HTMLButtonElement>(null);
+  const copyShareButtonRef = useRef<HTMLButtonElement>(null);
+  const focusRotateAfterDismissRef = useRef(false);
+  const focusCopyAfterRevealRef = useRef(false);
+
+  // #1967 — a change made elsewhere (another admin, another tab, or the
+  // server) ended the link this tab is revealing. Withdraw the reveal, clear
+  // any stale error about it (a failed copy), say why in the status slot,
+  // and, if focus was inside the reveal, move it to the "Public sharing"
+  // heading so it never drops to <body>. The heading, not Rotate link or
+  // the toggle: both of those would destroy the link another admin just
+  // made on a reflexive Enter. A no-op when nothing is revealed, which also
+  // covers this tab's own revoke (it clears the reveal itself before its
+  // patch reaches `board`).
+  const withdrawShareReveal = useCallback((reason: "revoked" | "rotated") => {
+    if (revealedShareTokenRef.current === null) return;
+    if (shareRevealRef.current?.contains(document.activeElement)) {
+      focusHeadingAfterWithdrawRef.current = true;
+    }
+    revealIssuedAtRef.current = null;
+    setRevealedShareToken(null);
+    setShareCopied(false);
+    setShareStatus(null);
+    setShareNotice(
+      reason === "rotated"
+        ? "The link shown here was replaced elsewhere and no longer works. Rotate the link to get a new one."
+        : "Sharing was turned off elsewhere, so the link shown here no longer works.",
+    );
+  }, []);
+
   // #1967 — follow the board's share state after mount, not just at it.
   // BoardView merges the admin-only share_link.updated frame (another admin
   // revoking or rotating the link, or the server clearing it when its enabler
@@ -268,11 +320,22 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   useEffect(() => {
     setShareActive(boardShareActive);
     setShareExpiresAt(boardShareExpiresAt);
-    if (!boardShareActive) {
-      setRevealedShareToken(null);
-      setShareCopied(false);
+    // A notice about an earlier change elsewhere is stale once the share
+    // state changes again (for example sharing turned back on).
+    setShareNotice(null);
+    if (!boardShareActive) withdrawShareReveal("revoked");
+  }, [boardShareActive, boardShareExpiresAt, withdrawShareReveal]);
+
+  // #1967 — a rotation leaves the link active, so it is told apart by
+  // `issued_at`. Keyed on the prop alone: this tab's own enable/rotate echo
+  // carries the same value its response returned (kept in revealIssuedAtRef),
+  // whichever of the two arrives first, so it never withdraws its own reveal.
+  useEffect(() => {
+    const mine = revealIssuedAtRef.current;
+    if (shareLinkIssuedAt !== null && mine !== null && shareLinkIssuedAt !== mine) {
+      withdrawShareReveal("rotated");
     }
-  }, [boardShareActive, boardShareExpiresAt]);
+  }, [shareLinkIssuedAt, withdrawShareReveal]);
 
   const shareUrl = revealedShareToken ? `${window.location.origin}/share/${revealedShareToken}` : null;
   // A link past its expiry is still set (the public page answers 410 Gone)
@@ -305,18 +368,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       />
     </div>
   );
-  // Focus follows the reveal so it never drops to <body>: when the reveal
-  // mounts (enable or rotate; Rotate link itself unmounts), focus goes to
-  // Copy, whose aria-describedby announces the one-time warning; when Done
-  // unmounts it, focus goes to Rotate link.
-  const rotateShareButtonRef = useRef<HTMLButtonElement>(null);
-  const copyShareButtonRef = useRef<HTMLButtonElement>(null);
-  const focusRotateAfterDismissRef = useRef(false);
-  const focusCopyAfterRevealRef = useRef(false);
   useEffect(() => {
     if (focusRotateAfterDismissRef.current && revealedShareToken === null) {
       focusRotateAfterDismissRef.current = false;
       rotateShareButtonRef.current?.focus();
+    }
+    if (focusHeadingAfterWithdrawRef.current && revealedShareToken === null) {
+      focusHeadingAfterWithdrawRef.current = false;
+      shareHeadingRef.current?.focus();
     }
     if (focusCopyAfterRevealRef.current && revealedShareToken !== null) {
       focusCopyAfterRevealRef.current = false;
@@ -329,17 +388,21 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const handleEnableShare = async (failureMessage = "Failed to enable sharing. Please try again.") => {
     setShareLoading(true);
     setShareStatus(null);
+    setShareNotice(null);
     try {
       const data = await enableBoardSharing(board.id, shareTtl);
       focusCopyAfterRevealRef.current = true;
+      revealIssuedAtRef.current = data.share_token_issued_at ?? null;
       setShareActive(true);
       setRevealedShareToken(data.share_token);
       setShareExpiresAt(data.share_token_expires_at);
       setShareCopied(false);
       setShareStatus(null);
-      // Board state must learn the link is on (no frame carries it), or a
-      // reopened modal would show sharing off and a second enable would
-      // silently replace the link just handed out. The token is not passed.
+      // Board state must learn the link is on now, not only when this tab's
+      // share_link.updated echo arrives (#1967; it can be lost, and board.updated
+      // never carries share fields), or a reopened modal could show sharing off
+      // and a second enable would silently replace the link just handed out.
+      // The token is not passed.
       onShareChanged?.({ share_link_active: true, share_token_expires_at: data.share_token_expires_at });
     } catch {
       setShareStatus(failureMessage);
@@ -350,6 +413,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const handleDismissShareReveal = () => {
     focusRotateAfterDismissRef.current = true;
+    revealIssuedAtRef.current = null;
     setRevealedShareToken(null);
     setShareCopied(false);
   };
@@ -357,9 +421,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const handleDisableShare = async () => {
     setShareLoading(true);
     setShareStatus(null);
+    setShareNotice(null);
     try {
       await disableBoardSharing(board.id);
       setShareActive(false);
+      revealIssuedAtRef.current = null;
       setRevealedShareToken(null);
       setShareExpiresAt(null);
       setShareStatus(null);
@@ -390,6 +456,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       setShareStatus("Failed to copy link. Please copy it manually.");
       return;
     }
+    // The reveal may have been withdrawn while the copy was pending (#1967):
+    // don't report a dead link as copied.
+    if (revealedShareTokenRef.current === null) return;
     setShareCopied(true);
     if (shareCopiedTimerRef.current !== null) {
       clearTimeout(shareCopiedTimerRef.current);
@@ -1148,7 +1217,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <div className="flex flex-col gap-5">
               <section>
-                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Public sharing</h3>
+                <h3 ref={shareHeadingRef} tabIndex={-1} className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2 focus:outline-none">Public sharing</h3>
                 <p className="text-xs text-fg-muted mb-4">
                   Anyone with this link can view this board without signing in. They cannot edit, comment, or see member details.
                 </p>
@@ -1176,7 +1245,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     link is never fetched again, so this is the only chance to
                     copy it. */}
                 {shareActive && shareUrl && (
-                  <div className="flex flex-col gap-2 transition-all duration-150" data-testid="share-link-reveal">
+                  <div ref={shareRevealRef} className="flex flex-col gap-2 transition-all duration-150" data-testid="share-link-reveal">
                     <p className="text-xs text-warning" id="share-reveal-note">
                       Copy this link now — it won't be shown again. If you lose it, rotate the link to get a new one.
                     </p>
@@ -1270,11 +1339,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                 {/* Status row — always reserve height; a live region so enable,
                     rotate, disable and copy results are announced. */}
-                <p className="text-xs h-4 mt-2" role="status" aria-live="polite" aria-atomic="true">
+                <p className="text-xs min-h-4 mt-2" role="status" aria-live="polite" aria-atomic="true">
                   {shareStatus ? (
                     <span className="text-danger">{shareStatus}</span>
                   ) : shareCopied ? (
                     <span className="text-success">Link copied.</span>
+                  ) : shareNotice ? (
+                    <span className="text-fg-secondary">{shareNotice}</span>
                   ) : null}
                 </p>
               </section>

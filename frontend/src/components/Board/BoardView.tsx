@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
+import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
@@ -330,6 +330,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // #1444 — bumped on invite socket events so the Members tab's pending
   // invite list (Board Settings) refetches while it is open.
   const [inviteReloadSignal, setInviteReloadSignal] = useState(0);
+  // #1967 — issued_at of the latest share_link.updated that issued a link,
+  // passed to BoardSettingsModal so it can tell a rotation made elsewhere.
+  const [shareLinkIssuedAt, setShareLinkIssuedAt] = useState<string | null>(null);
 
   // #1444 — arriving from a board invite (JoinPage / the OAuth return in
   // App.tsx) carries what happened in navigation state.
@@ -568,7 +571,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // keeps this tab's share state current, including an open Sharing tab,
       // when another admin revokes or rotates the link or it lapses
       // server-side. Never carries the token.
-      mergeBoardState(shareLinkPatchFromEvent(d as unknown as ShareLinkUpdatedPayload));
+      const sharePayload = d as unknown as ShareLinkUpdatedPayload;
+      mergeBoardState(shareLinkPatchFromEvent(sharePayload));
+      // Rotation signal for an open Sharing tab's one-time reveal: kept beside
+      // board state, not in it (BoardFull mirrors the /full/ serializer).
+      const issuedAt = shareLinkIssuedAtFromEvent(sharePayload);
+      if (issuedAt !== null) setShareLinkIssuedAt(issuedAt);
     } else if (event.event === "board.deleted") {
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();
@@ -2721,6 +2729,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onMembersAdded={reloadForMemberFlag}
           // #1935: share-link state (never the token) back into board state.
           onShareChanged={mergeBoardState}
+          shareLinkIssuedAt={shareLinkIssuedAt}
         />
       )}
 

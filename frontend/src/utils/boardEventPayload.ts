@@ -51,3 +51,15 @@ export function shareLinkPatchFromEvent(
   const expiresAt = active && typeof payload?.expires_at === "string" ? payload.expires_at : null;
   return { share_link_active: active, share_token_expires_at: expiresAt };
 }
+
+/**
+ * The rotation signal of a `share_link.updated` payload (#1967): the issue
+ * time of the link an enable or rotate just created, or null for any change
+ * that issued no link (revoke, server-side clear, expiry edit). Fails closed:
+ * null unless the link is active and `issued_at` is a string.
+ */
+export function shareLinkIssuedAtFromEvent(
+  payload: Partial<ShareLinkUpdatedPayload> | null | undefined,
+): string | null {
+  return payload?.active === true && typeof payload.issued_at === "string" ? payload.issued_at : null;
+}

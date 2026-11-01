@@ -563,7 +563,7 @@ describe('BoardView socket event routing — new event types', () => {
     act(() => {
       getOnEvent.dispatch({
         event: 'share_link.updated',
-        data: { board_uid: 'board-uid-1', active: true, expires_at: '2999-01-01T00:00:00Z' },
+        data: { board_uid: 'board-uid-1', active: true, expires_at: '2999-01-01T00:00:00Z', issued_at: '2026-11-01T10:00:00+00:00' },
       })
     })
     expect(ctx.mergeBoardState).toHaveBeenCalledWith({
@@ -572,7 +572,7 @@ describe('BoardView socket event routing — new event types', () => {
     act(() => {
       getOnEvent.dispatch({
         event: 'share_link.updated',
-        data: { board_uid: 'board-uid-1', active: false, expires_at: null },
+        data: { board_uid: 'board-uid-1', active: false, expires_at: null, issued_at: null },
       })
     })
     expect(ctx.mergeBoardState).toHaveBeenLastCalledWith({ share_link_active: false, share_token_expires_at: null })

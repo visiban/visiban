@@ -1483,13 +1483,14 @@ If a token exists, this call invalidates it immediately and returns a new UUID, 
 {
   "share_token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "share_url": "https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "share_token_expires_at": "2026-04-28T17:30:00+00:00"
+  "share_token_expires_at": "2026-04-28T17:30:00+00:00",
+  "share_token_issued_at": "2026-04-21T17:30:00+00:00"
 }
 ```
 
 `share_token_expires_at` is `null` when no TTL was requested.
 
-*(1.3+, #1967)* Besides `board.updated`, a successful call sends the admin-only [`share_link.updated`](websockets.md#share-link-events-since-13) WebSocket event with `active: true` and the new expiry, so other admin sessions see the change. It never carries the token. `DELETE` below sends it with `active: false`.
+*(1.3+, #1967)* `share_token_issued_at` is when this link was issued. It is additive. Besides `board.updated`, a successful call sends the admin-only [`share_link.updated`](websockets.md#share-link-events-since-13) WebSocket event with `active: true`, the new expiry, and `issued_at` set to this same `share_token_issued_at`, so other admin sessions see the change and the caller can tell its own change from a later rotation by someone else. The event never carries the token. `DELETE` below sends it with `active: false`.
 
 **Errors:** `403 Forbidden` if the caller can see the board but is not a board admin, including a caller whose admin role was removed while the request was waiting on a concurrent change to the board; `404 Not Found` if the caller has no access to it. `400 Bad Request` if `expires_in_days` is not one of the allowed values.
 
@@ -1503,7 +1504,8 @@ Revoke the board's public share token. Requires board admin. Existing share link
 {
   "share_token": null,
   "share_url": null,
-  "share_token_expires_at": null
+  "share_token_expires_at": null,
+  "share_token_issued_at": null
 }
 ```
 

@@ -705,7 +705,7 @@ Drag-and-drop, card click-to-open, and all editing actions are disabled in the p
 
 Toggle **Enable public share link** off to revoke the current token immediately. Any visitor who follows the old URL will see a "This board is no longer shared" page with a link to sign in. Toggling sharing back on generates a new token; the previous link cannot be restored.
 
-*(1.3+, #1967)* Other board admins who have the board open see the change without a reload, including in a **Sharing** tab they already have open: it switches to off when you revoke the link, and to on, with the new expiry, when you enable or rotate it. If you revoke the link while another admin still has its one-time copy on screen, that copy is removed, because the link no longer works.
+*(1.3+, #1967)* Other board admins who have the board open see the change without a reload, including in a **Sharing** tab they already have open: it switches to off when you revoke the link, and to on, with the new expiry, when you enable or rotate it. If you revoke or rotate the link while another admin still has its one-time copy on screen, that copy is removed and the tab says why, because the link no longer works.
 
 ### Rate limiting
 

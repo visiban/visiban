@@ -47,44 +47,62 @@ def share_enabler_has_standing(user, board):
     return get_board_role(user, board) in SHARE_ADMIN_ROLES
 
 
-def share_link_state_payload(board):
+def share_link_state_payload(board, *, issued_at=None):
     """The ``share_link.updated`` payload for *board*'s current share state (#1967).
 
     ``active`` is the ``/full/`` ``share_link_active`` rule: a stored token
     with a recorded enabler (an unrecorded link never resolves, #1939).
     ``expires_at`` is null when there is no live link, matching
-    ``/full/`` ``share_token_expires_at``. The token and the enabler are never
-    included: the token is shown once, from the share action's response
-    (#1935), and the enabler is not returned by any endpoint or event (#1865).
+    ``/full/`` ``share_token_expires_at``.
+
+    ``issued_at`` is the rotation signal: on the frame for an enable or rotate
+    it is the time that new link was issued (the share action passes the same
+    value it returns as ``share_token_issued_at``), and it is null on every
+    other change (revoke, server-side clear, expiry edit), none of which issues
+    a link. A rotation leaves ``active`` true, so without it a client still
+    showing the old link's one-time reveal could not tell that link stopped
+    working. It is a timestamp, not derived from the token, and is not stored.
+
+    The token and the enabler are never included: the token is shown once,
+    from the share action's response (#1935), and the enabler is not returned
+    by any endpoint or event (#1865), which is also why the event is recorded
+    with no actor (``record_share_link_updated``).
     """
     active = board.share_token is not None and board.share_enabled_by_id is not None
     expires_at = board.share_token_expires_at if active else None
+    issued = issued_at if active else None
     return {
         "board_uid": board.uid,
         "active": active,
         "expires_at": expires_at.isoformat() if expires_at is not None else None,
+        "issued_at": issued.isoformat() if issued is not None else None,
     }
 
 
-def record_share_link_updated(board, *, actor_id=None):
+def record_share_link_updated(board, *, issued_at=None):
     """Persist ``share_link.updated`` for *board* and publish it on commit (#1967).
 
     Every write that enables, rotates or clears a share link calls this after
     the write, in the same transaction: the share action, ``_clear_lapsed``
     below, the deleted-enabler receiver in ``boards.models``, and a Django
     admin edit of ``share_token_expires_at`` on a live link
-    (``BoardAdmin.save_model``). The
-    ``board.updated`` those writes also record cannot carry the share state
-    (``ADMIN_ONLY_BOARD_FIELDS`` drops it from every payload), so without this
-    event an open admin session kept showing a revoked link as active. The
-    event is admin-only (``boards.permissions.ADMIN_ONLY_EVENTS``): the
-    consumer and the change feed withhold it from every role below admin.
+    (``BoardAdmin.save_model``). The ``board.updated`` those writes also
+    record cannot carry the share state (``ADMIN_ONLY_BOARD_FIELDS`` drops it
+    from every payload), so without this event an open admin session kept
+    showing a revoked link as active. The event is admin-only
+    (``boards.permissions.ADMIN_ONLY_EVENTS``): the consumer and the change
+    feed withhold it from every role below admin.
+
+    Recorded with NO actor, deliberately: the feed row's ``actor`` on an
+    enable would name the admin who enabled the link, and the enabler is not
+    returned by any endpoint or event (#1865). ``actor_id`` is only used for
+    ``ACTOR_SCOPED_FIELDS``, which this payload has none of.
     """
     from .. import broadcast as _broadcast
 
     return _broadcast.record_board_event(
-        board.pk, _broadcast.EVT_SHARE_LINK_UPDATED, share_link_state_payload(board),
-        actor_id=actor_id,
+        board.pk, _broadcast.EVT_SHARE_LINK_UPDATED,
+        share_link_state_payload(board, issued_at=issued_at),
     )
 
 
@@ -188,5 +206,5 @@ def _clear_lapsed(lapsed, actor_id):
             board.pk, _broadcast.EVT_BOARD_UPDATED, BoardSerializer(board).data,
             actor_id=actor_id,
         )
-        record_share_link_updated(board, actor_id=actor_id)
+        record_share_link_updated(board)
     return revoked

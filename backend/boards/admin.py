@@ -840,7 +840,7 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                 and obj.share_token is not None
                 and obj.share_token_expires_at != stored.share_token_expires_at
             ):
-                record_share_link_updated(obj, actor_id=request.user.pk)
+                record_share_link_updated(obj)
         # No request in context: BoardSerializer.get_group_detail() reads
         # request.query_params (a DRF Request attribute) to resolve
         # ?expand=group, which the plain Django admin HttpRequest does not

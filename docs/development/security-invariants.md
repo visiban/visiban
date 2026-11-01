@@ -347,7 +347,8 @@ each surface that delivers them:
   `share_link.updated`, #1967) reach admin and site_admin recipients only
   (`admin_only_event_visible`). The whole frame or row is withheld, not a
   field. Their payloads use key names outside `ADMIN_ONLY_BOARD_FIELDS`, so
-  that drop stays unconditional, and never carry the share token;
+  that drop stays unconditional, and never carry the share token. `share_link.updated` rows are
+  recorded with no actor, so the feed never names the link's enabler;
 - admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
   current shareable definitions.
