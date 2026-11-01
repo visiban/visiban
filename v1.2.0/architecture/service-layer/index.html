@@ -4292,10 +4292,10 @@
 <p><strong>Deleting a user from the Django admin (#1616):</strong> locks go user, group, card, user, in three statements.</p>
 <ol>
 <li><strong>Statement 1.</strong><ul>
-<li>Locks the targets, the acting administrator, and the active site-admin and superuser rows <code>FOR NO KEY UPDATE</code>. That does not block the <code>FOR KEY SHARE</code> that card writes and board inserts take on a user row.</li>
+<li>Locks the targets, the acting administrator, the active site-admin and superuser rows, and the account rows of every admin of a group a target actively administers (<code>groups.services.admin_accounts_of_groups_administered_by</code>, #1814) <code>FOR NO KEY UPDATE</code>. That does not block the <code>FOR KEY SHARE</code> that card writes and board inserts take on a user row.</li>
 <li>Then locks, <code>FOR NO KEY UPDATE</code> and in pk order, the rows of every group a target actively administers (<code>groups.services.lock_groups_administered_by</code>). Every group member removal, demotion, and ownership transfer takes this lock first, so for those groups the "keep an active group admin" refusal judges admin rows that nothing can alter before the delete commits.</li>
-<li>The set is the groups the targets actively administer when statement 1 runs. A group in which a target becomes an admin afterward is counted by the statement 3 re-check, but its row is not held. The other admins' active flag is read at check time, not locked.</li>
-<li>A group writer needs at most <code>FOR KEY SHARE</code> on a user row, which statement 1 does not block, so taking the group rows after the user rows cannot invert.</li>
+<li>The set is the groups the targets actively administer when statement 1 runs. A promotion of a target, or an ownership transfer to one, locks the target's account row first, so it queues behind the delete and then finds the membership gone. The other admins' account rows are held, so a deactivation of one of them queues too. An account made a group admin after statement 1 is counted by the statement 3 re-check without its row held.</li>
+<li>Account rows before group rows is the order every group writer that locks an account row follows (Rule 11 of <code>docs/development/security-invariants.md</code>, and <code>groups/services.py</code> above <code>lock_member_accounts</code>). Any other group writer needs at most <code>FOR KEY SHARE</code> on a user row, which statement 1 does not block, so taking the group rows after the user rows cannot invert.</li>
 </ul>
 </li>
 <li><strong>Statement 2.</strong> Locks the owned boards' rows <code>FOR NO KEY UPDATE</code>, then the cards the cascade will write (the owned boards' cards and every card carrying a reference to a target) <code>FOR UPDATE</code>, then the owned boards' entry columns (<code>lock_cards_for_cascade()</code> with <code>boards=</code> and <code>entry_columns=</code>, #1602). The board -&gt; card -&gt; column order matches every other container delete.</li>
@@ -4424,11 +4424,11 @@
 </tr>
 <tr>
 <td>Group member role change and removal (<code>lock_membership_for_removal_or_demotion</code>)</td>
-<td>group row <code>FOR NO KEY UPDATE</code> (conflicts with the ownership transfer's <code>FOR UPDATE</code>, so the owner is read from the locked row) -&gt; the group's admin rows and the target's row in one pk-ordered <code>FOR UPDATE</code> statement -&gt; the owner and last-active-admin checks -&gt; the <code>UPDATE</code>/<code>DELETE</code></td>
+<td>the account rows of the group's admins and of the target <code>FOR NO KEY UPDATE</code> in one pk-ordered statement (<code>lock_member_accounts</code>, #1814) -&gt; group row <code>FOR NO KEY UPDATE</code> (conflicts with the ownership transfer's <code>FOR UPDATE</code>, so the owner is read from the locked row) -&gt; the group's admin rows and the target's row in one pk-ordered <code>FOR UPDATE</code> statement -&gt; the owner and last-active-admin checks -&gt; the <code>UPDATE</code>/<code>DELETE</code></td>
 </tr>
 <tr>
 <td>Group row writers and invite writers (#1719): board-defaults <code>PATCH</code>, invite revoke; invite link create and the emailed-invite send (the caps)</td>
-<td>group row <code>FOR NO KEY UPDATE</code> (<code>lock_group_row</code>; the emailed-invite send keeps its <code>FOR UPDATE</code>) -&gt; (revoke) invite row <code>FOR UPDATE</code> -&gt; the <code>UPDATE</code>/<code>INSERT</code>. Ownership transfer keeps its group row <code>FOR UPDATE</code> -&gt; membership row order; group <code>PATCH</code> keeps the #1690 row above</td>
+<td>group row <code>FOR NO KEY UPDATE</code> (<code>lock_group_row</code>; the emailed-invite send keeps its <code>FOR UPDATE</code>) -&gt; (revoke) invite row <code>FOR UPDATE</code> -&gt; the <code>UPDATE</code>/<code>INSERT</code>. Ownership transfer takes the new owner's account row <code>FOR NO KEY UPDATE</code> -&gt; its group row <code>FOR UPDATE</code> -&gt; membership row (#1814); group <code>PATCH</code> keeps the #1690 row above</td>
 </tr>
 <tr>
 <td>Board, column, swimlane, label and custom-field-definition UPDATE/DELETE writers (custom-field definition update and delete included, <code>FOR NO KEY UPDATE</code> through <code>lock_board_and_row_or_404</code>, not <code>FOR UPDATE</code>): board <code>PATCH</code>/<code>PUT</code>, share link enable/revoke, move-group, member add/role change/removal, label create, saved-filter create and star (board row only), column <code>PATCH</code>/<code>PUT</code>, swimlane <code>PATCH</code>/<code>PUT</code> and set-collapsed, label <code>PATCH</code>/<code>DELETE</code>, card and swimlane custom-field definition <code>PATCH</code>/<code>DELETE</code>; <code>BoardAdmin</code>, <code>ColumnAdmin</code>, <code>SwimlaneAdmin</code> (and the label and membership admins) saves</td>
@@ -4494,7 +4494,7 @@
 </tr>
 <tr>
 <td>Member role change or removal</td>
-<td>group row <code>FOR NO KEY UPDATE</code>, then the membership rows; refuses to remove or demote the owner or the last active admin under those locks</td>
+<td>the admins' and the target's account rows <code>FOR NO KEY UPDATE</code> (#1814), then the group row <code>FOR NO KEY UPDATE</code>, then the membership rows; refuses to remove or demote the owner or the last active admin under those locks</td>
 </tr>
 <tr>
 <td>Board imports into a group, board admin save</td>

@@ -5225,12 +5225,30 @@ and the Rule 8 tests.</p>
 removal, demotion and user deletion are refused when they would leave the group
 without an active admin. A request that would remove or demote the owner, or remove or
 demote the last active admin, is refused. Deactivated admins don't
-count. The account's active flag is read at check time and isn't covered by the
-group lock. The owner leaves through ownership transfer or by deleting the group.</p>
+count. The admins' account rows are locked while they are counted, so their
+active flag can't change under the check. The owner leaves through ownership
+transfer or by deleting the group. Deactivating an account is never refused for
+being a group's last active admin; it queues with a member change on the same
+account row instead. A deactivation queued behind a removal or demotion still
+runs once that change commits, so it can leave the group with no active admin;
+a superuser's ownership transfer to an active member repairs the group.</p>
 <p><strong>Why.</strong> A group with no active admin is repaired through its owner (ownership transfer
 or deletion) or, for a departed owner, by a superuser's ownership transfer. Both checks
 are judged under the group row lock, so two concurrent requests that each change
-a different admin can't both pass.</p>
+a different admin can't both pass, and under the admins' account row locks, so a
+member change and a deactivation of another admin queue in either order (#1814).</p>
+<p><strong>Lock order.</strong> Every path that takes more than one of these locks takes them in
+this order, or it can deadlock against the member-change guard or the user
+delete, which hold account rows while they wait for a group row:</p>
+<ol>
+<li>account (<code>User</code>) rows, in pk order, in one statement (<code>FOR NO KEY UPDATE</code> or stronger);</li>
+<li>group rows (in pk order when there are several);</li>
+<li>group membership rows, in pk order.</li>
+</ol>
+<p>A group writer that needs only <code>FOR KEY SHARE</code> on an account row (the foreign key
+check of a membership or invite insert) isn't affected: nothing above conflicts
+with it. The order is also recorded in <code>groups/services.py</code>, above
+<code>lock_member_accounts</code>.</p>
 <table>
 <thead>
 <tr>
@@ -5243,12 +5261,12 @@ a different admin can't both pass.</p>
 <tr>
 <td>Group member role change and removal (REST)</td>
 <td><code>groups/views.py</code> <code>GroupViewSet.update_member</code></td>
-<td><code>groups/services.py</code> <code>lock_membership_for_removal_or_demotion</code>: group row <code>FOR NO KEY UPDATE</code>, then the admin rows and the target row in one pk-ordered statement; refused with <code>400</code></td>
+<td><code>groups/services.py</code> <code>lock_membership_for_removal_or_demotion</code>: the account rows of the group's admins and of the target <code>FOR NO KEY UPDATE</code> (<code>lock_member_accounts</code>), then the group row <code>FOR NO KEY UPDATE</code>, then the admin rows and the target row in one pk-ordered statement; refused with <code>400</code></td>
 </tr>
 <tr>
 <td>Group ownership transfer (REST)</td>
 <td><code>groups/views.py</code> <code>GroupViewSet.transfer_ownership</code></td>
-<td><code>groups/services.py</code> <code>transfer_group_ownership</code>: the new owner must already be an admin and the previous owner stays an admin; the group row is locked <code>FOR UPDATE</code>, which queues with the member-change lock</td>
+<td><code>groups/services.py</code> <code>transfer_group_ownership</code>: the new owner must already be an admin and the previous owner stays an admin; the new owner's account row is locked first, then the group row <code>FOR UPDATE</code>, which queues with the member-change lock</td>
 </tr>
 <tr>
 <td>Group ownership transfer (Django admin)</td>
@@ -5258,7 +5276,12 @@ a different admin can't both pass.</p>
 <tr>
 <td>User delete (Django admin: delete page, <code>delete_model</code>, <code>delete_queryset</code> and the <strong>Delete selected users</strong> action)</td>
 <td><code>accounts/admin.py</code> <code>VisibanUserAdmin.delete_view</code>, <code>delete_model</code>, <code>delete_queryset</code>, <code>guarded_delete_selected</code></td>
-<td><code>user_deletion_refusals</code> refuses deleting a group owner, and refuses a delete that would leave a group the targets actively administer with no active admin outside the deleted set (<code>groups/services.py</code> <code>groups_left_without_admin</code>, counting with the shared <code>admin_minimum_q</code> / <code>counts_toward_admin_minimum</code> predicate). Under the delete's locks, <code>VisibanUserAdmin._lock_and_check_admins</code> takes those groups' rows <code>FOR NO KEY UPDATE</code> (<code>lock_groups_administered_by</code>) after the user rows, so the delete and a member change or ownership transfer on the same group queue</td>
+<td><code>user_deletion_refusals</code> refuses deleting a group owner, and refuses a delete that would leave a group the targets actively administer with no active admin outside the deleted set (<code>groups/services.py</code> <code>groups_left_without_admin</code>, counting with the shared <code>admin_minimum_q</code> / <code>counts_toward_admin_minimum</code> predicate). Under the delete's locks, <code>VisibanUserAdmin._lock_and_check_admins</code> locks the account rows of the targets and of those groups' other admins (<code>admin_accounts_of_groups_administered_by</code>), then takes those groups' rows <code>FOR NO KEY UPDATE</code> (<code>lock_groups_administered_by</code>), so the delete queues with a member change or ownership transfer on the same group, with a deactivation of another admin, and with a promotion of a target</td>
+</tr>
+<tr>
+<td>Account deactivation (admin API <code>PATCH</code>, the deactivate endpoint, the Django admin user form)</td>
+<td><code>accounts/admin_views.py</code> <code>AdminUserDetailView.patch</code>, <code>AdminUserDeactivateView.post</code>; <code>accounts/admin.py</code> <code>VisibanUserAdmin.save_model</code></td>
+<td>Not refused for being a group's last active admin. Each locks the target's account row before it writes <code>is_active</code>, which queues with a member change or user delete that holds that row while it counts active admins; none takes a group row lock afterward</td>
 </tr>
 </tbody>
 </table>
@@ -5276,7 +5299,13 @@ deletes or demotes a <code>GroupMembership</code> and requires it to call
 <code>accounts/tests/test_admin_user_delete_group_admin.py</code> (the user delete on the
 delete page and the bulk action, a set judged as a whole, an inactive admin not
 counted, the re-check under the locks, and on PostgreSQL a delete and a demotion
-queued on the group row in both orders).</p>
+queued on the group row in both orders);
+<code>groups/tests/test_group_admin_vs_deactivation_1814.py</code> (deactivation still
+succeeds for a last active admin, and on PostgreSQL a removal or demotion and a
+deactivation of the other admin queued in both orders, the user delete queued
+with a deactivation of the other admin, a promotion of an account being deleted
+queued behind the delete, and the account-before-group lock order of the guard
+and the ownership transfer).</p>
 <p>Existing data: migration <code>groups/0022_restore_group_owner_admin_rows</code> gives
 every group's owner a direct <code>admin</code> membership, promoting a non-admin row or
 adding a missing one, so the owner half of the rule holds for every existing
