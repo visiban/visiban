@@ -4070,7 +4070,7 @@
 <p>Visiban's REST API is a public contract from 1.0 onward: this page is the backward-compatibility policy that binds every change to it.</p>
 <p><strong>Why it matters:</strong> Integrations built on <code>/api/v1/</code> keep working through every 1.x release. Deprecations get headers and at least one minor release of notice.</p>
 <h2 id="url-path-versioning-apiv1">URL path versioning — <code>/api/v1/</code><a class="headerlink" href="#url-path-versioning-apiv1" title="Permanent link">&para;</a></h2>
-<p>Every API endpoint is served under <code>/api/v1/</code> (e.g. <code>/api/v1/boards/</code>, <code>/api/v1/auth/login/</code>), using DRF's <code>URLPathVersioning</code> with <code>DEFAULT_VERSION = "v1"</code> and <code>ALLOWED_VERSIONS = ["v1"]</code>. A request to an unsupported version (e.g. <code>/api/v2/</code>) receives <code>406 Not Acceptable</code>.</p>
+<p>Every API endpoint is served under <code>/api/v1/</code> (e.g. <code>/api/v1/boards/</code>, <code>/api/v1/auth/login/</code>), using DRF's <code>URLPathVersioning</code> with <code>DEFAULT_VERSION = "v1"</code> and <code>ALLOWED_VERSIONS = ["v1"]</code>. A request to an unsupported version (e.g. <code>/api/v2/</code>) receives <code>406 Not Acceptable</code> with <code>{"detail": "Unsupported API version. Use /api/v1/."}</code> when authenticated (anonymous callers get <code>401</code>). An unmatched <code>/api/v1/...</code> path returns a JSON <code>404</code> without requiring authentication. <code>GET /api/v1/</code> is the API root: it requires authentication (<code>401</code> when anonymous) and returns an empty JSON object <code>{}</code>, not an endpoint listing.</p>
 <p>A few infrastructure endpoints are intentionally unversioned:</p>
 <table>
 <thead>
