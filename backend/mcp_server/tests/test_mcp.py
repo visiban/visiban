@@ -569,7 +569,7 @@ class BoardResourceTests(McpTestCase):
         board = _make_board(self.user, name="Snapshot", description="d")
         column = _make_column(board, name="Doing", order=0)
         swimlane = _make_swimlane(board, name="Lane", order=0)
-        Label.objects.create(board=board, name="bug", color="#FF0000")
+        label = Label.objects.create(board=board, name="bug", color="#FF0000")
         _make_card(column, swimlane, title="Card A", position=0)
         _make_card(
             column, swimlane, title="Archived", position=1,
@@ -579,10 +579,19 @@ class BoardResourceTests(McpTestCase):
         data = self._read_board(board.id)
         self.assertEqual(
             set(data),
-            {"id", "name", "description", "created_at", "updated_at",
+            {"id", "uid", "name", "description", "created_at", "updated_at",
              "columns", "swimlanes", "cards", "cards_total", "cards_truncated", "labels"},
         )
         self.assertEqual(data["id"], board.id)
+        # #1974: every snapshot object carries its stable uid.
+        self.assertEqual(data["uid"], board.uid)
+        self.assertEqual(data["columns"][0]["uid"], column.uid)
+        self.assertEqual(data["swimlanes"][0]["uid"], swimlane.uid)
+        self.assertEqual(data["cards"][0]["uid"], Card.objects.get(title="Card A").uid)
+        self.assertEqual(
+            data["labels"],
+            [{"id": label.id, "uid": label.uid, "name": "bug", "color": "#FF0000"}],
+        )
         self.assertEqual(data["name"], "Snapshot")
         self.assertEqual([c["name"] for c in data["columns"]], ["Doing"])
         self.assertEqual([s["name"] for s in data["swimlanes"]], ["Lane"])
@@ -597,9 +606,12 @@ class BoardResourceTests(McpTestCase):
         data = self._read_board(board.id)
         for leaky_field in (
             "share_token", "share_token_expires_at", "share_link_active", "capabilities",
-            "is_starred", "current_user_role", "members", "uid",
+            "is_starred", "current_user_role", "members",
         ):
             self.assertNotIn(leaky_field, data)
+        # `uid` is not one of them: it is the board's public stable key,
+        # already in list_boards, and the snapshot carries it since #1974.
+        self.assertEqual(data["uid"], board.uid)
 
     def test_swimlane_contact_email_is_admin_only(self):
         board = _make_board(self.user, name="Contact")
@@ -699,12 +711,14 @@ class CardResourceTests(McpTestCase):
         self.assertEqual(
             set(data),
             {
-                "id", "title", "description", "priority", "assignee", "labels",
-                "column", "swimlane", "due_date", "position", "created_at",
+                "id", "uid", "version", "title", "description", "priority", "assignee",
+                "labels", "column", "swimlane", "due_date", "position", "created_at",
                 "updated_at", "archived_at", "movements", "checklist_items",
                 "activities", "comments",
             },
         )
+        self.assertEqual(data["uid"], card.uid)
+        self.assertEqual(data["version"], card.version)
         self.assertEqual(data["title"], "Detailed")
         self.assertIsNone(data["archived_at"])
         self.assertEqual([i["text"] for i in data["checklist_items"]], ["Write tests"])
@@ -743,6 +757,16 @@ class CardResourceTests(McpTestCase):
             movement["moved_by"],
             {"username": self.user.username, "display_name": self.user.display_name},
         )
+        # #1974: the write-time uid snapshots, as REST's movement serves them.
+        self.assertEqual(movement["from_column_uid"], card.column.uid)
+        self.assertEqual(movement["to_column_uid"], second_column.uid)
+        self.assertEqual(movement["from_swimlane_uid"], card.swimlane.uid)
+        self.assertEqual(movement["to_swimlane_uid"], card.swimlane.uid)
+        # They outlive a rename, which the name fields do not.
+        second_column.name = "Shipped"
+        second_column.save(update_fields=["name"])
+        renamed = self._read_card(card.id)["movements"][0]
+        self.assertEqual(renamed["to_column_uid"], second_column.uid)
 
     def test_nonexistent_and_forbidden_card_return_the_identical_error(self):
         """IDOR: mirrors the board:// guarantee for a card on a board the caller cannot see."""

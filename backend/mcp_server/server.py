@@ -365,7 +365,7 @@ def build_mcp_server():
     @mcp.tool(
         name="list_columns",
         description=(
-            "List a board's columns (id, name, position, color, wip_limit, card_count), ordered by "
+            "List a board's columns (id, uid, name, position, color, wip_limit, card_count), ordered by "
             "position. wip_limit is checked on move_card only, so card_count can exceed it."
         ),
     )
@@ -376,7 +376,7 @@ def build_mcp_server():
     @mcp.tool(
         name="list_swimlanes",
         description=(
-            "List a board's swimlanes (id, name, position, color, card_count, is_collapsed), "
+            "List a board's swimlanes (id, uid, name, position, color, card_count, is_collapsed), "
             "ordered by position. contact_email is included only for admin/site_admin callers."
         ),
     )
@@ -543,7 +543,9 @@ def build_mcp_server():
         description=(
             "Move a card to a new column and/or swimlane and/or position. At least one of "
             "to_column_id/to_swimlane_id is required. Enforces WIP/weight limits with no "
-            "override. Requires admin or member board role and the mcp:write scope."
+            "override. Optional version (the card's version from a prior read) rejects the "
+            "move with version_conflict if the card changed since. Requires admin or member "
+            "board role and the mcp:write scope."
         ),
     )
     @_throttled()
@@ -552,13 +554,14 @@ def build_mcp_server():
         to_column_id: int | None = None,
         to_swimlane_id: int | None = None,
         position: int = 0,
+        version: int | None = None,
     ) -> _TOOL_RESULT:
         denial = await _deny_write()
         if denial is not None:
             return denial
         return await sync_to_async(tools.move_card, thread_sensitive=True)(
             card_id=card_id, to_column_id=to_column_id, to_swimlane_id=to_swimlane_id,
-            position=position,
+            position=position, version=version,
         )
 
     @mcp.tool(
@@ -566,8 +569,9 @@ def build_mcp_server():
         description=(
             "Update a card's title/description/priority/assignee/labels/due_date. "
             "assignee is a username; an empty string unassigns. "
-            "Cannot change column/swimlane — use move_card. Requires admin or member board "
-            "role and the mcp:write scope."
+            "Cannot change column/swimlane — use move_card. Optional version (the card's "
+            "version from a prior read) rejects the update with version_conflict if the card "
+            "changed since. Requires admin or member board role and the mcp:write scope."
         ),
     )
     @_throttled()
@@ -580,6 +584,7 @@ def build_mcp_server():
         assignee: str | None = None,
         labels: list[str] | None = None,
         due_date: str | None = None,
+        version: int | None = None,
     ) -> _TOOL_RESULT:
         # See create_card for ctx.
         denial = await _deny_write() or tools.reject_removed_arguments(_sent_arguments(ctx))
@@ -587,7 +592,7 @@ def build_mcp_server():
             return denial
         return await sync_to_async(tools.update_card, thread_sensitive=True)(
             card_id=card_id, title=title, description=description, priority=priority,
-            assignee=assignee, labels=labels, due_date=due_date,
+            assignee=assignee, labels=labels, due_date=due_date, version=version,
         )
 
     @mcp.tool(

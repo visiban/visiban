@@ -35,6 +35,8 @@ UIDs appear in every API response that returns the object type.
 | Card | `uid` | All card endpoints |
 | Custom field definition | `uid` | `GET /api/v1/boards/{id}/custom-fields/`, `GET /api/v1/boards/{id}/swimlane-custom-fields/` — see [Custom Fields](custom-fields.md) (added in 1.2) |
 
+The [MCP server](../api/mcp.md#stable-identifiers-uid) returns the same `uid` on every board, column, swimlane, label, and card object in its tool and resource results (`archive_card` returns it as `card_uid`), and the movement `*_uid` fields below on its movements (added in 1.3; before 1.3 only `list_boards` carried a `uid`).
+
 ## UIDs in movement history
 
 When a card is moved, `CardMovement` captures the UID of the source and destination column and swimlane **at the time of the move**:

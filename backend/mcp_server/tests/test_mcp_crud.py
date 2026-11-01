@@ -95,10 +95,11 @@ class ListColumnsTests(CrudToolsTestCase):
         self.assertEqual([c["name"] for c in result], ["Backlog", "Doing"])
         backlog = result[0]
         self.assertEqual(
-            set(backlog), {"id", "name", "position", "color", "wip_limit", "card_count"},
+            set(backlog), {"id", "uid", "name", "position", "color", "wip_limit", "card_count"},
         )
         self.assertEqual(backlog["card_count"], 1)  # archived card excluded
         self.assertEqual(backlog["id"], self.column.id)
+        self.assertEqual(backlog["uid"], self.column.uid)  # #1974
 
     def test_every_role_may_call_list_columns(self):
         for role in BoardMembership.Role.values:
@@ -131,8 +132,9 @@ class ListSwimlanesTests(CrudToolsTestCase):
         self.assertEqual(row["contact_email"], "customer@example.com")
         self.assertEqual(
             set(row),
-            {"id", "name", "position", "color", "card_count", "is_collapsed", "contact_email"},
+            {"id", "uid", "name", "position", "color", "card_count", "is_collapsed", "contact_email"},
         )
+        self.assertEqual(row["uid"], self.swimlane.uid)  # #1974
 
     def test_non_admin_roles_do_not_see_contact_email_key(self):
         self.swimlane.contact_email = "customer@example.com"
@@ -162,16 +164,26 @@ class ListCardsTests(CrudToolsTestCase):
         self.assertEqual(
             set(row),
             {
-                "id", "title", "description", "priority", "assignee", "labels",
-                "column", "swimlane", "due_date", "position", "created_at", "updated_at",
+                "id", "uid", "version", "title", "description", "priority", "assignee",
+                "labels", "column", "swimlane", "due_date", "position", "created_at",
+                "updated_at",
             },
         )
         self.assertEqual(row["id"], card.id)
+        # #1974: the stable keys REST, WS frames and the change feed carry.
+        self.assertEqual(row["uid"], card.uid)
+        self.assertEqual(row["version"], card.version)
+        self.assertEqual(
+            row["swimlane"],
+            {"id": self.swimlane.id, "uid": self.swimlane.uid, "name": "General"},
+        )
         self.assertEqual(
             row["assignee"],
             {"username": self.user.username, "display_name": self.user.display_name},
         )
-        self.assertEqual(row["column"], {"id": self.column.id, "name": "Backlog"})
+        self.assertEqual(
+            row["column"], {"id": self.column.id, "uid": self.column.uid, "name": "Backlog"},
+        )
         self.assertEqual(row["due_date"], "2026-12-01")
 
     def test_excludes_archived_by_default_and_include_archived_includes_them(self):
@@ -1104,6 +1116,212 @@ class UpdateCardTests(CrudToolsTestCase):
         self.assertFalse(Card.objects.filter(pk=card.pk).exists())
 
 
+class OptimisticConcurrencyTests(CrudToolsTestCase):
+    """The optional ``version`` argument on move_card/update_card (#1974).
+
+    Same service argument the REST move endpoint's ``version`` body field
+    uses, so a stale value gets the same ``version_conflict`` error with
+    ``current_version``, and an omitted one skips the check exactly as
+    before 1.3. A rejected call must write nothing: no field change, no
+    movement or activity row, no version bump and no broadcast/change-feed row.
+    """
+
+    def _state(self, card):
+        card.refresh_from_db()
+        return {
+            "version": card.version,
+            "title": card.title,
+            "column_id": card.column_id,
+            "movements": CardMovement.objects.filter(card=card).count(),
+            "activities": CardActivity.objects.filter(card=card).count(),
+            "events": BoardEvent.objects.filter(board_id=self.board.id).count(),
+        }
+
+    def _listed_version(self, card):
+        (row,) = [
+            c for c in self._call("list_cards", self.raw_token, board_id=self.board.id)
+            if c["id"] == card.id
+        ]
+        return row["version"]
+
+    # -- move_card --------------------------------------------------------
+
+    def test_move_with_current_version_succeeds_and_bumps_it(self):
+        card = _make_card(self.column, self.swimlane, title="Movable")
+        version = self._listed_version(card)
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id,
+            to_column_id=self.other_column.id, version=version,
+        )
+        self.assertNotIn("error", result, result)
+        self.assertEqual(result["card"]["column"]["id"], self.other_column.id)
+        self.assertEqual(result["card"]["version"], version + 1)
+        card.refresh_from_db()
+        self.assertEqual(card.version, version + 1)
+
+    def test_move_with_stale_version_is_a_conflict_and_moves_nothing(self):
+        card = _make_card(self.column, self.swimlane, title="Contended")
+        stale = self._listed_version(card)
+        # Someone else edits the card after the agent read it.
+        self._call("update_card", self.write_token, card_id=card.id, title="Edited")
+        before = self._state(card)
+
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id,
+            to_column_id=self.other_column.id, version=stale,
+        )
+        self.assertEqual(result, {"error": {
+            "code": "version_conflict",
+            "detail": "This card was modified by another user. Please refresh and try again.",
+            "current_version": before["version"],
+        }})
+        self.assertEqual(self._state(card), before)
+
+    def test_move_without_version_ignores_a_changed_card(self):
+        card = _make_card(self.column, self.swimlane, title="Unguarded")
+        self._call("update_card", self.write_token, card_id=card.id, title="Edited")
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
+        )
+        self.assertNotIn("error", result, result)
+        card.refresh_from_db()
+        self.assertEqual(card.column_id, self.other_column.id)
+
+    def test_move_role_denial_wins_over_a_stale_version(self):
+        # Ordering, as on REST: a caller who may not move sees permission_denied,
+        # not a conflict that would confirm the card's current version.
+        card = _make_card(self.column, self.swimlane, title="Guarded")
+        viewer = self._add_member(BoardMembership.Role.VIEWER)
+        result = self._call(
+            "move_card", self._pat(viewer), card_id=card.id,
+            to_column_id=self.other_column.id, version=card.version + 5,
+        )
+        self.assertEqual(result["error"]["code"], "permission_denied")
+
+    # -- update_card ------------------------------------------------------
+
+    def test_update_with_current_version_succeeds_and_bumps_it(self):
+        card = _make_card(self.column, self.swimlane, title="Old")
+        version = self._listed_version(card)
+        result = self._call(
+            "update_card", self.write_token, card_id=card.id, title="New", version=version,
+        )
+        self.assertNotIn("error", result, result)
+        self.assertEqual(result["title"], "New")
+        self.assertEqual(result["version"], version + 1)
+        # The returned version is the one to send next.
+        again = self._call(
+            "update_card", self.write_token, card_id=card.id, title="Newer",
+            version=result["version"],
+        )
+        self.assertEqual(again["title"], "Newer")
+
+    def test_update_with_stale_version_is_a_conflict_and_changes_nothing(self):
+        card = _make_card(self.column, self.swimlane, title="Original")
+        stale = self._listed_version(card)
+        self._call(
+            "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
+        )
+        before = self._state(card)
+
+        result = self._call(
+            "update_card", self.write_token, card_id=card.id, title="Clobber",
+            priority="urgent", version=stale,
+        )
+        self.assertEqual(result, {"error": {
+            "code": "version_conflict",
+            "detail": "This card was modified by another user. Please refresh and try again.",
+            "current_version": before["version"],
+        }})
+        self.assertEqual(self._state(card), before)
+        card.refresh_from_db()
+        self.assertEqual(card.priority, Card.Priority.MEDIUM)
+
+    def test_update_without_version_ignores_a_changed_card(self):
+        card = _make_card(self.column, self.swimlane, title="Original")
+        self._call(
+            "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
+        )
+        result = self._call("update_card", self.write_token, card_id=card.id, title="Applied")
+        self.assertEqual(result["title"], "Applied")
+
+    def test_update_role_denial_wins_over_a_stale_version(self):
+        card = _make_card(self.column, self.swimlane, title="Guarded")
+        collaborator = self._add_member(BoardMembership.Role.COLLABORATOR)
+        result = self._call(
+            "update_card", self._pat(collaborator), card_id=card.id, title="x",
+            version=card.version + 5,
+        )
+        self.assertEqual(result["error"]["code"], "permission_denied")
+
+    def test_update_ownership_denial_wins_over_a_stale_version(self):
+        # A member may edit only cards they created: on the owner's card the
+        # ownership gate answers, so no current_version reaches them.
+        card = _make_card(self.column, self.swimlane, title="Owner's")
+        member = self._add_member(BoardMembership.Role.MEMBER)
+        result = self._call(
+            "update_card", self._pat(member), card_id=card.id, title="x",
+            version=card.version + 5,
+        )
+        self.assertEqual(result["error"]["code"], "permission_denied")
+        self.assertNotIn("current_version", result["error"])
+
+    def test_version_on_an_inaccessible_card_is_card_not_found(self):
+        # No conflict (and so no current_version) leaks for a card the caller
+        # cannot see.
+        other_owner = _make_user("occ-other-owner")
+        other_board = _make_board(other_owner, name="Not mine")
+        foreign = _make_card(
+            _make_column(other_board), _make_swimlane(other_board), title="Foreign",
+        )
+        for name, args in (
+            ("update_card", {"title": "x"}),
+            ("move_card", {"to_column_id": self.column.id}),
+        ):
+            with self.subTest(tool=name):
+                result = self._call(
+                    name, self.write_token, card_id=foreign.id, version=foreign.version + 5,
+                    **args,
+                )
+                self.assertEqual(result, {"error": {
+                    "code": "card_not_found", "detail": "No Card matches the given query.",
+                }})
+
+
+class MovementUidTests(CrudToolsTestCase):
+    """move_card's ``movement`` carries the REST uid snapshots (#1974)."""
+
+    def test_movement_carries_column_and_swimlane_uids(self):
+        card = _make_card(self.column, self.swimlane, title="Travels")
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id,
+            to_column_id=self.other_column.id, to_swimlane_id=self.other_swimlane.id,
+        )
+        movement = result["movement"]
+        self.assertEqual(movement["from_column_uid"], self.column.uid)
+        self.assertEqual(movement["to_column_uid"], self.other_column.uid)
+        self.assertEqual(movement["from_swimlane_uid"], self.swimlane.uid)
+        self.assertEqual(movement["to_swimlane_uid"], self.other_swimlane.uid)
+        self.assertEqual(result["card"]["column"]["uid"], self.other_column.uid)
+        self.assertEqual(result["card"]["swimlane"]["uid"], self.other_swimlane.uid)
+
+    def test_creation_movement_has_null_from_uids(self):
+        # create_card writes a movement with no "from" cell; the uid keys
+        # follow the name keys' `null`, not REST's "".
+        from mcp_server import tools
+
+        created = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="New",
+        )
+        movement = CardMovement.objects.get(card_id=created["id"])
+        shaped = tools._serialize_movement(movement)
+        self.assertIsNone(shaped["from_column"])
+        self.assertIsNone(shaped["from_column_uid"])
+        self.assertIsNone(shaped["from_swimlane_uid"])
+        self.assertEqual(shaped["to_column_uid"], self.column.uid)
+
+
 class BroadcastPayloadShapeTests(CrudToolsTestCase):
     """create/move/update broadcast a CardSerializer card, as REST does (#1926).
 
@@ -1149,10 +1367,16 @@ class BroadcastPayloadShapeTests(CrudToolsTestCase):
         )
         (data,) = self._events("card.created")
         self._assert_rest_card(data, result["id"])
-        # The tool's own return is the documented MCP shape, unchanged.
-        self.assertEqual(result["column"], {"id": self.column.id, "name": "Backlog"})
+        # The tool's own return is the documented MCP shape: an {id, uid,
+        # name} column object and label names, not the REST card.
+        self.assertEqual(
+            result["column"], {"id": self.column.id, "uid": self.column.uid, "name": "Backlog"},
+        )
         self.assertEqual(result["labels"], ["urgent"])
-        self.assertNotIn("uid", result)
+        # #1974: the tool card and the frame share a uid and version, so an
+        # agent can match one to the other.
+        self.assertEqual(result["uid"], data["uid"])
+        self.assertEqual(result["version"], data["version"])
 
     def test_create_card_with_position_broadcasts_rest_create_and_move(self):
         _make_card(self.column, self.swimlane, title="Sibling", position=0)
@@ -1162,7 +1386,10 @@ class BroadcastPayloadShapeTests(CrudToolsTestCase):
             position=0,
         )
         self.assertEqual(result["position"], 0)
-        self.assertEqual(result["swimlane"], {"id": self.swimlane.id, "name": "General"})
+        self.assertEqual(
+            result["swimlane"],
+            {"id": self.swimlane.id, "uid": self.swimlane.uid, "name": "General"},
+        )
         (created,) = self._events("card.created")
         self.assertEqual(created["id"], result["id"])
         self.assertIn("uid", created)
@@ -1187,9 +1414,15 @@ class BroadcastPayloadShapeTests(CrudToolsTestCase):
         self.assertEqual(data["movement"]["to_column"], self.other_column.id)
         self.assertEqual(data["movement"]["to_column_name"], "Doing")
         # The tool returns its own shapes for both.
-        self.assertEqual(result["card"]["column"], {"id": self.other_column.id, "name": "Doing"})
+        self.assertEqual(
+            result["card"]["column"],
+            {"id": self.other_column.id, "uid": self.other_column.uid, "name": "Doing"},
+        )
         self.assertEqual(result["movement"]["to_column"], "Doing")
         self.assertNotIn("card_uid", result["movement"])
+        # #1974: the uid snapshots match the frame's movement.
+        self.assertEqual(result["movement"]["to_column_uid"], data["movement"]["to_column_uid"])
+        self.assertEqual(result["card"]["uid"], data["card"]["uid"])
 
     def test_same_cell_reorder_broadcasts_card_without_movement(self):
         card = _make_card(self.column, self.swimlane, title="A", position=0)
@@ -1210,8 +1443,11 @@ class BroadcastPayloadShapeTests(CrudToolsTestCase):
         self._assert_rest_card(data, card.id)
         self.assertEqual(data["title"], "New")
         self.assertEqual(result["title"], "New")
-        self.assertEqual(result["column"], {"id": self.column.id, "name": "Backlog"})
-        self.assertNotIn("version", result)
+        self.assertEqual(
+            result["column"], {"id": self.column.id, "uid": self.column.uid, "name": "Backlog"},
+        )
+        # #1974: the post-update version, the same one the frame carries.
+        self.assertEqual(result["version"], data["version"])
 
 
 class ArchiveCardTests(CrudToolsTestCase):
@@ -1222,6 +1458,20 @@ class ArchiveCardTests(CrudToolsTestCase):
         self.assertIsNotNone(result["archived_at"])
         card.refresh_from_db()
         self.assertIsNotNone(card.archived_at)
+
+    def test_result_carries_card_uid_matching_the_archived_frame(self):
+        # #1974: additive; card_id and archived_at keep their meaning.
+        card = _make_card(self.column, self.swimlane, title="To archive")
+        result = self._call("archive_card", self.write_token, card_id=card.id)
+        card.refresh_from_db()
+        self.assertEqual(set(result), {"card_id", "card_uid", "archived_at"})
+        self.assertEqual(result["card_id"], card.id)
+        self.assertEqual(result["card_uid"], card.uid)
+        self.assertEqual(result["archived_at"], card.archived_at.isoformat())
+        (frame,) = BoardEvent.objects.filter(
+            board_id=self.board.id, event="card.archived",
+        ).values_list("data", flat=True)
+        self.assertEqual(frame, {"card_uid": result["card_uid"]})
 
     def test_archiving_a_blocker_sends_its_peer_a_full_card_update(self):
         """The blocked card's card.updated is a full card with the new count (#1634).
@@ -1562,8 +1812,14 @@ class ToolResultEnvelopeTests(CrudToolsTestCase):
         )
         self.assertEqual(set(schemas["update_card"]["properties"]), {
             "card_id", "title", "description", "priority", "assignee", "labels", "due_date",
+            "version",  # optional, #1974
         })
         self.assertEqual(schemas["update_card"]["required"], ["card_id"])
+        self.assertEqual(set(schemas["move_card"]["properties"]), {
+            "card_id", "to_column_id", "to_swimlane_id", "position",
+            "version",  # optional, #1974
+        })
+        self.assertEqual(schemas["move_card"]["required"], ["card_id"])
         for tool in tools_:
             with self.subTest(tool=tool["name"]):
                 text = json.dumps(tool).lower()
