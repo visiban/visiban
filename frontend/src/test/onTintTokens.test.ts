@@ -73,6 +73,24 @@ describe('urgent-on-tint contrast (#1594)', () => {
   })
 })
 
+// #2046: CLAUDE.md § System signals puts `text-warning-on-tint` / `text-danger-on-tint` on untinted
+// card surfaces, because plain `warning` (orange-600) is 3.56:1 on white (#2029). Pin the claimed ratios.
+describe('system-signal on-tint text on untinted surfaces (#2046)', () => {
+  it.each([
+    ['dark', darkBlock, 'warning-on-tint', 8.6],
+    ['dark', darkBlock, 'danger-on-tint', 7.7],
+    ['light', lightBlock, 'warning-on-tint', 6.9],
+    ['light', lightBlock, 'danger-on-tint', 7.9],
+  ])('%s theme: %s holds the documented ratio on surface and surface-sunken', (_n, block, name, pinned) => {
+    const text = rgbOf(block, name)
+    for (const surf of ['surface', 'surface-sunken']) {
+      const r = ratio(text, rgbOf(block, surf))
+      expect(r).toBeGreaterThanOrEqual(4.5)
+      expect(r).toBeGreaterThanOrEqual(pinned)
+    }
+  })
+})
+
 // Hue, alpha and opacity are parsed from the real stage classes, so changing a
 // stage's fill or opacity re-runs these checks against the new values.
 const parse = (stage: keyof typeof AGING_STAGE_CLASSES) => {
