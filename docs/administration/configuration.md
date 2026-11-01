@@ -161,7 +161,7 @@ The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visi
 Two features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`).
 
 - **Migration:** turning `GIT_LENS_ENABLED` on adds the `git_lens` app and its tables, so a migration must run. In the production stack the `backend-init` service does that on `up -d`.
-- **Helm:** the chart exposes only the two enable flags, `backend.settings.mcpServerEnabled` and `backend.settings.gitLensEnabled` (both default `false`; see [Kubernetes deployment](../architecture/deployment.md)). The other variables in the table below (`GIT_LENS_OUTBOUND_LOG_LEVEL`, `MCP_ALLOWED_HOSTS`, `MCP_THROTTLE_*_RATE`) are Compose/env-only for now; the chart has no values for them.
+- **Helm:** the chart exposes only the two enable flags, `backend.settings.mcpServerEnabled` and `backend.settings.gitLensEnabled` (both default `false`; see [Kubernetes deployment](../architecture/deployment.md)). The other variables in the table below (`GIT_LENS_OUTBOUND_LOG_LEVEL`, `MCP_ALLOWED_HOSTS`, `MCP_THROTTLE_*_RATE`) are Compose/env-only; the chart has no values for them.
 - **Names are stable:** a rename keeps the old name as a deprecated alias for at least one minor release.
 
 | Variable | Default | Description |

@@ -43,11 +43,15 @@ GIT_LENS_ENABLED=true
 
 With the Helm chart, set the chart value instead:
 
+> **Added in 1.3**
+
 ```yaml
 backend:
   settings:
     gitLensEnabled: true
 ```
+
+Pass the values file on every install and upgrade (`helm upgrade --install visiban helm/visiban -f my-values.yaml`). Chart versions before 0.8.0 reject this key.
 
 The chart renders `GIT_LENS_ENABLED=true` on every backend pod. Turning it on adds the `git_lens` tables, so the backend pod's `migrate` init container applies them on rollout.
 

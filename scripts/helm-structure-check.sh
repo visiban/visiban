@@ -31,7 +31,7 @@
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
 # is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11 (incl. 11d, 11e),
-# 12, 13, 15 and 16. Section 5 (probe paths) is asserted against the real chart only,
+# 12, 13, 15, 16 and 17. Section 5 (probe paths) is asserted against the real chart only,
 # and section 7 (NetworkPolicy client coverage) is fixture-covered only
 # through the demo render in section 9 — see the notes on those sections.
 
@@ -2219,6 +2219,9 @@ check_feature_flags() {
     # Every container that has the shared env block must carry the flag; the
     # `migrate` init container (it applies the git_lens tables) and at least
     # one CronJob must be among them.
+    if ! grep -qE '^deployment/backend=true$' <<< "$got"; then
+      fail "backend.settings.$value=true: the backend (daphne) container does not get $name=true: ${got:-<none>}"; bad=1
+    fi
     if ! grep -qE '^deployment/migrate=true$' <<< "$got"; then
       fail "backend.settings.$value=true: the migrate init container does not get $name=true: ${got:-<none>}"; bad=1
     fi
@@ -2229,7 +2232,7 @@ check_feature_flags() {
       fail "backend.settings.$value=true renders a non-true $name: $got"; bad=1
     fi
   done
-  [ "$bad" -eq 0 ] && pass "MCP_SERVER_ENABLED and GIT_LENS_ENABLED are absent by default and when false, and true in the backend, migrate init container and CronJobs when their backend.settings value is true"
+  [ "$bad" -eq 0 ] && pass "MCP_SERVER_ENABLED and GIT_LENS_ENABLED are absent by default and when false, and true in the backend container, migrate init container and CronJobs when their backend.settings value is true"
 }
 
 run_all_checks() {
@@ -2389,6 +2392,9 @@ self_test() {
     # 17 (#1835): the Git Lens flag is dropped from the shared env block, so the
     # migrate init container (and CronJobs) no longer see it.
     "17 gitLensEnabled not rendered|templates/_backend-env.tpl|s/{{- if \$ctx.Values.backend.settings.gitLensEnabled }}/{{- if false }}/"
+    # 17 (#1835): only the serving (daphne) container loses the flag; migrate and
+    # CronJobs keep it, so only the backend-container assertion can catch this.
+    "17 backend container renames MCP_SERVER_ENABLED|templates/backend-deployment.yaml|/command: \\[\"daphne\"/,/visiban.backendEnv/ s/{{- include \"visiban.backendEnv\" . | nindent 12 }}/{{- include \"visiban.backendEnv\" . | replace \"MCP_SERVER_ENABLED\" \"MCP_SERVER_ENABLE\" | nindent 12 }}/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
     # 12 (#1210, #1224): every overridable hardened workload (backend,
     # postgresql, frontend) loses its capability drop through their shared
