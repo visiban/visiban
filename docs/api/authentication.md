@@ -1070,6 +1070,8 @@ An emailed site, group or board invite is bound to the address it was sent to. R
 
 ### `POST /api/v1/auth/registration/verify-email/`
 
+Two other routes under `/api/v1/auth/registration/` are browser redirects, not part of the API contract: `account-confirm-email/<key>/` (redirects a stale emailed link to the SPA's `/confirm-email/<key>` page) and `account-email-verification-sent/` (an empty placeholder). Don't call them from a client; use `verify-email` instead.
+
 Confirm an email address from the key in a confirmation link. The link in the email opens the SPA's `/confirm-email/<key>` page, which calls this endpoint. Used both for signup confirmation and for confirming an [email change](#patch-apiv1authme).
 
 **Permission:** None — public endpoint, possession of the key is the credential. IP-throttled (`verify_email` scope).
