@@ -18,9 +18,11 @@ Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where c
 These are the definitions every flow metric follows. They are quoted verbatim from the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) decision record, which also covers reopened cards, missing history, percentiles and time zones.
 
 - **Lead time:** the time from when a card was created to its first entry into a done column.
-- **Cycle time:** the time from a card's first move out of the column it was created in to its first entry into a done column.
+- **Cycle time:** the time from a card's first move out of the column it was created in, to a column that is not done, until its first entry into a done column. A card created in a done column, or moved straight from its first column to done, has no cycle time.
 - **Dwell time:** how long a card stayed in one column, from entering it to leaving it, or until now if it is still there. Moving to another swimlane does not end a stay. Archiving ends it, and restoring starts a new one.
-- **Age:** how long an in-progress card has been in progress: the time since its first move out of the column it was created in, or since it last left a done column if it was reopened.
+- **Age:** how long an in-progress card has been in progress: the time since it first moved out of the column it was created in, or since it last left a done column, whichever is later.
+- **Throughput:** the number of cards whose first entry into a done column falls in a period.
+- **Cumulative flow:** for each day, the number of cards in each column at the end of that day.
 
 !!! note "Proposed in 1.3 (#1532)"
     The Summary and Analytics views below were built before these definitions, and some of their numbers differ. For example, the Summary view's `avg_cycle_days` starts at a card's first movement, and the heatmap's **Age** mode shows current dwell time. The decision record lists each difference. The 1.3 metrics dashboard (#448) brings them in line.
@@ -67,7 +69,7 @@ Columns marked `is_done = true` are excluded from dwell-time calculations and hi
 
 #### Velocity column
 
-The rightmost column shows **Velocity** per swimlane: the average `deal_velocity_days`, the number of days between a card's first and last movement within the selected period. A dash (`—`) means no velocity data for that swimlane.
+The rightmost column shows **Velocity** per swimlane: the average `deal_velocity_days`, the number of days from a card's first movement ever to its most recent movement, for cards whose most recent movement falls in the selected period. It counts cards whether or not they reached a done column, so it is not cycle time. A dash (`—`) means no velocity data for that swimlane.
 
 #### Color-coding
 
