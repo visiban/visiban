@@ -592,6 +592,7 @@ describe('AddColumnModal', () => {
   it('color swatch buttons have aria-label and aria-pressed', () => {
     render(<AddColumnModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getAllByRole('button', { name: /Select color/ })).toHaveLength(6)
+    expect(screen.getByRole('button', { name: 'Select color Blue' })).toBeInTheDocument()
   })
 
   // #1373 — handleSave's createColumn() call used to be a floating promise:

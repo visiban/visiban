@@ -136,7 +136,7 @@ function ColorPicker({
         <span aria-hidden="true" style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-1.5 w-36">
+        <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-2.5 w-40">
           {TEXT_COLORS.map((c) => (
             <button
               key={c.label}
@@ -147,9 +147,12 @@ function ColorPicker({
                 setOpen(false);
               }}
               title={c.label}
-              aria-label={c.label}
-              className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 ${
-                currentColor === c.value ? "border-white" : "border-line-strong"
+              aria-label={`Text color ${c.label}`}
+              aria-pressed={currentColor === c.value}
+              className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                currentColor === c.value
+                  ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
+                  : "border-line-strong"
               }`}
               style={{ backgroundColor: c.value || "#94a3b8" }}
             />

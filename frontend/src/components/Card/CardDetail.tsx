@@ -17,6 +17,7 @@ import { deleteCard, archiveCard, getCardComments, addCardComment, deleteComment
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
+import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ActivityTabPanel from "./ActivityTabPanel";
 import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
@@ -1542,19 +1543,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           placeholder="Label name"
                           className="text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
                         />
-                        <div className="flex gap-1">
-                          {PALETTE_COLORS.map((c) => (
-                            <button
-                              key={c}
-                              // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
-                              onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) void handleCreateLabel(c); }}
-                              aria-label={newLabelName.trim() ? `Create "${newLabelName.trim()}" with color ${c}` : `Select color ${c}`}
-                              aria-pressed={newLabelColor === c}
-                              className={`w-5 h-5 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${newLabelColor === c ? "border-white scale-110" : "border-transparent"}`}
-                              style={{ backgroundColor: c }}
-                            />
-                          ))}
-                        </div>
+                        <ColorSwatchPicker
+                          colors={PALETTE_COLORS}
+                          value={newLabelColor}
+                          size="sm"
+                          className="flex gap-2"
+                          groupLabel="Label color"
+                          // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
+                          onChange={(c) => { setNewLabelColor(c); if (newLabelName.trim()) void handleCreateLabel(c); }}
+                          getAriaLabel={(_c, name) => newLabelName.trim() ? `Create "${newLabelName.trim()}" with color ${name}` : `Select color ${name}`}
+                        />
                         {!newLabelName.trim() && (
                           <span className="text-xs text-fg-muted">type a name first</span>
                         )}

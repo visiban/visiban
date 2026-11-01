@@ -3034,6 +3034,33 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       await waitFor(() => expect(screen.queryByPlaceholderText('Label name')).not.toBeInTheDocument())
     })
 
+    it('label swatch: with a name typed, clicking a swatch creates the label with that color (#1893)', async () => {
+      const { createLabel } = await import('../api/boards')
+      const mockCreate = createLabel as ReturnType<typeof vi.fn>
+      mockCreate.mockResolvedValueOnce({ id: 99, name: 'Urgent', color: '#3B82F6' })
+      mockUpdateCard.mockResolvedValue({ ...defaultProps().card })
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('+ New label'))
+      expect(screen.getByRole('group', { name: 'Label color' })).toBeInTheDocument()
+      fireEvent.change(screen.getByPlaceholderText('Label name'), { target: { value: 'Urgent' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Create "Urgent" with color Blue' }))
+      await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
+      expect(mockCreate.mock.calls[0][1]).toEqual({ name: 'Urgent', color: '#3B82F6' })
+    })
+
+    it('label swatch: with no name typed, clicking a swatch selects it and creates nothing (#1893)', async () => {
+      const { createLabel } = await import('../api/boards')
+      const mockCreate = createLabel as ReturnType<typeof vi.fn>
+      mockCreate.mockClear()
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.click(screen.getByText('+ New label'))
+      const green = screen.getByRole('button', { name: 'Select color Green' })
+      expect(green).toHaveAttribute('aria-pressed', 'false')
+      fireEvent.click(green)
+      expect(mockCreate).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Select color Green' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
     it('label create: a rejection shows the error in a live region and allows retry', async () => {
       const { createLabel } = await import('../api/boards')
       const mockCreate = createLabel as ReturnType<typeof vi.fn>
