@@ -71,7 +71,9 @@ def record_share_link_updated(board, *, actor_id=None):
 
     Every write that enables, rotates or clears a share link calls this after
     the write, in the same transaction: the share action, ``_clear_lapsed``
-    below, and the deleted-enabler receiver in ``boards.models``. The
+    below, the deleted-enabler receiver in ``boards.models``, and a Django
+    admin edit of ``share_token_expires_at`` on a live link
+    (``BoardAdmin.save_model``). The
     ``board.updated`` those writes also record cannot carry the share state
     (``ADMIN_ONLY_BOARD_FIELDS`` drops it from every payload), so without this
     event an open admin session kept showing a revoked link as active. The

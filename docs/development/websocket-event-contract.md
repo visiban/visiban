@@ -46,6 +46,13 @@ Name an event `<subject>.<past-tense verb>`: the subject is snake_case (`invite_
 
 4. **Handle it** in the frontend, or exempt it with a reason (see below).
 
+5. **Decide who may receive it.** Every board-channel frame goes to every subscriber and its feed row to every reader, unless the event is in one of the recipient sets in `backend/boards/permissions.py`:
+
+    - `PER_USER_EVENTS`: one user's own state (stars, saved filters), sent only to the user in `data.user_id`.
+    - `ADMIN_ONLY_EVENTS` (since 1.3): admin-only state, sent only to board `admin` and `site_admin` recipients. `share_link.updated` is the first such event.
+
+    The consumer and the change-feed view both read these sets, so adding a name to one covers both surfaces. Keep an admin-only payload's keys out of `ADMIN_ONLY_BOARD_FIELDS`, because those keys are stripped from every payload. See [security invariants Rule 8](security-invariants.md).
+
 ## Exempting an event with no frontend handler
 
 Some events are legitimately not acted on by this frontend. For example, a board-channel `board.created` can only reach a client already subscribed to a board that didn't exist a moment earlier. Record it in `INTENTIONALLY_UNHANDLED_BOARD_EVENTS` (or the group equivalent) **with the reason**:

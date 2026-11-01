@@ -19,7 +19,8 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
-from django.test import TestCase
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -91,11 +92,18 @@ class RegistryTests(TestCase):
     def test_visibility_is_admin_and_site_admin_only(self):
         expected = {
             "admin": True, "site_admin": True, "member": False,
-            "collaborator": False, "viewer": False, None: False,
+            "collaborator": False, "viewer": False, None: False, "bogus": False,
         }
         for role, visible in expected.items():
             with self.subTest(role=role):
                 self.assertIs(admin_only_event_visible(role), visible)
+
+    def test_visible_roles_are_the_roles_that_may_hold_a_share_link(self):
+        """Who receives the share state is exactly who may enable or revoke the link."""
+        from boards.permissions import ROLES_WITH_ADMIN_ONLY_EVENT_VISIBILITY
+        from boards.services.share_links import SHARE_ADMIN_ROLES
+
+        self.assertEqual(set(ROLES_WITH_ADMIN_ONLY_EVENT_VISIBILITY), set(SHARE_ADMIN_ROLES))
 
 
 class ShareActionTests(_Fixtures):
@@ -289,12 +297,17 @@ class FeedScopingTests(_Fixtures):
         return r.data["results"]
 
     def test_rows_are_returned_to_admin_readers_only(self):
+        collaborator = User.objects.create_user(username="collab1967", password=PW)
+        BoardMembership.objects.create(
+            board=self.board, user=collaborator, role=BoardMembership.Role.COLLABORATOR,
+        )
         self.share()
         self.share("delete")
         readers = {
             "owner": (self.owner, True), "enabler": (self.enabler, True),
             "site_admin": (self.site_admin, True),
-            "member": (self.member, False), "viewer": (self.viewer, False),
+            "member": (self.member, False), "collaborator": (collaborator, False),
+            "viewer": (self.viewer, False),
         }
         for name, (reader, visible) in readers.items():
             with self.subTest(reader=name):
@@ -317,3 +330,59 @@ class FeedScopingTests(_Fixtures):
             record_board_event(self.board.pk, "card.updated", {"n": n}, actor_id=self.owner.pk)
         rows = self.feed(self.viewer, "?limit=3")
         self.assertEqual([r["data"]["n"] for r in rows], [0, 1, 2])
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+class DjangoAdminExpiryEditTests(_Fixtures):
+    """The Django admin board form can edit ``share_token_expires_at`` (#1967)."""
+
+    def setUp(self):
+        super().setUp()
+        root = User.objects.create_superuser(username="root1967", email="root1967@example.com", password=PW)
+        self.web = Client()
+        self.web.force_login(root)
+        # Same pre-existing quirk the #1865 admin tests work around.
+        Board.objects.filter(pk=self.board.pk).update(allowed_priorities=["low"])
+        self.url = reverse("admin:boards_board_change", args=[self.board.pk])
+
+    def _post(self, **overrides):
+        from boards.tests.test_admin_board_concurrent_edits import page_data
+
+        page = self.web.get(self.url)
+        self.assertEqual(page.status_code, 200)
+        r = self.web.post(self.url, page_data(page, **overrides))
+        self.assertEqual(r.status_code, 302, getattr(r, "context", None) and r.context["adminform"].form.errors)
+        self.board.refresh_from_db()
+
+    def test_expiry_edit_on_a_live_link_records_the_new_state_on_commit(self):
+        self.share()
+        before = len(_rows(self.board))
+        self.bc.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            self._post(share_token_expires_at_0="2999-01-02", share_token_expires_at_1="03:04:05")
+            self.assertEqual(self.broadcast_payloads(), [])
+        rows = _rows(self.board)
+        self.assertEqual(len(rows), before + 1)
+        self.assertEqual(rows[-1].data, {
+            "board_uid": self.board.uid,
+            "active": True,
+            "expires_at": self.board.share_token_expires_at.isoformat(),
+        })
+        self.assertTrue(rows[-1].data["expires_at"].startswith("2999-01-02"))
+        self.assertEqual(len(self.broadcast_payloads()), 1)
+
+    def test_save_that_leaves_the_expiry_alone_records_nothing(self):
+        self.share()  # never-expiring link
+        before = len(_rows(self.board))
+        self._post(name="Renamed1967")
+        self.assertEqual(self.board.name, "Renamed1967")
+        self.assertEqual(len(_rows(self.board)), before)
+
+    def test_expiry_edit_with_no_link_records_nothing(self):
+        self._post(share_token_expires_at_0="2999-01-02", share_token_expires_at_1="03:04:05")
+        self.assertEqual(_rows(self.board), [])

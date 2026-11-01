@@ -274,7 +274,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     }
   }, [boardShareActive, boardShareExpiresAt]);
 
-  const shareUrl =revealedShareToken ? `${window.location.origin}/share/${revealedShareToken}` : null;
+  const shareUrl = revealedShareToken ? `${window.location.origin}/share/${revealedShareToken}` : null;
   // A link past its expiry is still set (the public page answers 410 Gone)
   // until it is rotated or disabled, so say "Expired" rather than "Expires".
   const shareExpired = shareExpiresAt !== null && new Date(shareExpiresAt).getTime() <= Date.now();

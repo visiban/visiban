@@ -26,7 +26,7 @@ from .services.cards import (
     enforce_column_limits, lock_board_for_card_write, lock_card_cell_entry,
     lock_card_for_write, lock_card_row, lock_cards_for_cascade, require_swimlane_exists,
 )
-from .services.share_links import revoke_lapsed_share_links
+from .services.share_links import record_share_link_updated, revoke_lapsed_share_links
 from .services.errors import (
     CardNotFound, SwimlaneNotFound, WeightLimitExceeded, WipHardBlocked, WipLimitExceeded,
 )
@@ -788,6 +788,7 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
 
     def save_model(self, request, obj, form, change):
         old_group_id = None
+        stored = None
         if obj.group_id is not None:
             # The target group before the board row (#1719), the group ->
             # board order every board placement takes (#1638): a save into a
@@ -811,8 +812,10 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                 # form from the locked row (and form fields the administrator
                 # did not change), so a concurrent change to them is not
                 # reverted by the earlier read held in ``obj``. The share-link
-                # fields (token, token hash, expiry, enabler) are editable=False, so they
-                # are never on the form and always come from the locked row.
+                # token, token hash and enabler are editable=False, so they are
+                # never on the form and always come from the locked row. The
+                # expiry (share_token_expires_at) IS on the form: a change to
+                # it records share_link.updated below (#1967).
                 # A submitted row_version is compared with the locked row
                 # first, so a form rendered against an older owner or group
                 # is refused before anything is written or broadcast.
@@ -825,8 +828,19 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             # share link's enabler (#1865). The refresh is defensive: it keeps
             # ``obj`` in step with the row for anything that reads it after
             # this point (the payload below carries no share fields).
-            revoke_lapsed_share_links(board_ids=[obj.pk], actor_id=request.user.pk)
+            revoked = revoke_lapsed_share_links(board_ids=[obj.pk], actor_id=request.user.pk)
             obj.refresh_from_db(fields=Board.SHARE_LINK_FIELDS)
+            # The expiry is editable here, and board.updated cannot carry it
+            # (ADMIN_ONLY_BOARD_FIELDS), so an edit to it on a live link tells
+            # admin sessions through share_link.updated (#1967). Skipped when
+            # the sweep above just cleared the link: it recorded the event.
+            if (
+                not revoked
+                and stored is not None
+                and obj.share_token is not None
+                and obj.share_token_expires_at != stored.share_token_expires_at
+            ):
+                record_share_link_updated(obj, actor_id=request.user.pk)
         # No request in context: BoardSerializer.get_group_detail() reads
         # request.query_params (a DRF Request attribute) to resolve
         # ?expand=group, which the plain Django admin HttpRequest does not
