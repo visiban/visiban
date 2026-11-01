@@ -19,6 +19,7 @@ import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import ActivityTabPanel from "./ActivityTabPanel";
 import { dropUnknownLabels } from "../../utils/cardLabels";
+import { isStaleCard } from "../../utils/cardVersion";
 import { formatDateStr, formatDueDate, formatDateTimeUser } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
@@ -521,10 +522,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const localLocationRef = useRef({ column: localCard.column, swimlane: localCard.swimlane });
   localLocationRef.current = { column: localCard.column, swimlane: localCard.swimlane };
   useEffect(() => {
-    // Only a version that goes UP is a change. useBoard's rollback of a failed
-    // move restores the snapshot taken before the request, whose version can
-    // be older than one a socket event delivered meanwhile; that is not a
-    // remote change and must not close the popover or erase its error.
+    // Only a version that goes UP is a change. A copy older than one already
+    // seen (useBoard drops those since #1969, and a failed move's rollback now
+    // keeps a newer copy, but a full board reload can still deliver one, #2038)
+    // is not a remote change and must not close the popover or erase its error.
     if (card.version <= lastSeenVersionRef.current) return;
     lastSeenVersionRef.current = card.version;
     // Our own save, or our own move: handleMoveSubmit and save() apply their
@@ -626,7 +627,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   boardLabelsRef.current = board.labels;
   const rollbackTo = (prev: Card) =>
     setLocalCard((c) => ({ ...dropUnknownLabels(prev, boardLabelsRef.current), version: c.version, column: c.column, swimlane: c.swimlane }));
+  // A newer version can reach localCard while the save is in flight (#1969): a
+  // remote edit's frame, which the reset effect syncs as a version-only bump
+  // while a save is pending, or a later save of ours that returned first. The
+  // older response must not replace it. The live card is then taken instead
+  // when it is at least as new, since a higher version was committed after
+  // this save and so includes it, keeping localCard's location (the live card
+  // can hold useBoard's optimistic one for a move still in flight); otherwise
+  // localCard already holds the newer copy and is kept.
   const adoptSaved = (updated: Card) => {
+    if (isStaleCard(updated, localCardRef.current)) {
+      const live = liveCardRef.current;
+      if (isStaleCard(live, localCardRef.current)) return;
+      titleBaselineRef.current = live.title;
+      setLocalCard((c) => ({ ...dropUnknownLabels(live, boardLabelsRef.current), column: c.column, swimlane: c.swimlane }));
+      return;
+    }
     titleBaselineRef.current = updated.title;
     ownVersionsRef.current.add(updated.version);
     // A response can carry a label deleted while the save was in flight (#1888).

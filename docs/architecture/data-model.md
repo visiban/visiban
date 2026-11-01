@@ -130,7 +130,7 @@ Card
  ├── weight (int, default 1 — used for column weight budget enforcement)
  ├── position (int — sort order within the cell)
  ├── created_by (→ User, nullable — set to null if the creator account is deleted)
- ├── version (int, default 1 — optimistic concurrency control; incremented on every mutation; clients send the version they have; 409 returned if the card has been modified in the meantime)
+ ├── version (int, default 1 — optimistic concurrency control; incremented by a field update (`update_card`) or a move (`move_card`) only — archive/unarchive, comments, attachments, checklists, relations and Django admin edits leave it unchanged, and it never decreases; clients send the version they have; 409 returned if the card has been modified in the meantime)
  ├── assignee → User (nullable)
  ├── labels → Label (M2M)
  ├── archived_at (datetime, nullable — soft-delete timestamp; null = active)

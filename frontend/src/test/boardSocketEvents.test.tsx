@@ -292,6 +292,16 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.unarchiveCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, uid: 'crd005' }))
   })
 
+  it('card.moved routes its nested card to updateCard, which owns the stale-version guard (#1969)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const moved = { id: 5, uid: 'crd005', title: 'Moved card', column: 11, swimlane: 20, version: 4 }
+    act(() => { getOnEvent.dispatch({ event: 'card.moved', data: { card: moved, movement: null } as unknown as Record<string, unknown> }) })
+    expect(ctx.updateCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, version: 4 }))
+  })
+
   it('saved_filter.created refreshes the filter list for the owning user (#1054)', async () => {
     mockBoardContextValue = makeContext()
     render(<BoardView currentUser={fakeUser} />)

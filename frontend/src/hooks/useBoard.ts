@@ -4,6 +4,7 @@ import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorder
 import { moveCard as apiMoveCard } from "../api/cards";
 import { failureReason } from "../utils/moveFailure";
 import { dropUnknownLabels } from "../utils/cardLabels";
+import { isStaleCard } from "../utils/cardVersion";
 import type { BoardFull, BoardMembership, Card, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
@@ -55,6 +56,43 @@ export interface PendingMove {
 function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership): EffectiveBoardMember {
   if ("is_site_admin" in incoming || prev.is_site_admin === undefined) return incoming;
   return { ...incoming, is_site_admin: prev.is_site_admin };
+}
+
+/**
+ * Replace the card with `incoming.id` by `prepare(incoming)`, unless `incoming`
+ * is an older version than the stored copy (#1969). An HTTP response and a
+ * socket frame for the same card travel on different transports, so the older
+ * of the two can land last; it must not put the older card back on screen.
+ * Returns the same array when nothing is replaced, so callers can keep the
+ * board's identity. Every single-card replacement in this hook (socket frames
+ * and HTTP card responses) goes through here; see isStaleCard for why an equal
+ * version still replaces. The full-board fetches in `load` / `silentReload`
+ * still replace every card with whatever the server returned (#2038).
+ */
+function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card) => Card = (c) => c): Card[] {
+  const i = cards.findIndex((c) => c.id === incoming.id);
+  if (i === -1 || isStaleCard(incoming, cards[i])) return cards;
+  const next = cards.slice();
+  next[i] = prepare(incoming);
+  return next;
+}
+
+/**
+ * Undo an optimistic move that failed (#1969). Only the moved card is touched:
+ * restoring the whole pre-request list would also undo every frame that landed
+ * while the request was in flight (other cards' edits, a card created, deleted
+ * or archived meanwhile). Only its location is put back, and only while the
+ * stored copy is still the optimistic one: a newer version that arrived since
+ * already carries the server's real location, so it is kept. A card that left
+ * the board meanwhile stays gone.
+ */
+function rollbackMovedCard(cards: Card[], before: Card | undefined): Card[] {
+  if (!before) return cards;
+  const i = cards.findIndex((c) => c.id === before.id);
+  if (i === -1 || isStaleCard(before, cards[i])) return cards;
+  const next = cards.slice();
+  next[i] = { ...cards[i], column: before.column, swimlane: before.swimlane, position: before.position };
+  return next;
 }
 
 export function useBoard() {
@@ -159,9 +197,9 @@ export function useBoard() {
   ): Promise<MoveOutcome> => {
     if (!boardRef.current) return { ok: false, error: new Error("board not loaded") };
 
-    // Optimistic update — capture current cards for rollback via the ref
-    // so this callback does not depend on the `board` state value.
-    const prev = boardRef.current.cards;
+    // Optimistic update — capture the card's pre-move copy for rollback via
+    // the ref so this callback does not depend on the `board` state value.
+    const before = boardRef.current.cards.find((c) => c.id === cardId);
     setBoard((b) => {
       if (!b) return b;
       return {
@@ -181,16 +219,23 @@ export function useBoard() {
 
     try {
       const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position, version: cardVersion });
+      // A socket frame for a later change (a remote edit, or another move) can
+      // arrive before this response; keep that newer copy (#1969).
       setBoard((b) => {
         if (!b) return b;
-        return { ...b, cards: b.cards.map((c) => (c.id === cardId ? card : c)) };
+        const cards = replaceCardUnlessStale(b.cards, card);
+        return cards === b.cards ? b : { ...b, cards };
       });
       // A stale "Move failed" / limit toast must not outlive a later success (#1761).
       clearMoveError();
       return { ok: true };
     } catch (err: unknown) {
-      // Roll back the optimistic update unconditionally.
-      setBoard((b) => b ? { ...b, cards: prev } : b);
+      // Roll back the optimistic update, leaving frames that landed meanwhile.
+      setBoard((b) => {
+        if (!b) return b;
+        const cards = rollbackMovedCard(b.cards, before);
+        return cards === b.cards ? b : { ...b, cards };
+      });
       // On 409, surface a structured error for the UI to display.
       let surfaced = false;
       const axiosErr = err as { response?: { status?: number; data?: unknown } };
@@ -248,7 +293,7 @@ export function useBoard() {
     const { cardId, columnId, swimlaneId, position } = move;
     clearMoveError();
 
-    const prev = boardRef.current.cards;
+    const before = boardRef.current.cards.find((c) => c.id === cardId);
     setBoard((b) => {
       if (!b) return b;
       return {
@@ -263,13 +308,20 @@ export function useBoard() {
 
     try {
       const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position }, true);
+      // A socket frame for a later change (a remote edit, or another move) can
+      // arrive before this response; keep that newer copy (#1969).
       setBoard((b) => {
         if (!b) return b;
-        return { ...b, cards: b.cards.map((c) => (c.id === cardId ? card : c)) };
+        const cards = replaceCardUnlessStale(b.cards, card);
+        return cards === b.cards ? b : { ...b, cards };
       });
       return { ok: true };
     } catch (err: unknown) {
-      setBoard((b) => b ? { ...b, cards: prev } : b);
+      setBoard((b) => {
+        if (!b) return b;
+        const cards = rollbackMovedCard(b.cards, before);
+        return cards === b.cards ? b : { ...b, cards };
+      });
       // Surface any structured error so the user knows the override failed
       // (e.g. a server error or unexpected 409) rather than silently reverting.
       // This generic pass-through already covers the maintenance_mode 503
@@ -307,10 +359,11 @@ export function useBoard() {
   const addCard = useCallback((card: Card) => {
     setBoard((b) => {
       if (!b) return b;
-      const exists = b.cards.some((c) => c.id === card.id);
-      return exists
-        ? { ...b, cards: b.cards.map((c) => (c.id === card.id ? card : c)) }
-        : { ...b, cards: [...b.cards, card] };
+      if (!b.cards.some((c) => c.id === card.id)) return { ...b, cards: [...b.cards, card] };
+      // Already present (the create response and the card.created echo both
+      // land here): an older copy must not replace a newer one (#1969).
+      const cards = replaceCardUnlessStale(b.cards, card);
+      return cards === b.cards ? b : { ...b, cards };
     });
   }, []);
 
@@ -341,7 +394,8 @@ export function useBoard() {
     setBoard((b) => {
       if (!b) return b;
       if (b.cards.some((c) => c.id === card.id)) {
-        return { ...b, cards: b.cards.map((c) => (c.id === card.id ? card : c)) };
+        const cards = replaceCardUnlessStale(b.cards, card);
+        return cards === b.cards ? b : { ...b, cards };
       }
       return {
         ...b,
@@ -386,9 +440,16 @@ export function useBoard() {
   }, []);
 
   const updateCard = useCallback((card: Card) => {
+    // Fed by card.updated and card.moved frames and by every HTTP card response
+    // (CardDetail, CardItem, the bulk toolbar), which are not ordered against
+    // each other: an older version must not replace a newer one (#1969).
     // dropUnknownLabels: a response/echo that lands after label.deleted must not
     // put the deleted label back on the card (#1888).
-    setBoard((b) => b ? { ...b, cards: b.cards.map((c) => c.id === card.id ? dropUnknownLabels(card, b.labels) : c) } : b);
+    setBoard((b) => {
+      if (!b) return b;
+      const cards = replaceCardUnlessStale(b.cards, card, (c) => dropUnknownLabels(c, b.labels));
+      return cards === b.cards ? b : { ...b, cards };
+    });
   }, []);
 
   const updateColumn = useCallback((column: Column) => {

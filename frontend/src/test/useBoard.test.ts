@@ -1374,6 +1374,219 @@ describe('useBoard', () => {
   })
 })
 
+// #1969: a card arrives on two transports (HTTP responses, socket frames) that
+// are not ordered against each other. An older version must never replace a
+// newer one; an equal version still replaces (counters change without a bump).
+describe('useBoard — stale card versions (#1969)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+  })
+
+  const stored = (version: number, overrides: Partial<Card> = {}) => ({ ...makeBoard().cards[0], version, ...overrides })
+
+  async function renderAt(version: number, overrides: Partial<Card> = {}) {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ cards: [stored(version, overrides)] }))
+    const hook = renderHook(() => useBoard())
+    await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+    return hook
+  }
+
+  it('updateCard ignores an older version and keeps the board identity', async () => {
+    const { result } = await renderAt(3, { title: 'Newer' })
+    const before = result.current.board
+    act(() => { result.current.updateCard(stored(2, { title: 'Older' })) })
+    expect(result.current.board).toBe(before)
+    expect(result.current.board!.cards[0]).toMatchObject({ title: 'Newer', version: 3 })
+  })
+
+  it('updateCard replaces on an equal version (a comment/attachment counter change)', async () => {
+    const { result } = await renderAt(3)
+    act(() => { result.current.updateCard(stored(3, { attachment_count: 2 })) })
+    expect(result.current.board!.cards[0]).toMatchObject({ attachment_count: 2, version: 3 })
+  })
+
+  it('updateCard replaces on a newer version', async () => {
+    const { result } = await renderAt(3)
+    act(() => { result.current.updateCard(stored(4, { title: 'Remote' })) })
+    expect(result.current.board!.cards[0]).toMatchObject({ title: 'Remote', version: 4 })
+  })
+
+  it('updateCard replaces when the incoming card carries no version', async () => {
+    const { result } = await renderAt(3)
+    const { version: _omit, ...unversioned } = stored(3, { title: 'Unversioned' })
+    act(() => { result.current.updateCard(unversioned as Card) })
+    expect(result.current.board!.cards[0].title).toBe('Unversioned')
+  })
+
+  it('updateCard replaces when the stored card carries no version', async () => {
+    const { version: _omit, ...unversioned } = stored(1)
+    mockGetBoardFull.mockResolvedValue(makeBoard({ cards: [unversioned as Card] }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    act(() => { result.current.updateCard(stored(1, { title: 'Replaced' })) })
+    expect(result.current.board!.cards[0].title).toBe('Replaced')
+  })
+
+  it('a stale card.moved frame cannot move the card back', async () => {
+    // A remote edit (v3) landed after the move (v2); the move frame arrives last.
+    const { result } = await renderAt(3, { column: 11, title: 'Edited' })
+    act(() => { result.current.updateCard(stored(2, { column: 11, title: 'Before edit' })) })
+    // ...and an even older move frame cannot put it back in the old column.
+    act(() => { result.current.updateCard(stored(1, { column: 10 })) })
+    expect(result.current.board!.cards[0]).toMatchObject({ column: 11, title: 'Edited', version: 3 })
+  })
+
+  it('addCard ignores an older copy of a card it already holds (late card.created)', async () => {
+    const { result } = await renderAt(2, { title: 'Edited' })
+    act(() => { result.current.addCard(stored(1, { title: 'As created' })) })
+    expect(result.current.board!.cards).toHaveLength(1)
+    expect(result.current.board!.cards[0]).toMatchObject({ title: 'Edited', version: 2 })
+    act(() => { result.current.addCard(stored(2, { title: 'Same version' })) })
+    expect(result.current.board!.cards[0].title).toBe('Same version')
+  })
+
+  it('unarchiveCard ignores an older copy of a card already back on the board', async () => {
+    const { result } = await renderAt(4, { title: 'Edited after restore' })
+    act(() => { result.current.unarchiveCard(stored(3, { title: 'As restored' })) })
+    expect(result.current.board!.cards[0]).toMatchObject({ title: 'Edited after restore', version: 4 })
+    expect(result.current.board!.archived_card_count).toBe(0)
+  })
+
+  it('a move response that lands after a newer socket frame keeps the newer card', async () => {
+    const { result } = await renderAt(1)
+    let resolveMove!: (v: { card: Card }) => void
+    mockMoveCard.mockReturnValueOnce(new Promise((r) => { resolveMove = r }))
+    let pending!: Promise<unknown>
+    act(() => { pending = result.current.moveCard(100, 11, 20, 0) })
+    // The move's own echo (v2) and then a remote edit (v3) arrive over the socket first.
+    act(() => { result.current.updateCard(stored(2, { column: 11 })) })
+    act(() => { result.current.updateCard(stored(3, { column: 11, title: 'Remote edit' })) })
+    let outcome: unknown
+    await act(async () => { resolveMove({ card: stored(2, { column: 11 }) }); outcome = await pending })
+    expect(outcome).toEqual({ ok: true })
+    expect(result.current.board!.cards[0]).toMatchObject({ column: 11, title: 'Remote edit', version: 3 })
+  })
+
+  it('a move response with a newer version than any frame replaces the optimistic card', async () => {
+    const { result } = await renderAt(1)
+    mockMoveCard.mockResolvedValueOnce({ card: stored(2, { column: 11, position: 0 }) })
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+    expect(result.current.board!.cards[0]).toMatchObject({ column: 11, version: 2 })
+  })
+
+  it('a forced move response that lands after a newer socket frame keeps the newer card', async () => {
+    const { result } = await renderAt(1)
+    let resolveMove!: (v: { card: Card }) => void
+    mockMoveCard.mockReturnValueOnce(new Promise((r) => { resolveMove = r }))
+    let pending!: Promise<unknown>
+    act(() => { pending = result.current.forceMoveCardTo(100, 11, 20, 9999) })
+    act(() => { result.current.updateCard(stored(3, { column: 11, title: 'Remote edit' })) })
+    let outcome: unknown
+    await act(async () => { resolveMove({ card: stored(2, { column: 11 }) }); outcome = await pending })
+    expect(outcome).toEqual({ ok: true })
+    expect(result.current.board!.cards[0]).toMatchObject({ title: 'Remote edit', version: 3 })
+  })
+
+  // A failed move puts back only the moved card's location, and only while no
+  // newer version of it has arrived; frames for other cards that landed during
+  // the request survive.
+  describe('failed-move rollback keeps frames that landed meanwhile', () => {
+    const other = (version: number, overrides: Partial<Card> = {}) =>
+      ({ ...makeBoard().cards[0], id: 101, uid: 'carduid00101', title: 'Other', version, ...overrides })
+
+    async function renderTwo() {
+      mockGetBoardFull.mockResolvedValue(makeBoard({ cards: [stored(1, { title: 'Mover' }), other(1)] }))
+      const hook = renderHook(() => useBoard())
+      await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+      return hook
+    }
+
+    const failures: [string, unknown][] = [
+      ['403', { response: { status: 403, data: { detail: 'nope' } } }],
+      ['409 wip_limit_exceeded', { response: { status: 409, data: { code: 'wip_limit_exceeded', column_name: 'Doing', current_count: 3, wip_limit: 3 } } }],
+      ['a network error', new Error('Network Error')],
+    ]
+
+    for (const [label, failure] of failures) {
+      it(`moveCard (${label}): restores the moved card's location and keeps another card's frame`, async () => {
+        const { result } = await renderTwo()
+        let rejectMove!: (e: unknown) => void
+        mockMoveCard.mockReturnValueOnce(new Promise((_r, rej) => { rejectMove = rej }))
+        let pending!: Promise<unknown>
+        act(() => { pending = result.current.moveCard(100, 11, 20, 3) })
+        expect(result.current.board!.cards[0].column).toBe(11)
+        act(() => { result.current.updateCard(other(2, { title: 'Other, edited remotely' })) })
+        act(() => { result.current.addCard({ ...other(1), id: 102, uid: 'carduid00102', title: 'Created meanwhile' }) })
+        let outcome: unknown
+        await act(async () => { rejectMove(failure); outcome = await pending })
+        expect(outcome).toMatchObject({ ok: false })
+        const cards = result.current.board!.cards
+        expect(cards.find((c) => c.id === 100)).toMatchObject({ column: 10, swimlane: 20, position: 0, title: 'Mover', version: 1 })
+        expect(cards.find((c) => c.id === 101)).toMatchObject({ title: 'Other, edited remotely', version: 2 })
+        expect(cards.find((c) => c.id === 102)?.title).toBe('Created meanwhile')
+      })
+
+      it(`forceMoveCardTo (${label}): restores the moved card's location and keeps another card's frame`, async () => {
+        const { result } = await renderTwo()
+        let rejectMove!: (e: unknown) => void
+        mockMoveCard.mockReturnValueOnce(new Promise((_r, rej) => { rejectMove = rej }))
+        let pending!: Promise<unknown>
+        act(() => { pending = result.current.forceMoveCardTo(100, 11, 20, 9999) })
+        act(() => { result.current.updateCard(other(2, { title: 'Other, edited remotely' })) })
+        let outcome: unknown
+        await act(async () => { rejectMove(failure); outcome = await pending })
+        expect(outcome).toMatchObject({ ok: false })
+        const cards = result.current.board!.cards
+        expect(cards.find((c) => c.id === 100)).toMatchObject({ column: 10, position: 0, version: 1 })
+        expect(cards.find((c) => c.id === 101)).toMatchObject({ title: 'Other, edited remotely', version: 2 })
+      })
+    }
+
+    it('keeps a newer version of the moved card itself that arrived during the request', async () => {
+      const { result } = await renderTwo()
+      let rejectMove!: (e: unknown) => void
+      mockMoveCard.mockReturnValueOnce(new Promise((_r, rej) => { rejectMove = rej }))
+      let pending!: Promise<unknown>
+      act(() => { pending = result.current.moveCard(100, 11, 20, 3) })
+      // Another session moved the card to column 12 and the frame landed first.
+      act(() => { result.current.updateCard(stored(2, { title: 'Mover', column: 12 })) })
+      await act(async () => { rejectMove(new Error('Network Error')); await pending })
+      expect(result.current.board!.cards.find((c) => c.id === 100)).toMatchObject({ column: 12, version: 2 })
+    })
+
+    it('keeps an equal-version counter change on the moved card while restoring its location', async () => {
+      const { result } = await renderTwo()
+      let rejectMove!: (e: unknown) => void
+      mockMoveCard.mockReturnValueOnce(new Promise((_r, rej) => { rejectMove = rej }))
+      let pending!: Promise<unknown>
+      act(() => { pending = result.current.forceMoveCardTo(100, 11, 20, 9999) })
+      act(() => { result.current.updateCard(stored(1, { title: 'Mover', column: 10, attachment_count: 4 })) })
+      await act(async () => { rejectMove(new Error('Network Error')); await pending })
+      expect(result.current.board!.cards.find((c) => c.id === 100)).toMatchObject({ column: 10, position: 0, attachment_count: 4 })
+    })
+
+    it('a failed move of a card the board does not hold leaves the board as it is', async () => {
+      const { result } = await renderTwo()
+      const before = result.current.board
+      mockMoveCard.mockRejectedValueOnce(new Error('Network Error'))
+      await act(async () => { await result.current.moveCard(999, 11, 20, 0) })
+      expect(result.current.board!.cards).toEqual(before!.cards)
+    })
+
+    it('does not bring back a moved card that was deleted during the request', async () => {
+      const { result } = await renderTwo()
+      let rejectMove!: (e: unknown) => void
+      mockMoveCard.mockReturnValueOnce(new Promise((_r, rej) => { rejectMove = rej }))
+      let pending!: Promise<unknown>
+      act(() => { pending = result.current.moveCard(100, 11, 20, 3) })
+      act(() => { result.current.evictCardByUid('carduid00001') })
+      await act(async () => { rejectMove({ response: { status: 403, data: {} } }); await pending })
+      expect(result.current.board!.cards.map((c) => c.id)).toEqual([101])
+    })
+  })
+})
+
 describe('useBoard — maintenance mode (#783)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
