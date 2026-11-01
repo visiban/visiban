@@ -616,7 +616,17 @@ export function useBoard() {
   }, []);
 
   const removeMember = useCallback((userId: number) => {
-    setBoard((b) => b ? { ...b, members: b.members.filter((m) => m.user.id !== userId) } : b);
+    // Removing a membership does not remove an all-content user's access
+    // (#1301): keep them listed as a refetch would, with no membership row.
+    setBoard((b) => b ? {
+      ...b,
+      members: b.members.flatMap((m): EffectiveBoardMember[] => {
+        if (m.user.id !== userId) return [m];
+        return m.has_all_content_access
+          ? [{ ...m, id: null, role: "site_admin", has_all_content_access: true }]
+          : [];
+      }),
+    } : b);
   }, []);
 
   const applyColumnOrder = useCallback((columns: Column[]) => {

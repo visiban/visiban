@@ -1170,6 +1170,21 @@ describe('useBoard', () => {
     expect(result.current.board!.members).toHaveLength(0)
   })
 
+  // #1301 — removing an all-content user's membership leaves their access
+  // intact, so the row stays, as a refetch would return it.
+  it('removeMember keeps an all-content user listed without a membership (#1301)', async () => {
+    const root = { id: 3, username: 'root', display_name: 'Root', avatar_url: '' }
+    mockGetBoardFull.mockResolvedValue(makeBoard({
+      members: [{ id: 30, user: root, role: 'viewer', has_all_content_access: true, joined_at: '' }],
+    }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.removeMember(3) })
+    expect(result.current.board!.members).toHaveLength(1)
+    expect(result.current.board!.members[0]).toMatchObject({ id: null, role: 'site_admin', has_all_content_access: true })
+  })
+
   it('applyCustomFieldDefinitions replaces the board-level definitions wholesale', async () => {
     mockGetBoardFull.mockResolvedValue(makeBoard())
     const { result } = renderHook(() => useBoard())

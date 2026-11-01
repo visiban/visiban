@@ -512,6 +512,35 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     expect(screen.queryByText(/All-content access overrides board roles/)).toBeNull()
   })
 
+  // #1300 — a synthesized row (id: null, e.g. group-inherited) must pick up
+  // the created membership's id so Remove appears without a refetch.
+  it('shows the Remove button on a group-inherited row right after a role is assigned (#1300)', async () => {
+    const user = userEvent.setup()
+    const inherited = {
+      id: null,
+      user: { id: 9, username: 'inherit', display_name: 'Inherited One', avatar_url: '' },
+      role: 'member' as const,
+      is_moderator: false,
+      has_all_content_access: false,
+      joined_at: '',
+    }
+    mockSetBoardMember.mockResolvedValue({ ...inherited, id: 13, role: 'viewer' })
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+        inherited,
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
+    await user.click(screen.getAllByRole('combobox')[1])
+    await user.click(screen.getByRole('option', { name: 'Viewer' }))
+    await waitFor(() => {
+      expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(2)
+    })
+  })
+
   it('falls back to the role and stays locked when a row has no is_site_admin key', () => {
     const board: BoardFull = {
       ...fakeBoard,

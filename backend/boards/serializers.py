@@ -3495,8 +3495,8 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
         required=False,
         help_text="Whether the member has all-content access, which always "
                   "resolves to full access and overrides this row's role. "
-                  "Present only for a site-admin reader (board role "
-                  "site_admin, or an instance site admin).",
+                  "Present only for a board admin or site admin reader, on "
+                  "every row.",
     )
     joined_at = serializers.DateTimeField(read_only=True)
 
@@ -3884,10 +3884,19 @@ class BoardFullSerializer(serializers.ModelSerializer):
             # of any explicit membership, so a row whose stored ``role`` says
             # "viewer" can still be a full-access user. ``role`` cannot say so
             # (it is the stored role whenever a membership exists), and the
-            # flag itself is deliberately kept off the nested user. Gated like
-            # the site_admin roster rows: who has instance-wide access is an
-            # instance fact, so only a roster-visible reader gets it (#1714).
-            if roster_visible:
+            # flag itself is deliberately kept off the nested user.
+            # Sent to the readers who render the Members controls, board
+            # admins and site admins (``site_admin_field_visible``), on every
+            # row: a board admin who is not a site admin would otherwise get
+            # a role picker on an all-content row (group-inherited, or the
+            # #1717 auditor case), and a role set there changes nothing. It
+            # is one boolean per member the admin can already see, and it
+            # does not reveal who else holds instance-wide access: the
+            # synthesized roster rows stay limited to roster-visible readers
+            # (#1714). Readers below admin get no key.
+            # An instance site admin on a lower board role is roster-visible
+            # and already sees these users listed, so they get it too.
+            if site_admin_field_visible(viewer_role) or roster_visible:
                 row["has_all_content_access"] = bool(entry["user"].can_access_all_content)
             result.append(row)
         return result

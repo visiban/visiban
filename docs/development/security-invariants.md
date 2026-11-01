@@ -220,6 +220,17 @@ Members tab locks. Group-inherited and owner rows carry no flag for them, since
 a change to such a row is an ordinary add. A site-admin reader gets the full
 roster and the flag on every row. `site_admin_roster_visible` holds this rule.
 
+`has_all_content_access` (#1301) is the exception to that line. It says whether
+a member has `can_access_all_content`, which resolves to full access ahead of
+any membership, so the Members tab can show effective access and withhold a role
+picker that would change nothing. A board admin who is not a site admin needs
+it on group-inherited and owner rows and on the all-content-but-not-`is_site_admin`
+case too, so `get_members` sends it on every row to board admins and site
+admins (`site_admin_field_visible`), not only to `site_admin_roster_visible`
+readers. This discloses to a board admin which of the board's own members hold
+all-content access; it does not list anyone who is not already a member, and a
+reader below admin gets no key.
+
 `site_admin_roster_visible(role, viewer_is_site_admin)` returns true when the
 reader's board role is `site_admin` (which is what `can_access_all_content`
 resolves to) or the reader has `User.is_site_admin`, so a reader with
@@ -268,7 +279,7 @@ the status filter and the uniform response, not scope.
 | Card assignee (REST) | `boards/serializers.py` `CardSerializer.__init__` (`assignee_id` queryset), `boards/views/cards.py`, `boards/views/_helpers.py` | `boards/utils.py` `_get_assignable_member_ids`: owner, `can_access_all_content` users, and members whose role resolves through the `get_board_role` ladder to a non-viewer role (#1716, #1866). Pinned by `boards/tests/test_viewer_assignee.py` (`MemberSetLadderTests`, which also compares both sets with `get_board_role`) |
 | Card assignee (MCP) | `mcp_server/tools.py` `create_card`, `update_card` | One lookup shared by both tools: username matched case-insensitively within `_get_assignable_member_ids`; anything outside it gets the uniform assignee error. Pinned through `update_card` by `mcp_server/tests/test_mcp_crud.py` |
 | MCP | `mcp_server/tools.py` | No import tool; user references resolve through the caller's accessible boards |
-| Board member list | `boards/serializers.py` `BoardFullSerializer.get_members` | `site_admin_roster_visible` (all-content rows, and `is_site_admin` on rows with no membership, for site-admin readers only), then `site_admin_field_visible`. The other member-row surfaces (members POST response, `member.*` events, change feed) only ever carry a real membership row |
+| Board member list | `boards/serializers.py` `BoardFullSerializer.get_members` | `site_admin_roster_visible` (all-content rows, and `is_site_admin` on rows with no membership, for site-admin readers only), then `site_admin_field_visible` (which also gates `is_site_admin` and, on every row, `has_all_content_access` for board admins, #1301). The other member-row surfaces (members POST response, `member.*` events, change feed) only ever carry a real membership row |
 
 ## Rule 6: Placing a board in a group needs group admin
 
