@@ -11,6 +11,10 @@ import { DEMO_CARD_DETAIL_NOTE, DEMO_CARD_FOOTER_NOTE, DEMO_EXTERNAL_REF_REASON 
 // #1914 — the card detail sheet anchored to the selected card's column.
 
 vi.mock('../api/cards', () => ({
+  // Manual block (#1149): CardBlockSection fetches the block history on mount.
+  blockCard: vi.fn(),
+  unblockCard: vi.fn(),
+  getCardBlocks: vi.fn().mockResolvedValue([]),
   deleteCard: vi.fn(),
   archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),
@@ -53,7 +57,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     position: 0, created_by: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' }, created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
     attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
-    version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
+    version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     ...overrides,
   }
 }

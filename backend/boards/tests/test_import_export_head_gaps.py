@@ -623,6 +623,12 @@ class CardRowsAndUsernamesTests(TestCase):
         # + labels 11 + the two importer-generated activities.
         self.assertEqual(_card_rows(card), 1 + 2 + 6 + 5 + 7 + 11 + 2)
         self.assertEqual(_card_rows({}), 3)
+        # #1149: each block row, plus the open row a blocked card gets.
+        self.assertEqual(_card_rows({**card, "blocks": [{}] * 13}), 1 + 2 + 6 + 5 + 7 + 11 + 13 + 2)
+        self.assertEqual(
+            _card_rows({**card, "blocks": [{}] * 13, "blocked_at": "2026-01-01T00:00:00Z"}),
+            1 + 2 + 6 + 5 + 7 + 11 + 13 + 1 + 2,
+        )
 
     def test_card_usernames_yields_only_non_empty_strings(self):
         from boards.views.import_export import _card_usernames

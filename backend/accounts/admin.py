@@ -609,13 +609,14 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
 
         The user delete sets those references to NULL (``Card.assignee`` and
         ``created_by``, and the author, actor, uploader or creator on a card's
-        movements, comments, activity, checklists, attachments, relations and
-        notifications), which updates the card's rows. Locking the cards
+        movements, comments, activity, checklists, attachments, relations,
+        notifications and manual blocks, #1149), which updates the card's rows. Locking the cards
         first keeps the order card, then user, the order a card writer uses.
         """
         from boards.models import (
             CardActivity,
             CardAttachment,
+            CardBlock,
             CardChecklist,
             CardComment,
             CardMovement,
@@ -633,6 +634,12 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             | Q(pk__in=CardAttachment.objects.filter(uploaded_by__in=pks).values("card_id"))
             | Q(pk__in=CardRelation.objects.filter(created_by__in=pks).values("from_card_id"))
             | Q(pk__in=CardRelation.objects.filter(created_by__in=pks).values("to_card_id"))
+            # Block history (#1149): blocked_by and unblocked_by are SET_NULL.
+            | Q(
+                pk__in=CardBlock.objects.filter(Q(blocked_by__in=pks) | Q(unblocked_by__in=pks))
+                .exclude(card__isnull=True)
+                .values("card_id")
+            )
             | Q(
                 pk__in=Notification.objects.filter(Q(actor__in=pks) | Q(recipient__in=pks))
                 .exclude(card__isnull=True)

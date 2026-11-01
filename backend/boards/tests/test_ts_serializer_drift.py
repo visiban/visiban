@@ -38,6 +38,7 @@ from boards.serializers import (
     BoardSerializer,
     CardActivitySerializer,
     CardAttachmentSerializer,
+    CardBlockSerializer,
     CardChecklistSerializer,
     CardCommentSerializer,
     CardMovementSerializer,
@@ -94,6 +95,8 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     (CardMovementSerializer, "CardMovement", set()),
     (CardCommentSerializer, "CardComment", set()),
     (CardActivitySerializer, "CardActivity", set()),
+    # Manual block history (#1149).
+    (CardBlockSerializer, "CardBlock", set()),
     (CardChecklistSerializer, "CardChecklistItem", set()),
     (CardAttachmentSerializer, "CardAttachment", set()),
     (BoardMembershipSerializer, "BoardMembership", set()),

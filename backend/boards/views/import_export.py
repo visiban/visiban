@@ -38,7 +38,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParam
 
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
-    CardActivity, CardChecklist, CardComment, CardExternalRef, CardMovement, Column,
+    CardActivity, CardBlock, CardChecklist, CardComment, CardExternalRef, CardMovement, Column,
     CustomFieldDefinition, CustomFieldValue, Label, Swimlane, SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
@@ -633,6 +633,8 @@ _IMPORT_MAX_CHILDREN_PER_CARD = {
     "checklist": 500,
     "movements": 2000,
     "activities": 5000,
+    # Manual block history (#1149).
+    "blocks": 1000,
 }
 # Bound on every row one import writes, so 500 cards each just under their
 # per-card caps are still refused. _board_rows + _card_rows count each row
@@ -847,6 +849,7 @@ def _validate_json_import_values(data):
         ("description", _text()),
         ("weight", _int_error),
         ("position", _int_error),
+        ("blocked_reason", _text(_field_max_length(Card, "blocked_reason"))),
     )
     movement_name = functools.partial(
         _optional_name_error, max_length=_field_max_length(CardMovement, "from_column_name"),
@@ -875,6 +878,13 @@ def _validate_json_import_values(data):
             ("from_value", _text()), ("to_value", _text()),
             ("imported_from_username", imported_name),
         )),
+        # Manual block history (#1149).
+        "blocks": ("block", (
+            ("reason", _text(_field_max_length(CardBlock, "reason"))),
+            ("resolution", _text(_field_max_length(CardBlock, "resolution"))),
+            ("column", movement_name),
+            ("imported_from_username", imported_name),
+        )),
     }
     username_len = _field_max_length(get_user_model(), "username")
     usernames = set()
@@ -893,6 +903,8 @@ def _validate_json_import_values(data):
             for ji, entry in enumerate(items):
                 if error := _check_keys(entry, specs, f"{where}, {child_label} at index {ji}"):
                     return error
+        if error := _block_reason_error(card, where):
+            return error
         total_rows += _card_rows(card)
         if total_rows > _IMPORT_MAX_ROWS:
             return f"Import would write more than {_IMPORT_MAX_ROWS} rows in total."
@@ -903,6 +915,29 @@ def _validate_json_import_values(data):
             usernames.add(value)
         if len(usernames) > _IMPORT_MAX_USERNAMES:
             return f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames."
+    return None
+
+
+def _blank(value):
+    return not isinstance(value, str) or not value.strip()
+
+
+def _block_reason_error(card, where):
+    """The reason rule of ``BlockCardSerializer``, applied to an import (#1149).
+
+    A block needs a reason (the API refuses a blank one), so a file that
+    carries a blocked card without ``blocked_reason``, or a block entry
+    without ``reason``, is refused with a 400 rather than imported as a
+    reasonless block or silently unblocked. Lengths and types are checked
+    by the specs above; this adds only "required and not just whitespace".
+    Entries the importer drops anyway (no usable ``blocked_at``) are not
+    judged.
+    """
+    if card.get("blocked_at") and _blank(card.get("blocked_reason")):
+        return f"{where}: 'blocked_reason' is required when 'blocked_at' is set"
+    for ji, entry in enumerate(card.get("blocks", [])):
+        if entry.get("blocked_at") and _blank(entry.get("reason")):
+            return f"{where}, block at index {ji}: 'reason' is required"
     return None
 
 
@@ -935,7 +970,8 @@ def _board_rows(data):
 def _card_rows(card):
     """Upper bound on the rows the importer writes for one card.
 
-    The card; its comments, checklist items, movements and activities;
+    The card; its comments, checklist items, movements, activities and
+    blocks (plus one open block for a card that is blocked now);
     its MR/PR link and custom field values; plus what the importer
     generates itself: an "item added" activity per checklist item, a label
     link per label reference, and one label-change and one weight-change
@@ -950,6 +986,10 @@ def _card_rows(card):
         + len(card.get("movements", []))
         + len(card.get("activities", []))
         + len(card.get("labels", []))
+        # Block history (#1149), plus the open block the importer writes for
+        # a card that is blocked now.
+        + len(card.get("blocks", []))
+        + (1 if card.get("blocked_at") else 0)
         + 2
     )
 
@@ -958,7 +998,10 @@ def _card_usernames(card):
     """``(key, username)`` for every truthy username string a card references."""
     if isinstance(card.get("assignee"), str) and card["assignee"]:
         yield "assignee", card["assignee"]
-    for child, key in (("movements", "moved_by"), ("activities", "actor")):
+    for child, key in (
+        ("movements", "moved_by"), ("activities", "actor"),
+        ("blocks", "blocked_by"), ("blocks", "unblocked_by"),
+    ):
         for entry in card.get(child, []):
             value = entry.get(key)
             if isinstance(value, str) and value:
@@ -1091,6 +1134,75 @@ def _imported_card_created_at(card_data, history_on, now):
                 if at is not None and at < created:
                     return None
     return created
+
+
+def _imported_card_blocks(card_obj, card_data, column_map, importer, history_on):
+    """The ``CardBlock`` rows a JSON import writes for one card (#1149).
+
+    With the history option, every *closed* block in the file's ``blocks``
+    list is restored, attributed to the importer with the file's
+    ``blocked_by`` kept as ``imported_from_username`` (#1675). Open entries
+    in the list are never restored as such: the card's own ``blocked_at`` /
+    ``blocked_reason`` decide whether it is blocked now, and exactly one open
+    row is written for a blocked card, whatever the option, so
+    ``Card.blocked_at`` and the open row cannot disagree (the
+    one-open-block constraint would refuse a second one anyway).
+
+    Entries without a usable ``blocked_at``, or that end before they start,
+    are dropped, the same leniency the importer applies to an unknown
+    movement type.
+    """
+    def _row(entry, *, blocked_at, unblocked_at, reason, resolution, imported_name):
+        # The file's column name when it gives one (None if that column is
+        # not on the imported board; the name is still kept), else the
+        # card's own column.
+        column_name = (entry.get("column") or "") if entry else ""
+        column = column_map.get(column_name) if column_name else card_obj.column
+        return CardBlock(
+            card_id=card_obj.pk,
+            # bulk_create skips save(); the snapshots are filled here.
+            board_id=card_obj.board_id,
+            card_uid=card_obj.uid,
+            card_title=card_obj.title,
+            blocked_at=blocked_at,
+            blocked_by=importer,
+            reason=reason,
+            unblocked_at=unblocked_at,
+            unblocked_by=importer if unblocked_at else None,
+            resolution=resolution,
+            column=column,
+            column_name=column.name if column else column_name,
+            column_uid=column.uid if column else "",
+            imported_from_username=imported_name,
+        )
+
+    rows = []
+    entries = card_data.get("blocks", []) if history_on else []
+    open_entry = None
+    for entry in entries:
+        blocked_at = _aware_timestamp(entry.get("blocked_at"))
+        if blocked_at is None:
+            continue
+        unblocked_at = _aware_timestamp(entry.get("unblocked_at"))
+        if unblocked_at is None:
+            open_entry = entry
+            continue
+        if unblocked_at < blocked_at:
+            continue
+        rows.append(_row(
+            entry, blocked_at=blocked_at, unblocked_at=unblocked_at,
+            reason=entry["reason"].strip(), resolution=(entry.get("resolution") or "").strip(),
+            imported_name=_imported_from_username(entry, "blocked_by"),
+        ))
+    if card_obj.blocked_at is not None:
+        rows.append(_row(
+            open_entry, blocked_at=card_obj.blocked_at, unblocked_at=None,
+            reason=card_obj.blocked_reason, resolution="",
+            imported_name=(
+                _imported_from_username(open_entry, "blocked_by") if open_entry else ""
+            ),
+        ))
+    return rows
 
 
 def _resolve_import_users(usernames, importer, group=None):
@@ -1382,6 +1494,7 @@ class BoardImportExportMixin:
             for _child, _child_label in (
                 ("comments", "comment"), ("movements", "movement"),
                 ("activities", "activity"), ("checklist", "checklist item"),
+                ("blocks", "block"),
             ):
                 _items = _card.get(_child, [])
                 if not isinstance(_items, list):
@@ -1403,6 +1516,7 @@ class BoardImportExportMixin:
                             "imported_from_username",
                         ),
                         "activities": ("actor", "imported_from_username"),
+                        "blocks": ("blocked_by", "unblocked_by", "imported_from_username"),
                         # Only the new key: a comment's ``author`` was never
                         # read, and a non-string one is still ignored (#1702).
                         "comments": ("imported_from_username",),
@@ -1449,12 +1563,13 @@ class BoardImportExportMixin:
         for _ci, _card in enumerate(data.get("cards", [])):
             # Echoed values go through _bounded_repr (#1507): a 10 MB string
             # must not come back in the 400.
-            _v = _card.get("archived_at")
-            if _timestamp_error(_v, _parse_dt):
-                return Response(
-                    {"detail": f"Card at index {_ci}: invalid timestamp for 'archived_at': {_bounded_repr(_v)}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            for _key in ("archived_at", "blocked_at"):
+                _v = _card.get(_key)
+                if _timestamp_error(_v, _parse_dt):
+                    return Response(
+                        {"detail": f"Card at index {_ci}: invalid timestamp for '{_key}': {_bounded_repr(_v)}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             _due = _card.get("due_date")
             if _timestamp_error(_due, _parse_date):
                 return Response(
@@ -1465,6 +1580,8 @@ class BoardImportExportMixin:
                 ("comments", "comment", "created_at"),
                 ("movements", "movement", "moved_at"),
                 ("activities", "activity", "created_at"),
+                ("blocks", "block", "blocked_at"),
+                ("blocks", "block", "unblocked_at"),
             ):
                 for _ji, _entry in enumerate(_card.get(_child, [])):
                     _v = _entry.get(_key)
@@ -1682,6 +1799,13 @@ class BoardImportExportMixin:
                 # respects explicitly set field values so no UPDATE pass is needed.
                 if card_data.get("archived_at"):
                     card_obj.archived_at = card_data["archived_at"]
+                # Manual blocked state (#1149) is card state, like archived_at,
+                # so it is restored whatever the history option says; the
+                # matching open CardBlock row is written in phase 2.
+                blocked_at = _aware_timestamp(card_data.get("blocked_at"))
+                if blocked_at is not None:
+                    card_obj.blocked_at = blocked_at
+                    card_obj.blocked_reason = card_data["blocked_reason"].strip()
 
                 cards_to_create.append(card_obj)
                 cards_raw.append(card_data)
@@ -1715,6 +1839,7 @@ class BoardImportExportMixin:
             checklists_to_create = []
 
             movements_to_create = []      # (CardMovement obj, moved_at str or None)
+            blocks_to_create = []         # CardBlock objs (#1149)
             imported_activities = []      # (CardActivity obj, created_at str or None)
             external_refs_to_create = []
             field_values_to_create = []
@@ -1882,6 +2007,10 @@ class BoardImportExportMixin:
                         mv_data.get("moved_at"),
                     ))
 
+                blocks_to_create.extend(
+                    _imported_card_blocks(card_obj, card_data, column_map, request.user, history_on)
+                )
+
                 # Imported activity log entries (field-change history)
                 for act_data in (card_data.get("activities", []) if history_on else []):
                     event_type = act_data.get("event_type", "")
@@ -1954,6 +2083,12 @@ class BoardImportExportMixin:
                     CardMovement.objects.bulk_update(
                         [obj for obj, _ in backfill], ["moved_at"], batch_size=_IMPORT_BACKFILL_BATCH,
                     )
+
+            # Manual blocks (#1149). Timestamps are set on the instances, and
+            # blocked_at is a plain default rather than auto_now_add, so no
+            # backfill pass is needed.
+            if blocks_to_create:
+                CardBlock.objects.bulk_create(blocks_to_create)
 
             # Imported activities with optional created_at backfill.
             if imported_activities:
@@ -2844,6 +2979,9 @@ class BoardImportExportMixin:
             columns = board.columns.all()
             swimlanes = board.swimlanes.all()
             labels = board.labels.all()
+            # Manual block history (#1149): JSON only, so the CSV branch does
+            # not pay for queries it never reads.
+            prefetch_related_objects(cards, "blocks__blocked_by", "blocks__unblocked_by")
 
             cards_data = []
             for card in cards:
@@ -2914,6 +3052,26 @@ class BoardImportExportMixin:
                             "imported_from_username": act.imported_from_username,
                         }
                         for act in sorted(card.activities.all(), key=lambda a: a.created_at)
+                    ],
+                    # Manual blocked state (#1149). Additive, like
+                    # custom_field_values: schema_version stays 2, and an
+                    # importer that predates these keys ignores them. The
+                    # current state rides on the card; `blocks` is the full
+                    # history, oldest first, restored with the history option.
+                    "blocked_at": card.blocked_at.isoformat() if card.blocked_at else None,
+                    "blocked_reason": card.blocked_reason,
+                    "blocks": [
+                        {
+                            "blocked_at": blk.blocked_at.isoformat(),
+                            "blocked_by": blk.blocked_by.username if blk.blocked_by else None,
+                            "reason": blk.reason,
+                            "unblocked_at": blk.unblocked_at.isoformat() if blk.unblocked_at else None,
+                            "unblocked_by": blk.unblocked_by.username if blk.unblocked_by else None,
+                            "resolution": blk.resolution,
+                            "column": blk.column_name,
+                            "imported_from_username": blk.imported_from_username,
+                        }
+                        for blk in sorted(card.blocks.all(), key=lambda b: (b.blocked_at, b.pk))
                     ],
                 })
 

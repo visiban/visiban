@@ -264,6 +264,9 @@ function buildCard(spec: CardSpec): Card {
     custom_field_values: [],
     blocker_count: spec.blockers ?? 0,
     external_ref: null,
+    is_blocked: (spec.blockers ?? 0) > 0,
+    blocked_at: null,
+    blocked_reason: '',
   }
 }
 

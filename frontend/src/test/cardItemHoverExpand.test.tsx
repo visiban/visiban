@@ -30,7 +30,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     created_by: { id: 1, username: 'u', display_name: 'U', avatar_url: '' },
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     last_moved_at: null, attachment_count: 0, checklist_total: 3, checklist_done: 1,
-    is_stale: false, custom_field_values: [], blocker_count: 0, external_ref: null,
+    is_stale: false, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     archived_at: null, version: 1,
     ...overrides,
   }

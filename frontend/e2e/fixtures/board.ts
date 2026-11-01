@@ -119,6 +119,9 @@ export const CARD = {
   version: 1,
   custom_field_values: [],
   blocker_count: 0,
+  is_blocked: false,
+  blocked_at: null as string | null,
+  blocked_reason: '',
 }
 
 // A card that has been idle long enough to trigger the aging overlay

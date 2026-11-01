@@ -244,6 +244,17 @@ describe("formatAgingTooltip", () => {
     );
   });
 
+  // #1149: a manual block is "blocked" too, with the relation count kept.
+  it("mentions a manual block on a stale card, alone or with relation blockers", () => {
+    expect(formatAgingTooltip(tint(41 * DAY), THRESHOLD, 50, true, 0, true)).toBe(
+      "Stale · 41d · 2.9× the 14d threshold · blocked",
+    );
+    expect(formatAgingTooltip(tint(41 * DAY), THRESHOLD, 50, true, 2, true)).toBe(
+      "Stale · 41d · 2.9× the 14d threshold · blocked, also by 2 cards",
+    );
+    expect(formatAgingTooltip(tint(9 * DAY), THRESHOLD, 50, false, 0, true)).not.toContain("blocked");
+  });
+
   it("does not mention blockers before the card is stale", () => {
     expect(formatAgingTooltip(tint(9 * DAY), THRESHOLD, 50, false, 3)).not.toContain("blocked");
   });

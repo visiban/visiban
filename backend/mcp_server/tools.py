@@ -52,8 +52,8 @@ from boards.permissions import (
     GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role, get_board_roles,
 )
 from boards.serializers import (
-    CardMovementSerializer, CardSerializer, _card_checklist_items,
-    _card_queryset,
+    BlockCardSerializer, CardMovementSerializer, CardSerializer, UnblockCardSerializer,
+    _card_checklist_items, _card_queryset,
 )
 from boards.services import cards as card_services
 from boards.services.errors import (
@@ -468,6 +468,10 @@ def _serialize_card(card):
         "position": card.position,
         "created_at": card.created_at.isoformat(),
         "updated_at": card.updated_at.isoformat(),
+        # Manual blocked state (#1149), additive: REST's field names, read
+        # from columns on the card row, so no extra query.
+        "blocked_at": card.blocked_at.isoformat() if card.blocked_at else None,
+        "blocked_reason": card.blocked_reason,
     }
 
 
@@ -992,6 +996,49 @@ def update_card(*, card_id, title=None, description=None, priority=None,
             actor=user, board=board, role=role, card=card,
             submitted=submitted, apply=apply, render=render.card,
             expected_version=version,
+        )
+        return render.tool_card
+    except (CardServiceError, ValidationFailed, _DRFValidationError) as exc:
+        return _error_payload(exc)
+
+
+def block_card(*, card_id, reason):
+    """Mark a card manually blocked with a required reason (#1149).
+
+    The same service as ``POST .../cards/{id}/block/``, so REST and MCP share
+    the role and ownership gate, the ``CardBlock`` row, the activity, the
+    version bump and the ``card.updated`` frame. The reason is validated by
+    the REST request serializer: required, non-blank, at most 500 characters.
+    """
+    user = get_current_user()
+    try:
+        board, role, _card = _resolve_board_for_card(user, card_id)
+        # Role before argument validation, as on REST.
+        card_services.require_mutation_role(actor=user, board=board, role=role)
+        body = BlockCardSerializer(data={"reason": reason})
+        body.is_valid(raise_exception=True)
+        render = _BroadcastRender(board)
+        card_services.block_card(
+            actor=user, board=board, role=role, card_id=card_id,
+            reason=body.validated_data["reason"], render=render.card,
+        )
+        return render.tool_card
+    except (CardServiceError, ValidationFailed, _DRFValidationError) as exc:
+        return _error_payload(exc)
+
+
+def unblock_card(*, card_id, resolution=None):
+    """Clear a card's manual block, with an optional resolution (#1149)."""
+    user = get_current_user()
+    try:
+        board, role, _card = _resolve_board_for_card(user, card_id)
+        card_services.require_mutation_role(actor=user, board=board, role=role)
+        body = UnblockCardSerializer(data={} if resolution is None else {"resolution": resolution})
+        body.is_valid(raise_exception=True)
+        render = _BroadcastRender(board)
+        card_services.unblock_card(
+            actor=user, board=board, role=role, card_id=card_id,
+            resolution=body.validated_data["resolution"], render=render.card,
         )
         return render.tool_card
     except (CardServiceError, ValidationFailed, _DRFValidationError) as exc:

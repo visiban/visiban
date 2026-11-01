@@ -628,6 +628,36 @@ export interface Card {
    * other serializer field: the backend always emits the key.
    */
   external_ref: CardExternalRef | null;
+  /**
+   * True when the card is blocked manually (`blocked_at` set) or by at least
+   * one active `blocks` relation (`blocker_count > 0`) (#1149). Server-derived;
+   * prefer `isCardBlocked()` on the client, which recomputes it from the two
+   * sources so an optimistic `blocker_count` change is reflected at once.
+   */
+  is_blocked: boolean;
+  /** When the open manual block started, or null when not manually blocked (#1149). */
+  blocked_at: string | null;
+  /** The open manual block's reason; `""` when not manually blocked (#1149). */
+  blocked_reason: string;
+}
+
+/** One manual block of a card, from `GET .../cards/{id}/blocks/` (#1149). */
+export interface CardBlock {
+  id: number;
+  blocked_at: string;
+  blocked_by: BoardUser | null;
+  reason: string;
+  /** null while the block is still open. */
+  unblocked_at: string | null;
+  unblocked_by: BoardUser | null;
+  resolution: string;
+  /** The column the card was in when it was blocked (name kept after a delete). */
+  column_name: string;
+  column_uid: string;
+  /** Measured to `unblocked_at`, or to the server's now while open. */
+  duration_seconds: number;
+  /** See `CardMovement.imported_from_username` (#1675). */
+  imported_from_username: string | null;
 }
 
 export interface Notification {
@@ -699,7 +729,11 @@ export type CardActivityEventType =
   | "checklist_item_checked"
   | "checklist_item_unchecked"
   | "checklist_item_deleted"
-  | "due_date_change";
+  | "due_date_change"
+  // Manual block state (#1149): `blocked` carries the reason in to_value;
+  // `unblocked` the reason in from_value and the resolution in to_value.
+  | "blocked"
+  | "unblocked";
 
 export interface CardActivity {
   id: number;
@@ -1517,6 +1551,8 @@ export interface BoardSummarySwimlane {
   active_cards: number;
   done_30d: number;
   avg_cycle_days: number | null;
+  /** Active cards blocked manually or by a relation (#1149). */
+  blocked_cards: number;
 }
 
 /**

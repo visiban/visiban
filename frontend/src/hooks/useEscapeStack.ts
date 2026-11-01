@@ -32,6 +32,7 @@ function dispatch(e: KeyboardEvent): void {
  *
  * Priority conventions (the authoritative, fuller list is in frontend/CLAUDE.md):
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
+ *   42 — card-detail block/unblock reason form (CardBlockSection, #1149)
  *   40 — modals and overlays
  *   35-39 — card-detail overlays: 35 archive/delete and comment-delete confirms, 36 move popover,
  *           37 relation picker (and bulk-add overlay), 38 MR/PR link editor, 39 multi-select value menu

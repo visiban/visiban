@@ -36,6 +36,8 @@ export default function SummaryView({ boardId, columns }: Props) {
             {/* Row 1: Section headers */}
             <th className="pb-2 pr-4 font-medium text-left" rowSpan={2}>Swimlane</th>
             <th className="pb-2 pr-4 font-medium text-right" rowSpan={2}>Cards</th>
+            {/* #1149 — blocked now, manual or relation (the card's is_blocked). */}
+            <th className="pb-2 pr-4 font-medium text-right" rowSpan={2}>Blocked</th>
             <th className="pb-2 pr-6 font-medium" rowSpan={2}>Stage Distribution</th>
             <th className="pb-2 pr-4 font-medium text-right" rowSpan={2}>7d Velocity</th>
             <th className="pb-2 pr-4 font-medium text-right" rowSpan={2}>30d Velocity</th>
@@ -61,6 +63,11 @@ export default function SummaryView({ boardId, columns }: Props) {
                   </div>
                 </td>
                 <td className="py-2 pr-4 text-right font-mono text-fg-secondary">{row.total_cards}</td>
+                <td className="py-2 pr-4 text-right font-mono" data-testid="summary-blocked-count">
+                  {(row.blocked_cards ?? 0) > 0
+                    ? <span className="text-danger font-semibold">{row.blocked_cards}</span>
+                    : <span className="text-fg-muted">—</span>}
+                </td>
                 <td className="py-2 pr-6">
                   <div className="flex h-5 rounded overflow-hidden gap-px min-w-[120px]" style={{ width: 200 }}>
                     {columns.map((col, idx) => {

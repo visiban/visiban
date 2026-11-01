@@ -49,7 +49,19 @@ describe('usePersistedFilters', () => {
     mockStorage.setItem('board:1:filters', JSON.stringify(stored))
 
     const { result } = renderHook(() => usePersistedFilters(1))
-    expect(result.current.filters).toEqual(stored)
+    // Stored before #1149 added the toggle: it loads as off.
+    expect(result.current.filters).toEqual({ ...stored, blockedOnly: false })
+  })
+
+  // #1149
+  it('restores the Blocked only toggle and ignores a non-boolean value', () => {
+    mockStorage.setItem('board:1:filters', JSON.stringify({ ...EMPTY_FILTER, blockedOnly: true }))
+    const { result } = renderHook(() => usePersistedFilters(1))
+    expect(result.current.filters.blockedOnly).toBe(true)
+
+    mockStorage.setItem('board:2:filters', JSON.stringify({ ...EMPTY_FILTER, blockedOnly: 'yes' }))
+    const { result: other } = renderHook(() => usePersistedFilters(2))
+    expect(other.current.filters.blockedOnly).toBe(false)
   })
 
   // #371

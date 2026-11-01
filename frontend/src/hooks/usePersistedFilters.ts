@@ -63,6 +63,8 @@ function load(boardId: number, pinnedFieldIds: number[]): FilterState {
           : null,
       customFields: loadCustomFields(parsed.customFields),
       visibleCustomFieldFilterIds,
+      // #1149 — absent in state persisted before the toggle existed.
+      blockedOnly: parsed.blockedOnly === true,
     };
   } catch {
     // Corrupt JSON or localStorage unavailable — start with empty filters.

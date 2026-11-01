@@ -13,7 +13,7 @@ from groups.broadcast import broadcast_group_event as _broadcast_group_event
 from . import broadcast as _broadcast
 from .models import (
     Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
-    CardComment, CardActivity, CardAttachment, CardChecklist, Notification,
+    CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, Notification,
 )
 from .serializers import (
     BoardMembershipSerializer, BoardSerializer, ColumnSerializer, LabelSerializer,
@@ -327,7 +327,11 @@ class CardAdmin(admin.ModelAdmin):
     """
 
     form = CardAdminForm
-    readonly_fields = ("version",)
+    # blocked_at / blocked_reason (#1149) mirror the open CardBlock row and
+    # change only through the block/unblock service, which writes that row
+    # and the activity; an admin edit of the card fields alone would leave
+    # the two disagreeing.
+    readonly_fields = ("version", "blocked_at", "blocked_reason")
 
     def save_model(self, request, obj, form, change):
         peers = {}
@@ -346,6 +350,14 @@ class CardAdmin(admin.ModelAdmin):
                 # same lock those services bump under, so this Python
                 # increment cannot hand two different writes the same number.
                 obj.version = stored.version + 1
+                # Same reason for the block state (#1149): it is read-only
+                # here, so ``obj`` carries the values from before the lock. A
+                # block or unblock that committed in between would otherwise
+                # be written back over, leaving an open CardBlock with
+                # blocked_at NULL (or the reverse) and every later block a
+                # constraint error.
+                obj.blocked_at = stored.blocked_at
+                obj.blocked_reason = stored.blocked_reason
             # The form edits archived_at (fields="__all__"), so a save can
             # archive or restore the card. That moves the blocker_count of
             # every card it blocks, as archive_card / unarchive_card do, so
@@ -366,6 +378,17 @@ class CardAdmin(admin.ModelAdmin):
                 # so the append-only guard on CardMovement.save() is not hit;
                 # it matches no row unless the board changed.
                 CardMovement.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
+                    board_id=obj.board_id,
+                )
+                # Block history follows the card for the same reason (#1149):
+                # CardBlock.board is what Analytics sums by and what a board
+                # delete cascades through. Its column snapshot is left as it
+                # was on purpose: it records where the card sat *when it was
+                # blocked*, which a later board move does not change, and
+                # column_name / column_uid keep that readable on the new
+                # board (Analytics matches by name when the id is not one of
+                # the board's columns).
+                CardBlock.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
                     board_id=obj.board_id,
                 )
                 # A row an older release wrote mid-rollout has empty snapshots

@@ -64,6 +64,9 @@ test.describe('board activity drawer', () => {
               version: 1,
               custom_field_values: [],
               blocker_count: 0,
+              is_blocked: false,
+              blocked_at: null,
+              blocked_reason: '',
             },
           }),
         )

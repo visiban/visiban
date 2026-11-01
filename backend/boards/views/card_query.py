@@ -43,7 +43,7 @@ from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
     ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
-    _card_attachments, _card_checklist_items, _card_queryset, _last_moved_at,
+    _card_attachments, _is_blocked, _card_checklist_items, _card_queryset, _last_moved_at,
     _last_move_is_creation,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
@@ -115,6 +115,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
     checklist_done = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
     blocker_count = serializers.SerializerMethodField()
+    is_blocked = serializers.SerializerMethodField()
     # MR/PR link (#352). Read-only here for the same reason as
     # custom_field_values above; _card_queryset() select_related()s it.
     external_ref = ExternalRefSerializer(read_only=True, allow_null=True)
@@ -128,6 +129,8 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "last_move_is_creation", "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
+            # Manual blocked state (#1149), as on CardSerializer.
+            "is_blocked", "blocked_at", "blocked_reason",
         ]
         read_only_fields = fields
 
@@ -166,6 +169,10 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # the scalar discloses nothing a reader of the card does not already
         # have, since relations are same-board only (#449).
         return _blocker_count(obj)
+
+    def get_is_blocked(self, obj) -> bool:
+        # Same helper as CardSerializer (#1149), so the two cannot disagree.
+        return _is_blocked(obj)
 
     def get_is_stale(self, obj) -> bool:
         # No SQL-level stale_cutoff annotation here (unlike _card_queryset()'s

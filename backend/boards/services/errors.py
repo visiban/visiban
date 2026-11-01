@@ -378,3 +378,43 @@ class UseMoveEndpoint(CardServiceError):
                 f"Use POST /api/v1/boards/{self.board_pk}/cards/{self.card_pk}/move/ instead."
             ),
         }
+
+
+# ---------------------------------------------------------------------------
+# Manual blocked state (#1149)
+# ---------------------------------------------------------------------------
+
+class CardAlreadyBlocked(CardServiceError):
+    """``block_card`` on a card that already has an open manual block.
+
+    A conflict rather than a silent no-op: the request carries a reason, and
+    accepting it without recording it would lose what the caller said. The
+    client unblocks first (or edits nothing) and retries.
+    """
+
+    status = 409
+    detail = "This card is already blocked."
+
+    def __init__(self):
+        super().__init__(self.detail)
+
+    def body(self) -> dict:
+        return {"code": "card_already_blocked", "detail": self.detail}
+
+
+class CardNotBlocked(CardServiceError):
+    """``unblock_card`` on a card with no open manual block.
+
+    A relation block (#449) is not unblocked here; it clears when the blocking
+    card is archived or the relation is removed (moving the blocker to a done
+    column does not clear it).
+    """
+
+    status = 409
+    detail = "This card is not blocked."
+
+    def __init__(self):
+        super().__init__(self.detail)
+
+    def body(self) -> dict:
+        return {"code": "card_not_blocked", "detail": self.detail}

@@ -134,7 +134,10 @@ export function formatAgingTooltip(
   thresholdDays: number,
   warningPct: number,
   serverStale: boolean,
-  blockerCount: number
+  blockerCount: number,
+  // #1149: the blocked note covers the manual + relation union, like the
+  // card-face indicator. Optional so existing callers keep their output.
+  manuallyBlocked = false
 ): string | null {
   if (aging.stage === "none") return null;
   const thresh = Math.max(1, thresholdDays);
@@ -151,8 +154,13 @@ export function formatAgingTooltip(
   } else {
     parts.push(`Idle ${aging.idleDays}d`, `stale at ${thresh}d`);
   }
-  if (isStaleStage(aging.stage) && blockerCount > 0) {
-    parts.push(blockerCount === 1 ? "blocked by 1 card" : `blocked by ${blockerCount} cards`);
+  if (isStaleStage(aging.stage) && (blockerCount > 0 || manuallyBlocked)) {
+    const byCards = blockerCount === 1 ? "1 card" : `${blockerCount} cards`;
+    parts.push(
+      !manuallyBlocked ? `blocked by ${byCards}`
+        : blockerCount > 0 ? `blocked, also by ${byCards}`
+          : "blocked"
+    );
   }
   return parts.join(" · ");
 }

@@ -205,7 +205,7 @@ authenticate (session cookie or personal access token).
 A small set of endpoints stay writable even during maintenance — mainly login, logout, the
 password-reset/forced-change flows, the admin API itself, and the health probes. See
 [Maintenance mode → endpoints that stay writable](admin.md#maintenance-mode) for the exact list.
-MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`) return an equivalent
+MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) return an equivalent
 `{"error": {"code": "maintenance_mode", "detail": "..."}}` result instead of a 503 — see
 [MCP Server](mcp.md#tool-errors).
 

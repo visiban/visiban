@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Count, Prefetch, Q, Window
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Window
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -40,6 +40,7 @@ from ..models import (
 )
 from ..permissions import SITE_ADMIN
 from ..serializers import (
+    BlockCardSerializer, CardBlockSerializer, UnblockCardSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     CardRelationCreateSerializer, CardRelationSerializer,
@@ -226,11 +227,32 @@ class CardFilter(django_filters.FilterSet):
         ),
     )
 
+    blocked = django_filters.BooleanFilter(
+        method="filter_blocked",
+        help_text=(
+            "`true` returns cards that are blocked manually or by an active blocking "
+            "relation (`is_blocked`); `false` returns the rest."
+        ),
+    )
+
     def filter_overdue(self, queryset, name, value):
         today = datetime.date.today()
         if value:
             return queryset.filter(due_date__lt=today)
         return queryset.exclude(due_date__lt=today)
+
+    def filter_blocked(self, queryset, name, value):
+        # The same union CardSerializer.is_blocked reports (#1149): a manual
+        # block, or a `blocks` relation whose blocking card is still on the
+        # board (the _active_blockers_prefetch rule, #449). EXISTS rather than
+        # a join so a card with several blockers is returned once.
+        relation_blocked = Exists(CardRelation.objects.filter(
+            to_card=OuterRef("pk"),
+            relation_type=CardRelation.Type.BLOCKS,
+            from_card__archived_at__isnull=True,
+        ))
+        condition = Q(blocked_at__isnull=False) | Q(relation_blocked)
+        return queryset.filter(condition) if value else queryset.exclude(condition)
 
     class Meta:
         model = Card
@@ -799,6 +821,93 @@ class CardViewSet(viewsets.ModelViewSet):
         )
         return Response(result.payload)
 
+    # -----------------------------------------------------------------------
+    # Manual blocked state (#1149)
+    # -----------------------------------------------------------------------
+
+    @extend_schema(
+        summary="Block a card",
+        description=(
+            "Marks the card manually blocked with a required reason. Records a "
+            "`CardBlock` row and a `blocked` activity, bumps `version`, and "
+            "broadcasts `card.updated`. Member+ role; a member may block only "
+            "cards they created (the edit rule)."
+        ),
+        request=BlockCardSerializer,
+        responses={
+            200: CardSerializer,
+            400: OpenApiResponse(description="`reason` is missing, blank, or over 500 characters."),
+            403: OpenApiResponse(description="Viewer or collaborator, or a member blocking another user's card."),
+            404: OpenApiResponse(description="Card not found on this board, or archived."),
+            409: OpenApiResponse(description="`code: card_already_blocked` — the card already has an open block."),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def block(self, request, board_pk=None, pk=None):
+        """Block a card with a reason; the reason is validated here, at the boundary."""
+        board, role = self._board_and_role()
+        # Role first, as on PATCH: a viewer gets 403 before the body is read,
+        # so a malformed body cannot be used to probe for a 400.
+        role = card_services.require_mutation_role(actor=request.user, board=board, role=role)
+        body = BlockCardSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        result = card_services.block_card(
+            actor=request.user, board=board, role=role, card_id=pk,
+            reason=body.validated_data["reason"],
+            render=self._refetch_card_data,
+        )
+        return Response(result.payload)
+
+    @extend_schema(
+        summary="Unblock a card",
+        description=(
+            "Clears the card's manual block, closing its open `CardBlock` row with an "
+            "optional resolution. Records an `unblocked` activity, bumps `version`, and "
+            "broadcasts `card.updated`. Relation blocks (`blocker_count`) are not "
+            "affected. Same roles as block."
+        ),
+        request=UnblockCardSerializer,
+        responses={
+            200: CardSerializer,
+            400: OpenApiResponse(description="`resolution` is over 500 characters."),
+            403: OpenApiResponse(description="Viewer or collaborator, or a member unblocking another user's card."),
+            404: OpenApiResponse(description="Card not found on this board, or archived."),
+            409: OpenApiResponse(description="`code: card_not_blocked` — the card has no open block."),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def unblock(self, request, board_pk=None, pk=None):
+        """Clear a card's manual block, with an optional resolution."""
+        board, role = self._board_and_role()
+        role = card_services.require_mutation_role(actor=request.user, board=board, role=role)
+        body = UnblockCardSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        result = card_services.unblock_card(
+            actor=request.user, board=board, role=role, card_id=pk,
+            resolution=body.validated_data["resolution"],
+            render=self._refetch_card_data,
+        )
+        return Response(result.payload)
+
+    @extend_schema(
+        summary="List a card's manual blocks",
+        description=(
+            "Every manual block of the card, newest first, open or closed, with who "
+            "blocked and unblocked it and `duration_seconds`. Readable by every board "
+            "member, viewers included, like the card's other history."
+        ),
+        responses=CardBlockSerializer(many=True),
+    )
+    @action(detail=True, methods=["get"])
+    def blocks(self, request, board_pk=None, pk=None):
+        """Return the card's block history (#1149)."""
+        board = self._board()
+        # Archived cards included, like movements/activities: history stays
+        # readable for a card that is no longer on the board.
+        card = get_object_or_404(Card, pk=pk, board=board)
+        rows = card.blocks.select_related("blocked_by", "unblocked_by")
+        return Response(CardBlockSerializer(rows, many=True).data)
+
     _ARCHIVED_PAGE_SIZE = 50
 
     @extend_schema(
@@ -1116,6 +1225,8 @@ class CardViewSet(viewsets.ModelViewSet):
         "field": [
             "priority_change", "weight_change", "assignee_change",
             "label_change", "title_change", "description_change", "due_date_change",
+            # Manual block state (#1149) is a field of the card.
+            "blocked", "unblocked",
         ],
         "checklist": [
             "checklist_item_added", "checklist_item_checked",
@@ -1301,8 +1412,41 @@ class CardViewSet(viewsets.ModelViewSet):
                 },
             })
 
+        # Block durations for the unblocked entries (#1149): an `unblocked`
+        # activity is written in the transaction that closes its CardBlock,
+        # just after it, so it belongs to the latest block closed at or
+        # before the activity's time. One query over this card's closed
+        # blocks, only when the page has an unblocked entry.
+        block_spans = []
+        if any(a.event_type == CardActivity.EventType.UNBLOCKED for a in capped_activities):
+            block_spans = list(
+                card.blocks.filter(unblocked_at__isnull=False)
+                .order_by("unblocked_at")
+                .values_list("blocked_at", "unblocked_at")
+            )
+
+        def _block_duration(activity):
+            match = None
+            for blocked_at, unblocked_at in block_spans:
+                if unblocked_at > activity.created_at:
+                    break
+                match = (blocked_at, unblocked_at)
+            if match is None:
+                return None
+            return max(0, int((match[1] - match[0]).total_seconds()))
+
         for a in capped_activities:
             actor_obj = a.actor
+            data = {
+                "event_type": a.event_type,
+                "from_value": a.from_value,
+                "to_value": a.to_value,
+            }
+            if a.event_type == CardActivity.EventType.UNBLOCKED:
+                # Additive key (#1149), present only on unblocked entries;
+                # null when no closed block matches (e.g. an imported entry
+                # whose block history was not imported).
+                data["block_duration_seconds"] = _block_duration(a)
             raw_entries.append({
                 "id": a.id,
                 "kind": "activity",
@@ -1310,11 +1454,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 "actor": actor_obj,
                 "event_type": a.event_type,
                 "imported_from_username": a.imported_from_username,
-                "data": {
-                    "event_type": a.event_type,
-                    "from_value": a.from_value,
-                    "to_value": a.to_value,
-                },
+                "data": data,
             })
 
         # --- Sort merged list newest-first ---

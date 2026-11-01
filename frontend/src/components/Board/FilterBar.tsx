@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -8,6 +8,7 @@ import FilterChip from "./FilterChip";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { PRIORITY_COLORS } from "../../constants/colors";
+import { isCardBlocked } from "../../utils/blockedState";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
 // FilterState.customFields. Number/date are equality-only (the value is
@@ -44,6 +45,12 @@ export interface FilterState {
    * board; see usePersistedFilters' self-heal fallback.
    */
   visibleCustomFieldFilterIds: number[];
+  /**
+   * #1149 — show only blocked cards (manual or relation blocks, the union
+   * `isCardBlocked` computes). Optional so every filter persisted or saved
+   * before this field existed still loads; absent reads as false.
+   */
+  blockedOnly?: boolean;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
@@ -55,6 +62,7 @@ export const EMPTY_FILTER: FilterState = {
   dueDate: null,
   customFields: {},
   visibleCustomFieldFilterIds: [],
+  blockedOnly: false,
 };
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
@@ -90,6 +98,7 @@ export function countActiveFilters(f: FilterState): number {
     f.priorities.length > 0,
     f.dueDate !== null,
     Object.values(f.customFields).some(isCustomFieldFilterActive),
+    !!f.blockedOnly,
   ].filter(Boolean).length;
 }
 
@@ -117,6 +126,44 @@ interface MyCardsButtonProps {
   currentUser: User;
   filters: FilterState;
   onChange: (filters: FilterState) => void;
+}
+
+interface BlockedOnlyButtonProps {
+  filters: FilterState;
+  onChange: (filters: FilterState) => void;
+  /** Blocked cards on the board, manual and relation (#1149). */
+  blockedCount: number;
+}
+
+/**
+ * "Blocked only" toggle (#1149). A single filter, so it shows its active
+ * state the way My cards does (aria-pressed + `border-info text-info`); the
+ * count says how many cards the filter would keep, and is part of the
+ * accessible name because the visible number alone has no label.
+ */
+function BlockedOnlyButton({ filters, onChange, blockedCount }: BlockedOnlyButtonProps) {
+  const isActive = !!filters.blockedOnly;
+  const name = `Blocked only, ${blockedCount} ${blockedCount === 1 ? "blocked card" : "blocked cards"}`;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange({ ...filters, blockedOnly: !isActive })}
+      aria-pressed={isActive}
+      aria-label={name}
+      title={isActive ? "Remove Blocked only filter" : "Show only blocked cards"}
+      className={`bg-surface border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
+        isActive
+          ? "border-info text-info"
+          : "border-line-strong text-fg-secondary hover:border-line-emphasis"
+      }`}
+    >
+      <svg className="w-3 h-3 shrink-0 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+      </svg>
+      Blocked only
+      <span aria-hidden="true" className="text-xs text-fg-tertiary tabular-nums">{blockedCount}</span>
+    </button>
+  );
 }
 
 function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
@@ -159,18 +206,22 @@ const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: str
 // "+ Filter" menu. FACET_ORDER is the canonical render order regardless of
 // pick order, matching the order the dropdowns appeared in before this
 // change.
-type FacetId = "assignee" | "label" | "priority" | "dueDate";
-const FACET_ORDER: FacetId[] = ["assignee", "label", "priority", "dueDate"];
+// #1149 adds "blocked": the same filter as the Blocked only toggle, offered
+// here too so every built-in facet is reachable from one menu (UI spec).
+type FacetId = "assignee" | "label" | "priority" | "dueDate" | "blocked";
+const FACET_ORDER: FacetId[] = ["assignee", "label", "priority", "dueDate", "blocked"];
 const FACET_OPTIONS: { value: FacetId; label: string }[] = [
   { value: "assignee", label: "Assignee" },
   { value: "label", label: "Label" },
   { value: "priority", label: "Priority" },
   { value: "dueDate", label: "Due date" },
+  { value: "blocked", label: "Blocked" },
 ];
 
 export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY" }: Props) {
   const activeCount = countActiveFilters(filters);
   const searchDisabled = scope === "all";
+  const blockedCount = useMemo(() => board.cards.filter(isCardBlocked).length, [board.cards]);
 
   // #964 — which built-in facet controls are currently expanded in Row 1.
   // Deliberately local, ephemeral UI state, NOT a FilterState field: it is
@@ -188,6 +239,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     filters.labelIds.length > 0,
     filters.priorities.length > 0,
     filters.dueDate !== null,
+    !!filters.blockedOnly,
   ].filter(Boolean).length;
 
   // #964 — a facet's control auto-collapses out of Row 1 the moment the user
@@ -300,6 +352,14 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     }
   }
 
+  if (filters.blockedOnly) {
+    chips.push({
+      key: "blocked-only",
+      label: "Blocked only",
+      onDismiss: () => onChange({ ...filters, blockedOnly: false }),
+    });
+  }
+
   // #371 — custom field filter chips. Dismissing clears the value but keeps
   // the field in visibleCustomFieldFilterIds so its (now-empty) control
   // doesn't disappear mid-interaction.
@@ -323,6 +383,8 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
         {currentUser && (
           <MyCardsButton currentUser={currentUser} filters={filters} onChange={onChange} />
         )}
+
+        <BlockedOnlyButton filters={filters} onChange={onChange} blockedCount={blockedCount} />
 
         {/* #852 — scope toggle sits to the left of the search input. Selecting
             "Everywhere" sets ?scope=all AND opens the command palette (until
@@ -462,6 +524,17 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
                   selected={filters.dueDate}
                   onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
                   onOpenChange={(open) => handleFacetOpenChange("dueDate", open)}
+                />
+              );
+            case "blocked":
+              return (
+                <SingleSelectDropdown
+                  key="blocked"
+                  label="Blocked"
+                  options={[{ value: "blocked" as const, label: `Blocked only (${blockedCount})` }]}
+                  selected={filters.blockedOnly ? "blocked" : null}
+                  onChange={(v) => onChange({ ...filters, blockedOnly: v === "blocked" })}
+                  onOpenChange={(open) => handleFacetOpenChange("blocked", open)}
                 />
               );
             default:

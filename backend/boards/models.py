@@ -671,7 +671,8 @@ class Card(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # Optimistic concurrency control — incremented by a field update
-    # (update_card), a move (move_card) and a Django admin change save
+    # (update_card), a block or unblock (block_card/unblock_card, #1149), a
+    # move (move_card) and a Django admin change save
     # (CardAdmin.save_model, #2040, including one that only archives or
     # restores) only; archive_card/unarchive_card, comments, attachments,
     # checklists and relations leave it unchanged.
@@ -690,6 +691,21 @@ class Card(models.Model):
     # description; prevents duplicate notifications when the description is
     # edited without removing an existing @username.
     mentioned_user_ids = models.JSONField(default=list, blank=True)
+    # Manual blocked state (#1149), denormalized from the open ``CardBlock``
+    # row so the board payload reads it from the card row with no join. Both
+    # are written only by ``services.cards.block_card`` / ``unblock_card``,
+    # which keep them in step with ``CardBlock`` under the card lock; the
+    # REST serializer treats them as read-only. ``blocked_at`` NULL means
+    # "not manually blocked" — a relation block (#449) is separate and is
+    # counted by ``blocker_count``. db_default on the reason so an INSERT from
+    # an older release during a rolling upgrade still succeeds.
+    blocked_at = models.DateTimeField(null=True, blank=True)
+    blocked_reason = models.CharField(
+        max_length=500,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+        db_default="",
+    )
 
     class Meta:
         db_table = "cards"
@@ -1041,6 +1057,12 @@ class CardActivity(models.Model):
         CHECKLIST_ITEM_UNCHECKED = "checklist_item_unchecked", "Checklist item unchecked"
         CHECKLIST_ITEM_DELETED = "checklist_item_deleted", "Checklist item deleted"
         DUE_DATE_CHANGE = "due_date_change", "Due date changed"
+        # Manual block state (#1149). ``blocked``: to_value is the reason.
+        # ``unblocked``: from_value is the reason the block carried, to_value
+        # the optional resolution. The full record with durations lives in
+        # ``CardBlock``; these rows keep the card's activity trail complete.
+        BLOCKED = "blocked", "Blocked"
+        UNBLOCKED = "unblocked", "Unblocked"
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="activities")
     event_type = models.CharField(max_length=30, choices=EventType.choices)
@@ -1067,6 +1089,134 @@ class CardActivity(models.Model):
             # boards with heavy activity history.
             models.Index(fields=["card", "-created_at"], name="activity_card_created_idx"),
         ]
+
+
+class CardBlock(models.Model):
+    """One manual block of a card, from block to unblock (#1149).
+
+    Blocked is a *state*, not a dependency: a card can be blocked on the
+    customer, a vendor or a decision, none of which is a card a ``blocks``
+    relation (#449) could point at. Each block is one row; ``unblocked_at``
+    NULL means the block is still open, and at most one row per card is open
+    (``cardblock_one_open_per_card``). The open row's ``blocked_at`` and
+    ``reason`` are mirrored onto ``Card.blocked_at`` / ``Card.blocked_reason``
+    so the board payload needs no join.
+
+    Its own table rather than ``CardMovement`` rows (architect review,
+    2026-11-01): movements feed the dwell and cycle-time math (#1532), and a
+    block is not a change of cell. Rows are written only by
+    ``services.cards.block_card`` / ``unblock_card`` (and the JSON import),
+    and an unblock only fills the closing fields of the open row; nothing
+    rewrites a closed block. ``column`` is where the card sat when it was
+    blocked, so blocked time can be summed per column even after the card
+    moves on or the column is deleted (``column_name`` / ``column_uid`` keep
+    it readable, like ``CardMovement``'s ``*_name`` snapshots).
+
+    Hard-deleting a card keeps its blocks, like its movements (#1469):
+    ``card`` is SET_NULL and ``card_uid`` / ``card_title`` keep the row
+    identifiable. Deleting the board removes them through ``board``.
+    """
+
+    card = models.ForeignKey(
+        Card,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        db_index=False,  # pragma: no mutate -- covered by cardblock_card_blocked_idx
+        related_name="blocks",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    # Captured at write time (#1469 pattern): what ties a deleted card's
+    # blocks to its board, and what the board-level analytics read by.
+    board = models.ForeignKey(
+        Board,
+        on_delete=models.CASCADE,
+        db_index=False,  # pragma: no mutate -- covered by cardblock_board_blocked_idx
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    card_uid = models.CharField(
+        max_length=16,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    card_title = models.CharField(
+        max_length=500,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    # A plain default, not auto_now_add: the JSON import restores the file's
+    # timestamp, and auto_now_add would overwrite it on INSERT.
+    blocked_at = models.DateTimeField(default=timezone.now)
+    blocked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    reason = models.CharField(
+        max_length=500,  # pragma: no mutate -- schema constant (migration-check)
+    )
+    unblocked_at = models.DateTimeField(null=True, blank=True)
+    unblocked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    resolution = models.CharField(
+        max_length=500,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    column = models.ForeignKey(
+        Column,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    column_name = models.CharField(
+        max_length=255,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    column_uid = models.CharField(
+        max_length=16,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+    )
+    # Same meaning as CardMovement.imported_from_username (#1675): set only on
+    # rows created by a board import, whose ``blocked_by`` is the importer. It
+    # keeps the username the file named as the blocker, as plain text.
+    imported_from_username = models.CharField(
+        max_length=150,  # pragma: no mutate -- schema constant (migration-check)
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
+
+    class Meta:
+        db_table = "card_blocks"
+        ordering = ["-blocked_at", "-id"]
+        indexes = [
+            # Per-card block history (card detail, newest first).
+            models.Index(fields=["card", "-blocked_at"], name="cardblock_card_blocked_idx"),
+            # Board analytics: blocked time per column and top reasons.
+            models.Index(fields=["board", "-blocked_at"], name="cardblock_board_blocked_idx"),
+        ]
+        constraints = [
+            # The service checks this under the card lock; the constraint is
+            # the backstop that keeps Card.blocked_at and the open row from
+            # ever disagreeing about which block is current.
+            models.UniqueConstraint(
+                fields=["card"],
+                condition=models.Q(unblocked_at__isnull=True),
+                name="cardblock_one_open_per_card",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.card_uid}: {self.reason}"
 
 
 class CardChecklist(models.Model):

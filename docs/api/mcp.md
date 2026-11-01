@@ -136,7 +136,7 @@ A token intended for both an agent and a script needs both sets of scopes, e.g. 
 
 > **Added in 1.2**
 
-`mcp:read` opens a session and is enough for every read tool below. Any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`) additionally requires **`mcp:write`** on the same token. Scopes are non-hierarchical: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
+`mcp:read` opens a session and is enough for every read tool below. Any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) additionally requires **`mcp:write`** on the same token. Scopes are non-hierarchical: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
 
 Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool as a [tool error](#tool-errors): an `isError: true` result carrying `{"error": {"code": "missing_scope", "detail": "..."}}`, not a `401`. The session is valid; only that call was declined.
 
@@ -360,17 +360,19 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `column_not_found` | `move_card` and `create_card`. The column id does not exist, or belongs to a different board than the one you named. Identical either way. At create time an unresolvable column id is normally a `validation_error` (`errors.column`) from input validation; this code occurs there only when the column, or its board, is deleted while the request is in flight. |
 | `swimlane_not_found` | `move_card` and `create_card`. Same, for a swimlane id (`errors.swimlane` at create time; this code only when the swimlane is deleted mid-request). |
 | `object_not_found` | Reserved generic not-found code for a lookup with no more specific code above. |
-| `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. Also returned by `update_card` and `archive_card` when your role only allows changing cards you created, and by `move_card` when the card is assigned to someone else and your role is below moderator. |
+| `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. Also returned by `update_card`, `archive_card`, `block_card` and `unblock_card` when your role only allows changing cards you created, and by `move_card` when the card is assigned to someone else and your role is below moderator. |
 | `force_not_permitted` | Reserved: no tool currently exposes `force`. A `force` override of a WIP or weight limit was requested by someone who is not a board admin. |
 | `invalid_version` | Reserved: `version` (on `move_card` and `update_card` since 1.3) is schema-typed as an integer, so this is not currently reachable. The supplied `version` is not an integer. |
 | `invalid_position` | Reserved: `position` is schema-typed as an integer, so this is not currently reachable. The supplied move `position` is not an integer. |
 | `card_creation_not_allowed` | `create_card` targeted a column that has card creation turned off. Carries a `column` message instead of `detail`: `{"column": "Card creation is not allowed in this column.", "code": "card_creation_not_allowed"}`. |
 | `container_changed` | Reserved: no MCP tool deletes containers. A column, swimlane, or board kept gaining cards while it was being locked for deletion; nothing was deleted. Retry. |
 | `use_move_endpoint` | Reserved: no tool currently emits it, because `update_card` takes no column, swimlane, or position. An update tried to change a card's column, swimlane, or position. Use `move_card` instead. |
+| `card_already_blocked` | `block_card` on a card that already has an open manual block. Nothing changed; unblock it first. Added in 1.3 (#1149). |
+| `card_not_blocked` | `unblock_card` on a card with no open manual block. A `blocks` relation to another card is not a manual block and is not cleared by `unblock_card`. Added in 1.3 (#1149). |
 | `internal_error` | A tool error with no registered code. Should not occur; report it as a bug. |
 | `demo_read_only` | The instance is a shared demo (`DEMO_MODE`) and every MCP write is refused. |
 | `missing_scope` | Your token lacks the `mcp:write` scope required for this tool — see above. |
-| `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`) keep working regardless. Added in 1.2. |
+| `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`) keep working regardless. Added in 1.2. |
 | `throttled` | Your token has exceeded its per-token rate limit. Carries a `retry_after` (seconds) — see [Rate limiting](#rate-limiting). Added in 1.2. |
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee` username or label name that does not resolve to an assignable board member/label. Every unresolved `assignee` returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a `viewer` (who cannot be assigned). |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.2 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
@@ -401,7 +403,7 @@ A movement has no `uid` of its own (its integer `id` identifies it), but it carr
 
 > **Added in 1.3** (#1974)
 
-Every card object in tool and resource output (from `list_cards`, `create_card`, `move_card`, `update_card`, `board://` and `card://`) carries `version`, a counter that goes up on every field update and every move of the card, over MCP or REST. Pass it back as the optional `version` argument of `move_card` or `update_card` to make the write conditional: if the card changed since you read it, the call returns a `version_conflict` [tool error](#tool-errors) carrying `current_version`, and nothing is written or broadcast. Omit `version` and the call behaves exactly as before 1.3, with no check.
+Every card object in tool and resource output (from `list_cards`, `create_card`, `move_card`, `update_card`, `board://` and `card://`) carries `version`, a counter that goes up on every field update, every block or unblock (since 1.3), and every move of the card, over MCP or REST. Pass it back as the optional `version` argument of `move_card` or `update_card` to make the write conditional: if the card changed since you read it, the call returns a `version_conflict` [tool error](#tool-errors) carrying `current_version`, and nothing is written or broadcast. Omit `version` and the call behaves exactly as before 1.3, with no check.
 
 `move_card`'s `version` is the REST move endpoint's `version` body field, with the same semantics and the same error. The REST `PATCH`/`PUT` card endpoints still neither accept nor check `version`; the conditional update exists on the MCP `update_card` tool only.
 
@@ -437,7 +439,7 @@ Lists a board's cards, ordered by column position, then swimlane position, then 
 
 *Changed in 1.2: `limit`, `offset` and `include_meta` are new and optional, and the card fields are unchanged. A call that omits them returns the same array as before; the only difference is the in-band notice and `_meta` on a call that was truncated (#1762).*
 
-**Returns:** by default, an array of `{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}`. `assignee` is a `{username, display_name}` object or `null` (see [User fields](#user-fields)); `labels` is an array of names; `column`/`swimlane` are `{id, uid, name}` objects so a result can be fed straight into `move_card`. `uid`, `version`, and the `uid` inside `column`/`swimlane` are new in 1.3 (#1974; see [Stable identifiers](#stable-identifiers-uid) and [Optimistic concurrency](#optimistic-concurrency)).
+**Returns:** by default, an array of `{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason}`. `assignee` is a `{username, display_name}` object or `null` (see [User fields](#user-fields)); `labels` is an array of names; `column`/`swimlane` are `{id, uid, name}` objects so a result can be fed straight into `move_card`. `uid`, `version`, and the `uid` inside `column`/`swimlane` are new in 1.3 (#1974; see [Stable identifiers](#stable-identifiers-uid) and [Optimistic concurrency](#optimistic-concurrency)). `blocked_at` (ISO 8601, or `null`) and `blocked_reason` (`""` when not blocked) are the card's manual blocked state, *added in 1.3* (#1149; see [`block_card`](#block_card)).
 
 With `include_meta: true`, an object instead (and no in-band notice, since the data carries the signal): `{cards, total, truncated, limit, offset}`. `cards` is the same array described above; `total` is the number of cards matching the filters, ignoring `limit`/`offset`; `truncated` is `true` when more matching cards exist after the returned ones (fetch them with a larger `offset`); `limit` and `offset` echo the values applied.
 
@@ -470,6 +472,26 @@ Updates one or more fields on a card. Requires `admin` or `member` board role an
 **Arguments:** `card_id` (required); any of `title`, `description`, `priority`, `assignee` (username), `labels`, `due_date` — omitted fields are left unchanged. `labels: []` clears every label; `assignee: ""` unassigns the card. Cannot change a card's column or swimlane — use `move_card`. `version` (integer, optional, *added in 1.3*): the card's `version` from a prior read; the update then fails with `version_conflict`, changing nothing, if the card changed since (see [Optimistic concurrency](#optimistic-concurrency)).
 
 **Returns:** the updated card, same shape as `create_card`. Records a `CardActivity` audit entry per field that actually changed. Broadcasts `card.updated` with the full card, as a REST update does, not the tool's return shape. *Fixed in 1.2 (#1926).*
+
+### `block_card`
+
+> **Added in 1.3** (#1149)
+
+Marks a card manually blocked, with a reason, so its blocked time is measured and can be grouped by reason. Same rules as the REST [block endpoint](cards.md#block-and-unblock-since-13): requires `admin` or `member` board role (a `member` may block only cards they created, unless a moderator) and the `mcp:write` scope.
+
+**Arguments:** `card_id` and `reason` (required). `reason` is trimmed and must then be 1-500 characters; a blank or longer one returns `validation_error` with `errors.reason`.
+
+**Returns:** the updated card, same shape as `create_card`, with `blocked_at` and `blocked_reason` set and `version` bumped. Writes a block record and a `blocked` activity, and broadcasts `card.updated` with the full card. Returns `card_already_blocked` if the card already has an open block.
+
+### `unblock_card`
+
+> **Added in 1.3** (#1149)
+
+Clears a card's manual block. Same roles and scope as `block_card`.
+
+**Arguments:** `card_id` (required); `resolution` (optional, up to 500 characters): how the block was resolved.
+
+**Returns:** the updated card with `blocked_at: null` and `blocked_reason: ""`. Closes the block record (keeping its reason and duration), writes an `unblocked` activity, and broadcasts `card.updated`. Returns `card_not_blocked` if the card has no open block. A `blocks` relation to another card is a separate signal (`blocker_count`) and is not cleared.
 
 ### `archive_card`
 
@@ -545,7 +567,7 @@ The same "raise, don't return" rule applies to a throttled resource read — see
 
 The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
 
-- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
+- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and since 1.3 `block_card`, `unblock_card`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
 - **Argument schemas** change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.
 - **Results and error payloads** only gain fields; existing fields keep their name and type. The error `code` values listed under [Tool errors](#tool-errors) are never removed.
 - A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.

@@ -41,10 +41,17 @@ TEMPLATES = sorted(p for p in SAMPLE_DIR.glob("*.json") if p.name != "manifest.j
 
 # Every CardActivity type the JSON format can carry. Attachments are the
 # exception: the format has no attachment payload, so a sample entry would
-# point at a file that does not exist.
+# point at a file that does not exist. The manual-block types (#1149) are not
+# in the shipped samples yet: a blocked/unblocked activity without the
+# matching per-card `blocks` history and `blocked_at` state would show an
+# activity trail that contradicts the card, and teaching the generator to emit
+# all three is a sample-content change of its own, tracked in #2061.
 CARRIED_EVENT_TYPES = {
     e.value for e in CardActivity.EventType
-} - {CardActivity.EventType.ATTACHMENT_ADDED, CardActivity.EventType.ATTACHMENT_DELETED}
+} - {
+    CardActivity.EventType.ATTACHMENT_ADDED, CardActivity.EventType.ATTACHMENT_DELETED,
+    CardActivity.EventType.BLOCKED, CardActivity.EventType.UNBLOCKED,
+}
 
 # (title regex, columns the card may legitimately sit in) per template.
 STAGE_EXPECTATIONS = {

@@ -167,9 +167,13 @@ class ListCardsTests(CrudToolsTestCase):
                 "id", "uid", "version", "title", "description", "priority", "assignee",
                 "labels", "column", "swimlane", "due_date", "position", "created_at",
                 "updated_at",
+                # #1149, additive.
+                "blocked_at", "blocked_reason",
             },
         )
         self.assertEqual(row["id"], card.id)
+        self.assertIsNone(row["blocked_at"])
+        self.assertEqual(row["blocked_reason"], "")
         # #1974: the stable keys REST, WS frames and the change feed carry.
         self.assertEqual(row["uid"], card.uid)
         self.assertEqual(row["version"], card.version)
@@ -1588,6 +1592,8 @@ class MaintenanceModeTests(CrudToolsTestCase):
             "move_card": dict(card_id=card.id, to_column_id=self.other_column.id),
             "update_card": dict(card_id=card.id, title="Renamed"),
             "archive_card": dict(card_id=card.id),
+            "block_card": dict(card_id=card.id, reason="Nope"),
+            "unblock_card": dict(card_id=card.id),
         }
         for name, arguments in calls.items():
             with self.subTest(tool=name):
@@ -1649,6 +1655,8 @@ class DemoModeTests(CrudToolsTestCase):
             "move_card": dict(card_id=card.id, to_column_id=self.other_column.id),
             "update_card": dict(card_id=card.id, title="Renamed"),
             "archive_card": dict(card_id=card.id),
+            "block_card": dict(card_id=card.id, reason="Nope"),
+            "unblock_card": dict(card_id=card.id),
         }
         with override_settings(DEMO_MODE=True):
             for name, arguments in calls.items():
@@ -1864,3 +1872,82 @@ class ToolResultEnvelopeTests(CrudToolsTestCase):
         self.assertEqual(json.loads(failed.content[0].text), failed.structured_content["result"])
         self.assertIs(ok.is_error, False)
         self.assertEqual(len(ok.structured_content["result"]), 2)
+
+
+class BlockCardToolTests(CrudToolsTestCase):
+    """block_card / unblock_card share the REST service (#1149)."""
+
+    def _events(self, event):
+        return list(
+            BoardEvent.objects.filter(board_id=self.board.id, event=event)
+            .order_by("id").values_list("data", flat=True)
+        )
+
+    def test_block_then_unblock_round_trip(self):
+        from boards.models import CardBlock
+
+        card = _make_card(self.column, self.swimlane, title="Stuck")
+        result = self._call("block_card", self.write_token, card_id=card.id, reason="  Vendor  ")
+        self.assertEqual(result["blocked_reason"], "Vendor")
+        self.assertIsNotNone(result["blocked_at"])
+        card.refresh_from_db()
+        self.assertEqual(result["version"], card.version)
+        (frame,) = self._events("card.updated")
+        # The frame is a REST card, as from POST .../block/.
+        self.assertEqual(frame["id"], card.id)
+        self.assertTrue(frame["is_blocked"])
+        self.assertEqual(frame["blocked_reason"], "Vendor")
+
+        result = self._call("unblock_card", self.write_token, card_id=card.id, resolution="Back up")
+        self.assertIsNone(result["blocked_at"])
+        self.assertEqual(result["blocked_reason"], "")
+        block = CardBlock.objects.get(card=card)
+        self.assertEqual(block.resolution, "Back up")
+        self.assertEqual(block.blocked_by, self.user)
+
+    def test_unblock_without_resolution(self):
+        card = _make_card(self.column, self.swimlane, title="Stuck")
+        self._call("block_card", self.write_token, card_id=card.id, reason="Vendor")
+        result = self._call("unblock_card", self.write_token, card_id=card.id)
+        self.assertNotIn("error", result)
+
+    def test_conflict_codes(self):
+        card = _make_card(self.column, self.swimlane, title="Stuck")
+        result = self._call("unblock_card", self.write_token, card_id=card.id)
+        self.assertEqual(result["error"]["code"], "card_not_blocked")
+        self._call("block_card", self.write_token, card_id=card.id, reason="Vendor")
+        result = self._call("block_card", self.write_token, card_id=card.id, reason="Again")
+        self.assertEqual(result["error"]["code"], "card_already_blocked")
+
+    def test_blank_or_long_reason_is_a_validation_error(self):
+        card = _make_card(self.column, self.swimlane, title="Stuck")
+        for reason in ("", "   ", "x" * 501):
+            with self.subTest(reason=reason[:5]):
+                result = self._call("block_card", self.write_token, card_id=card.id, reason=reason)
+                self.assertEqual(result["error"]["code"], "validation_error")
+                self.assertIn("reason", result["error"]["errors"])
+        card.refresh_from_db()
+        self.assertIsNone(card.blocked_at)
+
+    def test_collaborator_and_viewer_denied_before_validation(self):
+        card = _make_card(self.column, self.swimlane, title="Guarded")
+        for role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
+            user = self._add_member(role)
+            result = self._call("block_card", self._pat(user), card_id=card.id, reason="")
+            self.assertEqual(result["error"]["code"], "permission_denied", f"role={role}")
+
+    def test_write_scope_required(self):
+        card = _make_card(self.column, self.swimlane, title="Locked")
+        read_only = self._pat(self.user, scopes=(SCOPE_MCP_READ,))
+        result = self._call("block_card", read_only, card_id=card.id, reason="x")
+        self.assertEqual(result["error"]["code"], "missing_scope")
+
+    def test_card_on_an_unreachable_board_is_not_found(self):
+        stranger_board = _make_board(_make_user("blk-stranger"), name="Hidden")
+        hidden = _make_card(
+            _make_column(stranger_board), _make_swimlane(stranger_board), title="Hidden",
+        )
+        result = self._call("block_card", self.write_token, card_id=hidden.id, reason="x")
+        self.assertEqual(result["error"]["code"], "card_not_found")
+        result = self._call("block_card", self.write_token, card_id=999999, reason="x")
+        self.assertEqual(result["error"]["code"], "card_not_found")

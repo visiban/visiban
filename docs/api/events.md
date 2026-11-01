@@ -138,6 +138,10 @@ for both surfaces.
 
 Two consequences worth knowing:
 
+- **Blocking is a `card.updated` row (since 1.3).** Blocking or unblocking a
+  card records `card.updated` with the full card, whose additive `is_blocked`,
+  `blocked_at` and `blocked_reason` fields carry the new state (#1149). There
+  is no `card.blocked` event type.
 - **A rolled-back mutation appears nowhere.** The feed row is written inside the
   same database transaction as the mutation it describes, and the broadcast is
   deferred until that transaction commits. A mutation the database refused

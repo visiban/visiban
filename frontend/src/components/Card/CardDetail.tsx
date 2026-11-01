@@ -30,6 +30,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
 import CardRelationsSection from "./CardRelationsSection";
 import CardExternalRefSection from "./CardExternalRefSection";
+import CardBlockSection, { type BlockFormMode } from "./CardBlockSection";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
 import type { MoveOutcome } from "../../hooks/useBoard";
 import { withCustomFieldValue } from "../../utils/customFieldValue";
@@ -126,6 +127,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const deleteCommentTriggerRef = useConfirmFocusReturn(confirmDeleteCommentId);
+  // Manual block form (#1149): the header's Block… and the banner's Unblock
+  // open it; focus returns to whichever opened it on Cancel or Escape.
+  const [blockFormMode, setBlockFormMode] = useState<BlockFormMode>(null);
+  const blockTriggerRef = useConfirmFocusReturn(blockFormMode);
+  // A successful unblock removes the banner's Unblock button, which
+  // useConfirmFocusReturn would return focus to; the header's Block…
+  // replaces it, so focus goes there instead of dropping to <body>.
+  const blockButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusBlockButtonNext = useRef(false);
   // In-flight + error state for the inline comment-delete confirm (#1421).
   const [deletingCommentId, setDeletingCommentId] = useState<number | null>(null);
   const [commentDeleteError, setCommentDeleteError] = useState<string | null>(null);
@@ -545,7 +555,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setLocalCard((c) => (
         c.version === card.version && c.column === card.column && c.swimlane === card.swimlane
           ? c
-          : { ...c, version: card.version, column: card.column, swimlane: card.swimlane, labels: card.labels, custom_field_values: card.custom_field_values, weight: weightSaveTimer.current ? c.weight : card.weight }
+          : { ...c, version: card.version, column: card.column, swimlane: card.swimlane, labels: card.labels, custom_field_values: card.custom_field_values, weight: weightSaveTimer.current ? c.weight : card.weight, blocked_at: card.blocked_at, blocked_reason: card.blocked_reason }
       ));
       return;
     }
@@ -563,7 +573,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     setLocalCard((c) => (
       c.version === card.version && c.column === card.column && c.swimlane === card.swimlane
         ? c
-        : { ...c, version: card.version, column: card.column, swimlane: card.swimlane, labels: card.labels, custom_field_values: card.custom_field_values, weight: weightSaveTimer.current ? c.weight : card.weight }
+        : { ...c, version: card.version, column: card.column, swimlane: card.swimlane, labels: card.labels, custom_field_values: card.custom_field_values, weight: weightSaveTimer.current ? c.weight : card.weight, blocked_at: card.blocked_at, blocked_reason: card.blocked_reason }
     ));
     // An open popover closes with the user's selection or error in it. Say so
     // in the panel, unless the card landed exactly where the popover was
@@ -1107,6 +1117,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // not on DEMO_ALLOWED_WRITES, so the fence refuses it even for the visitor's
   // own cards — showing it would only produce a refusal.
   const canDelete = !demoMode && canEdit && (isCardOwner || canModifyOthersContent);
+  // Block / unblock (#1149): the edit rule (member+, own card unless a
+  // moderator or admin), as the server enforces it. Not offered in the shared
+  // demo, whose write fence does not allow it.
+  const canBlock = !demoMode && canEdit && (isCardOwner || canModifyOthersContent);
+  // The block state shown is the newer of the live card (another session's
+  // block arrives there) and localCard (our own response, before the board
+  // store has it).
+  const blockSource = localCard.version > card.version ? localCard : card;
+  const manuallyBlocked = blockSource.blocked_at != null;
+  useEffect(() => {
+    if (!manuallyBlocked && focusBlockButtonNext.current) {
+      focusBlockButtonNext.current = false;
+      blockButtonRef.current?.focus();
+    }
+  }, [manuallyBlocked]);
 
   const canDeleteComment = (c: CardComment): boolean =>
     (c.author !== null && currentUser !== null && c.author.id === currentUser.id) ||
@@ -1318,6 +1343,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {moveNotice && <p className="text-xs text-warning mt-1 px-1">{moveNotice}</p>}
             </div>
           </div>
+          {canBlock && !manuallyBlocked && (
+            <button
+              ref={(el) => { blockTriggerRef("block")(el); blockButtonRef.current = el; }}
+              type="button"
+              onClick={() => { setTab("details"); setBlockFormMode((m) => (m === "block" ? null : "block")); }}
+              aria-expanded={blockFormMode === "block"}
+              className="px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Block…
+            </button>
+          )}
           <button
             ref={closeButtonRef}
             onClick={onClose}
@@ -1363,6 +1399,24 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 // section that is off here still carries its own reason.
                 <p className="text-xs text-fg-muted -mb-3">{DEMO_CARD_DETAIL_NOTE}</p>
               )}
+
+              {/* Manual blocked state (#1149): first in the body, because a
+                  blocked card's most important fact is that it is blocked. */}
+              <CardBlockSection
+                boardId={board.id}
+                card={blockSource}
+                canBlock={canBlock}
+                formMode={blockFormMode}
+                onFormModeChange={setBlockFormMode}
+                unblockTriggerRef={blockTriggerRef("unblock")}
+                onCardUpdated={(updated) => {
+                  if (updated.blocked_at == null) focusBlockButtonNext.current = true;
+                  adoptSaved(updated);
+                  onUpdated(updated);
+                }}
+                userPrefs={currentUser}
+                refreshSignal={refreshSignal}
+              />
 
               {/* Description */}
               <div>

@@ -133,7 +133,7 @@ test.describe('rich text editor', () => {
   test.beforeEach(async ({ page }) => {
     await routeAuth(page)
     await routeBoard(page)
-    for (const sub of ['movements', 'comments', 'activity', 'checklist', 'attachments']) {
+    for (const sub of ['movements', 'comments', 'activity', 'checklist', 'attachments', 'blocks']) {
       await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/${sub}/`, (route) =>
         route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
       )

@@ -18,7 +18,7 @@ In a card's *Details* tab, open **Relations** → **+ Add relation** to say what
 
 **Blocks** and **Blocked by** are the same link seen from opposite ends. Record "A is blocked by B" and card B automatically shows "Blocks A". There is nothing to keep in sync by hand.
 
-**Yes, but:** blockers are not cleared automatically; see [Limits](#limits).
+**Yes, but:** blockers are not cleared automatically; see [Limits](#limits). For a wait that is not another card ("waiting on the customer"), [block the card](blocked-cards.md) with a reason instead (1.3+); both show the same glyph.
 
 ---
 

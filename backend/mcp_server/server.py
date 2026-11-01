@@ -596,6 +596,42 @@ def build_mcp_server():
         )
 
     @mcp.tool(
+        name="block_card",
+        description=(
+            "Mark a card blocked with a required reason (1-500 characters), e.g. "
+            "'Waiting on customer'. Fails with card_already_blocked if it is already "
+            "blocked. Blocked time is recorded and shown on the card. Requires admin or "
+            "member board role (members: own cards only) and the mcp:write scope."
+        ),
+    )
+    @_throttled()
+    async def block_card(card_id: int, reason: str) -> _TOOL_RESULT:
+        denial = await _deny_write()
+        if denial is not None:
+            return denial
+        return await sync_to_async(tools.block_card, thread_sensitive=True)(
+            card_id=card_id, reason=reason,
+        )
+
+    @mcp.tool(
+        name="unblock_card",
+        description=(
+            "Clear a card's manual block, with an optional resolution note (up to 500 "
+            "characters). Fails with card_not_blocked if it is not blocked. Does not "
+            "remove 'blocks' relations to other cards. Requires admin or member board "
+            "role (members: own cards only) and the mcp:write scope."
+        ),
+    )
+    @_throttled()
+    async def unblock_card(card_id: int, resolution: str | None = None) -> _TOOL_RESULT:
+        denial = await _deny_write()
+        if denial is not None:
+            return denial
+        return await sync_to_async(tools.unblock_card, thread_sensitive=True)(
+            card_id=card_id, resolution=resolution,
+        )
+
+    @mcp.tool(
         name="archive_card",
         description=(
             "Soft-delete a card (idempotent). Requires admin or member board role and the "

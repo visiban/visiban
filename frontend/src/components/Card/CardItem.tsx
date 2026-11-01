@@ -3,6 +3,9 @@ import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card, CardDensity, CustomFieldDefinition } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
+import {
+  blockedElapsedMs, blockedIndicatorLabel, formatBlockedDuration, isCardBlocked, isManuallyBlocked,
+} from "../../utils/blockedState";
 import Avatar from "../Common/Avatar";
 import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
 import { agingReference, agingTint, formatAgingTooltip, staleBadgeToneClass, urgencyBadgeToneClass } from "../../utils/agingTint";
@@ -114,6 +117,8 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.checklist_done !== next.card.checklist_done ||
     prev.card.is_stale !== next.card.is_stale ||
     prev.card.blocker_count !== next.card.blocker_count ||
+    prev.card.blocked_at !== next.card.blocked_at ||
+    prev.card.blocked_reason !== next.card.blocked_reason ||
     prev.card.external_ref?.url !== next.card.external_ref?.url ||
     prev.card.external_ref?.ref !== next.card.external_ref?.ref ||
     prev.card.external_ref?.provider !== next.card.external_ref?.provider ||
@@ -363,7 +368,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const aging = agingTint(inDoneColumn ? null : agingReference(card), staleness_threshold_days, stale_warning_pct);
   const { overlayClass, bodyOpacityClass, metaClass } = aging;
   const agingTooltip = overlayClass !== null
-    ? formatAgingTooltip(aging, staleness_threshold_days, stale_warning_pct, card.is_stale, card.blocker_count)
+    ? formatAgingTooltip(aging, staleness_threshold_days, stale_warning_pct, card.is_stale, card.blocker_count, isManuallyBlocked(card))
     : null;
 
   const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone, userDateFormat) : null;
@@ -371,7 +376,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // formatRelativeMovedAt returns "moved today" for ms < 86_400_000, which is unreachable here
   // because movedLabel is only computed when !isRecent (same threshold). See date.ts JSDoc.
   const movedLabel = (showLastMovedText && !isRecent && !card.last_move_is_creation) ? formatRelativeMovedAt(card.last_moved_at, userDateFormat) : null;
+  // A manually blocked card takes the danger border (§ Cards: "High /
+  // blocked: border-danger-emphasis", #1149); a relation-only block keeps the
+  // priority border it has always had, so #449's card face is unchanged.
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
+  const borderColor = isManuallyBlocked(card) ? "rgb(var(--danger-emphasis))" : priorityColor;
+  const blockedLabel = isCardBlocked(card) ? blockedIndicatorLabel(card) : "";
 
   // Worst-offender urgency badge (#961). Drives a single high-signal cue at
   // comfortable / standard density instead of stacking due-date + recently-
@@ -447,7 +457,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // card an empty row and 6px of extra height.
   const hasMetadataRow =
     !!card.assignee ||
-    card.blocker_count > 0 ||
+    isCardBlocked(card) ||
     (showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency) ||
     (showPriorityBadge && card.priority !== "low") ||
     (!compact && (
@@ -519,7 +529,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       style={{
         // The open card's border is the primary-emphasis class above; the
         // -m-px offsets its extra pixel so the card stack does not shift.
-        borderColor: current ? undefined : priorityColor,
+        borderColor: current ? undefined : borderColor,
         // Overlay clamp: shifted up when the expansion would run past the
         // cell's bottom edge, never taller than the cell's content box.
         top: expanded && expandClamp ? expandClamp.top : undefined,
@@ -608,17 +618,28 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 accessible name. `role="img"` + `aria-label` is required: at a
                 count of 1 there is no text node, so without it the element has
                 no accessible name at all. */}
-            {card.blocker_count > 0 && (
+            {/* Manual block (#1149) joins this same indicator rather than
+                adding a second badge (§ System signals, departure 3): the
+                glyph, then the elapsed time ("⊘ 3d") when a manual block is
+                open. The time is the signal's second half, not a tooltip
+                extra, so it renders at every density, compact included. A
+                relation-only block keeps the icon-only form above, with its
+                numeral from 2 up; when both apply the duration wins the
+                visible slot and the relation count stays in the name. */}
+            {isCardBlocked(card) && (
               <span
                 role="img"
-                aria-label={card.blocker_count === 1 ? "Blocked by 1 card" : `Blocked by ${card.blocker_count} cards`}
-                title={card.blocker_count === 1 ? "Blocked by 1 card" : `Blocked by ${card.blocker_count} cards`}
+                aria-label={blockedLabel}
+                title={blockedLabel}
+                data-testid="card-blocked-indicator"
                 className="inline-flex items-center gap-0.5 text-xs font-semibold text-danger shrink-0"
               >
                 <svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                 </svg>
-                {card.blocker_count > 1 && card.blocker_count}
+                {card.blocked_at != null
+                  ? formatBlockedDuration(blockedElapsedMs(card.blocked_at), 1)
+                  : card.blocker_count > 1 && card.blocker_count}
               </span>
             )}
 
