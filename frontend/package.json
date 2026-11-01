@@ -9,7 +9,8 @@
     "lint": "eslint src/",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "shots:marketing": "playwright test --config=playwright.marketing.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

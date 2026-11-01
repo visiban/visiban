@@ -10,5 +10,5 @@
     "strict": true,
     "types": ["@playwright/test", "node"]
   },
-  "include": ["e2e/**/*.ts", "playwright.config.ts"]
+  "include": ["e2e/**/*.ts", "playwright.config.ts", "playwright.marketing.config.ts"]
 }

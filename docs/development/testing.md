@@ -10,6 +10,7 @@ Visiban ships three layers of automated tests. Run the one that matches what you
 | Backend unit / integration | `backend/<app>/tests/` | `pytest` (Django test runner) | Every model change, serializer change, view change |
 | Frontend unit / component | `frontend/src/test/` | Vitest + React Testing Library | Every component, hook, or utility change |
 | End-to-end | `frontend/e2e/` | Playwright (Chromium) | User-visible flows that span multiple components |
+| Marketing screenshots (opt-in) | `frontend/e2e/marketing/` | Playwright (Chromium), own config | Only when a product surface changes; never part of the regression run |
 
 ## Backend tests
 
@@ -84,12 +85,15 @@ frontend/e2e/
 ├── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
 ├── rich-text-editor.spec.ts  # Card description editor + markdown round-trip
 ├── card-description-caret.spec.ts  # Caret stays visible typing at the end of a description
-└── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
+├── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
+└── marketing/            # Opt-in screenshot suite; excluded from the default run (see below)
 ```
 
 ### Fixture pattern
 
-All fixtures live in `frontend/e2e/fixtures/board.ts`. Every test imports the shared `USER`, `BOARD_FULL`, `CARD`, `SITE_CONFIG`, etc. — never inline a bespoke payload unless the test is specifically exercising a variant shape.
+All regression-suite fixtures live in `frontend/e2e/fixtures/board.ts`. Every test imports the shared `USER`, `BOARD_FULL`, `CARD`, `SITE_CONFIG`, etc. — never inline a bespoke payload unless the test is specifically exercising a variant shape.
+
+The one exception is the opt-in marketing-screenshot suite in `frontend/e2e/marketing/`. The default `playwright.config.ts` ignores it (`testIgnore`), so `npx playwright test` never runs it; it has its own config (`npm run shots:marketing`) and writes PNGs instead of asserting behavior. It keeps its own typed fixtures in `e2e/marketing/fixtures.ts` because `e2e/helpers.ts` hard-codes the test `USER` and `BOARD_LIST_ITEM`, and the shots need a realistic multi-customer dataset. See [`frontend/e2e/marketing/README.md`](https://gitlab.com/visiban/visiban/-/blob/main/frontend/e2e/marketing/README.md) for how to run it and add a shot.
 
 When a test needs a variant (e.g. a viewer with stricter export permissions), spread the base fixture and override only the differing fields:
 
