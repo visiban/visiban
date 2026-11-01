@@ -117,11 +117,17 @@ describe('useBoardSocket — idle visitor across a reset', () => {
     vi.setSystemTime(Date.parse(RESET) + 1_000)
     stashDemoNextReset(RESET)
     const expired = vi.fn()
+    // The dispatch goes out directly; the session probe must not run (#2037).
+    const origAdapter = client.defaults.adapter
+    const probe = vi.fn()
+    client.defaults.adapter = probe as never
     window.addEventListener('auth:sessionExpired', expired)
     renderHook(() => useBoardSocket(1, vi.fn()))
     act(() => { instances[instances.length - 1].onclose?.({ code }) })
     window.removeEventListener('auth:sessionExpired', expired)
+    client.defaults.adapter = origAdapter
     expect(expired).toHaveBeenCalledTimes(1)
+    expect(probe).not.toHaveBeenCalled()
     expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBe(RESET)
   })
 
