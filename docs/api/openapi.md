@@ -4,7 +4,7 @@ Open `http://localhost:8000/api/schema/swagger-ui/` while logged in, or download
 
 **Why it matters:** generate clients and validate requests from the spec instead of hand-copying endpoint shapes.
 
-**Watch out:** all three schema endpoints require authentication (`IsAuthenticated`). In the dev stack, hit the backend on port 8000 directly, because the Vite dev server on port 5173 does not proxy `/api/`. Production and Helm installs serve the spec through the reverse proxy, as [below](#accessing-the-spec-by-deployment-type).
+**Watch out:** all three schema endpoints require authentication (`IsAuthenticated`) and, for personal access tokens, the `read` scope. In the dev stack, hit the backend on port 8000 directly, because the Vite dev server on port 5173 does not proxy `/api/`. Production and Helm installs serve the spec through the reverse proxy, as [below](#accessing-the-spec-by-deployment-type).
 
 **Go deeper:** [CI validation](#ci-validation) and [fuzz testing](#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz) explain how the contract is kept honest.
 
@@ -18,7 +18,7 @@ Open `http://localhost:8000/api/schema/swagger-ui/` while logged in, or download
 | `GET /api/schema/swagger-ui/` | Interactive Swagger UI — explore and test endpoints in the browser |
 | `GET /api/schema/redoc/` | ReDoc alternative — clean two-panel reference docs |
 
-All three endpoints require authentication (`IsAuthenticated`) — you must be logged in to view the spec.
+All three endpoints require authentication (`IsAuthenticated`) plus the token-scope check (`TokenHasScope`). A browser session (for example a logged-in Swagger UI) passes. A personal access token must carry the `read` scope, because these are `GET` requests. A token limited to `mcp:*` scopes, with no `read`, is refused, and a token with an empty scope list is refused. Legacy unscoped tokens keep full REST access and can fetch the spec.
 
 ## Accessing the spec by deployment type
 
