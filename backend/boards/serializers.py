@@ -1971,8 +1971,15 @@ class CardRelationSerializer(serializers.Serializer):
     """
 
     id = serializers.IntegerField(read_only=True)
-    relation_type = serializers.CharField(read_only=True)
-    direction = serializers.CharField(read_only=True)
+    # ChoiceField (read-only) rather than CharField so OpenAPI publishes the
+    # enums (#1976); same wire values. ``direction`` reuses the request side's
+    # ``DirectionEnum`` because the choice set is identical. Clients must read
+    # ``direction``: ``relation_type`` is the STORED type, so a "blocks" row
+    # viewed from the blocked card still says ``relation_type: "blocks"``.
+    relation_type = serializers.ChoiceField(choices=CardRelation.Type.choices, read_only=True)
+    direction = serializers.ChoiceField(
+        choices=["blocks", "blocked_by", "relates_to"], read_only=True
+    )
     card = LinkedCardSerializer(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 
