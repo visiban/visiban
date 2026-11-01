@@ -4140,7 +4140,7 @@
 <p><strong>Recent Boards</strong> tracks the last 5 boards you visited, most recent first, between the Favorites sections and the Groups tree.</p>
 <ul>
 <li>Visits are recorded automatically whenever you navigate to a board page.</li>
-<li>The list is stored in <code>localStorage</code> under the key <code>user:prefs:recent-boards</code>. It persists across page reloads but is device-local and not synced across browsers or devices.</li>
+<li>The list is stored in <code>localStorage</code> under a per-account key (<code>user:prefs:recent-boards:&lt;user id&gt;</code>). It persists across page reloads but is device-local and not synced across browsers or devices. Because it holds board and group names, it is cleared when you sign out or your session expires, and one account on a shared browser never sees another account's list.</li>
 <li>Entries are deduplicated: revisiting a board moves it to the top instead of adding a duplicate.</li>
 <li>The section is hidden when no boards have been visited yet.</li>
 </ul>
