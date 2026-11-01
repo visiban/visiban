@@ -31,7 +31,10 @@ data:
     # browser would honor the LAST header, silently weakening the stricter one.
     # So nginx only adds `same-origin` when the upstream sent none (static files,
     # the SPA); when Django set one the value here is empty, which emits no header,
-    # and Django's passes through untouched.
+    # so a proxied response carries Django's policy alone. Internal
+    # X-Accel-Redirect media responses (Compose) carry no policy: nginx drops
+    # Django's headers there. Only JPEG/PNG/GIF/WebP render inline; everything
+    # else is a forced download, and those had no policy before #1531 either.
     map $upstream_http_referrer_policy $visiban_referrer_policy {
         default "";
         ""      "same-origin";
