@@ -406,7 +406,8 @@ class CardNotBlocked(CardServiceError):
     """``unblock_card`` on a card with no open manual block.
 
     A relation block (#449) is not unblocked here; it clears when the blocking
-    card is done, archived, or the relation is removed.
+    card is archived or the relation is removed (moving the blocker to a done
+    column does not clear it).
     """
 
     status = 409

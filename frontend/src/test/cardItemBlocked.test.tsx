@@ -85,6 +85,16 @@ describe('CardItem — blocked indicator (#1149)', () => {
     expect(bordered()?.style.borderColor).toBe('rgb(59, 130, 246)')
   })
 
+  it('the aging tooltip of a stale, manually blocked card says it is blocked', () => {
+    const stale = {
+      ...manual, is_stale: true,
+      last_moved_at: new Date(NOW.getTime() - 41 * 86_400_000).toISOString(),
+    }
+    const { container } = render(<CardItem card={makeCard(stale)} density="standard" staleness_threshold_days={14} />)
+    const titled = [...container.querySelectorAll('[title]')].map((el) => el.getAttribute('title'))
+    expect(titled.some((t) => t?.startsWith('Stale') && t.endsWith('· blocked'))).toBe(true)
+  })
+
   it('re-renders when only the block state changes', () => {
     const { rerender } = render(<CardItem card={makeCard()} density="standard" />)
     rerender(<CardItem card={makeCard(manual)} density="standard" />)

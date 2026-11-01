@@ -52,8 +52,9 @@ _BOARD_SUMMARY_RESPONSE = inline_serializer(
                 "avg_cycle_days": serializers.FloatField(allow_null=True),
                 "blocked_cards": serializers.IntegerField(
                     help_text=(
-                        "Active cards in the swimlane that are blocked, manually or by an "
-                        "active blocking relation (the card's `is_blocked`). Additive (#1149)."
+                        "Active cards in the swimlane (not archived, not in a done column, "
+                        "as active_cards) that are blocked, manually or by an active "
+                        "blocking relation (the card's `is_blocked`). Additive (#1149)."
                     ),
                 ),
             },
@@ -152,7 +153,8 @@ def _blocked_time_summary(board, columns, period_cutoff, now):
 
     One query over ``CardBlock`` (indexed by board). A block counts for the
     part of it that falls inside ``[period_cutoff, now]``; an open block runs
-    to now, or to ``archived_at`` when its card was archived while blocked.
+    to now, or to ``archived_at`` while its card is archived (a restore clears
+    ``archived_at``, so the block then runs to now again).
     An open block whose card was hard-deleted has no end anyone can observe,
     so it is left out rather than accruing time forever.
 
@@ -330,7 +332,9 @@ class BoardAnalyticsMixin:
             vel_by_swimlane = {r["card__swimlane_id"]: r for r in vel_qs}
 
         # Query 2b: blocked active cards per swimlane (#1149), manual or
-        # relation, the same union as CardSerializer.is_blocked.
+        # relation, the same union as CardSerializer.is_blocked. "Active" as
+        # in active_cards: not archived and not in a done column, so
+        # blocked_cards never exceeds active_cards.
         relation_blocked = Exists(CardRelation.objects.filter(
             to_card=OuterRef("pk"),
             relation_type=CardRelation.Type.BLOCKS,
@@ -338,6 +342,7 @@ class BoardAnalyticsMixin:
         ))
         blocked_by_swimlane = dict(
             board.cards.filter(archived_at__isnull=True)
+            .exclude(column_id__in=done_column_ids)
             .filter(Q(blocked_at__isnull=False) | Q(relation_blocked))
             .values("swimlane_id")
             .annotate(cnt=Count("id"))

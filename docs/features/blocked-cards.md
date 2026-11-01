@@ -50,7 +50,7 @@ Click **Blocked only** in the filter row to show just the blocked cards. Its num
 
 ### Summary view
 
-The **Summary** view has a **Blocked** column: how many active cards in each swimlane are blocked right now, manually or by a relation.
+The **Summary** view has a **Blocked** column: how many active cards in each swimlane (not archived and not in a done column) are blocked right now, manually or by a relation.
 
 ### Analytics
 
@@ -89,6 +89,6 @@ The same rules apply over the [API](../api/cards.md#block-and-unblock-since-13) 
 ## Limits
 
 - **One block at a time.** Blocking an already blocked card is refused; unblock it first. Each new block starts a new entry in the history.
-- **Relation blocks are separate.** **Unblock** clears only the manual block. A card blocked by another card stays blocked until that card is done, archived, or the relation is removed.
-- **Archived and deleted cards.** An archived card cannot be blocked or unblocked. Its block history is kept, and a block still open when it was archived stops counting time at the archive. Deleting a card keeps its block history in the board's Analytics.
+- **Relation blocks are separate.** **Unblock** clears only the manual block. A card blocked by another card stays blocked until that card is archived or the relation is removed; moving the blocking card to a done column does not clear it (see [Card Relations](card-relations.md#limits)).
+- **Archived and deleted cards.** An archived card cannot be blocked or unblocked, and its block history is kept. A block still open on an archived card stops counting time at the archive while the card stays archived; if the card is restored, the block counts again from when it started, archived period included. Deleting a card keeps its *finished* blocks in the board's Analytics, reasons included; a block still open when the card was deleted is left out of Analytics entirely.
 - **Export and import.** A board's [JSON export](board.md#export-import) carries each card's block state and history. Importing restores the current block always, and past blocks with the *history* option. CSV does not carry them.

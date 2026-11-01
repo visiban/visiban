@@ -529,6 +529,15 @@ class BlockAnalyticsTests(_BlockTestBase):
         self.assertEqual(rows["General"]["blocked_cards"], 1)  # archived card excluded
         self.assertEqual(rows["Second"]["blocked_cards"], 1)
 
+    def test_summary_blocked_count_leaves_out_done_columns(self):
+        done = _make_column(self.board, name="Done", order=2, is_done=True)
+        finished = _make_card(done, self.lane, title="Finished", position=0)
+        Card.objects.filter(pk=finished.pk).update(blocked_at=timezone.now(), blocked_reason="x")
+        self._block()
+        row = self.client.get(f"/api/v1/boards/{self.board.id}/summary/").data["swimlanes"][0]
+        self.assertEqual(row["blocked_cards"], 1)
+        self.assertLessEqual(row["blocked_cards"], row["active_cards"])
+
     def test_analytics_sums_blocked_time_per_column_and_clusters_reasons(self):
         now = timezone.now()
         # Closed, 2 days, in Doing.
@@ -687,6 +696,33 @@ class BlockExportImportTests(_BlockTestBase):
     def _export_board(self, board):
         resp = self.client.get(f"/api/v1/boards/{board.id}/export/?format=json")
         return json.loads(resp.content)
+
+    def test_date_shift_moves_blocks_with_the_activities(self):
+        self._make_history()
+        CardBlock.objects.filter(card=self.card, unblocked_at__isnull=False).update(
+            blocked_at=timezone.now() - datetime.timedelta(hours=4),
+        )
+        export = self._export()
+        source = next(c for c in export["cards"] if c["title"] == "Waiting card")
+        today = timezone.now().date()
+        board = self._import(export, options={
+            "shift_dates_from": (today - datetime.timedelta(days=30)).isoformat(),
+            "shift_dates_to": today.isoformat(),
+        })
+        card = Card.objects.get(board=board, title="Waiting card")
+        delta = datetime.timedelta(days=30)
+        parse = datetime.datetime.fromisoformat
+        self.assertEqual(card.blocked_at, parse(source["blocked_at"]) + delta)
+        closed = CardBlock.objects.get(card=card, unblocked_at__isnull=False)
+        self.assertEqual(closed.blocked_at, parse(source["blocks"][0]["blocked_at"]) + delta)
+        self.assertEqual(closed.unblocked_at, parse(source["blocks"][0]["unblocked_at"]) + delta)
+        unblocked_act = CardActivity.objects.get(card=card, event_type=CardActivity.EventType.UNBLOCKED)
+        src_act = next(a for a in source["activities"] if a["event_type"] == "unblocked")
+        self.assertEqual(unblocked_act.created_at, parse(src_act["created_at"]) + delta)
+        # The timeline still pairs the shifted activity with its shifted block.
+        resp = self.client.get(f"/api/v1/boards/{board.id}/cards/{card.id}/timeline/")
+        entry = next(e for e in resp.data["results"] if e["event_type"] == "unblocked")
+        self.assertAlmostEqual(entry["data"]["block_duration_seconds"], 4 * 3600, delta=5)
 
     def test_import_without_history_keeps_current_block_only(self):
         self._make_history()

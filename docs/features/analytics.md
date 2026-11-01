@@ -35,7 +35,7 @@ A table of all swimlanes with:
 - the total card count and an inline proportional bar
 - **7-day velocity:** moves into any column marked `is_done = true` in the last 7 days, for cards that are not archived. It counts moves, not cards: a card that enters a done column twice counts twice, and a card archived since leaves the count.
 - **30-day velocity:** the same over 30 days
-- **Blocked** *(1.3+)*: how many active cards in the swimlane are [blocked](blocked-cards.md) right now, manually or by a relation
+- **Blocked** *(1.3+)*: how many active cards in the swimlane (not in a done column) are [blocked](blocked-cards.md) right now, manually or by a relation
 
 Mark columns as done in the **Edit Column** modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts movements into either as completed. See [Board & Cards — Columns](board.md#columns).
 
@@ -136,7 +136,7 @@ Below the heatmap, **Blocked time (last N days)** shows how long cards were [man
 - **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed.
 - **Top reasons:** the ten most common reasons, with how many blocks and how many days each one cost. Reasons that differ only in capitals or spacing count as one.
 
-A block counts for the part of it inside the period. A block that is still open counts up to now; one on a card archived while blocked stops at the archive. A deleted card's past blocks still count, and their reasons still appear, as its movements do in the heatmap. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
+A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
 
 ### Empty period
 

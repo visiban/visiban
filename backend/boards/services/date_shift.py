@@ -6,8 +6,9 @@ export *before* validation, so every shifted value goes through the same
 checks as an unshifted one, and a malformed date is left as it was for the
 existing validators to report.
 
-Shifted: card ``due_date``, ``archived_at`` and ``created_at``; comment,
-movement and activity timestamps; the ``from_value`` / ``to_value`` of
+Shifted: card ``due_date``, ``archived_at``, ``created_at`` and
+``blocked_at``; comment, movement and activity timestamps; each block's
+``blocked_at`` and ``unblocked_at`` (#1149); the ``from_value`` / ``to_value`` of
 ``due_date_change`` activities (so history agrees with the shifted card); and
 values of ``date`` custom fields on cards and swimlanes. Relative spacing between all of them is preserved.
 """
@@ -84,10 +85,18 @@ def shift_board_dates(data, days):
             continue
         if card.get("due_date"):
             card["due_date"] = _shift_date(card["due_date"], delta)
-        for key in ("archived_at", "created_at"):
+        for key in ("archived_at", "created_at", "blocked_at"):
             if card.get(key):
                 card[key] = _shift_datetime(card[key], delta)
         _shift_custom_values(card.get("custom_field_values"), card_date_fields, delta)
+        # Manual blocks (#1149): both ends move, so durations are unchanged
+        # and the blocks stay aligned with their blocked/unblocked activities.
+        blocks = card.get("blocks")
+        for block in blocks if isinstance(blocks, list) else []:
+            if isinstance(block, dict):
+                for key in ("blocked_at", "unblocked_at"):
+                    if block.get(key):
+                        block[key] = _shift_datetime(block[key], delta)
         for child, key in (("comments", "created_at"), ("movements", "moved_at"), ("activities", "created_at")):
             items = card.get(child)
             for item in items if isinstance(items, list) else []:

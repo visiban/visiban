@@ -368,7 +368,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const aging = agingTint(inDoneColumn ? null : agingReference(card), staleness_threshold_days, stale_warning_pct);
   const { overlayClass, bodyOpacityClass, metaClass } = aging;
   const agingTooltip = overlayClass !== null
-    ? formatAgingTooltip(aging, staleness_threshold_days, stale_warning_pct, card.is_stale, card.blocker_count)
+    ? formatAgingTooltip(aging, staleness_threshold_days, stale_warning_pct, card.is_stale, card.blocker_count, isManuallyBlocked(card))
     : null;
 
   const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone, userDateFormat) : null;
