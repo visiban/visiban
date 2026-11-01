@@ -100,6 +100,19 @@ Five roles control access at the group, board, and site level; the tables below 
 !!! note "Export analytics CSV is a UI convenience, not an API boundary"
     The analytics CSV is generated client-side from data already returned by the `summary`/`analytics` endpoints, which any board member (including Viewers) can read. Hiding the **Export CSV** button for non-Admins keeps the action consistent with the board-structure permissions above; it is not a data-access restriction, since a Member could already read the same numbers through the API.
 
+## Group membership implies board access
+
+<a id="group-membership-board-visibility"></a>
+
+Adding a user to a group, at any role including `viewer`, gives them access to every board in that group and in all of its sub-groups. This is by design: group membership implies board access. It is more than seeing board names. The user gets their group role on each of those boards, so a `viewer` can read all cards, comments, and movement history, and a `member` can create and move cards.
+
+**Watch out:** a per-board `BoardMembership` row doesn't hide a board from someone who is already in the group. It only changes the role they hold on that one board (for example, a group `admin` set to `viewer` on a sensitive board), and every other board in the group stays visible to them. To keep a user out of some boards in a group:
+
+- Don't add them to the group (or to any parent group). Give them `BoardMembership` rows on only the boards they need.
+- Or move the sensitive boards into a separate group the user isn't in.
+
+Users with `can_access_all_content` see every board regardless of group. See [Group Inheritance](inheritance.md) for the full resolution order and how sub-group visibility works.
+
 ## How to set board roles
 
 See [Board Permissions — How to set roles](../permissions.md#how-to-set-roles) for the board-toolbar UI steps.
