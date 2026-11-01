@@ -12,6 +12,9 @@ const PORT = Number(process.env.WT_E2E_PORT) || 5173
 
 export default defineConfig({
   testDir: './e2e',
+  // Marketing screenshots (#1039) are opt-in: they write PNGs to ~/Downloads and
+  // run only via playwright.marketing.config.ts, never in the regression suite.
+  testIgnore: '**/e2e/marketing/**',
   timeout: 30_000,
   // Retry on CI to tolerate transient timing issues; no retries locally.
   retries: process.env.CI ? 2 : 0,
