@@ -26,6 +26,7 @@ Back up the database, point `APP_VERSION` at the new release, run `migrate`, and
 - Helm catch-all/loopback `allowedHosts` entries fail the render (**this one can stop `helm upgrade`**; opt out with `backend.settings.allowUnsafeHosts=true`)
 - Helm values-schema validation
 - PAT scopes and the MCP server
+- Content-Security-Policy `connect-src` scoped to your own origin (**split-origin WebSocket setups break** until `DOMAIN` or `ingress.host` names the hostname the browser connects to)
 
 **Yes, but:** skipping minor versions (e.g. 1.0 → 1.2 directly) is supported. Run all intermediate migrations in sequence; the standard upgrade command (`manage.py migrate`) handles this automatically. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
 
@@ -658,11 +659,11 @@ Read the notes for every version between your current release and the target bef
     `POST /api/v1/boards/import/` called without a `name` field now names the new board `Imported: <name>` — the `name` in a JSON file, or the filename without its extension for a CSV file — and appends ` - 1`, ` - 2`, ... when that name is already taken. Previously a JSON import used the file's `name` unchanged and every CSV import was named `Imported Board`. Any script or test that finds an imported board by the file's name must now send `name` explicitly, which is still used exactly as given. See [Default board name](../api/boards.md#default-board-name) (#1446).
 
 !!! warning "Content-Security-Policy `connect-src` is now scoped to your own origin (bundled nginx and Helm frontend)"
-    The bundled nginx templates used to allow WebSocket connections to any host through the bare `ws:` and `wss:` schemes. Their `connect-src` is now `'self'` plus `wss://${DOMAIN}` (and `wss://${DOMAIN}:*`) in `nginx/app.conf.template`, or `ws://${DOMAIN}` in the plain-HTTP `nginx/app-http.conf.template`. The Helm chart's frontend nginx, which sent no such headers before, now sends the same `Content-Security-Policy` and `X-Frame-Options: DENY`. Its `connect-src` is `'self'` plus `wss://<ingress.host>` (and `ws://<ingress.host>` when `ingress.tls.enabled` is false); with the ingress disabled or `ingress.host` unset, only `'self'` remains.
+    The bundled nginx templates used to allow WebSocket connections to any host through the bare `ws:` and `wss:` schemes. Their `connect-src` is now `'self'` plus `wss://${DOMAIN}` (and `wss://${DOMAIN}:*`) in `nginx/app.conf.template`, or `ws://${DOMAIN}` in the plain-HTTP `nginx/app-http.conf.template`. The Helm chart's frontend nginx previously sent no Content-Security-Policy and `X-Frame-Options: SAMEORIGIN`. It now sends the same full `Content-Security-Policy` as the bundled templates (not only `connect-src`) and `X-Frame-Options: DENY`. Its `connect-src` is `'self'` plus `wss://<ingress.host>` (and `ws://<ingress.host>` when `ingress.tls.enabled` is false); with the ingress disabled or `ingress.host` unset, only `'self'` remains.
 
     - **No action** if the app and its WebSocket are served from `DOMAIN` (Compose) or `ingress.host` (Helm).
     - **Split-origin setups need a change.** If the SPA opens its WebSocket on a different hostname than the page, or a custom frontend host or CDN fronts the app under another name, the browser now blocks that connection. Set `DOMAIN` (Compose) or `ingress.host` (Helm) to the hostname the browser connects to, or adapt your own nginx config.
-    - **Framing is refused.** `X-Frame-Options: DENY` on the Helm frontend means the app can no longer be embedded in an `<iframe>` there, as on Compose.
+    - **Framing is refused.** `X-Frame-Options: DENY` on the Helm frontend replaces `SAMEORIGIN`, so the app can no longer be embedded in an `<iframe>`, even from the same origin, as on Compose. The full policy also restricts scripts, styles, images and fonts to your own origin (styles allow inline, images also allow `data:` and `blob:`); custom frontends that load assets from other hosts need the policy adapted.
 
     See also the note on the frontend image's default config below.
 
@@ -676,18 +677,20 @@ Read the notes for every version between your current release and the target bef
     - **`/mcp` limits failed authentication per IP.** After repeated failed token lookups from one address, `/mcp` answers `429` before it queries the database again. The limit is `MCP_THROTTLE_PREAUTH_RATE` (default `30/min`). Behind a proxy it keys on the address `NUM_PROXIES` resolves, so a wrong `NUM_PROXIES` can group many clients into one budget.
     - **Resending the verification email has its own throttle.** The `resend_email` scope allows 10 requests per hour per IP by default, keyed on the client address for signed-in and anonymous callers alike. Tune it with the `resend_email` entry of `DEFAULT_THROTTLE_RATES` in `visiban/settings.py`.
     - **Inactive users get no notifications.** Every notification producer now skips deactivated accounts, so a reactivated user does not find a backlog written while the account was off.
-    - **Django admin account changes are restricted.** Changing or deleting another staff, superuser or site-admin account is now limited to superusers. A user who owns boards or groups cannot be deleted until ownership is transferred (for groups, use **Groups > Transfer ownership**). The last active site admin, the last active superuser and the last active admin of a group cannot be deleted or demoted. Upgrading also gives every group's owner a direct admin membership where it was missing or lower. Change forms for groups, site settings, boards and board memberships save only the fields you changed and ask for a reload if the record changed after you opened it.
+    - **Django admin account changes are restricted.** Changing or deleting another staff, superuser or site-admin account is now limited to superusers. A user who owns boards or groups cannot be deleted until ownership is transferred (for groups, use the Visiban **Groups** admin's **Transfer ownership** action). The last active site admin, the last active superuser and the last active admin of a group cannot be deleted or demoted. Upgrading also gives every group's owner a direct admin membership where it was missing or lower. The Django admin pages for email addresses, social accounts, social apps and tokens, authentication tokens, and sites, and Django's permission groups, are now superuser-only: other staff no longer see them. Change forms for permission groups, site settings, boards and board memberships save only the fields you changed and ask for a reload if the record changed after you opened it.
 
 !!! note "Retired and deprecated: `--export` on the seed commands, `Group.default_board_member_role`"
     - `seed_demo_data --export` and `seed_template_boards --export` are retired and exit with an error. The sample board files are written only by `backend/boards/seed_data/generate_seed_data.py`. Scripts that call either command with `--export` must stop; see [Sample boards](../getting-started/sample-boards.md).
     - `Group.default_board_member_role` is deprecated. It was never read, so it has never affected group members' board access. The field is still accepted and returned through 1.x, and the OpenAPI schema marks it `deprecated`. Do not rely on it to set access.
 
-!!! note "1.2 pre-release changes: change feed `next_cursor`, custom-field reorder, browser storage keys"
-    These affect only installs or clients that ran a 1.2 alpha, beta or release candidate; none of these existed in 1.1.
+!!! note "Browser storage keys for the sidebar and theme were renamed (migrated automatically)"
+    1.1 stored the sidebar and theme preferences under `sidebar-collapsed`, `sidebar-groups-expanded`, `visiban-theme` and `visiban-theme-synced`. 1.2 stores them as `user:prefs:sidebar-collapsed`, `user:prefs:sidebar-groups-expanded`, `user:prefs:theme` and `user:prefs:theme-synced`. Each browser copies the old value to the new key on first load and removes the old key, unless the new key already exists, so users keep their choices and no action is needed (#1855). The shim is idempotent and is planned for removal once the old keys have aged out (#1859). Only custom browser tests or scripts that seed the old key names need to change.
+
+!!! note "1.2 pre-release changes: change feed `next_cursor` and custom-field reorder"
+    These affect only installs or clients that ran a 1.2 alpha, beta or release candidate; neither surface existed in 1.1.
 
     - `GET /api/v1/boards/{id}/events/` now returns `next_cursor` (the integer to pass as `after=` for the next page, or `null` when caught up). `next` is deprecated: it still carries the same value through 1.x. Read `next_cursor` in new code. See the [board change feed](../api/events.md).
     - The custom-field and swimlane-custom-field `reorder/` endpoints accept `POST` only. `PUT` returns `405`, matching column, swimlane and checklist reorder.
-    - The browser storage keys for the sidebar and theme were renamed to `user:prefs:sidebar-collapsed`, `user:prefs:sidebar-groups-expanded`, `user:prefs:theme` and `user:prefs:theme-synced`. Existing values are migrated on first load, so users keep their choices. Browser tests that seed the old keys must use the new names.
 
 #### 1.2 migrations
 
