@@ -11,6 +11,7 @@ for (const theme of ['light', 'dark'] as const) {
     await routeAuth(page)
     await routeBoard(page, BOARD_DENSE)
     await page.goto(`/boards/${BOARD_DENSE.id}`)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
     await expect(page.locator('[data-card-id]').filter({ hasText: CARD.title })).toBeVisible({ timeout: 10_000 })
     const badge = page.getByTestId('cell-card-count').first()
     await expect(badge).toBeVisible()
