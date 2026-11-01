@@ -4594,7 +4594,7 @@
 </tr>
 </tbody>
 </table>
-<p>On Helm installs the frontend's Content-Security-Policy names <code>ingress.host</code> for WebSocket connections (<code>wss://</code>, plus <code>ws://</code> when <code>ingress.tls.enabled</code> is <code>false</code>), and nothing is added when the ingress is disabled or no host is set, so WebSocket connections then rely on <code>'self'</code> (as does reaching the app through a different host name or <code>kubectl port-forward</code>); set <code>ingress.host</code> if your browser does not map <code>'self'</code> to <code>ws</code>/<code>wss</code>; the frame policy is <code>X-Frame-Options: DENY</code>, matching the Compose templates.</p>
+<p>On Helm installs the frontend's Content-Security-Policy names <code>ingress.host</code> for WebSocket connections (<code>wss://</code>, plus <code>ws://</code> when <code>ingress.tls.enabled</code> is <code>false</code>), and nothing is added when the ingress is disabled or no host is set, so WebSocket connections then rely on <code>'self'</code> (as does reaching the app through a different host name or <code>kubectl port-forward</code>); set <code>ingress.host</code> if your browser does not map <code>'self'</code> to <code>ws</code>/<code>wss</code>; the frame policy is <code>X-Frame-Options: DENY</code> and the referrer policy is <code>Referrer-Policy: same-origin</code> (so share and invite tokens in URLs are never sent to another origin), matching the Compose templates.</p>
 <h3 id="ingress-annotations">Ingress annotations<a class="headerlink" href="#ingress-annotations" title="Permanent link">&para;</a></h3>
 <p>The chart ships with default annotations for nginx-ingress that match the Docker Compose Nginx configuration:</p>
 <table>

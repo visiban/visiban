@@ -4866,7 +4866,7 @@
 <tr>
 <td><code>VITE_API_URL</code></td>
 <td style="text-align: center;">No</td>
-<td>Browser-facing backend URL (default: <code>http://localhost:8000</code>). The frontend bundle calls the API at this origin. Must move with <code>BACKEND_PORT</code> when running side-by-side stacks. In production, set it to your public backend origin (e.g. <code>https://api.yourdomain.com</code>, or the SPA's own origin behind a single proxy).</td>
+<td>Browser-facing backend URL (default: <code>http://localhost:8000</code>). The frontend bundle calls the API at this origin. Must move with <code>BACKEND_PORT</code> when running side-by-side stacks. In production, set it to your public backend origin (e.g. <code>https://api.yourdomain.com</code>, or the SPA's own origin behind a single proxy). If you serve the SPA from a different origin than the API with the frontend image's nginx config, <code>Referrer-Policy: same-origin</code> breaks "Connect account" until #2045 lands; serve the SPA on that host with a looser policy such as <code>strict-origin-when-cross-origin</code>.</td>
 </tr>
 <tr>
 <td><code>DJANGO_SUPERUSER_USERNAME</code></td>
