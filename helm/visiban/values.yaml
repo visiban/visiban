@@ -47,6 +47,12 @@ backend:
     # CSRF_COOKIE_SECURE) and HSTS. Required when ingress.tls.enabled is false
     # AND there is no upstream TLS terminator setting X-Forwarded-Proto: https.
     forceInsecureCookies: false
+    # Optional features, off by default (#1835). true renders MCP_SERVER_ENABLED /
+    # GIT_LENS_ENABLED=true on the backend; false renders nothing. gitLensEnabled
+    # adds the git_lens app and its tables; the backend pod's `migrate` init
+    # container applies them on rollout.
+    mcpServerEnabled: false
+    gitLensEnabled: false
     # Comma-separated list of CIDRs / single IPs that may reach /admin/.
     # Empty (default) restricts /admin/ to loopback only — use kubectl
     # port-forward to access. Example: "10.0.0.0/8,192.168.1.42".

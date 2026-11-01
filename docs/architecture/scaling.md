@@ -104,7 +104,9 @@ PostgreSQL holds all persistent state: boards, cards, movements, memberships, co
 SELECT count(*) FROM pg_stat_activity;
 
 -- Increase max_connections (requires restart)
--- Set in postgresql.conf or via Helm: postgresql.primary.extraEnvVars
+-- Set in postgresql.conf. The bundled StatefulSet does not read
+-- postgresql.primary.extraEnvVars; that key only applies with
+-- postgresql.subchartEnabled=true (tracked in #1911)
 max_connections = 200
 shared_buffers = 256MB   -- 25% of RAM is a common starting point
 effective_cache_size = 1GB

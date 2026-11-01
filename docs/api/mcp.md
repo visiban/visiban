@@ -40,7 +40,23 @@ MCP_SERVER_ENABLED=true
     ```
 
 === "Helm"
-    The Helm chart does not yet expose this flag. Support is tracked in #1835.
+    > **Added in 1.3**
+
+    Set the chart value in the values file you pass on every install and upgrade:
+
+    ```yaml
+    backend:
+      settings:
+        mcpServerEnabled: true
+    ```
+
+    ```bash
+    helm upgrade --install visiban helm/visiban -f my-values.yaml
+    ```
+
+    Chart versions before 0.8.0 (Visiban 1.2 and earlier) reject this key.
+
+    The chart's frontend proxy already forwards `/mcp` to the backend.
 
 When the flag is off, the app is not installed, the `/mcp` route does not exist, and the MCP SDK is never imported — an install that does not use MCP exposes no additional surface.
 
@@ -71,6 +87,8 @@ The transport checks every request's `Host` and `Origin` headers against `ALLOWE
     ```
 
     Until you do, the backend logs a warning at startup and only `Origin` checking (from `CORS_ALLOWED_ORIGINS`) applies. `MCP_ALLOWED_HOSTS` takes precedence over `ALLOWED_HOSTS` whenever it is set.
+
+    On Helm, the chart has no value for `MCP_ALLOWED_HOSTS`. Remove `*` from `backend.settings.allowedHosts` instead: the chart's render guard already refuses a catch-all entry unless `backend.settings.allowUnsafeHosts` is `true`.
 
 ---
 

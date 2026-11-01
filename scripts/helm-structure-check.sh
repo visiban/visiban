@@ -31,7 +31,7 @@
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
 # is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11 (incl. 11d, 11e),
-# 12, 13, 15 and 16. Section 5 (probe paths) is asserted against the real chart only,
+# 12, 13, 15, 16 and 17. Section 5 (probe paths) is asserted against the real chart only,
 # and section 7 (NetworkPolicy client coverage) is fixture-covered only
 # through the demo render in section 9 — see the notes on those sections.
 
@@ -2179,6 +2179,62 @@ check_num_proxies_default() {
   [ "$bad" -eq 0 ] && pass "NUM_PROXIES: 2 with ingress on and unset; explicit values respected; absent with ingress off or a directly reachable frontend (with a NOTES.txt hint); render errors never read as absent"
 }
 
+# ---------------------------------------------------------------------------
+# 17. Optional feature flags render only when enabled (#1835).
+# ---------------------------------------------------------------------------
+backend_env_value() {
+  # Prints one "<workload>/<container>=<value>" line per backend-image container
+  # that carries env var $1: the backend Deployment's containers AND init
+  # containers (the `migrate` init container) plus every CronJob container, all
+  # of which share the visiban.backendEnv block. Empty when absent everywhere.
+  # Extra args are helm flags. A render failure prints RENDER-ERROR so it never
+  # reads as "absent".
+  local name="$1" rendered
+  shift
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" "$@" 2>&1)" \
+    || { echo "RENDER-ERROR"; return 0; }
+  NAME="$name" yq '(select(.kind == "Deployment" and (.metadata.name | test("backend$"))) | .spec.template.spec | ((.containers // []) + (.initContainers // [])) | .[] | select(.env[].name == env(NAME)) | "deployment/" + .name + "=" + (.env[] | select(.name == env(NAME)) | .value)),
+      (select(.kind == "CronJob") | .spec.jobTemplate.spec.template.spec | ((.containers // []) + (.initContainers // [])) | .[] | select(.env[].name == env(NAME)) | "cronjob/" + .name + "=" + (.env[] | select(.name == env(NAME)) | .value))' <<< "$rendered" \
+    | grep -vE '^(---)?$' || true
+}
+
+check_feature_flags() {
+  section "17. MCP_SERVER_ENABLED / GIT_LENS_ENABLED render only when enabled, in every backend-image container (#1835)"
+  local got bad=0 pair name value
+  for pair in "MCP_SERVER_ENABLED:mcpServerEnabled" "GIT_LENS_ENABLED:gitLensEnabled"; do
+    name="${pair%%:*}"; value="${pair##*:}"
+    got="$(backend_env_value "$name")"
+    if [ -n "$got" ]; then
+      fail "$name renders by default, expected absent: $got"; bad=1
+    fi
+    got="$(backend_env_value "$name" --set "backend.settings.$value=false")"
+    if [ -n "$got" ]; then
+      fail "backend.settings.$value=false renders $name, expected absent: $got"; bad=1
+    fi
+    got="$(backend_env_value "$name" --set "backend.settings.$value=true")"
+    if [ "$got" = "RENDER-ERROR" ]; then
+      fail "backend.settings.$value=true does not render"; bad=1
+      continue
+    fi
+    # Every container that has the shared env block must carry the flag; the
+    # `migrate` init container (it applies the git_lens tables) and at least
+    # one CronJob must be among them.
+    if ! grep -qE '^deployment/backend=true$' <<< "$got"; then
+      fail "backend.settings.$value=true: the backend (daphne) container does not get $name=true: ${got:-<none>}"; bad=1
+    fi
+    if ! grep -qE '^deployment/migrate=true$' <<< "$got"; then
+      fail "backend.settings.$value=true: the migrate init container does not get $name=true: ${got:-<none>}"; bad=1
+    fi
+    if ! grep -qE '^cronjob/.*=true$' <<< "$got"; then
+      fail "backend.settings.$value=true: no CronJob container gets $name=true: ${got:-<none>}"; bad=1
+    fi
+    if grep -vqE '=true$' <<< "$got"; then
+      fail "backend.settings.$value=true renders a non-true $name: $got"; bad=1
+    fi
+  done
+  [ "$bad" -eq 0 ] && pass "MCP_SERVER_ENABLED and GIT_LENS_ENABLED are absent by default and when false, and true in the backend container, migrate init container and CronJobs when their backend.settings value is true"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -2203,6 +2259,7 @@ run_all_checks() {
   check_allowed_hosts_not_widened
   check_postgres_password_guard
   check_num_proxies_default
+  check_feature_flags
 }
 
 # ---------------------------------------------------------------------------
@@ -2329,6 +2386,15 @@ self_test() {
     "11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
+    # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
+    # in values never reaches the backend.
+    "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"
+    # 17 (#1835): the Git Lens flag is dropped from the shared env block, so the
+    # migrate init container (and CronJobs) no longer see it.
+    "17 gitLensEnabled not rendered|templates/_backend-env.tpl|s/{{- if \$ctx.Values.backend.settings.gitLensEnabled }}/{{- if false }}/"
+    # 17 (#1835): only the serving (daphne) container loses the flag; migrate and
+    # CronJobs keep it, so only the backend-container assertion can catch this.
+    "17 backend container renames MCP_SERVER_ENABLED|templates/backend-deployment.yaml|/command: \\[\"daphne\"/,/visiban.backendEnv/ s/{{- include \"visiban.backendEnv\" . | nindent 12 }}/{{- include \"visiban.backendEnv\" . | replace \"MCP_SERVER_ENABLED\" \"MCP_SERVER_ENABLE\" | nindent 12 }}/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
     # 12 (#1210, #1224): every overridable hardened workload (backend,
     # postgresql, frontend) loses its capability drop through their shared

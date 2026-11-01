@@ -138,7 +138,8 @@ data:
 
         # WebSocket (Django Channels)
         # MCP (Model Context Protocol) server — only reachable when the backend
-        # sets MCP_SERVER_ENABLED=true; otherwise Django 404s this path. The
+        # sets MCP_SERVER_ENABLED=true (backend.settings.mcpServerEnabled);
+        # otherwise Django 404s this path. The
         # Streamable HTTP transport holds a long-lived SSE response open, so
         # buffering is off and the read timeout matches /ws/ below. Without this
         # block /mcp would fall through to the SPA catch-all and never reach
