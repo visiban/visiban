@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import OverflowMenu from '../components/Layout/OverflowMenu'
 import ArchivedCardsPanel from '../components/Board/ArchivedCardsPanel'
@@ -333,6 +333,58 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
       // The server's list lost the deleted card, so the one surviving card
       // already loaded is the whole of the first page now.
       await waitFor(() => expect(mockGetArchivedCards).toHaveBeenLastCalledWith(1, 1))
+    })
+
+    // The two `+ pruned` terms keep total server-true while pruned cards are
+    // still held in the loaded list; dropping either under-counts the remainder.
+    const plusSwimlane = (b: BoardFull): BoardFull => ({
+      ...b, swimlanes: [...b.swimlanes, { ...b.swimlanes[0], id: 21, uid: 'laneuid00002' }],
+    })
+
+    it('counts pruned cards back in when the server count replaces the total (#1637)', async () => {
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, otherCard], 60))
+      const { rerender } = render(<ArchivedCardsPanel board={twoColumnBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      await waitFor(() => screen.getByText('Old feature'))
+
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([], 58))
+      rerender(<ArchivedCardsPanel board={{ ...twoColumnBoard, columns: twoColumnBoard.columns.filter((c) => c.id !== 10) }} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      // Server says 58 remain, 1 shown. (Before the count lands it reads 58.)
+      expect(await screen.findByText('Load more (57 remaining)')).toBeInTheDocument()
+    })
+
+    it('counts pruned cards back in when a Load more page re-syncs the total (#1637)', async () => {
+      const extra: Card = { ...archivedCard, id: 101, uid: 'carduid00101', column: 11, title: 'Extra' }
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, otherCard], 60))
+      const { rerender } = render(<ArchivedCardsPanel board={twoColumnBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      await waitFor(() => screen.getByText('Old feature'))
+
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([], 58))
+      rerender(<ArchivedCardsPanel board={{ ...twoColumnBoard, columns: twoColumnBoard.columns.filter((c) => c.id !== 10) }} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      await screen.findByText('Load more (57 remaining)')
+
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([extra], 58))
+      await userEvent.click(screen.getByText(/Load more/))
+      // 58 on the server, 2 shown.
+      expect(await screen.findByText('Load more (56 remaining)')).toBeInTheDocument()
+    })
+
+    it('ignores a count read that began before an unarchive finished (#1637)', async () => {
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, otherCard], 5))
+      let resolveUnarchive: (c: Card) => void = () => {}
+      mockUnarchiveCard.mockReturnValue(new Promise<Card>((r) => { resolveUnarchive = r }))
+      const { rerender } = render(<ArchivedCardsPanel board={twoColumnBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      await waitFor(() => screen.getByText('Old feature'))
+
+      await userEvent.click(screen.getAllByText('Unarchive')[0])
+      let resolveCount: (v: unknown) => void = () => {}
+      mockGetArchivedCards.mockReturnValueOnce(new Promise((r) => { resolveCount = r }))
+      rerender(<ArchivedCardsPanel board={plusSwimlane(twoColumnBoard)} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+
+      resolveUnarchive({ ...archivedCard, archived_at: null })
+      await waitFor(() => expect(screen.queryByText('Old feature')).not.toBeInTheDocument())
+      // A stale count (taken before the unarchive landed) must not win.
+      await act(async () => { resolveCount(makePage([], 99)) })
+      expect(screen.getByText('(4)')).toBeInTheDocument()
     })
 
     it('drops the Load more remainder when a container change shows no unloaded cards remain (#1637)', async () => {

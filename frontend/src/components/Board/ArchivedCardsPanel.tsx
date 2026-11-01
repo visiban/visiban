@@ -62,6 +62,11 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const total = Math.max(0, loadedTotal - pruned);
   const prunedRef = useRef(0);
   prunedRef.current = pruned;
+  // Bumped by every panel action that moves offset/total (Load more,
+  // unarchive). A server count read that started before the latest bump may
+  // predate that action's effect on the server's list, so applying it could
+  // leave total one low or revive a phantom remainder; discard it.
+  const totalSeq = useRef(0);
 
   // The client cannot know how many *unloaded* archived cards went with a
   // deleted container, so subtracting only the loaded ones leaves a phantom
@@ -78,20 +83,26 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   useEffect(() => {
     if (lastContainerKey.current === containerKey) return;
     lastContainerKey.current = containerKey;
+    const seq = totalSeq.current;
     getArchivedCards(board.id, 0)
-      .then((page) => setTotal(page.count + prunedRef.current))
+      .then((page) => {
+        if (seq !== totalSeq.current) return;
+        setTotal(page.count + prunedRef.current);
+      })
       .catch(() => {
         // Keep the local estimate; the next Load more re-syncs from the server.
       });
   }, [containerKey, board.id]);
 
   const handleLoadMore = () => {
+    totalSeq.current += 1;
     setLoadingMore(true);
     setLoadError(null);
     // Cards pruned above are gone from the server too, so the server's list
     // has shifted down by that many since they were loaded.
     getArchivedCards(board.id, Math.max(0, offset - pruned))
       .then((page) => {
+        totalSeq.current += 1;
         setCards((prev) => [...prev, ...page.results]);
         setOffset((prev) => prev + page.results.length);
         // Re-sync with the server so an empty page can never leave a phantom
@@ -105,8 +116,12 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const handleUnarchive = async (card: Card) => {
     setUnarchivingId(card.id);
     setRestoreError(null);
+    totalSeq.current += 1;
     try {
       const unarchived = await unarchiveCard(board.id, card.id);
+      // Bump again: a count read begun while the request was in flight may have
+      // been taken before the server applied it.
+      totalSeq.current += 1;
       setCards((prev) => prev.filter((c) => c.id !== card.id));
       setTotal((prev) => Math.max(0, prev - 1));
       // The server's list shrank by this card too; without this the next

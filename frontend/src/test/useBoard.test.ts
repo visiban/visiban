@@ -8,8 +8,9 @@ import type { BoardFull, Card, Column, Swimlane, Label } from '../types'
 const mockNavigate = vi.fn()
 
 // Mock react-router-dom
+let mockParamId = '1'
 vi.mock('react-router-dom', () => ({
-  useParams: () => ({ id: '1' }),
+  useParams: () => ({ id: mockParamId }),
   useNavigate: () => mockNavigate,
 }))
 
@@ -951,6 +952,41 @@ describe('useBoard', () => {
 
     await act(async () => { resolveCount({ count: 2, offset: 0, page_size: 50, results: [] }) })
     expect(result.current.board!.archived_card_count).toBe(3)
+  })
+
+  it('discards a count refresh overtaken by a full reload (#1637)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 2 }))
+    let resolveCount: (v: unknown) => void = () => {}
+    mockGetArchivedCards.mockReturnValue(new Promise((r) => { resolveCount = r }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictColumn('coluid000001') })
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 4 }))
+    await act(async () => { result.current.silentReload() })
+    await waitFor(() => expect(result.current.board!.archived_card_count).toBe(4))
+
+    await act(async () => { resolveCount({ count: 1, offset: 0, page_size: 50, results: [] }) })
+    expect(result.current.board!.archived_card_count).toBe(4)
+  })
+
+  it('never writes a late board A count onto board B (#1637)', async () => {
+    mockParamId = '1'
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 2 }))
+    let resolveCount: (v: unknown) => void = () => {}
+    mockGetArchivedCards.mockReturnValue(new Promise((r) => { resolveCount = r }))
+    const { result, rerender } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    act(() => { result.current.evictColumn('coluid000001') })
+
+    mockParamId = '2'
+    mockGetBoardFull.mockResolvedValue(makeBoard({ id: 2, archived_card_count: 7 }))
+    rerender()
+    await waitFor(() => expect(result.current.board!.id).toBe(2))
+
+    await act(async () => { resolveCount({ count: 1, offset: 0, page_size: 50, results: [] }) })
+    expect(result.current.board!.archived_card_count).toBe(7)
+    mockParamId = '1'
   })
 
   it('evictSwimlane removes the swimlane and its cards from state', async () => {

@@ -172,14 +172,23 @@ export function useBoard() {
   // caller's rollback un-applied.
   const loadPendingRef = useRef(false);
 
+  // Bumped by every other writer of archived_card_count: local archive and
+  // unarchive, and full reloads (which re-seed it from /full/). A page-0
+  // refresh whose response lands after one of those was computed before it,
+  // so applying it would overwrite the fresher count with a lower one - the
+  // unsafe under-count direction #1289 guards against. Discard such responses.
+  const archivedCountGen = useRef(0);
+
   const load = useCallback(() => {
     setLoading(true);
     const seq = ++fetchSeqRef.current;
     loadPendingRef.current = true;
+    archivedCountGen.current += 1;
     getBoardFull(boardId)
       .then((b) => {
         if (seq !== fetchSeqRef.current) return;
         loadPendingRef.current = false;
+        archivedCountGen.current += 1;
         setBoard(b);
       })
       .catch((err) => {
@@ -208,10 +217,12 @@ export function useBoard() {
   // to the user unless the board no longer exists or access was revoked.
   const silentReload = useCallback(() => {
     const seq = ++fetchSeqRef.current;
+    archivedCountGen.current += 1;
     getBoardFull(boardId)
       .then((b) => {
         if (seq !== fetchSeqRef.current) return;
         loadPendingRef.current = false;
+        archivedCountGen.current += 1;
         setBoard(b);
       })
       .catch((err) => {
@@ -417,25 +428,23 @@ export function useBoard() {
     setBoard((b) => b ? { ...b, cards: b.cards.filter((c) => c.id !== cardId) } : b);
   }, []);
 
-  // Bumped by every local archived_card_count mutation. A page-0 refresh whose
-  // response lands after a local archive/unarchive was computed before it, so
-  // applying it would overwrite the fresher local count with a lower one - the
-  // unsafe under-count direction #1289 guards against. Discard such responses.
-  const archivedCountGen = useRef(0);
   // Deleting a column or swimlane cascades to its archived cards, which the
   // client never holds (they are paged in only by ArchivedCardsPanel) and the
   // *.deleted event does not say how many there were (#1637). Guessing would
   // either under-count, which lets the Danger Zone skip typed confirmation, or
   // keep the stale overstated count. Ask the server for the authoritative
-  // count instead; it is one cheap page-0 request and only needed when the
-  // board had archived cards at all.
+  // count instead. That is one page-0 request, which serializes up to 50 full
+  // cards just to read `count` (the API has no count-only form), so it is only
+  // made when the board had archived cards at all.
   const refreshArchivedCount = useCallback(() => {
     if (!(boardRef.current?.archived_card_count)) return;
     const gen = archivedCountGen.current;
     getArchivedCards(boardId, 0)
       .then((page) => {
         if (gen !== archivedCountGen.current) return;
-        setBoard((b) => b ? { ...b, archived_card_count: page.count } : b);
+        // b.id guard: BoardProvider stays mounted across /boards/:id changes,
+        // so a late response for board A must never land on board B.
+        setBoard((b) => b && b.id === boardId ? { ...b, archived_card_count: page.count } : b);
       })
       .catch(() => {
         // Keep the previous count: it can only overstate, the safe direction.
@@ -705,8 +714,10 @@ export function useBoard() {
     // re-add it because the card has already left `cards`. A low count lets
     // the Danger Zone skip typed confirmation. Taking max(local, payload)
     // instead would go wrong the other way after an unarchive (a stale
-    // snapshot would re-raise the count). The archive/unarchive handlers are
-    // therefore the sole in-session authority; a full reload re-seeds it.
+    // snapshot would re-raise the count). The archive/unarchive handlers and
+    // refreshArchivedCount (guarded by archivedCountGen against being overtaken
+    // by them or by a reload) are therefore the only in-session writers; a full
+    // reload re-seeds it.
     const { archived_card_count: _ignored, ...rest } = patch;
     setBoard((b) => b ? { ...b, ...rest } : b);
   }, []);
