@@ -25,7 +25,7 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 - **WIP:** the number of cards, not archived, currently in each column that is not done.
 - **Cumulative flow:** for each day, the number of cards in each column at the end of that day.
 
-!!! note "Proposed in 1.3 (#1532)"
+!!! note "Decided in 1.3 (#1532)"
     The Summary and Analytics views below were built before these definitions, and some of their numbers differ. For example, the Summary view's `avg_cycle_days` starts at a card's first movement, and the heatmap's **Age** mode shows current dwell time. The decision record lists each difference. The 1.3 metrics dashboard (#448) brings them in line.
 
 ## Summary view
