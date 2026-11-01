@@ -94,7 +94,9 @@ def check_session_engine_supports_ws_revocation(app_configs, **kwargs):
             hint=(
                 "Use the default database session engine (or a cache engine). "
                 "To accept this deliberately, add \"accounts.W001\" to "
-                "SILENCED_SYSTEM_CHECKS. See docs/api/websockets.md."
+                "SILENCED_SYSTEM_CHECKS (set the SILENCED_SYSTEM_CHECKS "
+                "environment variable; Helm: backend.settings.silencedSystemChecks). "
+                "See docs/api/websockets.md."
             ),
             id="accounts.W001",
         )
@@ -386,8 +388,9 @@ def check_wildcard_allowed_hosts(app_configs, **kwargs):
             hint=(
                 "List your public origin (for example https://boards.example.com) "
                 "in CORS_ALLOWED_ORIGINS or CSRF_TRUSTED_ORIGINS, or list exact "
-                "hostnames in ALLOWED_HOSTS. Silence with "
-                "SILENCED_SYSTEM_CHECKS=['accounts.W002'] if intended. "
+                "hostnames in ALLOWED_HOSTS. If intended, silence with the "
+                "SILENCED_SYSTEM_CHECKS=accounts.W002 environment variable "
+                "(Helm: backend.settings.silencedSystemChecks). "
                 "See docs/api/websockets.md."
             ),
             id="accounts.W002",
