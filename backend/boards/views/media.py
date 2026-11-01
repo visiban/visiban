@@ -37,13 +37,19 @@ class ServeMediaView(APIView):
     ]
 
     def get(self, request, path):
-        try:
-            attachment = (
-                CardAttachment.objects
-                .select_related("card__board")
-                .get(file=path)
-            )
-        except CardAttachment.DoesNotExist:
+        # FileField has no uniqueness guarantee, so duplicate stored paths can
+        # exist; .get() would raise MultipleObjectsReturned (HTTP 500, #1945).
+        # Pick the oldest row (lowest pk) deterministically. The board-role
+        # check below runs against that same row, so authorization always
+        # applies to the attachment actually served.
+        attachment = (
+            CardAttachment.objects
+            .select_related("card__board")
+            .filter(file=path)
+            .order_by("pk")
+            .first()
+        )
+        if attachment is None:
             from django.http import Http404
             raise Http404
 

@@ -248,3 +248,36 @@ class ServeMediaXAccelRedirectTests(TestCase):
         response = ServeMediaView.as_view()(request, path=evil)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertNotIn("X-Accel-Redirect", response)
+
+
+class ServeMediaDuplicatePathTests(TestCase):
+    """#1945: duplicate stored file paths must not 500 the media lookup."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="dupowner", password="pass")
+        self.outsider = User.objects.create_user(username="dupoutsider", password="pass")
+        self.board, self.col, self.swim = _make_board(self.owner)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", priority="medium", position=0, created_by=self.owner,
+        )
+        f = SimpleUploadedFile("dup.pdf", b"%PDF-1.4 data", content_type="application/pdf")
+        self.first = CardAttachment.objects.create(
+            card=self.card, file=f, filename="dup.pdf", size=13, uploaded_by=self.owner,
+        )
+        # Second row pointing at the same stored path.
+        CardAttachment.objects.create(
+            card=self.card, file=self.first.file.name, filename="dup.pdf",
+            size=13, uploaded_by=self.owner,
+        )
+        self.client = APIClient()
+
+    def test_member_gets_200_not_500(self):
+        self.client.force_authenticate(self.owner)
+        r = self.client.get(f"/media/{self.first.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_non_member_still_404(self):
+        self.client.force_authenticate(self.outsider)
+        r = self.client.get(f"/media/{self.first.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
