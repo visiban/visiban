@@ -4575,7 +4575,7 @@
 </table>
 <hr />
 <h3 id="put-apiv1git-lensconnectionsboard_id"><code>PUT /api/v1/git-lens/connections/{board_id}/</code><a class="headerlink" href="#put-apiv1git-lensconnectionsboard_id" title="Permanent link">&para;</a></h3>
-<p>Create or replace the LensConnection for a board. If no connection exists, one is created; if one already exists, it is replaced in full.</p>
+<p>Create or replace the LensConnection for a board. If no connection exists, one is created; if one already exists, <code>provider</code> and <code>repo_slug</code> are replaced and any optional field you omit <strong>keeps its stored value</strong>.</p>
 <p><strong>Permissions:</strong> Board admin, board owner, or site admin. Board members without admin role receive <code>403 Forbidden</code>.</p>
 <p><strong>Request body</strong></p>
 <table>
@@ -4614,6 +4614,7 @@
 </tr>
 </tbody>
 </table>
+<p><strong>Omitted optional fields:</strong> on an existing connection, an omitted <code>column_dim</code> or <code>swimlane_dim</code> is left unchanged. The defaults above apply only when the connection is first created. Send the field explicitly to change it.</p>
 <p><strong>Example request</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"provider"</span><span class="p">:</span><span class="w"> </span><span class="s2">"github"</span><span class="p">,</span>
