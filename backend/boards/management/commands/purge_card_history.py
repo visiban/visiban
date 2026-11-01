@@ -335,6 +335,10 @@ class Command(BaseCommand):
             card_uid=card_uid, board=board, since=since, before=before,
             include_live=include_live,
         )
+        uidless = self._uidless_count(
+            card_uid=card_uid, board=board, since=since, before=before,
+            include_live=include_live,
+        )
 
         if not options["yes"]:
             count = rows.count()
@@ -349,6 +353,7 @@ class Command(BaseCommand):
                 f"({cards} card(s), {boards} board(s)) and redact {event_count} "
                 "change-feed event(s). Re-run with --yes to delete."
             )
+            self._warn_uidless(uidless)
             return
 
         selector = {
@@ -406,13 +411,15 @@ class Command(BaseCommand):
                 f"No {scope}, block row(s) or change-feed events matched; nothing "
                 "deleted, nothing recorded."
             )
+        self._warn_uidless(uidless)
 
-    def _feed_events(self, *, card_uid, board, since, before, include_live):
-        """The unredacted feed rows holding content of the selected cards.
+    def _feed_scope(self, *, board, since, before):
+        """Unredacted card-content feed rows within the board and date bounds.
 
+        Annotated with ``_card_uid``, the card uid read out of the payload.
         Every condition is a database filter (module docstring): the indexed
-        ``board_id`` and ``created_at`` first, then the card's uid read out of
-        the payload, so only matching rows ever leave the database.
+        ``board_id`` and ``created_at`` first, then the uid, so only matching
+        rows ever leave the database.
         """
         events = BoardEvent.objects.filter(
             event__in=_CARD_CONTENT_EVENTS, redacted_at__isnull=True,
@@ -426,12 +433,16 @@ class Command(BaseCommand):
         # A card payload event carries its card at the top level; card.moved
         # nests it under "card". Neither has the other's key, so the first
         # non-null of the two is the row's card uid.
-        events = events.annotate(
+        return events.annotate(
             _card_uid=Coalesce(
                 KeyTextTransform("uid", "data"),
                 KeyTextTransform("uid", KeyTransform("card", "data")),
             )
         )
+
+    def _feed_events(self, *, card_uid, board, since, before, include_live):
+        """The unredacted feed rows holding content of the selected cards."""
+        events = self._feed_scope(board=board, since=since, before=before)
         if card_uid is not None:
             events = events.filter(_card_uid=card_uid)
         elif not include_live:
@@ -443,6 +454,30 @@ class Command(BaseCommand):
                 ~Exists(Card.objects.filter(uid=OuterRef("_card_uid")))
             )
         return events.order_by("pk")
+
+    def _uidless_count(self, *, card_uid, board, since, before, include_live):
+        """How many in-scope card events have no card uid and so were skipped.
+
+        Only ``--board`` with ``--include-live-cards`` (no ``--card``) matches
+        such rows. Under any other selector they are left unredacted because
+        nothing ties them to the selected card, which would make a run that
+        reports "redacted N" look complete when it is not (1.2 pre-release MCP
+        writes stored card events without a uid). Counting them lets the
+        output say so; the rows themselves, and their content, never leave
+        the database.
+        """
+        if include_live and card_uid is None:
+            return 0
+        scope = self._feed_scope(board=board, since=since, before=before)
+        return scope.filter(_card_uid__isnull=True).count()
+
+    def _warn_uidless(self, count):
+        if count:
+            self.stdout.write(
+                f"Note: {count} change-feed card event(s) in this scope have no "
+                "card uid in their payload and were not matched. See "
+                "docs/administration/card-history-retention.md."
+            )
 
     def _redact(self, events):
         """Null the card content of every row in *events*; return the count.

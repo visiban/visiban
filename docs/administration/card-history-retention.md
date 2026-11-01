@@ -100,7 +100,7 @@ The selector that picks movement records also picks the card's [change-feed](../
 - the `ref` and `url` of `external_ref` (`provider` stays);
 - in `card.moved`, the movement's `card_title` and `notes`, and the same card fields inside `card`.
 
-**What stays:** every key, the card's `uid` and `id`, its column, swimlane, labels and position, and the event's ID, type, actor and time. The event's `redacted_at` field shows when it was redacted. `card.deleted` and `card.archived` events carry only the card UID and are not changed.
+**What stays:** every key; the card's `uid` and `id`, column, swimlane, position, labels, priority, due date and weight; its assignee and creator; in `card.moved`, the movement's columns, swimlanes, mover and time; and the event's ID, type, actor and time. The event's `redacted_at` field shows when it was redacted. `card.deleted` and `card.archived` events carry only the card UID and are not changed.
 
 How the selector applies to events:
 
@@ -110,7 +110,7 @@ How the selector applies to events:
 - **Deleted cards only, by default.** Without `--include-live-cards`, an event matches only when no card with its UID exists.
 - **Events match on their own.** A card whose movement records an earlier run already deleted, for example a purge made with 1.2, still has its events redacted when you run the command for it again. An event already redacted is skipped, so re-running a purge changes nothing and records nothing.
 
-**Watch out:** an event with no card UID in its payload matches only `--board` with `--include-live-cards`, which also deletes the history of every live card on that board. The MCP write tools recorded card events in that form in 1.2 pre-releases (fixed by #1926). To remove those events without that, run [`prune_board_events`](scheduled-jobs.md).
+**Watch out:** an event with no card UID in its payload matches only `--board` with `--include-live-cards`, which also deletes the history of every live card on that board. The MCP write tools recorded card events in that form in 1.2 pre-releases (fixed by #1926). When the selected board and date range hold such events, the dry run and the purge both print how many were not matched. To remove them without redacting live cards, run [`prune_board_events`](scheduled-jobs.md).
 
 **Yes, but:** a purge with `--card` and no `--board` reads every card event in the feed, because the event payload is not indexed. Add `--board` when you know the board.
 

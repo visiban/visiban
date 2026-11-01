@@ -307,6 +307,29 @@ class SelectorTests(FeedRedactionBase):
             r.redacted_at is not None for r in self._rows(uid) if r.event in CONTENT_EVENTS
         ))
 
+    def test_uidless_rows_in_scope_are_reported_not_hidden(self):
+        # A run that skips rows it cannot tie to the card must say so, or
+        # "redacted N" reads as a complete erasure.
+        BoardEvent.objects.create(
+            board_id=self.board.pk, event="card.updated",
+            data={"id": 999999, "title": "legacy 1816"},
+        )
+        BoardEvent.objects.create(
+            board_id=self.other_board.pk, event="card.updated",
+            data={"id": 999998, "title": "legacy elsewhere 1816"},
+        )
+        uid = self._card_lifecycle(self.board)
+
+        dry = self._run("--card", uid, "--board", str(self.board.pk))
+        real = self._run("--card", uid, "--board", str(self.board.pk), "--yes")
+
+        for out in (dry, real):
+            self.assertIn("Note: 1 change-feed card event(s)", out)
+            self.assertNotIn("legacy", out)
+        # --board with --include-live-cards does match them, so no note.
+        out = self._run("--board", str(self.board.pk), "--include-live-cards", "--yes")
+        self.assertNotIn("Note:", out)
+
     def test_feed_rows_are_redacted_after_movements_were_already_purged(self):
         # A card purged by the 1.2 command (movements only) still has its
         # feed rows matched on a re-run: events are selected on their own.
