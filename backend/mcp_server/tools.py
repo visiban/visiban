@@ -52,7 +52,7 @@ from boards.permissions import (
     GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role, get_board_roles,
 )
 from boards.serializers import (
-    CardMovementSerializer, CardSerializer, _card_checklist_items, _card_movements,
+    CardMovementSerializer, CardSerializer, _card_checklist_items,
     _card_queryset,
 )
 from boards.services import cards as card_services
@@ -1146,7 +1146,11 @@ def card_detail(*, card_id):
     data["archived_at"] = card.archived_at.isoformat() if card.archived_at else None
     # Read the lists _card_queryset() parks with to_attr (#1212); the managers'
     # .all() would miss them and query again.
-    data["movements"] = [_serialize_movement(m) for m in _card_movements(card)]
+    # The full history is the one reader that needs every movement, so it is
+    # fetched here for this single card rather than prefetched for every card
+    # a list read serves (#1883).
+    movements = CardMovement.objects.filter(card=card).select_related("moved_by").order_by("-moved_at")
+    data["movements"] = [_serialize_movement(m) for m in movements]
     data["checklist_items"] = [_serialize_checklist_item(i) for i in _card_checklist_items(card)]
     data["activities"] = [
         _serialize_activity(a)

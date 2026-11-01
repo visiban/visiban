@@ -741,6 +741,9 @@ class Command(BaseCommand):
         # Movement timestamps use today's date in normal runs so analytics
         # windows (7d, 30d, 90d) always show recent data.
         self._movement_anchor = timezone.now().date()  # UTC, same clock as _due_date_anchor
+        # The --scale > 1 load-test fixture gives every card a deep movement
+        # history (#1883); see _add_rework_movements().
+        self._deep_history = options["scale"] > 1
 
         # Production guard: refuse to run on any non-DEBUG environment unless
         # --force is explicitly passed. This applies to both plain runs (which
@@ -1828,6 +1831,47 @@ class Command(BaseCommand):
             )
             # Back-fill moved_at; auto_now_add=True ignores values at create time.
             CardMovement.objects.filter(pk=mv.pk).update(moved_at=moved_at)
+
+        if getattr(self, "_deep_history", False) and col_idx > 0:
+            self._add_rework_movements(card, pipeline, users, created_at)
+
+    REWORK_MOVEMENTS = 10
+
+    def _add_rework_movements(self, card, pipeline, users, created_at):
+        """Add ``REWORK_MOVEMENTS`` back-and-forth moves right after creation.
+
+        Real cards accumulate ~10+ lifetime movements (rework, re-triage), and
+        a read that loads the whole history per card is invisible to
+        query-count guards (#1883). The nightly load test seeds this depth so
+        a regression back to loading every movement shows up as latency. The
+        moves are dated hours after creation, which is always earlier than the
+        first real stage transition, so ``last_moved_at`` and the card's
+        current column are unchanged. No randomness is consumed, so the rest
+        of the seeded fixture is identical to a run without this.
+        """
+        first, second = pipeline[0], pipeline[1]
+        for i in range(self.REWORK_MOVEMENTS):
+            from_col, to_col = (first, second) if i % 2 == 0 else (second, first)
+            mv = CardMovement.objects.create(
+                card=card,
+                from_column=from_col,
+                to_column=to_col,
+                from_swimlane=card.swimlane,
+                to_swimlane=card.swimlane,
+                from_column_name=from_col.name,
+                to_column_name=to_col.name,
+                from_column_uid=from_col.uid,
+                to_column_uid=to_col.uid,
+                from_swimlane_name=card.swimlane.name,
+                to_swimlane_name=card.swimlane.name,
+                from_swimlane_uid=card.swimlane.uid,
+                to_swimlane_uid=card.swimlane.uid,
+                moved_by=users[i % len(users)],
+                notes="",
+            )
+            CardMovement.objects.filter(pk=mv.pk).update(
+                moved_at=created_at + datetime.timedelta(hours=i + 1)
+            )
 
     def _add_activity(self, card, users, write=True):
         """Add one field-change activity record.

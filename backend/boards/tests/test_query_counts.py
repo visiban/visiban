@@ -805,7 +805,6 @@ class ParkedPrefetchQueryCountTests(TestCase):
     PARKED_ATTRS = (
         "_prefetched_attachments",
         "_prefetched_checklist_items",
-        "_prefetched_movements",
         "_prefetched_custom_field_values",
         "_prefetched_labels",
     )
@@ -838,8 +837,9 @@ class ParkedPrefetchQueryCountTests(TestCase):
             board_serializers.PublicBoardSerializer(self.board).data
         self.assertTrue(captured["cards"])
         for card in captured["cards"]:
-            # The public payload reads only checklist items and movements.
-            for attr in ("_prefetched_checklist_items", "_prefetched_movements"):
+            # The public payload reads checklist items; movements are no
+            # longer loaded at all (#1883) -- see test_movements_not_loaded.py.
+            for attr in ("_prefetched_checklist_items",):
                 self.assertIsInstance(
                     card.__dict__.get(attr), list,
                     f"PublicBoardSerializer.get_cards() no longer parks {attr} "
@@ -1596,7 +1596,7 @@ class CardMutationQueryCountTests(TestCase):
     BUDGET_CREATE = 41              # measured 38 (36 pre-#1632, 33 pre-#449, 31 pre-#371)
     # +1 on update (#1587): update_card locks the card row before the write so
     # a concurrent hard delete cannot be undone by save()'s INSERT fallback.
-    BUDGET_UPDATE = 37              # measured 34 (32 pre-#1632, 31 pre-#1587, 28 pre-#449, 26 pre-#371)
+    BUDGET_UPDATE = 35              # measured 32 (34 pre-#1883, 32 pre-#1632, 31 pre-#1587, 28 pre-#449, 26 pre-#371)
     BUDGET_MOVE_COLUMN_CHANGE = 30  # measured 27 (was 25 pre-#449, 24 pre-#371)
     BUDGET_MOVE_REORDER = 25        # measured 22 (was 20 pre-#449, 19 pre-#371)
     # Archive, unarchive and destroy each carry one further query: the lookup
@@ -1727,9 +1727,11 @@ class CardMutationQueryCountTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(
             # 34 = 31 + the card row lock update_card takes first (#1587)
-            # + the board row FOR SHARE and the label_ids re-read (#1632).
-            len(ctx), 34,
-            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 34. "
+            # + the board row FOR SHARE and the label_ids re-read (#1632)
+            # - the two movements prefetches (card fetch + response re-fetch)
+            # that last-move subquery annotations replaced (#1883).
+            len(ctx), 32,
+            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 32. "
             "If this grew by exactly one, check for a reader that fell back "
             "from a to_attr-parked list to the manager's .all() (#1223); if "
             "it is a legitimate change, re-measure and move this number in "

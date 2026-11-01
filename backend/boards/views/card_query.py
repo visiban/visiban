@@ -43,7 +43,7 @@ from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
     ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
-    _card_attachments, _card_checklist_items, _card_movements, _card_queryset,
+    _card_attachments, _card_checklist_items, _card_queryset, _last_moved_at,
     _last_move_is_creation,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
@@ -142,13 +142,12 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # its type hints.
         # The _card_* accessors read the lists _card_queryset() parks with
         # to_attr (#1212) — obj.<relation>.all() would miss them.
-        movements = _card_movements(obj)
-        return movements[0].moved_at if movements else None
+        return _last_moved_at(obj)
 
     def get_last_move_is_creation(self, obj) -> bool:
         # Present because CardQuerySerializerFieldParityTests requires this
         # field set to stay in step with CardSerializer's readable fields.
-        # Reads the movements _card_queryset() already prefetches — no query.
+        # Reads the last-move annotations _card_queryset() adds — no query.
         return _last_move_is_creation(obj)
 
     def get_attachment_count(self, obj) -> int:
@@ -174,15 +173,15 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # which is correct only when every card belongs to the same board. A
         # cross-board page can mix boards with different
         # staleness_threshold_days, so each row must use its own board's
-        # threshold. obj.board is select_related and obj.movements is
-        # prefetched by _card_queryset(), so this costs Python time, not
+        # threshold. obj.board is select_related and the newest movement is
+        # annotated by _card_queryset(), so this costs Python time, not
         # queries — the per-row branch here does not affect the query-count
         # guard.
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        movements = _card_movements(obj)
-        if movements:
-            return movements[0].moved_at < cutoff
+        last_moved_at = _last_moved_at(obj)
+        if last_moved_at is not None:
+            return last_moved_at < cutoff
         return (timezone.now() - obj.created_at).days >= threshold
 
 

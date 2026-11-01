@@ -2102,6 +2102,35 @@ class CardRelationCreateSerializer(serializers.Serializer):
         return attrs
 
 
+_LAST_MOVE_ATTRS = ("_last_moved_at", "_last_move_type", "_last_move_from_column_name")
+
+
+def _annotate_last_move(qs):
+    """Annotate the newest movement's three read fields onto each card (#1883).
+
+    Every card-serving read needs only the newest ``CardMovement`` (for
+    ``last_moved_at``, ``last_move_is_creation`` and the ``is_stale``
+    fallback), but prefetching ``movements`` instantiated every lifetime row
+    with joined FKs per request. Correlated subqueries compiled into the main
+    SELECT carry just those three values instead; ``CardMovement`` is
+    append-only so cost no longer grows with history. Ties on ``moved_at`` are
+    broken by ``-id`` so the choice is deterministic.
+
+    Applied unconditionally by ``_card_queryset`` and the public share-link
+    queryset: ``_last_move()`` falls back to the (slow) movements relation for
+    an unannotated card so a missed queryset is slow, never wrong.
+    """
+    from .models import CardMovement as _CM
+    latest = _CM.objects.filter(card=_db_models.OuterRef("pk")).order_by("-moved_at", "-id")
+    return qs.annotate(
+        _last_moved_at=_db_models.Subquery(latest.values("moved_at")[:1]),
+        _last_move_type=_db_models.Subquery(latest.values("movement_type")[:1]),
+        _last_move_from_column_name=_db_models.Subquery(
+            latest.values("from_column_name")[:1]
+        ),
+    )
+
+
 def _annotate_is_stale(qs, stale_cutoff):
     """Annotate the queryset with ``_is_stale_annotated`` at the SQL level.
 
@@ -2263,10 +2292,44 @@ def _card_checklist_items(card):
 
 
 def _card_movements(card):
-    """Movements newest-first when parked by ``_card_queryset``/the public
-    board path, so ``[0]`` is the most recent one (the prefetch queryset's
-    ``order_by("-moved_at")`` is applied before the list is parked)."""
+    """The card's full movement list, newest-first when parked.
+
+    No longer parked by ``_card_queryset`` or the public board path (#1883):
+    the card-serving reads only need the newest row, which ``_last_move()``
+    serves from annotations. Callers that genuinely need the history (the MCP
+    ``card_detail`` resource) fetch it explicitly. A parked list, if present,
+    is newest-first.
+    """
     return _parked_or_manager(card, _PARKED_MOVEMENTS, "movements")
+
+
+def _last_move(card):
+    """Return ``(moved_at, movement_type, from_column_name)`` of the newest
+    movement, or ``None`` when the card has never moved (#1883).
+
+    Reads the ``_annotate_last_move`` annotations when present. A card that
+    did not come through an annotating queryset (a cold single-card path or a
+    hand-built queryset) falls back to the movements relation so the answer is
+    identical, merely costing a query.
+    """
+    if hasattr(card, "_last_moved_at"):
+        if card._last_moved_at is None:
+            return None
+        return (card._last_moved_at, card._last_move_type, card._last_move_from_column_name)
+    movements = _card_movements(card)
+    if not movements:
+        return None
+    latest = (
+        movements[0]
+        if getattr(card, _PARKED_MOVEMENTS, None) is not None
+        else max(movements, key=lambda m: (m.moved_at, m.pk))
+    )
+    return (latest.moved_at, latest.movement_type, latest.from_column_name)
+
+
+def _last_moved_at(card):
+    last = _last_move(card)
+    return last[0] if last else None
 
 
 def _last_move_is_creation(card) -> bool:
@@ -2279,14 +2342,10 @@ def _last_move_is_creation(card) -> bool:
     column is deleted. Shared by CardSerializer, PublicCardSerializer and
     CardQuerySerializer so the three read paths cannot drift.
     """
-    movements = _card_movements(card)
-    if not movements:
+    last = _last_move(card)
+    if last is None:
         return False
-    latest = movements[0]
-    return (
-        latest.movement_type == CardMovement.MovementType.MOVE
-        and latest.from_column_name == ""
-    )
+    return last[1] == CardMovement.MovementType.MOVE and last[2] == ""
 
 
 def _card_custom_field_values(card):
@@ -2360,11 +2419,12 @@ def _card_queryset(qs, stale_cutoff=None):
     Centralised here so CardViewSet, BoardFullSerializer, and the archived
     action all use identical prefetches — avoids drift that reintroduces N+1s.
 
-    Movements are prefetched ordered by -moved_at so that serializer methods
-    that need the most-recent movement can use ``_card_movements(card)[0]``
-    without issuing an additional ORDER BY + LIMIT 1 query per card.
+    Movements are deliberately NOT prefetched (#1883): every reader needs only
+    the newest one, so ``_annotate_last_move`` carries its three fields as
+    subquery annotations and ``_last_move(card)`` reads them. Loading the full
+    history made cost grow with total movements, not card count.
 
-    labels, attachments, checklist_items, movements and custom_field_values
+    labels, attachments, checklist_items and custom_field_values
     are parked on plain list attributes with ``to_attr`` (#1212, labels added
     #1223) — read them through the ``_card_*`` accessors above, never
     ``card.<relation>.all()``, which would miss the parked list and query once
@@ -2378,7 +2438,6 @@ def _card_queryset(qs, stale_cutoff=None):
     serializers that do not have access to the board settings) — in that case
     the serializer falls back to per-row logic.
     """
-    from .models import CardMovement as _CM
     qs = (
         qs
         # external_ref (#352) is a reverse OneToOne, so it rides the same
@@ -2400,13 +2459,6 @@ def _card_queryset(qs, stale_cutoff=None):
                 "checklist_items",
                 queryset=CardChecklist.objects.select_related("created_by"),
                 to_attr=_PARKED_CHECKLIST_ITEMS,
-            ),
-            Prefetch(
-                "movements",
-                queryset=_CM.objects.select_related(
-                    "moved_by", "from_column", "to_column", "from_swimlane", "to_swimlane"
-                ).order_by("-moved_at"),
-                to_attr=_PARKED_MOVEMENTS,
             ),
             # Custom field values (#371). One query for the whole page, with the
             # definition joined so CardSerializer never resolves a per-row FK,
@@ -2431,6 +2483,7 @@ def _card_queryset(qs, stale_cutoff=None):
             _active_blockers_prefetch(),
         )
     )
+    qs = _annotate_last_move(qs)
     if stale_cutoff is not None:
         qs = _annotate_is_stale(qs, stale_cutoff)
     return qs
@@ -2717,8 +2770,7 @@ class CardSerializer(serializers.ModelSerializer):
         # and without the hint drf-spectacular defaulted this to a
         # non-nullable "string", producing a schema that a strict client
         # (e.g. a generated TS type) would reject on every unmoved card.
-        movements = _card_movements(obj)
-        return movements[0].moved_at if movements else None
+        return _last_moved_at(obj)
 
     def get_last_move_is_creation(self, obj) -> bool:
         return _last_move_is_creation(obj)
@@ -2745,12 +2797,12 @@ class CardSerializer(serializers.ModelSerializer):
         # Fallback: per-row logic for callers that built the queryset without a
         # stale_cutoff (e.g. single-card re-fetch after a move or archive).
         # obj.board requires select_related("board") on the queryset.
-        # _card_movements() reads the parked prefetch (ordered by -moved_at).
+        # _last_moved_at() reads the _annotate_last_move annotation (#1883).
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        movements = _card_movements(obj)
-        if movements:
-            return movements[0].moved_at < cutoff
+        last_moved_at = _last_moved_at(obj)
+        if last_moved_at is not None:
+            return last_moved_at < cutoff
         return (timezone.now() - obj.created_at).days >= threshold
 
 
@@ -3917,9 +3969,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_last_moved_at(self, obj):
-        # movements are prefetched ordered by -moved_at; index [0] is the most recent.
-        movements = _card_movements(obj)
-        return movements[0].moved_at if movements else None
+        return _last_moved_at(obj)
 
     def get_last_move_is_creation(self, obj) -> bool:
         return _last_move_is_creation(obj)
@@ -3934,9 +3984,9 @@ class PublicCardSerializer(serializers.ModelSerializer):
         # via select_related("board") in the public get_cards() prefetch.
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        movements = _card_movements(obj)
-        if movements:
-            return movements[0].moved_at < cutoff
+        last_moved_at = _last_moved_at(obj)
+        if last_moved_at is not None:
+            return last_moved_at < cutoff
         return (timezone.now() - obj.created_at).days >= threshold
 
 
@@ -3972,13 +4022,6 @@ class PublicBoardSerializer(serializers.ModelSerializer):
                 Prefetch("labels", to_attr=_PARKED_LABELS),
                 # Parked with to_attr, same as _card_queryset (#1212).
                 Prefetch("checklist_items", to_attr=_PARKED_CHECKLIST_ITEMS),
-                # Ordered newest-first so index [0] gives the most recent movement,
-                # matching the logic in get_last_moved_at / get_is_stale.
-                Prefetch(
-                    "movements",
-                    queryset=CardMovement.objects.order_by("-moved_at"),
-                    to_attr=_PARKED_MOVEMENTS,
-                ),
                 # Shared with _card_queryset so the public board's blocked
                 # indicator matches the authenticated one exactly (#449).
                 # Without this the public path would issue one COUNT(*) per
@@ -3990,7 +4033,7 @@ class PublicBoardSerializer(serializers.ModelSerializer):
         # reads a pre-computed boolean rather than calling timezone.now() per
         # card (#926, mirrors CardSerializer at line 524).
         stale_cutoff = timezone.now() - datetime.timedelta(days=obj.staleness_threshold_days)
-        qs = _annotate_is_stale(qs, stale_cutoff)
+        qs = _annotate_last_move(_annotate_is_stale(qs, stale_cutoff))
         return PublicCardSerializer(qs, many=True).data
 
 
