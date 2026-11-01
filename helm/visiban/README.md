@@ -137,7 +137,7 @@ edge before Django could return a message naming the real limit.
 **Optional database connection pool.** `backend.settings.dbPool.enabled`
 (default `false`) sets `DATABASE_POOL`, with `minSize`/`maxSize` mapping to
 `DATABASE_POOL_MIN_SIZE`/`DATABASE_POOL_MAX_SIZE`. The pool is per backend
-process: keep `maxSize` x processes per pod x `backend.replicaCount` below
+process: keep `maxSize` x processes per pod x `backendReplicaCount` below
 PostgreSQL `max_connections`.
 
 ## Pod security

@@ -432,6 +432,7 @@ class DatabasePoolTests(SimpleTestCase):
         cfg = settings_module._apply_database_pool(self._cfg(self.PG), True, 3, 7)
         self.assertEqual(cfg["OPTIONS"]["pool"], {"min_size": 3, "max_size": 7})
         self.assertEqual(cfg["CONN_MAX_AGE"], 0)
+        self.assertIs(cfg["CONN_HEALTH_CHECKS"], True)
 
     def test_enabled_preserves_existing_options(self):
         cfg = settings_module._apply_database_pool(self._cfg(self.PG + "?sslmode=require"), True, 2, 10)

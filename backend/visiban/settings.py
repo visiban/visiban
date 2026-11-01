@@ -181,6 +181,9 @@ def _apply_database_pool(db_config: dict, enabled: bool, min_size: int, max_size
             "DATABASE_POOL_MIN_SIZE must be >= 1 and DATABASE_POOL_MAX_SIZE must be >= DATABASE_POOL_MIN_SIZE."
         )
     db_config["CONN_MAX_AGE"] = 0
+    # Without this Django passes check=None to the pool, so a connection that
+    # died (PostgreSQL restart, failover) is handed out and fails the request.
+    db_config["CONN_HEALTH_CHECKS"] = True
     db_config["OPTIONS"] = {**db_config.get("OPTIONS", {}), "pool": {"min_size": min_size, "max_size": max_size}}
     return db_config
 

@@ -75,7 +75,7 @@ backend:
     importMaxSizeBytes: 26214400
     # Opt-in PostgreSQL connection pool (DATABASE_POOL, #1958). Off by default:
     # each request then opens its own connection. The pool is per backend
-    # process, so keep maxSize x processes per pod x backend.replicaCount below
+    # process, so keep maxSize x processes per pod x backendReplicaCount below
     # PostgreSQL max_connections.
     dbPool:
       enabled: false

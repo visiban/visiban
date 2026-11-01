@@ -41,6 +41,7 @@ from boards.management.commands.migrate_with_lock import (
     _connect_timeout_from_env,
     _lock_timeout_from_env,
     _positive_int,
+    _create_unpooled_connection,
     _unpooled_settings,
 )
 
@@ -78,6 +79,36 @@ class UnpooledLockConnectionTests(SimpleTestCase):
 
     def test_missing_options_is_tolerated(self):
         self.assertEqual(_unpooled_settings({"ENGINE": "x"})["OPTIONS"], {})
+
+
+class LockConnectionIsUnpooledTests(SimpleTestCase):
+    """handle() must take the lock on a never-pooled connection (#1958). No PostgreSQL needed."""
+
+    databases = {DEFAULT_DB_ALIAS}
+
+    def test_factory_strips_pool_from_a_real_wrapper(self):
+        settings_dict = connections.settings[DEFAULT_DB_ALIAS]
+        pooled = {**settings_dict, "OPTIONS": {**settings_dict.get("OPTIONS", {}), "pool": {"min_size": 2, "max_size": 10}}}
+        with patch.dict(connections.settings, {DEFAULT_DB_ALIAS: pooled}):
+            conn = _create_unpooled_connection()
+        self.assertNotIn("pool", conn.settings_dict["OPTIONS"])
+
+    def test_handle_uses_the_unpooled_factory_not_create_connection(self):
+        from boards.management.commands import migrate_with_lock as mod
+
+        fake = patch.object(mod, "_create_unpooled_connection")
+        with (
+            patch.object(type(connections[DEFAULT_DB_ALIAS]), "vendor", "postgresql"),
+            patch.object(mod.Command, "_wait_for_database"),
+            patch.object(mod.Command, "_acquire_lock"),
+            patch.object(mod.Command, "_release_lock"),
+            patch.object(mod, "call_command"),
+            patch.object(connections, "create_connection") as pooled_factory,
+            fake as unpooled_factory,
+        ):
+            call_command("migrate_with_lock", stdout=StringIO())
+        unpooled_factory.assert_called_once_with()
+        pooled_factory.assert_not_called()
 
 
 class PositiveIntTests(TransactionTestCase):

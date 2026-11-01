@@ -2298,6 +2298,25 @@ check_db_pool() {
   if ! grep -qE '^deployment/backend=true$' <<< "$got"; then
     fail "backend.settings.dbPool.enabled=true: the backend container does not get DATABASE_POOL=true: ${got:-<none>}"; bad=1
   fi
+  # Distinct values so a min/max swap fails.
+  local sizes=(--set backend.settings.dbPool.enabled=true --set backend.settings.dbPool.minSize=3 --set backend.settings.dbPool.maxSize=7)
+  got="$(backend_env_value DATABASE_POOL_MIN_SIZE "${sizes[@]}")"
+  if ! grep -qE '^deployment/backend=3$' <<< "$got" || grep -vqE '=3$' <<< "$got"; then
+    fail "dbPool.minSize=3 does not render DATABASE_POOL_MIN_SIZE=3 everywhere: ${got:-<none>}"; bad=1
+  fi
+  got="$(backend_env_value DATABASE_POOL_MAX_SIZE "${sizes[@]}")"
+  if ! grep -qE '^deployment/backend=7$' <<< "$got" || grep -vqE '=7$' <<< "$got"; then
+    fail "dbPool.maxSize=7 does not render DATABASE_POOL_MAX_SIZE=7 everywhere: ${got:-<none>}"; bad=1
+  fi
+  # minSize above maxSize (also minSize 11 against the default maxSize 10) must fail the render.
+  got="$(backend_env_value DATABASE_POOL --set backend.settings.dbPool.enabled=true --set backend.settings.dbPool.minSize=8 --set backend.settings.dbPool.maxSize=4)"
+  if [ "$got" != "RENDER-ERROR" ]; then
+    fail "dbPool.minSize=8 > maxSize=4 should fail the render but did not: ${got:-<none>}"; bad=1
+  fi
+  got="$(backend_env_value DATABASE_POOL --set backend.settings.dbPool.enabled=true --set backend.settings.dbPool.minSize=11)"
+  if [ "$got" != "RENDER-ERROR" ]; then
+    fail "dbPool.minSize=11 with the default maxSize 10 should fail the render but did not: ${got:-<none>}"; bad=1
+  fi
   [ "$bad" -eq 0 ] && pass "DATABASE_POOL is absent by default and with dbPool null, and true in the backend container when enabled"
 }
 
