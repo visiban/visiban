@@ -253,9 +253,11 @@ def _provider_get(url, *, headers, params, raise_for, provider, kind, repo):
     the hardcoded-host defense. Neither provider API redirects on these paths, so a
     3xx is an upstream error: both ``raise_for`` callbacks reject any non-200
     status, mapping it to ``LensError`` (the ``http_error`` outcome) instead of
-    reading a redirect body as success. Otherwise the call is a pass-through (same
-    url, headers, params and timeout) and this only observes. ``repo`` is the board-admin-configured public
-    slug. The token lives only inside ``headers``, which are never logged.
+    reading a redirect body as success. Redirects are therefore no longer followed
+    transparently: a moved or renamed repository now surfaces as an upstream error.
+    Apart from that, the call forwards url, headers, params and timeout unchanged
+    and this helper otherwise only observes. ``repo`` is the board-admin-configured
+    public slug. The token lives only inside ``headers``, which are never logged.
     """
     started = time.monotonic()
     status_code = None

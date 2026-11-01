@@ -702,6 +702,9 @@ class NoRedirectTests(SimpleTestCase):
 
     @patch("git_lens.providers.requests.get")
     def test_3xx_maps_to_provider_error_not_success(self, mock_get):
+        # Regression pin for the 3xx -> LensError mapping only. It passes with or
+        # without the fix (the raise_for callbacks already reject non-200); the
+        # allow_redirects kwarg tests above are what guard the redirect fix.
         for status in (301, 302, 307, 308):
             for fetch, token in ((providers.github_fetch, "tok"), (providers.gitlab_fetch, None)):
                 mock_get.return_value = _resp([], status=status, headers={"Location": "http://169.254.169.254/"})

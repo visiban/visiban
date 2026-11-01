@@ -436,7 +436,7 @@ There is deliberately no `available_labels` or `available_assignees` field: ever
 | `409 Conflict` | `{ "detail": "...", "code": "auth_required" }` | Provider is GitHub and the requesting user has not linked their GitHub account. The user must connect their GitHub account via profile settings before fetching data. |
 | `429 Too Many Requests` | `{ "detail": "...", "code": "rate_limited", "retry_after": 47 }` | The provider's API rate limit has been reached. `retry_after` is the number of seconds to wait before retrying. |
 | `429 Too Many Requests` | `{ "detail": "...", "code": "fetch_budget_exhausted" }` | The caller's own upstream-fetch budget is spent (see [Refresh and rate limits](#refresh-and-rate-limits)) and no cached copy exists to serve instead. No `retry_after`; retry after the budget window (5 minutes) elapses. |
-| `502 Bad Gateway` | `{ "detail": "...", "code": "lens_error" }` | Upstream provider returned an unexpected error or the request timed out. |
+| `502 Bad Gateway` | `{ "detail": "...", "code": "lens_error" }` | Upstream provider returned an unexpected error or the request timed out. Redirects are not followed, so a moved or renamed repository (the provider answers `301`) also returns this error; update the connection's repo slug. |
 
 
 ## Current milestone
