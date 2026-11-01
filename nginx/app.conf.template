@@ -31,6 +31,21 @@ map $uri $visiban_cache_control {
     ~^/assets/                                           "public, max-age=31536000, immutable";
 }
 
+# Referrer-Policy fallback (#1531). Django sends its own Referrer-Policy on
+# every response (and a stricter `no-referrer` on the password-reset key
+# redirect, #1554). A server-level add_header would be appended to it and the
+# browser would honor the LAST header, silently weakening the stricter one.
+# So nginx only adds `same-origin` when the upstream sent none (static files,
+# the SPA); when Django set one the value here is empty, which emits no header,
+# so a proxied response carries Django's policy alone. Internal
+# X-Accel-Redirect media responses (Compose) carry no policy: nginx drops
+# Django's headers there. Only JPEG/PNG/GIF/WebP render inline; everything
+# else is a forced download, and those had no policy before #1531 either.
+map $upstream_http_referrer_policy $visiban_referrer_policy {
+    default "";
+    ""      "same-origin";
+}
+
 # HTTP — serve ACME challenge and redirect everything else to HTTPS
 server {
     listen 80;
@@ -73,6 +88,7 @@ server {
     __HSTS_HEADER_PLACEHOLDER__
     add_header X-Frame-Options           "DENY" always;
     add_header X-Content-Type-Options    "nosniff" always;
+    add_header Referrer-Policy           $visiban_referrer_policy always;
     # Cache-Control per $visiban_cache_control (see map above); no `always`, so error
     # responses (e.g. a 404 under /assets/) are never marked cacheable.
     add_header Cache-Control $visiban_cache_control;

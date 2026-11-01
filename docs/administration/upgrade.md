@@ -368,6 +368,11 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "Referrer-Policy is now `same-origin`"
+    The bundled nginx templates, the Helm chart's frontend nginx, the frontend image's default nginx config and Django now all send `Referrer-Policy: same-origin` (#1531). Django previously sent `strict-origin-when-cross-origin`. Share and invite tokens travel in URLs, so no `Referer` header may reach another origin. As a result, outbound links from Visiban pages no longer send a `Referer` to other sites. Requests within your own origin still carry the full `Referer`, which Django's CSRF check relies on over HTTPS. nginx only adds `same-origin` when the response has no `Referrer-Policy` of its own, so a stricter view-level policy (the password-reset link redirect's `no-referrer`) is preserved. The one exception is attachment downloads on the bundled Compose nginx: the view hands the file to nginx with `X-Accel-Redirect`, and nginx drops Django's headers there, so those responses carry no `Referrer-Policy`, as before. Only JPEG, PNG, GIF and WebP render inline; every other type is a forced download.
+
+    **Split-origin SPA caveat.** If the SPA is served from a different origin than the API (`VITE_API_URL` points at another origin) using the frontend image's nginx config, the policy makes the hidden form POST behind "Connect account" (`startProviderConnect`) carry `Origin: null`, and Django's CSRF check rejects it with 403. Release images are same-origin and are not affected. Until #2045 lands, serve the SPA on that host with a looser policy such as `strict-origin-when-cross-origin`.
+
 !!! warning "Helm: the Bitnami PostgreSQL subchart is removed"
     Chart 0.8.0 removes the opt-in `bitnami/postgresql` subchart and its `postgresql.subchartEnabled` switch (#1911). The bundled PostgreSQL is the chart's own StatefulSet on the official `postgres:17` image, as it has been by default since before 1.0. `postgresql.subchartEnabled=true` now **fails** `helm install`, `helm upgrade` and `helm template` with an explanation, before anything is applied.
 

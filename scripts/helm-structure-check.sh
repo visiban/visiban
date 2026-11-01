@@ -560,6 +560,18 @@ check_frontend_security_headers() {
     bad=1
   fi
 
+  # Referrer-Policy goes through a map so Django's own (possibly stricter,
+  # e.g. the password-reset redirect's no-referrer) value is never overridden:
+  # nginx adds same-origin only when the upstream sent none (#1531).
+  if ! grep -qE '^[[:space:]]*add_header[[:space:]]+Referrer-Policy[[:space:]]+\$visiban_referrer_policy[[:space:]]+always;' <<< "$conf"; then
+    fail "nginx does not send 'Referrer-Policy \$visiban_referrer_policy always' (the bundled templates do) (#1531)"
+    bad=1
+  fi
+  if ! tr -s '[:space:]' ' ' <<< "$conf" | grep -qE 'map \$upstream_http_referrer_policy \$visiban_referrer_policy \{ default ""; "" "same-origin"; \}'; then
+    fail "nginx lacks the Referrer-Policy fallback map (empty when Django set one, same-origin otherwise) (#1531)"
+    bad=1
+  fi
+
   # The policy value of an add_header line, or empty. `|| true`: grep exits 1
   # on no match and set -e/pipefail would otherwise kill the script before the
   # explicit FAIL below can print.
@@ -649,9 +661,9 @@ check_frontend_image_headers() {
   # collapsed), whitespace squeezed.
   norm() {
     grep -E "^[[:space:]]*add_header[[:space:]]+$2[[:space:]]" "$1" | head -1 \
-      | sed -E 's/"//g; s/connect-src[^;]*/connect-src X/; s/[[:space:]]+/ /g; s/^ //' || true
+      | sed -E 's/"//g; s/connect-src[^;]*/connect-src X/; s/\$visiban_referrer_policy/same-origin/; s/[[:space:]]+/ /g; s/^ //' || true
   }
-  for h in X-Frame-Options X-Content-Type-Options Content-Security-Policy; do
+  for h in X-Frame-Options X-Content-Type-Options Referrer-Policy Content-Security-Policy; do
     local a b
     a="$(norm "$img" "$h")"
     b="$(norm "$tpl" "$h")"
@@ -2402,6 +2414,8 @@ self_test() {
     "SPA cache header not applied|templates/frontend-configmap.yaml|s/add_header Cache-Control \$visiban_cache_control;/add_header X-Cache-Policy-Removed 1;/"
     # 4f (#1952): the chart's frontend stops sending the CSP / reverts to SAMEORIGIN.
     "frontend CSP header removed|templates/frontend-configmap.yaml|s/add_header Content-Security-Policy /add_header X-Policy-Removed /"
+    "frontend Referrer-Policy removed|templates/frontend-configmap.yaml|s/add_header Referrer-Policy /add_header X-Policy-Removed-RP /"
+    "frontend Referrer-Policy fallback map removed|templates/frontend-configmap.yaml|s/\"\"      \"same-origin\";/\"\"      \"\";/"
     "frontend X-Frame-Options weakened|templates/frontend-configmap.yaml|s/X-Frame-Options           DENY/X-Frame-Options           SAMEORIGIN/"
     # 4g (#1952): CSP img-src widened; an add_header inside a location (drops the
     # inherited server-level headers); the `:*` (port) connect-src entry dropped.
@@ -2608,6 +2622,7 @@ self_test() {
   local ic_cases=(
     "img-src differs from template|s/img-src 'self' data: blob:/img-src * data: blob:/"
     "x-frame-options differs from template|s/X-Frame-Options           \"DENY\"/X-Frame-Options           \"SAMEORIGIN\"/"
+    "referrer-policy absent|s/add_header Referrer-Policy /add_header X-Removed-RP /"
     "x-content-type-options absent|s/add_header X-Content-Type-Options /add_header X-Removed /"
     "location-level add_header present|s/index  index.html index.htm;/index index.html; add_header X-Loc 1;/"
     "Dockerfile COPY absent|DOCKERFILE"
