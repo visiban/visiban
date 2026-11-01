@@ -4293,7 +4293,7 @@ family stays uniform; no other resource gains a new <code>*_username</code> fiel
 </tr>
 </tbody>
 </table>
-<p>Multiple expansions may be combined with a comma, e.g. <code>?expand=group,members</code>. Unknown values are silently ignored. The original FK id fields (<code>group</code>, <code>group_name</code>) always remain in the response for backward compatibility.</p>
+<p><code>group</code> is the only expansion implemented today. The parameter is parsed as a comma-separated list (e.g. <code>?expand=group,other</code>), so values can be combined as more expansions are added, but any value other than <code>group</code> is silently ignored. The original FK id fields (<code>group</code>, <code>group_name</code>) always remain in the response for backward compatibility.</p>
 <p>The <code>ancestors</code> field on the expanded <code>group_detail</code> payload is root-first and excludes the group itself (already in <code>name</code>), which lets you render breadcrumbs without a follow-up request. Added in 1.1 (#845).</p>
 
 

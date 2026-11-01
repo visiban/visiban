@@ -4224,7 +4224,7 @@
 <li><code>backend</code>: daphne ASGI, not gunicorn, so WebSocket connections work for real-time board updates. It runs <code>migrate</code> and <code>ensure_site_admin</code> on startup.</li>
 <li><code>frontend</code>: Vite dev server</li>
 </ul>
-<p><strong>Ports:</strong> the backend (8000) is exposed directly. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. The <a href="../../api/openapi/">OpenAPI schema</a> is at <code>http://localhost:8000/api/schema/swagger-ui/</code>; it requires an authenticated session or PAT, so anonymous callers can't see the full API surface.</p>
+<p><strong>Ports:</strong> the backend (8000) is exposed directly. The Vite dev server on port 5173 does <strong>not</strong> proxy <code>/api/</code> requests. The <a href="../../api/openapi/">OpenAPI schema</a> is at <code>http://localhost:8000/api/schema/swagger-ui/</code>; it requires an authenticated session or PAT (a scoped PAT needs the <code>read</code> scope; see <a href="../../api/openapi/">OpenAPI</a>), so anonymous callers can't see the full API surface.</p>
 <p><strong>Production:</strong> <code>docker-compose.prod.yml</code> adds nginx, TLS via certbot, and a <code>scheduler</code> service for daily notification jobs, with no bind-mounted source. See <a href="../../getting-started/installation/">Installation</a>.</p>
 <h2 id="production-docker-images">Production Docker images<a class="headerlink" href="#production-docker-images" title="Permanent link">&para;</a></h2>
 <p>CI publishes pre-built images to the GitLab container registry. <code>:latest</code> is the newest <strong>stable</strong> release: only a stable release-tag pipeline writes it, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (<code>-alpha</code>/<code>-beta</code>/<code>-rc</code>) publishes its own exact version tag and never touches <code>:latest</code>. Every merge to <code>main</code> pushes an amd64-only <code>:main</code> and short-SHA tag instead:</p>
@@ -4668,7 +4668,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>--set<span class="w"> </span>backend.mediaPersistence.enabled<span class="o">=</span><span class="nb">false</span>
 </code></pre></div>
 <h3 id="openapi-schema">OpenAPI schema<a class="headerlink" href="#openapi-schema" title="Permanent link">&para;</a></h3>
-<p>The nginx ingress proxies <code>/api/</code> to the backend, so the schema endpoints work at your ingress host with no extra configuration. Sign in first: they require an authenticated session or PAT.</p>
+<p>The nginx ingress proxies <code>/api/</code> to the backend, so the schema endpoints work at your ingress host with no extra configuration. Sign in first: they require an authenticated session or PAT (a scoped PAT needs the <code>read</code> scope; see <a href="../../api/openapi/">OpenAPI</a>).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>https://&lt;ingress-host&gt;/api/schema/swagger-ui/
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>https://&lt;ingress-host&gt;/api/schema/redoc/
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>https://&lt;ingress-host&gt;/api/schema/
