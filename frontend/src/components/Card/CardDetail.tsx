@@ -1799,7 +1799,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
                 {showBulkAdd && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center">
-                    <div className="absolute inset-0 bg-backdrop/40" aria-hidden="true" onClick={() => setShowBulkAdd(false)} />
+                    <div className="absolute inset-0 bg-backdrop/40" aria-hidden="true" onClick={() => { setShowBulkAdd(false); setChecklistError(null); }} />
                     <div
                       ref={bulkAddRef}
                       role="dialog"
