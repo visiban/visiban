@@ -296,11 +296,11 @@ Board health summary: per-swimlane card counts, stage distribution, and velocity
 | `id`, `name`, `color` | — | Swimlane identifier, name, and color |
 | `total_cards` | integer | Total active (non-archived) cards in this swimlane |
 | `active_cards` | integer | Cards in this swimlane that are not in a done column |
-| `done_30d` | integer | Cards completed in the last 30 days (cards moved into any column with `is_done: true`) |
-| `avg_cycle_days` | float\|null | Average number of days from a card's first movement to its done-column entry; `null` if no completed cards |
+| `done_30d` | integer | Moves into any column with `is_done: true` in the last 30 days, for cards that are not archived; the same value as `velocity_30d`. Counts moves, not cards: a card that enters a done column twice counts twice |
+| `avg_cycle_days` | float\|null | Average number of days from a card's first movement of any kind to its earliest entry into a done column within the last 30 days, over cards that are not archived, rounded to one decimal; `null` if there are none. This starts at the creation movement, so it is closer to lead time than to cycle time as the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) define them |
 | `stage_distribution` | object | Card count per column for this swimlane (all columns, including zero counts) |
-| `velocity_7d` | integer | Cards moved into any column with `is_done: true` in the last 7 days |
-| `velocity_30d` | integer | Cards moved into any column with `is_done: true` in the last 30 days |
+| `velocity_7d` | integer | Moves into any column with `is_done: true` in the last 7 days, for cards that are not archived (counts moves, not cards) |
+| `velocity_30d` | integer | Moves into any column with `is_done: true` in the last 30 days, for cards that are not archived (counts moves, not cards) |
 | `extension_panels` | array | `[]` in OSS. Panels registered through the `ANALYTICS_EXTENSIONS` hook, limited to those whose `min_role` the caller meets (see [Panel visibility by role](#panel-visibility-by-role)); the web UI renders them in the Summary tab below the swimlane table. See [Extension panel payload](#extension-panel-payload) |
 
 #### Extension panel payload
@@ -439,7 +439,7 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
 | `swimlanes[].throughput_avg_days_per_column` | object | Average dwell time for cards that **exited** each active column during the period window. Cards still dwelling (not yet moved out) are excluded. `null` when no cards exited during the window. |
 | `swimlanes[].throughput_card_count_per_column` | object | Number of cards that exited each active column during the period window. `0` means no cards exited. |
 | `swimlanes[].throughput_is_outlier` | object | Whether `throughput_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
-| `swimlanes[].deal_velocity_days` | number or null | Average days between a card's first and last movement within the period for this swimlane. `null` when there is no velocity data. |
+| `swimlanes[].deal_velocity_days` | number or null | Average days from a card's first movement ever to its most recent movement, over this swimlane's cards whose most recent movement falls in the period. Cards count whether or not they reached a done column. `null` when there is no velocity data. |
 | `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "uid", "title", "days_since_move" }`. |
 
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.

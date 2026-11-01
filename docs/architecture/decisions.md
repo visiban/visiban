@@ -175,3 +175,194 @@ The CI pipeline is a gate, not a suggestion: every failing job blocks the merge,
 ## API pagination shapes
 
 > **Note (2026-10-23, #1869):** The change feed (`GET /boards/{id}/events/`) returns `next_cursor` (an integer event id, passed back as `after`) and keeps `next` as a deprecated duplicate with the same value through 1.x, because 1.2.0-beta.1 shipped `next` as a documented public key. The other non-standard list shapes stay as they are: `GET /cards/` uses an opaque string `next_cursor`, and the card timeline (1.1) uses `limit`/`offset` with `next`/`previous` URLs and is frozen. Renaming the feed cursor before GA is additive; after GA it would be a breaking change. Details and rationale: [Pagination shapes](../api/events.md#pagination-shapes).
+
+---
+
+## Flow metric definitions
+
+**Status:** Accepted (2026-11-01, #1532). A later change of mind is recorded as a dated note below the record, as the django-allauth entry above does, and never as a silent rewrite. Consumers: #448 (metrics dashboard), #458 (per-swimlane cycle time), #459 (bottleneck overlay), #1100 (forecasting), #1151 (MCP flow tools).
+
+**Decision:** every flow metric is computed from `CardMovement` by one service module (`boards/services/flow_metrics.py`, built by #448), using the definitions below. REST, MCP and the Summary and Analytics views call that service. There is one exception: #459's live overlay (see [Bottleneck overlay](#bottleneck-overlay-459)) computes its medians in the browser, from a value the server derives by these rules. A card's time in its current column is not its lead time, and without one written definition the charts would disagree with each other.
+
+**Why it matters:** the same card must give the same number on every chart, in every API response, and in every agent answer. The definitions also say what each number leaves out, so nobody has to reverse-engineer it from a chart.
+
+**Not decided here:** whether these metrics, or the charts built on them, are OSS or Enterprise. [The open-core boundary](open-core-boundary.md) lists "Advanced analytics (cycle time dists, CFD)" as Enterprise. That classification belongs to #448 (open) and its enterprise-check ruling. This record only fixes what the numbers mean, wherever they ship.
+
+### Terms
+
+- **Movement order.** A card's movements are ordered by `moved_at`, with ties broken by `id`. "Earliest", "first", "next" and "latest" all refer to this order. Native rows are written in the same transaction as the change they record, so their `id` and `moved_at` orders agree. A JSON import inserts rows in file order and then writes the file's `moved_at`, so a hand-edited file can give a different `id` order; the `moved_at` order still wins.
+- **Column key.** The identity of a column in a movement row. It is the uid snapshot (`from_column_uid` / `to_column_uid`) when that is not empty. Otherwise it is the uid of the column the foreign key still points to. Otherwise it is the name snapshot, marked as a name. If all three are empty, the column is **unknown**. Every rule below identifies columns by this key: transitions, done columns, visits, response shapes and cumulative flow.
+- **Current column.** A column key matches a current column only when it equals that column's uid. A name never matches a current column, so a column that was deleted and then recreated under the same name is a different column.
+- **Done column.** A current column with `Column.is_done = true`. A movement enters a done column only when its destination key matches one. Every done column is terminal, whatever its position: "Closed Won" and "Closed Lost" both end a card's flow. Flags are read as they are at query time, so marking a column done applies to its past too. A deleted column is never a done column, because its flag is gone with it. *Rejected:* recording the flag on each movement, which needs a schema change for a flag that rarely changes. *Rejected:* separate "succeeded" and "abandoned" done kinds, which needs a new column flag nobody has asked for yet.
+- **Transition.** A movement with `movement_type = move` whose source and destination columns are both known and have different column keys. A swimlane-only move is not a transition. Archive and restore events (`archived`, `unarchived`) are not transitions.
+- **Creation movement.** The card's earliest movement, if its source column is empty (no uid and no name) and its destination column is known. `create_card` writes it, and a JSON import with card history copies it from the file.
+- **Unattributable movement.** A movement whose destination column is unknown, or whose source column is unknown when it is not the creation movement. Native rows rarely have one, because they keep their snapshots when a column is deleted. They come from JSON imports: export writes column names from the foreign key, not from the snapshot, so a column deleted before the export arrives as an empty name (#2052). That includes a creation movement whose column was deleted, which then does not count as a creation movement.
+- **Continuity.** A card's history is continuous when each transition's source column key equals the destination key of the transition, or creation movement, before it. In addition, the latest destination must match the card's `Card.column`, and the card's archive state must agree with its latest archive or restore event: `archived_at` is set exactly when that event is `archived`. Continuity breaks when something changed the card without writing a movement: an edit of the column or `archived_at` in the Django admin (`CardAdmin` writes no `CardMovement`), an import that sets `archived_at` without an `archived` row, or a `purge_card_history` window (`--since` / `--before`) that removed rows in the middle of a live card's history.
+- **Complete history.** A card has complete history when it has a creation movement, has no unattributable movement, and its history is continuous. Cards without complete history: cards created by a Trello or CSV import, by a JSON import without card history, or before a creation movement was recorded; imported cards whose history names a deleted column; and cards whose continuity is broken.
+- **Completion.** The card's first entry into a done column: the creation movement, if the card was created in a done column, or else its first transition into one. Moving between two done columns is not a new completion.
+- **Reopen.** A transition from a done column to a column that is not done.
+- **Cycle start.** For a card created in a column that is not done, its first transition out of that column, if that transition goes to a column that is not done. A card created in a done column, or whose first transition goes to a done column, has no cycle start.
+- **In progress.** A card is in progress when it is not archived, its current column is not done, it has complete history, and it has a cycle start or a reopen.
+- **Visit.** One stay of a card in one column, keyed by column key. A visit opens at a transition into the column, at the creation movement, or at an `unarchived` event. It closes at the next transition, at an `archived` event, or, for an archived card with no `archived` event, at `Card.archived_at`. A visit with no closing event is open: the card is still there. A visit is not measured when its column is unknown, when the movement that closes it leaves from a different column key (continuity broke inside it), or when it is open but its column does not match `Card.column`.
+
+### The metrics
+
+| Metric | Start | End | Measured for |
+|---|---|---|---|
+| **Lead time** | The creation movement's `moved_at`, or `Card.created_at` for a card without one | Completion | Completed cards, except cards created in a done column |
+| **Cycle time** | Cycle start | Completion | Completed cards with complete history and a cycle start |
+| **Dwell time** | Visit opens | Visit closes, or now for an open visit | Measured visits to columns that are not done |
+| **Age** (WIP age) | The cycle start or the latest reopen, whichever is later | Now | Cards in progress |
+| **Throughput** | — | Completion | Every completed card, once, in the period of its completion |
+| **WIP** | — | Now | Cards not archived, per current column that is not done, read from `Card.column` |
+
+Definition strings, quoted verbatim by the docs and returned in each metric response's `definition` field:
+
+- **Lead time:** the time from when a card was created to its first entry into a done column. A card created in a done column has no lead time.
+- **Cycle time:** the time from a card's first move out of the column it was created in, to a column that is not done, until its first entry into a done column. A card created in a done column, or moved straight from its first column to done, has no cycle time.
+- **Dwell time:** how long a card stayed in one column, from entering it to leaving it, or until now if it is still there. Moving to another swimlane does not end a stay. Archiving ends it, and restoring starts a new one.
+- **Age:** how long an in-progress card has been in progress: the time since it first moved out of the column it was created in, or since it last left a done column, whichever is later.
+- **Throughput:** the number of cards whose first entry into a done column falls in a period.
+- **WIP:** the number of cards, not archived, currently in each column that is not done.
+- **Cumulative flow:** for each day, the number of cards in each column at the end of that day.
+
+Rationale and rejected alternatives:
+
+- **Lead time starts at the card's creation, read from the creation movement when there is one.** For a native card, the creation movement and `Card.created_at` are the same transaction. For a JSON import with history, the creation movement keeps the file's time, but `Card.created_at` falls back to the import time when the file's `created_at` is missing, in the future, or later than the card's own history (#1906). Reading the movement first keeps those cards correct. A card without a creation movement uses `Card.created_at`, which the Trello import restores from the Trello object id. *Known limitation:* a CSV-imported card, or a JSON-imported card without a creation movement whose file has no usable `created_at`, is dated to the import, so its lead time starts there.
+- **No duration is ever negative, and no history is dated in the future.** The import accepts any parseable `moved_at`, including one in the future. A card with a movement dated after the moment of the request has incomplete history, and that movement and the ones after it are ignored. A lead time, cycle time, dwell time or age whose end is before its start is dropped and counted in `excluded_incomplete_history`. This can happen when a card's start is `Card.created_at` and that date is later than its imported completion. It is never clamped to zero, which would invent a duration.
+- **Cycle time starts at the first pull, not at the first movement.** The first movement of a native card is its creation movement, so "first movement to done" (the definition in `summary` today and in #448's body) measures lead time under another name. Starting at the first transition out of the creation column needs no new configuration. It matches the templates, where only the first column allows card creation. *Rejected for now:* a per-column "commitment point" flag. It is more precise, but it needs a schema and UI change, and it is tracked as #2050. *Known limitation:* a card created directly in a working column starts its cycle when it first leaves that column.
+- **A card that goes from its creation column straight to done has a lead time but no cycle time.** It still counts toward throughput. A card created in a done column counts toward throughput and has neither. A zero-length cycle is bookkeeping, not flow, and would drag the percentiles toward zero. *Rejected:* counting it as zero.
+- **Dwell time is measured per visit and never in a done column.** This confirms what `analytics.py` does today: time in a done column is post-completion idle time. Two statistics come from it: **completed dwell** (visits that closed, assigned to the window their visit closed in, at their full length) and **current dwell** (open visits, measured now). The old analytics field `age_avg_days_per_column` is current dwell, not age.
+- **Age means WIP age, compared with cycle-time percentiles.** That is the aging chart #448's spec draws ("15.4 days in progress, beyond 85th percentile"). Time in the current column is current dwell, compared with the completed-dwell percentiles of the same column. That is what #1151's `aging_cards` describes. It returns current-dwell samples (`value_days` in the current-dwell shape below), never a field called `age`. #448's test-plan line "WIP age = days since entering current non-done column" is superseded.
+- **WIP comes from the board, not from movements.** A card counts in its current column whatever its history. A board imported without history therefore does not show zero WIP. WIP includes cards that are not yet in progress, such as cards still in a backlog column: it counts what sits in each column, and the consumer chooses which columns to show.
+- **Lead time, cycle time and age are elapsed time, including any archived period.** Only a visit ends at an archive, because a visit is a stay in a column on the live board.
+
+### Reopened cards
+
+**Decision:** the first completion is the anchor. A reopened card keeps the lead time, cycle time and throughput period of its first completion. A second completion does not add to throughput or move the card into another period. A card with no cycle start before its first completion (created in a done column, or moved straight to done) gets no cycle time from a later round of work either. While the card is open again, it is in progress: its age runs from the reopen, and its visits count toward dwell time like any other.
+
+This confirms the decision recorded in #448 ("backward moves do not reset cycle — the first completion is the anchor"). History stays stable: reopening a card from six months ago does not rewrite that period's throughput or a published p85. *Rejected:* restarting the clock at the final completion, which rewrites past charts. *Rejected:* adding the rework time to the original cycle, which turns one card into a forecast outlier. *Rejected:* excluding reopened cards, which hides rework. Each sample in a drill-down carries `reopened: true` when the card was reopened later, so rework stays visible without changing the numbers.
+
+### Edge cases
+
+C is the creation column. C is "work" when it is not done. Every case below has complete history unless the row says otherwise. A card without complete history follows the same row, and then has no cycle time and no age (see [Missing history](#missing-history)).
+
+| Path | Lead time | Cycle time | Throughput | Age while open | Dwell time |
+|---|---|---|---|---|---|
+| work C → Doing → Done | created → Done | Doing → Done | once, at Done | from Doing, until Done | each visit to C and Doing |
+| work C → Done | created → Done | none | once | none (never in progress) | the visit to C |
+| work C → Done → reopen to Doing → Done | created → first Done | none | once, at first Done | from the reopen | C, then Doing |
+| work C → Doing → Done → reopen to Review → Done | created → first Done | Doing → first Done | once, at first Done | from Doing, then from the reopen | C, Doing, Review |
+| done C, stays | none | none | once, at creation | none | none (done column) |
+| done C → reopen to Doing → Done | none | none | once, at creation | from the reopen | the visit to Doing |
+| work C, never moved | none | none | none | none (no cycle start) | open visit to C |
+| work C → Doing → back to C | none yet | none yet | none yet | from Doing, still running | C, Doing, C |
+| work C → Doing → archived | none | none | none | none (archived) | C, and Doing until the archive |
+| work C → Done → archived | created → Done | none | once | none | the visit to C |
+| work C → Doing; the admin then edits the column to Done (no movement) | none (no recorded completion) | none (broken continuity) | none | none (done column) | C; the Doing visit is not measured |
+| work C → Doing; the admin then sets `archived_at` | none | none | none | none (archived) | C, and Doing until `archived_at` |
+| work C → Old Review → Done, then Old Review is deleted and a new "Old Review" is created | created → Done | Old Review → Done | once | none | C and the old column, never credited to the new column |
+
+Every value with an end has a start before it in movement order: a cycle start comes before the first done entry, because it leaves a column that is not done for another one that is not done. Only a start that does not come from movement order (`Card.created_at`) or a future-dated row can produce a negative value, and the no-negative rule drops those.
+
+### Missing history
+
+| Case | Lead time | Cycle time | Age | Dwell time | Throughput |
+|---|---|---|---|---|---|
+| No creation movement (Trello or CSV import, JSON import without history, cards created before the creation movement was recorded) | From `Card.created_at`, once it completes | Excluded | Excluded | Measured visits only | At its first recorded completion |
+| JSON import with card history, every column still present at export | From the imported creation movement | Yes | Yes | Yes | Yes |
+| JSON import whose history names a deleted column (#2052) | From the imported creation movement, or from `Card.created_at` if the creation row lost its column | Excluded | Excluded | Measured visits only | At its first recorded completion |
+| Broken continuity (admin column or archive edit, imported `archived_at` without an event, a partial purge window) | From its start, once a recorded completion exists | Excluded | Excluded | Measured visits only | At its first recorded completion |
+| A movement dated in the future, or a value whose end is before its start | Excluded if it is the value affected | Excluded | Excluded | That visit excluded | Unaffected unless the completion row is future-dated |
+| Hard-deleted card (movements kept since #1469, `card` is NULL) | Excluded | Excluded | Excluded | Excluded | Excluded |
+| Card deleted before 1.2 (movements cascade-deleted) | Gone | Gone | Gone | Gone | Gone |
+
+- **Imported history counts like native history,** except where the file has lost a column name. Imported rows keep the file's timestamps, and `imported_from_username` records only who the source named. Export writes the creation movement, so a re-imported board has complete history unless a column had been deleted before the export. *Known limitation:* export writes column names from the foreign key (`mv.from_column.name`), not from the name snapshot, so such rows arrive with an unknown column (#2052). These rules do not depend on that fix. Once it lands, those cards simply have complete history again.
+- **Deleted cards stay out of the metrics,** as `card-history.md` already promises. A drill-down must open a card, and deleting a card says it should not have existed. *Rejected:* counting them through `CardMovement.board`, which would show numbers no drill-down can explain.
+- **No exclusion is silent.** Every duration response reports `sample_size` and `excluded_incomplete_history`. The second counts cards, or visits for dwell, that were left out only for missing, broken or misdated history.
+- **Deleted columns.** A transition into a deleted column still counts as a cycle start, because its key differs from the column it left. Visits to a deleted column count toward a card's cycle and lead time, but no per-column output reports them, because per-column outputs list current columns only. Cumulative flow puts them in one `column_uid: null` band.
+
+### Blocked time
+
+**Decision:** lead time, cycle time, dwell time and age are elapsed time, and blocked time is inside them. Blocked time is reported as its own metric from the `CardBlock` rows of #1149: total, per column and per reason. It is never subtracted. Block events are never written to `CardMovement`, so they cannot open or close a visit (the #1149 architect review, 2026-11-01). A customer waits whether the card is blocked or not, and subtracting blocked time would make flow look better than it is. A flow-efficiency ratio (unblocked ÷ elapsed) can be added later from the same rows without changing any definition here.
+
+### Percentiles and sample size
+
+**Decision:** every flow output uses the same three percentiles: **p50, p85 and p95**. #1151's `aging_cards` also accepts any whole-number percentile from 1 to 99. #1100's forecast ranges are the same 50/85/95. #458 asked for P50 and P90. It uses p50 and p85 instead, so the dashboard, the forecast and agents share one vocabulary. *Rejected:* adding p90 for #458, which puts a fourth line next to p85 that people would compare without a reason.
+
+**Decision:** percentiles use the **nearest-rank** method. Sort the sample ascending (ties in any order) and take the value at the 1-based rank `(p × n + 99) // 100`, computed in integer arithmetic with p a whole number. That is ⌈p × n / 100⌉ without floating point. The result is always a real card's duration, so a drill-down can point at the card. For p50, p85 and p95, this rank equals PostgreSQL's `percentile_disc(p / 100.0)`, which computes in `float8`. That was checked for every n from 1 to 1,000,000. For other percentiles the float can round up (for p = 55 and n = 100, `float8` gives rank 56 and the integer rank is 55), so the service always uses the integer rank, never `percentile_disc`. *Rejected:* linear interpolation (`percentile_cont`, NumPy's default, `statistics.quantiles`), which reports durations no card had and differs between libraries at small n. The median is p50 by the same rank, so for an even n it is the lower of the two middle values. The old field `board_medians` keeps `statistics.median`, as the 1.x contract requires.
+
+**Decision:** a percentile in a metric response is returned only when the sample has **at least 5** values **and** the percentile's rank is below n, so that it is not just the largest value. With this rank, p50 needs n ≥ 5, p85 needs n ≥ 7, and p95 needs n ≥ 20. An arbitrary percentile follows the same rule. Below that, the API returns `null` for that percentile, next to `sample_size`. The minimum lives in one backend constant, so the API and the UI cannot disagree. Five is the threshold #448's design spec draws. The rank rule stops a p95 drawn from six cards claiming to be a tail. It also refines the spec's sparse state (`metrics-few`): the UI hides each percentile line, and each aging zone, when its own value is `null`, not all three at once below five samples. With five or six samples only P50 is drawn, P85 appears at seven, and P95 at twenty. #458's "insufficient data" state uses the same floor. *Rejected:* one flat threshold, which either hides p50 for small teams or presents the maximum as a p95. *Rejected:* #458's threshold of 3, which is too few for a median that people compare between swimlanes.
+
+Durations are computed in seconds and reported in days (seconds ÷ 86,400). Percentiles are taken before rounding, and values are rounded to one decimal only for display.
+
+### Bottleneck overlay (#459)
+
+**Decision:** #459's overlay shows each cell's **current dwell**: how long the cards now in that column and swimlane have been in their open visit. It does not show completed dwell. Under the #459 architect review (2026-11-01), the value is live and filter-aware, so the browser computes it from the cards it has loaded, not from a board-wide endpoint.
+
+- **The definition stays on the server.** The board payload gains one additive, nullable field, `column_entered_at`: the start of the card's open visit, by the visit rules above. It is a field of the card body, so it also travels in the `card.*` WebSocket events, which send the same body as REST. The design recomputes the overlay on every move and socket event, so a move updates the cell without a refetch. A swimlane-only move does not reset it. A restore opens a new visit and so does reset it, and so does a reopen. It is `null` for an archived card (including one archived in the admin), for a card in a done column, and for a card whose open visit is not measured (no recorded movement, unknown column, or a column that does not match `Card.column`). The browser computes only `now − column_entered_at` and the cell's nearest-rank median.
+- **The sample-size floor does not apply to the overlay.** A cell with one to four cards shows its median, on the same badge as any other cell (`4.0d` in #459's design). The overlay describes the cards on screen; it does not estimate a distribution. On a small team, the floor would blank most cells. Done cells and empty cells stay `null`. *Rejected:* applying the n ≥ 5 floor to cells.
+
+### Time zones, windows and business days
+
+- **Elapsed calendar time, in UTC.** Durations are the difference between two UTC timestamps (`TIME_ZONE = "UTC"`, `USE_TZ = True`). Weekends and holidays count. *Rejected:* business days, which need a working calendar and holiday set per board that Visiban does not have. The customer waits on calendar time. If a business-day view is requested, it becomes its own option, and the definitions above do not change.
+- **Bucketing in UTC.** Daily buckets (throughput per day for #1100, CFD days for #448) are UTC dates. Weeks are ISO 8601 weeks, starting Monday in UTC. *Rejected for now:* the viewer's `timezone` preference, which would give two viewers, or a viewer and an MCP agent, different numbers for the same board. A board-level time zone is tracked as #2051. The cost meanwhile is that a completion late on a Friday in UTC−8 lands in Saturday's bucket.
+- **Windows.** For samples (lead time, cycle time, completed dwell), `days=N` is a rolling window `[now − N × 24h, now)`, as `analytics.py` uses today. A sample belongs to the window its completion falls in, or for completed dwell, the window its visit closed in. Age, current dwell and WIP are snapshots at the moment of the request and take no window. On #448's dashboard, the date range therefore moves the aging chart's P85 and P95 zones (its `cycle_time_percentiles` are cycle times completed in the range) but not its dots. The swimlane and label filters apply to both.
+- **Whole days for buckets.** For bucketed outputs (throughput, cumulative flow), `days=N` covers the N whole UTC days that end at today's 00:00Z. Today, which is still running, is never a bucket. Weekly throughput reports only ISO weeks that lie wholly inside the window. #1100 samples daily throughput, and a partial first or last day would enter its simulation as a slow day and bias every forecast toward later dates. *Rejected:* partial edge buckets with a `partial` flag, which every consumer would have to remember to drop.
+- **Date ranges.** A date-range filter (`from_date`, `to_date`) takes UTC dates, inclusive at both ends: `[from_date 00:00Z, to_date + 1 day 00:00Z)`. It is whole days by construction.
+- **Filters.** The swimlane filter uses the card's current swimlane, as the board movements endpoint's `swimlane_id` filter does. The label filter uses the card's current labels. *Rejected:* the swimlane at completion time, which needs a per-movement lookup, and cards rarely change swimlane.
+
+### Cumulative flow
+
+**Decision:** each card is counted at the end of each UTC day in the column of its latest transition up to that moment, or of its creation movement, by column key. A card without a creation movement is placed from `Card.created_at` in the source column of its earliest movement, or in its current column if it has none. A card archived in a column that is not done leaves the diagram from the day of the archive (its `archived` event, or `Card.archived_at` if it has none). A card in a done column stays counted after it is archived, because finished work is cumulative and archiving it must not shrink the done band. Columns that have since been deleted share one `column_uid: null` band. Hard-deleted cards are left out.
+
+**Decision:** the **bottleneck** that #448's design hatches in the diagram is the current column that is not done whose count grew the most from the first day of the window to the last. When two columns grew by the same amount, the one earlier in position order wins. When no such column grew, there is no bottleneck and nothing is hatched. The service returns it, so the dashboard and an agent name the same column. *Rejected:* letting the browser pick it from the bands, which would be a second implementation. This fixes only what the bottleneck means. [The open-core boundary](open-core-boundary.md) lists "bottleneck detection" as Enterprise, and that ruling belongs to #448, as noted at the top of this record.
+
+### Response shapes (for #448, #458, #1100 and #1151)
+
+Every metric response carries `definition` (the string above). Percentile objects are `{p50, p85, p95}`, each a number of days or `null` under the sample-size rule. Every duration value is `value_days`. The samples are the drill-down: the 2026-10-08 criteria ask for cards, transitions and owners, and the client gets transitions from the existing card movements endpoint and owners from the card. There is no separate drill-down endpoint. *Rejected:* card-id lists without values, which force a second request to explain a dot on the scatter.
+
+The throughput `median` is the median line in #448's weekly run chart. Zero weeks count, so a quiet week lowers it. The same floor applies: a weekly median needs five whole ISO weeks, and a 30-day window holds at most four. #448's dashboard therefore defaults to a **90-day** range: twelve whole ISO weeks for the median, and enough completions for P85 and P95 on a team that finishes three to five cards a week, where 30 days would leave them `null` on most boards. *Rejected:* exempting the throughput median from the floor, which only the overlay's describe-the-screen role justifies.
+
+| Metric | Top-level fields | One sample |
+|---|---|---|
+| Lead time, cycle time | `definition`, `sample_size`, `excluded_incomplete_history`, `percentiles` | one per card: `card_uid`, `value_days`, `start`, `end`, `reopened` |
+| Completed dwell | the same, per current column: `columns: [{column_uid, column_name, sample_size, percentiles}]` | one per visit: `card_uid`, `column_uid`, `value_days`, `start`, `end`, `reopened` |
+| Current dwell | the same as completed dwell | one per open visit: `card_uid`, `column_uid`, `value_days`, `start`, `end: null` |
+| Age | `definition`, `sample_size`, `excluded_incomplete_history`, and `cycle_time_percentiles` over the same filters, for the aging zones | one per in-progress card: `card_uid`, `column_uid`, `value_days`, `start`, `dwell_by_column` (the card's measured visits summed per column key, `[{column_uid, value_days}]` in order of first entry, deleted columns as `column_uid: null`: the drawer's per-column dwell bars) |
+| WIP | `definition`, `columns: [{column_uid, column_name, count}]` for current columns that are not done, in position order | `card_uids` on each column entry |
+| Throughput | `definition`, `period` (`day` or `week`), `total`, `median` (the nearest-rank p50 of the period counts, zero-count periods included, `null` under the sample-size rule) | one per whole period: `start` (UTC date), `count`, `card_uids` |
+| Cumulative flow | `definition`, `columns: [{column_uid, column_name, is_done}]` in position order, plus the `null` band; `days: [{date, counts: {column_uid: n}}]`; `bottleneck_column_uid` (or `null`) | the same endpoint with `date=YYYY-MM-DD` returns `{date, columns: [{column_uid, card_uids}]}`, the cards behind that day's counts |
+
+### Where current code disagrees
+
+None of these change in this ADR. #448 changes each one when it builds the service, with a `changed` changelog fragment and no field removed or retyped (1.x contract).
+
+| Code today | Disagreement | Change |
+|---|---|---|
+| `summary` `avg_cycle_days` (`analytics.py`, query 3) | Starts at the first movement of any kind (for native cards, the creation movement, so it measures lead time). Ends at the earliest done entry *inside the last 30 days*, not the first completion. Leaves out archived cards. | Recompute as the mean cycle time of cards whose completion falls in the last 30 days. The field stays a mean, because its documented name says average. |
+| `summary` `velocity_7d`, `velocity_30d`, `done_30d` (query 2) | Counts movement rows into done columns, so a card that bounces or moves Done → Released counts twice. Leaves out completed cards that were archived later. | Count cards by completion, archived or not. |
+| `analytics` done-column and column matching (`done_col_names`, the `to_column_name` fallback) | Matches by name when the foreign key no longer resolves, so a deleted column's visits go to a recreated column of the same name, and that column's done flag applies to the old column. | Match by column key only, never by name. |
+| `analytics` throughput dwell (`throughput_avg_days_per_column`) | A swimlane-only move splits a visit. The `archived` row opens a near-zero visit, and for a restored card the archived period counts as dwell. The 2× prefetch buffer drops visits that began before it, so the longest visits are lost. | Visits per this ADR, opened at their true start whatever the window. |
+| `analytics` current dwell (`age_avg_days_per_column`, `_last_col_entry_at`) | A swimlane-only move resets the entry time, because the subquery takes the latest row of any kind into the current column. | Use the start of the open visit, the same value as `column_entered_at`. |
+| `analytics` `avg_days_per_column` (clamped) and `deal_velocity_days` | Neither is a flow metric in this ADR. `deal_velocity_days` is the span from a card's first movement ever to its most recent movement, for cards whose most recent movement falls in the window, whether or not the card finished. | Frozen as old fields. No new consumer reads them, and the docs must not call them cycle time. |
+| Heatmap statistic (mean) | #459 uses the median. | The overlay uses the nearest-rank median of current dwell. The heatmap's existing mean fields stay as they are. |
+| `notify_stale_cards`, `last_moved_at`, stalled cards | Time since the last movement of any kind. | None: staleness is a separate signal, not a flow metric. |
+
+### Changes handed to #448
+
+Written to be copied into #448 as they stand:
+
+1. Build `boards/services/flow_metrics.py` as the only implementation of lead time, cycle time, dwell time (completed and current), age, WIP, throughput and cumulative flow, using the terms and rules of the *Flow metric definitions* record in `docs/architecture/decisions.md`: movement order by `(moved_at, id)`, columns identified by column key and never by name, and complete history including continuity. The REST endpoints, the #1151 MCP tools, #458 and the `summary` and `analytics` views call it.
+2. Return the response shapes the record pins: `definition`, `sample_size`, `excluded_incomplete_history`, `percentiles` (`p50`/`p85`/`p95`, nearest rank by the integer formula `(p × n + 99) // 100`, `null` under the n ≥ 5 and rank-below-n rule), per-card or per-visit `samples` with `value_days`, the age sample's `dwell_by_column`, and the WIP, throughput (with `median`) and cumulative-flow (with `bottleneck_column_uid`) shapes. Keep the sample-size minimum in one backend constant. Buckets are whole UTC days and whole ISO weeks.
+3. Recompute `summary.avg_cycle_days` as the mean cycle time of cards whose first completion falls in the last 30 days, including cards archived since. Add a `changed` fragment.
+4. Recompute `summary.velocity_7d`, `velocity_30d` and `done_30d` as counts of cards by first completion, archived or not, and no longer as counts of movement rows. Add a `changed` fragment.
+5. Stop matching columns by name in `analytics` (`done_col_names` and the `to_column_name` fallback). A recreated column of the same name no longer inherits the old column's visits or done flag. Add a `changed` fragment.
+6. Recompute `analytics.throughput_avg_days_per_column` from visits: a swimlane-only move does not split a visit, an `archived` event (or `archived_at` for a card archived without one) closes it, an `unarchived` event opens a new one, and a visit's true start is used even when it began before the 2× prefetch buffer.
+7. Recompute `analytics.age_avg_days_per_column` from the start of each card's open visit, so that a swimlane-only move no longer resets it. A restore still starts a new visit and so resets it, as the visit rule says. Its docs say it is current dwell, not age.
+8. Leave `avg_days_per_column`, `deal_velocity_days` and `board_medians` as frozen legacy fields. Do not read them from new code.
+9. Add the additive, nullable `column_entered_at` card field (the start of the open visit, `null` for archived cards, cards in done columns and unmeasured visits) for #459, computed by the same service. It is part of the card body, so the `card.*` WebSocket events carry it too.
+10. Supersede the body's "cycle time = first movement → first done-column entry" and the test-plan line "WIP age = days since entering current non-done column". Cycle time starts at the first pull out of the creation column, and WIP age at the cycle start or the latest reopen.
+11. Quote the record's definition strings verbatim on each metric's docs page.
+
+**Yes, but:** the first-pull cycle start and the UTC buckets are the two choices most likely to be revisited. Both have filed follow-ups, a commitment-point column flag (#2050) and a board time zone (#2051), that would add an option without changing what the existing numbers mean.
