@@ -19,6 +19,7 @@ import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import ActivityTabPanel from "./ActivityTabPanel";
 import { dropUnknownLabels } from "../../utils/cardLabels";
+import { isStaleCard } from "../../utils/cardVersion";
 import { formatDateStr, formatDueDate, formatDateTimeUser } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
@@ -626,7 +627,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   boardLabelsRef.current = board.labels;
   const rollbackTo = (prev: Card) =>
     setLocalCard((c) => ({ ...dropUnknownLabels(prev, boardLabelsRef.current), version: c.version, column: c.column, swimlane: c.swimlane }));
+  // A newer version can reach localCard while the save is in flight (#1969): a
+  // remote edit's frame, which the reset effect syncs as a version-only bump
+  // while a save is pending, or a later save of ours that returned first. The
+  // older response must not replace it. The live card is then taken instead
+  // when it is at least as new, since a higher version was committed after
+  // this save and so includes it, keeping localCard's location (the live card
+  // can hold useBoard's optimistic one for a move still in flight); otherwise
+  // localCard already holds the newer copy and is kept.
   const adoptSaved = (updated: Card) => {
+    if (isStaleCard(updated, localCardRef.current)) {
+      const live = liveCardRef.current;
+      if (isStaleCard(live, localCardRef.current)) return;
+      titleBaselineRef.current = live.title;
+      setLocalCard((c) => ({ ...dropUnknownLabels(live, boardLabelsRef.current), column: c.column, swimlane: c.swimlane }));
+      return;
+    }
     titleBaselineRef.current = updated.title;
     ownVersionsRef.current.add(updated.version);
     // A response can carry a label deleted while the save was in flight (#1888).

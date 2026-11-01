@@ -214,6 +214,8 @@ Card moves use optimistic concurrency control (OCC) to prevent lost updates. Eve
 
 The version check is backward-compatible: clients that omit the `version` field bypass the OCC check entirely.
 
+The web app also uses `version` to order the copies of a card it receives. A card reaches the browser both as the HTTP response to your own change and as `card.*` WebSocket frames, and the two transports are not ordered against each other: the response to your edit can arrive after a frame for someone else's later edit. The board view and the open card panel therefore discard any copy of a card whose `version` is **lower** than the one already on screen. A copy with the **same** version still replaces it, because adding a comment, attachment, checklist item or relation, and archiving or restoring a card, change the card's counters without incrementing `version`. *Fixed in 1.3 (#1969): an older copy could replace a newer one until the next event for that card.*
+
 ## ASGI server
 
 The backend runs under **daphne** (ASGI) instead of gunicorn (WSGI) to support WebSocket connections. This is handled automatically in `docker-compose.yml` and the Helm chart.

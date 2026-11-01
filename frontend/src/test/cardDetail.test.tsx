@@ -3410,3 +3410,60 @@ describe('CardDetail — custom field and weight saves follow the live card (#18
     await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 4 }))
   })
 })
+
+// #1969: the response to the panel's own save travels over HTTP, a remote edit
+// over the socket, so the older of the two can land last.
+describe('CardDetail — a stale save response does not regress the panel (#1969)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('takes the newer live card when the save response lands after a remote frame', async () => {
+    let resolveSave!: (c: Card) => void
+    mockUpdateCard.mockImplementation(() => new Promise((r) => { resolveSave = r }))
+    const props = defaultProps()
+    const { rerender } = render(<CardDetail {...props} />)
+    const title = screen.getByDisplayValue('Test Card')
+    fireEvent.change(title, { target: { value: 'My edit' } })
+    fireEvent.blur(title)
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalled())
+    // Our PATCH committed as v2; another session renamed the card as v3, and
+    // its frame reaches the board before our HTTP response does.
+    rerender(<CardDetail {...props} card={makeCard({ title: 'Renamed elsewhere', version: 3 })} />)
+    await act(async () => { resolveSave(makeCard({ title: 'My edit', version: 2 })) })
+    expect(screen.getByDisplayValue('Renamed elsewhere')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('My edit')).not.toBeInTheDocument()
+    // The response is still forwarded; useBoard discards it as stale.
+    expect(props.onUpdated).toHaveBeenCalledWith(expect.objectContaining({ version: 2 }))
+  })
+
+  it('keeps a later save that returned first over an earlier save that returns last', async () => {
+    const resolvers: ((c: Card) => void)[] = []
+    mockUpdateCard.mockImplementation(() => new Promise((r) => { resolvers.push(r) }))
+    const props = defaultProps()
+    render(<CardDetail {...props} />)
+    const title = screen.getByDisplayValue('Test Card')
+    fireEvent.change(title, { target: { value: 'First' } })
+    fireEvent.blur(title)
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1))
+    fireEvent.change(title, { target: { value: 'Second' } })
+    fireEvent.blur(title)
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(2))
+    await act(async () => { resolvers[1](makeCard({ title: 'Second', version: 3 })) })
+    await act(async () => { resolvers[0](makeCard({ title: 'First', version: 2 })) })
+    expect(screen.getByDisplayValue('Second')).toBeInTheDocument()
+  })
+
+  it('adopts a response at the same version as the panel', async () => {
+    mockUpdateCard.mockResolvedValue(makeCard({ title: 'Saved', attachment_count: 0, version: 2 }))
+    const props = defaultProps()
+    const { rerender } = render(<CardDetail {...props} />)
+    // The socket echo of our own PATCH lands first, at the same version.
+    rerender(<CardDetail {...props} card={makeCard({ title: 'Saved', version: 2 })} />)
+    const title = screen.getByDisplayValue('Test Card')
+    fireEvent.change(title, { target: { value: 'Saved' } })
+    fireEvent.blur(title)
+    await waitFor(() => expect(props.onUpdated).toHaveBeenCalledWith(expect.objectContaining({ version: 2 })))
+    expect(screen.getByDisplayValue('Saved')).toBeInTheDocument()
+  })
+})
