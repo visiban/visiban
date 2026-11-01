@@ -698,6 +698,18 @@ class SwimlaneSerializer(serializers.ModelSerializer):
             "limit_enforcement": {"help_text": field_enforcement.SWIMLANE_LIMIT_ENFORCEMENT},
         }
 
+    def validate_limit_enforcement(self, value):
+        """Store only ``block``, ``hard`` or null (#1150).
+
+        The model field is ``blank=True`` (for the admin form), so DRF's
+        ChoiceField also accepts ``""``. The client reads ``""`` as "Follow
+        board settings" while the service would read it as an unknown mode
+        and fail closed to hard, so the two disagreed. ``""`` is normalized to
+        null here, the meaning the client already gives it, so the stored and
+        returned value is never blank.
+        """
+        return value or None
+
     def validate_limit_column_ids(self, value):
         """Every id must name a column of this board; stored sorted, deduplicated.
 

@@ -28,9 +28,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
-from django.db import connection
 from django.test import TestCase
-from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -236,6 +234,20 @@ class StrictestWinsTests(_RowFixture):
         r = self._move(self.admin, self.mover, self.doing, self.beta, force=True)
         self.assertEqual(r.json()["code"], "swimlane_wip_hard_blocked")
 
+    def test_a_hard_row_beats_a_soft_column_without_force(self):
+        # No force: the soft column trips first in list order, so only the
+        # hard-first sort makes the hard row the one reported (round 2).
+        self._limit(self.beta, wip=1, mode="hard")
+        r = self._move(self.admin, self.mover, self.doing, self.beta)
+        self.assertEqual(r.json()["code"], "swimlane_wip_hard_blocked")
+
+    def test_a_hard_column_beats_a_soft_row(self):
+        self.board.enforce_wip_hard = True
+        self.board.save(update_fields=["enforce_wip_hard"])
+        self._limit(self.beta, wip=1, mode="block")
+        r = self._move(self.admin, self.mover, self.doing, self.beta, force=True)
+        self.assertEqual(r.json()["code"], "wip_hard_blocked")
+
     def test_equal_strictness_reports_the_column(self):
         self._limit(self.beta, wip=1, mode="block")
         r = self._move(self.admin, self.mover, self.doing, self.beta)
@@ -350,24 +362,29 @@ class HelperTests(_RowFixture):
             )
 
     def test_locks_the_column_then_the_swimlane_no_key(self):
+        # A spy on select_for_update (the #1931 approach): SQLite drops the
+        # lock clause from the SQL, so the order and the mode are pinned on
+        # the calls themselves.
+        from django.db.models.query import QuerySet
+
         self.board.enforce_wip_limits = True
         self.board.save(update_fields=["enforce_wip_limits"])
         self.doing.wip_limit = 5
         self.doing.save(update_fields=["wip_limit"])
         self._limit(self.beta, wip=5)
-        with CaptureQueriesContext(connection) as ctx:
+        calls = []
+        real = QuerySet.select_for_update
+
+        def spy(qs, *args, **kwargs):
+            calls.append((qs.model.__name__, kwargs))
+            return real(qs, *args, **kwargs)
+
+        with patch.object(QuerySet, "select_for_update", spy):
             card_services.enforce_column_limits(
                 board=self.board, column=self.doing, card=SimpleNamespace(pk=None, weight=1),
                 role="member", swimlane=self.beta,
             )
-        tables = [
-            ("columns" if '"columns"' in q["sql"].split("WHERE")[0] else "swimlanes")
-            for q in ctx.captured_queries
-            if q["sql"].lstrip().startswith("SELECT") and (
-                'FROM "columns"' in q["sql"] or 'FROM "swimlanes"' in q["sql"]
-            ) and "COUNT" not in q["sql"].upper()
-        ]
-        self.assertEqual(tables[:2], ["columns", "swimlanes"])
+        self.assertEqual(calls, [("Column", {"no_key": True}), ("Swimlane", {"no_key": True})])
 
     def test_the_locked_swimlane_row_is_what_is_enforced(self):
         # A settings save that committed after the caller read the swimlane
@@ -731,6 +748,93 @@ class FailClosedTests(_RowFixture):
             {"limit_column_ids": list(range(1, 202))}, format="json",
         )
         self.assertEqual(r.status_code, 400)
+
+
+class BlankModeTests(_RowFixture):
+    """``limit_enforcement: ""`` is null, as the client reads it (round 2 BLOCKER).
+
+    The model field is ``blank=True``, so DRF accepted ``""``; the service
+    read it as an unknown mode and failed closed to hard, while the client
+    showed "Follow board settings". The serializer now stores null.
+    """
+
+    def _url(self, lane=None):
+        return f"/api/v1/boards/{self.board.pk}/swimlanes/" + (f"{lane.pk}/" if lane else "")
+
+    def test_patch_put_and_create_store_and_return_null(self):
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch(self._url(self.alpha), {"limit_enforcement": "", "wip_limit": 1}, format="json")
+        self.assertEqual((r.status_code, r.json()["limit_enforcement"]), (200, None))
+        r = self.client.put(self._url(self.beta), {"name": "Beta", "limit_enforcement": ""}, format="json")
+        self.assertEqual((r.status_code, r.json()["limit_enforcement"]), (200, None))
+        r = self.client.post(self._url(), {"name": "Gamma", "limit_enforcement": ""}, format="json")
+        self.assertEqual((r.status_code, r.json()["limit_enforcement"]), (201, None))
+        self.assertEqual(
+            set(Swimlane.objects.filter(board=self.board).values_list("limit_enforcement", flat=True)), {None},
+        )
+
+    def test_blank_then_follows_the_board(self):
+        # Board flags all off: a blank-then-null mode enforces nothing, so a
+        # member move (no force) into the full row goes through.
+        self.client.force_authenticate(self.admin)
+        self.client.patch(self._url(self.beta), {"limit_enforcement": "", "wip_limit": 1}, format="json")
+        self._card(self.doing, self.beta)
+        mover = self._card(self.backlog, self.alpha, created_by=self.member)
+        self.assertEqual(self._move(self.member, mover, self.doing, self.beta).status_code, 200)
+
+    def test_other_blank_or_malformed_values_are_400(self):
+        self.client.force_authenticate(self.admin)
+        for body in (
+            {"wip_limit": ""}, {"weight_limit": ""}, {"wip_limit": True}, {"wip_limit": 2.5},
+            {"limit_column_ids": [True]}, {"limit_column_ids": [0]}, {"limit_column_ids": [-1]},
+            {"limit_enforcement": "HARD"}, {"limit_enforcement": " hard"},
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(self.client.patch(self._url(self.alpha), body, format="json").status_code, 400)
+        self.alpha.refresh_from_db()
+        self.assertEqual((self.alpha.wip_limit, self.alpha.limit_enforcement, self.alpha.limit_column_ids), (None, None, None))
+
+
+class AdminSwimlaneSaveTests(_RowFixture):
+    def test_a_column_deleted_before_the_save_lock_is_dropped(self):
+        # The form validated the ids unlocked; a delete that committed before
+        # the save's board lock must not leave a stale id (round 2 GAP).
+        from django.test import RequestFactory
+        from boards import admin as admin_module
+
+        self.alpha.limit_column_ids = [self.backlog.pk, self.doing.pk]
+        real = admin_module._lock_board_for_admin_save
+        doing_pk = self.doing.pk
+
+        def delete_then_lock(*args, **kwargs):
+            Column.objects.filter(pk=doing_pk).delete()
+            return real(*args, **kwargs)
+
+        request = RequestFactory().post("/")
+        request.user = self.admin
+        with patch.object(admin_module, "_lock_board_for_admin_save", side_effect=delete_then_lock):
+            SwimlaneAdmin(Swimlane, AdminSite()).save_model(request, self.alpha, form=None, change=True)
+        self.alpha.refresh_from_db()
+        self.assertEqual(self.alpha.limit_column_ids, [self.backlog.pk])
+
+    def test_all_counted_columns_gone_becomes_null(self):
+        from django.test import RequestFactory
+        from boards import admin as admin_module
+
+        self.alpha.limit_column_ids = [self.doing.pk]
+        real = admin_module._lock_board_for_admin_save
+        doing_pk = self.doing.pk
+
+        def delete_then_lock(*args, **kwargs):
+            Column.objects.filter(pk=doing_pk).delete()
+            return real(*args, **kwargs)
+
+        request = RequestFactory().post("/")
+        request.user = self.admin
+        with patch.object(admin_module, "_lock_board_for_admin_save", side_effect=delete_then_lock):
+            SwimlaneAdmin(Swimlane, AdminSite()).save_model(request, self.alpha, form=None, change=True)
+        self.alpha.refresh_from_db()
+        self.assertIsNone(self.alpha.limit_column_ids)
 
 
 class ColumnLimitBehaviorUnchangedTests(_RowFixture):

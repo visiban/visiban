@@ -27,7 +27,7 @@ from ..serializers import (
 from ..services.custom_fields import apply_swimlane_custom_field_values
 from ._helpers import (
     CONTAINER_CHANGED_409, blocked_peers_of, get_board_for_user, lock_board_and_row_or_404,
-    lock_board_row_or_404, lock_container_cascade, publish_blocked_peers,
+    lock_board_row_or_404, lock_container_cascade, missing_limit_columns, publish_blocked_peers,
     require_present_or_404,
     validate_full_reorder_order,
 )
@@ -90,11 +90,7 @@ def _require_live_limit_columns(board, validated_data):
     serializer reports an unknown id instead of being stored as a stale id the
     delete's cleanup (``prune_swimlane_limit_columns``) already ran past.
     """
-    wanted = validated_data.get("limit_column_ids")
-    if not wanted:
-        return
-    live = set(Column.objects.filter(board=board, pk__in=wanted).values_list("pk", flat=True))
-    missing = [pk for pk in wanted if pk not in live]
+    missing = missing_limit_columns(board.pk, validated_data.get("limit_column_ids"))
     if missing:
         raise ValidationError({
             "limit_column_ids": [

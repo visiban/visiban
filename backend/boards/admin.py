@@ -31,7 +31,9 @@ from .services.errors import (
     LIMIT_ERRORS, CardNotFound, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
     SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded, WipHardBlocked, WipLimitExceeded,
 )
-from .views._helpers import _refetched_card_data, blocked_peers_of, publish_blocked_peers
+from .views._helpers import (
+    _refetched_card_data, blocked_peers_of, missing_limit_columns, publish_blocked_peers,
+)
 from .views.boards import _broadcast_board_group_change
 
 
@@ -621,9 +623,15 @@ class _BoardEventAdminMixin:
         _lock_board_for_admin_save(
             self._board_id(obj), type(obj), obj.pk if change else None,
         )
+        self._under_board_lock(obj)
         super().save_model(request, obj, form, change)
         event = self.event_updated if change else self.event_created
         self._emit(self._board_id(obj), event, self._payload(obj, request), request)
+
+    def _under_board_lock(self, obj):
+        """Hook run after the save's board lock, before the write; a no-op
+        unless a model needs to re-read something the form validated
+        unlocked (``SwimlaneAdmin``)."""
 
     def _cards_cascaded_by(self, queryset):
         """Cards a delete of ``queryset`` cascades to, or ``None`` when the
@@ -775,6 +783,24 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
 
     def _delete_payload(self, obj):
         return {"swimlane_uid": obj.uid}
+
+    def _under_board_lock(self, obj):
+        """Re-read ``limit_column_ids`` under the board lock (#1150).
+
+        ``SwimlaneAdminForm.clean`` checked the ids before this lock, so a
+        column delete that committed in between would leave a stale id; the
+        REST save re-reads through the same helper and answers 400. A form
+        cannot be refused after validation, so the admin drops the deleted
+        id instead, with the delete's own rule: a list left empty becomes
+        null.
+        """
+        ids = obj.limit_column_ids
+        if not isinstance(ids, list):
+            return
+        missing = set(missing_limit_columns(obj.board_id, ids))
+        if missing:
+            kept = [pk for pk in ids if pk not in missing]
+            obj.limit_column_ids = kept or None
 
     def _cards_cascaded_by(self, queryset):
         return Card.objects.filter(swimlane__in=queryset.values("pk"))
