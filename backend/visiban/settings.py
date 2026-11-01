@@ -202,6 +202,14 @@ if not DEBUG and SECRET_KEY in _INSECURE_SECRET_KEYS:
     )
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+# Django system-check IDs the operator has deliberately accepted (#1698), e.g.
+# "accounts.W001,accounts.W002". The check hints tell operators to silence an
+# accepted warning via SILENCED_SYSTEM_CHECKS, which Compose/Helm installs
+# could not do without editing code. Default empty so no check is silenced
+# unless asked. Entries are stripped so "a, b" works; blanks are dropped so a
+# trailing comma or an empty Helm value cannot add a "" entry.
+SILENCED_SYSTEM_CHECKS = [c.strip() for c in env.list("SILENCED_SYSTEM_CHECKS", default=[]) if c.strip()]
+
 # Resolve OIDC env vars early so INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS
 # both reference the same computed flag instead of calling env() twice.
 _OIDC_CLIENT_ID = _secret_env("OIDC_CLIENT_ID", default="")

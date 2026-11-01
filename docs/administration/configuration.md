@@ -22,6 +22,7 @@ Copy `.env.example` to `.env` in the repository root and fill in the values belo
 | `GITLAB_CLIENT_ID` / `GITLAB_CLIENT_SECRET` | GitLab OAuth — leave blank to disable | *optional* |
 | `ALLOWED_HOSTS` | Comma-separated list of hostnames the backend will accept. Defaults to `localhost,127.0.0.1`. Must include your LAN IP or hostname if you access Visiban from another machine or a non-localhost address. | `localhost,127.0.0.1` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of origins allowed to make API requests. Must match the exact origin your browser uses (scheme + host + port). Defaults to `http://localhost:5173`. Also controls `CSRF_TRUSTED_ORIGINS` unless that is set separately. | `http://localhost:5173` |
+| `SILENCED_SYSTEM_CHECKS` | Comma-separated Django system-check IDs to silence, for warnings you have reviewed and accepted (for example `accounts.W001,accounts.W002`, the IDs named in `manage.py check` hints). Empty by default, so nothing is silenced. Helm: `backend.settings.silencedSystemChecks`. | *empty* |
 | `VITE_API_URL` | Frontend env var for `npm run dev` — create `frontend/.env.local` (gitignored) and set to `http://localhost:8000`. Leave empty for Docker builds; the frontend falls back to `window.location.origin` and relies on nginx to proxy `/api/` and `/ws/`. | `http://localhost:8000` |
 
 Valkey has no authentication in development, so no variable is needed.
