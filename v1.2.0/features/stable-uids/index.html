@@ -4194,6 +4194,7 @@
 </tr>
 </tbody>
 </table>
+<p>The <a href="../../api/mcp/#stable-identifiers-uid">MCP server</a> returns the same <code>uid</code> on every board, column, swimlane, label, and card object in its tool and resource results (<code>archive_card</code> returns it as <code>card_uid</code>), and the movement <code>*_uid</code> fields below on its movements (added in 1.3; before 1.3 only <code>list_boards</code> carried a <code>uid</code>).</p>
 <h2 id="uids-in-movement-history">UIDs in movement history<a class="headerlink" href="#uids-in-movement-history" title="Permanent link">&para;</a></h2>
 <p>When a card is moved, <code>CardMovement</code> captures the UID of the source and destination column and swimlane <strong>at the time of the move</strong>:</p>
 <table>

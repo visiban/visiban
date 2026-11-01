@@ -2326,6 +2326,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#stable-identifiers-uid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stable identifiers (uid)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optimistic-concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimistic concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#list_columns" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4875,7 +4897,7 @@
 </tr>
 <tr>
 <td><code>invalid_version</code></td>
-<td>Reserved: no tool currently takes <code>version</code>. The supplied <code>version</code> is not an integer.</td>
+<td>Reserved: <code>version</code> (on <code>move_card</code> and <code>update_card</code> since 1.3) is schema-typed as an integer, so this is not currently reachable. The supplied <code>version</code> is not an integer.</td>
 </tr>
 <tr>
 <td><code>invalid_position</code></td>
@@ -4927,7 +4949,7 @@
 </tr>
 <tr>
 <td><code>version_conflict</code></td>
-<td><code>move_card</code>, and <code>create_card</code> when <code>position</code> is given. For <code>move_card</code>, the card kept changing under concurrent writes while the server retried locking it; <code>move_card</code> takes no <code>version</code> argument, so this is the only cause. Re-read the card and retry. For <code>create_card</code>, cards kept entering the target column/swimlane cell while the server retried locking it. Nothing was created, so there is no card to report: <code>current_version</code> is <code>null</code> and <code>detail</code> says so. Retry the same call. Added in 1.2 (#1522).</td>
+<td><code>move_card</code>, <code>update_card</code>, and <code>create_card</code> when <code>position</code> is given. For <code>move_card</code> and <code>update_card</code>, the <code>version</code> you passed no longer matches the card (<em>Added in 1.3, #1974</em>; see <a href="#optimistic-concurrency">Optimistic concurrency</a>), or, for <code>move_card</code> only, the card kept changing under concurrent writes while the server retried locking it, which can happen without a <code>version</code>. Nothing was changed; <code>current_version</code> is the card's version now. Re-read the card and retry. For <code>create_card</code>, cards kept entering the target column/swimlane cell while the server retried locking it. Nothing was created, so there is no card to report: <code>current_version</code> is <code>null</code> and <code>detail</code> says so. Retry the same call. Added in 1.2 (#1522).</td>
 </tr>
 </tbody>
 </table>
@@ -4936,21 +4958,35 @@
 <p>The <code>assignee</code> argument of <code>list_cards</code>, <code>create_card</code>, and <code>update_card</code> takes a username, matched case-insensitively.</p>
 <p><em>Changed in 1.2 (before GA, #1671): the 1.2 pre-releases reported these fields as email address strings and took the <code>create_card</code>/<code>update_card</code> assignee as <code>assignee_email</code>; that argument is now <code>assignee</code>. The <code>list_cards</code> <code>assignee</code> filter kept its name but now matches a username instead of an email address, so an email value returns no cards rather than an error.</em></p>
 <p><em>Changed in 1.2 (before GA, #2004): <code>assignee_email</code> is no longer listed in the <code>create_card</code>/<code>update_card</code> input schema. A call that passes it with any non-null value, including an empty string, is rejected with an <code>isError: true</code> <a href="#tool-errors">tool error</a>, code <code>validation_error</code>, <code>errors</code> <code>{"assignee_email": ["This argument was replaced by `assignee` (a username)."]}</code>, and nothing is created or changed. An explicit <code>"assignee_email": null</code> is ignored, and the call runs as if the argument were absent. For clients of v1.2.0-beta.2 through rc.1, which already rejected a non-null value and ignored <code>null</code> the same way, only <code>isError</code> changed. For clients of v1.2.0-beta.1 and earlier, where <code>assignee_email</code> was the working email-based assignee argument, it no longer assigns anyone: send <code>assignee</code> (a username) instead. Other arguments a tool does not declare are ignored by the MCP SDK (<code>mcp</code> 2.3.0), not rejected.</em></p>
+<h3 id="stable-identifiers-uid">Stable identifiers (<code>uid</code>)<a class="headerlink" href="#stable-identifiers-uid" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1974)</p>
+</blockquote>
+<p>Every board, column, swimlane, label, and card in tool and resource output carries a <code>uid</code> next to its integer <code>id</code> (<code>archive_card</code>, which returns no card object, carries it as <code>card_uid</code> next to <code>card_id</code>): the 16-character <a href="../../features/stable-uids/">stable UID</a> the REST API, the <a href="../websockets/">WebSocket frames</a> (<code>card_uid</code>, <code>column_uid</code>, ...) and the <a href="../events/">change feed</a> use. Use <code>uid</code> to match an MCP card to a <code>card.*</code> event or a REST card, and as the key in any external system. Tool arguments still take the integer <code>id</code>s, unchanged.</p>
+<p>A movement has no <code>uid</code> of its own (its integer <code>id</code> identifies it), but it carries the <code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, and <code>to_swimlane_uid</code> snapshots REST's movement history serves, which survive a rename or delete of the column or swimlane.</p>
+<p><em>Changed in 1.3 (#1974): before 1.3 only <code>list_boards</code> returned a <code>uid</code>. The new keys are additive; no existing key changed.</em></p>
+<h3 id="optimistic-concurrency">Optimistic concurrency<a class="headerlink" href="#optimistic-concurrency" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1974)</p>
+</blockquote>
+<p>Every card object in tool and resource output (from <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>board://</code> and <code>card://</code>) carries <code>version</code>, a counter that goes up on every field update and every move of the card, over MCP or REST. Pass it back as the optional <code>version</code> argument of <code>move_card</code> or <code>update_card</code> to make the write conditional: if the card changed since you read it, the call returns a <code>version_conflict</code> <a href="#tool-errors">tool error</a> carrying <code>current_version</code>, and nothing is written or broadcast. Omit <code>version</code> and the call behaves exactly as before 1.3, with no check.</p>
+<p><code>move_card</code>'s <code>version</code> is the REST move endpoint's <code>version</code> body field, with the same semantics and the same error. The REST <code>PATCH</code>/<code>PUT</code> card endpoints still neither accept nor check <code>version</code>; the conditional update exists on the MCP <code>update_card</code> tool only.</p>
+<p>A successful <code>create_card</code>, <code>move_card</code>, or <code>update_card</code> returns the card with its new <code>version</code>, which is the one to send on the next write.</p>
 <h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
 <p>Lists a board's columns, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
-<p><strong>Returns:</strong> an array of <code>{id, name, position, color, wip_limit, card_count}</code> — <code>card_count</code> excludes archived cards. <code>wip_limit</code> is checked by both <code>move_card</code> and <code>create_card</code> (since 1.2, #1428); only a board import can leave <code>card_count</code> above it (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
+<p><strong>Returns:</strong> an array of <code>{id, uid, name, position, color, wip_limit, card_count}</code> — <code>card_count</code> excludes archived cards; <code>uid</code> is new in 1.3 (see <a href="#stable-identifiers-uid">Stable identifiers</a>). <code>wip_limit</code> is checked by both <code>move_card</code> and <code>create_card</code> (since 1.2, #1428); only a board import can leave <code>card_count</code> above it (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
 <h3 id="list_swimlanes"><code>list_swimlanes</code><a class="headerlink" href="#list_swimlanes" title="Permanent link">&para;</a></h3>
 <p>Lists a board's swimlanes, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
-<p><strong>Returns:</strong> an array of <code>{id, name, position, color, card_count, is_collapsed}</code>, plus <code>contact_email</code> for <code>admin</code>/<code>site_admin</code> callers only — a <code>collaborator</code>/<code>viewer</code> response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.</p>
+<p><strong>Returns:</strong> an array of <code>{id, uid, name, position, color, card_count, is_collapsed}</code> (<code>uid</code> since 1.3), plus <code>contact_email</code> for <code>admin</code>/<code>site_admin</code> callers only — a <code>collaborator</code>/<code>viewer</code> response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.</p>
 <h3 id="list_cards"><code>list_cards</code><a class="headerlink" href="#list_cards" title="Permanent link">&para;</a></h3>
 <p>Lists a board's cards, ordered by column position, then swimlane position, then card position, with ties broken by id so paging is stable. (The REST card list orders by <code>position</code> then id by default; the MCP ordering is the board's visual reading order.) All board roles may call it. A call returns at most 200 cards. When more cards match than were returned, the result says so in-band: the array is unchanged, but the result's content gains one extra text block, <code>Showing N of M cards; call again with offset=K</code>, and its <code>_meta</code> carries <code>{"visiban/total": M, "visiban/truncated": true}</code>. A complete result has neither. Page past the cap with <code>limit</code>/<code>offset</code>. Pass <code>include_meta: true</code> to get the total and flag in the returned data itself.</p>
 <p><strong>Trade-off for clients:</strong> because the card array has no room for a flag, the notice is a plain text block after the per-card JSON blocks, and only on truncated calls. A client that JSON-parses every content block will hit one non-card block then; <code>structuredContent</code> (<code>{"result": [...]}</code>) is unchanged and is the machine-readable path. A <code>limit</code> of <code>0</code> is a total-only request and gets no notice; use <code>include_meta</code> for the total.</p>
 <p><code>limit</code>/<code>offset</code> and the totals mirror the REST <code>GET /api/v1/boards/{board_id}/cards/</code> endpoint's <code>X-Total-Count</code> / <code>X-Truncated</code> headers and <code>limit</code>/<code>offset</code> query params, with the same bounds. The names are deliberate: <code>limit</code> and <code>total</code>/<code>truncated</code> match the card list's own <code>?limit=</code> and headers (a second pagination style by design, see the <a href="../">API overview</a>), and MCP <code>total</code> corresponds to the paginated REST envelope's <code>count</code> and to the <code>X-Total-Count</code> header.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>column_id</code>, <code>swimlane_id</code> (integers), <code>assignee</code> (username, case-insensitive), <code>priority</code>, <code>label</code> (name) — all optional filters, ANDed together; <code>include_archived</code> (boolean, default <code>false</code>); <code>limit</code> (integer, default and maximum <code>200</code>; a larger value is clamped to <code>200</code>, as in REST); <code>offset</code> (integer, default <code>0</code>); <code>include_meta</code> (boolean, default <code>false</code>). A negative <code>limit</code>, or an <code>offset</code> above 2^62, returns a <code>validation_error</code>; a negative <code>offset</code> is treated as <code>0</code>, as on every REST endpoint (<em>1.2, #1823</em>), while a non-numeric <code>offset</code> is rejected by the input schema like any mistyped argument. The tool's input schema coerces numeric strings, whole numbers and JSON booleans (<code>"5"</code>, <code>5.0</code>, <code>true</code> becomes <code>1</code>) to integers and rejects non-numeric or fractional values (<code>"abc"</code>, <code>5.5</code>) with an <code>isError</code> result.</p>
 <p><em>Changed in 1.2: <code>limit</code>, <code>offset</code> and <code>include_meta</code> are new and optional, and the card fields are unchanged. A call that omits them returns the same array as before; the only difference is the in-band notice and <code>_meta</code> on a call that was truncated (#1762).</em></p>
-<p><strong>Returns:</strong> by default, an array of <code>{id, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}</code>. <code>assignee</code> is a <code>{username, display_name}</code> object or <code>null</code> (see <a href="#user-fields">User fields</a>); <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, name}</code> objects so a result can be fed straight into <code>move_card</code>.</p>
+<p><strong>Returns:</strong> by default, an array of <code>{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}</code>. <code>assignee</code> is a <code>{username, display_name}</code> object or <code>null</code> (see <a href="#user-fields">User fields</a>); <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, uid, name}</code> objects so a result can be fed straight into <code>move_card</code>. <code>uid</code>, <code>version</code>, and the <code>uid</code> inside <code>column</code>/<code>swimlane</code> are new in 1.3 (#1974; see <a href="#stable-identifiers-uid">Stable identifiers</a> and <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
 <p>With <code>include_meta: true</code>, an object instead (and no in-band notice, since the data carries the signal): <code>{cards, total, truncated, limit, offset}</code>. <code>cards</code> is the same array described above; <code>total</code> is the number of cards matching the filters, ignoring <code>limit</code>/<code>offset</code>; <code>truncated</code> is <code>true</code> when more matching cards exist after the returned ones (fetch them with a larger <code>offset</code>); <code>limit</code> and <code>offset</code> echo the values applied.</p>
 <h3 id="create_card"><code>create_card</code><a class="headerlink" href="#create_card" title="Permanent link">&para;</a></h3>
 <p>Creates a card, appended to the end of its column/swimlane cell (or inserted at <code>position</code> if given). Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
@@ -4960,17 +4996,17 @@
 <p>Enforces the column's WIP and weight limits exactly as <code>move_card</code> does, with no override: a create into a full column returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> and writes nothing. <em>Changed in 1.2 (#1428): creates were not checked before.</em></p>
 <h3 id="move_card"><code>move_card</code><a class="headerlink" href="#move_card" title="Permanent link">&para;</a></h3>
 <p>Moves a card to a new column and/or swimlane and/or position. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
-<p><strong>Arguments:</strong> <code>card_id</code> (required); <code>to_column_id</code>, <code>to_swimlane_id</code> — at least one required, the other defaults to the card's current value; <code>position</code> (default <code>0</code>).</p>
-<p><strong>Returns:</strong> <code>{"card": &lt;card&gt;, "movement": &lt;movement-or-null&gt;}</code>. <code>movement</code> is <code>null</code> for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries <code>{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by, imported_from_username}</code>. <code>imported_from_username</code> is <code>null</code> except on a row created by a board import with history (since 1.2), where it holds the username the import file named and <code>moved_by</code> is the user who imported it. Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> rather than moving the card.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> (required); <code>to_column_id</code>, <code>to_swimlane_id</code> — at least one required, the other defaults to the card's current value; <code>position</code> (default <code>0</code>); <code>version</code> (integer, optional, <em>added in 1.3</em>): the card's <code>version</code> from a prior read, which makes the move fail with <code>version_conflict</code> if the card changed since (see <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
+<p><strong>Returns:</strong> <code>{"card": &lt;card&gt;, "movement": &lt;movement-or-null&gt;}</code>. <code>movement</code> is <code>null</code> for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries <code>{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}</code>. The four <code>*_uid</code> keys (<em>added in 1.3</em>) are the column and swimlane UIDs captured when the movement was written, <code>null</code> where the matching name is <code>null</code> (no "from" cell on a creation row) or where an old row predates UID capture. <code>imported_from_username</code> is <code>null</code> except on a row created by a board import with history (since 1.2), where it holds the username the import file named and <code>moved_by</code> is the user who imported it. Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> rather than moving the card.</p>
 <p>Broadcasts <code>card.moved</code> with the same payload as the REST move endpoint (<code>{card, movement}</code>, full card and movement objects, <code>movement</code> omitted for a same-cell reorder), not the tool's return shape. <em>Fixed in 1.2 (#1926).</em></p>
 <h3 id="update_card"><code>update_card</code><a class="headerlink" href="#update_card" title="Permanent link">&para;</a></h3>
 <p>Updates one or more fields on a card. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
-<p><strong>Arguments:</strong> <code>card_id</code> (required); any of <code>title</code>, <code>description</code>, <code>priority</code>, <code>assignee</code> (username), <code>labels</code>, <code>due_date</code> — omitted fields are left unchanged. <code>labels: []</code> clears every label; <code>assignee: ""</code> unassigns the card. Cannot change a card's column or swimlane — use <code>move_card</code>.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> (required); any of <code>title</code>, <code>description</code>, <code>priority</code>, <code>assignee</code> (username), <code>labels</code>, <code>due_date</code> — omitted fields are left unchanged. <code>labels: []</code> clears every label; <code>assignee: ""</code> unassigns the card. Cannot change a card's column or swimlane — use <code>move_card</code>. <code>version</code> (integer, optional, <em>added in 1.3</em>): the card's <code>version</code> from a prior read; the update then fails with <code>version_conflict</code>, changing nothing, if the card changed since (see <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
 <p><strong>Returns:</strong> the updated card, same shape as <code>create_card</code>. Records a <code>CardActivity</code> audit entry per field that actually changed. Broadcasts <code>card.updated</code> with the full card, as a REST update does, not the tool's return shape. <em>Fixed in 1.2 (#1926).</em></p>
 <h3 id="archive_card"><code>archive_card</code><a class="headerlink" href="#archive_card" title="Permanent link">&para;</a></h3>
 <p>Soft-deletes a card. Idempotent — archiving an already-archived card succeeds and returns its existing <code>archived_at</code>. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>card_id</code> (required).</p>
-<p><strong>Returns:</strong> <code>{"card_id": &lt;id&gt;, "archived_at": &lt;ISO 8601 timestamp&gt;}</code>.</p>
+<p><strong>Returns:</strong> <code>{"card_id": &lt;id&gt;, "card_uid": &lt;uid&gt;, "archived_at": &lt;ISO 8601 timestamp&gt;}</code>. <code>card_uid</code> (<em>added in 1.3, #1974</em>) is the card's <a href="#stable-identifiers-uid">stable UID</a>, the same value the <code>card.archived</code> WebSocket frame carries. The result has no card object and so no <code>version</code>.</p>
 <hr />
 <h2 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
 <blockquote>
@@ -4995,6 +5031,11 @@
 <td><code>id</code></td>
 <td>integer</td>
 <td>Board primary key.</td>
+</tr>
+<tr>
+<td><code>uid</code></td>
+<td>string</td>
+<td>Stable public short id, as in <code>list_boards</code>. Added in 1.3 (#1974).</td>
 </tr>
 <tr>
 <td><code>name</code></td>
@@ -5044,7 +5085,7 @@
 <tr>
 <td><code>labels</code></td>
 <td>array</td>
-<td><code>{id, name, color}</code> objects, one per label defined on the board.</td>
+<td><code>{id, uid, name, color}</code> objects, one per label defined on the board (<code>uid</code> since 1.3). A card's <code>labels</code> stay an array of names, which are unique per board; map them to a <code>uid</code> through this list.</td>
 </tr>
 </tbody>
 </table>
@@ -5072,7 +5113,7 @@
 <tr>
 <td><code>movements</code></td>
 <td>array</td>
-<td><code>{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by, imported_from_username}</code> objects — same shape as <code>move_card</code>'s <code>movement</code> above.</td>
+<td><code>{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}</code> objects — same shape as <code>move_card</code>'s <code>movement</code> above (the <code>*_uid</code> keys since 1.3).</td>
 </tr>
 <tr>
 <td><code>checklist_items</code></td>
@@ -5106,6 +5147,7 @@
 <li><strong>Argument schemas</strong> change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.</li>
 <li><strong>Results and error payloads</strong> only gain fields; existing fields keep their name and type. The error <code>code</code> values listed under <a href="#tool-errors">Tool errors</a> are never removed.</li>
 <li>A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
+<li><strong>Resource URIs address objects by integer id.</strong> <code>board://{board_id}</code> and <code>card://{card_id}</code> take the same integer <code>id</code> the tools take, and that scheme is frozen. A <code>uid</code> is not accepted in their place. If uid-addressed reads are ever added, they will be new, additional resource templates, and these two will keep working unchanged. <em>Recorded in 1.3 (#1974).</em></li>
 <li>New tools, resources, optional arguments, and result fields can appear in any minor release, so clients should ignore fields they do not recognize.</li>
 <li>The configuration names <code>MCP_SERVER_ENABLED</code>, <code>MCP_ALLOWED_HOSTS</code>, <code>MCP_THROTTLE_*_RATE</code>, and the <code>/mcp</code> path follow the environment-variable rules: they are not renamed, and a rename keeps the old name as a deprecated alias for at least one minor release.</li>
 </ul>
