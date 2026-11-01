@@ -1217,6 +1217,7 @@ class BoardViewSet(
                     raise PermissionDenied("Cannot modify a site admin's board membership.")
                 # A row created while this request waited keeps its stored role
                 # when the request did not name one.
+                previous_role = membership.role
                 if role_supplied:
                     membership.role = member_role
                 elif is_moderator and membership.role in (
@@ -1232,6 +1233,19 @@ class BoardViewSet(
                     )
                 if is_moderator is not None:
                     membership.is_moderator = is_moderator
+                elif previous_role in (
+                    BoardMembership.Role.COLLABORATOR,
+                    BoardMembership.Role.VIEWER,
+                ) and membership.role in (
+                    BoardMembership.Role.MEMBER,
+                    BoardMembership.Role.ADMIN,
+                ):
+                    # Promotion out of a role that cannot moderate: a flag stored
+                    # on that row (Django admin or shell; ignored while the role
+                    # could not use it, #1944) must not come back to life here,
+                    # where the Members checkbox never showed it to an admin.
+                    # An explicit is_moderator in the request still wins above.
+                    membership.is_moderator = False
                 # Clear moderator flag when demoting to collaborator/viewer
                 if membership.role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
                     membership.is_moderator = False

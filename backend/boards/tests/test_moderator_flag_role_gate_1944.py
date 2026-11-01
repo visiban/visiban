@@ -119,3 +119,56 @@ class ModeratorFlagRoleGateTests(TestCase):
             board = Board.objects.get(pk=self.board.pk)
             setattr(board, attr, value)
             self.assertIs(can_modify_others_content(board, Role.COLLABORATOR, user), False)
+
+
+class ModeratorFlagPromotionTests(TestCase):
+    """Promoting a flagged collaborator/viewer must not revive a stale flag."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="adm1944p", password="pass")
+        self.board = Board.objects.create(name="B", owner=self.admin)
+        BoardMembership.objects.create(board=self.board, user=self.admin, role=Role.ADMIN)
+        self.target = User.objects.create_user(username="tgt1944p", password="pass")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+        self.url = f"/api/v1/boards/{self.board.id}/members/"
+
+    def _set(self, role, flagged):
+        BoardMembership.objects.update_or_create(
+            board=self.board, user=self.target,
+            defaults={"role": role, "is_moderator": flagged},
+        )
+
+    def _flag(self):
+        return BoardMembership.objects.get(board=self.board, user=self.target).is_moderator
+
+    def test_promoting_flagged_collaborator_or_viewer_clears_flag(self):
+        for old in (Role.COLLABORATOR, Role.VIEWER):
+            for new in (Role.MEMBER, Role.ADMIN):
+                with self.subTest(old=old, new=new):
+                    self._set(old, True)
+                    r = self.client.post(
+                        self.url, {"user_id": self.target.id, "role": new}, format="json"
+                    )
+                    self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+                    self.assertFalse(self._flag())
+
+    def test_explicit_flag_on_promotion_is_honored(self):
+        self._set(Role.COLLABORATOR, True)
+        r = self.client.post(
+            self.url,
+            {"user_id": self.target.id, "role": Role.MEMBER, "is_moderator": True},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.assertTrue(self._flag())
+
+    def test_existing_moderator_member_keeps_flag_when_role_unchanged(self):
+        self._set(Role.MEMBER, True)
+        for body in ({"role": Role.MEMBER}, {}):
+            with self.subTest(body=body):
+                r = self.client.post(
+                    self.url, {"user_id": self.target.id, **body}, format="json"
+                )
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+                self.assertTrue(self._flag())
