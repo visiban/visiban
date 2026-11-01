@@ -4582,7 +4582,7 @@
 <p>Authentication is enforced at the transport layer, before any MCP protocol frame is parsed, so an unauthenticated caller never reaches the protocol machinery. The <code>401</code> body is a JSON-RPC error envelope, so spec-compliant clients surface a useful message.</p>
 <h3 id="protocol-errors-and-limits">Protocol errors and limits<a class="headerlink" href="#protocol-errors-and-limits" title="Permanent link">&para;</a></h3>
 <blockquote>
-<p><strong>Changed in 1.2</strong> (MCP SDK 2.3.0), except the <code>Accept</code> row, which is unchanged.</p>
+<p><strong>Changed in 1.2</strong> (MCP SDK 2.3.0). In the <code>Accept</code> row, only wildcard handling changed.</p>
 </blockquote>
 <p>These responses come from the MCP SDK rather than from a Visiban tool, so a client should handle them in addition to the <a href="#tool-errors">tool errors</a>:</p>
 <table>
@@ -4610,8 +4610,8 @@
 <td><code>413</code>, before the body is parsed.</td>
 </tr>
 <tr>
-<td><code>Accept</code> header that does not accept both <code>application/json</code> and <code>text/event-stream</code> (or <code>*/*</code>), including a missing one</td>
-<td><code>406</code> (unchanged). Send <code>Accept: application/json, text/event-stream</code> on every <code>POST</code>, as spec-compliant clients do.</td>
+<td><code>Accept</code> header that does not accept both <code>application/json</code> and <code>text/event-stream</code>, including a missing, JSON-only or event-stream-only one</td>
+<td><code>406</code>. Wildcards are accepted: <code>*/*</code>, or <code>application/*</code> together with <code>text/*</code> (the 1.30.0 SDK returned <code>406</code> for <code>*/*</code>). Send <code>Accept: application/json, text/event-stream</code> on every <code>POST</code>, as spec-compliant clients do.</td>
 </tr>
 <tr>
 <td>Transport-level error</td>

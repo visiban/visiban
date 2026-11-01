@@ -4757,7 +4757,7 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <ul>
 <li><strong>Helm:</strong> <code>NUM_PROXIES</code>, <code>ALLOWED_HOSTS</code>, <code>allowedHosts</code> render failures, values-schema validation, the PostgreSQL password, <code>redis:</code> to <code>valkey:</code>, hardened pods.</li>
 <li><strong>Compose:</strong> <code>DOMAIN</code> in <code>ALLOWED_HOSTS</code>, <code>APP_VERSION</code>, re-rendering the nginx config.</li>
-<li><strong>API clients:</strong> status codes, <code>409</code> on WIP limits, <code>old_password</code>, <code>reorder/</code>, PAT scopes, MCP, token callers refused for username and pending-email changes, <code>avatar_url</code> validation.</li>
+<li><strong>API clients:</strong> status codes, <code>409</code> on WIP limits, <code>old_password</code>, <code>reorder/</code>, PAT scopes, MCP (including in-band truncation flags on <code>list_cards</code> and <code>board://</code>), token callers refused for username and pending-email changes, <code>avatar_url</code> validation.</li>
 <li><strong>Browsers and proxies:</strong> the Content-Security-Policy <code>connect-src</code> is now scoped to your own origin (split-origin WebSocket setups).</li>
 <li><strong>Data cleanup:</strong> <code>clear_viewer_assignees</code>, <code>find_cross_board_cards</code>, <code>backfill_card_movement_snapshots</code>.</li>
 </ul>
@@ -5100,6 +5100,11 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <li>Transport-level errors carry <code>id: null</code> instead of <code>"server-error"</code>.</li>
 </ul>
 <p>The main changes are listed in the <a href="../../api/mcp/#protocol-errors-and-limits">MCP API reference</a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">MCP <code>list_cards</code> and <code>board://</code> now flag a truncated result in-band</p>
+<p>Both return at most 200 cards, as before, but a capped result is no longer silent (#1762). A truncated <code>list_cards</code> call keeps the same card array and adds one extra text content block, <code>Showing N of M cards; call again with offset=K</code>, plus <code>_meta</code> of <code>{"visiban/total": M, "visiban/truncated": true}</code>. A complete result has neither. <code>list_cards</code> also takes optional <code>limit</code>, <code>offset</code> and <code>include_meta</code>; with <code>include_meta: true</code> it returns <code>{cards, total, truncated, limit, offset}</code> instead of an array. The <code>board://{board_id}</code> snapshot gains <code>cards_total</code> and <code>cards_truncated</code>.</p>
+<p>A client that JSON-parses every content block of a <code>list_cards</code> result will hit the notice block on a truncated call. Read <code>structuredContent</code> instead (unchanged), or pass <code>include_meta: true</code>. See <a href="../../api/mcp/#list_cards"><code>list_cards</code></a> and <a href="../../api/mcp/#boardboard_id"><code>board://{board_id}</code></a>.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">MCP tool errors now set <code>isError</code>, and <code>assignee_email</code> left the schema</p>
