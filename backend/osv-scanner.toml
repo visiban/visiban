@@ -1,97 +1,10 @@
 # OSV-Scanner config for backend/requirements.txt (auto-discovered; see
 # scripts/osv-severity-gate.sh for the accepted-risk contract). Also consumed by
 # scripts/pip-audit-gate.py (backend-dep-scan), which matches id and aliases.
-
-[[IgnoredVulns]]
-id = "GHSA-8pqf-f4m5-798g"
-# twisted <= 26.4.0: ReDoS in twisted.mail.imap4.wildcardToRegexp().
-# No patched release exists yet (26.4.0 is the newest and is itself listed
-# as last_affected), so there is nothing to bump. twisted is a transitive
-# of daphne; Visiban never imports twisted.mail or serves IMAP, so the
-# vulnerable function is unreachable. Re-check PyPI for a fixed twisted
-# release and remove this entry when one lands (tracked in #1685, closed;
-# expiry now tracked in #1778).
-# Re-checked 2026-10-19 (#1751): PyPI still shows 26.4.0 (2026-05-11) as the
-# newest twisted and OSV still lists no fixed version, so the ignore is
-# extended to 2027-01-31 (about one quarter). Re-check before it expires (#1778).
-ignoreUntil = 2027-01-31
-reason = "No fixed twisted release exists; IMAP-only code path (twisted.mail) that Visiban never loads"
-
-# Three unauthenticated-DoS advisories published 2026-10-23 against twisted
-# <= 26.4.0. All are fixed only in 26.10.0rc1 (a prerelease; no stable release
-# exists, and pinning an rc under daphne is a larger risk than the finding).
-# Each is in a Twisted server protocol Visiban never starts: the IRC server
-# (twisted.words.protocols.irc), the conch Telnet transport, and the words
-# domish XML stream. Visiban uses twisted only as daphne's HTTP/WebSocket
-# reactor. Re-check PyPI for a stable 26.10.0 and remove all three entries
-# when it lands; expiry is a month so this cannot go stale silently.
-[[IgnoredVulns]]
-id = "GHSA-53xc-49m8-p798"
-ignoreUntil = 2026-11-23
-reason = "Twisted IRC server DoS; fixed only in 26.10.0rc1; Visiban never runs the IRC server"
-
-[[IgnoredVulns]]
-id = "GHSA-cwm5-jh59-mwxr"
-ignoreUntil = 2026-11-23
-reason = "Twisted conch Telnet transport DoS; fixed only in 26.10.0rc1; Visiban never runs conch/Telnet"
-
-[[IgnoredVulns]]
-id = "GHSA-3476-c5c2-fr73"
-ignoreUntil = 2026-11-23
-reason = "Twisted words domish XML stream DoS; fixed only in 26.10.0rc1; Visiban never uses twisted.words"
-
-# Two more twisted <= 26.4.0 advisories, also fixed only in the 26.10.0rc1
-# prerelease. GHSA-2qrf is the IMAP4 server (twisted.mail), unreachable for the
-# same reason as GHSA-8pqf above. GHSA-q7qq is HTTP request smuggling via a bare
-# CR/LF in a header value in twisted.web; daphne does build on twisted.web.http,
-# so this one is reachable in principle. It is accepted as a stopgap because
-# production deployments put daphne behind nginx, which re-parses and
-# re-frames every request. Verified 2026-10-28 (#2000) with raw HTTP/1.1
-# sockets against a byte-logging upstream. nginx 1.27.5 (nginx:1.27-alpine,
-# the Compose nginx and the Helm frontend nginx) and nginx 1.25.5 (ingress-nginx
-# v1.12.1, run as a plain nginx with equivalent proxy directives, not the full
-# controller) did not forward a bare CR or LF in any tested case. A bare CR in
-# a header value gets 400. A bare LF is read as a line end and re-sent as CRLF,
-# so it reaches daphne as an ordinary extra header (nothing the client could
-# not send directly), and "\n\n" is read as end of headers with the next bytes
-# parsed by nginx as its own request. In Helm the ingress has a single "/" rule
-# to the frontend Service (ingress.yaml), so every request also crosses the
-# frontend nginx 1.27.5 before daphne. The chart pins no controller version
-# (values.yaml sets only className "nginx"). Not tested: other controllers or
-# versions, and HTTP/2 from a TLS ingress. Residual exposure: any daphne port
-# reached without nginx in front. Dev compose publishes 8000; Helm
-# backend.service.type is ClusterIP by default but can be changed; and
-# networkPolicy.enabled is false by default, so any pod in the cluster can
-# reach <fullname>-backend on the backend service port directly. Re-check
-# PyPI for a stable 26.10.0 and bump twisted instead of renewing these.
-[[IgnoredVulns]]
-id = "GHSA-2qrf-pqgx-qh9v"
-ignoreUntil = 2026-11-23
-reason = "Twisted IMAP4 server DoS; fixed only in 26.10.0rc1; Visiban never serves IMAP"
-
-[[IgnoredVulns]]
-id = "GHSA-q7qq-6mhp-9rc4"
-ignoreUntil = 2026-11-23
-reason = "Twisted web header CR/LF smuggling; fixed only in 26.10.0rc1; daphne sits behind nginx, which did not forward bare CR/LF when tested (2026-10-28, #2000); stopgap until stable 26.10.0"
-
-# GHSA-jj36-9pvh-vj5r / CVE-2026-83813 (published 2026-10-27, LOW): twisted
-# <= 26.4.0 twisted.names.dns.DNSDatagramProtocol accepts a UDP DNS response on
-# transaction-ID match alone, with no source-address check, enabling off-path
-# spoofing. Fixed only in 26.10.0rc1 (a prerelease). Visiban never uses the
-# twisted.names DNS client: twisted's default reactor resolves hostnames with
-# getaddrinfo in a threadpool, and the codebase has no twisted.names or
-# installResolver reference. Re-check PyPI for a stable 26.10.0, then bump
-# twisted and drop this entry together with the five twisted entries above.
-[[IgnoredVulns]]
-id = "GHSA-jj36-9pvh-vj5r"
-ignoreUntil = 2026-11-23
-reason = "Twisted names DNS client UDP response spoofing; fixed only in 26.10.0rc1; Visiban never uses twisted.names (default reactor resolves via getaddrinfo)"
-
-# GHSA-vpp8: HTTP/2 Rapid Reset in twisted.web's HTTP/2 server, fixed only in the
-# 26.10.0rc1 prerelease. twisted.web negotiates HTTP/2 only when the optional `h2`
-# package is importable; requirements.txt installs daphne without twisted[http2],
-# so no h2 is present and daphne serves HTTP/1.1 only (TLS terminates at the proxy).
-[[IgnoredVulns]]
-id = "GHSA-vpp8-g58w-m8mp"
-ignoreUntil = 2026-11-23
-reason = "Twisted HTTP/2 Rapid Reset; fixed only in 26.10.0rc1; h2 not installed so HTTP/2 is never served; stopgap until stable 26.10.0"
+#
+# All twisted waivers were removed in #1778: twisted 26.10.0 (stable, released
+# 2026-10-30) is floored in requirements.txt and clears GHSA-8pqf-f4m5-798g,
+# GHSA-53xc-49m8-p798, GHSA-cwm5-jh59-mwxr, GHSA-3476-c5c2-fr73,
+# GHSA-2qrf-pqgx-qh9v, GHSA-q7qq-6mhp-9rc4, GHSA-jj36-9pvh-vj5r and
+# GHSA-vpp8-g58w-m8mp. Add new entries below as [[IgnoredVulns]] blocks with a
+# reason and an ignoreUntil date.
