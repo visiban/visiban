@@ -1714,6 +1714,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#group-membership-implies-board-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Group membership implies board access
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-to-set-board-roles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4592,6 +4603,15 @@
 <p class="admonition-title">Export analytics CSV is a UI convenience, not an API boundary</p>
 <p>The analytics CSV is generated client-side from data already returned by the <code>summary</code>/<code>analytics</code> endpoints, which any board member (including Viewers) can read. Hiding the <strong>Export CSV</strong> button for non-Admins keeps the action consistent with the board-structure permissions above; it is not a data-access restriction, since a Member could already read the same numbers through the API.</p>
 </div>
+<h2 id="group-membership-implies-board-access">Group membership implies board access<a class="headerlink" href="#group-membership-implies-board-access" title="Permanent link">&para;</a></h2>
+<p><a id="group-membership-board-visibility"></a></p>
+<p>Adding a user to a group, at any role including <code>viewer</code>, gives them access to every board in that group and in all of its sub-groups. This is by design: group membership implies board access. It is more than seeing board names. The user gets their group role on each of those boards, so a <code>viewer</code> can read all cards, comments, and movement history, and a <code>member</code> can create and move cards.</p>
+<p><strong>Watch out:</strong> a per-board <code>BoardMembership</code> row doesn't hide a board from someone who is already in the group. It only changes the role they hold on that one board (for example, a group <code>admin</code> set to <code>viewer</code> on a sensitive board), and every other board in the group stays visible to them. To keep a user out of some boards in a group:</p>
+<ul>
+<li>Don't add them to the group (or to any parent group). Give them <code>BoardMembership</code> rows on only the boards they need.</li>
+<li>Or move the sensitive boards into a separate group the user isn't in.</li>
+</ul>
+<p>Users with <code>can_access_all_content</code> see every board regardless of group. See <a href="../inheritance/">Group Inheritance</a> for the full resolution order and how sub-group visibility works.</p>
 <h2 id="how-to-set-board-roles">How to set board roles<a class="headerlink" href="#how-to-set-board-roles" title="Permanent link">&para;</a></h2>
 <p>See <a href="../../permissions/#how-to-set-roles">Board Permissions — How to set roles</a> for the board-toolbar UI steps.</p>
 <h2 id="moderator-entitlement">Moderator entitlement<a class="headerlink" href="#moderator-entitlement" title="Permanent link">&para;</a></h2>
