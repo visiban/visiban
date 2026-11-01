@@ -8,7 +8,7 @@ Visiban's REST API is a public contract from 1.0 onward: this page is the backwa
 
 ## URL path versioning — `/api/v1/`
 
-Every API endpoint is served under `/api/v1/` (e.g. `/api/v1/boards/`, `/api/v1/auth/login/`), using DRF's `URLPathVersioning` with `DEFAULT_VERSION = "v1"` and `ALLOWED_VERSIONS = ["v1"]`. A request to an unsupported version (e.g. `/api/v2/`) receives `406 Not Acceptable`.
+Every API endpoint is served under `/api/v1/` (e.g. `/api/v1/boards/`, `/api/v1/auth/login/`), using DRF's `URLPathVersioning` with `DEFAULT_VERSION = "v1"` and `ALLOWED_VERSIONS = ["v1"]`. A request to an unsupported version (e.g. `/api/v2/`) receives `406 Not Acceptable` with `{"detail": "Unsupported API version. Use /api/v1/."}` when authenticated (anonymous callers get `401`). An unmatched `/api/v1/...` path returns a JSON `404` without requiring authentication. `GET /api/v1/` is the API root: it requires authentication (`401` when anonymous) and returns an empty JSON object `{}`, not an endpoint listing.
 
 A few infrastructure endpoints are intentionally unversioned:
 

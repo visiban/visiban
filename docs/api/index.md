@@ -66,7 +66,7 @@ Every event follows the `{ "event": "<event_type>", "data": { ... } }` envelope 
 
 ## Versioning policy
 
-All REST endpoints are served under the `/api/v1/` prefix, a literal path segment (not a header or query parameter). An unsupported version prefix (e.g. `/api/v2/`) returns `406 Not Acceptable`.
+All REST endpoints are served under the `/api/v1/` prefix, a literal path segment (not a header or query parameter). An unsupported version prefix (e.g. `/api/v2/`) returns `406 Not Acceptable` with `{"detail": "Unsupported API version. Use /api/v1/."}`, but only to an authenticated caller: an anonymous request gets `401`, and a personal access token needs the scope its HTTP method requires (see [Authentication](authentication.md)). Any other unmatched `/api/v1/...` path returns `404` with `{"detail": "Not found."}` as JSON, with no authentication required. `GET /api/v1/` is the API root: it requires authentication (`401` when anonymous) and returns an empty JSON object `{}`, not an endpoint listing.
 
 The `/api/v1/` surface is the stable 1.x contract. Breaking changes (field removals, type changes, endpoint removals) will be introduced under `/api/v2/` with at least one minor-release deprecation notice. Additive changes (new optional response fields, new optional request parameters, new endpoints) are non-breaking and may appear in any 1.x patch or minor release.
 
