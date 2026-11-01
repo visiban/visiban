@@ -328,7 +328,7 @@ function LensErrorState({
           This lens reads issues using your own {providerName} connection.
         </p>
         <a
-          href="/settings/account"
+          href="/settings"
           className="text-sm text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Manage connected accounts

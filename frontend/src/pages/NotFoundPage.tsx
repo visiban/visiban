@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Layout/Navbar";
 import type { User } from "../types";
@@ -16,9 +16,12 @@ interface Props {
  * this page: they are matched by their own routes and handle absence themselves.
  */
 export default function NotFoundPage({ user, onLogout, onUserUpdated }: Props) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     const previous = document.title;
     document.title = "Page not found – Visiban";
+    // Client-side navigation unmounts the focused link; announce the change.
+    headingRef.current?.focus();
     return () => {
       document.title = previous;
     };
@@ -28,7 +31,7 @@ export default function NotFoundPage({ user, onLogout, onUserUpdated }: Props) {
     <div className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Page not found" }]} />
       <main className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
-        <h1 className="text-fg text-2xl font-bold">Page not found</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-bold focus:outline-none">Page not found</h1>
         <p className="text-sm text-fg-tertiary max-w-sm">
           This page doesn&apos;t exist, or the link is mistyped or out of date.
         </p>

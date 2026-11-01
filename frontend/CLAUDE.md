@@ -673,6 +673,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 ## Empty states
 
+- **Full-page not-found / dead-end pages** (unknown route, expired link, #1740): render inside the normal app shell (`Navbar` + `bg-sunken` body) with an `<h1 class="text-fg text-2xl font-bold">`, one `text-sm text-fg-tertiary` sentence saying what happened, and exactly one primary-button `<Link>` back to a safe page (`/`). Set `document.title` to "<Reason> – Visiban" and restore it on unmount. On mount move focus to the `<h1>` (`tabIndex={-1}` + `focus:outline-none`) so assistive tech announces the change. A silent redirect is never an acceptable response to an unmatched route.
 - Consistent pattern: centered icon (muted, `text-fg-faint`) + heading (`text-fg-tertiary`) + optional CTA button
 - No one-off inline empty messages with different styling
 - **Card-detail sub-sections are the exception — use the one-line form, not the centered icon.** The centered-icon pattern is page/panel-level; inside the 540px card detail panel it visually out-weighs its own section header. Every sub-section there uses:

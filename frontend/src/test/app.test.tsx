@@ -275,6 +275,7 @@ describe('App', () => {
     expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
     expect(screen.getByTestId('path')).toHaveTextContent('/nonexistent')
     expect(document.title).toBe('Page not found – Visiban')
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toHaveFocus()
     unmount()
     expect(document.title).toBe(previousTitle)
   })
