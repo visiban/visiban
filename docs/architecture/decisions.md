@@ -180,7 +180,7 @@ The CI pipeline is a gate, not a suggestion: every failing job blocks the merge,
 
 ## Flow metric definitions
 
-**Status:** Proposed (2026-11-01, #1532). Merging the MR that adds this record is its acceptance: a maintainer who ratifies it changes this line to "Accepted" in that same MR. A later change of mind is recorded as a dated note below the record, as the django-allauth entry above does, and never as a silent rewrite. Consumers: #448 (metrics dashboard), #458 (per-swimlane cycle time), #459 (bottleneck overlay), #1100 (forecasting), #1151 (MCP flow tools).
+**Status:** Accepted (2026-11-01, #1532). A later change of mind is recorded as a dated note below the record, as the django-allauth entry above does, and never as a silent rewrite. Consumers: #448 (metrics dashboard), #458 (per-swimlane cycle time), #459 (bottleneck overlay), #1100 (forecasting), #1151 (MCP flow tools).
 
 **Decision:** every flow metric is computed from `CardMovement` by one service module (`boards/services/flow_metrics.py`, built by #448), using the definitions below. REST, MCP and the Summary and Analytics views call that service. There is one exception: #459's live overlay (see [Bottleneck overlay](#bottleneck-overlay-459)) computes its medians in the browser, from a value the server derives by these rules. A card's time in its current column is not its lead time, and without one written definition the charts would disagree with each other.
 
@@ -322,7 +322,7 @@ Durations are computed in seconds and reported in days (seconds ÷ 86,400). Perc
 
 Every metric response carries `definition` (the string above). Percentile objects are `{p50, p85, p95}`, each a number of days or `null` under the sample-size rule. Every duration value is `value_days`. The samples are the drill-down: the 2026-10-08 criteria ask for cards, transitions and owners, and the client gets transitions from the existing card movements endpoint and owners from the card. There is no separate drill-down endpoint. *Rejected:* card-id lists without values, which force a second request to explain a dot on the scatter.
 
-The throughput `median` is the median line in #448's weekly run chart. Zero weeks count, so a quiet week lowers it. The same floor applies: a weekly median needs five whole ISO weeks, and a 30-day window holds at most four. #448 must therefore default to a range of at least 35 days, or the median line is hidden by default.
+The throughput `median` is the median line in #448's weekly run chart. Zero weeks count, so a quiet week lowers it. The same floor applies: a weekly median needs five whole ISO weeks, and a 30-day window holds at most four. #448's dashboard therefore defaults to a **90-day** range: twelve whole ISO weeks for the median, and enough completions for P85 and P95 on a team that finishes three to five cards a week, where 30 days would leave them `null` on most boards. *Rejected:* exempting the throughput median from the floor, which only the overlay's describe-the-screen role justifies.
 
 | Metric | Top-level fields | One sample |
 |---|---|---|
