@@ -4357,6 +4357,7 @@
 <li>Helm catch-all/loopback <code>allowedHosts</code> entries fail the render (<strong>this one can stop <code>helm upgrade</code></strong>; opt out with <code>backend.settings.allowUnsafeHosts=true</code>)</li>
 <li>Helm values-schema validation</li>
 <li>PAT scopes and the MCP server</li>
+<li>Content-Security-Policy <code>connect-src</code> scoped to your own origin (<strong>split-origin WebSocket or REST setups break</strong> until you add the extra origin to <code>connect-src</code> in your own nginx config or frontend ConfigMap; do not repoint <code>DOMAIN</code> or <code>ingress.host</code>)</li>
 </ul>
 <p><strong>Yes, but:</strong> skipping minor versions (e.g. 1.0 → 1.2 directly) is supported. Run all intermediate migrations in sequence; the standard upgrade command (<code>manage.py migrate</code>) handles this automatically. The sections below cover what makes each step safe and what to watch out for in more complex deployments.</p>
 <hr />
@@ -4656,7 +4657,8 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <ul>
 <li><strong>Helm:</strong> <code>NUM_PROXIES</code>, <code>ALLOWED_HOSTS</code>, <code>allowedHosts</code> render failures, values-schema validation, the PostgreSQL password, <code>redis:</code> to <code>valkey:</code>, hardened pods.</li>
 <li><strong>Compose:</strong> <code>DOMAIN</code> in <code>ALLOWED_HOSTS</code>, <code>APP_VERSION</code>, re-rendering the nginx config.</li>
-<li><strong>API clients:</strong> status codes, <code>409</code> on WIP limits, <code>old_password</code>, <code>reorder/</code>, PAT scopes, MCP.</li>
+<li><strong>API clients:</strong> status codes, <code>409</code> on WIP limits, <code>old_password</code>, <code>reorder/</code>, PAT scopes, MCP, token callers refused for username and pending-email changes, <code>avatar_url</code> validation.</li>
+<li><strong>Browsers and proxies:</strong> the Content-Security-Policy <code>connect-src</code> is now scoped to your own origin (split-origin WebSocket setups).</li>
 <li><strong>Data cleanup:</strong> <code>clear_viewer_assignees</code>, <code>find_cross_board_cards</code>, <code>backfill_card_movement_snapshots</code>.</li>
 </ul>
 <div class="admonition note">
@@ -5010,6 +5012,53 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <div class="admonition note">
 <p class="admonition-title">Board import default name changed</p>
 <p><code>POST /api/v1/boards/import/</code> called without a <code>name</code> field now names the new board <code>Imported: &lt;name&gt;</code> — the <code>name</code> in a JSON file, or the filename without its extension for a CSV file — and appends <code>- 1</code>, <code>- 2</code>, ... when that name is already taken. Previously a JSON import used the file's <code>name</code> unchanged and every CSV import was named <code>Imported Board</code>. Any script or test that finds an imported board by the file's name must now send <code>name</code> explicitly, which is still used exactly as given. See <a href="../../api/boards/#default-board-name">Default board name</a> (#1446).</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Content-Security-Policy <code>connect-src</code> is now scoped to your own origin (bundled nginx and Helm frontend)</p>
+<p>The bundled nginx templates used to allow WebSocket connections to any host through the bare <code>ws:</code> and <code>wss:</code> schemes. Their <code>connect-src</code> is now <code>'self'</code> plus <code>wss://${DOMAIN}</code> (and <code>wss://${DOMAIN}:*</code>) in <code>nginx/app.conf.template</code>, or <code>ws://${DOMAIN}</code> (and <code>ws://${DOMAIN}:*</code>) in the plain-HTTP <code>nginx/app-http.conf.template</code>. The Helm chart's frontend nginx previously sent no Content-Security-Policy and <code>X-Frame-Options: SAMEORIGIN</code>. It now sends the same full <code>Content-Security-Policy</code> as the bundled templates (not only <code>connect-src</code>) and <code>X-Frame-Options: DENY</code>. Its <code>connect-src</code> is <code>'self'</code> plus <code>wss://&lt;ingress.host&gt;</code> (and <code>ws://&lt;ingress.host&gt;</code> when <code>ingress.tls.enabled</code> is false); with the ingress disabled or <code>ingress.host</code> unset, only <code>'self'</code> remains.</p>
+<ul>
+<li><strong>When Compose applies it.</strong> nginx runs the gitignored <code>nginx/active.conf.template</code>, which only <code>./init-prod.sh</code> refreshes. The new policy takes effect after you run <code>./init-prod.sh</code> and then <code>docker compose -f docker-compose.prod.yml up -d --force-recreate nginx</code>; see the note "Docker Compose: re-render the nginx config" above for why a plain <code>up -d</code> is not enough. Helm needs no extra step.</li>
+<li><strong>No action</strong> if the app and its WebSocket are served from <code>DOMAIN</code> (Compose) or <code>ingress.host</code> (Helm).</li>
+<li><strong>Split-origin setups need a change.</strong> If the SPA opens its WebSocket on a different hostname than the page, or a custom frontend host or CDN fronts the app under another name, the browser now blocks that connection. Do not change <code>DOMAIN</code> or <code>ingress.host</code> to fix it: they also set the nginx <code>server_name</code>, the certificate path and the Ingress host rule, so pointing them at the WebSocket host breaks page serving (and <code>ingress.host</code> has no effect when <code>ingress.enabled=false</code>). Adapt the <code>Content-Security-Policy</code> <code>connect-src</code> in your own nginx config (Compose) or frontend ConfigMap override (Helm) to name the extra origin.</li>
+<li><strong>A REST API on another origin is blocked on Helm too.</strong> 1.1's Helm frontend sent no CSP, so a REST API served from a different origin worked; the new policy's <code>connect-src</code> blocks it unless you add that origin.</li>
+<li><strong>Framing is refused.</strong> <code>X-Frame-Options: DENY</code> on the Helm frontend replaces <code>SAMEORIGIN</code>, so the app can no longer be embedded in an <code>&lt;iframe&gt;</code>, even from the same origin, as on Compose. The full policy also restricts scripts, styles, images and fonts to your own origin (styles allow inline, images also allow <code>data:</code> and <code>blob:</code>); custom frontends that load assets from other hosts need the policy adapted.</li>
+</ul>
+<p>See also the note on the frontend image's default config below.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Token callers can no longer change the username or cancel or resend a pending email change</p>
+<p>Following the email rule in the personal access token note below, a username change (<code>POST /api/v1/auth/choose-username/</code>, or <code>username</code> on the profile update) now returns <code>403</code> when the request is authenticated with a personal access token or the login API token, unless it resends the stored name unchanged. <code>choose-username/</code> also refuses a token while a forced rename is pending. An interactive signed-in session is required for username changes. Scripts that rename accounts with a token must use a session instead (#1838). The pending-email cancel (<code>DELETE /api/v1/auth/me/pending-email/</code>) and resend (<code>POST /api/v1/auth/me/pending-email/resend/</code>) endpoints did not exist in 1.1; for installs that ran 1.2 pre-releases, they return <code>403</code> for token callers too, whether or not a change is pending.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Smaller 1.2 hardening: avatar URLs, MCP authentication failures, resend throttle, inactive users, Django admin</p>
+<p>These need no action unless a script or deployment relies on the old behavior:</p>
+<ul>
+<li><strong><code>avatar_url</code> writes are validated.</strong> A non-blank <code>avatar_url</code> on a profile write must be an absolute <code>http</code> or <code>https</code> URL with a host and no embedded credentials (<code>user:pass@host</code>). Other schemes and relative paths return <code>400</code>, as does whitespace inside the URL; leading or trailing whitespace is trimmed and accepted. Values already stored are not touched and still serialize.</li>
+<li><strong><code>/mcp</code> limits failed authentication per IP.</strong> <code>/mcp</code> itself is new in 1.2 (see the MCP notes above), so this matters only to installs that ran a 1.2 pre-release or enable it now. After repeated failed token lookups from one address, <code>/mcp</code> answers <code>429</code> before it queries the database again. The limit is <code>MCP_THROTTLE_PREAUTH_RATE</code> (default <code>30/min</code>). Behind a proxy it keys on the address <code>NUM_PROXIES</code> resolves, so a wrong <code>NUM_PROXIES</code> can group many clients into one budget.</li>
+<li><strong>Resending the verification email has its own throttle.</strong> The <code>resend_email</code> scope allows 10 requests per hour per IP by default, keyed on the client address for signed-in and anonymous callers alike. Tune it with the <code>resend_email</code> entry of <code>DEFAULT_THROTTLE_RATES</code> in <code>visiban/settings.py</code>.</li>
+<li><strong>Inactive users get no notifications.</strong> Every notification producer now skips deactivated accounts, so a reactivated user does not find a backlog written while the account was off.</li>
+<li><strong>Django admin account changes are restricted.</strong> Changing or deleting another staff, superuser or site-admin account is now limited to superusers. A user who owns boards or groups cannot be deleted until ownership is transferred (for groups, use the Visiban <strong>Groups</strong> admin's <strong>Transfer ownership</strong> action). The last active site admin, the last active superuser and the last active admin of a group cannot be deleted or demoted. Upgrading also gives every group's owner a direct admin membership where it was missing or lower. The Django admin pages for email addresses, social accounts, social apps and tokens, authentication tokens, and sites, and Django's permission groups, are now superuser-only: other staff no longer see them. Change forms for permission groups, site settings, boards and board memberships save only the fields you changed and ask for a reload if the record changed after you opened it.</li>
+<li><strong>The admin API protects superuser accounts too.</strong> A site admin who is not a superuser can no longer change a superuser's activation, all-content access or forced-password-change requirement through <code>PATCH /api/v1/admin/users/{id}/</code> or the other admin user actions; the request returns <code>400</code>. 1.1 had no such check. See the <a href="../../api/admin/">Admin API</a>.</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Retired and deprecated: <code>--export</code> on the seed commands, <code>Group.default_board_member_role</code></p>
+<ul>
+<li><code>seed_demo_data --export</code> and <code>seed_template_boards --export</code> are retired and exit with an error. The sample board files are written only by <code>backend/boards/seed_data/generate_seed_data.py</code>. Scripts that call either command with <code>--export</code> must stop; see <a href="../../getting-started/sample-boards/">Sample boards</a>.</li>
+<li><code>Group.default_board_member_role</code> is deprecated. It was never read, so it has never affected group members' board access. The field is still accepted and returned through 1.x, and the OpenAPI schema marks it <code>deprecated</code>. Do not rely on it to set access.</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Browser storage keys for the sidebar and theme were renamed (migrated automatically)</p>
+<p>1.1 stored the sidebar and theme preferences under <code>sidebar-collapsed</code>, <code>sidebar-groups-expanded</code>, <code>visiban-theme</code> and <code>visiban-theme-synced</code>. 1.2 stores them as <code>user:prefs:sidebar-collapsed</code>, <code>user:prefs:sidebar-groups-expanded</code>, <code>user:prefs:theme</code> and <code>user:prefs:theme-synced</code>. Each browser copies the old value to the new key on first load and removes the old key, unless the new key already exists, so users keep their choices and no action is needed (#1855). The shim is idempotent and is planned for removal once the old keys have aged out (#1859). Only custom browser tests or scripts that seed the old key names need to change.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">1.2 pre-release changes: change feed <code>next_cursor</code> and custom-field reorder</p>
+<p>These affect only installs or clients that ran a 1.2 alpha, beta or release candidate; neither surface existed in 1.1.</p>
+<ul>
+<li><code>GET /api/v1/boards/{id}/events/</code> now returns <code>next_cursor</code> (the integer to pass as <code>after=</code> for the next page, or <code>null</code> when caught up). <code>next</code> is deprecated: it still carries the same value through 1.x. Read <code>next_cursor</code> in new code. See the <a href="../../api/events/">board change feed</a>.</li>
+<li>The custom-field and swimlane-custom-field <code>reorder/</code> endpoints accept <code>POST</code> only. <code>PUT</code> returns <code>405</code>, matching column, swimlane and checklist reorder.</li>
+</ul>
 </div>
 <h4 id="12-migrations">1.2 migrations<a class="headerlink" href="#12-migrations" title="Permanent link">&para;</a></h4>
 <p>These migrations need no operator action unless a callout above says so. All are zero-downtime.</p>
