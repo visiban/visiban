@@ -634,7 +634,8 @@ flag) refuses the write with `409` unless a board admin or site admin passes
 several limits trip, the strictest one is reported (hard before block; the
 column first when equal), and one `force` covers every soft limit tripped. A
 swimlane limit applies only when the write adds to the swimlane's counted total
-(a move between two counted columns of one swimlane never trips it). Archived
+(a move between two counted columns of one swimlane never trips it; a move
+into a counted column from an uncounted column of the same swimlane is checked). Archived
 cards never count. Board import is exempt by design: it restores a board as
 exported.
 
@@ -659,7 +660,7 @@ check.
 | REST restore | `boards/views/cards.py` `CardViewSet.unarchive` | `unarchive_card`: `enforce_column_limits(..., swimlane=card.swimlane)` under the card lock |
 | REST weight increase | `boards/views/cards.py` `CardViewSet.update` / `partial_update` | `update_card`: `enforce_column_limits(..., check_wip=False, swimlane=card.swimlane)` when `weight` goes up |
 | Bulk move | `frontend/src/components/Board/BulkActionToolbar.tsx` `handleMove` | No server bulk endpoint: one REST move per card, so each is checked as above; a refusal is reported per card (`utils/moveFailure.ts` `LIMIT_CODES`) |
-| MCP | `mcp_server/tools.py` `move_card`, `create_card`, `update_card` | The same service calls (`create_card_at_position` for a create with `position`); no tool exposes `force`, so every soft limit is a refusal over MCP |
+| MCP | `mcp_server/tools.py` `move_card`, `create_card` | The same service calls (`create_card_at_position` for a create with `position`); no tool exposes `force`, so every soft limit is a refusal over MCP. `update_card` takes no `weight`, `column`, `swimlane` or `position`, so it cannot place or grow a card |
 | Django admin card form | `boards/admin.py` `CardAdminForm.clean` | `enforce_column_limits` with `role=SITE_ADMIN, force=False` (no override in the admin), `swimlane` re-read from the database, `source` from the row read under `lock_card_row`, `check_column=False` for a swimlane-only change, and a separate column weight check when a swimlane change also raises the weight; every refusal (`LIMIT_ERRORS`) is a form error |
 | Django admin swimlane form | `boards/admin.py` `SwimlaneAdminForm.clean` | `limit_column_ids` validated as the API does (a non-empty list of this board's column ids, stored sorted) |
 | Swimlane settings (REST) | `boards/views/swimlanes.py` `SwimlaneViewSet.perform_create` / `perform_update` | Board admin or site admin only; `SwimlaneSerializer` validates the four fields (`wip_limit`/`weight_limit` at least 1, `limit_enforcement` `block`/`hard`/`null`, `limit_column_ids` this board's columns, one message for an unknown or foreign id); `_require_live_limit_columns` re-reads the ids under the board lock |

@@ -584,12 +584,22 @@ def _swimlane_check_applies(board, swimlane, column, *, check_wip, check_weight,
     placement that *adds* to that total is checked: the card enters a counted
     column of the row from outside it (another row, an uncounted column of
     this row, or nowhere: create, restore), or it grows inside one (a weight
-    increase, ``check_wip=False``). A move that leaves the count unchanged — a
-    reorder, or a move between two counted columns of the row — is never
-    refused by the row (#1150: "moves inside a lane never trip the lane
-    limit"), exactly as a swimlane-only move never trips a column limit.
-    Entering through an uncounted column (Backlog -> Doing within the row) is
-    checked, or the limit could be walked around one card at a time.
+    increase, ``check_wip=False``). The exact rule, a public 409 behavior:
+
+    * checked: the target column counts for the row, and the card does not
+      already count there: it comes from another row, from a column of this
+      row that does not count (Backlog -> Doing with ``limit_column_ids``
+      ``[Doing]``, or Done -> Doing under the default), or from nowhere
+      (create, restore); and a weight increase of a card in a counted column;
+    * never checked: a reorder, a move between two counted columns of the
+      row, and a move into a column that does not count.
+
+    This is how the issue's "moves inside a lane never trip the lane limit"
+    (#1150) is read once a row has counted columns: a move that leaves the
+    count unchanged never trips it, exactly as a swimlane-only move never
+    trips a column limit. Exempting every move inside a row would let a card
+    enter through an uncounted column and walk past the limit one card at a
+    time. Listed as an owner decision on the #1150 MR.
     """
     wip_mode, weight_mode = _swimlane_limit_modes(board, swimlane)
     if not (

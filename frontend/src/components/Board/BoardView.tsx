@@ -2589,6 +2589,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       overlayCells={gridOverlayState?.cells}
                       overlayLabel={gridOverlayState?.label}
                       limitFlags={board}
+                      showWipAtLimit={board.show_wip_at_limit}
                       getDropVerdict={getDropVerdict}
                     />
                   </React.Fragment>
