@@ -600,13 +600,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     setShowBulkAdd(false);
     setChecklistError(null);
   }, 37);
-  // The inline new-label input: Escape cancels it (priority 33, above the panel's 30) instead of
+  // The inline new-label input: Escape cancels it (priority 34, above the panel's 30) instead of
   // closing the whole panel and discarding other unsaved edits (#1972).
   useEscapeStack(() => {
     if (!addingLabel) return false;
     setAddingLabel(false);
     setLabelError(null);
-  }, 33);
+  }, 34);
   useEscapeStack(onClose, 30);
 
   // The title the field was last in sync with: seeded from the card, then the
