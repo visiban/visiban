@@ -281,7 +281,8 @@ export interface EffectiveBoardMember {
   /**
    * Whether the member has all-content access (#1301), which always resolves
    * to full access and overrides `role` (the stored board role when a
-   * membership exists). Present only for a site-admin reader; a row with
+   * membership exists). Present only for a board admin or site admin reader
+   * (or an instance site admin); a row with
    * `role: "site_admin"` has it implicitly.
    */
   has_all_content_access?: boolean;

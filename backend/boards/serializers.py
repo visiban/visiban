@@ -3495,8 +3495,8 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
         required=False,
         help_text="Whether the member has all-content access, which always "
                   "resolves to full access and overrides this row's role. "
-                  "Present only for a board admin or site admin reader, on "
-                  "every row.",
+                  "Present only for a board admin, a site admin (board role "
+                  "site_admin) or an instance site admin reader, on every row.",
     )
     joined_at = serializers.DateTimeField(read_only=True)
 

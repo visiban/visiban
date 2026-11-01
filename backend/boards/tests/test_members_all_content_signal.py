@@ -85,3 +85,11 @@ class HasAllContentAccessTests(TestCase):
         rows = self._members(siteadmin)
         self.assertIs(rows[self.allcontent.pk]["has_all_content_access"], True)
         self.assertIs(rows[self.plain.pk]["has_all_content_access"], False)
+
+    def test_instance_site_admin_with_viewer_role_gets_flag(self):
+        siteadmin = User.objects.create_user(
+            username="siteviewer1301", password="pass", is_site_admin=True
+        )
+        BoardMembership.objects.create(board=self.board, user=siteadmin, role="viewer")
+        rows = self._members(siteadmin)
+        self.assertIs(rows[self.inherited.pk]["has_all_content_access"], True)
