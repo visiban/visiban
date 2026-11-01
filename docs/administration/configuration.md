@@ -22,7 +22,7 @@ Copy `.env.example` to `.env` in the repository root and fill in the values belo
 | `GITLAB_CLIENT_ID` / `GITLAB_CLIENT_SECRET` | GitLab OAuth — leave blank to disable | *optional* |
 | `ALLOWED_HOSTS` | Comma-separated list of hostnames the backend will accept. Defaults to `localhost,127.0.0.1`. Must include your LAN IP or hostname if you access Visiban from another machine or a non-localhost address. | `localhost,127.0.0.1` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of origins allowed to make API requests. Must match the exact origin your browser uses (scheme + host + port). Defaults to `http://localhost:5173`. Also controls `CSRF_TRUSTED_ORIGINS` unless that is set separately. | `http://localhost:5173` |
-| `SILENCED_SYSTEM_CHECKS` | Comma-separated Django system-check IDs to silence, for warnings you have reviewed and accepted (for example `accounts.W001,accounts.W002`, the IDs named in `manage.py check` hints). Empty by default, so nothing is silenced. Helm: `backend.settings.silencedSystemChecks` (with `--set`, escape commas as `\\,` or use a values file). | *empty* |
+| `SILENCED_SYSTEM_CHECKS` | Comma-separated Django system-check IDs to silence, for warnings you have reviewed and accepted (for example `accounts.W001,accounts.W002`, the IDs named in `manage.py check` hints). Empty by default, so nothing is silenced. Helm: `backend.settings.silencedSystemChecks` (with `--set`, escape commas as `\,` or use a values file). | *empty* |
 | `VITE_API_URL` | Frontend env var for `npm run dev` — create `frontend/.env.local` (gitignored) and set to `http://localhost:8000`. Leave empty for Docker builds; the frontend falls back to `window.location.origin` and relies on nginx to proxy `/api/` and `/ws/`. | `http://localhost:8000` |
 
 Valkey has no authentication in development, so no variable is needed.
@@ -106,7 +106,7 @@ An example file is included at `helm/visiban/values.secret.yaml.example`. Copy i
 | `postgresql.auth.existingSecret` | Name of a pre-existing K8s Secret for the PG password (key: `password`). The bundled PostgreSQL and the backend (via `DATABASE_URL_PASSWORD`) both read the password from it, so `postgresql.auth.password` is unused (#1910) |
 | `postgresql.auth.password` | PostgreSQL password, used to build the chart-managed `database-url`. An empty or placeholder (`visiban`) value fails the render; set your own password. Not used, and not checked, when `postgresql.auth.existingSecret` is set |
 | `backend.settings.frontendUrl` | Full URL of the SPA — allauth redirects here after OAuth login/logout |
-| `backend.settings.silencedSystemChecks` | Optional. Comma-separated Django system-check IDs to silence, e.g. `accounts.W002` (becomes `SILENCED_SYSTEM_CHECKS`). With `--set`, escape commas (`a\\,b`) or use a values file; otherwise Helm splits on the comma and fails with `key "W001" has no value` |
+| `backend.settings.silencedSystemChecks` | Optional. Comma-separated Django system-check IDs to silence, e.g. `accounts.W002` (becomes `SILENCED_SYSTEM_CHECKS`). With `--set`, escape commas (`a\,b`) or use a values file; otherwise Helm splits on the comma and fails with `key "W001" has no value` |
 | `backend.settings.siteDomain` | Public hostname for OAuth callback URLs |
 | `backend.oauth.google.*` | Google OAuth credentials |
 | `backend.oauth.github.*` | GitHub OAuth credentials |
