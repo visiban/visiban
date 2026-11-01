@@ -371,7 +371,8 @@ Read the notes for every version between your current release and the target bef
 
 - **Helm:** `NUM_PROXIES`, `ALLOWED_HOSTS`, `allowedHosts` render failures, values-schema validation, the PostgreSQL password, `redis:` to `valkey:`, hardened pods.
 - **Compose:** `DOMAIN` in `ALLOWED_HOSTS`, `APP_VERSION`, re-rendering the nginx config.
-- **API clients:** status codes, `409` on WIP limits, `old_password`, `reorder/`, PAT scopes, MCP.
+- **API clients:** status codes, `409` on WIP limits, `old_password`, `reorder/`, PAT scopes, MCP, token callers refused for username and pending-email changes, `avatar_url` validation.
+- **Browsers and proxies:** the Content-Security-Policy `connect-src` is now scoped to your own origin (split-origin WebSocket setups).
 - **Data cleanup:** `clear_viewer_assignees`, `find_cross_board_cards`, `backfill_card_movement_snapshots`.
 
 !!! note "Four environment variables from the 1.2 pre-releases were renamed (old names still work)"
@@ -655,6 +656,38 @@ Read the notes for every version between your current release and the target bef
 
 !!! note "Board import default name changed"
     `POST /api/v1/boards/import/` called without a `name` field now names the new board `Imported: <name>` — the `name` in a JSON file, or the filename without its extension for a CSV file — and appends ` - 1`, ` - 2`, ... when that name is already taken. Previously a JSON import used the file's `name` unchanged and every CSV import was named `Imported Board`. Any script or test that finds an imported board by the file's name must now send `name` explicitly, which is still used exactly as given. See [Default board name](../api/boards.md#default-board-name) (#1446).
+
+!!! warning "Content-Security-Policy `connect-src` is now scoped to your own origin (bundled nginx and Helm frontend)"
+    The bundled nginx templates used to allow WebSocket connections to any host through the bare `ws:` and `wss:` schemes. Their `connect-src` is now `'self'` plus `wss://${DOMAIN}` (and `wss://${DOMAIN}:*`) in `nginx/app.conf.template`, or `ws://${DOMAIN}` in the plain-HTTP `nginx/app-http.conf.template`. The Helm chart's frontend nginx, which sent no such headers before, now sends the same `Content-Security-Policy` and `X-Frame-Options: DENY`. Its `connect-src` is `'self'` plus `wss://<ingress.host>` (and `ws://<ingress.host>` when `ingress.tls.enabled` is false); with the ingress disabled or `ingress.host` unset, only `'self'` remains.
+
+    - **No action** if the app and its WebSocket are served from `DOMAIN` (Compose) or `ingress.host` (Helm).
+    - **Split-origin setups need a change.** If the SPA opens its WebSocket on a different hostname than the page, or a custom frontend host or CDN fronts the app under another name, the browser now blocks that connection. Set `DOMAIN` (Compose) or `ingress.host` (Helm) to the hostname the browser connects to, or adapt your own nginx config.
+    - **Framing is refused.** `X-Frame-Options: DENY` on the Helm frontend means the app can no longer be embedded in an `<iframe>` there, as on Compose.
+
+    See also the note on the frontend image's default config below.
+
+!!! note "Token callers can no longer change the username or cancel or resend a pending email change"
+    Following the email rule in the personal access token note below, a username change (`POST /api/v1/auth/choose-username/`, or `username` on the profile update) now returns `403` when the request is authenticated with a personal access token or the login API token, unless it resends the stored name unchanged. `choose-username/` also refuses a token while a forced rename is pending. `DELETE /api/v1/auth/me/pending-email/` (cancel) and `POST /api/v1/auth/me/pending-email/resend/` (resend) return `403` for token callers as well, whether or not a change is pending. An interactive signed-in session is required for all three. Scripts that rename accounts or manage pending email changes with a token must use a session instead (#1838).
+
+!!! note "Smaller 1.2 hardening: avatar URLs, MCP authentication failures, resend throttle, inactive users, Django admin"
+    These need no action unless a script or deployment relies on the old behavior:
+
+    - **`avatar_url` writes are validated.** A non-blank `avatar_url` on a profile write must be an absolute `http` or `https` URL with a host and no embedded credentials (`user:pass@host`). Other schemes, relative paths and whitespace return `400`. Values already stored are not touched and still serialize.
+    - **`/mcp` limits failed authentication per IP.** After repeated failed token lookups from one address, `/mcp` answers `429` before it queries the database again. The limit is `MCP_THROTTLE_PREAUTH_RATE` (default `30/min`). Behind a proxy it keys on the address `NUM_PROXIES` resolves, so a wrong `NUM_PROXIES` can group many clients into one budget.
+    - **Resending the verification email has its own throttle.** The `resend_email` scope allows 10 requests per hour per IP by default, keyed on the client address for signed-in and anonymous callers alike. Tune it with the `resend_email` entry of `DEFAULT_THROTTLE_RATES` in `visiban/settings.py`.
+    - **Inactive users get no notifications.** Every notification producer now skips deactivated accounts, so a reactivated user does not find a backlog written while the account was off.
+    - **Django admin account changes are restricted.** Changing or deleting another staff, superuser or site-admin account is now limited to superusers. A user who owns boards or groups cannot be deleted until ownership is transferred (for groups, use **Groups > Transfer ownership**). The last active site admin, the last active superuser and the last active admin of a group cannot be deleted or demoted. Upgrading also gives every group's owner a direct admin membership where it was missing or lower. Change forms for groups, site settings, boards and board memberships save only the fields you changed and ask for a reload if the record changed after you opened it.
+
+!!! note "Retired and deprecated: `--export` on the seed commands, `Group.default_board_member_role`"
+    - `seed_demo_data --export` and `seed_template_boards --export` are retired and exit with an error. The sample board files are written only by `backend/boards/seed_data/generate_seed_data.py`. Scripts that call either command with `--export` must stop; see [Sample boards](../getting-started/sample-boards.md).
+    - `Group.default_board_member_role` is deprecated. It was never read, so it has never affected group members' board access. The field is still accepted and returned through 1.x, and the OpenAPI schema marks it `deprecated`. Do not rely on it to set access.
+
+!!! note "1.2 pre-release changes: change feed `next_cursor`, custom-field reorder, browser storage keys"
+    These affect only installs or clients that ran a 1.2 alpha, beta or release candidate; none of these existed in 1.1.
+
+    - `GET /api/v1/boards/{id}/events/` now returns `next_cursor` (the integer to pass as `after=` for the next page, or `null` when caught up). `next` is deprecated: it still carries the same value through 1.x. Read `next_cursor` in new code. See the [board change feed](../api/events.md).
+    - The custom-field and swimlane-custom-field `reorder/` endpoints accept `POST` only. `PUT` returns `405`, matching column, swimlane and checklist reorder.
+    - The browser storage keys for the sidebar and theme were renamed to `user:prefs:sidebar-collapsed`, `user:prefs:sidebar-groups-expanded`, `user:prefs:theme` and `user:prefs:theme-synced`. Existing values are migrated on first load, so users keep their choices. Browser tests that seed the old keys must use the new names.
 
 #### 1.2 migrations
 
