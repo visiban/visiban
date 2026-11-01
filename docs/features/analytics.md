@@ -17,11 +17,12 @@ Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where c
 
 These are the definitions every flow metric follows. They are quoted verbatim from the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) decision record, which also covers reopened cards, missing history, percentiles and time zones.
 
-- **Lead time:** the time from when a card was created to its first entry into a done column.
+- **Lead time:** the time from when a card was created to its first entry into a done column. A card created in a done column has no lead time.
 - **Cycle time:** the time from a card's first move out of the column it was created in, to a column that is not done, until its first entry into a done column. A card created in a done column, or moved straight from its first column to done, has no cycle time.
 - **Dwell time:** how long a card stayed in one column, from entering it to leaving it, or until now if it is still there. Moving to another swimlane does not end a stay. Archiving ends it, and restoring starts a new one.
 - **Age:** how long an in-progress card has been in progress: the time since it first moved out of the column it was created in, or since it last left a done column, whichever is later.
 - **Throughput:** the number of cards whose first entry into a done column falls in a period.
+- **WIP:** the number of cards, not archived, currently in each column that is not done.
 - **Cumulative flow:** for each day, the number of cards in each column at the end of that day.
 
 !!! note "Proposed in 1.3 (#1532)"
@@ -32,7 +33,7 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 A table of all swimlanes with:
 
 - the total card count and an inline proportional bar
-- **7-day velocity:** cards that moved into any column marked `is_done = true` in the last 7 days
+- **7-day velocity:** moves into any column marked `is_done = true` in the last 7 days, for cards that are not archived. It counts moves, not cards: a card that enters a done column twice counts twice, and a card archived since leaves the count.
 - **30-day velocity:** the same over 30 days
 
 Mark columns as done in the **Edit Column** modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts movements into either as completed. See [Board & Cards — Columns](board.md#columns).

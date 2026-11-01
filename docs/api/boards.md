@@ -296,11 +296,11 @@ Board health summary: per-swimlane card counts, stage distribution, and velocity
 | `id`, `name`, `color` | — | Swimlane identifier, name, and color |
 | `total_cards` | integer | Total active (non-archived) cards in this swimlane |
 | `active_cards` | integer | Cards in this swimlane that are not in a done column |
-| `done_30d` | integer | Cards completed in the last 30 days (cards moved into any column with `is_done: true`) |
-| `avg_cycle_days` | float\|null | Average number of days from a card's first movement to its done-column entry; `null` if no completed cards |
+| `done_30d` | integer | Moves into any column with `is_done: true` in the last 30 days, for cards that are not archived; the same value as `velocity_30d`. Counts moves, not cards: a card that enters a done column twice counts twice |
+| `avg_cycle_days` | float\|null | Average number of days from a card's first movement of any kind to its earliest entry into a done column within the last 30 days, over cards that are not archived, rounded to one decimal; `null` if there are none. This starts at the creation movement, so it is closer to lead time than to cycle time as the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) define them |
 | `stage_distribution` | object | Card count per column for this swimlane (all columns, including zero counts) |
-| `velocity_7d` | integer | Cards moved into any column with `is_done: true` in the last 7 days |
-| `velocity_30d` | integer | Cards moved into any column with `is_done: true` in the last 30 days |
+| `velocity_7d` | integer | Moves into any column with `is_done: true` in the last 7 days, for cards that are not archived (counts moves, not cards) |
+| `velocity_30d` | integer | Moves into any column with `is_done: true` in the last 30 days, for cards that are not archived (counts moves, not cards) |
 | `extension_panels` | array | `[]` in OSS. Panels registered through the `ANALYTICS_EXTENSIONS` hook, limited to those whose `min_role` the caller meets (see [Panel visibility by role](#panel-visibility-by-role)); the web UI renders them in the Summary tab below the swimlane table. See [Extension panel payload](#extension-panel-payload) |
 
 #### Extension panel payload
