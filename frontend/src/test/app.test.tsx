@@ -286,6 +286,14 @@ describe('App', () => {
     expect(document.title).toBe(previousTitle)
   })
 
+  it('mounts the shell palette on a not-found page under /boards/* (#1740)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    paletteUserIds.length = 0
+    render(<MemoryRouter initialEntries={['/boards/1/typo/extra']}><App /></MemoryRouter>)
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(paletteUserIds).toContain(fakeUser.id)
+  })
+
   it('the not-found page links back to the dashboard (#1740)', async () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter initialEntries={['/boards/1/typo/extra']}><App /></MemoryRouter>)
@@ -330,10 +338,16 @@ describe('App', () => {
       rerender(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
     }
 
-    it.each(['/login', '/nonexistent'])('lands on the dashboard after signing in at %s', async (path) => {
-      loginFrom(path)
+    it('lands on the dashboard after signing in at /login', async () => {
+      loginFrom('/login')
       expect(await screen.findByTestId('dashboard')).toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+    })
+
+    it('shows the not-found page after signing in at an unmatched URL', async () => {
+      loginFrom('/nonexistent')
+      expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+      expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
     })
 
     it('stays on a real page (/settings) after signing in', async () => {

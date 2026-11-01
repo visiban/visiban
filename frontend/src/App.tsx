@@ -35,11 +35,6 @@ import { joinBoard, starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
-// Authenticated paths that render a real page (mirrors AuthenticatedRoutes).
-// handleLogin uses it to tell "signed in on a real page, stay" from "signed in
-// on a URL that matches nothing (/login, a stale link), go to the dashboard".
-const KNOWN_APP_PATHS = ["/", "/groups/:id", "/boards/:id", "/settings", "/admin"];
-
 export default function App() {
   const { user, loading: authLoading, logout, updateUser } = useAuth();
   const { flags, loaded: flagsLoaded } = useInstanceFlagsState(user !== null);
@@ -89,7 +84,6 @@ export default function App() {
       .catch(() => navigate(`/join/${pendingToken}`));
   }, [user, navigate]);
 
-  const location = useLocation();
   const handleLogin = (loggedInUser: User) => {
     updateUser(loggedInUser);
     const returnTo = sessionStorage.getItem("returnTo");
@@ -122,12 +116,9 @@ export default function App() {
       void navigate(`/boards/${loggedInUser.default_board_id}`);
       return;
     }
-    // Logged-out users see LoginPage on every unmatched URL (including /login),
-    // and signing in keeps the URL. Without this they would land on "Page not
-    // found" (#1740) where they used to be bounced to the dashboard.
-    if (!KNOWN_APP_PATHS.some((pattern) => matchPath(pattern, location.pathname))) {
-      void navigate("/", { replace: true });
-    }
+    // Signing in at an unmatched URL deliberately keeps the URL, so the user
+    // sees "Page not found" for it (#1740). /login is the exception: it has its
+    // own authenticated route that redirects to the dashboard.
   };
 
   if (loading) {
@@ -248,7 +239,7 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
   // routes. Board routes mount their own palette inside BoardProvider so
   // that instance can see board cards. Mutually exclusive by pathname so
   // only one ⌘K keydown listener is ever active. (#869)
-  const showShellPalette = !pathname.startsWith("/boards/");
+  const showShellPalette = !matchPath("/boards/:id", pathname);
   return (
     <>
       {showShellPalette && <GlobalCommandPalette userId={user.id} />}

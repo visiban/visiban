@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { matchPath, useLocation } from "react-router-dom";
 import { isMacPlatform } from "../utils/platform";
 
 export interface NavbarSearchLabel {
@@ -14,7 +14,8 @@ export function useNavbarSearchLabel(): NavbarSearchLabel {
   const { pathname } = useLocation();
   const mod = isMacPlatform() ? "Cmd+K" : "Ctrl+K";
 
-  if (pathname.startsWith("/boards/")) {
+  // matchPath, not startsWith: /boards/1/typo is the not-found page, not a board.
+  if (matchPath("/boards/:id", pathname)) {
     return { placeholder: "Search cards…", ariaLabel: `Search cards (${mod})` };
   }
   if (pathname === "/" || pathname.startsWith("/groups/")) {
