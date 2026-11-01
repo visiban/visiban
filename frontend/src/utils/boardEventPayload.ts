@@ -1,3 +1,5 @@
+import type { BoardFull, ShareLinkUpdatedPayload } from "../types";
+
 /**
  * Per-user fields that the backend serializes into `board.updated` /
  * `board.created` payloads using the ACTING user's request context (#1559).
@@ -32,4 +34,20 @@ export function neutralizePerUserBoardFields<T extends object>(
   payload: T,
 ): Omit<T, "is_starred"> & { is_starred: boolean } {
   return { ...stripPerUserBoardFields(payload), is_starred: false } as Omit<T, "is_starred"> & { is_starred: boolean };
+}
+
+/**
+ * Map a `share_link.updated` payload (#1967) onto the `/full/` share fields,
+ * so it merges into board state like the Sharing tab's own `onShareChanged`
+ * patch. The wire names differ from the `/full/` names because the server
+ * strips `share_link_active` / `share_token_expires_at` from every frame.
+ * Fails closed: anything but `active: true` reads as no link, and an expiry
+ * is kept only for an active link.
+ */
+export function shareLinkPatchFromEvent(
+  payload: Partial<ShareLinkUpdatedPayload> | null | undefined,
+): Pick<BoardFull, "share_link_active" | "share_token_expires_at"> {
+  const active = payload?.active === true;
+  const expiresAt = active && typeof payload?.expires_at === "string" ? payload.expires_at : null;
+  return { share_link_active: active, share_token_expires_at: expiresAt };
 }

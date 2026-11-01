@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { stripPerUserBoardFields } from "../../utils/boardEventPayload";
+import { shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { computeAutoSwimlaneWidth } from "../../utils/swimlaneAutoWidth";
 import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
@@ -23,7 +23,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
+import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
@@ -562,6 +562,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // is_starred in this payload is the ACTING user's value (#1559); drop it
       // so another user's edit cannot flip this viewer's star.
       mergeBoardState(stripPerUserBoardFields(d as Partial<typeof board>));
+    } else if (event.event === "share_link.updated") {
+      // Admin-only frame (#1967): the server sends it to admin sockets only,
+      // because board.updated never carries the share fields. Merging it
+      // keeps this tab's share state current, including an open Sharing tab,
+      // when another admin revokes or rotates the link or it lapses
+      // server-side. Never carries the token.
+      mergeBoardState(shareLinkPatchFromEvent(d as unknown as ShareLinkUpdatedPayload));
     } else if (event.event === "board.deleted") {
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();

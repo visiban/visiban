@@ -1752,6 +1752,77 @@ describe('BoardSettingsModal — Sharing tab', () => {
     expect(JSON.stringify(onShareChanged.mock.calls)).not.toContain('abc-token-123')
   })
 
+  // #1967 — another admin's revoke (or a server-side lapse) reaches BoardView
+  // as share_link.updated and is merged into `board`. An OPEN modal must follow
+  // the new props instead of keeping the state it seeded at mount.
+  it('an open Sharing tab shows sharing off when the board state says the link was revoked', () => {
+    const active = { ...boardWithActiveLink, share_token_expires_at: '2999-01-01T00:00:00Z' }
+    const { rerender } = render(
+      <BoardSettingsModal board={active} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+    )
+    expect(screen.getByText('A public share link is active.')).toBeInTheDocument()
+
+    rerender(
+      <BoardSettingsModal
+        board={{ ...active, share_link_active: false, share_token_expires_at: null }}
+        isAdmin={true} onClose={vi.fn()} initialTab="sharing"
+      />,
+    )
+
+    expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.queryByText('A public share link is active.')).toBeNull()
+    expect(screen.queryByTestId('share-expiry-line')).toBeNull()
+    // Sharing off again: the TTL picker for a new link is back.
+    expect(screen.getByRole('combobox', { name: /Expires in/ })).toBeInTheDocument()
+  })
+
+  it('an open Sharing tab picks up a link enabled or rotated elsewhere, with its new expiry', () => {
+    const { rerender } = render(
+      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+    )
+    expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'false')
+
+    rerender(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, share_link_active: true, share_token_expires_at: '2999-01-01T00:00:00Z' }}
+        isAdmin={true} onClose={vi.fn()} initialTab="sharing"
+      />,
+    )
+    expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('A public share link is active.')).toBeInTheDocument()
+    expect(screen.getByTestId('share-expiry-line').textContent).toMatch(/^Expires /)
+
+    rerender(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, share_link_active: true, share_token_expires_at: null }}
+        isAdmin={true} onClose={vi.fn()} initialTab="sharing"
+      />,
+    )
+    expect(screen.getByTestId('share-expiry-line')).toHaveTextContent('Never expires')
+  })
+
+  it('a revoke elsewhere also withdraws this tab\'s one-time reveal, since that link is dead', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    const { rerender } = render(
+      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+    )
+    await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
+    expect(await screen.findByTestId('share-link-reveal')).toBeInTheDocument()
+
+    // BoardView merged this tab's own enable first, then another admin's revoke.
+    const enabled = { ...fakeBoard, share_link_active: true }
+    rerender(<BoardSettingsModal board={enabled} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    // The tab's own echo does not disturb the reveal.
+    expect(screen.getByTestId('share-link-reveal')).toBeInTheDocument()
+
+    rerender(
+      <BoardSettingsModal board={{ ...enabled, share_link_active: false }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+    )
+    expect(screen.queryByTestId('share-link-reveal')).toBeNull()
+    expect(document.body.innerHTML).not.toContain('abc-token-123')
+    expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'false')
+  })
+
   it('does not show Sharing tab content for non-admin even if navigated directly', () => {
     // Non-admin cannot select "sharing" tab — it won't exist in DOM
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)

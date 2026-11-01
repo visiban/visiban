@@ -1995,6 +1995,9 @@ def clear_share_links_of_deleted_enabler(sender, instance, **kwargs):
             _board_broadcast.record_board_event(
                 board_id, _board_broadcast.EVT_BOARD_UPDATED, BoardSerializer(board).data,
             )
+            # The cleared share state, for admin sessions only (#1967).
+            from .services.share_links import record_share_link_updated
+            record_share_link_updated(board)
 
 
 @receiver(pre_delete, sender=settings.AUTH_USER_MODEL, dispatch_uid="boards_revoke_deleted_creator_links")

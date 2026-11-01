@@ -183,6 +183,11 @@ Two consequences worth knowing:
   are returned only to the user named in their `user_id`, matching the
   WebSocket, which delivers those frames only to that user's own sessions (#1677). Other readers' pages simply do not contain them; a page
   is still filled to `limit` from the remaining rows, and cursors are unaffected.
+- `share_link.updated` rows (since 1.3) are returned to `admin` / `site_admin`
+  readers only, matching the WebSocket, which sends that frame to admin
+  sockets only (#1967). As with per-user rows, other readers' pages simply do
+  not contain them and are still filled to `limit`. See
+  [Share link events](websockets.md#share-link-events-since-13).
 - `invite` on an invite-redemption `member.added` row is returned to `admin` /
   `site_admin` readers only, with no self-row exception, matching the WebSocket
   consumer (#1677). An unknown reader role strips it.

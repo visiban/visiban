@@ -47,6 +47,45 @@ def share_enabler_has_standing(user, board):
     return get_board_role(user, board) in SHARE_ADMIN_ROLES
 
 
+def share_link_state_payload(board):
+    """The ``share_link.updated`` payload for *board*'s current share state (#1967).
+
+    ``active`` is the ``/full/`` ``share_link_active`` rule: a stored token
+    with a recorded enabler (an unrecorded link never resolves, #1939).
+    ``expires_at`` is null when there is no live link, matching
+    ``/full/`` ``share_token_expires_at``. The token and the enabler are never
+    included: the token is shown once, from the share action's response
+    (#1935), and the enabler is not returned by any endpoint or event (#1865).
+    """
+    active = board.share_token is not None and board.share_enabled_by_id is not None
+    expires_at = board.share_token_expires_at if active else None
+    return {
+        "board_uid": board.uid,
+        "active": active,
+        "expires_at": expires_at.isoformat() if expires_at is not None else None,
+    }
+
+
+def record_share_link_updated(board, *, actor_id=None):
+    """Persist ``share_link.updated`` for *board* and publish it on commit (#1967).
+
+    Every write that enables, rotates or clears a share link calls this after
+    the write, in the same transaction: the share action, ``_clear_lapsed``
+    below, and the deleted-enabler receiver in ``boards.models``. The
+    ``board.updated`` those writes also record cannot carry the share state
+    (``ADMIN_ONLY_BOARD_FIELDS`` drops it from every payload), so without this
+    event an open admin session kept showing a revoked link as active. The
+    event is admin-only (``boards.permissions.ADMIN_ONLY_EVENTS``): the
+    consumer and the change feed withhold it from every role below admin.
+    """
+    from .. import broadcast as _broadcast
+
+    return _broadcast.record_board_event(
+        board.pk, _broadcast.EVT_SHARE_LINK_UPDATED, share_link_state_payload(board),
+        actor_id=actor_id,
+    )
+
+
 def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, include_unrecorded=False):
     """Clear the share links whose enabler no longer has standing on the board.
 
@@ -64,10 +103,10 @@ def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, in
     Each clear is a conditional UPDATE that matches only while the board still
     carries the link that was judged (same enabler, same token), so a link an
     admin re-enabled meanwhile is never cleared by mistake. Each cleared board
-    records ``board.updated`` (persisted, published on commit), the same event
-    the share action records. The share fields are admin-only and stripped
-    from every frame and feed row, so clients see the cleared link on their
-    next board load.
+    records ``board.updated`` and ``share_link.updated`` (persisted, published
+    on commit), the same pair the share action records. The share fields are
+    admin-only and stripped from ``board.updated``, so admin clients learn the
+    link is off from ``share_link.updated``, which only admins receive (#1967).
     """
     from django.db import transaction
 
@@ -114,7 +153,11 @@ def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, in
 
 
 def _clear_lapsed(lapsed, actor_id):
-    """Clear each judged link that is still in place; record board.updated per clear.
+    """Clear each judged link that is still in place; record the events per clear.
+
+    Each clear records ``board.updated`` (kept for the clients that treat it
+    as a "board changed" signal) and the admin-only ``share_link.updated``
+    that carries the new share state (#1967).
 
     ``share_enabled_by_id=None`` in the match below is an IS NULL test, so an
     unrecorded link is cleared only while it is still unrecorded.
@@ -143,4 +186,5 @@ def _clear_lapsed(lapsed, actor_id):
             board.pk, _broadcast.EVT_BOARD_UPDATED, BoardSerializer(board).data,
             actor_id=actor_id,
         )
+        record_share_link_updated(board, actor_id=actor_id)
     return revoked

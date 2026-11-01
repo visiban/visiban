@@ -256,8 +256,25 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  // #1967 — follow the board's share state after mount, not just at it.
+  // BoardView merges the admin-only share_link.updated frame (another admin
+  // revoking or rotating the link, or the server clearing it when its enabler
+  // lost admin rights) and this tab's own onShareChanged patch into `board`.
+  // Seeding once at mount left an open modal showing a revoked link as active.
+  // A link that is gone also takes its one-time reveal with it: that URL no
+  // longer works.
+  const boardShareActive = board.share_link_active === true;
+  const boardShareExpiresAt = board.share_token_expires_at ?? null;
+  useEffect(() => {
+    setShareActive(boardShareActive);
+    setShareExpiresAt(boardShareExpiresAt);
+    if (!boardShareActive) {
+      setRevealedShareToken(null);
+      setShareCopied(false);
+    }
+  }, [boardShareActive, boardShareExpiresAt]);
 
-  const shareUrl = revealedShareToken ? `${window.location.origin}/share/${revealedShareToken}` : null;
+  const shareUrl =revealedShareToken ? `${window.location.origin}/share/${revealedShareToken}` : null;
   // A link past its expiry is still set (the public page answers 410 Gone)
   // until it is rotated or disabled, so say "Expired" rather than "Expires".
   const shareExpired = shareExpiresAt !== null && new Date(shareExpiresAt).getTime() <= Date.now();

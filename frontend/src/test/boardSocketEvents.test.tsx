@@ -555,6 +555,30 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.mergeBoardState).toHaveBeenCalledWith({ is_starred: true })
   })
 
+  it('share_link.updated merges the share state under its /full/ field names (#1967)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => {
+      getOnEvent.dispatch({
+        event: 'share_link.updated',
+        data: { board_uid: 'board-uid-1', active: true, expires_at: '2999-01-01T00:00:00Z' },
+      })
+    })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith({
+      share_link_active: true, share_token_expires_at: '2999-01-01T00:00:00Z',
+    })
+    act(() => {
+      getOnEvent.dispatch({
+        event: 'share_link.updated',
+        data: { board_uid: 'board-uid-1', active: false, expires_at: null },
+      })
+    })
+    expect(ctx.mergeBoardState).toHaveBeenLastCalledWith({ share_link_active: false, share_token_expires_at: null })
+    expect(ctx.updateBoardSettings).not.toHaveBeenCalled()
+  })
+
   it('board.updated does not throw when mergeBoardState is provided', async () => {
     mockBoardContextValue = makeContext()
     render(<BoardView />)
