@@ -922,3 +922,107 @@ class WSTicketScopeTests(APITestCase):
         """scopes IS NULL keeps full REST authority — backward compatibility."""
         r = self.client.post("/api/v1/auth/ws-ticket/", **auth(self._token(None)))
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+
+class LastUsedWriteThrottleTests(APITestCase):
+    """#1964: last_used_at/last_used_scope are written at most once a minute."""
+
+    def setUp(self):
+        self.user = make_user("throttleuser")
+        self.pat, _ = PersonalAccessToken.generate(
+            self.user, "poller", scopes=[SCOPE_READ, SCOPE_WRITE]
+        )
+
+    def _use(self, scope=SCOPE_READ):
+        from accounts.authentication import record_token_usage
+
+        # Fresh instance per call, as the resolver does on every request.
+        record_token_usage(PersonalAccessToken.objects.get(pk=self.pat.pk), scope)
+
+    def _stored(self):
+        self.pat.refresh_from_db()
+        return self.pat.last_used_at, self.pat.last_used_scope
+
+    def test_first_use_writes(self):
+        self._use()
+        at, scope = self._stored()
+        self.assertIsNotNone(at)
+        self.assertEqual(scope, SCOPE_READ)
+
+    def test_second_use_within_window_does_not_write(self):
+        self._use()
+        first, _ = self._stored()
+        self._use()
+        self.assertEqual(self._stored()[0], first)
+
+    def test_within_window_issues_no_update(self):
+        from accounts.authentication import record_token_usage
+
+        self._use()
+        loaded = PersonalAccessToken.objects.get(pk=self.pat.pk)
+        with self.assertNumQueries(0):
+            record_token_usage(loaded, SCOPE_READ)
+
+    def test_use_after_window_writes(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        self._use()
+        old = timezone.now() - timedelta(seconds=120)
+        PersonalAccessToken.objects.filter(pk=self.pat.pk).update(last_used_at=old)
+        self._use()
+        self.assertGreater(self._stored()[0], old)
+
+    def test_scope_change_within_window_writes(self):
+        self._use(SCOPE_READ)
+        first, _ = self._stored()
+        self._use(SCOPE_WRITE)
+        at, scope = self._stored()
+        self.assertEqual(scope, SCOPE_WRITE)
+        self.assertGreaterEqual(at, first)
+
+    def test_stale_snapshot_does_not_clobber_a_newer_stamp(self):
+        """A racer that loaded a stale row must not overwrite a fresher stamp."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from accounts.authentication import record_token_usage
+
+        old = timezone.now() - timedelta(seconds=300)
+        PersonalAccessToken.objects.filter(pk=self.pat.pk).update(
+            last_used_at=old, last_used_scope=SCOPE_READ
+        )
+        stale_snapshot = PersonalAccessToken.objects.get(pk=self.pat.pk)
+        self._use(SCOPE_READ)  # another request stamps first
+        fresh, _ = self._stored()
+        record_token_usage(stale_snapshot, SCOPE_READ)  # must be a no-op
+        self.assertEqual(self._stored()[0], fresh)
+
+    def test_revoked_row_still_rejected_when_stale(self):
+        from accounts.authentication import (
+            InvalidPersonalAccessToken,
+            record_token_usage,
+        )
+
+        loaded = PersonalAccessToken.objects.get(pk=self.pat.pk)
+        PersonalAccessToken.objects.filter(pk=self.pat.pk).delete()
+        with self.assertRaises(InvalidPersonalAccessToken):
+            record_token_usage(loaded, SCOPE_READ)
+
+    def test_lost_race_on_a_live_token_is_not_an_error(self):
+        """Zero rows updated because a peer stamped first must not raise."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from accounts.authentication import record_token_usage
+
+        PersonalAccessToken.objects.filter(pk=self.pat.pk).update(
+            last_used_at=timezone.now() - timedelta(seconds=300),
+            last_used_scope=SCOPE_READ,
+        )
+        stale_snapshot = PersonalAccessToken.objects.get(pk=self.pat.pk)
+        self._use(SCOPE_READ)
+        self.assertIsNone(record_token_usage(stale_snapshot, SCOPE_READ))
