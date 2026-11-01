@@ -411,3 +411,84 @@ class ConnectionUrlGuardFunctionTests(SimpleTestCase):
             settings_module._apply_database_password("sqlite:///dev.db", _SECRET_FRAGMENT)
         self.assertIn("DATABASE_URL has no host", str(ctx.exception))
         self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+
+
+class DatabasePoolTests(SimpleTestCase):
+    """_apply_database_pool derivation (#1958)."""
+
+    databases = []
+
+    PG = "postgres://u:p@db:5432/visiban"
+
+    def _cfg(self, url):
+        return settings_module._load_database_url(url)
+
+    def test_disabled_leaves_config_untouched(self):
+        cfg = settings_module._apply_database_pool(self._cfg(self.PG), False, 2, 10)
+        self.assertNotIn("pool", cfg.get("OPTIONS", {}))
+        self.assertNotIn("CONN_MAX_AGE", cfg)
+
+    def test_enabled_postgres_sets_pool_and_zero_conn_max_age(self):
+        cfg = settings_module._apply_database_pool(self._cfg(self.PG), True, 3, 7)
+        self.assertEqual(cfg["OPTIONS"]["pool"], {"min_size": 3, "max_size": 7})
+        self.assertEqual(cfg["CONN_MAX_AGE"], 0)
+        self.assertIs(cfg["CONN_HEALTH_CHECKS"], True)
+
+    def test_enabled_preserves_existing_options(self):
+        cfg = settings_module._apply_database_pool(self._cfg(self.PG + "?sslmode=require"), True, 2, 10)
+        self.assertEqual(cfg["OPTIONS"]["sslmode"], "require")
+        self.assertIn("pool", cfg["OPTIONS"])
+
+    def test_enabled_sqlite_is_ignored_with_warning(self):
+        with self.assertWarns(UserWarning) as ctx:
+            cfg = settings_module._apply_database_pool(self._cfg("sqlite:///x.db"), True, 2, 10)
+        self.assertNotIn("pool", cfg.get("OPTIONS", {}))
+        self.assertNotIn("x.db", str(ctx.warning))
+
+    def test_invalid_sizes_rejected(self):
+        for lo, hi in ((0, 5), (5, 2)):
+            with self.assertRaises(ImproperlyConfigured):
+                settings_module._apply_database_pool(self._cfg(self.PG), True, lo, hi)
+
+
+class DatabasePoolWiringTests(SimpleTestCase):
+    """The env vars reach _apply_database_pool with the documented names and defaults (#1958).
+
+    Evaluated in a subprocess, as ConnectionUrlGuardTests does, because the
+    wiring runs at settings import time.
+    """
+
+    databases = []
+
+    _SCRIPT = """\
+import os
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "visiban.settings")
+import django
+django.setup()
+from django.conf import settings
+db = settings.DATABASES["default"]
+print("POOL=" + repr(db.get("OPTIONS", {}).get("pool")))
+print("CMA=" + repr(db.get("CONN_MAX_AGE")))
+"""
+
+    def _load(self, **overrides):
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        env = {**_BASE_ENV, "DATABASE_URL": "postgres://u:p@db:5432/visiban", **overrides, "PYTHONPATH": backend_dir}
+        result = subprocess.run(
+            [sys.executable, "-c", self._SCRIPT], env=env, capture_output=True, text=True, timeout=30
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        return result.stdout
+
+    def test_pool_is_off_by_default(self):
+        out = self._load()
+        self.assertIn("POOL=None", out)
+
+    def test_documented_vars_enable_and_size_the_pool(self):
+        out = self._load(DATABASE_POOL="true", DATABASE_POOL_MIN_SIZE="3", DATABASE_POOL_MAX_SIZE="12")
+        self.assertIn("POOL={'min_size': 3, 'max_size': 12}", out)
+        self.assertIn("CMA=0", out)
+
+    def test_default_sizes_when_only_the_flag_is_set(self):
+        out = self._load(DATABASE_POOL="true")
+        self.assertIn("POOL={'min_size': 2, 'max_size': 10}", out)

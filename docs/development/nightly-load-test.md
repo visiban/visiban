@@ -74,6 +74,12 @@ It isn't a silent default. The self-test fails a scenario whose budget is null w
 - Nothing is pending now: `card_search_multi_board` ([#1810](https://gitlab.com/visiban/visiban/-/issues/1810) added the scenario) got its budget in [#1808](https://gitlab.com/visiban/visiban/-/issues/1808).
 - The `suppressions-check` CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending ([#1812](https://gitlab.com/visiban/visiban/-/issues/1812); see [Suppression markers](suppressions.md#what-ci-enforces)).
 
+## Pooled connections
+
+> **Added in 1.3** (#1958).
+
+The nightly job runs unpooled: `DATABASE_POOL` is unset and so is `CONN_MAX_AGE`, so every request opens its own PostgreSQL connection. The latency budgets therefore do not exercise the [connection pool](../administration/configuration.md#database-connection-pool). To measure the pooled path, run the load test against a backend started with `DATABASE_POOL=true` (and, if needed, `DATABASE_POOL_MAX_SIZE`) in its environment. No pooled run has been recorded yet (tracked in #2035, along with a saturation check, pgBouncer and the default decision), so the budgets make no claim about it.
+
 ## The fixture
 
 The job seeds a dedicated, larger board, never the real demo board:
@@ -463,7 +469,7 @@ The driver doesn't reproduce it locally. On `b1f1cf76b`, with one database and 8
 
 - That commit predates #1800's backport, so psycopg 3 was still parsing `timestamptz` in Python and was still not slower.
 - psycopg2 was forced by shadowing the `psycopg` import, so Django fell back to psycopg2 2.9.11.
-- A new connection per request (`CONN_MAX_AGE` unset) is part of both arms.
+- A new connection per request (`CONN_MAX_AGE` unset, `DATABASE_POOL` off) is part of both arms.
 - The development machine is macOS on arm64, while CI is `python:3.12-slim` on x86_64. This test doesn't cover a platform-specific driver cost, nor the unpinned transitive dependencies and floating images #1800 lists.
 
 This step is therefore **unattributed**. It's 0.8-2.1ms per request on the three lightest endpoints and 3.2-4.4ms on `card_search`, which is 2-6% and well inside the 1.4x budget factor, so it wasn't pursued. If it grows, run the same driver A/B on a NUC runner rather than on a development machine.

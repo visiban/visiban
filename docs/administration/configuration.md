@@ -181,6 +181,24 @@ Rates use the DRF form `<count>/<period>` with `sec`, `min`, `hour` or `day`. Se
 
 ---
 
+## Database connection pool
+
+> **Added in 1.3** (#1958).
+
+By default each HTTP request opens and closes its own PostgreSQL connection. Set `DATABASE_POOL=true` to have each backend process share a [psycopg connection pool](https://www.psycopg.org/psycopg3/docs/advanced/pool.html) instead, which removes the connect and authentication cost per request. It applies only to PostgreSQL; with another engine it is ignored with a warning. Visiban sets `CONN_MAX_AGE=0` for you when the pool is on, as Django requires.
+
+| Variable | Description | Default |
+|---|---|---|
+| `DATABASE_POOL` | Enables the connection pool. Helm: `backend.settings.dbPool.enabled`. | `false` |
+| `DATABASE_POOL_MIN_SIZE` | Connections each process keeps open. Must be at least 1. Helm: `backend.settings.dbPool.minSize`. | `2` |
+| `DATABASE_POOL_MAX_SIZE` | Most connections each process opens. Must be at least `DATABASE_POOL_MIN_SIZE`. Helm: `backend.settings.dbPool.maxSize`. | `10` |
+
+**When the pool is full:** a request needs a connection for as long as its view runs, on its own thread. When more than `DATABASE_POOL_MAX_SIZE` requests are in flight in one process, the extra ones queue for a free connection and raise `PoolTimeout` (a `500`) after the 30-second default timeout of psycopg_pool's `ConnectionPool`. Raise `DATABASE_POOL_MAX_SIZE` before `max_connections` is the limit you hit, or add replicas.
+
+**Health checks:** with the pool on, Visiban also enables Django's `CONN_HEALTH_CHECKS`, so a connection that died (PostgreSQL restart or failover) is replaced instead of being handed to a request.
+
+**Sizing:** the pool is per process, so the worst case is `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas. Keep that below PostgreSQL's `max_connections` (default 100), leaving headroom for migrations and admin sessions, or put pgBouncer in front. The migrate init container, the CronJobs and the scheduler inherit the same environment, so each of them also opens up to `DATABASE_POOL_MIN_SIZE` connections while it runs; count them too. The migration lock connection deliberately bypasses the pool. See [Scaling](../architecture/scaling.md).
+
 ## Import limits
 
 | Variable | Description | Default |

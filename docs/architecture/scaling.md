@@ -16,7 +16,7 @@ Scale in this order. Each step resolves the typical bottleneck before it bites.
 | **2. Vertical scale** | CPU > 70% sustained | Larger instance (vCPU + RAM) |
 | **3. Migrate to S3** | Before step 4 | Move attachments off local disk |
 | **4. Add pgBouncer** | DB connections > 80% of `max_connections` | Connection pooling in front of PostgreSQL |
-| **5. Add backend replicas** | After steps 3–4 | `backend.replicaCount: 2+` in Helm |
+| **5. Add backend replicas** | After steps 3–4 | `backendReplicaCount: 2+` in Helm |
 | **6. PostgreSQL read replica** | Analytics queries affecting write latency | Route analytics ViewSet to replica |
 | **7. Valkey HA** | Valkey CPU > 60% or availability SLA | Sentinel or Cluster |
 | **8. CDN for static** | Multi-region users or high static asset CPU | CloudFront / R2 / Fastly |
@@ -81,9 +81,9 @@ A good starting point: `(2 × vCPU) + 1` workers.
 1. **Attachment storage must be on S3/GCS** — local disk is not shared between replicas; see [Attachment storage](#attachment-storage) below.
 2. **Valkey is already required** — the channel layer (WebSocket pub/sub) uses Valkey; this is already in the default stack.
 3. **Sticky sessions are not required** — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.
-4. **Database connections** — each replica opens its own connection pool. Add pgBouncer if the total connection count approaches PostgreSQL's `max_connections` (default 100).
+4. **Database connections** — by default each request opens its own connection; with `DATABASE_POOL=true` each backend process keeps its own pool (see [Connection count](#postgresql) below). Add pgBouncer if the total connection count approaches PostgreSQL's `max_connections` (default 100).
 
-**Kubernetes:** set `backend.replicaCount` to 2+ and point `externalDatabase` and `externalRedis` at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).
+**Kubernetes:** set `backendReplicaCount` to 2+ and point `externalDatabase` and `externalRedis` at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).
 
 **When to act:** When p95 HTTP response time on `/api/v1/boards/{id}/cards/` exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.
 
@@ -95,7 +95,11 @@ PostgreSQL holds all persistent state: boards, cards, movements, memberships, co
 
 **What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load) and the ORM uses `select_related`/`prefetch_related` throughout.
 
-**Connection count:** each daphne/uvicorn worker opens a persistent connection. With 4 workers per replica and 3 replicas, you need ~12 connections plus headroom. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
+**Connection count:** by default each HTTP request opens and closes its own PostgreSQL connection (`CONN_MAX_AGE` is unset); connections are not held between requests. Peak usage is therefore roughly the number of requests in flight at once. WebSocket consumers add little: Channels runs their database work on one thread per process, so it is serialized. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
+
+> **Added in 1.3** (#1958).
+
+To avoid the per-request connect and authentication cost, set `DATABASE_POOL=true` to use a [psycopg connection pool](../administration/configuration.md#database-connection-pool) in each backend process. Each process keeps up to `DATABASE_POOL_MAX_SIZE` (default 10) connections, so size it so that `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas stays under `max_connections`. A busy process can exhaust its pool: more than `DATABASE_POOL_MAX_SIZE` concurrent requests queue, then raise `PoolTimeout` after the 30-second default timeout of psycopg_pool's `ConnectionPool`. Init containers, CronJobs and the scheduler inherit the pool settings and each open up to `DATABASE_POOL_MIN_SIZE` connections. Visiban does not use `CONN_MAX_AGE > 0`, which Django documents as a poor fit for ASGI.
 
 **How to tune before scaling out:**
 

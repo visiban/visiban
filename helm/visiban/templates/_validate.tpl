@@ -142,6 +142,13 @@ manage the Secret in that case and cannot inspect its contents.
 {{- include "visiban.valkeyGuards" . }}
 {{- include "visiban.externalRedisGuards" . }}
 {{- include "visiban.demoGuards" . }}
+{{- /* Opt-in DB connection pool (#1958). psycopg_pool refuses min_size > max_size at startup; fail at render instead of crash-looping every pod. default dict: --reuse-values from 1.2 has no dbPool key. */ -}}
+{{- $dbPool := .Values.backend.settings.dbPool | default dict }}
+{{- if $dbPool.enabled }}
+{{- if gt (int64 ($dbPool.minSize | default 2)) (int64 ($dbPool.maxSize | default 10)) }}
+{{- fail "\n\nVisiban: backend.settings.dbPool.minSize is larger than maxSize (defaults 2 and 10).\nThe pool cannot keep more connections open than it may open.\n\nSet minSize <= maxSize.\n" -}}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{/*

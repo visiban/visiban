@@ -201,6 +201,18 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: MCP_SERVER_ENABLED
   value: "true"
 {{- end }}
+{{- /* Opt-in PostgreSQL connection pool (#1958). Rendered only when enabled: the
+  backend defaults it off, so the default render stays byte-identical. */}}
+{{- /* default dict: `helm upgrade --reuse-values` from 1.2 has no dbPool key, and reading .enabled off nil is a render failure. */}}
+{{- $dbPool := $ctx.Values.backend.settings.dbPool | default dict }}
+{{- if $dbPool.enabled }}
+- name: DATABASE_POOL
+  value: "true"
+- name: DATABASE_POOL_MIN_SIZE
+  value: {{ $dbPool.minSize | default 2 | int64 | quote }}
+- name: DATABASE_POOL_MAX_SIZE
+  value: {{ $dbPool.maxSize | default 10 | int64 | quote }}
+{{- end }}
 {{- if $ctx.Values.backend.settings.gitLensEnabled }}
 - name: GIT_LENS_ENABLED
   value: "true"
