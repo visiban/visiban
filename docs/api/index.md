@@ -226,6 +226,6 @@ Endpoints that return a foreign key as an integer id may support a nested compan
 | `GET /boards/<id>/full/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name, ancestors }` |
 | `GET /groups/<id>/boards/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name, ancestors }` |
 
-Multiple expansions may be combined with a comma, e.g. `?expand=group,members`. Unknown values are silently ignored. The original FK id fields (`group`, `group_name`) always remain in the response for backward compatibility.
+`group` is the only expansion implemented today. The parameter is parsed as a comma-separated list (e.g. `?expand=group,other`), so values can be combined as more expansions are added, but any value other than `group` is silently ignored. The original FK id fields (`group`, `group_name`) always remain in the response for backward compatibility.
 
 The `ancestors` field on the expanded `group_detail` payload is root-first and excludes the group itself (already in `name`), which lets you render breadcrumbs without a follow-up request. Added in 1.1 (#845).
