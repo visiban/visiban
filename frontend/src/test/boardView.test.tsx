@@ -1228,6 +1228,21 @@ describe('BoardView', () => {
       expect(screen.getByText(`Over column 'To Do', swimlane 'Payouts'. Swimlane "Payouts" is at its WIP limit (1/1), admins can override.`)).toBeInTheDocument()
     })
 
+    it('a quick second hover onto a blocked cell still announces its verdict', () => {
+      const board = makeBoard({
+        swimlanes: [
+          { id: 20, uid: 'laneuid00001', name: 'Customer A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+          { id: 21, uid: 'laneuid00002', name: 'Payouts', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'hard', limit_column_ids: null },
+        ],
+        cards: [card(1, 10, 20), card(2, 11, 21)],
+      })
+      mockBoardContextValue = defaultContext({ board })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:11:20')
+      hover(1, 'cell:10:21') // inside the 300ms throttle window
+      expect(screen.getByText(`Over column 'To Do', swimlane 'Payouts'. Swimlane "Payouts" is at its WIP limit (1/1), no one can override it.`)).toBeInTheDocument()
+    })
+
     it('reads only the cell when nothing would trip', () => {
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card(1, 10, 20)] }) })
       render(<BoardView {...defaultProps()} />)

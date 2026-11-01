@@ -9,19 +9,19 @@ import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
 import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
-import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitState, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
+import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
 
 /**
  * The row's limit state line (#1150), mirroring the column header's stat row
  * (#973): one line, worst offender first (Over WIP > Over weight > At >
  * Under). The text carries the state; the meter is decorative.
  */
-function SwimlaneLimitStat({ swimlane, usage, state, hard }: { swimlane: Swimlane; usage: LaneUsage; state: LaneLimitState; hard: boolean }) {
+function SwimlaneLimitStat({ swimlane, usage, reading, hard }: { swimlane: Swimlane; usage: LaneUsage; reading: LaneLimitReading; hard: boolean }) {
   const wip = swimlane.wip_limit;
   const weight = swimlane.weight_limit;
-  // The WIP numbers lead whenever the row has a WIP limit; a weight-only row
-  // shows its weight.
-  const showWip = wip !== null && state !== "overWeight";
+  const { state } = reading;
+  // The line names the metric that decided the state (laneLimitState).
+  const showWip = reading.metric === "wip";
   const value = showWip ? usage.count : usage.weight;
   const limit = (showWip ? wip : weight) ?? 0;
   const numbers = `${value}/${limit}`;
@@ -53,9 +53,11 @@ function SwimlaneLimitStat({ swimlane, usage, state, hard }: { swimlane: Swimlan
     title = `Swimlane ${label === "WIP" ? "WIP" : "weight"} limit: ${numbers} in the columns that count`;
   }
   return (
-    <p className={`mt-1 flex items-center gap-2 text-xs ${tone}`} title={title} data-testid="swimlane-limit-stat">
-      <span className="truncate">{text}</span>
-      <span aria-hidden="true" className="shrink-0 h-1 w-12 lg:w-16 rounded-full bg-surface-active overflow-hidden">
+    // The numbers never truncate: the text keeps its width and the meter
+    // shrinks (to nothing in a narrow panel) before it.
+    <p className={`mt-1 flex items-center gap-2 min-w-0 text-xs ${tone}`} title={title} data-testid="swimlane-limit-stat">
+      <span className="shrink-0 whitespace-nowrap">{text}</span>
+      <span aria-hidden="true" className="flex-1 min-w-0 max-w-12 lg:max-w-16 h-1 rounded-full bg-surface-active overflow-hidden">
         <span className={`block h-full ${meter}`} style={{ width: `${fill}%` }} />
       </span>
     </p>
@@ -188,7 +190,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
 
   // Row limit state (#1150), from the row's active cards in its counted columns.
   const limitUsage = laneUsage(swimlane, columns, cards);
-  const limitState = laneLimitState(swimlane, limitUsage);
+  const limitReading = laneLimitState(swimlane, limitUsage);
+  const limitState = limitReading?.state ?? null;
   const hardWip = swimlaneLimitModes(limitFlags, swimlane).wip === "hard";
   // A collapsed row keeps only the over-limit states, so nothing over its
   // limit is hidden behind the chevron; the calm states fold away with it.
@@ -319,8 +322,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </p>
             )}
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
-            {showLimitStat && limitState !== null && (
-              <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} state={limitState} hard={hardWip} />
+            {showLimitStat && limitReading !== null && (
+              <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} />
             )}
             {renameError && <p className="text-xs text-danger truncate" role="alert">{renameError}</p>}
             {/* Gated on !collapsed, matching contact_email above: a collapsed

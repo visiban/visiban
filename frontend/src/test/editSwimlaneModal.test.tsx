@@ -517,6 +517,7 @@ describe('EditSwimlaneModal — limits (#1150)', () => {
     await user.click(screen.getByRole('button', { name: /Save/ }))
     expect(mockUpdateSwimlane).not.toHaveBeenCalled()
     expect(screen.getByText(/Choose at least one column/)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Backlog' })).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByRole('checkbox', { name: 'Backlog' })).toHaveFocus()
   })
 
@@ -546,10 +547,10 @@ describe('EditSwimlaneModal — limits (#1150)', () => {
 
   it('describes what the board settings mean right now', () => {
     const { unmount } = renderModal(makeSwimlane(), { enforce_wip_limits: false, enforce_wip_hard: true, enforce_weight_limits: false })
-    expect(screen.getByText(/Board now: blocks everyone/)).toBeInTheDocument()
+    expect(screen.getByText('Board now: WIP limits block everyone; weight limits only show on the row.')).toBeInTheDocument()
     unmount()
     renderModal(makeSwimlane(), { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false })
-    expect(screen.getByText(/WIP limits are not enforced/)).toBeInTheDocument()
+    expect(screen.getByText('Board now: WIP limits only show on the row; weight limits only show on the row.')).toBeInTheDocument()
   })
 
   it('the form body is a named, focusable scroll region', () => {

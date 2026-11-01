@@ -44,9 +44,13 @@ function parseLimit(raw: string): number | null {
 /** What "Follow board settings" means on this board right now. */
 function boardModeDescription(flags: LimitFlags): string {
   const modes = columnLimitModes(flags);
-  if (modes.wip === "hard") return "Board now: blocks everyone, as for columns.";
-  if (modes.wip === "block") return "Board now: blocks, board admins can override, as for columns.";
-  return "Board now: WIP limits are not enforced, so this row's limit only shows on the row.";
+  const wip = modes.wip === "hard"
+    ? "WIP limits block everyone"
+    : modes.wip === "block"
+      ? "WIP limits block, board admins can override"
+      : "WIP limits only show on the row";
+  const weight = modes.weight ? "weight limits block, board admins can override" : "weight limits only show on the row";
+  return `Board now: ${wip}; ${weight}.`;
 }
 
 export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose, swimlaneFieldDefinitions, userDateFormat, columns = [], laneCards = [], limitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false } }: Props) {
@@ -297,6 +301,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                   <input
                     id={`${limitsId}-wip`}
                     inputMode="numeric"
+                    maxLength={6}
                     value={wipLimit}
                     onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
                     placeholder="0"
@@ -321,6 +326,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                   <input
                     id={`${limitsId}-weight`}
                     inputMode="numeric"
+                    maxLength={6}
                     value={weightLimit}
                     onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
                     placeholder="0"
@@ -350,6 +356,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                       <input
                         ref={i === 0 ? firstCountedRef : undefined}
                         type="checkbox"
+                        aria-invalid={countedError !== null ? true : undefined}
                         checked={effectiveCounted.includes(col.id)}
                         onChange={(e) => toggleCounted(col.id, e.target.checked)}
                         className="w-4 h-4 rounded accent-primary"
