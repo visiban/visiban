@@ -3720,8 +3720,14 @@ class BoardFullSerializer(serializers.ModelSerializer):
     def get_capabilities(self, obj):
         """Return feature flags for enterprise-registered extension points.
 
-        OSS always returns False for all keys; enterprise registers backends
-        (e.g. MOVEMENT_EXPORT_BACKENDS) to flip the relevant flag.
+        The keys are a public, additive-only contract (documented in
+        ``docs/api/boards.md``): a key is never removed or renamed, and the
+        client treats an absent key as ``False``. Currently ``movement_export``
+        only. Each value is a bool derived from whether the matching
+        ``boards.hooks`` list is non-empty, so OSS returns ``False`` for every
+        key and enterprise flips one by registering a backend (e.g.
+        ``MOVEMENT_EXPORT_BACKENDS``). A new key must be added to that page and
+        to ``StringNamedHookListTests`` in ``test_extensibility.py``.
         """
         from .hooks import MOVEMENT_EXPORT_BACKENDS
         return {"movement_export": bool(MOVEMENT_EXPORT_BACKENDS)}

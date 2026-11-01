@@ -68,7 +68,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | Multi-tenancy / organization management | Enterprise | Multiple groups under one billing entity | enterprise #21 |
 | Usage quotas and plan limits | Enterprise | SaaS tier management | enterprise #22 |
 | White-labeling | Enterprise | Custom branding | enterprise #23 |
-| External tool import wizard | Enterprise | Migration tooling | enterprise #24 |
+| Guided multi-source migration wizard (visual import-from-external-tools UI) | Enterprise | Migration tooling for onboarding at scale. The import endpoints and formats themselves (Trello, JSON, CSV) are OSS: see [Board import (OSS) vs migration wizard (Enterprise)](#board-import-oss-vs-migration-wizard-enterprise) | enterprise #24 |
 | Form engine for card intake | Enterprise | Borderline; revisit if intake teams are a common OSS persona | enterprise #32 |
 | Google Calendar integration | Enterprise | External service | enterprise #2 |
 
@@ -165,6 +165,12 @@ The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (
 **Issue:** #341
 
 ---
+
+### Board import (OSS) vs migration wizard (Enterprise)
+
+**Decision (#1982).** Board import and export are OSS, per the guiding principle: a team must be able to bring its own data in and take it out. OSS owns the import endpoints and formats (Trello, JSON and CSV) and their envelopes. Only a *guided, multi-source migration wizard UI* (a visual, step-by-step import from external tools) is Enterprise (enterprise #24). The earlier row, "External tool import wizard = Enterprise", read as if OSS import were out of bounds; it was not, and the shipped OSS importers stay OSS.
+
+**Import and the custom-field signals (#1897).** A bulk import writes rows with `bulk_create`, so it does not send `custom_field_value_changed` or `swimlane_custom_field_value_changed`, nor any other per-row signal: an import is not a user edit. An Enterprise audit trail built on those signals therefore will not see imported values. What an import does run is the value-policy hooks (`CUSTOM_FIELD_VALIDATORS` and `SWIMLANE_CUSTOM_FIELD_VALIDATORS`), so an extension's validation cannot be bypassed by importing. Those two lists are looked up by name string, so their names are pinned by `boards/tests/test_extensibility.py`.
 
 ### Outgoing webhooks (OSS) vs webhook operations (Enterprise)
 
