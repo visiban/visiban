@@ -1587,6 +1587,17 @@ class BoardEvent(models.Model):
     serializing a page of events cannot N+1 on the actor. Row lifecycle belongs
     to retention pruning (``manage.py prune_board_events``), not to referential
     integrity.
+
+    The one sanctioned rewrite (#1816)
+    ----------------------------------
+    ``manage.py purge_card_history`` is an operator's erase-on-request, and a
+    card's stored payloads (``card.created``, ``card.updated``,
+    ``card.unarchived`` and the ``card``/``movement`` objects of
+    ``card.moved``) hold its title, description, notes, custom field values
+    and external reference. Deleting those rows would put gaps in a cursor
+    stream that consumers page through, so the purge **redacts** them instead:
+    the content values become ``null``, every key stays, and ``redacted_at``
+    records when. Nothing else updates a stored row.
     """
 
     board_id = models.BigIntegerField(
@@ -1606,6 +1617,14 @@ class BoardEvent(models.Model):
         help_text="User who caused the event; NULL for events with no authenticated actor.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    redacted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "When purge_card_history redacted this row's card content (#1816); "
+            "NULL for a row that was never redacted."
+        ),
+    )
 
     class Meta:
         db_table = "board_events"

@@ -235,6 +235,11 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
     removed or renamed, so a client that does not know them keeps working and
     simply ignores them. The change feed records the same `card.updated` row.
 
+In the [change feed](events.md), a row for one of these events can later be
+redacted by an operator's card-history purge: same keys, with the card's content
+values set to `null` (since 1.3; see [Redacted card events](events.md#redacted-card-events)).
+Live frames are never redacted.
+
 These shapes are the same whichever writer made the change: the REST API or the
 [MCP](mcp.md) write tools. *Fixed in 1.2 (#1926): a card created, moved or updated
 through MCP sent the MCP tool's own return shape in `card.created`, `card.moved`
