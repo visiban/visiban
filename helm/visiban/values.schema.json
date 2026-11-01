@@ -78,6 +78,10 @@
               "type": "boolean"
             },
             "adminAllowedIPs": { "type": "string" },
+            "silencedSystemChecks": {
+              "description": "SILENCED_SYSTEM_CHECKS. Comma-separated Django system-check IDs the operator accepts, e.g. accounts.W002 (#1698).",
+              "type": "string"
+            },
             "emailVerification": { "type": "string", "enum": ["optional", "mandatory", "none"] },
             "maxUploadSizeBytes": {
               "description": "MAX_UPLOAD_SIZE_BYTES. Both transport limits (nginx client_max_body_size, ingress proxy-body-size) are derived from the larger of this and importMaxSizeBytes, plus 10 MB of framing headroom.",

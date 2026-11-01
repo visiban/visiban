@@ -55,6 +55,10 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
   value: {{ $ctx.Chart.AppVersion | quote }}
 - name: DJANGO_ADMIN_ALLOWED_IPS
   value: {{ $ctx.Values.backend.settings.adminAllowedIPs | quote }}
+{{- if $ctx.Values.backend.settings.silencedSystemChecks }}
+- name: SILENCED_SYSTEM_CHECKS
+  value: {{ $ctx.Values.backend.settings.silencedSystemChecks | quote }}
+{{- end }}
 - name: USE_X_ACCEL_REDIRECT
   value: "false"
 - name: REDIS_URL
