@@ -1,130 +1,218 @@
-import type { WebhookSubscription } from "../types";
+import type { WebhookSubscription, WebhookTestResult } from "../types";
 
 /**
- * Board Settings → Webhooks copy and styles (#863). The UX spec on #863 is the
- * source of every string here; change wording there first.
+ * Board Settings → Webhooks copy and styles (#863). Source: 1.3 Release UI
+ * spec Part 8 (owner decision 2026-11-01) with the overrides on #863 (one
+ * neutral address error). Change wording there first.
  */
 
-export type WebhookRowStatus = "active" | "failing" | "disabled" | "stopped";
+export type WebhookRowStatus = "active" | "failing" | "disabled";
 
-/** Derive the row's status pill from the subscription. */
-export function webhookRowStatus(sub: Pick<WebhookSubscription, "enabled" | "disabled_reason" | "consecutive_failures">): WebhookRowStatus {
-  if (!sub.enabled) return sub.disabled_reason === "manual" ? "disabled" : "stopped";
+/** Active / Failing / Disabled: a shape and a word, never color alone (departure 19). */
+export function webhookRowStatus(sub: Pick<WebhookSubscription, "enabled" | "consecutive_failures">): WebhookRowStatus {
+  if (!sub.enabled) return "disabled";
   return sub.consecutive_failures > 0 ? "failing" : "active";
 }
 
+/** `/15` tint, `/60` border, on-tint text (#1550 ratios). */
 export const WEBHOOK_STATUS_STYLES: Record<WebhookRowStatus, { label: string; className: string }> = {
-  active: { label: "Active", className: "bg-success/20 text-success-on-tint" },
-  failing: { label: "Failing", className: "bg-warning/20 text-warning-on-tint" },
-  disabled: { label: "Disabled", className: "bg-fg-muted/20 text-muted-on-tint" },
-  stopped: { label: "Stopped", className: "bg-danger/20 text-danger-on-tint" },
+  active: { label: "Active", className: "bg-success/15 border-success/60 text-success-on-tint" },
+  failing: { label: "Failing", className: "bg-warning/15 border-warning/60 text-warning-on-tint" },
+  disabled: { label: "Disabled", className: "bg-fg-muted/15 border-fg-muted/60 text-muted-on-tint" },
 };
 
-/** Headline for a delivery error code (row detail, test result). */
-export function deliveryErrorCopy(code: string | null | undefined, statusCode: number | null | undefined): string {
-  switch (code) {
-    case "connection_failed":
-      return "Could not connect to the receiver";
-    case "tls_error":
-      return "The receiver's TLS certificate was rejected";
-    case "timeout":
-      return "The receiver did not respond in time";
-    case "http_error": {
-      const status = statusCode ?? "error";
-      const redirect = typeof statusCode === "number" && statusCode >= 300 && statusCode < 400;
-      return `The receiver answered HTTP ${status}${redirect ? " (redirects are not followed)" : ""}`;
-    }
-    default:
-      return "Delivery failed";
-  }
-}
+/** The one message for every address-based refusal (departure 26, #863 threat model). */
+export const ADDRESS_REFUSED_COPY = "Visiban can't send to this address. If it should be allowed, ask your Visiban operator.";
 
-/** Line-4 copy for a disabled row. `when` is already a relative time. */
-export function disabledReasonCopy(sub: Pick<WebhookSubscription, "disabled_reason" | "last_error_code" | "last_status_code">, when: string): string {
-  switch (sub.disabled_reason) {
-    case "manual":
-      return `Turned off by a board admin ${when}.`;
-    case "failures":
-      return `Turned off ${when} after repeated failed deliveries. Last error: ${deliveryErrorCopy(sub.last_error_code, sub.last_status_code)}.`;
-    case "cursor_expired":
-      return `Turned off ${when} because it fell too far behind. The events it had not delivered were removed by history cleanup.`;
-    case "creator_lost_access":
-      return `Turned off ${when} because the person who set it up no longer administers this board. Re-enable it to take it over.`;
-    case "secret_unavailable":
-      return `Turned off ${when} because its stored URL or secret can no longer be read, usually after the server's secret key changed. Delete it and create a new one.`;
-    default:
-      return `Turned off ${when}.`;
-  }
-}
-
-/** Slot a create/edit error is shown in. */
-export type ConfigErrorSlot = "url" | "events" | "form";
-
-export const CONFIG_ERROR_COPY: Record<string, { slot: ConfigErrorSlot; text: string }> = {
-  invalid_url: {
-    slot: "url",
-    text: "Enter a full https:// URL with no username or password. Ports below 1024 other than 443 are not allowed.",
-  },
-  url_not_allowed: {
-    slot: "url",
-    text: "Visiban can't send to this address. Private, local and unresolvable addresses are blocked. To allow one, ask whoever runs this server to add it to WEBHOOK_ALLOWED_PRIVATE_TARGETS.",
-  },
-  invalid_event_types: {
-    slot: "events",
-    text: "Some selected events can't be sent by webhook. Close and reopen this tab, then choose again.",
-  },
-  limit_reached: {
-    slot: "form",
-    text: "You've reached a webhook limit for this board, your account or this server. Delete an unused webhook to add another.",
-  },
-  session_required: {
-    slot: "form",
-    text: "This change needs a signed-in browser session. Sign in again and retry.",
-  },
+/** URL field errors. Only input-shape errors get their own copy. */
+export const URL_ERROR_COPY: Record<"http" | "format" | "creds" | "refused", string> = {
+  http: "Use an https:// address. Your Visiban operator can allow plain http for specific hosts.",
+  format: "Enter a full address, like https://hooks.example.com/visiban.",
+  creds: "Remove the user name and password from the address. Receivers check Visiban with the signing secret instead.",
+  refused: ADDRESS_REFUSED_COPY,
 };
 
-export const CONFIG_THROTTLED_COPY = "Too many webhook changes in a short time. Try again in a few minutes.";
-export const CONFIG_GENERIC_COPY = "Couldn't save the webhook. Try again.";
+export const URL_HELPER_COPY = "Must start with https://. Visiban shows only the host and the last characters after you save.";
+
+/**
+ * Client-side shape check: only what the server would also refuse from the
+ * text alone. http:// is left to the server (an operator allowlist may admit
+ * it), and so is every address rule.
+ */
+export function urlShapeError(raw: string): "format" | "creds" | null {
+  const url = raw.trim();
+  if (!/^[a-z][a-z0-9+.-]*:\/\/[^\s/?#]+/i.test(url) || /\s/.test(url)) return "format";
+  if (!/^https?:\/\//i.test(url)) return "format";
+  if (/^[a-z]+:\/\/[^/?#]*@/i.test(url)) return "creds";
+  return null;
+}
+
+/** Map a create / address-change failure to its URL-field copy, or null for a form-level one. */
+export function urlErrorFromResponse(data: { code?: unknown; reason?: unknown } | undefined): string | null {
+  if (data?.code === "url_not_allowed") return URL_ERROR_COPY.refused;
+  if (data?.code === "invalid_url") {
+    const reason = data.reason === "http" || data.reason === "creds" ? data.reason : "format";
+    return URL_ERROR_COPY[reason];
+  }
+  return null;
+}
+
+export const FORM_ERROR_COPY: Record<string, string> = {
+  invalid_event_types: "Some selected events can't be sent by webhook. Reopen this tab and choose again.",
+  limit_reached: "You've reached a webhook limit for this board, your account or this server. Delete an unused webhook to add another.",
+};
+export const FORM_THROTTLED_COPY = "Too many webhook changes in a short time. Try again in a few minutes.";
+export const FORM_GENERIC_COPY = "Couldn't save the webhook. Try again.";
 export const EVENTS_NONE_SELECTED_COPY = "Choose at least one event, or pick All events.";
 
-/** Picker group legends, keyed by the event type's resource prefix. */
-export const EVENT_GROUP_LABELS: Record<string, string> = {
-  board: "Board",
-  card: "Cards",
-  column: "Columns",
-  swimlane: "Swimlanes",
-  label: "Labels",
-  custom_field: "Card fields",
-  swimlane_custom_field: "Swimlane fields",
-  member: "Members",
-  invite_link: "Invite links",
-  lens_connection: "Issue Board Lens",
-};
-
-/** Group event types by prefix, in first-seen order of the server's sorted list. */
-export function groupEventTypes(types: string[]): { prefix: string; label: string; types: string[] }[] {
-  const groups = new Map<string, string[]>();
-  for (const t of types) {
-    const prefix = t.includes(".") ? t.slice(0, t.lastIndexOf(".")) : t;
-    const list = groups.get(prefix);
-    if (list) list.push(t);
-    else groups.set(prefix, [t]);
-  }
-  return [...groups.entries()].map(([prefix, list]) => ({
-    prefix,
-    label: EVENT_GROUP_LABELS[prefix] ?? prefix,
-    types: list,
-  }));
+/** Reason → headline, body, recovery action (spec Part 8 "Reason → copy → recovery"). */
+export interface ReasonCopy {
+  headline: string;
+  body: string;
+  action: string;
 }
 
-/** "All events", or "3 events: card.moved, card.created +1". */
+export function disabledReasonCopy(
+  sub: Pick<WebhookSubscription, "disabled_reason" | "configured_by">,
+  failuresLimit: number | null,
+): ReasonCopy | null {
+  switch (sub.disabled_reason) {
+    case "failures":
+      return {
+        headline: "Turned off after repeated delivery failures",
+        body: `${failuresLimit ? `Visiban stopped sending after ${failuresLimit} failed deliveries in a row, or a day of failures.` : "Visiban stopped sending after repeated failed deliveries."} Fix the receiving endpoint, send a test event, then turn the webhook back on.`,
+        action: "Turn on again",
+      };
+    case "cursor_expired":
+      return {
+        headline: "Turned off because it fell too far behind",
+        body: "It failed for longer than this board keeps its change history, so Visiban can't resume where it stopped. Events from that gap were not delivered and won't be. Turning it back on starts with new events.",
+        action: "Turn on from now",
+      };
+    case "creator_lost_access": {
+      const who = sub.configured_by ? sub.configured_by.display_name || sub.configured_by.username : "The person who set it up";
+      return {
+        headline: "Turned off because its creator lost access",
+        body: `${who} is no longer an admin of this board, so their webhook stopped. To turn it back on, you take it over: it sends as you, and its notices come to you.`,
+        action: "Take over and turn on…",
+      };
+    }
+    case "secret_unavailable":
+      return {
+        headline: "Turned off because its stored secret can't be read",
+        body: "Its stored address or signing secret can no longer be read, usually after the server's secret key changed. Delete it and create a new one.",
+        action: "",
+      };
+    default:
+      return null;
+  }
+}
+
+/** What turning on again does, stated in its confirm (departure 23). */
+export function reenableConfirmCopy(sub: Pick<WebhookSubscription, "disabled_reason" | "url_host">): string {
+  if (sub.disabled_reason === "creator_lost_access") return "Take it over: it will send as you, and its notices will come to you.";
+  if (sub.disabled_reason === "cursor_expired") return "Sending resumes with new events. Events from the gap won't be sent.";
+  return `Sending resumes to ${sub.url_host}, starting with the events it missed. If it keeps failing, it turns off again.`;
+}
+
+/** Test-event result copy: headline in tone + remedy (spec Part 8 "Test event"). */
+export interface TestResultCopy {
+  tone: "ok" | "err" | "warn";
+  headline: string;
+  remedy: string;
+}
+
+function statusLine(status: number | null | undefined): string {
+  if (typeof status !== "number") return "an error";
+  const reason: Record<number, string> = {
+    200: "OK", 201: "Created", 202: "Accepted", 204: "No Content",
+    301: "Moved Permanently", 302: "Found", 307: "Temporary Redirect", 308: "Permanent Redirect",
+    400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed",
+    408: "Request Timeout", 413: "Payload Too Large", 429: "Too Many Requests",
+    500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout",
+  };
+  return reason[status] ? `${status} ${reason[status]}` : String(status);
+}
+
+export function testResultCopy(result: WebhookTestResult | "rate_limited", timeoutSeconds = 10): TestResultCopy {
+  if (result === "rate_limited") {
+    return { tone: "warn", headline: "Wait a moment before sending another test.", remedy: "Too many test events in a short time." };
+  }
+  if (result.ok) {
+    const latency = typeof result.latency_ms === "number" ? ` in ${result.latency_ms} ms` : "";
+    return { tone: "ok", headline: "Test event delivered.", remedy: `The receiver answered ${statusLine(result.status_code)}${latency}.` };
+  }
+  switch (result.code) {
+    case "http_error": {
+      const redirect = typeof result.status_code === "number" && result.status_code >= 300 && result.status_code < 400;
+      return {
+        tone: "err",
+        headline: `Test event failed: the receiver answered ${statusLine(result.status_code)}.`,
+        remedy: redirect
+          ? "Visiban doesn't follow redirects. Use the address the receiver redirects to."
+          : result.status_code === 401 || result.status_code === 403
+            ? "Check that the receiver verifies X-Visiban-Signature with the current secret."
+            : "Check the receiver's logs; it must answer with a 2xx status.",
+      };
+    }
+    case "timeout":
+      return { tone: "err", headline: `Test event failed: no answer within ${timeoutSeconds} seconds.`, remedy: "Check that the receiver is running and reachable from the internet." };
+    case "tls_error":
+      return { tone: "err", headline: "Test event failed: the receiver's TLS certificate was rejected.", remedy: "The certificate must be valid for this host and issued by a trusted authority." };
+    case "connection_failed":
+      // A blocked target reports as connection_failed: the same neutral copy
+      // as the URL error (departure 26), plus the remedy for a receiver that is down.
+      return { tone: "err", headline: `Test event not sent: ${ADDRESS_REFUSED_COPY}`, remedy: "If it is allowed, check that the receiver is running and reachable." };
+    case "secret_unavailable":
+      return { tone: "err", headline: "Test event not sent: this webhook's stored secret can't be read.", remedy: "Delete it and create a new one." };
+    default:
+      return { tone: "err", headline: "Test event failed.", remedy: "Check that the receiver is running and reachable." };
+  }
+}
+
+/** Picker groups (follow-up spec): prefix → legend, in display order. */
+export const EVENT_GROUPS: { label: string; prefixes: string[] }[] = [
+  { label: "Cards", prefixes: ["card"] },
+  { label: "Columns", prefixes: ["column"] },
+  { label: "Swimlanes", prefixes: ["swimlane"] },
+  { label: "Card fields", prefixes: ["custom_field"] },
+  { label: "Swimlane fields", prefixes: ["swimlane_custom_field"] },
+  { label: "Labels", prefixes: ["label"] },
+  { label: "Members", prefixes: ["member"] },
+  { label: "Board", prefixes: ["board", "invite_link", "lens_connection"] },
+];
+
+/** Group the server's subscribable types; unknown prefixes land in an "Other" group. */
+export function groupEventTypes(types: string[]): { label: string; types: string[] }[] {
+  const prefixOf = (t: string) => (t.includes(".") ? t.slice(0, t.lastIndexOf(".")) : t);
+  const groups = EVENT_GROUPS.map((g) => ({ label: g.label, types: types.filter((t) => g.prefixes.includes(prefixOf(t))) }));
+  const known = new Set(EVENT_GROUPS.flatMap((g) => g.prefixes));
+  const other = types.filter((t) => !known.has(prefixOf(t)));
+  if (other.length) groups.push({ label: "Other", types: other });
+  return groups.filter((g) => g.types.length > 0);
+}
+
+/** "All events" or "3 event types". */
 export function eventsSummary(eventTypes: string[]): string {
   if (eventTypes.length === 0) return "All events";
-  const shown = eventTypes.slice(0, 2).join(", ");
-  const extra = eventTypes.length - 2;
-  const noun = eventTypes.length === 1 ? "event" : "events";
-  return `${eventTypes.length} ${noun}: ${shown}${extra > 0 ? ` +${extra}` : ""}`;
+  return `${eventTypes.length} event type${eventTypes.length === 1 ? "" : "s"}`;
 }
+
+export const SAMPLE_PAYLOAD = `{
+  "id": 84213,
+  "event": "card.moved",
+  "data": { "id": 392, "title": "…",
+            "column": 4, "swimlane": 2 },
+  "actor_id": 12,
+  "actor": { "id": 12, "username": "…",
+             "display_name": "…" },
+  "created_at": "2026-11-01T14:02:11Z"
+}`;
+
+export const VERIFY_STEPS = `signed   = timestamp + "." + raw request body
+expected = hex(HMAC_SHA256(secret, signed))
+accept if X-Visiban-Signature == "v1=" + expected
+     and |now - X-Visiban-Timestamp| <= 300 seconds`;
 
 export const WEBHOOKS_DOCS_URL = "https://docs.visiban.com/features/webhooks/";
 export const WEBHOOKS_VERIFY_URL = "https://docs.visiban.com/api/webhooks/#verifying-signatures";

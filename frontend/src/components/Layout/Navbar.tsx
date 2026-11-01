@@ -246,7 +246,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                       <p className="text-xs text-fg-tertiary mt-0.5">{relativeTime(n.created_at)}</p>
                       {n.board_id && !n.card_id && (
                         <p className="text-xs text-info mt-0.5">
-                          {n.action_type === "webhook_disabled" ? "Open webhook settings →" : "View board →"}
+                          {n.action_type === "webhook_disabled" ? "Open board settings →" : "View board →"}
                         </p>
                       )}
                     </button>

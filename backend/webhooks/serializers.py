@@ -269,6 +269,12 @@ class WebhookStatusSerializer(serializers.Serializer):
     dispatcher_last_run_at = serializers.DateTimeField(allow_null=True)
     dispatcher_stale = serializers.BooleanField()
     subscribable_event_types = serializers.ListField(child=serializers.CharField())
+    disable_after_failures = serializers.IntegerField(
+        help_text="Consecutive failures that turn a webhook off (WEBHOOK_DISABLE_AFTER_FAILURES)."
+    )
+    test_timeout_seconds = serializers.FloatField(
+        help_text="How long a delivery or test event waits for an answer (WEBHOOK_TIMEOUT_SECONDS)."
+    )
 
 
 class WebhookTestResultSerializer(serializers.Serializer):

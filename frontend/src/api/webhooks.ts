@@ -46,9 +46,22 @@ export const deleteWebhook = (boardId: number, id: number) =>
 export const disableWebhook = (boardId: number, id: number) =>
   client.post<WebhookSubscription>(`${base(boardId)}${id}/disable/`).then((r) => r.data);
 
-export const reenableWebhook = (boardId: number, id: number, resumeFrom: WebhookResumeFrom) =>
+/**
+ * Turn a webhook on again. Taking over after `creator_lost_access` needs the
+ * caller's `currentPassword` (or, for an SSO-only account, a recent provider
+ * sign-in: the server answers 403 `recent_login_required` otherwise).
+ */
+export const reenableWebhook = (
+  boardId: number,
+  id: number,
+  resumeFrom: WebhookResumeFrom,
+  currentPassword?: string,
+) =>
   client
-    .post<WebhookSubscription>(`${base(boardId)}${id}/reenable/`, { resume_from: resumeFrom })
+    .post<WebhookSubscription>(`${base(boardId)}${id}/reenable/`, {
+      resume_from: resumeFrom,
+      ...(currentPassword ? { current_password: currentPassword } : {}),
+    })
     .then((r) => r.data);
 
 /** The new secret, shown once. The old one stops working at once. */

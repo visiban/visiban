@@ -192,6 +192,8 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
                 "dispatcher_last_run_at": last,
                 "dispatcher_stale": stale,
                 "subscribable_event_types": list(SUBSCRIBABLE_EVENT_TYPES),
+                "disable_after_failures": int(getattr(settings, "WEBHOOK_DISABLE_AFTER_FAILURES", 20)),
+                "test_timeout_seconds": float(getattr(settings, "WEBHOOK_TIMEOUT_SECONDS", 10.0)),
             }
         )
 

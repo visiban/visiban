@@ -148,6 +148,7 @@ class FeatureGateTests(WebhookApiBase):
         self.assertIsNone(r.data["dispatcher_last_run_at"])
         self.assertTrue(r.data["dispatcher_stale"])
         self.assertEqual(r.data["subscribable_event_types"], list(SUBSCRIBABLE_EVENT_TYPES))
+        self.assertEqual((r.data["disable_after_failures"], r.data["test_timeout_seconds"]), (20, 10.0))
         for excluded in ("board.star_changed", "saved_filter.created", "share_link.updated", "ping", "board.deleted"):
             self.assertNotIn(excluded, r.data["subscribable_event_types"])
         self.assertIn("card.moved", r.data["subscribable_event_types"])

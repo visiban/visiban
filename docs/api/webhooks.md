@@ -61,12 +61,15 @@ Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rota
   "enabled": true,
   "dispatcher_last_run_at": "2026-11-01T09:14:30.002000Z",
   "dispatcher_stale": false,
-  "subscribable_event_types": ["board.created", "board.updated", "card.archived", "card.created", "..."]
+  "subscribable_event_types": ["board.created", "board.updated", "card.archived", "card.created", "..."],
+  "disable_after_failures": 20,
+  "test_timeout_seconds": 10.0
 }
 ```
 
 - `dispatcher_last_run_at` is when the dispatcher last finished (or, failing that, started) a run, or `null` if it never has.
 - `dispatcher_stale` is `true` when that is `null` or older than `WEBHOOK_DISPATCHER_STALE_SECONDS` (300 by default).
+- `disable_after_failures` and `test_timeout_seconds` are the server's `WEBHOOK_DISABLE_AFTER_FAILURES` and `WEBHOOK_TIMEOUT_SECONDS`, so a client can state them without guessing.
 - `subscribable_event_types` is the complete list `event_types` may contain, sorted. It is the board-channel event registry minus per-user events, admin-only events, `ping` and `board.deleted`. Build pickers from it; it grows when new event types are added.
 
 ### The subscription object

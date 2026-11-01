@@ -2826,6 +2826,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onClose={closeSettings}
           initialTab={settingsInitialTab}
           focusFirstStoppedWebhook={webhookDeepLink}
+          currentUserHasPassword={currentUser?.has_usable_password !== false}
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}

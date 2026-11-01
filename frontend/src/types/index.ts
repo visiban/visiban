@@ -789,6 +789,10 @@ export interface WebhookStatus {
   dispatcher_stale: boolean;
   /** The event-type picker's only source of options. */
   subscribable_event_types: string[];
+  /** Consecutive failures that turn a webhook off. */
+  disable_after_failures: number;
+  /** How long a delivery or test event waits for an answer. */
+  test_timeout_seconds: number;
 }
 
 /** `POST /boards/{id}/webhooks/{id}/test/`. */

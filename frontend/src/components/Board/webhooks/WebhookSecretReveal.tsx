@@ -1,121 +1,141 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { WEBHOOKS_VERIFY_URL } from "../../../constants/webhooks";
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+
+export interface WebhookSecretRevealHandle {
+  focusCopy: () => void;
+}
 
 interface Props {
-  /** Shown only after create; omitted after a rotate. */
-  url?: string;
+  host: string;
   secret: string;
+  acknowledged: boolean;
+  onAcknowledge: (value: boolean) => void;
   onDone: () => void;
-  /** Escape guard message ("Copy the secret, then choose Done."), owned by the tab. */
-  guardMessage?: string | null;
+  /** The close guard's prompt is open (Escape, Close or the backdrop before acknowledging). */
+  guardOpen: boolean;
+  onGuardConfirm: () => void;
+  onGuardCancel: () => void;
 }
 
 /**
- * Reveal-once panel for a new webhook's URL and signing secret, or a rotated
- * secret (#863 UX spec § 5). The values exist only in the tab's state; the
- * tab clears them on Done, on unmount and on tab switch.
+ * Acknowledged one-time reveal (1.3 UI spec Part 8, departure 22). The secret
+ * exists only in the tab's state and is never fetched again. Done is
+ * aria-disabled until the acknowledgment is checked; until then Escape, Close
+ * and the backdrop open an inline prompt instead of closing Board settings.
  */
-export default function WebhookSecretReveal({ url, secret, onDone, guardMessage }: Props) {
+const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(function WebhookSecretReveal(
+  { host, secret, acknowledged, onAcknowledge, onDone, guardOpen, onGuardConfirm, onGuardCancel },
+  ref,
+) {
   const uid = useId();
+  const headingId = `${uid}-heading`;
   const warningId = `${uid}-warning`;
-  const copySecretRef = useRef<HTMLButtonElement>(null);
-  const [copied, setCopied] = useState<"secret" | "url" | null>(null);
-  const [copyError, setCopyError] = useState(false);
+  const copyRef = useRef<HTMLButtonElement>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useImperativeHandle(ref, () => ({ focusCopy: () => copyRef.current?.focus() }));
+
   useEffect(() => {
-    copySecretRef.current?.focus();
+    copyRef.current?.focus();
     return () => {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
     };
   }, []);
 
-  const copy = async (what: "secret" | "url", value: string) => {
+  const copy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(secret);
     } catch {
-      setCopyError(true);
+      setCopyState("failed");
       return;
     }
-    setCopyError(false);
-    setCopied(what);
+    setCopyState("copied");
     if (timerRef.current !== null) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      setCopied(null);
+      setCopyState("idle");
       timerRef.current = null;
     }, 2000);
   };
 
-  const field = (label: string, value: string) => (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-fg-tertiary">{label}</span>
-      <div
-        className="font-mono text-xs bg-sunken border border-warning/50 rounded px-2 py-1.5 text-fg truncate select-all"
-        title={value}
-      >
-        {value}
-      </div>
-    </div>
-  );
-
   return (
     <div
-      className="bg-sunken border border-warning/50 rounded-lg p-3 flex flex-col gap-2 transition-all duration-150"
+      role="group"
+      aria-labelledby={headingId}
       data-testid="webhook-secret-reveal"
+      className="bg-warning/15 border border-warning/60 rounded-lg p-3 flex flex-col gap-2.5 text-fg"
     >
-      <p id={warningId} className="text-xs text-warning">
-        {url
-          ? "Copy the URL and signing secret now. You won't see either again. If you lose the secret, rotate it."
-          : "Copy the new signing secret now. You won't see it again. The old secret has already stopped working."}
+      <p id={headingId} className="text-sm font-semibold text-warning-on-tint">Signing secret for {host}</p>
+      <p id={warningId} className="text-xs text-warning-on-tint">
+        Copy this secret now. It won't be shown again. If you lose it, rotate the secret to get a new one.
       </p>
-      {url && field("Payload URL", url)}
-      {field("Signing secret", secret)}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2">
+        {/* A read-only input, not a div: keyboard users can reach and select it
+            when the clipboard API is blocked. */}
+        <input
+          readOnly
+          value={secret}
+          aria-label="Signing secret"
+          onFocus={(e) => e.currentTarget.select()}
+          className="flex-1 min-w-0 font-mono text-xs bg-sunken border border-warning/60 rounded px-2 py-1.5 text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        />
         <button
-          ref={copySecretRef}
+          ref={copyRef}
           type="button"
-          onClick={() => void copy("secret", secret)}
+          onClick={() => void copy()}
           aria-describedby={warningId}
-          className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+          className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium shrink-0"
         >
-          {copied === "secret" ? "Copied!" : "Copy secret"}
+          {copyState === "copied" ? "Copied" : "Copy"}
         </button>
-        {url && (
-          <button
-            type="button"
-            onClick={() => void copy("url", url)}
-            aria-describedby={warningId}
-            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            {copied === "url" ? "Copied!" : "Copy URL"}
-          </button>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-fg">
+        <input
+          type="checkbox"
+          className="accent-primary"
+          checked={acknowledged}
+          onChange={(e) => onAcknowledge(e.target.checked)}
+        />
+        I've stored this secret somewhere safe
+      </label>
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {guardOpen && (
+          <div role="status" aria-live="polite" aria-atomic="true" className="flex-1 flex flex-wrap items-center gap-2 text-xs text-fg">
+            <span>Close without storing the secret? You'd have to rotate it to get a new one.</span>
+            <button
+              type="button"
+              onClick={onGuardConfirm}
+              aria-label="Confirm: close without storing the secret"
+              className="min-h-6 text-danger hover:text-danger font-medium transition rounded px-1 focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={onGuardCancel}
+              aria-label="Cancel closing, keep the secret on screen"
+              className="min-h-6 text-fg-tertiary hover:text-fg transition rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Cancel
+            </button>
+          </div>
         )}
-        <a
-          href={WEBHOOKS_VERIFY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-info hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-        >
-          How to verify signatures
-        </a>
         <button
           type="button"
-          onClick={onDone}
-          aria-label="Done, hide the webhook secret"
-          className="ml-auto text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          aria-disabled={!acknowledged}
+          title={acknowledged ? undefined : "Confirm you've stored the secret first"}
+          onClick={() => { if (acknowledged) onDone(); }}
+          className={`text-xs px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            acknowledged ? "text-fg-secondary hover:text-fg hover:bg-surface-hover" : "text-fg-muted opacity-60 cursor-not-allowed"
+          }`}
         >
           Done
         </button>
       </div>
-      <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
-        {copyError ? (
-          <span className="text-danger">Couldn't copy. Select the value and copy it manually.</span>
-        ) : guardMessage ? (
-          <span className="text-warning">{guardMessage}</span>
-        ) : copied ? (
-          <span className="text-success">{copied === "secret" ? "Secret copied." : "URL copied."}</span>
-        ) : null}
+      <p className="text-xs min-h-4 text-fg-secondary" role="status" aria-live="polite" aria-atomic="true">
+        {copyState === "copied" ? "Secret copied to the clipboard." : copyState === "failed" ? "Couldn't copy. Select the secret and copy it manually." : ""}
       </p>
     </div>
   );
-}
+});
+
+export default WebhookSecretReveal;

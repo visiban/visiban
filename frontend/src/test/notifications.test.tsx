@@ -261,7 +261,7 @@ describe('Notification dropdown', () => {
     const user = userEvent.setup({ delay: null })
     const webhookNotice: Notification = {
       id: 5,
-      verb: 'Webhook #12 was turned off (failures) on "Sprint 1"',
+      verb: 'A webhook on "Sprint 1" was turned off (webhook #12, failures)',
       actor: null,
       card_id: null,
       card_title: null,
@@ -279,7 +279,7 @@ describe('Notification dropdown', () => {
     await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
     await user.click(screen.getByTitle(/Notifications/))
     await waitFor(() => screen.getByText(webhookNotice.verb))
-    expect(screen.getByText('Open webhook settings →')).toBeInTheDocument()
+    expect(screen.getByText('Open board settings →')).toBeInTheDocument()
     expect(screen.queryByText('View board →')).not.toBeInTheDocument()
 
     await user.click(screen.getByText(webhookNotice.verb))
