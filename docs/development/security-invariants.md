@@ -476,7 +476,9 @@ count. The admins' account rows are locked while they are counted, so their
 active flag can't change under the check. The owner leaves through ownership
 transfer or by deleting the group. Deactivating an account is never refused for
 being a group's last active admin; it queues with a member change on the same
-account row instead.
+account row instead. A deactivation queued behind a removal or demotion still
+runs once that change commits, so it can leave the group with no active admin;
+a superuser's ownership transfer to an active member repairs the group.
 
 **Why.** A group with no active admin is repaired through its owner (ownership transfer
 or deletion) or, for a departed owner, by a superuser's ownership transfer. Both checks

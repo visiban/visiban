@@ -191,7 +191,8 @@ def transfer_group_ownership(
 ):
     """Make ``new_owner_id`` the owner of the group and keep the previous owner as admin.
 
-    Judged under row locks (the group row, then the new owner's membership) so
+    Judged under row locks (the new owner's account row, then the group row,
+    then the new owner's membership, #1814) so
     the owner and the membership the rules read cannot change between the check
     and the write. ``expected_owner_id`` makes the transfer refuse if the owner
     is no longer who the caller authorized.
