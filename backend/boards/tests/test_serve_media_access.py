@@ -281,3 +281,47 @@ class ServeMediaDuplicatePathTests(TestCase):
         self.client.force_authenticate(self.outsider)
         r = self.client.get(f"/media/{self.first.file.name}")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class ServeMediaCrossBoardDuplicateTests(TestCase):
+    """#1945: a path shared by rows on two boards is served to a member of either."""
+
+    def setUp(self):
+        self.owner_a = User.objects.create_user(username="xownera", password="pass")
+        self.owner_b = User.objects.create_user(username="xownerb", password="pass")
+        self.outsider = User.objects.create_user(username="xoutsider", password="pass")
+        board_a, col_a, swim_a = _make_board(self.owner_a, "A")
+        board_b, col_b, swim_b = _make_board(self.owner_b, "B")
+        card_a = Card.objects.create(
+            board=board_a, column=col_a, swimlane=swim_a,
+            title="A", priority="medium", position=0, created_by=self.owner_a,
+        )
+        card_b = Card.objects.create(
+            board=board_b, column=col_b, swimlane=swim_b,
+            title="B", priority="medium", position=0, created_by=self.owner_b,
+        )
+        f = SimpleUploadedFile("shared.pdf", b"%PDF-1.4 data", content_type="application/pdf")
+        first = CardAttachment.objects.create(
+            card=card_a, file=f, filename="shared.pdf", size=13, uploaded_by=self.owner_a,
+        )
+        CardAttachment.objects.create(
+            card=card_b, file=first.file.name, filename="shared.pdf",
+            size=13, uploaded_by=self.owner_b,
+        )
+        self.path = first.file.name
+        self.client = APIClient()
+
+    def test_member_of_only_second_board_gets_200(self):
+        self.client.force_authenticate(self.owner_b)
+        r = self.client.get(f"/media/{self.path}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_member_of_first_board_gets_200(self):
+        self.client.force_authenticate(self.owner_a)
+        r = self.client.get(f"/media/{self.path}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_non_member_of_both_gets_404(self):
+        self.client.force_authenticate(self.outsider)
+        r = self.client.get(f"/media/{self.path}")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)

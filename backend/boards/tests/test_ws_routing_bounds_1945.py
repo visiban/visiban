@@ -21,4 +21,6 @@ class WebSocketRoutingBoundsTests(SimpleTestCase):
 
     def test_oversized_ids_do_not_route(self):
         self.assertFalse(_matches(board_patterns, "ws/boards/" + "9" * 30 + "/"))
+        self.assertFalse(_matches(board_patterns, "ws/boards/" + "9" * 19 + "/"))
+        self.assertFalse(_matches(group_patterns, "ws/groups/" + "9" * 19 + "/"))
         self.assertFalse(_matches(group_patterns, "ws/groups/" + "9" * 30 + "/"))
