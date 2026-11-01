@@ -42,7 +42,7 @@ export function DispatcherStaleNotice({ lastRunLabel }: { lastRunLabel: string |
     <div
       role="group"
       aria-labelledby="webhooks-dispatcher-stale"
-      className="rounded border border-warning/60 bg-warning/15 px-3 py-2.5 flex gap-2 text-sm text-warning-on-tint"
+      className="rounded-lg border border-warning/60 bg-warning/15 px-3 py-2.5 flex gap-2 text-sm text-warning-on-tint"
     >
       <span aria-hidden="true" className="text-base leading-none shrink-0">⚠</span>
       <p id="webhooks-dispatcher-stale">
@@ -50,27 +50,6 @@ export function DispatcherStaleNotice({ lastRunLabel }: { lastRunLabel: string |
           ? "The webhook dispatcher has never run on this server, so no events are being delivered. Ask whoever runs this server to start it."
           : `The webhook dispatcher last ran ${lastRunLabel}. Events are queued but not being delivered. Ask whoever runs this server to check it.`}
       </p>
-    </div>
-  );
-}
-
-/** A session the server asks to re-verify (spec Part 8 "Interactive session"). */
-export function SessionRequiredNotice({ onSignIn }: { onSignIn: () => void }) {
-  return (
-    <div role="alert" className="flex items-start gap-3 rounded-lg border border-info/60 bg-info/15 px-3 py-2.5 text-sm text-info-on-tint">
-      <div className="flex-1">
-        <p className="font-semibold">Sign in again to change webhooks</p>
-        <p className="mt-1 text-fg">
-          Creating a webhook, changing its address, turning it back on and rotating its secret need a fresh sign-in.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onSignIn}
-        className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
-      >
-        Sign in again
-      </button>
     </div>
   );
 }

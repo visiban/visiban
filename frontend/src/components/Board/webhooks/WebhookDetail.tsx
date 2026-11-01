@@ -5,17 +5,18 @@ import { useConfirmFocusReturn } from "../../../hooks/useConfirmFocusReturn";
 import { relativeTime } from "../../../utils/relativeTime";
 import {
   SAMPLE_PAYLOAD,
+  SESSION_REQUIRED_COPY,
   URL_ERROR_COPY,
   URL_HELPER_COPY,
   VERIFY_STEPS,
   disabledReasonCopy,
+  lastErrorLabel,
   reenableConfirmCopy,
   testResultCopy,
   urlErrorFromResponse,
   urlShapeError,
 } from "../../../constants/webhooks";
 import WebhookStatusPill from "./WebhookStatusPill";
-import { SessionRequiredNotice } from "./WebhookServiceNotice";
 import { axiosResponse, urlInputClass } from "./webhookFormUtils";
 
 export type WebhookConfirm = "delete" | "disable" | "reenable" | "rotate";
@@ -29,9 +30,10 @@ interface Props {
   onConfirmChange: (next: WebhookConfirm | null) => void;
   /** The rotate reveal, when a rotation just happened. */
   reveal?: ReactNode;
+  /** A one-time secret is on screen: rotating again would overwrite it unseen. */
+  revealOpen?: boolean;
   currentUserHasPassword: boolean;
   onBack: () => void;
-  onSignInAgain: () => void;
   onTest: () => Promise<WebhookTestResult>;
   onDisable: () => Promise<void>;
   onReenable: (resumeFrom: WebhookResumeFrom, password?: string) => Promise<void>;
@@ -59,17 +61,11 @@ function dateLabel(iso: string | null): string {
   return Number.isNaN(t.getTime()) ? "" : t.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** The last error as one sanitized line: a fixed code or a status line, never a body. */
 function lastErrorLine(sub: WebhookSubscription, now: number): string | null {
-  if (!sub.last_error_code) return null;
-  const label: Record<string, string> = {
-    connection_failed: "Connection failed",
-    tls_error: "TLS certificate rejected",
-    timeout: "Timed out",
-    http_error: `HTTP ${sub.last_status_code ?? ""}`.trim(),
-  };
+  const label = lastErrorLabel(sub);
+  if (!label) return null;
   const ago = when(sub.last_attempt_at, now);
-  return `${label[sub.last_error_code] ?? sub.last_error_code}${ago ? ` · ${ago}` : ""}`;
+  return `${label}${ago ? ` · ${ago}` : ""}`;
 }
 
 function person(user: WebhookSubscription["created_by"]): string {
@@ -78,18 +74,20 @@ function person(user: WebhookSubscription["created_by"]): string {
 
 /** One webhook's detail view (1.3 UI spec Part 8 § webhook-detail). */
 export default function WebhookDetail(props: Props) {
-  const { sub, status, now, confirm, onConfirmChange, reveal, currentUserHasPassword } = props;
+  const { sub, status, now, confirm, onConfirmChange, reveal, revealOpen = false, currentUserHasPassword } = props;
   const uid = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const turnOnRef = useRef<HTMLButtonElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const turnOnConfirmRef = useRef<HTMLButtonElement>(null);
+  const changeAddressRef = useRef<HTMLButtonElement>(null);
+  const [focusChangeAddress, setFocusChangeAddress] = useState(false);
   const triggerRef = useConfirmFocusReturn<WebhookConfirm>(confirm);
   const [inFlight, setInFlight] = useState<WebhookConfirm | "test" | "address" | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [expiredOnServer, setExpiredOnServer] = useState(false);
-  const [sessionRequired, setSessionRequired] = useState(false);
   const [testResult, setTestResult] = useState<ReturnType<typeof testResultCopy> | null>(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [address, setAddress] = useState("");
@@ -103,7 +101,9 @@ export default function WebhookDetail(props: Props) {
   }, []);
 
   useEffect(() => {
-    if (confirm === "reenable") passwordRef.current?.focus();
+    // The confirm replaced its trigger: move focus into it (the password
+    // field when there is one, else the confirm's own button).
+    if (confirm === "reenable") (passwordRef.current ?? turnOnConfirmRef.current)?.focus();
     setConfirmError(null);
     setPasswordError(null);
     if (confirm !== "reenable") {
@@ -115,6 +115,13 @@ export default function WebhookDetail(props: Props) {
   useEffect(() => {
     if (editingAddress) addressRef.current?.focus();
   }, [editingAddress]);
+  // The address form unmounts on Save and on Cancel: return to its trigger.
+  useEffect(() => {
+    if (focusChangeAddress && !editingAddress) {
+      changeAddressRef.current?.focus();
+      setFocusChangeAddress(false);
+    }
+  }, [focusChangeAddress, editingAddress]);
 
   // Turn off success focuses Turn on again (spec Part 8 § Turn off · delete).
   useEffect(() => {
@@ -134,14 +141,20 @@ export default function WebhookDetail(props: Props) {
       await fn();
     } catch (err) {
       const code = axiosResponse(err)?.data?.code;
-      if (code === "session_required") setSessionRequired(true);
-      else fail(err);
+      if (code === "session_required") {
+        if (kind === "address") setAddressError(SESSION_REQUIRED_COPY);
+        else if (kind === "test") setTestResult({ tone: "err", headline: SESSION_REQUIRED_COPY, remedy: "" });
+        else setConfirmError(SESSION_REQUIRED_COPY);
+      } else fail(err);
     } finally {
       setInFlight(null);
     }
   };
 
-  const runTest = () =>
+  const runTest = () => {
+    if (inFlight === "test") return; // aria-disabled needs its own guard
+    // Clear the old result so an identical new one is announced again.
+    setTestResult(null);
     void handle(
       "test",
       async () => setTestResult(testResultCopy(await props.onTest(), status.test_timeout_seconds)),
@@ -149,6 +162,7 @@ export default function WebhookDetail(props: Props) {
         ? testResultCopy("rate_limited")
         : { tone: "err", headline: "Couldn't send the test event.", remedy: "Try again." }),
     );
+  };
 
   const confirmReenable = () => {
     if (takeOver && currentUserHasPassword && !password) {
@@ -169,7 +183,7 @@ export default function WebhookDetail(props: Props) {
           setPasswordError(code === "password_incorrect" ? "That password isn't right." : "Enter your current password.");
           passwordRef.current?.focus();
         } else if (code === "recent_login_required") {
-          setConfirmError("Sign in again with your sign-in provider in this browser, then take it over within a few minutes.");
+          setConfirmError("You haven't signed in with your provider recently. Sign out, sign in again with it, then take the webhook over within a few minutes.");
         } else if (code === "cursor_expired") {
           setExpiredOnServer(true);
           setConfirmError("The events it missed are gone, so it can only resume with new events.");
@@ -197,6 +211,7 @@ export default function WebhookDetail(props: Props) {
         setEditingAddress(false);
         setAddress("");
         setAddressError(null);
+        setFocusChangeAddress(true);
       },
       (err) => {
         setAddressError(urlErrorFromResponse(axiosResponse(err)?.data) ?? "Couldn't change the address. Try again.");
@@ -257,7 +272,7 @@ export default function WebhookDetail(props: Props) {
           {reason && <p className="text-xs text-fg-tertiary font-mono">Reason code: {sub.disabled_reason}</p>}
           {sub.disabled_reason !== "secret_unavailable" && (confirm === "reenable" ? (
             <div role="group" aria-labelledby={`${uid}-reenable`} className="flex flex-col gap-2 border-t border-warning/40 pt-2.5 mt-1">
-              <p id={`${uid}-reenable`} className="text-xs text-fg">
+              <p id={`${uid}-reenable`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
                 {expired && !takeOver ? reenableConfirmCopy({ ...sub, disabled_reason: "cursor_expired" }) : reenableConfirmCopy(sub)}
               </p>
               {takeOver && currentUserHasPassword && (
@@ -280,16 +295,15 @@ export default function WebhookDetail(props: Props) {
                 </div>
               )}
               {takeOver && !currentUserHasPassword && (
-                <p className="text-xs text-fg-tertiary">Your account signs in with SSO, so Visiban checks that you signed in recently instead of asking for a password.</p>
+                <p className="text-xs text-fg-tertiary">Your account signs in with SSO, so instead of a password Visiban checks that you signed in with your provider in the last few minutes.</p>
               )}
-              {sessionRequired && <SessionRequiredNotice onSignIn={props.onSignInAgain} />}
               {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => onConfirmChange(null)} disabled={inFlight === "reenable"} className={SECONDARY_BTN}>
                   Cancel
                 </button>
-                <button type="button" onClick={confirmReenable} disabled={inFlight === "reenable"} className={PRIMARY_BTN}>
-                  {takeOver ? (currentUserHasPassword ? "Take over and turn on" : "Continue with SSO") : expired ? "Turn on from now" : "Turn on"}
+                <button ref={turnOnConfirmRef} type="button" onClick={confirmReenable} disabled={inFlight === "reenable"} className={PRIMARY_BTN}>
+                  {takeOver ? "Take over and turn on" : expired ? "Turn on from now" : "Turn on"}
                 </button>
               </div>
             </div>
@@ -333,18 +347,17 @@ export default function WebhookDetail(props: Props) {
               <p id={`${uid}-addr-help`} role="status" aria-live="polite" aria-atomic="true" className={`text-xs min-h-4 ${addressError ? "text-danger" : "text-fg-tertiary"}`}>
                 {addressError ?? `${URL_HELPER_COPY} Changing it makes you this webhook's owner; the secret stays the same.`}
               </p>
-              {sessionRequired && <SessionRequiredNotice onSignIn={props.onSignInAgain} />}
               <div className="flex gap-2">
                 <button type="submit" disabled={inFlight === "address"} className={PRIMARY_BTN}>Save address</button>
-                <button type="button" onClick={() => { setEditingAddress(false); setAddress(""); setAddressError(null); }} className={SECONDARY_BTN}>
+                <button type="button" onClick={() => { setEditingAddress(false); setAddress(""); setAddressError(null); setFocusChangeAddress(true); }} className={SECONDARY_BTN}>
                   Cancel
                 </button>
               </div>
             </form>
           ) : (
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-fg truncate" title={sub.url_display}>{sub.url_display}</span>
-              <button type="button" onClick={() => setEditingAddress(true)} className="min-h-6 px-1 text-fg-secondary underline hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+            <span className="flex flex-wrap items-center gap-2 min-w-0">
+              <span className="font-mono text-fg truncate min-w-0" title={sub.url_display}>{sub.url_display}</span>
+              <button ref={changeAddressRef} type="button" onClick={() => setEditingAddress(true)} className="min-h-6 px-1 text-fg-secondary underline hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Change address…
               </button>
             </span>
@@ -366,8 +379,9 @@ export default function WebhookDetail(props: Props) {
         <dd className="text-fg">
           {person(sub.created_by)}{sub.created_at ? ` · ${dateLabel(sub.created_at)}` : ""}
           {sub.configured_by?.id !== sub.created_by?.id && (
-            <span className="block text-fg-tertiary">Owner now: {person(sub.configured_by)}. Its notices go to this board's admins.</span>
+            <span className="block text-fg-tertiary">Owner now: {person(sub.configured_by)}.</span>
           )}
+          <span className="block text-fg-tertiary">You can manage it like any other webhook. Its notices go to this board's admins.</span>
         </dd>
         <dt className="text-fg-tertiary">ID</dt>
         <dd className="font-mono text-fg">{sub.id}</dd>
@@ -383,30 +397,29 @@ export default function WebhookDetail(props: Props) {
           {confirm === "rotate"
             ? inlineConfirm("rotate", "Rotate the secret? Update your receiver right after, or its signature checks will fail.", () =>
                 void handle("rotate", props.onRotate, () => setConfirmError("Couldn't rotate the secret. Try again.")))
-            : sub.disabled_reason !== "secret_unavailable" && (
+            : sub.disabled_reason !== "secret_unavailable" && !revealOpen && (
               <div>
                 <button ref={triggerRef("rotate")} type="button" onClick={() => onConfirmChange("rotate")} aria-describedby={`${uid}-rotate-help`} className={SECONDARY_BTN}>
                   Rotate secret…
                 </button>
               </div>
             )}
-          {confirm === "rotate" && sessionRequired && <SessionRequiredNotice onSignIn={props.onSignInAgain} />}
         </div>
       </div>
 
       <details className="rounded border border-line px-3 py-2">
-        <summary className="text-xs font-medium text-fg-secondary cursor-pointer">Payload sample · read-only</summary>
+        <summary className="text-xs font-medium text-fg-secondary cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Payload sample · read-only</summary>
         <p className="text-xs text-fg-tertiary mt-2 mb-1.5">
           The body is the board change-feed event, exactly. Redacted to what a board member can see: admin-only swimlane field values and admin-only rows are left out. Values here are placeholders.
         </p>
-        <pre aria-label="Sample payload" className="font-mono text-xs bg-sunken border border-line rounded p-2 overflow-x-auto text-fg-secondary">{SAMPLE_PAYLOAD}</pre>
+        <pre role="region" tabIndex={0} aria-label="Sample payload" className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-mono text-xs bg-sunken border border-line rounded p-2 overflow-x-auto text-fg-secondary">{SAMPLE_PAYLOAD}</pre>
       </details>
       <details className="rounded border border-line px-3 py-2">
-        <summary className="text-xs font-medium text-fg-secondary cursor-pointer">Verify the signature</summary>
+        <summary className="text-xs font-medium text-fg-secondary cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Verify the signature</summary>
         <p className="text-xs text-fg-tertiary mt-2 mb-1.5">
           Each POST carries <span className="font-mono">X-Visiban-Signature</span> (HMAC-SHA256) and <span className="font-mono">X-Visiban-Timestamp</span>. Compute over the raw body, before any JSON parsing.
         </p>
-        <pre className="font-mono text-xs bg-sunken border border-line rounded p-2 overflow-x-auto text-fg-secondary select-all">{VERIFY_STEPS}</pre>
+        <pre role="region" tabIndex={0} aria-label="Verification steps" className="font-mono text-xs bg-sunken border border-line rounded p-2 overflow-x-auto text-fg-secondary select-all focus:outline-none focus:ring-2 focus:ring-primary-emphasis">{VERIFY_STEPS}</pre>
       </details>
 
       <div className="pt-3 border-t border-line flex flex-col gap-2">

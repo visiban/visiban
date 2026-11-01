@@ -72,7 +72,7 @@ async function renderTab(props: TabProps = {}) {
 }
 
 async function openDetail(user: ReturnType<typeof userEvent.setup>, host = 'hooks.zapier.com') {
-  await user.click(screen.getByRole('button', { name: `Manage webhook ${host}` }))
+  await user.click(screen.getByRole('button', { name: (name) => name.startsWith(`Manage webhook ${host}`) }))
 }
 
 const setup = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -95,7 +95,8 @@ describe('Webhooks tab — load states', () => {
     expect(screen.getByRole('status', { name: 'Loading webhooks' })).toBeInTheDocument()
     expect(await screen.findByText('No webhooks yet')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add webhook' })).toBeInTheDocument()
-    expect(screen.getByText('Dispatcher last ran 1 m ago.')).toBeInTheDocument()
+    // Operator information stays out of the healthy state (only a stale dispatcher is shown).
+    expect(screen.queryByText(/Dispatcher last ran/)).not.toBeInTheDocument()
   })
 
   it('feature off: a note and no button that implies an admin can turn it on', async () => {
@@ -145,7 +146,9 @@ describe('Webhooks tab — list', () => {
     expect(row(2).getByText('Last error: HTTP 502 · 2 m ago')).toBeInTheDocument()
     expect(row(3).getByText('Disabled')).toBeInTheDocument()
     expect(row(3).getByText('Turned off because it fell too far behind')).toBeInTheDocument()
-    expect(row(4).getByText('Turned off by a board admin')).toBeInTheDocument()
+    expect(row(4).getByText(/^Turned off by a board admin/)).toBeInTheDocument()
+    // Accessible names stay unique when two webhooks share a host.
+    expect(row(1).getByRole('button', { name: 'Manage webhook hooks.zapier.com/…/k3f9 (#1)' })).toBeInTheDocument()
     expect(row(4).getByText(/Created by a former member/)).toBeInTheDocument()
     // Pill shapes are SVG, aria-hidden: the word carries the meaning.
     expect(row(2).getByText('Failing · 3 failures').querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
@@ -284,16 +287,16 @@ describe('Webhooks tab — create and the acknowledged reveal', () => {
     expect(await screen.findByText(text)).toBeInTheDocument()
   })
 
-  it('a session the server asks to re-verify keeps the form and offers Sign in again', async () => {
+  it('a token-only refusal keeps the form and says what to do', async () => {
     const user = setup()
     m.create.mockRejectedValue(axiosError(403, 'session_required'))
     await renderTab()
     await user.click(screen.getByRole('button', { name: 'Add webhook' }))
     await user.type(screen.getByLabelText('Endpoint URL'), 'https://x.example/')
     await user.click(screen.getByRole('button', { name: 'Create webhook' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Sign in again to change webhooks')
+    expect(await screen.findByText(/needs a signed-in browser session\. Sign out, sign in again, then retry/)).toBeInTheDocument()
     expect(screen.getByLabelText('Endpoint URL')).toHaveValue('https://x.example/')
-    expect(screen.getByRole('button', { name: 'Sign in again' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in again' })).not.toBeInTheDocument()
   })
 
   it('Cancel and Back return to the list and focus Add webhook', async () => {
@@ -331,7 +334,7 @@ describe('Webhooks tab — detail', () => {
     expect(screen.getByLabelText('Sample payload')).toHaveTextContent('"event": "card.moved"')
     expect(screen.getByText(/accept if X-Visiban-Signature == "v1=" \+ expected/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '← All webhooks' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Manage webhook hooks.zapier.com' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Manage webhook hooks\.zapier\.com/ })).toHaveFocus())
   })
 
   it('send test event: delivered with latency, failures with remedies, rate limit warns', async () => {
@@ -382,6 +385,8 @@ describe('Webhooks tab — detail', () => {
     expect(screen.getByText('Reason code: failures')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Turn on again' }))
     expect(screen.getByText(/Sending resumes to hooks.zapier.com, starting with the events it missed/)).toBeInTheDocument()
+    // The confirm replaced its trigger, so focus moves into it.
+    expect(screen.getByRole('button', { name: 'Turn on' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Turn on' }))
     expect(m.reenable).toHaveBeenCalledWith(3, 1, 'cursor', undefined)
     expect(await screen.findByText('Webhook for hooks.zapier.com is on.')).toBeInTheDocument()
@@ -435,7 +440,7 @@ describe('Webhooks tab — detail', () => {
     expect(m.reenable).toHaveBeenLastCalledWith(3, 1, 'cursor', 'right')
   })
 
-  it('an SSO account continues with SSO and is told to sign in again when it is not recent', async () => {
+  it('an SSO account takes over without a password and is told how to sign in again when it is not recent', async () => {
     const user = setup()
     m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'creator_lost_access', disabled_at: minsAgo(3) })])
     m.reenable.mockRejectedValue(axiosError(403, 'recent_login_required'))
@@ -443,9 +448,10 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Take over and turn on…' }))
     expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Continue with SSO' }))
+    expect(screen.getByRole('button', { name: 'Take over and turn on' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Take over and turn on' }))
     expect(m.reenable).toHaveBeenCalledWith(3, 1, 'cursor', undefined)
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Sign in again with your sign-in provider/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/sign in again with it, then take the webhook over/)
   })
 
   it('rotate asks first, then shows the new secret through the same reveal', async () => {
@@ -569,7 +575,7 @@ describe('Webhooks tab — deep link', () => {
     ])
     Element.prototype.scrollIntoView = vi.fn()
     await renderTab({ focusFirstStopped: true })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Manage webhook broken.example' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: /\(#3\)$/ })).toHaveFocus())
     expect(screen.getByTestId('webhook-row-3')).toHaveClass('ring-2')
     await act(async () => { vi.advanceTimersByTime(1600) })
     expect(screen.getByTestId('webhook-row-3')).not.toHaveClass('ring-2')
@@ -579,5 +585,97 @@ describe('Webhooks tab — deep link', () => {
     m.list.mockResolvedValue([sub({ id: 1 })])
     await renderTab({ focusFirstStopped: true })
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Webhooks' })).toHaveFocus())
+  })
+})
+
+describe('Webhooks tab — ux-review second pass', () => {
+  it('deleting a webhook with an unacknowledged rotated secret disarms the guard', async () => {
+    const user = setup()
+    let guard: WebhookCloseGuard | null = null
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockResolvedValue({ ...sub(), secret: 'whsec_r' })
+    m.del.mockResolvedValue({})
+    await renderTab({ registerCloseGuard: (g) => { guard = g } })
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: /^Confirm: Rotate the secret/ }))
+    await screen.findByTestId('webhook-secret-reveal')
+    // Rotating again would overwrite the secret on screen unseen.
+    expect(screen.queryByRole('button', { name: 'Rotate secret…' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Delete webhook' }))
+    await user.click(screen.getByRole('button', { name: /^Confirm: Delete this webhook/ }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Webhooks' })).toHaveFocus())
+    expect(guard!(vi.fn())).toBe(false)
+    expect(screen.getByRole('button', { name: 'Add webhook' })).toBeInTheDocument()
+  })
+
+  it('an inert Done points at the acknowledgment and explains itself', async () => {
+    const user = setup()
+    m.create.mockResolvedValue({ ...sub({ id: 9 }), url: 'https://hooks.zapier.com/k3f9', secret: 'whsec_d' })
+    await renderTab()
+    await user.click(screen.getByRole('button', { name: 'Add webhook' }))
+    await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.zapier.com/k3f9')
+    await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+    const done = await screen.findByRole('button', { name: 'Done' })
+    expect(done).toHaveAccessibleDescription('Tick the box once the secret is stored to finish.')
+    await user.click(done)
+    expect(screen.getByRole('checkbox', { name: "I've stored this secret somewhere safe" })).toHaveFocus()
+  })
+
+  it('a test in flight ignores repeat presses and clears the old result', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    let resolve: (v: unknown) => void = () => {}
+    m.test.mockResolvedValueOnce({ ok: true, code: null, status_code: 200, latency_ms: 1 }).mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Send test event' }))
+    expect(await screen.findByText('Test event delivered.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Send test event' }))
+    expect(screen.queryByText('Test event delivered.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sending…' }))
+    expect(m.test).toHaveBeenCalledTimes(2)
+    await act(async () => { resolve({ ok: true, code: null, status_code: 204, latency_ms: 2 }) })
+    expect(await screen.findByText('Test event delivered.')).toBeInTheDocument()
+  })
+
+  it('the address form returns focus to Change address on Save and Cancel', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.update.mockResolvedValue(sub())
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Change address…' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Change address…' })).toHaveFocus())
+    await user.click(screen.getByRole('button', { name: 'Change address…' }))
+    await user.type(screen.getByLabelText('New endpoint URL'), 'https://hooks.zapier.com/new1')
+    await user.click(screen.getByRole('button', { name: 'Save address' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Change address…' })).toHaveFocus())
+  })
+
+  it('a feature-off answer while a secret is unacknowledged leaves no armed guard', async () => {
+    const user = setup()
+    let guard: WebhookCloseGuard | null = null
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockResolvedValue({ ...sub(), secret: 'whsec_f' })
+    m.test.mockRejectedValue(axiosError(403, 'webhooks_disabled'))
+    await renderTab({ registerCloseGuard: (g) => { guard = g } })
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: /^Confirm: Rotate the secret/ }))
+    await screen.findByTestId('webhook-secret-reveal')
+    await user.click(screen.getByRole('button', { name: 'Send test event' }))
+    expect(await screen.findByRole('note')).toHaveTextContent('turned off on this Visiban server')
+    expect(guard!(vi.fn())).toBe(false)
+  })
+
+  it('the code samples are keyboard-reachable regions', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    await renderTab()
+    await openDetail(user)
+    expect(screen.getByRole('region', { name: 'Sample payload' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('region', { name: 'Verification steps' })).toHaveAttribute('tabindex', '0')
   })
 })

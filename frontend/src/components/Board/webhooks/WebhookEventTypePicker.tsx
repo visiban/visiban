@@ -45,7 +45,7 @@ export default function WebhookEventTypePicker({ options, all, selected, onChang
     </label>
   );
   return (
-    <fieldset className="flex flex-col gap-2" aria-describedby={errorId} aria-invalid={invalid ? true : undefined}>
+    <fieldset className="flex flex-col gap-2" aria-describedby={errorId} data-invalid={invalid ? "true" : undefined}>
       <legend className="text-xs text-fg-tertiary mb-1">Events</legend>
       {card(true, "All events", "Includes event types added in later versions.")}
       {card(false, "Only these events")}
@@ -56,7 +56,7 @@ export default function WebhookEventTypePicker({ options, all, selected, onChang
               <fieldset key={group.label}>
                 <legend className="text-xs font-medium text-fg-tertiary mb-1">{group.label}</legend>
                 {group.types.map((type) => (
-                  <label key={type} className="flex items-center gap-2 py-0.5">
+                  <label key={type} className="flex items-center gap-2 min-h-6">
                     <input
                       type="checkbox"
                       className="accent-primary"

@@ -29,6 +29,8 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
   const uid = useId();
   const headingId = `${uid}-heading`;
   const warningId = `${uid}-warning`;
+  const doneHintId = `${uid}-done-hint`;
+  const ackRef = useRef<HTMLInputElement>(null);
   const copyRef = useRef<HTMLButtonElement>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,8 +90,9 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
           {copyState === "copied" ? "Copied" : "Copy"}
         </button>
       </div>
-      <label className="flex items-center gap-2 text-sm text-fg">
+      <label className="flex items-center gap-2 text-sm text-fg min-h-6">
         <input
+          ref={ackRef}
           type="checkbox"
           className="accent-primary"
           checked={acknowledged}
@@ -122,8 +125,13 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
         <button
           type="button"
           aria-disabled={!acknowledged}
-          title={acknowledged ? undefined : "Confirm you've stored the secret first"}
-          onClick={() => { if (acknowledged) onDone(); }}
+          aria-describedby={acknowledged ? undefined : doneHintId}
+          onClick={() => {
+            // aria-disabled keeps Done focusable and explained; an inert
+            // click points at what is missing instead of doing nothing.
+            if (acknowledged) onDone();
+            else ackRef.current?.focus();
+          }}
           className={`text-xs px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             acknowledged ? "text-fg-secondary hover:text-fg hover:bg-surface-hover" : "text-fg-muted opacity-60 cursor-not-allowed"
           }`}
@@ -131,6 +139,9 @@ const WebhookSecretReveal = forwardRef<WebhookSecretRevealHandle, Props>(functio
           Done
         </button>
       </div>
+      {!acknowledged && (
+        <p id={doneHintId} className="text-xs text-fg-tertiary -mt-1 text-right">Tick the box once the secret is stored to finish.</p>
+      )}
       <p className="text-xs min-h-4 text-fg-secondary" role="status" aria-live="polite" aria-atomic="true">
         {copyState === "copied" ? "Secret copied to the clipboard." : copyState === "failed" ? "Couldn't copy. Select the secret and copy it manually." : ""}
       </p>

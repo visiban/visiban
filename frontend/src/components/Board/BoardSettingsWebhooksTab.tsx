@@ -91,7 +91,15 @@ export default function BoardSettingsWebhooksTab({
   const deepLinkDoneRef = useRef(false);
   const guardProceedRef = useRef<(() => void) | null>(null);
   const revealRefState = useRef<Reveal | null>(null);
-  revealRefState.current = reveal;
+  // The guard protects the reveal only while it is on screen: a create reveal
+  // above the list, a rotate reveal in its own webhook's detail. Any path that
+  // takes it off screen disarms the guard (frontend/CLAUDE.md, close guards).
+  const revealShown =
+    reveal !== null &&
+    !featureOff &&
+    ((reveal.origin === "create" && view.kind === "list") ||
+      (reveal.origin === "rotate" && view.kind === "detail" && view.id === reveal.subId));
+  revealRefState.current = revealShown ? reveal : null;
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
@@ -192,7 +200,10 @@ export default function BoardSettingsWebhooksTab({
     try {
       return await fn();
     } catch (err) {
-      if (axiosResponse(err)?.data?.code === "webhooks_disabled") setFeatureOff(true);
+      if (axiosResponse(err)?.data?.code === "webhooks_disabled") {
+        setReveal(null);
+        setFeatureOff(true);
+      }
       throw err;
     }
   };
@@ -246,7 +257,6 @@ export default function BoardSettingsWebhooksTab({
 
   const lastRun = status.dispatcher_last_run_at ? Date.parse(status.dispatcher_last_run_at) : NaN;
   const lastRunLabel = Number.isNaN(lastRun) ? null : relativeTime(lastRun, now);
-  const signInAgain = () => window.location.reload();
 
   const revealPanel = reveal && (
     <WebhookSecretReveal
@@ -268,7 +278,6 @@ export default function BoardSettingsWebhooksTab({
       <WebhookCreateForm
         eventOptions={status.subscribable_event_types}
         onCancel={() => openList("add")}
-        onSignInAgain={signInAgain}
         onSubmit={async (req) => {
           const created = await guarded(() => createWebhook(boardId, req));
           const { url: _url, secret, ...sub } = created;
@@ -295,11 +304,11 @@ export default function BoardSettingsWebhooksTab({
           onConfirmChange={setConfirm}
           currentUserHasPassword={currentUserHasPassword}
           reveal={reveal?.origin === "rotate" && reveal.subId === sub.id ? revealPanel : undefined}
+          revealOpen={revealShown}
           onBack={() => {
             const go = () => openList(`manage:${sub.id}`);
             if (!guard(go)) go();
           }}
-          onSignInAgain={signInAgain}
           onTest={() => guarded(() => testWebhook(boardId, sub.id))}
           onDisable={async () => {
             replaceSub(await guarded(() => disableWebhook(boardId, sub.id)));
@@ -321,6 +330,11 @@ export default function BoardSettingsWebhooksTab({
           onDelete={async () => {
             await guarded(() => deleteWebhook(boardId, sub.id));
             setSubs((prev) => (prev ? prev.filter((s) => s.id !== sub.id) : prev));
+            // Deleting destroys the secret too: nothing left to protect.
+            if (reveal?.subId === sub.id) {
+              setReveal(null);
+              guardProceedRef.current = null;
+            }
             setLive(`Webhook for ${sub.url_host} deleted.`);
             openList("list-heading");
           }}
@@ -359,9 +373,6 @@ export default function BoardSettingsWebhooksTab({
             </button>
           )}
         </div>
-        {!status.dispatcher_stale && lastRunLabel && (
-          <p className="text-xs text-fg-tertiary -mt-2">Dispatcher last ran {lastRunLabel}.</p>
-        )}
         {subs.length === 0 ? (
           <div className="flex flex-col items-center gap-2 text-center py-10 px-6 border border-dashed border-line rounded-lg">
             <p className="text-base font-semibold text-fg">No webhooks yet</p>
@@ -385,7 +396,7 @@ export default function BoardSettingsWebhooksTab({
               highlightId={highlightId}
               onManage={(id) => {
                 // An unacknowledged secret owns the tab: leaving asks first.
-                const go = () => { setConfirm(null); setView({ kind: "detail", id }); };
+                const go = () => { setConfirm(null); setLive(""); setView({ kind: "detail", id }); };
                 if (!guard(go)) go();
               }}
               manageRef={(id) => (el) => {

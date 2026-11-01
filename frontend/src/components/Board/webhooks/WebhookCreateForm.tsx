@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   EVENTS_NONE_SELECTED_COPY,
+  SESSION_REQUIRED_COPY,
   FORM_ERROR_COPY,
   FORM_GENERIC_COPY,
   FORM_THROTTLED_COPY,
@@ -10,7 +11,6 @@ import {
   urlShapeError,
 } from "../../../constants/webhooks";
 import WebhookEventTypePicker from "./WebhookEventTypePicker";
-import { SessionRequiredNotice } from "./WebhookServiceNotice";
 import { axiosResponse, urlInputClass } from "./webhookFormUtils";
 
 interface Props {
@@ -18,11 +18,10 @@ interface Props {
   /** Resolves on success; rejects with the axios error. */
   onSubmit: (body: { url: string; event_types: string[] }) => Promise<unknown>;
   onCancel: () => void;
-  onSignInAgain: () => void;
 }
 
 /** "Add webhook" view (1.3 UI spec Part 8 § Create). */
-export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel, onSignInAgain }: Props) {
+export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel }: Props) {
   const uid = useId();
   const urlId = `${uid}-url`;
   const urlHelpId = `${uid}-url-help`;
@@ -32,10 +31,8 @@ export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel, on
   const [urlError, setUrlError] = useState<string | null>(null);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [formError, setFormError] = useState<{ text: string; tone: "danger" | "warning" } | null>(null);
-  const [sessionRequired, setSessionRequired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const urlRef = useRef<HTMLInputElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
 
   // Create → focus the URL field (spec Part 8 § Escape · keyboard).
   useEffect(() => {
@@ -71,7 +68,7 @@ export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel, on
       const code = typeof response?.data?.code === "string" ? response.data.code : undefined;
       const urlText = urlErrorFromResponse(response?.data);
       if (urlText) failUrl(urlText);
-      else if (code === "session_required") setSessionRequired(true);
+      else if (code === "session_required") setFormError({ text: SESSION_REQUIRED_COPY, tone: "danger" });
       else if (code === "invalid_event_types") setEventsError(FORM_ERROR_COPY.invalid_event_types);
       else if (response?.status === 429) setFormError({ text: FORM_THROTTLED_COPY, tone: "warning" });
       else setFormError({ text: (code && FORM_ERROR_COPY[code]) || FORM_GENERIC_COPY, tone: "danger" });
@@ -91,7 +88,7 @@ export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel, on
           ← All webhooks
         </button>
       </div>
-      <h3 id={`${uid}-heading`} ref={headingRef} tabIndex={-1} className="text-base font-semibold text-fg focus:outline-none">
+      <h3 id={`${uid}-heading`} tabIndex={-1} className="text-base font-semibold text-fg focus:outline-none">
         Add webhook
       </h3>
       <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-4">
@@ -136,7 +133,6 @@ export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel, on
         </p>
 
         <p className="text-xs text-fg-tertiary">After you create it, Visiban shows its signing secret once. Delivery is best effort.</p>
-        {sessionRequired && <SessionRequiredNotice onSignIn={onSignInAgain} />}
         <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
           {formError && <span className={formError.tone === "warning" ? "text-warning-on-tint" : "text-danger"}>{formError.text}</span>}
         </p>

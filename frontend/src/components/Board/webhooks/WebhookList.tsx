@@ -1,5 +1,5 @@
 import type { WebhookSubscription } from "../../../types";
-import { disabledReasonCopy, eventsSummary, webhookRowStatus } from "../../../constants/webhooks";
+import { disabledReasonCopy, eventsSummary, lastErrorLabel, webhookRowStatus } from "../../../constants/webhooks";
 import { relativeTime } from "../../../utils/relativeTime";
 import WebhookStatusPill from "./WebhookStatusPill";
 
@@ -13,15 +13,16 @@ interface Props {
 }
 
 function lastError(sub: WebhookSubscription, now: number): string | null {
-  if (!sub.last_error_code) return null;
-  const label: Record<string, string> = {
-    connection_failed: "Connection failed",
-    tls_error: "TLS certificate rejected",
-    timeout: "Timed out",
-    http_error: `HTTP ${sub.last_status_code ?? ""}`.trim(),
-  };
+  const label = lastErrorLabel(sub);
+  if (!label) return null;
   const t = sub.last_attempt_at ? Date.parse(sub.last_attempt_at) : NaN;
-  return `${label[sub.last_error_code] ?? sub.last_error_code}${Number.isNaN(t) ? "" : ` · ${relativeTime(t, now)}`}`;
+  return `${label}${Number.isNaN(t) ? "" : ` · ${relativeTime(t, now)}`}`;
+}
+
+function dateLabel(iso: string | null): string {
+  if (!iso) return "";
+  const t = new Date(iso);
+  return Number.isNaN(t.getTime()) ? "" : ` on ${t.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
 }
 
 /** The list view's rows (1.3 UI spec Part 8 § webhooks-list). */
@@ -48,13 +49,14 @@ export default function WebhookList({ subs, now, highlightId, onManage, manageRe
                 {eventsSummary(sub.event_types)} · Created by {creator} · <span className="font-mono">#{sub.id}</span>
               </p>
               {err && <p className="text-xs font-mono text-fg-secondary truncate" title={err}>Last error: {err}</p>}
-              {!sub.enabled && <p className="text-xs text-fg-secondary">{reason ? reason.headline : "Turned off by a board admin"}</p>}
+              {!sub.enabled && <p className="text-xs text-fg-secondary">{reason ? reason.headline : `Turned off by a board admin${dateLabel(sub.disabled_at)}`}</p>}
             </div>
             <button
               ref={manageRef(sub.id)}
               type="button"
               onClick={() => onManage(sub.id)}
-              aria-label={`Manage webhook ${sub.url_host}`}
+              // Unique per row: two webhooks on one host are common (no Name field).
+              aria-label={`Manage webhook ${sub.url_display} (#${sub.id})`}
               className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
             >
               Manage

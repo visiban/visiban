@@ -560,6 +560,39 @@ class CommandTests(DispatcherBase):
         self.assertIn("disabled", out.getvalue())
 
 
+class LoopCommandTests(DispatcherBase):
+    def test_loop_runs_until_stopped_and_survives_a_failing_run(self):
+        import threading
+
+        runs = []
+
+        def fake_run_once():
+            runs.append(1)
+            if len(runs) == 1:
+                raise RuntimeError("database went away")
+            return dispatch.RunResult(delivered=1, subscriptions=1)
+
+        waits = []
+
+        def fake_wait(self, timeout=None):
+            waits.append(timeout)
+            if len(waits) >= 2:
+                self.set()
+            return self.is_set()
+
+        out, err = StringIO(), StringIO()
+        with patch("webhooks.dispatch.run_once", fake_run_once), patch.object(threading.Event, "wait", fake_wait), patch(
+            "webhooks.management.commands.dispatch_webhooks.signal.signal"
+        ) as sig:
+            call_command("dispatch_webhooks", "--loop", "--interval", "0.5", stdout=out, stderr=err)
+        self.assertEqual(len(runs), 2)
+        self.assertEqual(waits, [1.0, 1.0])  # the interval floor is one second
+        self.assertIn("dispatch run failed: RuntimeError", err.getvalue())
+        self.assertNotIn("database went away", err.getvalue())
+        self.assertIn("1 delivered", out.getvalue())
+        self.assertEqual(sig.call_count, 2)  # SIGTERM and SIGINT
+
+
 class SeedTests(TestCase):
     @override_settings(DEBUG=True)
     def test_seed_demo_data_creates_no_subscriptions(self):

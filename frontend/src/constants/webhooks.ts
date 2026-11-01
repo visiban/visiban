@@ -61,6 +61,12 @@ export const FORM_ERROR_COPY: Record<string, string> = {
   invalid_event_types: "Some selected events can't be sent by webhook. Reopen this tab and choose again.",
   limit_reached: "You've reached a webhook limit for this board, your account or this server. Delete an unused webhook to add another.",
 };
+/**
+ * The server refuses a token on create, address change, turn on and rotate.
+ * A browser session always passes, so this is a fallback, not a re-verify
+ * flow: it says what to do rather than offering a button that cannot do it.
+ */
+export const SESSION_REQUIRED_COPY = "This change needs a signed-in browser session. Sign out, sign in again, then retry.";
 export const FORM_THROTTLED_COPY = "Too many webhook changes in a short time. Try again in a few minutes.";
 export const FORM_GENERIC_COPY = "Couldn't save the webhook. Try again.";
 export const EVENTS_NONE_SELECTED_COPY = "Choose at least one event, or pick All events.";
@@ -190,6 +196,21 @@ export function groupEventTypes(types: string[]): { label: string; types: string
   const other = types.filter((t) => !known.has(prefixOf(t)));
   if (other.length) groups.push({ label: "Other", types: other });
   return groups.filter((g) => g.types.length > 0);
+}
+
+/** The last error as one sanitized line: a fixed code or a status line, never a body. */
+export function lastErrorLabel(
+  sub: Pick<WebhookSubscription, "last_error_code" | "last_status_code">,
+): string | null {
+  if (!sub.last_error_code) return null;
+  const label: Record<string, string> = {
+    connection_failed: "Connection failed",
+    tls_error: "TLS certificate rejected",
+    timeout: "Timed out",
+    http_error: `HTTP ${sub.last_status_code ?? ""}`.trim(),
+    secret_unavailable: "Stored secret can't be read",
+  };
+  return label[sub.last_error_code] ?? sub.last_error_code;
 }
 
 /** "All events" or "3 event types". */
