@@ -108,6 +108,7 @@ class FieldEnforcementSchemaTests(SimpleTestCase):
         for component in (
             "Board", "BoardFull", "BoardRequest", "PatchedBoardRequest",
             "Group", "GroupDetail", "GroupRequest", "PatchedGroupRequest",
+            "PatchedGroupBoardDefaultsRequest", "BoardImportResponse",
         ):
             with self.subTest(component=component):
                 prop = self.components[component]["properties"]["allowed_priorities"]

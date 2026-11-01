@@ -239,7 +239,7 @@ Pass `?expand=group` to populate `group_detail` on each board (see [Expanding fo
 
 ### `POST /api/v1/groups/{id}/boards/`
 
-Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically. The seeded `allowed_priorities` value is not enforced on cards (see [Field Enforcement](../architecture/field-enforcement.md)).
+Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically. The seeded `allowed_priorities` value is deprecated and not enforced on cards (see [Field Enforcement](../architecture/field-enforcement.md)).
 
 > **Added in 1.2**
 

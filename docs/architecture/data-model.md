@@ -98,7 +98,7 @@ Board
  ├── description (text, optional — board description; blank = no description)
  ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
  ├── stale_warning_pct (int 0–100 — % of the threshold used before the warning step, for the heatmap and card tint; default 50)
- ├── allowed_priorities (JSON — intended card priorities; not enforced, see field-enforcement.md)
+ ├── allowed_priorities (JSON — intended card priorities; deprecated #1429, not enforced, see field-enforcement.md)
  ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
  ├── share_token_hash (str, nullable, unique — SHA-256 of share_token; the share endpoint resolves links by it; never serialized)
  ├── share_token_expires_at (datetime, nullable — null = never expires; past this the share endpoint returns 410)
