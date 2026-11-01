@@ -920,7 +920,9 @@ def update_card(
                 board=board, column=card.column, card=card, role=role, force=force,
                 check_wip=False,
             )
-        # OCC: bump version on every mutation so stale clients detect conflicts.
+        # OCC: bump version on every field update (as move_card does on a move) so
+        # stale clients detect conflicts. Archive/unarchive, comments, attachments,
+        # checklists, relations and admin edits do not bump it (see Card.version).
         Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
         # Only reload version — scoping fields= prevents clearing the labels
         # prefetch cache, which would make card.labels.all() below re-query.
