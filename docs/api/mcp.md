@@ -154,7 +154,7 @@ Authentication is enforced at the transport layer, before any MCP protocol frame
 
 ### Protocol errors and limits
 
-> **Changed in 1.2** (MCP SDK 2.3.0), except the `Accept` row, which is unchanged.
+> **Changed in 1.2** (MCP SDK 2.3.0). In the `Accept` row, only wildcard handling changed.
 
 These responses come from the MCP SDK rather than from a Visiban tool, so a client should handle them in addition to the [tool errors](#tool-errors):
 
@@ -164,7 +164,7 @@ These responses come from the MCP SDK rather than from a Visiban tool, so a clie
 | `resources/read` fails inside the server | JSON-RPC error `-32603` (Internal error), with a short message. Earlier pre-releases returned code `0`. |
 | `resources/read` for an unknown URI | JSON-RPC error `-32602` (Invalid params). |
 | Request body larger than 4 MiB | `413`, before the body is parsed. |
-| `Accept` header that does not accept both `application/json` and `text/event-stream` (or `*/*`), including a missing one | `406` (unchanged). Send `Accept: application/json, text/event-stream` on every `POST`, as spec-compliant clients do. |
+| `Accept` header that does not accept both `application/json` and `text/event-stream`, including a missing, JSON-only or event-stream-only one | `406`. Wildcards are accepted: `*/*`, or `application/*` together with `text/*` (the 1.30.0 SDK returned `406` for `*/*`). Send `Accept: application/json, text/event-stream` on every `POST`, as spec-compliant clients do. |
 | Transport-level error | JSON-RPC error with `id: null`. Earlier pre-releases used the string `"server-error"`. |
 
 `serverInfo.version` reports the Visiban app version, not the SDK version.
