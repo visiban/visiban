@@ -611,8 +611,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         prev.flatMap((m) => {
           if (m.user.id !== userId) return [m];
           // Removing the explicit membership of an all-content user does not
-          // remove their access (#1301): they stay listed, as the roster
-          // would list them after a refetch, with no membership row.
+          // remove their access (#1301), so keep the row, now with no
+          // membership. This is the local view only: a later re-read lists
+          // them again only if the reader sees the all-content roster, or the
+          // user is also inherited from the board's group or the owner.
           if (m.has_all_content_access) return [{ ...m, id: null, role: "site_admin" as const }];
           return [];
         }),
@@ -827,7 +829,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 // All-content access resolves to full access before any
                 // membership is consulted, so such a row shows the resolved
                 // role, not the stored one, and offers no role picker (#1301).
-                // A stored membership can still be removed.
+                // A stored membership can still be removed, unless the member
+                // is also a site admin the server refuses to change (isLocked).
                 const allContent = m.role === "site_admin" || m.has_all_content_access === true;
                 const allContentNoteId = `member-allcontent-note-${m.user.id}`;
                 const canManage = isAdmin && !isLocked;
@@ -847,6 +850,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         {allContent ? (
                           <span
                             aria-describedby={allContentNoteId}
+                            title={isLocked ? "Site administrator — role managed at the instance level" : undefined}
                             className="text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded"
                           >
                             Site admin
@@ -944,7 +948,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     {isRemoving && (
                       <div role="status" aria-live="polite" aria-atomic="true" className="mt-1.5 pl-9 flex items-center gap-2 text-xs">
                         <span className="text-fg-tertiary">
-                          Remove <span className="text-fg font-medium">{userDisplayName(m.user)}</span> from this board?
+                          {allContent ? (
+                            <>
+                              Remove the board role of <span className="text-fg font-medium">{userDisplayName(m.user)}</span>? They keep full access through all-content access.
+                            </>
+                          ) : (
+                            <>
+                              Remove <span className="text-fg font-medium">{userDisplayName(m.user)}</span> from this board?
+                            </>
+                          )}
                         </span>
                         <button
                           onClick={() => handleRemoveConfirm(m.user.id)}

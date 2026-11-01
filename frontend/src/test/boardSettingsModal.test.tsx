@@ -474,6 +474,9 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     const removes = screen.getAllByTitle('Remove direct board role')
     expect(removes).toHaveLength(2)
     await user.click(removes[1])
+    // The prompt says only the board role goes (#1301).
+    expect(screen.getByText(/Remove the board role of/)).toHaveTextContent('They keep full access')
+    expect(screen.queryByText(/from this board\?/)).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => {
       expect(mockRemoveBoardMember).toHaveBeenCalledWith(storedBoard.id, storedViewerAllContent.user.id)
@@ -484,6 +487,23 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     })
     expect(screen.getByText('Site admin')).toBeInTheDocument()
     expect(screen.getByText(/All-content access overrides board roles/)).not.toHaveTextContent('on record')
+  })
+
+  it('offers no remove and explains why for a membership that is both site admin and all-content (#1301)', () => {
+    const both = { ...storedViewerAllContent, id: 22, is_site_admin: true }
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+        both,
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    // The server refuses to change a site-admin membership (#1706).
+    expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
+    expect(screen.getByText('Site admin')).toHaveAttribute(
+      'title', 'Site administrator — role managed at the instance level',
+    )
   })
 
   it('picks up the all-content signal from a re-read board for an already-listed row (#1301)', async () => {

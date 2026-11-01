@@ -465,11 +465,16 @@ describe('BoardView socket event routing — new event types', () => {
   })
 
   it('member.updated does not refetch when a different user role changes', async () => {
-    const ctx = makeContext()
+    const otherUser: User = { ...fakeUser, id: 99, username: 'bob', display_name: 'Bob' }
+    // The subject's all-content flag is already known, so the frame needs no re-read.
+    const ctx = makeContext({
+      board: makeBoard({
+        members: [{ id: 2, user: otherUser, role: 'viewer', is_moderator: false, has_all_content_access: false, joined_at: '' }],
+      }),
+    })
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
     await act(async () => {})
-    const otherUser: User = { ...fakeUser, id: 99, username: 'bob', display_name: 'Bob' }
     const membership: BoardMembership = { id: 2, user: otherUser, role: 'viewer', is_moderator: false, is_site_admin: false, joined_at: '' }
     act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
     expect(ctx.silentReload).not.toHaveBeenCalled()
@@ -502,13 +507,42 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.silentReload).toHaveBeenCalledTimes(1)
   })
 
-  it('a member event that carries the flag does not re-read the board', async () => {
-    const ctx = makeContext({ board: makeBoard({ current_user_role: 'site_admin' }) })
+  // #1301 — a membership frame never carries has_all_content_access. An admin
+  // re-reads for a subject whose value is unknown, even when the frame carries
+  // is_site_admin (invite redemption, a site admin's members POST).
+  it('a member event with is_site_admin but an unknown all-content flag re-reads the board (#1301)', async () => {
+    const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
     await act(async () => {})
     const withFlag = { ...flaglessMembership(), is_site_admin: false }
     act(() => { getOnEvent.dispatch({ event: 'member.added', data: withFlag as unknown as Record<string, unknown> }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('member.updated with is_site_admin and an unknown all-content flag re-reads for an admin (#1301)', async () => {
+    const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    const withFlag = { ...flaglessMembership(), is_site_admin: false }
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: withFlag as unknown as Record<string, unknown> }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('a member event that carries is_site_admin and a known all-content flag does not re-read', async () => {
+    const known = { ...flaglessMembership(), is_site_admin: false }
+    const ctx = makeContext({
+      board: makeBoard({
+        current_user_role: 'site_admin',
+        members: [{ ...known, has_all_content_access: false }],
+      }),
+    })
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'member.added', data: known as unknown as Record<string, unknown> }) })
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: known as unknown as Record<string, unknown> }) })
     expect(ctx.silentReload).not.toHaveBeenCalled()
   })
 

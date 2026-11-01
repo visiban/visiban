@@ -617,7 +617,9 @@ export function useBoard() {
 
   const removeMember = useCallback((userId: number) => {
     // Removing a membership does not remove an all-content user's access
-    // (#1301): keep them listed as a refetch would, with no membership row.
+    // (#1301): keep them listed with no membership row. A later re-read lists
+    // them again only for a reader who sees the all-content roster, or when
+    // they are also inherited from the board's group or the owner.
     setBoard((b) => b ? {
       ...b,
       members: b.members.flatMap((m): EffectiveBoardMember[] => {
