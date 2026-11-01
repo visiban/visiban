@@ -380,12 +380,12 @@ function makeChainTracker() {
   return { chain, calls }
 }
 
-function makeFakeEditor(markdown = 'current markdown') {
+function makeFakeEditor(markdown = 'current markdown', textColor = '') {
   const { chain, calls } = makeChainTracker()
   const commands = { focus: vi.fn(), setContent: vi.fn() }
   const editor = {
     isActive: vi.fn(() => false),
-    getAttributes: vi.fn(() => ({})),
+    getAttributes: vi.fn(() => (textColor ? { color: textColor } : {})),
     storage: { markdown: { getMarkdown: vi.fn(() => markdown) } },
     chain: vi.fn(() => chain),
     commands,
@@ -449,12 +449,6 @@ describe('RichTextEditor toolbar actions (fake non-null editor)', () => {
       fireEvent.mouseDown(screen.getByTitle('Red'))
       expect(calls).toContain(`setColor(${JSON.stringify(['#f87171'])})`)
 
-      // Swatches expose pressed state and a themed (never border-white) selected treatment
-      fireEvent.mouseDown(colorButton)
-      const red = screen.getByTitle('Red')
-      expect(red).toHaveAttribute('aria-pressed')
-      expect(red.className).not.toContain('border-white')
-      fireEvent.mouseDown(red)
 
       fireEvent.mouseDown(colorButton)
       fireEvent.mouseDown(screen.getByTitle('Default'))
@@ -773,5 +767,28 @@ describe('RichTextEditor mention popup lifecycle (#1457)', () => {
     renderer.onKeyDown({ event: down })
     expect(listKeyDown).toHaveBeenCalledWith({ event: down })
     renderer.onExit()
+  })
+})
+
+describe('RichTextEditor text color swatches (#1893)', () => {
+  it('marks the current color pressed with the themed ring, never border-white', () => {
+    const { editor } = makeFakeEditor('current markdown', '#f87171')
+    vi.mocked(useEditor).mockReturnValue(editor as unknown as ReturnType<typeof useEditor>)
+    try {
+      const { container } = render(<RichTextEditor value="text" onSave={vi.fn()} />)
+      fireEvent.click(container.firstChild as Element)
+      fireEvent.mouseDown(screen.getByTitle('Text color'))
+      const red = screen.getByRole('button', { name: 'Text color Red' })
+      expect(red).toHaveAttribute('aria-pressed', 'true')
+      expect(red.className).toContain('border-fg')
+      expect(red.className).toContain('ring-fg')
+      expect(red.className).toContain('ring-offset-2')
+      expect(red.className).not.toContain('border-white')
+      const blue = screen.getByRole('button', { name: 'Text color Blue' })
+      expect(blue).toHaveAttribute('aria-pressed', 'false')
+      expect(blue.className).not.toContain('ring-fg')
+    } finally {
+      vi.mocked(useEditor).mockReturnValue(null as unknown as ReturnType<typeof useEditor>)
+    }
   })
 })
