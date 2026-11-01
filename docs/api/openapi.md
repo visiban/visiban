@@ -18,7 +18,7 @@ Open `http://localhost:8000/api/schema/swagger-ui/` while logged in, or download
 | `GET /api/schema/swagger-ui/` | Interactive Swagger UI — explore and test endpoints in the browser |
 | `GET /api/schema/redoc/` | ReDoc alternative — clean two-panel reference docs |
 
-All three endpoints require authentication (`IsAuthenticated`) plus the token-scope check (`TokenHasScope`). A browser session (for example a logged-in Swagger UI) passes. A personal access token must carry the `read` scope, because these are `GET` requests. A token limited to `mcp:*` scopes, with no `read`, is refused, and a token with an empty scope list is refused. Legacy unscoped tokens keep full REST access and can fetch the spec.
+All three endpoints require authentication (`IsAuthenticated`). A browser session (for example a logged-in Swagger UI) passes. A personal access token must carry the `read` scope (checked when the token authenticates, for any `GET`). A token limited to `mcp:*` scopes, or with an empty scope list, is refused with `403`. Legacy unscoped tokens keep full REST access and can fetch the spec.
 
 ## Accessing the spec by deployment type
 

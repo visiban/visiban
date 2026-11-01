@@ -27,7 +27,7 @@ docker compose up --build
 - `backend`: daphne ASGI, not gunicorn, so WebSocket connections work for real-time board updates. It runs `migrate` and `ensure_site_admin` on startup.
 - `frontend`: Vite dev server
 
-**Ports:** the backend (8000) is exposed directly. The Vite dev server on port 5173 does **not** proxy `/api/` requests. The [OpenAPI schema](../api/openapi.md) is at `http://localhost:8000/api/schema/swagger-ui/`; it requires an authenticated session or PAT, so anonymous callers can't see the full API surface.
+**Ports:** the backend (8000) is exposed directly. The Vite dev server on port 5173 does **not** proxy `/api/` requests. The [OpenAPI schema](../api/openapi.md) is at `http://localhost:8000/api/schema/swagger-ui/`; it requires an authenticated session or PAT (a scoped PAT needs the `read` scope; see [OpenAPI](../api/openapi.md)), so anonymous callers can't see the full API surface.
 
 **Production:** `docker-compose.prod.yml` adds nginx, TLS via certbot, and a `scheduler` service for daily notification jobs, with no bind-mounted source. See [Installation](../getting-started/installation.md).
 
@@ -325,7 +325,7 @@ To use an emptyDir instead (data lost on pod restart):
 
 ### OpenAPI schema
 
-The nginx ingress proxies `/api/` to the backend, so the schema endpoints work at your ingress host with no extra configuration. Sign in first: they require an authenticated session or PAT.
+The nginx ingress proxies `/api/` to the backend, so the schema endpoints work at your ingress host with no extra configuration. Sign in first: they require an authenticated session or PAT (a scoped PAT needs the `read` scope; see [OpenAPI](../api/openapi.md)).
 
 ```
 https://<ingress-host>/api/schema/swagger-ui/
