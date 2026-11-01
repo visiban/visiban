@@ -313,14 +313,17 @@ class CardAdmin(admin.ModelAdmin):
     only see events after the DB write is durably committed.
 
     WIP, weight and ``allow_card_creation`` are enforced by ``CardAdminForm``
-    (#1428); the version bump, ``CardMovement`` audit row and hooks are still
-    skipped (see ``docs/architecture/service-layer.md``).
+    (#1428); the ``CardMovement`` audit row and hooks are still skipped (see
+    ``docs/architecture/service-layer.md``).
 
-    ``version`` is read-only here and is re-read under the card lock before
-    the save (#1969). Clients order the copies of a card they receive by it
-    and drop one whose version is lower than the copy they hold, so an admin
-    save that wrote a typed-in or stale-loaded lower number would make every
-    client drop this edit's ``card.updated`` frame until the version caught up.
+    ``version`` is read-only here. A change save sets it to the version read
+    under the card lock plus one (#1969, #2040); an add keeps the model
+    default. Clients order the copies of a card they receive by it and drop
+    one whose version is lower than the copy they hold, so an admin save that
+    wrote a typed-in or stale-loaded lower number would make every client drop
+    this edit's ``card.updated`` frame until the version caught up, and one
+    that left it unchanged could not be ordered against a concurrent API save
+    of the same card.
     """
 
     form = CardAdminForm
@@ -332,10 +335,17 @@ class CardAdmin(admin.ModelAdmin):
             stored = self._lock_cell_entry(obj, change)
             if stored is not None:
                 # ``obj`` was loaded before the lock, and the save writes every
-                # column: keep the locked row's version so an update or move
-                # that committed in between is not rolled back to a lower
-                # number (#1969; see the class docstring).
-                obj.version = stored.version
+                # column, so the new version is computed from the locked row,
+                # not from ``obj`` (#1969: a stale-loaded number would roll an
+                # update or move that committed in between back). It is bumped
+                # by one, as update_card and move_card bump it (#2040): an
+                # admin edit changes the card's fields, so it needs a version
+                # of its own for clients to order it against a concurrent save,
+                # and a request carrying the pre-edit version gets a 409. The
+                # row is held FOR UPDATE until changeform_view commits, the
+                # same lock those services bump under, so this Python
+                # increment cannot hand two different writes the same number.
+                obj.version = stored.version + 1
             # The form edits archived_at (fields="__all__"), so a save can
             # archive or restore the card. That moves the blocker_count of
             # every card it blocks, as archive_card / unarchive_card do, so
@@ -392,7 +402,7 @@ class CardAdmin(admin.ModelAdmin):
 
         Returns the stored row read under the lock (``None`` on add, or when
         the card is gone), so ``save_model`` can tell whether the save
-        archives or restores it (#1634).
+        archives or restores it (#1634) and bump its version (#2040).
         """
         if not change:
             lock_card_cell_entry(card_id=None, column_ids={obj.column_id})

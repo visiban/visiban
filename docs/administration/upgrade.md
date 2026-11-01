@@ -453,6 +453,9 @@ Read the notes for every version between your current release and the target bef
 !!! note "Deprecated: Board.allowed_priorities and Group.allowed_priorities"
     Both fields were never enforced: card create and update accept any priority, and no client filters by them (#1429). They are still accepted and returned unchanged through 1.x, and the OpenAPI schema marks them `deprecated`. They will be removed only at a major version, so do not rely on them to restrict priorities.
 
+!!! note "A Django admin card edit now increments the card's version"
+    Saving a card in the Django admin (`/admin/boards/card/`) now increments its `version` by one, as an edit or move through the API does, including a save that only archives or restores the card; adding a card there still starts it at `1` (#2040). Before 1.3 an admin save left `version` unchanged, so clients could not tell an admin edit from a concurrent API save of the same card. For an integration written against 1.2, the only request that can newly fail is a [move](../api/cards.md#move) that sends `version`: it now gets `409 version_conflict` with the new `current_version` when an admin saved the card in between. (The MCP `move_card` and `update_card` tools take `version` only since 1.3, #1974, and count admin saves from the start.) Handle it as any other conflict: re-read the card and retry. Requests that send no `version` are unaffected.
+
 ### Upgrading to 1.2.x
 
 **The big picture:** most 1.2 changes are additive and need no action. These need a decision or a command, so read their callouts first:

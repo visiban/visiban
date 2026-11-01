@@ -922,7 +922,7 @@ def update_card(
             )
         # OCC: bump version on every field update (as move_card does on a move) so
         # stale clients detect conflicts. Archive/unarchive, comments, attachments,
-        # checklists, relations and admin edits do not bump it (see Card.version).
+        # checklists and relations do not bump it (see Card.version).
         Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
         # Only reload version — scoping fields= prevents clearing the labels
         # prefetch cache, which would make card.labels.all() below re-query.
@@ -1275,7 +1275,7 @@ def lock_card_cell_entry(*, card_id, column_ids):
 
 def lock_card_row(card_id):
     """Lock one card row ``FOR UPDATE`` and return its placement fields and
-    ``version`` (the admin keeps the locked version on save, #1969).
+    ``version`` (the admin bumps the locked version on save, #1969, #2040).
 
     The first half of ``lock_card_cell_entry``, exposed on its own for a
     caller that must decide *which* columns to lock from the card's current
