@@ -526,7 +526,7 @@ describe('AppSidebar', () => {
     await userEvent.setup().click(screen.getByText('Confirm create board'))
     expect(mockNavigate).toHaveBeenCalledWith('/boards/55')
     await waitFor(() => expect(screen.getAllByText('New Board').length).toBeGreaterThan(0))
-    const stored: { id: number }[] = JSON.parse(localStorage.getItem('user:prefs:recent-boards') ?? '[]')
+    const stored: { id: number }[] = JSON.parse(localStorage.getItem('user:prefs:recent-boards:1') ?? '[]')
     expect(stored.some((e) => e.id === 55)).toBe(true)
   })
 
@@ -553,7 +553,7 @@ describe('AppSidebar', () => {
   // ── Recent boards section ─────────────────────────────────────────────────
 
   it('shows RECENT section when localStorage has entries', async () => {
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -567,7 +567,7 @@ describe('AppSidebar', () => {
   it('prunes Recent entries whose board id is not in the accessible list (stale localStorage)', async () => {
     // id 999 is in localStorage but not returned by listBoards — simulates a deleted
     // board, revoked membership, or stale data from a prior instance.
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 999, name: 'Ghost Board' },
       { id: 42, name: 'Sprint Board' },
     ]))
@@ -576,12 +576,12 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
     expect(screen.queryByText('Ghost Board')).not.toBeInTheDocument()
-    const stored = JSON.parse(localStorage.getItem('user:prefs:recent-boards') ?? '[]')
+    const stored = JSON.parse(localStorage.getItem('user:prefs:recent-boards:1') ?? '[]')
     expect(stored.map((e: { id: number }) => e.id)).toEqual([42])
   })
 
   it('hides Recent section entirely when all localStorage entries are stale', async () => {
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 999, name: 'Ghost Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -601,7 +601,7 @@ describe('AppSidebar', () => {
   })
 
   it('Recent section shows group breadcrumb when groupAncestors is present', async () => {
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 42, name: 'Design System', groupAncestors: ['Engineering'] },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -612,7 +612,7 @@ describe('AppSidebar', () => {
   })
 
   it('Recent board link points to the correct board URL', async () => {
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 55, name: 'My Recent Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -625,7 +625,7 @@ describe('AppSidebar', () => {
 
   it('active recent board is highlighted', async () => {
     mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -641,7 +641,7 @@ describe('AppSidebar', () => {
 
   it('shows Recent trigger in collapsed rail when recent boards exist', async () => {
     localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -656,7 +656,7 @@ describe('AppSidebar', () => {
   it('highlights the Recent trigger in collapsed mode for an active recent board', async () => {
     localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
     mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -672,7 +672,7 @@ describe('AppSidebar', () => {
 
   it('clicking Recent trigger opens flyout listing recent boards', async () => {
     localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
-    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
@@ -726,7 +726,7 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
     const stored: { id: number }[] = JSON.parse(
-      localStorage.getItem('user:prefs:recent-boards') ?? '[]'
+      localStorage.getItem('user:prefs:recent-boards:1') ?? '[]'
     )
     expect(stored.some((e) => e.id === 42)).toBe(true)
   })

@@ -56,6 +56,7 @@ const makeColumn = (id: number, name: string): Column => ({
 });
 
 const defaultProps = {
+  userId: 1,
   open: true,
   boardCards: [
     makeCard({ id: 1, title: "Fix login redirect loop", priority: "high", column: 10 }),
@@ -228,7 +229,7 @@ describe("CommandPalette — starred-first ranking", () => {
 
   it("surfaces recent boards on empty query after starred, excluding stale ids not in listBoards()", async () => {
     // Pre-populate recents with one valid and one stale id (revoked access).
-    localStorage.setItem("user:prefs:recent-boards", JSON.stringify([
+    localStorage.setItem("user:prefs:recent-boards:1", JSON.stringify([
       { id: 3, name: "Bravo Ideas" },
       { id: 99, name: "Revoked Board" },
     ]));
@@ -251,6 +252,24 @@ describe("CommandPalette — starred-first ranking", () => {
     expect(boardLabels[1]).toContain("Bravo Ideas");
     // Stale recent with id=99 must NOT leak through (IDOR-safe).
     expect(boardLabels.some((l) => l.includes("Revoked Board"))).toBe(false);
+  });
+
+  it("does not show another user's or the legacy unscoped recents (#1955)", async () => {
+    localStorage.setItem("user:prefs:recent-boards:2", JSON.stringify([{ id: 3, name: "Bravo Ideas" }]));
+    localStorage.setItem("user:prefs:recent-boards", JSON.stringify([{ id: 3, name: "Bravo Ideas" }]));
+    const { listBoards } = await import("../api/boards");
+    (listBoards as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, name: "Alpha Roadmap", group_name: null, uid: "b1", is_starred: true },
+      { id: 3, name: "Bravo Ideas", group_name: null, uid: "b3", is_starred: false },
+    ]);
+    render(
+      <MemoryRouter>
+        <CommandPalette {...defaultProps} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText("Alpha Roadmap")).toBeInTheDocument());
+    // Only the starred board; user 1 has no recents of their own.
+    expect(screen.queryByText("Bravo Ideas")).not.toBeInTheDocument();
   });
 });
 

@@ -30,7 +30,7 @@ A 3D engraved separator (`h-px bg-slate-900` / `h-px bg-slate-600/50`) appears b
 **Recent Boards** tracks the last 5 boards you visited, most recent first, between the Favorites sections and the Groups tree.
 
 - Visits are recorded automatically whenever you navigate to a board page.
-- The list is stored in `localStorage` under the key `user:prefs:recent-boards`. It persists across page reloads but is device-local and not synced across browsers or devices.
+- The list is stored in `localStorage` under a per-account key (`user:prefs:recent-boards:<user id>`). It persists across page reloads but is device-local and not synced across browsers or devices. Because it holds board and group names, it is cleared when you sign out or your session expires, and one account on a shared browser never sees another account's list.
 - Entries are deduplicated: revisiting a board moves it to the top instead of adding a duplicate.
 - The section is hidden when no boards have been visited yet.
 

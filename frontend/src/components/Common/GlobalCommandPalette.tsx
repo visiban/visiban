@@ -14,7 +14,7 @@ import type { Card } from "../../types";
 // Action dispatch is delegated via window custom events so this shell-level
 // component never needs to know BoardView internals. BoardView subscribes to
 // the subset that makes sense in board context.
-export default function GlobalCommandPalette() {
+export default function GlobalCommandPalette({ userId }: { userId?: number | null } = {}) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const boardCtx = useOptionalBoardContext();
@@ -84,6 +84,7 @@ export default function GlobalCommandPalette() {
     return (
       <CommandPalette
         open={open}
+        userId={userId}
         boardCards={board.cards}
         columns={board.columns}
         isAdmin={isAdmin}
@@ -101,6 +102,7 @@ export default function GlobalCommandPalette() {
   return (
     <CommandPalette
       open={open}
+      userId={userId}
       placeholder={placeholder}
       onClose={handleClose}
       onAction={handleAction}

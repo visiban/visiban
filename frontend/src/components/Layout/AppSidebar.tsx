@@ -68,7 +68,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
-  const { recentBoards, recordVisit, pruneByIds } = useRecentBoardsPref();
+  const { recentBoards, recordVisit, pruneByIds } = useRecentBoardsPref(user.id);
 
   // Track whether the ancestor auto-expand has fired for the initial mount.
   // We only want this to run once so subsequent navigations don't force the

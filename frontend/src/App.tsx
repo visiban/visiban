@@ -237,7 +237,7 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
   const showShellPalette = !pathname.startsWith("/boards/");
   return (
     <>
-      {showShellPalette && <GlobalCommandPalette />}
+      {showShellPalette && <GlobalCommandPalette userId={user.id} />}
       <Routes>
         <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
         <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
@@ -338,7 +338,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           sees board cards/columns. Sits ABOVE BoardView so the palette is
           available on every sub-tab (Board/Summary/History/Analytics)
           without regressing to the #869 ghost-dialog bug. */}
-      <GlobalCommandPalette />
+      <GlobalCommandPalette userId={user.id} />
       <Navbar
         user={user}
         onLogout={onLogout}

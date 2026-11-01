@@ -150,3 +150,35 @@ describe('useAuth — logout (#1179)', () => {
   })
 
 })
+
+describe('useAuth — recent-boards cleared on sign-out (#1955)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    localStorage.setItem('user:prefs:recent-boards:1', JSON.stringify([{ id: 5, name: 'Secret' }]))
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([{ id: 6, name: 'Legacy' }]))
+    localStorage.setItem('user:prefs:theme', 'dark')
+  })
+
+  it('logout clears recent-boards but leaves harmless prefs', async () => {
+    mockGetCurrentUser.mockResolvedValue(fakeUser)
+    mockLogout.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.user).toEqual(fakeUser))
+    await act(async () => { await result.current.logout() })
+    expect(localStorage.getItem('user:prefs:recent-boards:1')).toBeNull()
+    expect(localStorage.getItem('user:prefs:recent-boards')).toBeNull()
+    expect(localStorage.getItem('user:prefs:theme')).toBe('dark')
+  })
+
+  it('auth:sessionExpired clears recent-boards', async () => {
+    mockGetCurrentUser.mockResolvedValue(fakeUser)
+    const { result } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.user).toEqual(fakeUser))
+    act(() => { window.dispatchEvent(new Event('auth:sessionExpired')) })
+    expect(localStorage.getItem('user:prefs:recent-boards:1')).toBeNull()
+    expect(localStorage.getItem('user:prefs:recent-boards')).toBeNull()
+    expect(localStorage.getItem('user:prefs:theme')).toBe('dark')
+    expect(result.current.user).toBeNull()
+  })
+})
