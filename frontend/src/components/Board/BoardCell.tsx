@@ -138,7 +138,10 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       {/* One scalar per corner: the built-in count stands down while an overlay owns
           the top-right slot, so the cell never shows two different numbers there. */}
       {!overlay && cards.length >= 2 && (
-        <span className="absolute top-1.5 right-2 text-xs font-medium text-fg-faint select-none pointer-events-none">
+        // z-[5]: CardItem's root is `relative z-0`, so a z-auto badge paints under the
+        // first card (#1162). Same value and reasoning as the overlay badge; see
+        // frontend/CLAUDE.md (grid overlay stacking).
+        <span data-testid="cell-card-count" className="absolute top-1.5 right-2 z-[5] text-xs font-medium text-fg-faint select-none pointer-events-none">
           {cards.length}
         </span>
       )}

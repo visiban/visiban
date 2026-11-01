@@ -315,6 +315,9 @@ empty state. Rules:
   sticky swimlane label panel (`z-10`) and the sticky header row (`z-20`) which a badge
   must never cover when the grid is scrolled, and still yields to a hovered card
   (`hover:z-20`) so the card's own selection checkbox stays usable in the same corner.
+  The built-in `cards.length` badge (`data-testid="cell-card-count"`) is the same case and
+  carries the same `z-[5]` (#1162); any new absolutely positioned cell affordance that must
+  sit over the cards needs it too.
   Never put the tint on the cell root's `bg-*`: the root already carries `bg-canvas` and
   the drag-over `bg-surface-hover/40`, and a third `bg-*` on one node is a Tailwind
   ordering coin-flip.
