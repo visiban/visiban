@@ -243,3 +243,16 @@ class AllowedPrioritiesDeprecatedRoundTripTests(TestCase):
         )
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()["allowed_priorities"], ["high"])
+
+
+class BoardAdminAllowedPrioritiesHelpTextTests(TestCase):
+    def test_admin_form_says_allowed_priorities_is_deprecated(self):
+        # #1429: the model help_text is left alone (it would need a migration),
+        # so the Django admin form overrides it.
+        from boards.admin import BoardAdminForm
+
+        form = BoardAdminForm(instance=BoardFactory())
+        self.assertEqual(
+            form.fields["allowed_priorities"].help_text,
+            "Deprecated. This setting has no effect: card priorities are not restricted.",
+        )
