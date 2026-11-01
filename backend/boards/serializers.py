@@ -39,7 +39,7 @@ from .permissions import (
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
-    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CardExternalRef,
+    CardMovement, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
     validate_external_ref_ref, validate_external_ref_url,
@@ -1888,6 +1888,69 @@ class CardActivitySerializer(serializers.ModelSerializer):
         read_only_fields = ["imported_from_username"]
 
 
+# Reason and resolution share CardBlock's column length (#1149). Read from the
+# model so a migration that widens the column widens the API with it.
+CARD_BLOCK_TEXT_MAX = CardBlock._meta.get_field("reason").max_length
+
+
+class BlockCardSerializer(serializers.Serializer):
+    """Body of ``POST .../cards/{id}/block/`` (#1149).
+
+    The reason is required and must contain something other than whitespace:
+    a block with no reason cannot be clustered or acted on, which is the point
+    of recording it. DRF's CharField already trims surrounding whitespace and
+    refuses NUL characters (PostgreSQL text cannot hold them).
+    """
+
+    reason = serializers.CharField(
+        max_length=CARD_BLOCK_TEXT_MAX,
+        allow_blank=False,
+        help_text="Why the card is blocked. Required; 1-500 characters after trimming.",
+        error_messages={
+            "blank": "Enter a reason to block this card.",
+            "required": "Enter a reason to block this card.",
+        },
+    )
+
+
+class UnblockCardSerializer(serializers.Serializer):
+    """Body of ``POST .../cards/{id}/unblock/`` (#1149). The body is optional."""
+
+    resolution = serializers.CharField(
+        max_length=CARD_BLOCK_TEXT_MAX,
+        allow_blank=True,
+        required=False,
+        default="",
+        help_text="Optional note on how the block was resolved; up to 500 characters.",
+    )
+
+
+class CardBlockSerializer(serializers.ModelSerializer):
+    """One manual block of a card, open or closed (#1149).
+
+    ``duration_seconds`` is measured to ``unblocked_at``, or to now while the
+    block is open, so a client can total blocked time without its own clock.
+    """
+
+    # allow_null=True: both are SET_NULL FKs, so a deleted account reads null.
+    blocked_by = BoardUserSerializer(read_only=True, allow_null=True)
+    unblocked_by = BoardUserSerializer(read_only=True, allow_null=True)
+    duration_seconds = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CardBlock
+        fields = [
+            "id", "blocked_at", "blocked_by", "reason", "unblocked_at",
+            "unblocked_by", "resolution", "column_name", "column_uid",
+            "duration_seconds", "imported_from_username",
+        ]
+        read_only_fields = fields
+
+    def get_duration_seconds(self, obj) -> int:
+        end = obj.unblocked_at or timezone.now()
+        return max(0, int((end - obj.blocked_at).total_seconds()))
+
+
 class CardChecklistSerializer(serializers.ModelSerializer):
     # allow_null=True (#1139): created_by is a SET_NULL FK with null=True, and
     # rows predating its migration carry null outright — the view layer reads
@@ -2239,6 +2302,19 @@ def _blocker_count(card) -> int:
         relation_type=CardRelation.Type.BLOCKS,
         from_card__archived_at__isnull=True,
     ).count()
+
+
+def _is_blocked(card) -> bool:
+    """True when the card is blocked manually or by an active relation (#1149).
+
+    The union is the one blocked signal the card face and the "Blocked only"
+    filter show (frontend/CLAUDE.md § System signals): ``blocked_at`` marks a
+    manual block, ``blocker_count`` a relation block (#449). Exposed as one
+    derived field so an API consumer does not have to know both sources.
+    Costs no query on a prefetched card: ``blocked_at`` is a column and
+    ``_blocker_count`` reads the parked ``active_blockers`` list.
+    """
+    return card.blocked_at is not None or _blocker_count(card) > 0
 
 
 # ── Parked prefetches (#1212) ─────────────────────────────────────────────────
@@ -2609,6 +2685,12 @@ class CardSerializer(serializers.ModelSerializer):
     checklist_done = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
     blocker_count = serializers.SerializerMethodField()
+    is_blocked = serializers.SerializerMethodField(
+        help_text=(
+            "True when the card is blocked manually (`blocked_at` is set) or by at "
+            "least one active `blocks` relation (`blocker_count` > 0)."
+        ),
+    )
 
     class Meta:
         model = Card
@@ -2619,8 +2701,15 @@ class CardSerializer(serializers.ModelSerializer):
             "last_moved_at", "last_move_is_creation", "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
+            # Manual blocked state (#1149). Additive; read-only here — they
+            # change only through POST .../block/ and .../unblock/, which
+            # record the CardBlock row and activity a PATCH would skip.
+            "is_blocked", "blocked_at", "blocked_reason",
         ]
-        read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at", "version"]
+        read_only_fields = [
+            "uid", "created_by", "created_at", "updated_at", "archived_at", "version",
+            "blocked_at", "blocked_reason",
+        ]
         # Schema-only (#1077): `version` reads as an OCC guard on every write;
         # only the move endpoint checks it.
         extra_kwargs = {"version": {"help_text": field_enforcement.CARD_VERSION}}
@@ -2779,6 +2868,9 @@ class CardSerializer(serializers.ModelSerializer):
 
     def get_blocker_count(self, obj) -> int:
         return _blocker_count(obj)
+
+    def get_is_blocked(self, obj) -> bool:
+        return _is_blocked(obj)
 
     def get_checklist_total(self, obj) -> int:
         return len(_card_checklist_items(obj))
@@ -3826,7 +3918,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     # Known top-level keys in the v1 FilterState shape. Extra keys are
     # rejected so typos and accidental payload bloat fail loudly rather than
     # piling up as stale state in the DB.
-    _STATE_V1_KEYS = {"search", "assigneeIds", "labelIds", "priorities", "dueDate"}
+    # blockedOnly (#1149) is additive: a filter saved without it still loads.
+    _STATE_V1_KEYS = {"search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly"}
     _STATE_V1_DUE_DATE = {"overdue", "today", "this_week", "none"}
     _STATE_V1_PRIORITIES = {"low", "medium", "high", "urgent"}
 
@@ -3837,7 +3930,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     # standalone and creates the row directly), so this does not change what
     # is accepted or returned.
     state_json = serializers.DictField(
-        help_text="Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate}.",
+        help_text="Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, blockedOnly}.",
     )
 
     class Meta:
@@ -3886,6 +3979,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"state_json.dueDate must be null or one of {sorted(self._STATE_V1_DUE_DATE)}."
                 )
+        if "blockedOnly" in value and not isinstance(value["blockedOnly"], bool):
+            raise serializers.ValidationError("state_json.blockedOnly must be true or false.")
 
         return value
 

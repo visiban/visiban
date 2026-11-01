@@ -1852,6 +1852,10 @@ class ExportJsonShapeTests(ExportBase):
                 "checklist",
                 "movements",
                 "activities",
+                # #1149, additive.
+                "blocked_at",
+                "blocked_reason",
+                "blocks",
             ],
         )
         self.assertEqual(

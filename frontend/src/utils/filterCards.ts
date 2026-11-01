@@ -3,6 +3,7 @@ import { userDisplayName } from "../types";
 import type { FilterState } from "../components/Board/FilterBar";
 import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
 import { parseMultiSelect } from "./customFieldValue";
+import { isCardBlocked } from "./blockedState";
 
 /**
  * Whether any *client-side* filter dimension is active — everything
@@ -25,7 +26,8 @@ export function hasActiveClientFilters(filters: FilterState): boolean {
     filters.labelIds.length > 0 ||
     filters.priorities.length > 0 ||
     filters.dueDate !== null ||
-    Object.values(filters.customFields).some(isCustomFieldFilterActive)
+    Object.values(filters.customFields).some(isCustomFieldFilterActive) ||
+    !!filters.blockedOnly
   );
 }
 
@@ -134,6 +136,9 @@ export function filterCards(
       if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) {
         return false;
       }
+
+      // #1149 — manual or relation block, the same union the card face shows.
+      if (filters.blockedOnly && !isCardBlocked(card)) return false;
 
       if (filters.dueDate !== null) {
         if (filters.dueDate === "none" && card.due_date !== null) return false;

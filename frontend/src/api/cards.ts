@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef } from "../types";
+import type { Card, CardActivity, CardAttachment, CardBlock, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -81,6 +81,18 @@ export const archiveCard = (boardId: number, cardId: number) =>
 
 export const unarchiveCard = (boardId: number, cardId: number) =>
   client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/unarchive/`).then((r) => r.data);
+
+/** Block a card with a required reason (#1149). Resolves to the updated card. */
+export const blockCard = (boardId: number, cardId: number, reason: string) =>
+  client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/block/`, { reason }).then((r) => r.data);
+
+/** Clear a card's manual block, with an optional resolution (#1149). */
+export const unblockCard = (boardId: number, cardId: number, resolution = "") =>
+  client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/unblock/`, { resolution }).then((r) => r.data);
+
+/** Every manual block of a card, newest first (#1149). */
+export const getCardBlocks = (boardId: number, cardId: number) =>
+  client.get<CardBlock[]>(`/api/v1/boards/${boardId}/cards/${cardId}/blocks/`).then((r) => r.data);
 
 export interface ArchivedCardsPage {
   count: number;

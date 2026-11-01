@@ -191,4 +191,22 @@ describe('CardMovementTimeline', () => {
     expect(screen.getAllByText('by Jane Doe · imported, originally carol')).toHaveLength(2)
     expect(screen.getByText('by Jane Doe')).toBeInTheDocument()
   })
+
+  // #1149
+  it('labels manual block and unblock activity', async () => {
+    mockGetMovements.mockResolvedValue([])
+    mockGetActivities.mockResolvedValue([
+      { id: 1, event_type: 'blocked', from_value: '', to_value: 'Waiting on legal', actor: fakeUser, created_at: '2026-01-01T00:00:00Z' },
+      { id: 2, event_type: 'unblocked', from_value: 'Waiting on legal', to_value: 'Signed', actor: fakeUser, created_at: '2026-01-02T00:00:00Z' },
+      { id: 3, event_type: 'unblocked', from_value: 'Vendor', to_value: '', actor: fakeUser, created_at: '2026-01-03T00:00:00Z' },
+      { id: 4, event_type: 'blocked', from_value: '', to_value: '', actor: fakeUser, created_at: '2026-01-04T00:00:00Z' },
+    ])
+    render(<CardMovementTimeline boardId={1} cardId={1} />)
+    await waitFor(() => expect(screen.getByText('Show full history')).toBeInTheDocument())
+    await userEvent.setup().click(screen.getByText('Show full history'))
+    expect(screen.getByText('Blocked: Waiting on legal')).toBeInTheDocument()
+    expect(screen.getByText('Unblocked: Signed')).toBeInTheDocument()
+    expect(screen.getByText('Unblocked (was: Vendor)')).toBeInTheDocument()
+    expect(screen.getByText('Blocked')).toBeInTheDocument()
+  })
 })

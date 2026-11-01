@@ -41,6 +41,8 @@ FACTORIES = {
     "CardCreationNotAllowed": lambda: service_errors.CardCreationNotAllowed(),
     "UseMoveEndpoint": lambda: service_errors.UseMoveEndpoint(
         "column", board_pk=1, card_pk=2),
+    "CardAlreadyBlocked": lambda: service_errors.CardAlreadyBlocked(),
+    "CardNotBlocked": lambda: service_errors.CardNotBlocked(),
 }
 
 # Codes that do not come from a CardServiceError: built directly in
@@ -71,6 +73,8 @@ EXPECTED_SERVICE_CODES = {
     "WeightLimitExceeded": "weight_limit_exceeded",
     "CardCreationNotAllowed": "card_creation_not_allowed",
     "UseMoveEndpoint": "use_move_endpoint",
+    "CardAlreadyBlocked": "card_already_blocked",
+    "CardNotBlocked": "card_not_blocked",
 }
 
 # The complete public vocabulary. Adding to it means updating docs/api/mcp.md

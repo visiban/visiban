@@ -355,6 +355,8 @@ class ToolDiscoveryTests(McpTestCase):
             {
                 "list_boards", "list_columns", "list_swimlanes", "list_cards",
                 "create_card", "move_card", "update_card", "archive_card",
+                # #1149
+                "block_card", "unblock_card",
             },
         )
 
@@ -715,6 +717,8 @@ class CardResourceTests(McpTestCase):
                 "labels", "column", "swimlane", "due_date", "position", "created_at",
                 "updated_at", "archived_at", "movements", "checklist_items",
                 "activities", "comments",
+                # #1149, additive.
+                "blocked_at", "blocked_reason",
             },
         )
         self.assertEqual(data["uid"], card.uid)

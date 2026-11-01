@@ -174,7 +174,7 @@ In a multi-select's checklist these leftover values are listed under **No longer
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Each choice on a dropdown or multi-select field can have its own color, so a value like **High** or **Blocked** stands out. Colors work the same on card fields and [swimlane fields](#swimlane-row-custom-fields).
+Each choice on a dropdown or multi-select field can have its own color, so a value like **High** or **Blocked** stands out. A choice named **Blocked**, in any color, is only a chip: since 1.3 cards have a built-in [blocked state](blocked-cards.md#blocked-cards-and-a-blocked-custom-field) with its own glyph, elapsed time and Analytics, and that page explains when to switch. Colors work the same on card fields and [swimlane fields](#swimlane-row-custom-fields).
 
 - **Setting a color:** in the field editor, click the round swatch in front of a choice and pick one of eight colors: **Slate**, **Blue**, **Green**, **Amber**, **Red**, **Violet**, **Pink**, or **Teal**. **Reset to automatic** removes it. The color saves with the rest of the field when you click **Save field**.
 - **Automatic:** a choice with no color keeps the small automatic color dot it always had, so boards created before 1.2 look exactly as they did. In the editor its swatch is an empty dashed circle labelled *Automatic*.

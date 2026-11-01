@@ -130,14 +130,17 @@ Card
  ├── weight (int, default 1 — used for column weight budget enforcement)
  ├── position (int — sort order within the cell)
  ├── created_by (→ User, nullable — set to null if the creator account is deleted)
- ├── version (int, default 1 — optimistic concurrency control; incremented by a field update (`update_card`), a move (`move_card`) or any Django admin change save (`CardAdmin.save_model`, since 1.3, including one that only archives or restores) only — the API's archive/unarchive, comments, attachments, checklists and relations leave it unchanged, and it never decreases; clients send the version they have; 409 returned if the card has been modified in the meantime)
+ ├── version (int, default 1 — optimistic concurrency control; incremented by a field update (`update_card`), a block or unblock (`block_card` / `unblock_card`, since 1.3), a move (`move_card`) or any Django admin change save (`CardAdmin.save_model`, since 1.3, including one that only archives or restores) only — the API's archive/unarchive, comments, attachments, checklists and relations leave it unchanged, and it never decreases; clients send the version they have; 409 returned if the card has been modified in the meantime)
  ├── assignee → User (nullable)
  ├── labels → Label (M2M)
  ├── archived_at (datetime, nullable — soft-delete timestamp; null = active)
  ├── mentioned_user_ids (JSON — dedup guard for @mention notifications)
+ ├── blocked_at (datetime, nullable — when the open manual block started; null = not manually blocked; 1.3+)
+ ├── blocked_reason (str, max 500, default "" — the open block's reason; 1.3+)
  ├── CardMovement  (from/to column + swimlane FKs + UIDs + names, moved_by, moved_at, movement_type)
  ├── CardComment  (author, body)
  ├── CardActivity  (event_type, from_value, to_value, actor)
+ ├── CardBlock  (blocked_at, blocked_by, reason, unblocked_at, unblocked_by, resolution, column + name + uid at block time, board, card uid/title snapshot; at most one open per card; 1.3+)
  ├── CardChecklist  (text, is_checked, position)
  ├── CardAttachment  (file, filename, size, uploaded_by)
  ├── CustomFieldValue  (field_definition, value — one row per set field, unique per card+definition)
@@ -167,7 +170,7 @@ SavedFilter
  ├── user → User
  ├── board → Board
  ├── name (str)
- ├── state_json (JSON — serialized FilterState: search, assigneeIds, labelIds, priorities, dueDate)
+ ├── state_json (JSON — serialized FilterState: search, assigneeIds, labelIds, priorities, dueDate, blockedOnly)
  └── unique_together: (user, board, name)
 
 Notification
@@ -260,6 +263,12 @@ Append-only record of a fixed set of instance-wide admin actions (#1126):
 `archived_at` is a nullable datetime used for soft-delete. When set, the card is hidden from the board view and drag-and-drop but can be restored from the Archived panel. Analytics uses it as the terminal timestamp, so dwell time reflects only the active period. Archived cards are excluded from WIP and weight counts.
 
 `mentioned_user_ids` is a JSON list of user PKs that guards against re-notification for `@mention` references in the description: when the description is edited, only newly mentioned users are notified. The list holds only users who actually received a notification, so a user skipped at the time is still notified by a later mention.
+
+### CardBlock
+
+One manual block of a card (#1149, 1.3+), from block to unblock. `unblocked_at` NULL means the block is open; the partial unique constraint `cardblock_one_open_per_card` allows at most one open block per card, and the open block's `blocked_at` / `reason` are mirrored onto `Card.blocked_at` / `Card.blocked_reason` so the board payload needs no join. Both are written together, under the card lock, only by `services.cards.block_card` / `unblock_card` (and the JSON import), so REST and MCP share one path; the REST serializer and the Django admin treat the card fields as read-only.
+
+Its own table rather than `CardMovement` rows: movements feed the dwell and cycle-time math, and a block is not a change of cell. `column` (with `column_name` / `column_uid` snapshots) is where the card sat when blocked, which is how Analytics sums blocked time per column. Like movements (#1469), a hard-deleted card keeps its blocks (`card` is SET_NULL, `card_uid` / `card_title` keep them identifiable); deleting the board removes them.
 
 ### CardMovement
 

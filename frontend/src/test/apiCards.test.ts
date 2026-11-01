@@ -17,6 +17,7 @@ import {
   deleteCardAttachment, getChecklist, addChecklistItem,
   updateChecklistItem, deleteChecklistItem,
   archiveCard, unarchiveCard, getArchivedCards,
+  blockCard, unblockCard, getCardBlocks,
 } from '../api/cards'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock client cast; the real client type is broader than any single test needs
@@ -156,6 +157,30 @@ describe('cards API', () => {
       const result = await archiveCard(5, 1)
       expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/5/cards/1/archive/')
       expect(result).toEqual(card)
+    })
+  })
+
+  // #1149
+  describe('blockCard / unblockCard / getCardBlocks', () => {
+    it('posts the reason to the block endpoint', async () => {
+      const card = { id: 1, blocked_reason: 'Vendor' }
+      mockClient.post.mockResolvedValue({ data: card })
+      expect(await blockCard(5, 1, 'Vendor')).toEqual(card)
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/5/cards/1/block/', { reason: 'Vendor' })
+    })
+
+    it('posts the resolution (default empty) to the unblock endpoint', async () => {
+      mockClient.post.mockResolvedValue({ data: { id: 1 } })
+      await unblockCard(5, 1, 'Fixed')
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/5/cards/1/unblock/', { resolution: 'Fixed' })
+      await unblockCard(5, 1)
+      expect(mockClient.post).toHaveBeenLastCalledWith('/api/v1/boards/5/cards/1/unblock/', { resolution: '' })
+    })
+
+    it('gets the block history', async () => {
+      mockClient.get.mockResolvedValue({ data: [{ id: 3 }] })
+      expect(await getCardBlocks(5, 1)).toEqual([{ id: 3 }])
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/5/cards/1/blocks/')
     })
   })
 

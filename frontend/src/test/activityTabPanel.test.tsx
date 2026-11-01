@@ -250,3 +250,28 @@ describe("ActivityTabPanel", () => {
     });
   });
 });
+
+// #1149
+describe("ActivityTabPanel — manual block entries", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("labels blocked and unblocked activity with reason and resolution", async () => {
+    mockGetTimeline.mockResolvedValue(
+      makeTimelinePage([
+        makeEntry({ id: 1, event_type: "blocked", data: { event_type: "blocked", from_value: "", to_value: "Waiting on legal" } }),
+        makeEntry({ id: 2, event_type: "unblocked", data: { event_type: "unblocked", from_value: "Waiting on legal", to_value: "Signed" } }),
+        makeEntry({ id: 3, event_type: "unblocked", data: { event_type: "unblocked", from_value: "Vendor", to_value: "" } }),
+        makeEntry({ id: 4, event_type: "unblocked", data: { event_type: "unblocked", from_value: "", to_value: "" } }),
+        makeEntry({ id: 5, event_type: "blocked", data: { event_type: "blocked", from_value: "", to_value: "" } }),
+      ])
+    );
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    expect(await screen.findByText("Blocked: Waiting on legal")).toBeInTheDocument();
+    expect(screen.getByText("Unblocked: Signed")).toBeInTheDocument();
+    expect(screen.getByText("Unblocked (was: Vendor)")).toBeInTheDocument();
+    expect(screen.getByText("Unblocked")).toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+  });
+});

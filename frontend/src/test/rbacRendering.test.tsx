@@ -9,6 +9,10 @@ vi.mock('../api/boards', () => ({
 
 // Mock the cards API used by CardDetail
 vi.mock('../api/cards', () => ({
+  // Manual block (#1149): CardBlockSection fetches the block history on mount.
+  blockCard: vi.fn(),
+  unblockCard: vi.fn(),
+  getCardBlocks: vi.fn().mockResolvedValue([]),
   getCardComments: vi.fn().mockResolvedValue([]),
   addCardComment: vi.fn(),
   updateCard: vi.fn(),

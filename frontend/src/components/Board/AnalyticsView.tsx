@@ -27,6 +27,14 @@ interface SwimlaneStat {
   stalled_cards: StalledCard[];
 }
 
+/** Manual blocked time in the analytics window (#1149). */
+interface BlockedSummary {
+  /** Blocked days per column (where each block started), every column included. */
+  days_per_column: Record<string, number>;
+  blocks_per_column: Record<string, number>;
+  top_reasons: { reason: string; count: number; total_days: number }[];
+}
+
 interface AnalyticsData {
   days: number;
   columns: string[];
@@ -35,6 +43,60 @@ interface AnalyticsData {
   stalled_threshold_days: number;
   staleness_threshold_days: number;
   stale_warning_pct: number;
+  /** Additive (#1149); absent from a server that predates it. */
+  blocked?: BlockedSummary;
+}
+
+/**
+ * Blocked time per column and the most common reasons (#1149). Renders
+ * nothing when no block overlapped the window, so a board that never uses
+ * blocking sees no new empty section.
+ */
+function BlockedTimeSection({ blocked, columns, days }: { blocked: BlockedSummary; columns: string[]; days: number }) {
+  const cols = columns.filter((c) => (blocked.blocks_per_column[c] ?? 0) > 0);
+  if (cols.length === 0 && blocked.top_reasons.length === 0) return null;
+  return (
+    <section aria-labelledby="analytics-blocked-heading" className="flex flex-col gap-2" data-testid="analytics-blocked">
+      <h3 id="analytics-blocked-heading" className="text-sm font-semibold text-fg-secondary">
+        Blocked time (last {days} days)
+      </h3>
+      {cols.length > 0 && (
+        <table className="text-sm border-collapse" aria-label="Blocked time per column">
+          <thead>
+            <tr className="text-left text-xs text-fg-muted uppercase tracking-wider">
+              <th className="pb-1 pr-4 font-medium">Column</th>
+              <th className="pb-1 px-3 font-medium text-right">Blocked</th>
+              <th className="pb-1 px-3 font-medium text-right">Blocks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cols.map((c) => (
+              <tr key={c} className="border-t border-line">
+                <td className="py-1 pr-4 text-fg max-w-[12rem] truncate" title={c}>{c}</td>
+                <td className="py-1 px-3 text-right font-mono text-fg-secondary">{blocked.days_per_column[c] ?? 0}d</td>
+                <td className="py-1 px-3 text-right font-mono text-fg-tertiary">{blocked.blocks_per_column[c] ?? 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {blocked.top_reasons.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1">Top reasons</p>
+          <ol className="flex flex-col gap-0.5 text-sm" aria-label="Top block reasons">
+            {blocked.top_reasons.map((r) => (
+              <li key={r.reason} className="flex items-baseline gap-2 min-w-0">
+                <span className="text-fg truncate min-w-0" title={r.reason}>{r.reason}</span>
+                <span className="text-xs text-fg-tertiary shrink-0">
+                  {r.count} {r.count === 1 ? "block" : "blocks"} · {r.total_days}d
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </section>
+  );
 }
 
 type DaysOption = 7 | 30 | 90;
@@ -335,6 +397,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
             {doneCols.size} done {doneCols.size === 1 ? "column" : "columns"} not shown
           </p>
         )}
+        {data.blocked && <BlockedTimeSection blocked={data.blocked} columns={data.columns} days={data.days} />}
       </div>
 
       {/* Stalled cards — independently scrollable below the pinned heatmap */}

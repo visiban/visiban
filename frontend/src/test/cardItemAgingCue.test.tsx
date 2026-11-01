@@ -29,7 +29,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     // Relative to now: a never-moved card ages from created_at (#1841).
     created_at: daysAgo(1), updated_at: daysAgo(1),
     last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
-    is_stale: false, custom_field_values: [], blocker_count: 0, external_ref: null,
+    is_stale: false, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     archived_at: null, version: 1,
     ...overrides,
   }

@@ -63,7 +63,7 @@ For one state transition, a service function owns:
 
 ### Writes to an existing card vs. a hard delete (#1587)
 
-- **Who:** `update_card`, `archive_card`, `unarchive_card` (before its column limit check), and the card-child writes in `CardViewSet` (comment, checklist item, and attachment create; checklist item edit and delete, which write an activity row) call `lock_card_for_write()` first in their transaction. It locks the card row `FOR NO KEY UPDATE` and raises `CardNotFound` (a `404`) if the row is already gone.
+- **Who:** `update_card`, `archive_card`, `unarchive_card` (before its column limit check), `block_card` and `unblock_card` (#1149), and the card-child writes in `CardViewSet` (comment, checklist item, and attachment create; checklist item edit and delete, which write an activity row) call `lock_card_for_write()` first in their transaction. It locks the card row `FOR NO KEY UPDATE` and raises `CardNotFound` (a `404`) if the row is already gone.
 - **Relation create** gets the same answer from its pk-ordered lock on both cards.
 - **`delete_card`** locks the row `FOR UPDATE` before Django collects its cascade, and re-checks `archived_at` under that lock so a card archived concurrently is still refused.
 - **Why:** without them, a delete committing mid-write let `update_card`'s `save()` fall back to an `INSERT` that re-created the deleted card, made an archive or restore's `save(update_fields=...)` match no row (a `500`), or failed the child insert's deferred foreign-key check at commit (a `500`).

@@ -65,7 +65,7 @@ from django.utils import timezone
 from .. import broadcast as _broadcast
 from .. import hooks
 from ..models import (
-    BoardMembership, Card, CardActivity, CardMovement, CardRelation, Column,
+    BoardMembership, Card, CardActivity, CardBlock, CardMovement, CardRelation, Column,
     Notification, Swimlane,
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
@@ -73,7 +73,7 @@ from ..serializers import _card_labels
 from ..utils import notify_new_mentions
 from .notifications import create_notifications, quoted_card_verb
 from .errors import (
-    CardCreationNotAllowed, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted,
+    CardAlreadyBlocked, CardCreationNotAllowed, CardNotBlocked, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted,
     InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
     WipLimitExceeded,
@@ -1941,6 +1941,159 @@ def unarchive_card(
         # — the mirror of the archive case above.
         _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
         _fire_hooks("card.restored", card.id, board_id, actor.id)
+    return CardMutationResult(card=card, payload=payload)
+
+
+# ---------------------------------------------------------------------------
+# block / unblock (#1149)
+# ---------------------------------------------------------------------------
+
+def _fetch_for_block(card_id, board):
+    """The unlocked read that starts ``block_card`` / ``unblock_card``.
+
+    ``select_related("column")`` because the block row snapshots the column
+    the card sits in. Archived cards answer 404, as on every other edit path:
+    the REST queryset excludes them, and blocking a card nobody can see on the
+    board would only accrue blocked time no one can act on.
+    """
+    try:
+        card = Card.objects.select_related("column").get(pk=card_id, board=board)
+    except Card.DoesNotExist:
+        raise CardNotFound() from None
+    if card.archived_at is not None:
+        raise CardNotFound()
+    return card
+
+
+def _bump_version(card):
+    """Bump ``Card.version`` for a block-state change, as ``update_card`` does.
+
+    Blocking changes fields every client renders (the card face, the filter),
+    so a client that cached the old copy must see a newer version: the web
+    client drops any card copy whose version is lower than the one it holds
+    (#1969), and an MCP ``update_card``/``move_card`` sent with the old
+    version gets ``version_conflict`` rather than acting on stale state.
+    """
+    Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
+    card.refresh_from_db(fields=["version"])
+
+
+def block_card(*, actor, board, card_id, reason, render, role=None):
+    """Mark a card manually blocked, with a reason (#1149).
+
+    Member+ role and the ownership gate, the same boundary as editing the card
+    (``update_card``), because the blocked state is a field of the card. The
+    reason must already be validated (non-blank, length-capped) by the caller's
+    serializer; it is stored verbatim.
+
+    Writes, in one transaction under the card lock: an open ``CardBlock`` row
+    (who, when, why, and the column the card is in), the denormalized
+    ``Card.blocked_at`` / ``blocked_reason``, a ``blocked`` ``CardActivity``,
+    and the version bump. ``card.updated`` is the WebSocket event: the payload
+    is a full card carrying the additive blocked fields, so no new event type
+    is needed and clients that do not know the fields ignore them.
+
+    A card that is already blocked raises ``CardAlreadyBlocked`` (409), decided
+    from the row read under the lock so two concurrent blocks cannot both win;
+    the partial unique constraint on ``CardBlock`` is the backstop.
+    """
+    role = _resolve_role(actor, board, role)
+    _require_mutation_role(role)
+    card = _fetch_for_block(card_id, board)
+    _require_own_content(
+        board, role, actor, card, denial="You can only block cards you created.",
+    )
+
+    board_id = card.board_id
+    with transaction.atomic():
+        # Card row first (#1587): a delete committing after the read above
+        # would otherwise leave the CardBlock insert pointing at a missing
+        # card (a 500 at COMMIT) and the update_fields save matching no row.
+        locked = lock_card_for_write(card.pk)
+        # Decide from the locked row (#1605): a block, archive or move that
+        # committed in between must be seen, or this would open a second
+        # block, block an archived card, or snapshot the wrong column.
+        _adopt_locked_state(card, locked)
+        if card.archived_at is not None:
+            raise CardNotFound()
+        if card.blocked_at is not None:
+            raise CardAlreadyBlocked()
+        column = card.column
+        now = timezone.now()
+        CardBlock.objects.create(
+            card=card,
+            board_id=board_id,
+            card_uid=card.uid,
+            card_title=card.title,
+            blocked_at=now,
+            blocked_by=actor,
+            reason=reason,
+            column=column,
+            column_name=column.name,
+            column_uid=column.uid,
+        )
+        card.blocked_at = now
+        card.blocked_reason = reason
+        # updated_at is listed so auto_now stamps it: a block is an edit.
+        card.save(update_fields=["blocked_at", "blocked_reason", "updated_at"])
+        _bump_version(card)
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.BLOCKED,
+            from_value="", to_value=reason, actor=actor,
+        )
+        payload = render(card)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
+        _fire_hooks("card.updated", card.id, board_id, actor.id)
+    return CardMutationResult(card=card, payload=payload)
+
+
+def unblock_card(*, actor, board, card_id, render, resolution="", role=None):
+    """Clear a card's manual block, with an optional resolution (#1149).
+
+    Same role and ownership gate as ``block_card``. Closes the open
+    ``CardBlock`` row (``unblocked_at``/``unblocked_by``/``resolution``),
+    clears the denormalized card fields, writes an ``unblocked``
+    ``CardActivity`` (from_value: the block's reason, to_value: the
+    resolution), bumps the version and broadcasts ``card.updated``.
+
+    A card with no open block raises ``CardNotBlocked`` (409). Relation blocks
+    (#449) are not touched: they are a different signal and clear on their own.
+    """
+    role = _resolve_role(actor, board, role)
+    _require_mutation_role(role)
+    card = _fetch_for_block(card_id, board)
+    _require_own_content(
+        board, role, actor, card, denial="You can only unblock cards you created.",
+    )
+
+    board_id = card.board_id
+    with transaction.atomic():
+        locked = lock_card_for_write(card.pk)
+        _adopt_locked_state(card, locked)
+        if card.archived_at is not None:
+            raise CardNotFound()
+        if card.blocked_at is None:
+            raise CardNotBlocked()
+        now = timezone.now()
+        reason = card.blocked_reason
+        # Closes the open row only; closed blocks are never rewritten. Both
+        # writes of a block share one transaction, so the open row exists
+        # whenever blocked_at is set, but the card fields are cleared either
+        # way so a card can never be left stuck in the blocked state.
+        CardBlock.objects.filter(card=card, unblocked_at__isnull=True).update(
+            unblocked_at=now, unblocked_by=actor, resolution=resolution,
+        )
+        card.blocked_at = None
+        card.blocked_reason = ""
+        card.save(update_fields=["blocked_at", "blocked_reason", "updated_at"])
+        _bump_version(card)
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.UNBLOCKED,
+            from_value=reason, to_value=resolution, actor=actor,
+        )
+        payload = render(card)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
+        _fire_hooks("card.updated", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 
 

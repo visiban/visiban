@@ -284,7 +284,8 @@ Board health summary: per-swimlane card counts, stage distribution, and velocity
       "avg_cycle_days": 6.5,
       "stage_distribution": { "Backlog": 2, "In Progress": 3, "Done": 0 },
       "velocity_7d": 1,
-      "velocity_30d": 4
+      "velocity_30d": 4,
+      "blocked_cards": 1
     }
   ],
   "extension_panels": []
@@ -301,6 +302,7 @@ Board health summary: per-swimlane card counts, stage distribution, and velocity
 | `stage_distribution` | object | Card count per column for this swimlane (all columns, including zero counts) |
 | `velocity_7d` | integer | Moves into any column with `is_done: true` in the last 7 days, for cards that are not archived (counts moves, not cards) |
 | `velocity_30d` | integer | Moves into any column with `is_done: true` in the last 30 days, for cards that are not archived (counts moves, not cards) |
+| `blocked_cards` | integer | *Added in 1.3* (#1149). Active cards in this swimlane that are blocked now, manually or by an active `blocks` relation (the card's [`is_blocked`](cards.md#block-and-unblock-since-13)). One more aggregate query |
 | `extension_panels` | array | `[]` in OSS. Panels registered through the `ANALYTICS_EXTENSIONS` hook, limited to those whose `min_role` the caller meets (see [Panel visibility by role](#panel-visibility-by-role)); the web UI renders them in the Summary tab below the swimlane table. See [Extension panel payload](#extension-panel-payload) |
 
 #### Extension panel payload
@@ -417,7 +419,14 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
         { "id": 42, "uid": "3a9f1c2d7e4b8a05", "title": "Fix login bug", "days_since_move": 14 }
       ]
     }
-  ]
+  ],
+  "blocked": {
+    "days_per_column": { "Backlog": 0.0, "In Progress": 3.5, "Done": 0.0 },
+    "blocks_per_column": { "Backlog": 0, "In Progress": 2, "Done": 0 },
+    "top_reasons": [
+      { "reason": "Waiting on customer", "count": 2, "total_days": 3.5 }
+    ]
+  }
 }
 ```
 
@@ -440,6 +449,10 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
 | `swimlanes[].throughput_card_count_per_column` | object | Number of cards that exited each active column during the period window. `0` means no cards exited. |
 | `swimlanes[].throughput_is_outlier` | object | Whether `throughput_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
 | `swimlanes[].deal_velocity_days` | number or null | Average days from a card's first movement ever to its most recent movement, over this swimlane's cards whose most recent movement falls in the period. Cards count whether or not they reached a done column. `null` when there is no velocity data. |
+| `blocked` | object | *Added in 1.3* (#1149). Manual blocked time inside the `days` window, by the column each block started in. A block counts for the part of it inside the window; an open block runs to now, or to the card's archive time if it was archived while blocked. An open block whose card was hard-deleted is left out. Relation blocks are not timed. |
+| `blocked.days_per_column` | object | Blocked days per column, keyed by column name, every column (done columns included) with zeros. One decimal. |
+| `blocked.blocks_per_column` | object | Number of blocks overlapping the window per column. |
+| `blocked.top_reasons` | array | Up to 10 `{reason, count, total_days}`, most frequent first (ties: more blocked time first). Reasons that differ only in case or spacing are one entry, shown with the newest spelling. Includes blocks in a column that no longer exists. |
 | `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "uid", "title", "days_since_move" }`. |
 
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
@@ -578,6 +591,7 @@ The server rejects unknown top-level keys and type-checks each known key, but do
 | `labelIds` | integer[] | Label IDs to include |
 | `priorities` | string[] | Subset of `low`, `medium`, `high`, `urgent` |
 | `dueDate` | string \| null | One of `overdue`, `today`, `this_week`, `none`, or `null` for "no filter" |
+| `blockedOnly` | boolean | *Added in 1.3* (#1149). `true` shows only blocked cards (manual or relation). Absent means `false` |
 
 All keys are optional. The total serialized size of `state_json` must not exceed 64 KB.
 
@@ -637,6 +651,8 @@ Comments (with `comments` on) work the same way since 1.2: each is posted under 
 Since 1.2 the payload also carries the board's `custom_fields` schema and each card's `custom_field_values`, keyed by field name. Both are **additive**: `schema_version` stays `2`. JSON import restores both (see [Custom fields on import](#custom-fields-on-import)).
 
 Also since 1.2, each card carries `external_ref` (`{ provider, ref, url }`, or `null` when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.
+
+Since 1.3 (#1149), each card also carries its [manual blocked state](cards.md#block-and-unblock-since-13): `blocked_at` (ISO 8601 or `null`), `blocked_reason` (`""` when not blocked), and `blocks`, the full block history oldest first (`{blocked_at, blocked_by, reason, unblocked_at, unblocked_by, resolution, column, imported_from_username}`; `blocked_by`/`unblocked_by` are usernames, `column` the name of the column the block started in). Additive: `schema_version` stays `2`, and an importer that predates these keys ignores them. The `blocked` and `unblocked` activity entries ride in `activities` as usual. On import, the card's current block (`blocked_at`/`blocked_reason`) is restored whatever the `history` option, as card state like `archived_at`; the closed entries of `blocks` are restored only with `history` on, attributed to the importing user with the file's `blocked_by` kept in `imported_from_username`, keeping their times and resolution. An open entry in `blocks` is not restored as such: the card's own `blocked_at` decides whether it is blocked, so the card and its open block cannot disagree. An entry without a valid `blocked_at`, or that ends before it starts, is dropped. `blocks` is capped at 1000 entries per card and its text values at 500 characters; CSV export and import do not carry it.
 
 Also since 1.2, each swimlane object carries `custom_field_values` (keyed by [swimlane custom field](#swimlane-custom-fields-since-12) name), and a top-level `swimlane_custom_fields` array carries that schema. These are separate keys from the card-level pair because they are independent per-board sets on different objects. Both are additive, and JSON import restores them. A definition with `is_admin_only: true`, and any value under it, is omitted for a caller below `admin`, the same gate this export applies to a swimlane's `contact_email` and `notes`.
 

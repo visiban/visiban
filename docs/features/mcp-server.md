@@ -80,7 +80,7 @@ Replace `<your-visiban-host>` with your instance's hostname and `<your-token>` w
 
 Once connected, Claude Desktop shows Visiban as an active MCP server with a green status indicator. The server's details list:
 
-- **Tools** — `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, and, if your token carries `mcp:write`, `create_card`, `move_card`, `update_card`, `archive_card`
+- **Tools** — `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, and, if your token carries `mcp:write`, `create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`
 - **Resources** — the `board` and `card` resource templates (`board://{board_id}`, `card://{card_id}`)
 
 **Watch out:** if the server doesn't appear, check that the URL includes `/mcp`, the token is prefixed `Bearer ` (not `Token `), and `MCP_SERVER_ENABLED` is set on the backend.
@@ -97,6 +97,8 @@ Once connected, Claude Desktop shows Visiban as an active MCP server with a gree
 | `move_card` | Move a card to a new column/swimlane/position; enforces WIP/weight limits | admin, member | `mcp:read` + `mcp:write` |
 | `update_card` | Update title/description/priority/assignee/labels/due date | admin, member | `mcp:read` + `mcp:write` |
 | `archive_card` | Soft-delete a card (idempotent) | admin, member | `mcp:read` + `mcp:write` |
+| `block_card` | Mark a card blocked with a reason (*1.3*, see [Blocked cards](blocked-cards.md)) | admin, member | `mcp:read` + `mcp:write` |
+| `unblock_card` | Clear a card's manual block, with an optional resolution (*1.3*) | admin, member | `mcp:read` + `mcp:write` |
 
 `collaborator` and `viewer` roles can read but not write. A write tool called with either role returns a structured `permission_denied` error, not a `500`. Full argument/return shapes and error codes are in [API Reference — MCP Server — Tools](../api/mcp.md#tools).
 

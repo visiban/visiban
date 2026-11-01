@@ -7,6 +7,10 @@ import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
 
 vi.mock('../api/cards', () => ({
+  // Manual block (#1149): CardBlockSection fetches the block history on mount.
+  blockCard: vi.fn(),
+  unblockCard: vi.fn(),
+  getCardBlocks: vi.fn().mockResolvedValue([]),
   deleteCard: vi.fn(),
   archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),
@@ -94,7 +98,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
     version: 1,
     custom_field_values: [],
-    blocker_count: 0, external_ref: null,
+    blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     ...overrides,
   }
 }

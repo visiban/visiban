@@ -327,7 +327,11 @@ class CardAdmin(admin.ModelAdmin):
     """
 
     form = CardAdminForm
-    readonly_fields = ("version",)
+    # blocked_at / blocked_reason (#1149) mirror the open CardBlock row and
+    # change only through the block/unblock service, which writes that row
+    # and the activity; an admin edit of the card fields alone would leave
+    # the two disagreeing.
+    readonly_fields = ("version", "blocked_at", "blocked_reason")
 
     def save_model(self, request, obj, form, change):
         peers = {}

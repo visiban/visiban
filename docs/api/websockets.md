@@ -221,11 +221,19 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `card.created` | New card created | Full `CardSerializer` object |
-| `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed, [relation](cards.md#relations-since-12) added/removed | Full `CardSerializer` object |
+| `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed, [relation](cards.md#relations-since-12) added/removed, card [blocked or unblocked](cards.md#block-and-unblock-since-13) (since 1.3) | Full `CardSerializer` object |
 | `card.deleted` | Card deleted | `{ "card_uid": <string> }` |
 | `card.moved` | Card moved to a different column or swimlane | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer> }` — the `movement` object also carries `card_uid` and `card_title` so board-level consumers can identify the card without a second fetch. A reorder within the same column and swimlane sends `{ "card": <CardSerializer> }` with no `movement` key |
 | `card.archived` | Card archived | `{ "card_uid": <string> }` |
 | `card.unarchived` | Card restored from archive | Full `CardSerializer` object |
+
+!!! note "Manual blocked state rides on `card.updated` (since 1.3)"
+
+    Blocking and unblocking a card (#1149) publish `card.updated`, not a new
+    event type. The card object carries three additive fields: `is_blocked`
+    (manual or relation block), `blocked_at` and `blocked_reason`. No field was
+    removed or renamed, so a client that does not know them keeps working and
+    simply ignores them. The change feed records the same `card.updated` row.
 
 These shapes are the same whichever writer made the change: the REST API or the
 [MCP](mcp.md) write tools. *Fixed in 1.2 (#1926): a card created, moved or updated

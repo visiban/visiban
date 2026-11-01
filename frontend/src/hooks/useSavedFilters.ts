@@ -108,6 +108,8 @@ export function useSavedFilters(boardId: number) {
       // this card missing" state.
       customFields: loadCustomFields(s["customFields"]),
       visibleCustomFieldFilterIds: Object.keys(loadCustomFields(s["customFields"])).map(Number),
+      // #1149 — absent in a filter saved before the toggle existed.
+      blockedOnly: s["blockedOnly"] === true,
     };
   }, []);
 

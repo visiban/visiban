@@ -451,7 +451,7 @@ describe('BoardView', () => {
       attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
       version: 1,
       custom_field_values: [],
-      blocker_count: 0, external_ref: null,
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     }
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [stalledCard] }) })
     render(<BoardView {...defaultProps()} />)
@@ -748,7 +748,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0, external_ref: null,
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     }
 
     it('ignores a deleted label id from ?f_labels: cards still show and FilterBar sees it pruned', () => {
@@ -790,7 +790,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0, external_ref: null,
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     }
     const liveDef = {
       id: 5, uid: 'cfuid0000005', name: 'Live', field_type: 'text', choices: [], position: 0,
@@ -974,7 +974,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0, external_ref: null,
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     }
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
     render(<BoardView {...defaultProps()} />)
@@ -1001,7 +1001,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0, external_ref: null,
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     }
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
     render(<BoardView {...defaultProps()} />)
@@ -1135,7 +1135,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0, external_ref: null,
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     }
     const ctx = defaultContext({ board: makeBoard({ cards: [card] }) })
     mockBoardContextValue = ctx
@@ -1167,7 +1167,7 @@ describe('BoardView', () => {
         last_moved_at: null, attachment_count: 0, checklist_total: 0,
         checklist_done: 0, is_stale: false, archived_at: null, version: 1,
         custom_field_values: [],
-        blocker_count: 0, external_ref: null,
+        blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
       }
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }), moveCard })
       render(<BoardView {...defaultProps()} />)
@@ -1273,7 +1273,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0, external_ref: null,
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     }
 
     it('closes CardDetail when the open card is evicted', () => {
@@ -1431,7 +1431,7 @@ describe('BoardView', () => {
         last_moved_at: null, attachment_count: 0, checklist_total: 0,
         checklist_done: 0, is_stale: false, archived_at: null, version: 1,
         custom_field_values: [],
-        blocker_count: 0, external_ref: null,
+        blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
       }
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
       const onDismiss = vi.fn()
@@ -1964,7 +1964,7 @@ describe('BoardView', () => {
       position: 0, created_by: { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' }, created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z', last_moved_at: '2026-01-01T00:00:00Z',
       attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: true, archived_at: null,
-      version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
+      version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
     })
     const boardWithDone = (card: ReturnType<typeof cardIn>) => makeBoard({
       cards: [card],
@@ -2172,7 +2172,7 @@ describe('BoardView', () => {
         description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
         position: 0, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
         last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
-        is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
+        is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
       } as never
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
       render(<BoardView currentUser={lensUser} />)

@@ -269,6 +269,8 @@ class ThrottleCoverageTests(ThrottleIntegrationTestCase):
         "move_card": {"card_id": 1, "to_column_id": 1},
         "update_card": {"card_id": 1, "title": "x"},
         "archive_card": {"card_id": 1},
+        "block_card": {"card_id": 1, "reason": "x"},
+        "unblock_card": {"card_id": 1},
     }
 
     def _tool_names(self, token):

@@ -111,6 +111,12 @@ function activityLabel(a: CardActivity, userDateFormat = "MM/DD/YYYY"): { line1:
       const fmt = (iso: string) => iso ? formatDateStr(iso, userDateFormat) : "(none)";
       return { line1: `Due date: ${fmt(a.from_value)} → ${fmt(a.to_value)}` };
     }
+    // Manual block state (#1149): blocked carries the reason; unblocked the
+    // reason it cleared (from_value) and the optional resolution (to_value).
+    case "blocked":
+      return { line1: a.to_value ? `Blocked: ${a.to_value}` : "Blocked" };
+    case "unblocked":
+      return { line1: a.to_value ? `Unblocked: ${a.to_value}` : a.from_value ? `Unblocked (was: ${a.from_value})` : "Unblocked" };
     default:
       return { line1: (a.event_type as string).replace(/_/g, " ") };
   }

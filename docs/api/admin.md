@@ -357,7 +357,7 @@ While it is active:
 The state is stored on the `SiteSetting` singleton, so it survives a restart, and the cache is
 invalidated on save, so a change reaches every worker immediately rather than after the 60s TTL.
 
-MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`) are blocked too, and
+MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) are blocked too, and
 return `{"error": {"code": "maintenance_mode", "detail": "…"}}`. MCP read tools keep working.
 
 ---

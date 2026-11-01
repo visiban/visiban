@@ -128,6 +128,7 @@ Rows are ordered by `ordering` with the card ID as tiebreaker, so a walk over an
 | `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
 | `?overdue=true` | Cards past their due date (due date is set and is before today). `false` returns the rest: cards with no due date or a due date of today or later |
+| `?blocked=true` | Cards that are blocked, manually or by an active `blocks` relation (the card's `is_blocked`). `false` returns the rest. *Added in 1.3* (#1149) |
 | `?ordering=<field>` | Sort results. Prefix with `-` for descending. Allowed fields: `position` (default), `due_date`, `created_at`, `priority`. Example: `?ordering=-due_date` |
 
 A filter value that fails its type check returns `400` with the field-keyed body this endpoint has returned since 1.1, plus `detail` and `code` (*added in 1.2, #1832*): `?assignee=x` gives `{"assignee": ["Enter a number."], "detail": "assignee: Enter a number.", "code": "invalid_query_param"}`. Branch on `code`. See [Error responses](index.md#error-responses).
@@ -154,7 +155,7 @@ Since 1.2, a create returns `404 Not Found` (nothing is written) when its target
 ```
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/`
-Get a single card. The response includes a read-only `uid` (a stable 16-character hex identifier that survives rename, move, and reassignment) and a `version` integer that increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040). Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged; it never decreases. Clients may pass `version` back on the [move endpoint](#move) as an optimistic concurrency token.
+Get a single card. The response includes a read-only `uid` (a stable 16-character hex identifier that survives rename, move, and reassignment) and a `version` integer that increments when the card's fields are updated (including its labels and custom-field values), the card is blocked or unblocked (since 1.3, #1149), or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040). Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged; it never decreases. Clients may pass `version` back on the [move endpoint](#move) as an optimistic concurrency token.
 
 **Card response field table**
 
@@ -186,9 +187,12 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
 | `checklist_done` | integer | yes | no | Number of checked checklist items |
 | `is_stale` | boolean | yes | no | `true` when the card has not moved within the board's `staleness_threshold_days` window; `false` otherwise. `is_stale` ignores the card's column, so a Done-column card can be `true`; clients decide display. The stale-card notification digest, by contrast, skips Done-column cards. |
 | `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
-| `version` | integer | yes | no | Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the `version` read before an admin save gets `409 version_conflict`. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose `version` is lower than the one it holds. Pass as `version` in the [move endpoint](#move) to enable OCC. PATCH and PUT do not accept or check `version`. |
+| `version` | integer | yes | no | Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values), the card is blocked or unblocked (since 1.3, #1149), or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the `version` read before an admin save gets `409 version_conflict`. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose `version` is lower than the one it holds. Pass as `version` in the [move endpoint](#move) to enable OCC. PATCH and PUT do not accept or check `version`. |
 | `custom_field_values` | array | no | no | Values for the board's [custom fields](boards.md#custom-fields-since-12) — `[{ field_definition, value }]`. Readable and writable in the same shape; see below. Empty array when the card has no values. |
 | `external_ref` | object / null | no | no | Link to the GitLab/GitHub merge request, pull request, or issue that implements this card (since 1.2) — `{ provider, ref, url }` or `null`. Always present; `null` when unset. Readable and writable in the same shape; see [External ref](#external-ref-since-12). |
+| `is_blocked` | boolean | yes | no | *Added in 1.3* (#1149). `true` when the card is blocked manually (`blocked_at` is set) or by at least one active `blocks` relation (`blocker_count` > 0). Derived; the one signal the card face and the board's **Blocked only** filter show. |
+| `blocked_at` | string / null | yes | no | *Added in 1.3* (#1149). When the card's open [manual block](#block-and-unblock-since-13) started, or `null` when it is not manually blocked. Changes only through the block and unblock endpoints; PATCH ignores it. |
+| `blocked_reason` | string | yes | no | *Added in 1.3* (#1149). The open manual block's reason; `""` when not manually blocked. Changes only through the block endpoint. |
 | `blocker_count` | integer | yes | no | Number of active cards blocking this one — see [Relations](#relations-since-12). Counts only the `blocks` relation type, only where this card is the blocked end, and only where the blocking card is not archived. `relates_to` never contributes. The relation list itself is not on the card payload; fetch it from the relations endpoint. |
 
 **Example response**
@@ -227,7 +231,10 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
     "ref": "acme/webapp!45",
     "url": "https://gitlab.com/acme/webapp/-/merge_requests/45"
   },
-  "blocker_count": 1
+  "blocker_count": 1,
+  "is_blocked": true,
+  "blocked_at": null,
+  "blocked_reason": ""
 }
 ```
 
@@ -390,6 +397,86 @@ Check whether a card exists and is archived. The deep-link handler (`?card=`) us
 
 ---
 
+## Block and unblock (since 1.3)
+
+> **Added in 1.3** (#1149)
+
+A card can be marked **blocked** with a reason ("Waiting on customer", "Vendor outage") and later unblocked. It is a *state*, not a dependency: use a [`blocks` relation](#relations-since-12) when the blocker is another card. Each block is recorded with who, when and why, so blocked time can be measured per card, summed per column in [Analytics](boards.md#get-apiv1boardsidanalytics), and grouped by reason. See [Blocked cards](../features/blocked-cards.md).
+
+Both actions follow the edit rule: **minimum role Member**, and a member may block or unblock only cards they created unless they have the `is_moderator` entitlement or are a board admin (`403` otherwise). Viewers and collaborators get `403` before the body is read. An archived card, or a card on another board, is `404`. Each bumps `version`, writes a `CardActivity` row (`blocked` / `unblocked`), and broadcasts `card.updated` with the full card after the transaction commits. There is no new WebSocket event type.
+
+### `POST /api/v1/boards/{board_id}/cards/{id}/block/`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `reason` | string | yes | Trimmed; then 1-500 characters. A missing or blank reason is `400` with `{"reason": ["Enter a reason to block this card."]}` |
+
+**Response** — `200 OK`, the full card with `is_blocked: true` and `blocked_at` / `blocked_reason` set.
+
+| Status | When |
+|---|---|
+| `400` | `reason` missing, blank, over 500 characters, or contains a NUL character |
+| `403` | Viewer or collaborator, or a member blocking a card another user created |
+| `404` | No such card on this board, or the card is archived |
+| `409` | `{"code": "card_already_blocked", "detail": "This card is already blocked."}`: the card already has an open block |
+
+### `POST /api/v1/boards/{board_id}/cards/{id}/unblock/`
+
+The body is optional.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `resolution` | string | no | How the block was resolved; up to 500 characters. Default `""` |
+
+**Response** — `200 OK`, the full card with `blocked_at: null` and `blocked_reason: ""`. `is_blocked` stays `true` if a `blocks` relation still blocks the card: unblock clears the manual block only.
+
+| Status | When |
+|---|---|
+| `400` | `resolution` over 500 characters |
+| `403` | As for block |
+| `404` | As for block |
+| `409` | `{"code": "card_not_blocked", "detail": "This card is not blocked."}`: the card has no open block |
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/blocks/`
+
+Every manual block of the card, newest first, open or closed. Readable by every board member, viewers included, and for archived cards too, like the card's other history.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | integer | |
+| `blocked_at` | string | ISO 8601 |
+| `blocked_by` | object \| `null` | User who blocked the card; `null` once that user is deleted |
+| `reason` | string | |
+| `unblocked_at` | string \| `null` | `null` while the block is open |
+| `unblocked_by` | object \| `null` | |
+| `resolution` | string | `""` when none was given |
+| `column_name` | string | The column the card was in when it was blocked (kept after the column is deleted) |
+| `column_uid` | string | That column's [stable UID](../features/stable-uids.md) |
+| `duration_seconds` | integer | Measured to `unblocked_at`, or to now while open |
+| `imported_from_username` | string \| `null` | As on activities: set only on blocks created by a board import |
+
+```json
+[
+  {
+    "id": 12,
+    "blocked_at": "2026-10-28T09:12:00Z",
+    "blocked_by": { "id": 3, "username": "jordan", "display_name": "Jordan Lee", "avatar_url": null },
+    "reason": "Waiting on customer sign-off",
+    "unblocked_at": null,
+    "unblocked_by": null,
+    "resolution": "",
+    "column_name": "Review",
+    "column_uid": "c0l5a1b2c3d4e5f6",
+    "duration_seconds": 284400,
+    "imported_from_username": null
+  }
+]
+```
+
+Hard-deleting a card keeps its block history for the board's analytics; deleting the board removes it.
+
+---
+
 ## Move
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/move/`
@@ -492,7 +579,7 @@ The `*_uid` fields in the movement record are permanent: they stay set after the
 Full movement history for a card. Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
-Activity log (field changes, comments, attachments, checklist events).
+Activity log (field changes, comments, attachments, checklist events, and since 1.3 manual blocks: `blocked` carries the reason in `to_value`; `unblocked` carries the cleared reason in `from_value` and the resolution in `to_value`).
 
 | Field | Type | Notes |
 |---|---|---|
