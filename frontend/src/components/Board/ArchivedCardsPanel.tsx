@@ -69,7 +69,11 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   // re-read the authoritative count from the server whenever the set of
   // columns or swimlanes changes. loadedTotal is kept as server count plus the
   // pruned cards still held in loadedCards, so `total` stays server-true.
-  const containerKey = `${board.columns.map((c) => c.id).join(",")}|${board.swimlanes.map((s) => s.id).join(",")}`;
+  // Sorted so a pure reorder or a new board object with the same ids does not
+  // trigger a needless request; additions also only grow the set harmlessly,
+  // but any membership change is worth one count read.
+  const sortedIds = (xs: { id: number }[]) => xs.map((x) => x.id).sort((a, b) => a - b).join(",");
+  const containerKey = `${sortedIds(board.columns)}|${sortedIds(board.swimlanes)}`;
   const lastContainerKey = useRef(containerKey);
   useEffect(() => {
     if (lastContainerKey.current === containerKey) return;
@@ -140,6 +144,10 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const columnName = (colId: number) => board.columns.find((c) => c.id === colId)?.name ?? "—";
   const swimlaneName = (slId: number) => board.swimlanes.find((s) => s.id === slId)?.name ?? "—";
 
+  // The server reports count 0 for an empty page, so a Load more that comes
+  // back empty can set total below the cards still listed; never show a header
+  // count smaller than what is on screen.
+  const shownTotal = Math.max(total, cards.length);
   const hasMore = cards.length < total;
 
   return (
@@ -158,7 +166,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h2 className="text-sm font-medium text-fg">
-            Archived cards{total > 0 && <span className="ml-2 text-fg-tertiary font-normal">({total})</span>}
+            Archived cards{shownTotal > 0 && <span className="ml-2 text-fg-tertiary font-normal">({shownTotal})</span>}
           </h2>
           <button
             onClick={onClose}

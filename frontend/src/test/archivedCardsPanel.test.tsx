@@ -335,7 +335,7 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
       await waitFor(() => expect(mockGetArchivedCards).toHaveBeenLastCalledWith(1, 1))
     })
 
-    it('drops the Load more remainder when the deleted container held only unloaded cards (#1637)', async () => {
+    it('drops the Load more remainder when a container change shows no unloaded cards remain (#1637)', async () => {
       // 50 loaded would be typical; here 1 shown of 3, the other 2 (never
       // loaded) are in the column that is then deleted.
       mockGetArchivedCards.mockResolvedValueOnce(makePage([otherCard], 3))
@@ -354,10 +354,27 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
       render(<ArchivedCardsPanel board={twoColumnBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
       await waitFor(() => screen.getByText('Load more (2 remaining)'))
 
-      mockGetArchivedCards.mockResolvedValueOnce(makePage([], 1))
+      // The real API reports count 0 for an empty page.
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([], 0))
       await userEvent.click(screen.getByText(/Load more/))
       await waitFor(() => expect(screen.queryByText(/Load more/)).not.toBeInTheDocument())
+      // The listed card must keep its header count.
+      expect(screen.getByText('Kept card')).toBeInTheDocument()
+      expect(screen.getByText('(1)')).toBeInTheDocument()
     })
+  })
+
+  it('does not refetch the count for a new board object or a pure reorder (#1637)', async () => {
+    mockGetArchivedCards.mockClear()
+    mockGetArchivedCards.mockResolvedValue(makePage([{ ...archivedCard, id: 97, uid: 'carduid00097', title: 'Kept' }], 1))
+    const b = { ...fakeBoard, columns: [fakeBoard.columns[0], { ...fakeBoard.columns[0], id: 11, uid: 'coluid000002' }] }
+    const { rerender } = render(<ArchivedCardsPanel board={b} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    await waitFor(() => screen.getByText('Kept'))
+    expect(mockGetArchivedCards).toHaveBeenCalledTimes(1)
+
+    rerender(<ArchivedCardsPanel board={{ ...b }} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    rerender(<ArchivedCardsPanel board={{ ...b, columns: [...b.columns].reverse() }} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    expect(mockGetArchivedCards).toHaveBeenCalledTimes(1)
   })
 
   it('steps the next-page offset back after an unarchive (#1637)', async () => {

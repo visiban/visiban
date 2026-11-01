@@ -909,6 +909,50 @@ describe('useBoard', () => {
     expect(mockGetArchivedCards).not.toHaveBeenCalled()
   })
 
+  it('removeColumn refreshes archived_card_count after a successful delete (#1637)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 5 }))
+    mockDeleteColumn.mockResolvedValue(undefined)
+    mockGetArchivedCards.mockResolvedValue({ count: 1, offset: 0, page_size: 50, results: [] })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.removeColumn(10) })
+    await waitFor(() => expect(result.current.board!.archived_card_count).toBe(1))
+  })
+
+  it('removeSwimlane refreshes archived_card_count after a successful delete (#1637)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 5 }))
+    mockDeleteSwimlane.mockResolvedValue(undefined)
+    mockGetArchivedCards.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => { await result.current.removeSwimlane(20) })
+    await waitFor(() => expect(result.current.board!.archived_card_count).toBe(0))
+  })
+
+  it('discards a count refresh that was overtaken by a local archive (#1637)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({
+      archived_card_count: 2,
+      columns: [
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+      ],
+    }))
+    let resolveCount: (v: unknown) => void = () => {}
+    mockGetArchivedCards.mockReturnValue(new Promise((r) => { resolveCount = r }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictColumn('coluid000002') })
+    // card 100 (in column 10) is archived locally while the request is in flight.
+    act(() => { result.current.archiveCard(result.current.board!.cards[0].id) })
+    expect(result.current.board!.archived_card_count).toBe(3)
+
+    await act(async () => { resolveCount({ count: 2, offset: 0, page_size: 50, results: [] }) })
+    expect(result.current.board!.archived_card_count).toBe(3)
+  })
+
   it('evictSwimlane removes the swimlane and its cards from state', async () => {
     mockGetBoardFull.mockResolvedValue(makeBoard())
     const { result } = renderHook(() => useBoard())

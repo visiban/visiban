@@ -417,6 +417,31 @@ export function useBoard() {
     setBoard((b) => b ? { ...b, cards: b.cards.filter((c) => c.id !== cardId) } : b);
   }, []);
 
+  // Bumped by every local archived_card_count mutation. A page-0 refresh whose
+  // response lands after a local archive/unarchive was computed before it, so
+  // applying it would overwrite the fresher local count with a lower one - the
+  // unsafe under-count direction #1289 guards against. Discard such responses.
+  const archivedCountGen = useRef(0);
+  // Deleting a column or swimlane cascades to its archived cards, which the
+  // client never holds (they are paged in only by ArchivedCardsPanel) and the
+  // *.deleted event does not say how many there were (#1637). Guessing would
+  // either under-count, which lets the Danger Zone skip typed confirmation, or
+  // keep the stale overstated count. Ask the server for the authoritative
+  // count instead; it is one cheap page-0 request and only needed when the
+  // board had archived cards at all.
+  const refreshArchivedCount = useCallback(() => {
+    if (!(boardRef.current?.archived_card_count)) return;
+    const gen = archivedCountGen.current;
+    getArchivedCards(boardId, 0)
+      .then((page) => {
+        if (gen !== archivedCountGen.current) return;
+        setBoard((b) => b ? { ...b, archived_card_count: page.count } : b);
+      })
+      .catch(() => {
+        // Keep the previous count: it can only overstate, the safe direction.
+      });
+  }, [boardId]);
+
   // Archive / unarchive keep BoardFull.archived_card_count current in-session,
   // because the settings modal's Danger Zone gates typed-name confirmation on
   // it (#1289) and /full/ only reports it at load time. Each updater only moves
@@ -424,6 +449,7 @@ export function useBoard() {
   // handler and the echoed card.archived / card.unarchived socket event for
   // the same action never double-count, whichever lands first.
   const archiveCardWhere = useCallback((match: (c: Card) => boolean) => {
+    archivedCountGen.current += 1;
     setBoard((b) => {
       if (!b || !b.cards.some(match)) return b;
       return {
@@ -437,6 +463,7 @@ export function useBoard() {
   const archiveCardByUid = useCallback((cardUid: string) => archiveCardWhere((c) => c.uid === cardUid), [archiveCardWhere]);
 
   const unarchiveCard = useCallback((card: Card) => {
+    archivedCountGen.current += 1;
     setBoard((b) => {
       if (!b) return b;
       if (b.cards.some((c) => c.id === card.id)) {
@@ -473,8 +500,11 @@ export function useBoard() {
     } catch {
       // Re-fetch on failure so the column and its cards reappear.
       load();
+      return;
     }
-  }, [boardId, load]);
+    // Do not rely on the socket echo to correct the archived count (#1637).
+    refreshArchivedCount();
+  }, [boardId, load, refreshArchivedCount]);
 
   const addSwimlane = useCallback((swimlane: Swimlane) => {
     setBoard((b) => {
@@ -628,30 +658,14 @@ export function useBoard() {
       await apiDeleteSwimlane(boardId, swimlaneId);
     } catch {
       load();
+      return;
     }
-  }, [boardId, load]);
+    refreshArchivedCount();
+  }, [boardId, load, refreshArchivedCount]);
 
   // Pure state-only helpers for WebSocket receive path — these update local
   // state without firing API calls, preventing redundant round-trips when
   // another client's mutation is broadcast to all connected clients.
-  // Deleting a column or swimlane cascades to its archived cards, which the
-  // client never holds (they are paged in only by ArchivedCardsPanel) and the
-  // *.deleted event does not say how many there were (#1637). Guessing would
-  // either under-count, which lets the Danger Zone skip typed confirmation, or
-  // keep the stale overstated count. Ask the server for the authoritative
-  // count instead; it is one cheap page-0 request and only needed when the
-  // board had archived cards at all.
-  const refreshArchivedCount = useCallback(() => {
-    if (!(boardRef.current?.archived_card_count)) return;
-    getArchivedCards(boardId, 0)
-      .then((page) => {
-        setBoard((b) => b ? { ...b, archived_card_count: page.count } : b);
-      })
-      .catch(() => {
-        // Keep the previous count: it can only overstate, the safe direction.
-      });
-  }, [boardId]);
-
   const evictColumn = useCallback((columnUid: string) => {
     setBoard((b) => {
       if (!b) return b;
