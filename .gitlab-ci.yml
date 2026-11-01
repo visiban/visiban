@@ -1967,8 +1967,9 @@ oidc-smoke:
 # extra --set it needs to RENDER, so a schema violation is the only thing that
 # can fail here.
 #
-# Dependency tarballs are committed under helm/visiban/charts/ so no network
-# access is required. Runs on any change to the chart or values. The
+# The chart has no dependencies (its last subchart, bitnami/postgresql, was
+# removed in chart 0.8.0, #1911), so no network access is required. Runs on
+# any change to the chart or values. The
 # main-branch leg reuses the same `changes: *helm-paths` filter as
 # helm-install/helm-netpol below (#1266) rather than an unconditional
 # fallback: nothing needs helm-lint, and helm-template is needed only with

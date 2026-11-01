@@ -133,8 +133,8 @@ The job therefore passes `--helm-values helm/ci/trivy-values.yaml`, a render-onl
   their templates render). Misconfiguration findings (for example `privileged: true`) of
   HIGH or CRITICAL severity fail the job like any other finding.
 - **Not scanned:** public demo mode (`values-demo.yaml` is a different render shape that
-  conflicts with the SMTP/OIDC settings above), the bundled `postgresql` subchart tarball,
-  and the other `values-*.yaml` overlays. Add a template or a new optional resource to the
+  conflicts with the SMTP/OIDC settings above) and the other `values-*.yaml` overlays. The
+  chart has no subchart tarballs since chart 0.8.0 (#1911). Add a template or a new optional resource to the
   values file when it's gated behind a flag that's off by default.
 
 ## Path containment for CLI arguments

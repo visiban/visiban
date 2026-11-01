@@ -295,7 +295,7 @@ if [ -n "${DOCKERHUB_MIRROR:-}" ]; then
 
   # In-cluster datastore images the chart's own defaults pull: the built-in
   # PostgreSQL StatefulSet's `postgresql.image` (values.yaml, official image —
-  # postgresql.subchartEnabled is false) and the built-in Valkey StatefulSet's
+  # the only bundled mode since chart 0.8.0, #1911) and the built-in Valkey StatefulSet's
   # `valkey.image.{repository,tag}` (values.yaml, official image — #1200).
   # Both set pullPolicy: IfNotPresent, so kind-loading the exact reference here
   # means kubelet never attempts a live pull.

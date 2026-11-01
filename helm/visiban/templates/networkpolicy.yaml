@@ -212,14 +212,9 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              {{- if .Values.postgresql.subchartEnabled }}
-              app.kubernetes.io/name: postgresql
-              app.kubernetes.io/instance: {{ .Release.Name }}
-              {{- else }}
               app.kubernetes.io/name: {{ include "visiban.name" . }}
               app.kubernetes.io/instance: {{ .Release.Name }}
               app.kubernetes.io/component: postgresql
-              {{- end }}
       ports:
         - port: 5432
           protocol: TCP

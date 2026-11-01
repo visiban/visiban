@@ -49,7 +49,6 @@ helm show values oci://ghcr.io/visiban/charts/visiban
 ```bash
 git clone https://github.com/visiban/visiban.git
 cd visiban
-helm dependency update helm/visiban
 ```
 
 !!! tip "Start from an overlay"
@@ -431,7 +430,7 @@ The bundled Valkey needs no `/tmp` mount. It only ever writes to `/data` and `/e
 |---|---|---|
 | `backend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 1001`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the backend Deployment. |
 | `backend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext`, applied to every backend container (init and app). |
-| `postgresql.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup`/`fsGroup: 999`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the bundled PostgreSQL StatefulSet. Not read when `postgresql.subchartEnabled` is true. |
+| `postgresql.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup`/`fsGroup: 999`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the bundled PostgreSQL StatefulSet. |
 | `postgresql.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `postgresql` container. |
 | `frontend.securityContext.pod` | `runAsNonRoot: true`, `runAsUser`/`runAsGroup: 101`, `seccompProfile: RuntimeDefault` | Pod-level `securityContext` for the frontend (nginx) Deployment. `101` is `nginx:1.27-alpine`'s built-in `nginx` user and group. |
 | `frontend.securityContext.container` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]` | Container-level `securityContext` for the `frontend` container. |

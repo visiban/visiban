@@ -66,19 +66,13 @@ The chart lives in `helm/visiban/` and pulls images from the GitLab container re
 | PostgreSQL | 17 | Built-in StatefulSet using the official `postgres:17` image (default) |
 | Valkey | 8 | Built-in StatefulSet using the official `valkey/valkey:8-alpine` image (the same major as `docker-compose.prod.yml`) |
 
-> **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is off by default (`postgresql.subchartEnabled: false`): Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart's own StatefulSet deploys PostgreSQL instead. Set `postgresql.subchartEnabled: true` to revert.
+> **Note (Bitnami PostgreSQL):** Chart 0.8.0 removed the opt-in Bitnami `postgresql` subchart (`postgresql.subchartEnabled`), which never rendered with the chart's values; `postgresql.subchartEnabled: true` now fails the render. The chart has no subchart dependencies (#1911). See the [upgrade note](../administration/upgrade.md#upgrading-to-13x) if a release still runs it.
 
 > **Note:** Compose and Helm both run **PostgreSQL 17**. Coming from a release that used PostgreSQL 16, export your data first: major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
 
 ### Install
 
-```bash
-# The only remaining subchart is the opt-in Bitnami PostgreSQL one
-# (postgresql.subchartEnabled). Valkey is part of the chart itself since 0.5.0.
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-helm dependency update helm/visiban
-```
+The chart has no subchart dependencies, so there is no `helm dependency update` step.
 
 Create a secret values file (never committed — `values.secret.yaml` is gitignored):
 
@@ -241,7 +235,7 @@ helm install visiban helm/visiban \
 | `backend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Backend image tag — bumped by `scripts/release.sh` on every release |
 | `frontend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Frontend image tag — bumped by `scripts/release.sh` on every release |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
-| `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
+| `postgresql.subchartEnabled` | `false` | Removed in chart 0.8.0 (#1911). Must stay `false`; `true` fails the render |
 | `valkey.enabled` | `true` | Use bundled Valkey 8; set `false` to use `externalRedis.url` |
 | `valkey.image.tag` | `8-alpine` | Official `valkey/valkey` image tag. Never `latest` or empty — the chart refuses both |
 | `valkey.primary.persistence.enabled` | `false` | Keep Valkey's AOF in a PVC across restarts. Not needed: Valkey holds only rebuildable data |
@@ -368,7 +362,7 @@ values lack the keys 1.2 added, so the render fails. The 1.1
 
 ### Upgrading PostgreSQL major versions
 
-The bundled PostgreSQL subchart does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data manually:
+The bundled PostgreSQL does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data manually:
 
 1. **Export data from the running PostgreSQL 16 pod:**
    ```bash
