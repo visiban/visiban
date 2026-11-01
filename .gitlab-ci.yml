@@ -3273,8 +3273,8 @@ frontend-license-check:
 #     values and trivy logs "Skipping chart" and scans nothing, so the job
 #     fails if that line ever reappears. Scanned: the default render plus
 #     NetworkPolicies, scheduled-job CronJobs, OIDC env and SMTP env. NOT
-#     scanned: public demo mode (a different render shape), the bundled
-#     postgresql subchart tarball, and values-*.yaml overlays.
+#     scanned: public demo mode (a different render shape) and values-*.yaml
+#     overlays. (The chart has no subchart tarballs since 0.8.0, #1911.)
 #
 # Runs on an MR that changes a Dockerfile, a dependency lockfile, the Helm
 # chart, or the scan's own inputs (this job, .trivyignore.yaml and the expiry

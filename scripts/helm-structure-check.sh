@@ -2010,11 +2010,15 @@ check_postgres_password_guard() {
   # Re-apply the literal values.yaml placeholder AFTER RENDER_ARGS' real-looking
   # password. The bundled StatefulSet is the only bundled mode: the
   # bitnami/postgresql subchart (postgresql.subchartEnabled) was removed in
-  # chart 0.8.0 (#1911), and true must FAIL the render rather than be ignored,
-  # since an install that ran the subchart has data under its layout in the
-  # PVC the StatefulSet would claim. That guard is asserted below, with the
-  # placeholder and with a real password, so it cannot be mistaken for (or
-  # masked by) the password guard.
+  # chart 0.8.0 (#1911), and true must FAIL the render rather than be ignored:
+  # on a release that runs the subchart, the chart's StatefulSet has the same
+  # name with an immutable, different selector, so `helm upgrade` would fail
+  # partway after re-pointing the <release>-postgresql Service at no pods.
+  # That guard is asserted below, with the placeholder and with a real
+  # password, so it cannot be mistaken for (or masked by) the password guard.
+  # So is the empty-image guard: `postgresql.image: null` (how such a values
+  # file reached the subchart's own image) would otherwise render `image:`
+  # empty and fail only at apply time.
   local case_ name
   # Must FAIL on the password guard: name|flags
   local must_fail=(
@@ -2051,8 +2055,25 @@ check_postgres_password_guard() {
       bad=1
     fi
   done
+  # Must FAIL on the empty-image guard (#1911): name|flags
+  local image_fail=(
+    "postgresql.image null|--set postgresql.image=null"
+    "postgresql.image empty|--set-string postgresql.image="
+  )
+  for case_ in "${image_fail[@]}"; do
+    name="${case_%%|*}"
+    # shellcheck disable=SC2086  # flags are deliberately word-split
+    if helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" ${case_#*|} >/dev/null 2>"$errf"; then
+      fail "empty-image guard '$name': the render SUCCEEDED -- the StatefulSet would carry an empty image (#1911)"
+      bad=1
+    elif ! grep -qF 'postgresql.image is empty or null' "$errf"; then
+      fail "empty-image guard '$name': the render failed, but not on the empty-image guard: $(head -3 "$errf" | tr '\n' ' ')"
+      bad=1
+    fi
+  done
   # Must render: name|flags
   local must_pass=(
+    "postgresql.image null with an external database|--set postgresql.image=null --set postgresql.enabled=false"
     "postgresql.subchartEnabled=false set explicitly (#1911)|--set postgresql.subchartEnabled=false"
     "a real password with only postgresql.auth.existingSecret (backward compatible, #1910)|--set-string postgresql.auth.password=a-real-looking-password --set postgresql.auth.existingSecret=my-pg-secret"
     "the placeholder password with postgresql.auth.existingSecret (the password is unused, #1910)|--set-string postgresql.auth.password=visiban --set postgresql.auth.existingSecret=my-pg-secret"
@@ -2118,7 +2139,7 @@ check_postgres_password_guard() {
 
   rm -f "$errf"
 
-  [ "$bad" -eq 0 ] && pass "the placeholder PostgreSQL password (and an empty one) fails the render with the default bundled StatefulSet; postgresql.auth.existingSecret (the password is unused) clears it and feeds the backend via DATABASE_URL_PASSWORD (#1910); otherwise only a real password, both existing Secrets, or an external database clear it; postgresql.subchartEnabled=true fails the render in every mode (#1911)"
+  [ "$bad" -eq 0 ] && pass "the placeholder PostgreSQL password (and an empty one) fails the render with the default bundled StatefulSet; postgresql.auth.existingSecret (the password is unused) clears it and feeds the backend via DATABASE_URL_PASSWORD (#1910); otherwise only a real password, both existing Secrets, or an external database clear it; postgresql.subchartEnabled=true fails the render in every mode, and an empty or null postgresql.image fails it with the bundled StatefulSet (#1911)"
 }
 
 # ---------------------------------------------------------------------------
@@ -2447,9 +2468,11 @@ self_test() {
     # bundled StatefulSet accepts the placeholder password again.
     "15 postgres password guard no longer keyed on postgresql.enabled|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (not .Values.postgresql.auth.existingSecret) }}/{{- if and false (not .Values.postgresql.auth.existingSecret) }}/"
     # 15 (#1911): postgresql.subchartEnabled=true is silently ignored again, so
-    # an install that ran the removed subchart would get the StatefulSet on
-    # the subchart's volume instead of a failed render.
+    # on a release that runs the removed subchart `helm upgrade` fails partway
+    # (immutable StatefulSet selector) after re-pointing the Service.
     "15 removed-subchart guard removed|templates/_validate.tpl|s/{{- if .Values.postgresql.subchartEnabled }}/{{- if false }}/"
+    # 15 (#1911): an empty or null postgresql.image renders `image:` empty again.
+    "15 empty postgresql.image guard removed|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (eq (toString (.Values.postgresql.image | default \"\")) \"\") }}/{{- if false }}/"
   )
 
   for fixture in "${fixtures[@]}"; do

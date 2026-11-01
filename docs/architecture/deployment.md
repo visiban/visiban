@@ -362,20 +362,23 @@ values lack the keys 1.2 added, so the render fails. The 1.1
 
 ### Upgrading PostgreSQL major versions
 
-The bundled PostgreSQL does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data with a dump and restore. The commands assume a release and namespace named `visiban` and the default `postgresql.auth` user and database:
+The bundled PostgreSQL does not upgrade major versions in place. To move from PostgreSQL 16 to a chart that bundles 17, migrate your data with a dump and restore. The user and database names below are the chart defaults (`postgresql.auth.username` and `postgresql.auth.database`).
 
-1. **Stop the writers:** scale the backend to zero, and suspend the scheduled-job CronJobs if you enabled them:
+1. **Set the names once, and stop the writers:** scale the backend to zero, and suspend the scheduled-job CronJobs if you enabled them:
    ```bash
-   kubectl -n visiban scale deployment/visiban-backend --replicas=0
-   for cj in $(kubectl -n visiban get cronjob -o name); do
-     kubectl -n visiban patch "$cj" -p '{"spec":{"suspend":true}}'
+   NS=visiban
+   RELEASE=visiban
+   BACKEND=visiban-backend   # the backend Deployment (kubectl -n "$NS" get deploy)
+   kubectl -n "$NS" scale deployment/"$BACKEND" --replicas=0
+   for cj in $(kubectl -n "$NS" get cronjob -o name); do
+     kubectl -n "$NS" patch "$cj" -p '{"spec":{"suspend":true}}'
    done
    ```
 
-2. **Export data from the running PostgreSQL 16 pod:**
+2. **Export data from the running PostgreSQL 16 pod.** `--no-owner --no-privileges` keeps the dump restorable as a different database user:
    ```bash
-   kubectl -n visiban exec visiban-postgresql-0 -- \
-     pg_dump -U visiban -d visiban > visiban_backup.sql
+   kubectl -n "$NS" exec "$RELEASE-postgresql-0" -- \
+     pg_dump --no-owner --no-privileges -U visiban -d visiban > visiban_backup.sql
    ```
 
 3. **Verify the dump before deleting anything.** A failed `pg_dump` leaves an empty or truncated file, and the next step deletes the only other copy:
@@ -390,32 +393,28 @@ The bundled PostgreSQL does not upgrade major versions in place. To move from Po
 
 4. **Delete the StatefulSet and its PersistentVolumeClaim** (this removes the old data volume). Deleting the StatefulSet first lets the claim go away instead of staying in `Terminating` under a running pod; the next upgrade recreates both:
    ```bash
-   kubectl -n visiban delete statefulset visiban-postgresql
-   kubectl -n visiban delete pvc data-visiban-postgresql-0
+   kubectl -n "$NS" delete statefulset "$RELEASE-postgresql"
+   kubectl -n "$NS" delete pvc "data-$RELEASE-postgresql-0"
    ```
 
 5. **Upgrade the Helm release with the backend still at zero.** This provisions a fresh PostgreSQL 17 pod, and keeps the backend from migrating and seeding the empty database before the restore. The new data directory takes its password from `postgresql.auth.password`, which must be your own value (the placeholder fails the render):
    ```bash
-   helm upgrade visiban helm/visiban -f my-values.yaml \
+   helm upgrade "$RELEASE" helm/visiban --namespace "$NS" -f my-values.yaml \
      --set-string postgresql.auth.password="$PG_PASSWORD" \
      --set backendReplicaCount=0
+   kubectl -n "$NS" rollout status statefulset/"$RELEASE-postgresql" --timeout=180s
    ```
 
-6. **Wait for PostgreSQL to become ready, then restore** into an empty database. `ON_ERROR_STOP` makes a failure stop the restore instead of leaving a partial database:
+6. **Restore, then start the backend.** `psql -1 -v ON_ERROR_STOP=1` runs the whole file as one transaction, so a failure rolls everything back and leaves the database empty; `ON_ERROR_STOP` alone would not, because each statement of a plain dump commits on its own. The final upgrade (without `backendReplicaCount=0`) runs only if `psql` exits 0. If it does not, the backend stays at zero: fix the cause and run this block again, which recreates the database first:
    ```bash
-   kubectl -n visiban wait pod visiban-postgresql-0 --for=condition=Ready --timeout=180s
-   kubectl -n visiban exec visiban-postgresql-0 -- \
-     dropdb -U visiban --force --if-exists visiban
-   kubectl -n visiban exec visiban-postgresql-0 -- createdb -U visiban visiban
-   kubectl -n visiban exec -i visiban-postgresql-0 -- \
-     psql -U visiban -d visiban -v ON_ERROR_STOP=1 < visiban_backup.sql
+   kubectl -n "$NS" exec "$RELEASE-postgresql-0" -- dropdb -U visiban --force --if-exists visiban
+   kubectl -n "$NS" exec "$RELEASE-postgresql-0" -- createdb -U visiban visiban
+   kubectl -n "$NS" exec -i "$RELEASE-postgresql-0" -- \
+     psql -U visiban -d visiban -1 -v ON_ERROR_STOP=1 < visiban_backup.sql \
+     && helm upgrade "$RELEASE" helm/visiban --namespace "$NS" -f my-values.yaml \
+          --set-string postgresql.auth.password="$PG_PASSWORD"
    ```
-
-7. **Start the backend** with a normal upgrade (without `--set backendReplicaCount=0`). Its `migrate` init container finds the restored schema. The upgrade does not resume CronJobs suspended in step 1; resume each one with `kubectl -n visiban patch cronjob <name> -p '{"spec":{"suspend":false}}'`:
-   ```bash
-   helm upgrade visiban helm/visiban -f my-values.yaml \
-     --set-string postgresql.auth.password="$PG_PASSWORD"
-   ```
+   The upgrade does not resume CronJobs suspended in step 1; resume each one with `kubectl -n "$NS" patch cronjob <name> -p '{"spec":{"suspend":false}}'`.
 
 ## Scaling out
 

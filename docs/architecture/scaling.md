@@ -103,11 +103,15 @@ PostgreSQL holds all persistent state: boards, cards, movements, memberships, co
 -- Check connection usage
 SELECT count(*) FROM pg_stat_activity;
 
--- Increase max_connections (requires restart)
+-- Increase max_connections (requires restart; so does shared_buffers,
+-- while effective_cache_size takes effect on SELECT pg_reload_conf();)
 -- Set in postgresql.conf. The Helm chart has no values key for server
 -- settings; on its bundled StatefulSet run ALTER SYSTEM SET max_connections
--- = 200; (written to postgresql.auto.conf on the data volume), then delete
--- the pod <release>-postgresql-0 so it restarts with the new value
+-- = 200; (written to postgresql.auto.conf on the data volume), then restart
+-- the pod <release>-postgresql-0. Only with
+-- postgresql.primary.persistence.enabled: true (the chart default): with it
+-- false, as in values-dev.yaml and values-demo.yaml, the data directory is
+-- an emptyDir, so restarting the pod deletes the database and the setting
 max_connections = 200
 shared_buffers = 256MB   -- 25% of RAM is a common starting point
 effective_cache_size = 1GB

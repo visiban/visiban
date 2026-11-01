@@ -97,7 +97,7 @@ at startup. Key "password" is the one templates/postgresql.yaml reads.
 {{- end }}
 
 {{/*
-Database URL — built from postgresql subchart or externalDatabase values.
+Database URL — built from the bundled PostgreSQL (postgresql.auth) or externalDatabase values.
 
 The credentials are percent-encoded: a password containing "/", "?", "#", "["
 or "]" otherwise splits the URL in the wrong place, and the backend refuses to
