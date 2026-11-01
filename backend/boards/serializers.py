@@ -3832,7 +3832,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 site_admin_users = list(
                     _User.objects.filter(can_access_all_content=True).only(
                         "id", "username", "display_name", "avatar_url", "is_site_admin",
-                    "can_access_all_content",
+                        "can_access_all_content",
                     )
                 )
                 self.context["_site_admin_users"] = site_admin_users

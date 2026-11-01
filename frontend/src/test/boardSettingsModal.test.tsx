@@ -462,7 +462,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
     expect(screen.getByText('Site admin')).toBeInTheDocument()
     const note = screen.getByText(/All-content access overrides board roles/)
-    expect(note).toHaveTextContent('Board role on record: viewer.')
+    expect(note).toHaveTextContent('Board role on record: Viewer.')
     // No moderator controls for a row whose access is already full.
     expect(screen.getAllByText('Moderator')).toHaveLength(1)
   })

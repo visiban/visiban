@@ -846,9 +846,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <div className="flex items-center gap-2 shrink-0">
                         {allContent ? (
                           <span
-                            tabIndex={0}
                             aria-describedby={allContentNoteId}
-                            className="text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            className="text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded"
                           >
                             Site admin
                           </span>
@@ -890,7 +889,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     {allContent && (
                       <p id={allContentNoteId} className="mt-1 pl-9 text-xs text-fg-muted">
                         All-content access overrides board roles, so this member has full access to the board.
-                        {m.id !== null && ` Board role on record: ${m.role}.`}
+                        {m.id !== null && ` Board role on record: ${ROLES.find((r) => r.value === m.role)?.label ?? m.role}.`}
                       </p>
                     )}
 

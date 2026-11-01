@@ -50,3 +50,14 @@ class HasAllContentAccessTests(TestCase):
         for user in (self.owner, self.plain, self.reader):
             for row in self._members(user).values():
                 self.assertNotIn("has_all_content_access", row)
+
+    def test_instance_site_admin_reader_without_all_content_gets_flag(self):
+        # Roster-visible through User.is_site_admin, the second clause of
+        # site_admin_roster_visible(), even with an ordinary board role.
+        siteadmin = User.objects.create_user(
+            username="siteonly1301", password="pass", is_site_admin=True
+        )
+        BoardMembership.objects.create(board=self.board, user=siteadmin, role="member")
+        rows = self._members(siteadmin)
+        self.assertIs(rows[self.allcontent.pk]["has_all_content_access"], True)
+        self.assertIs(rows[self.plain.pk]["has_all_content_access"], False)
