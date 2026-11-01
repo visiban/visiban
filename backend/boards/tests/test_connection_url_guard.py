@@ -411,3 +411,40 @@ class ConnectionUrlGuardFunctionTests(SimpleTestCase):
             settings_module._apply_database_password("sqlite:///dev.db", _SECRET_FRAGMENT)
         self.assertIn("DATABASE_URL has no host", str(ctx.exception))
         self.assertNotIn(_SECRET_FRAGMENT, str(ctx.exception))
+
+
+class DatabasePoolTests(SimpleTestCase):
+    """_apply_database_pool derivation (#1958)."""
+
+    databases = []
+
+    PG = "postgres://u:p@db:5432/visiban"
+
+    def _cfg(self, url):
+        return settings_module._load_database_url(url)
+
+    def test_disabled_leaves_config_untouched(self):
+        cfg = settings_module._apply_database_pool(self._cfg(self.PG), False, 2, 10)
+        self.assertNotIn("pool", cfg.get("OPTIONS", {}))
+        self.assertNotIn("CONN_MAX_AGE", cfg)
+
+    def test_enabled_postgres_sets_pool_and_zero_conn_max_age(self):
+        cfg = settings_module._apply_database_pool(self._cfg(self.PG), True, 3, 7)
+        self.assertEqual(cfg["OPTIONS"]["pool"], {"min_size": 3, "max_size": 7})
+        self.assertEqual(cfg["CONN_MAX_AGE"], 0)
+
+    def test_enabled_preserves_existing_options(self):
+        cfg = settings_module._apply_database_pool(self._cfg(self.PG + "?sslmode=require"), True, 2, 10)
+        self.assertEqual(cfg["OPTIONS"]["sslmode"], "require")
+        self.assertIn("pool", cfg["OPTIONS"])
+
+    def test_enabled_sqlite_is_ignored_with_warning(self):
+        with self.assertWarns(UserWarning) as ctx:
+            cfg = settings_module._apply_database_pool(self._cfg("sqlite:///x.db"), True, 2, 10)
+        self.assertNotIn("pool", cfg.get("OPTIONS", {}))
+        self.assertNotIn("x.db", str(ctx.warning))
+
+    def test_invalid_sizes_rejected(self):
+        for lo, hi in ((0, 5), (5, 2)):
+            with self.assertRaises(ImproperlyConfigured):
+                settings_module._apply_database_pool(self._cfg(self.PG), True, lo, hi)

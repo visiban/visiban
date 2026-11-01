@@ -93,6 +93,15 @@
               "type": "integer",
               "minimum": 1
             },
+            "dbPool": {
+              "description": "Opt-in PostgreSQL connection pool (DATABASE_POOL, DATABASE_POOL_MIN_SIZE, DATABASE_POOL_MAX_SIZE; #1958). The pool is per backend process.",
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "minSize": { "type": "integer", "minimum": 1 },
+                "maxSize": { "type": "integer", "minimum": 1 }
+              }
+            },
             "numProxies": {
               "description": "NUM_PROXIES (#1180): reverse proxies in front of the backend that append to X-Forwarded-For. null (default) renders 2 when ingress.enabled is true and frontend.service.type is ClusterIP (frontend nginx plus the ingress controller) and otherwise nothing, which keeps the backend default of 1; an explicit value always wins; 2 behind a Cloudflare Tunnel (values-demo.yaml).",
               "type": ["integer", "null"],

@@ -73,6 +73,14 @@ backend:
     # (default 25 MB). Wired to IMPORT_MAX_SIZE_BYTES. The transport limits
     # are derived from the LARGER of this and maxUploadSizeBytes.
     importMaxSizeBytes: 26214400
+    # Opt-in PostgreSQL connection pool (DATABASE_POOL, #1958). Off by default:
+    # each request then opens its own connection. The pool is per backend
+    # process, so keep maxSize x processes per pod x backend.replicaCount below
+    # PostgreSQL max_connections.
+    dbPool:
+      enabled: false
+      minSize: 2
+      maxSize: 10
     # Number of reverse proxies in front of the backend that append to
     # X-Forwarded-For (NUM_PROXIES). Unset (null) renders 2 while ingress.enabled
     # is true and frontend.service.type is ClusterIP (this chart's frontend nginx

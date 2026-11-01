@@ -153,6 +153,38 @@ def _load_database_url(url: str) -> dict:
     return db_config
 
 
+def _apply_database_pool(db_config: dict, enabled: bool, min_size: int, max_size: int) -> dict:
+    """Opt in to Django's native psycopg 3 connection pool (#1958).
+
+    Why this exists: without it every HTTP request opens and closes its own
+    PostgreSQL connection (django-environ sets no CONN_MAX_AGE). The usual
+    fix, CONN_MAX_AGE > 0, suits ASGI poorly -- Django opens per-thread
+    connections that are not reliably closed, and Channels WebSocket
+    consumers share one DB thread per process. A psycopg pool is shared by
+    all threads in the process and bounds connection count at max_size.
+
+    Django requires CONN_MAX_AGE = 0 alongside OPTIONS["pool"]. The pool is
+    per process, so the worst-case server connections are
+    max_size x workers x replicas; keep that under PostgreSQL's
+    max_connections.
+
+    A no-op (with a warning that never includes connection details) for any
+    engine but PostgreSQL, e.g. the SQLite test database.
+    """
+    if not enabled:
+        return db_config
+    if "postgresql" not in db_config.get("ENGINE", ""):
+        warnings.warn("DATABASE_POOL is only supported with PostgreSQL; ignoring it.", stacklevel=2)
+        return db_config
+    if min_size < 1 or max_size < min_size:
+        raise ImproperlyConfigured(
+            "DATABASE_POOL_MIN_SIZE must be >= 1 and DATABASE_POOL_MAX_SIZE must be >= DATABASE_POOL_MIN_SIZE."
+        )
+    db_config["CONN_MAX_AGE"] = 0
+    db_config["OPTIONS"] = {**db_config.get("OPTIONS", {}), "pool": {"min_size": min_size, "max_size": max_size}}
+    return db_config
+
+
 # Detect when running under `manage.py test` or pytest so we can substitute
 # fast in-process backends for Redis-backed services. This avoids requiring a
 # running Redis instance just to run the test suite locally.
@@ -414,6 +446,14 @@ else:
 # value starting with "$" (see REDIS_URL_PASSWORD above).
 _DEFAULT_DB = _load_database_url(
     _apply_database_password(env("DATABASE_URL"), os.environ.get("DATABASE_URL_PASSWORD", ""))
+)
+# Opt-in PostgreSQL connection pool, off by default so existing installs keep
+# their per-request connections (#1958). See _apply_database_pool.
+_DEFAULT_DB = _apply_database_pool(
+    _DEFAULT_DB,
+    env.bool("DATABASE_POOL", default=False),
+    env.int("DATABASE_POOL_MIN_SIZE", default=2),
+    env.int("DATABASE_POOL_MAX_SIZE", default=10),
 )
 
 DATABASES = {

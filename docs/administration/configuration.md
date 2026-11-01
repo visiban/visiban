@@ -181,6 +181,20 @@ Rates use the DRF form `<count>/<period>` with `sec`, `min`, `hour` or `day`. Se
 
 ---
 
+## Database connection pool
+
+> **Added in 1.3** (#1958).
+
+By default each HTTP request opens and closes its own PostgreSQL connection. Set `DATABASE_POOL=true` to have each backend process share a [psycopg connection pool](https://www.psycopg.org/psycopg3/docs/advanced/pool.html) instead, which removes the connect and authentication cost per request. It applies only to PostgreSQL; with another engine it is ignored with a warning. Visiban sets `CONN_MAX_AGE=0` for you when the pool is on, as Django requires.
+
+| Variable | Description | Default |
+|---|---|---|
+| `DATABASE_POOL` | Enables the connection pool. Helm: `backend.settings.dbPool.enabled`. | `false` |
+| `DATABASE_POOL_MIN_SIZE` | Connections each process keeps open. Must be at least 1. Helm: `backend.settings.dbPool.minSize`. | `2` |
+| `DATABASE_POOL_MAX_SIZE` | Most connections each process opens. Must be at least `DATABASE_POOL_MIN_SIZE`. Helm: `backend.settings.dbPool.maxSize`. | `10` |
+
+**Sizing:** the pool is per process, so the worst case is `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas. Keep that below PostgreSQL's `max_connections` (default 100), leaving headroom for migrations and admin sessions, or put pgBouncer in front. See [Scaling](../architecture/scaling.md).
+
 ## Import limits
 
 | Variable | Description | Default |

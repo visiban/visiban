@@ -134,6 +134,12 @@ each with 10 MB of multipart-framing headroom. Raise the one value and the whole
 path moves with it; a transport limit below the app cap would 413 uploads at the
 edge before Django could return a message naming the real limit.
 
+**Optional database connection pool.** `backend.settings.dbPool.enabled`
+(default `false`) sets `DATABASE_POOL`, with `minSize`/`maxSize` mapping to
+`DATABASE_POOL_MIN_SIZE`/`DATABASE_POOL_MAX_SIZE`. The pool is per backend
+process: keep `maxSize` x processes per pod x `backend.replicaCount` below
+PostgreSQL `max_connections`.
+
 ## Pod security
 
 Every long-running or scheduled workload the chart renders — the backend

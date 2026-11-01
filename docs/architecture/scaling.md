@@ -95,7 +95,11 @@ PostgreSQL holds all persistent state: boards, cards, movements, memberships, co
 
 **What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load) and the ORM uses `select_related`/`prefetch_related` throughout.
 
-**Connection count:** each daphne/uvicorn worker opens a persistent connection. With 4 workers per replica and 3 replicas, you need ~12 connections plus headroom. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
+**Connection count:** by default each HTTP request opens and closes its own PostgreSQL connection (`CONN_MAX_AGE` is unset); connections are not held between requests. Peak usage is therefore roughly the number of requests in flight at once, plus one connection per active WebSocket consumer query. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
+
+> **Added in 1.3** (#1958).
+
+To avoid the per-request connect and authentication cost, set `DATABASE_POOL=true` to use a [psycopg connection pool](../administration/configuration.md#database-connection-pool) in each backend process. Each process keeps up to `DATABASE_POOL_MAX_SIZE` (default 10) connections, so size it so that `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas stays under `max_connections`. Visiban does not use `CONN_MAX_AGE > 0`, which Django documents as a poor fit for ASGI.
 
 **How to tune before scaling out:**
 
