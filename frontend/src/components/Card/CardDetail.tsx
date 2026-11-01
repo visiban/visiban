@@ -600,6 +600,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     setShowBulkAdd(false);
     setChecklistError(null);
   }, 37);
+  // The inline new-label input: Escape cancels it (priority 34, above the panel's 30) instead of
+  // closing the whole panel and discarding other unsaved edits (#1972).
+  useEscapeStack(() => {
+    if (!addingLabel) return false;
+    setAddingLabel(false);
+    setLabelError(null);
+  }, 34);
   useEscapeStack(onClose, 30);
 
   // The title the field was last in sync with: seeded from the card, then the
@@ -1515,7 +1522,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           value={newLabelName}
                           onChange={(e) => { setNewLabelName(e.target.value); setLabelError(null); }}
                           // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
-                          onKeyDown={(e) => { if (e.key === "Enter") void handleCreateLabel(); if (e.key === "Escape") { setAddingLabel(false); setLabelError(null); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter") void handleCreateLabel(); }}
                           placeholder="Label name"
                           className="text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
                         />

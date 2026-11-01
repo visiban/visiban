@@ -30,10 +30,15 @@ function dispatch(e: KeyboardEvent): void {
  * Return `false` to signal "not handled" and allow the next lower-priority
  * handler to run. Any other return value (including void) consumes the event.
  *
- * Priority conventions:
+ * Priority conventions (the authoritative, fuller list is in frontend/CLAUDE.md):
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   40 — modals and overlays
+ *   35-39 — card-detail overlays: 35 archive/delete and comment-delete confirms, 36 move popover,
+ *           37 relation picker (and bulk-add overlay), 38 MR/PR link editor, 39 multi-select value menu
+ *   34 — card-detail inline new-label input (CardDetail, #1972)
+ *   33 — RichTextEditor color picker
  *   32 — card-face custom-field quick-edit popover (CustomFieldQuickEditPopover, #1856)
+ *   31 — RichTextEditor edit-mode cancel
  *   30 — side panels (card detail, archived cards)
  *   25 — dropdowns (SelectDropdown, FilterBar, BulkActionToolbar) — via useDropdownEscape
  *   20 — inline confirmation dialogs (bulk delete confirm)
