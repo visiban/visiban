@@ -37,23 +37,27 @@ class ServeMediaView(APIView):
     ]
 
     def get(self, request, path):
-        try:
-            attachment = (
-                CardAttachment.objects
-                .select_related("card__board")
-                .get(file=path)
-            )
-        except CardAttachment.DoesNotExist:
-            from django.http import Http404
-            raise Http404
+        # FileField has no uniqueness guarantee, so duplicate stored paths can
+        # exist (e.g. via Django admin); .get() would raise
+        # MultipleObjectsReturned (HTTP 500, #1945). Walk the matching rows in
+        # pk order and serve the first one the requester holds a role on: every
+        # row names this same file, so a member of any owning board may read it,
+        # and the role check always runs against the row actually served.
+        # Non-members of every matching board get the same 404 as a missing
+        # path (not 403) so a valid attachment path is never confirmed.
+        from django.http import Http404
 
-        board = attachment.card.board
-        role = get_board_role(request.user, board)
-        if not role:
-            # Return 404 (not 403) to avoid leaking whether a file path is a
-            # valid attachment — an attacker who knows a valid path should not
-            # receive confirmation of that fact via a 403.
-            from django.http import Http404
+        attachment = None
+        for candidate in (
+            CardAttachment.objects
+            .select_related("card__board")
+            .filter(file=path)
+            .order_by("pk")
+        ):
+            if get_board_role(request.user, candidate.card.board):
+                attachment = candidate
+                break
+        if attachment is None:
             raise Http404
 
         # Determine Content-Type from the stored filename (not the URL path,
