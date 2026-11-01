@@ -39,6 +39,10 @@ test.describe('card detail', () => {
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/relations/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
+    // Block history (#1149): the block section fetches it on open, same 401 trap.
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/blocks/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
+    )
   })
 
   test('opens card detail when a card is clicked', async ({ page }) => {
@@ -247,7 +251,7 @@ async function dragAbove(page: Page, card: Locator, target: Locator) {
 async function routeTwoCardBoard(page: Page) {
   await routeAuth(page)
   await routeBoard(page, TWO_CARD_BOARD)
-  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/(comments|attachments|checklist|relations|activity|movements)\/(\?.*)?$/, (route) =>
+  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/(comments|attachments|checklist|relations|activity|movements|blocks)\/(\?.*)?$/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
   )
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/timeline\//, (route) =>

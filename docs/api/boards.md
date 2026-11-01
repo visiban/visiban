@@ -422,9 +422,10 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
   ],
   "blocked": {
     "days_per_column": { "Backlog": 0.0, "In Progress": 3.5, "Done": 0.0 },
+    "seconds_per_column": { "Backlog": 0, "In Progress": 302400, "Done": 0 },
     "blocks_per_column": { "Backlog": 0, "In Progress": 2, "Done": 0 },
     "top_reasons": [
-      { "reason": "Waiting on customer", "count": 2, "total_days": 3.5 }
+      { "reason": "Waiting on customer", "count": 2, "total_days": 3.5, "total_seconds": 302400 }
     ]
   }
 }
@@ -449,10 +450,11 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
 | `swimlanes[].throughput_card_count_per_column` | object | Number of cards that exited each active column during the period window. `0` means no cards exited. |
 | `swimlanes[].throughput_is_outlier` | object | Whether `throughput_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
 | `swimlanes[].deal_velocity_days` | number or null | Average days from a card's first movement ever to its most recent movement, over this swimlane's cards whose most recent movement falls in the period. Cards count whether or not they reached a done column. `null` when there is no velocity data. |
-| `blocked` | object | *Added in 1.3* (#1149). Manual blocked time inside the `days` window, by the column each block started in. A block counts for the part of it inside the window; an open block runs to now, or to the card's archive time if it was archived while blocked. An open block whose card was hard-deleted is left out. Relation blocks are not timed. |
+| `blocked` | object | *Added in 1.3* (#1149). Manual blocked time inside the `days` window, by the column each block started in. A block counts for the part of it inside the window; an open block runs to now, or to the card's archive time if it was archived while blocked. Every end is clipped to now, so an imported block with future timestamps adds nothing beyond now. An open block whose card was hard-deleted is left out; a closed block of a hard-deleted card still counts, as its movements do. Relation blocks are not timed. |
 | `blocked.days_per_column` | object | Blocked days per column, keyed by column name, every column (done columns included) with zeros. One decimal. |
+| `blocked.seconds_per_column` | object | The same blocked time in whole seconds, for durations under a day. |
 | `blocked.blocks_per_column` | object | Number of blocks overlapping the window per column. |
-| `blocked.top_reasons` | array | Up to 10 `{reason, count, total_days}`, most frequent first (ties: more blocked time first). Reasons that differ only in case or spacing are one entry, shown with the newest spelling. Includes blocks in a column that no longer exists. |
+| `blocked.top_reasons` | array | Up to 10 `{reason, count, total_days, total_seconds}`, most frequent first (ties: more blocked time first). Reasons that differ only in case or spacing are one entry, shown with the newest spelling. Includes blocks in a column that no longer exists. |
 | `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "uid", "title", "days_since_move" }`. |
 
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.

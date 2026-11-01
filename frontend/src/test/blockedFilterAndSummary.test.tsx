@@ -142,7 +142,7 @@ describe('Analytics blocked time (#1149)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   const base = {
-    days: 30, columns: ['Doing', 'Review'], swimlanes: [],
+    days: 30, columns: ['Doing', 'Review', 'QA'], swimlanes: [],
     stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
   }
 
@@ -150,10 +150,12 @@ describe('Analytics blocked time (#1149)', () => {
     mockAnalytics.mockResolvedValue({
       ...base,
       blocked: {
-        days_per_column: { Doing: 3, Review: 0 },
-        blocks_per_column: { Doing: 2, Review: 0 },
+        days_per_column: { Doing: 3, Review: 0, QA: 0 },
+        seconds_per_column: { Doing: 3 * 86400, Review: 0, QA: 7200 },
+        blocks_per_column: { Doing: 2, Review: 0, QA: 1 },
         top_reasons: [
-          { reason: 'Waiting on customer', count: 2, total_days: 3 },
+          { reason: 'Waiting on customer', count: 2, total_days: 3, total_seconds: 3 * 86400 },
+          // An older server: no seconds, so days are used.
           { reason: 'Vendor', count: 1, total_days: 0.5 },
         ],
       },
@@ -164,17 +166,21 @@ describe('Analytics blocked time (#1149)', () => {
     const table = within(section).getByRole('table', { name: 'Blocked time per column' })
     expect(within(table).getByText('Doing')).toBeInTheDocument()
     expect(within(table).queryByText('Review')).not.toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: 'Time blocked' })).toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: 'Times blocked' })).toBeInTheDocument()
     expect(within(table).getByText('3d')).toBeInTheDocument()
+    // A sub-day block reads in hours, never "0d".
+    expect(within(table).getByText('2h')).toBeInTheDocument()
     const reasons = within(section).getByRole('list', { name: 'Top block reasons' })
     expect(within(reasons).getByText('Waiting on customer')).toBeInTheDocument()
     expect(within(reasons).getByText('2 blocks · 3d')).toBeInTheDocument()
-    expect(within(reasons).getByText('1 block · 0.5d')).toBeInTheDocument()
+    expect(within(reasons).getByText('1 block · 12h')).toBeInTheDocument()
   })
 
   it('renders no section when nothing was blocked, or for an older server', async () => {
     mockAnalytics.mockResolvedValue({
       ...base,
-      blocked: { days_per_column: { Doing: 0, Review: 0 }, blocks_per_column: { Doing: 0, Review: 0 }, top_reasons: [] },
+      blocked: { days_per_column: { Doing: 0, Review: 0, QA: 0 }, blocks_per_column: { Doing: 0, Review: 0, QA: 0 }, top_reasons: [] },
     })
     const { unmount } = render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     await screen.findByRole('group', { name: 'Analytics view mode' })

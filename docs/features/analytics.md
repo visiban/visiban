@@ -136,7 +136,7 @@ Below the heatmap, **Blocked time (last N days)** shows how long cards were [man
 - **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed.
 - **Top reasons:** the ten most common reasons, with how many blocks and how many days each one cost. Reasons that differ only in capitals or spacing count as one.
 
-A block counts for the part of it inside the period. A block that is still open counts up to now; one on a card archived while blocked stops at the archive. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
+A block counts for the part of it inside the period. A block that is still open counts up to now; one on a card archived while blocked stops at the archive. A deleted card's past blocks still count, and their reasons still appear, as its movements do in the heatmap. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
 
 ### Empty period
 

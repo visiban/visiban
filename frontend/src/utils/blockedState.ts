@@ -9,6 +9,8 @@
 import type { Card } from "../types";
 
 const MINUTE = 60_000;
+/** The reason is cut to this many characters in the indicator's name (#1149). */
+export const BLOCKED_LABEL_REASON_MAX = 120;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
@@ -82,7 +84,12 @@ export function blockedIndicatorLabel(
       : "";
   if (card.blocked_at == null) return relation;
   const elapsed = formatBlockedDuration(blockedElapsedMs(card.blocked_at, now), 2);
-  const reason = card.blocked_reason.trim();
+  // Cut so every blocked card in a column scan does not read a paragraph;
+  // the full reason is in the card detail banner.
+  const full = (card.blocked_reason ?? "").trim();
+  const reason = full.length > BLOCKED_LABEL_REASON_MAX
+    ? `${full.slice(0, BLOCKED_LABEL_REASON_MAX - 1).trimEnd()}…`
+    : full;
   const manual = reason ? `Blocked ${elapsed}: ${reason}` : `Blocked ${elapsed}`;
   if (!relation) return manual;
   return `${manual}. ${card.blocker_count === 1 ? "Also blocked by 1 card" : `Also blocked by ${card.blocker_count} cards`}`;

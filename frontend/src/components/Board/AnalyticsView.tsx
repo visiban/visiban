@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getBoardAnalytics } from "../../api/boards";
 import { agingStage } from "../../utils/agingTint";
+import { formatBlockedDuration } from "../../utils/blockedState";
 
 interface StalledCard {
   id: number;
@@ -31,8 +32,10 @@ interface SwimlaneStat {
 interface BlockedSummary {
   /** Blocked days per column (where each block started), every column included. */
   days_per_column: Record<string, number>;
+  /** Same time in seconds; absent from a server older than this field. */
+  seconds_per_column?: Record<string, number>;
   blocks_per_column: Record<string, number>;
-  top_reasons: { reason: string; count: number; total_days: number }[];
+  top_reasons: { reason: string; count: number; total_days: number; total_seconds?: number }[];
 }
 
 interface AnalyticsData {
@@ -52,6 +55,11 @@ interface AnalyticsData {
  * nothing when no block overlapped the window, so a board that never uses
  * blocking sees no new empty section.
  */
+/** Blocked time for display: hours under a day, never a misleading "0d". */
+function blockedTimeText(seconds: number | undefined, days: number): string {
+  return formatBlockedDuration((seconds ?? days * 86_400) * 1000, 2);
+}
+
 function BlockedTimeSection({ blocked, columns, days }: { blocked: BlockedSummary; columns: string[]; days: number }) {
   const cols = columns.filter((c) => (blocked.blocks_per_column[c] ?? 0) > 0);
   if (cols.length === 0 && blocked.top_reasons.length === 0) return null;
@@ -65,15 +73,17 @@ function BlockedTimeSection({ blocked, columns, days }: { blocked: BlockedSummar
           <thead>
             <tr className="text-left text-xs text-fg-muted uppercase tracking-wider">
               <th className="pb-1 pr-4 font-medium">Column</th>
-              <th className="pb-1 px-3 font-medium text-right">Blocked</th>
-              <th className="pb-1 px-3 font-medium text-right">Blocks</th>
+              <th className="pb-1 px-3 font-medium text-right">Time blocked</th>
+              <th className="pb-1 px-3 font-medium text-right">Times blocked</th>
             </tr>
           </thead>
           <tbody>
             {cols.map((c) => (
               <tr key={c} className="border-t border-line">
                 <td className="py-1 pr-4 text-fg max-w-[12rem] truncate" title={c}>{c}</td>
-                <td className="py-1 px-3 text-right font-mono text-fg-secondary">{blocked.days_per_column[c] ?? 0}d</td>
+                <td className="py-1 px-3 text-right font-mono text-fg-secondary">
+                  {blockedTimeText(blocked.seconds_per_column?.[c], blocked.days_per_column[c] ?? 0)}
+                </td>
                 <td className="py-1 px-3 text-right font-mono text-fg-tertiary">{blocked.blocks_per_column[c] ?? 0}</td>
               </tr>
             ))}
@@ -88,7 +98,7 @@ function BlockedTimeSection({ blocked, columns, days }: { blocked: BlockedSummar
               <li key={r.reason} className="flex items-baseline gap-2 min-w-0">
                 <span className="text-fg truncate min-w-0" title={r.reason}>{r.reason}</span>
                 <span className="text-xs text-fg-tertiary shrink-0">
-                  {r.count} {r.count === 1 ? "block" : "blocks"} · {r.total_days}d
+                  {r.count} {r.count === 1 ? "block" : "blocks"} · {blockedTimeText(r.total_seconds, r.total_days)}
                 </span>
               </li>
             ))}

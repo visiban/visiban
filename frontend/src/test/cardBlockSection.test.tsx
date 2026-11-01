@@ -100,6 +100,9 @@ describe('CardBlockSection (#1149)', () => {
     fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: '   ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Block card' }))
     expect(screen.getByText('Enter a reason to block this card.')).toHaveClass('text-danger')
+    // The slot is a live region, so an error that lands while focus is
+    // already in the field is still announced.
+    expect(screen.getByText('Enter a reason to block this card.').parentElement).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByLabelText(/Reason/)).toHaveAttribute('aria-invalid', 'true')
     expect(mockBlock).not.toHaveBeenCalled()
   })

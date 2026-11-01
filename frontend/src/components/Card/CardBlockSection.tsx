@@ -200,8 +200,10 @@ export default function CardBlockSection({
         aria-describedby={helperId}
         className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
       />
-      {/* Reserved helper/error slot (§ Inline status messages). */}
-      <p id={helperId} className="text-xs min-h-4">
+      {/* Reserved helper/error slot (§ Inline status messages). A live
+          region: on a failed submit focus may already be in the field, so
+          moving it there would not announce the new error. */}
+      <p id={helperId} role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4">
         <span className={slotIsError ? "text-danger" : "text-fg-muted"}>{slotText}</span>
       </p>
       <div className="flex items-center justify-end gap-3">

@@ -131,6 +131,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // open it; focus returns to whichever opened it on Cancel or Escape.
   const [blockFormMode, setBlockFormMode] = useState<BlockFormMode>(null);
   const blockTriggerRef = useConfirmFocusReturn(blockFormMode);
+  // A successful unblock removes the banner's Unblock button, which
+  // useConfirmFocusReturn would return focus to; the header's Block…
+  // replaces it, so focus goes there instead of dropping to <body>.
+  const blockButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusBlockButtonNext = useRef(false);
   // In-flight + error state for the inline comment-delete confirm (#1421).
   const [deletingCommentId, setDeletingCommentId] = useState<number | null>(null);
   const [commentDeleteError, setCommentDeleteError] = useState<string | null>(null);
@@ -1121,6 +1126,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // store has it).
   const blockSource = localCard.version > card.version ? localCard : card;
   const manuallyBlocked = blockSource.blocked_at != null;
+  useEffect(() => {
+    if (!manuallyBlocked && focusBlockButtonNext.current) {
+      focusBlockButtonNext.current = false;
+      blockButtonRef.current?.focus();
+    }
+  }, [manuallyBlocked]);
 
   const canDeleteComment = (c: CardComment): boolean =>
     (c.author !== null && currentUser !== null && c.author.id === currentUser.id) ||
@@ -1334,7 +1345,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           </div>
           {canBlock && !manuallyBlocked && (
             <button
-              ref={blockTriggerRef("block")}
+              ref={(el) => { blockTriggerRef("block")(el); blockButtonRef.current = el; }}
               type="button"
               onClick={() => { setTab("details"); setBlockFormMode((m) => (m === "block" ? null : "block")); }}
               aria-expanded={blockFormMode === "block"}
@@ -1399,6 +1410,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 onFormModeChange={setBlockFormMode}
                 unblockTriggerRef={blockTriggerRef("unblock")}
                 onCardUpdated={(updated) => {
+                  if (updated.blocked_at == null) focusBlockButtonNext.current = true;
                   adoptSaved(updated);
                   onUpdated(updated);
                 }}

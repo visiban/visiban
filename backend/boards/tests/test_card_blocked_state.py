@@ -544,6 +544,34 @@ class BlockAnalyticsTests(_BlockTestBase):
         self.assertAlmostEqual(reasons[0]["total_days"], 3.0, delta=0.1)
         self.assertEqual([r["reason"] for r in reasons[1:]], ["Vendor"])
 
+    def test_seconds_carry_sub_day_blocks(self):
+        now = timezone.now()
+        CardBlock.objects.create(
+            card=self.card, board=self.board, column=self.col, column_name="Doing", reason="Quick",
+            blocked_at=now - datetime.timedelta(hours=3), unblocked_at=now - datetime.timedelta(hours=1),
+        )
+        blocked = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/").data["blocked"]
+        self.assertAlmostEqual(blocked["seconds_per_column"]["Doing"], 7200, delta=5)
+        self.assertEqual(blocked["seconds_per_column"]["Review"], 0)
+        self.assertAlmostEqual(blocked["top_reasons"][0]["total_seconds"], 7200, delta=5)
+        self.assertEqual(blocked["days_per_column"]["Doing"], 0.1)
+
+    def test_future_timestamps_never_inflate_blocked_time(self):
+        """An imported block can carry future times; they are clipped to now."""
+        now = timezone.now()
+        CardBlock.objects.create(
+            card=self.card, board=self.board, column=self.col, column_name="Doing", reason="Future end",
+            blocked_at=now - datetime.timedelta(days=1), unblocked_at=now + datetime.timedelta(days=300),
+        )
+        CardBlock.objects.create(
+            card=self.other, board=self.board, column=self.col, column_name="Doing", reason="Future start",
+            blocked_at=now + datetime.timedelta(days=5), unblocked_at=now + datetime.timedelta(days=9),
+        )
+        blocked = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/").data["blocked"]
+        self.assertAlmostEqual(blocked["days_per_column"]["Doing"], 1.0, delta=0.1)
+        self.assertEqual(blocked["blocks_per_column"]["Doing"], 1)
+        self.assertEqual([r["reason"] for r in blocked["top_reasons"]], ["Future end"])
+
     def test_open_block_of_deleted_card_is_left_out(self):
         CardBlock.objects.create(
             card=None, board=self.board, column=self.col, column_name="Doing", reason="Orphan",

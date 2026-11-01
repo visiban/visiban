@@ -71,10 +71,11 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { blockCard } from '../api/cards'
+import { blockCard, unblockCard } from '../api/cards'
 import { flagsWrapper } from './instanceFlagsWrapper'
 
 const mockBlockCard = blockCard as ReturnType<typeof vi.fn>
+const mockUnblockCard = unblockCard as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -201,6 +202,17 @@ describe('CardDetail — manual block (#1149)', () => {
     expect(onUpdated).toHaveBeenCalledWith(blocked)
     expect(await screen.findByTestId('card-blocked-banner')).toHaveTextContent('Vendor')
     expect(screen.queryByRole('button', { name: 'Block…' })).not.toBeInTheDocument()
+  })
+
+  it('after a successful unblock, focus moves to the header Block…', async () => {
+    const onUpdated = vi.fn()
+    const blocked = makeCard({ is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: 'Vendor' })
+    mockUnblockCard.mockResolvedValue(makeCard({ version: 2 }))
+    render(<CardDetail {...props({ card: blocked, onUpdated })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Unblock' }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Unblock card' })) })
+    expect(onUpdated).toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Block…' })).toHaveFocus())
   })
 
   it("another session's block arrives through the live card", async () => {

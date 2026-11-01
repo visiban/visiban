@@ -120,6 +120,10 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                     child=serializers.FloatField(),
                     help_text="Blocked days inside the window per column, keyed by column name (every column, zeros included).",
                 ),
+                "seconds_per_column": serializers.DictField(
+                    child=serializers.IntegerField(),
+                    help_text="The same blocked time in whole seconds, for sub-day display.",
+                ),
                 "blocks_per_column": serializers.DictField(
                     child=serializers.IntegerField(),
                     help_text="Blocks overlapping the window per column, keyed by column name.",
@@ -131,6 +135,7 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                         "reason": serializers.CharField(),
                         "count": serializers.IntegerField(),
                         "total_days": serializers.FloatField(),
+                        "total_seconds": serializers.IntegerField(),
                     },
                 ),
             },
@@ -159,41 +164,54 @@ def _blocked_time_summary(board, columns, period_cutoff, now):
     Reasons are grouped case- and whitespace-insensitively, since the same
     cause typed twice ("Waiting on customer" / "waiting on customer ") is one
     cluster; the newest spelling is the one shown.
+
+    Every end is clipped to now: an imported block can carry a future
+    timestamp, and it must not inflate anyone's numbers.
+
+    Rows are summed in Python rather than in SQL because of the reason
+    clustering. The row count is the blocks overlapping the window on one
+    board (indexed by board), which stays small next to the movement rows the
+    heatmap above already loads for the same window.
     """
     col_id_to_name = {c.id: c.name for c in columns}
     col_names = set(col_id_to_name.values())
-    days_per_column = {c.name: 0.0 for c in columns}
+    seconds_per_column = {c.name: 0.0 for c in columns}
     blocks_per_column = {c.name: 0 for c in columns}
     reasons: dict[str, dict] = {}
     rows = (
-        CardBlock.objects.filter(board=board)
+        CardBlock.objects.filter(board=board, blocked_at__lte=now)
         .filter(Q(unblocked_at__isnull=True) | Q(unblocked_at__gte=period_cutoff))
         .exclude(card__isnull=True, unblocked_at__isnull=True)
         .order_by("-blocked_at", "-id")
         .values("column_id", "column_name", "reason", "blocked_at", "unblocked_at", "card__archived_at")
     )
     for row in rows:
-        end = row["unblocked_at"] or row["card__archived_at"] or now
+        end = min(row["unblocked_at"] or row["card__archived_at"] or now, now)
         start = max(row["blocked_at"], period_cutoff)
         if end <= start:
             continue
-        days = (end - start).total_seconds() / 86400
+        seconds = (end - start).total_seconds()
         name = col_id_to_name.get(row["column_id"])
         if name is None and row["column_name"] in col_names:
             name = row["column_name"]
         if name is not None:
-            days_per_column[name] += days
+            seconds_per_column[name] += seconds
             blocks_per_column[name] += 1
         key = " ".join(row["reason"].split()).casefold()
-        bucket = reasons.setdefault(key, {"reason": row["reason"].strip(), "count": 0, "total_days": 0.0})
+        bucket = reasons.setdefault(key, {"reason": row["reason"].strip(), "count": 0, "seconds": 0.0})
         bucket["count"] += 1
-        bucket["total_days"] += days
-    top = sorted(reasons.values(), key=lambda r: (-r["count"], -r["total_days"], r["reason"]))
+        bucket["seconds"] += seconds
+    top = sorted(reasons.values(), key=lambda r: (-r["count"], -r["seconds"], r["reason"]))
     return {
-        "days_per_column": {k: round(v, 1) for k, v in days_per_column.items()},
+        "days_per_column": {k: round(v / 86400, 1) for k, v in seconds_per_column.items()},
+        "seconds_per_column": {k: int(v) for k, v in seconds_per_column.items()},
         "blocks_per_column": blocks_per_column,
         "top_reasons": [
-            {**r, "total_days": round(r["total_days"], 1)} for r in top[:_TOP_BLOCK_REASONS]
+            {
+                "reason": r["reason"], "count": r["count"],
+                "total_days": round(r["seconds"] / 86400, 1), "total_seconds": int(r["seconds"]),
+            }
+            for r in top[:_TOP_BLOCK_REASONS]
         ],
     }
 

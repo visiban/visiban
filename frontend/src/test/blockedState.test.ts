@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  blockedElapsedMs, blockedIndicatorLabel, formatBlockedDuration, isCardBlocked, isManuallyBlocked,
+  BLOCKED_LABEL_REASON_MAX, blockedElapsedMs, blockedIndicatorLabel, formatBlockedDuration, isCardBlocked, isManuallyBlocked,
 } from '../utils/blockedState'
 
 const MIN = 60_000
@@ -35,6 +35,17 @@ describe('blockedState (#1149)', () => {
     expect(blockedElapsedMs('2026-10-04T00:00:00Z', now)).toBe(DAY)
     expect(blockedElapsedMs('2026-10-06T00:00:00Z', now)).toBe(0)
     expect(blockedElapsedMs('not a date', now)).toBe(0)
+  })
+
+  it('cuts a long reason in the indicator name', () => {
+    const now = Date.parse('2026-10-04T05:00:00Z')
+    const label = blockedIndicatorLabel({ blocked_at: '2026-10-01T00:00:00Z', blocked_reason: 'x'.repeat(500), blocker_count: 0 }, now)
+    const reason = label.slice('Blocked 3d 5h: '.length)
+    expect(reason).toHaveLength(BLOCKED_LABEL_REASON_MAX)
+    expect(reason.endsWith('…')).toBe(true)
+    const exact = 'y'.repeat(BLOCKED_LABEL_REASON_MAX)
+    expect(blockedIndicatorLabel({ blocked_at: '2026-10-01T00:00:00Z', blocked_reason: exact, blocker_count: 0 }, now))
+      .toBe(`Blocked 3d 5h: ${exact}`)
   })
 
   it('labels manual, relation and combined blocks', () => {
