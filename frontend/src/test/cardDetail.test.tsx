@@ -932,19 +932,37 @@ describe('CardDetail', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('Escape with focus on a bulk-add dialog button closes only the dialog and clears its error (#1891)', async () => {
+  it('Escape with focus on a bulk-add dialog button closes only the dialog (#1891)', async () => {
     const props = defaultProps()
     const user = userEvent.setup()
     render(<CardDetail {...props} />)
-    await user.click(screen.getByText('Bulk'))
-    const cancel = screen.getByRole('button', { name: 'Cancel' })
-    cancel.focus()
-    expect(cancel).toHaveFocus()
-    await user.keyboard('{Escape}')
-    expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument()
-    expect(props.onClose).not.toHaveBeenCalled()
+    for (const name of ['Cancel', 'Add items']) {
+      await user.click(screen.getByText('Bulk'))
+      const btn = screen.getByRole('button', { name })
+      btn.focus()
+      expect(btn).toHaveFocus()
+      await user.keyboard('{Escape}')
+      expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument()
+      expect(props.onClose).not.toHaveBeenCalled()
+    }
     await user.keyboard('{Escape}')
     expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('closing the bulk-add dialog by clicking its backdrop clears a stale error (#1891)', async () => {
+    mockAddChecklistItem.mockRejectedValueOnce(new Error('server error'))
+    render(<CardDetail {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Bulk'))
+    await user.type(screen.getByPlaceholderText(/Buy milk/), 'One')
+    await user.click(screen.getByRole('button', { name: 'Add items' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    // The backdrop is the dialog's aria-hidden previous sibling.
+    fireEvent.click(screen.getByRole('dialog', { name: 'Add checklist items' }).previousElementSibling as Element)
+    expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument()
+    // The error also renders beside the Bulk button once the dialog is closed, so a
+    // stale message would be visible here.
+    expect(screen.queryByText(/Added 0 of 1|failed|Could not/)).not.toBeInTheDocument()
   })
 
   it('Escape closes an open multi-select field menu first, without closing the card panel (#1391)', async () => {
