@@ -81,6 +81,7 @@ Operators and integrators may treat the `/api/v1/` surface as stable for the lif
 - Dates are ISO 8601 strings: `"2026-04-01"`
 - Requests with no valid credentials (no session, or a missing, invalid, or expired token) return `401 Unauthorized` with a `WWW-Authenticate: Token` header. A credential that is valid but not allowed to perform the action returns `403 Forbidden`. Re-authenticating fixes a `401`; it never fixes a `403`
 - Permission errors return `403 Forbidden`; missing resources return `404 Not Found`
+- An account with a forced password or username change pending gets `403 Forbidden` with a body of only `{"detail": "You must change your password before continuing."}` or `{"detail": "You must choose a new username before continuing."}` (no `code`) on most authenticated endpoints, until it completes the change. The endpoints needed to clear or read the flag stay reachable: `GET /auth/me/`, `GET`/`PUT`/`PATCH /auth/user/`, `POST /auth/change-password/`, `POST /auth/password/change/` and `POST /auth/choose-username/`, along with logout, the public sign-in, registration and password-reset routes, `site-config`, `providers`, invite previews, share links, health checks and the schema. See [Common errors](authentication.md#common-errors)
 - *(1.2+)* Board-scoped routes answer `404 Not Found` to a caller with no access to the board, the same as for a board that does not exist. `403 Forbidden` means the caller can see the board but their role is too low for the action
 
 ### Error responses
@@ -122,6 +123,28 @@ This covers:
 Branch on `code`, not on which parameter key is present.
 
 Some parameters are clamped or ignored rather than refused; each endpoint's page says which.
+
+### Rate limits
+
+Requests are throttled per client with DRF throttles. A request over its limit answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header (seconds); wait that long before retrying.
+
+Every endpoint counts against two defaults unless its page names a tighter scope:
+
+| Scope | Default | Keyed on |
+|---|---|---|
+| `anon` | 300 requests/hour | Client IP, unauthenticated requests |
+| `user` | 5000 requests/hour | Authenticated user, shared across every endpoint without its own scope |
+
+Some endpoints have their own scope in place of or alongside these. The ones that are easy to trip from a script:
+
+| Endpoint | Scope | Default |
+|---|---|---|
+| `GET /api/v1/cards/` | `card_query` | 120 requests/minute per user |
+| `POST /api/v1/auth/registration/` | `register` | 10 requests/minute per IP, anonymous requests only |
+| `POST /api/v1/auth/choose-username/` | `choose_username` | 10 requests/minute per user, shared with username and email changes on `PATCH /api/v1/auth/me/` and `PUT`/`PATCH /api/v1/auth/user/` |
+| `POST /api/v1/auth/password/reset/confirm/` | `password_reset_confirm` | 10 requests/hour per IP |
+
+Each endpoint's page lists its own scope and rate. These are the production defaults; development (`DEBUG`) mode raises most of them to 9999/hour. Nothing here applies to [`/mcp`](mcp.md#rate-limiting), which has its own limiter.
 
 ### Pagination
 

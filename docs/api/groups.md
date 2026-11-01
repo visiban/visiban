@@ -256,6 +256,55 @@ A create that arrives while the group is being deleted waits for the delete to f
 
 Since 1.2, a body that is not a JSON object, or a non-string `swimlane_name`, returns `400 Bad Request` (a non-string `swimlane_name`, and a numeric or boolean body, returned `500` before).
 
+The body is validated by the same serializer as [`POST /api/v1/boards/`](boards.md#post-apiv1boards), so every writable board field is accepted here, not just the four above. All are optional and take the same defaults and validation as on the board page: `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`, `enforce_wip_limits`, `enforce_wip_hard`, `enforce_weight_limits`, `export_min_role`, `card_density`, `show_wip_at_limit` and `show_row_chip_field_names` (field table under [`GET /api/v1/boards/{id}/`](boards.md#get-apiv1boardsid)). A supplied `allowed_priorities` is overwritten by the group's own list when that list differs from the default four priorities.
+
+The board always lands in the group in the URL. A `group` key in the body is ignored, not validated and not an error (#1655), so a client that echoes a board object back does not get a `400`. To put the board somewhere else, create it with `POST /api/v1/boards/` and a `group`, or use [`POST /api/v1/boards/{id}/move-group/`](boards.md#post-apiv1boardsidmove-group).
+
+**Response** `201 Created` with the board object, in the same shape as `GET /api/v1/boards/{id}/`. The caller becomes the board's owner and an `admin` member, and the board starts with the template's columns and one swimlane. `group_detail` is `null` (it is only populated with `?expand=group`). `allowed_priorities` is `[]` unless the request supplied a list or the group defines its own. Example:
+
+```json
+{
+  "id": 42,
+  "uid": "3a9f1c2d7e4b8a05",
+  "name": "Q3 Roadmap",
+  "description": "",
+  "owner": { "id": 7, "username": "maya", "display_name": "Maya", "avatar_url": "" },
+  "group": 5,
+  "group_name": "Platform",
+  "group_detail": null,
+  "member_count": 1,
+  "card_count": 0,
+  "archived_card_count": 0,
+  "staleness_threshold_days": 7,
+  "stale_warning_pct": 50,
+  "allowed_priorities": [],
+  "enforce_wip_limits": true,
+  "enforce_wip_hard": false,
+  "enforce_weight_limits": true,
+  "export_min_role": "viewer",
+  "card_density": "comfortable",
+  "show_wip_at_limit": false,
+  "show_row_chip_field_names": true,
+  "is_starred": false,
+  "created_at": "2026-10-31T14:02:11Z",
+  "updated_at": "2026-10-31T14:02:11Z"
+}
+```
+
+**Errors**
+
+| Status | Body | Condition |
+|---|---|---|
+| `400 Bad Request` | Field-keyed, for example `{"name": ["This field is required."]}` | Missing `name`, or any field fails validation (for example an `export_min_role` or `card_density` outside its allowed values). A body that is not a JSON object, or a non-string `swimlane_name`, also answers `400` (1.2+) |
+| `400 Bad Request` | `{"code": "unknown_template", "detail": "..."}` | `template` is a non-blank value that matches no active template |
+| `401 Unauthorized` | `{"detail": "..."}` | No valid credentials |
+| `403 Forbidden` | `{"detail": "You must be a group member to perform this action."}` | The caller reaches the group only through a descendant subgroup (it is [navigation-only](#ancestor-groups-navigation-only) for them), so they are not a member of it or of an ancestor. Checked before the admin rule below |
+| `403 Forbidden` | `{"detail": "You must be a group admin to perform this action."}` | The caller can see the group but is not an admin of it or of an ancestor group |
+| `403 Forbidden` | `{"detail": "You must change your password before continuing."}` or `{"detail": "You must choose a new username before continuing."}` (no `code`) | The account has a forced password or username change pending (see [Common errors](authentication.md#common-errors)) |
+| `403 Forbidden` | `{"detail": "This token is missing the required scope: <scope>."}` | The request used a scoped personal access token that lacks the scope needed for a write (see [Scopes](authentication.md#scopes)) |
+| `404 Not Found` | `{"detail": "Not found."}` | The group does not exist, the caller cannot see it, or it is being deleted |
+| `429 Too Many Requests` | `{"detail": "Request was throttled. ..."}`, `Retry-After` header | The caller's per-user API budget is spent (`user` scope, see [Rate limits](index.md#rate-limits)) |
+
 ### `GET /api/v1/groups/{id}/descendant-boards/`
 List all boards in this group and all of its descendant subgroups that the requesting user can access. This answers "what boards live anywhere inside this group subtree?" — including boards in deeply nested subgroups. Requires group membership.
 
@@ -583,7 +632,7 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 
 `can_register` is present only on `200` responses, never on `404` / `410` bodies. A member previewing their own consumed single-use invite (below) gets `can_register: false` in `"invite_only"` mode. Site invite links (`vbnl_`) are out of scope: they are not group tokens, and the SPA routes them to the registration form without calling this endpoint.
 
-**Errors:** `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed)
+**Errors:** `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed), `429 Too Many Requests` — `{"detail": "Request was throttled. ..."}` with a `Retry-After` header (the per-IP `join_group` budget, 10/hour, is spent)
 
 *(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404`, the same as a revoked link, and never previews or grants admin. Upgrade revokes the ones created before 1.2; this also covers one reactivated afterward. *(#2006)* An emailed `admin` invite sent before the cap answers `404` too; no invite grants admin. *(#2015)* A link whose stored role is not one of the group roles (only possible through a write outside the API) answers `404` as well.
 
@@ -623,7 +672,7 @@ An emailed link (`delivery: "email"`) works only for an account with the address
 
 **Note:** Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.
 
-**Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed by someone who is not a member)
+**Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid or revoked token, or, *(1.2+)* the link's creator is no longer an active admin of the group — deactivated, removed, demoted or deleted — the same response, with no reason given, reported the same way whatever the link's other state: a link with a gone creator is `404` even if it is also expired or consumed. A link with a live creator still answers `410` for expired or consumed, so the two cases remain distinguishable to a token holder), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed by someone who is not a member), `429 Too Many Requests` — `{"detail": "Request was throttled. ..."}` with a `Retry-After` header (the per-IP `join_group` budget, 10/hour, shared with the preview above and the board join endpoints, is spent)
 
 *(1.2+, #1940)* A shareable (`delivery: "link"`) link with the `admin` role answers `404` and nothing is written, the same as a revoked link. *(#2006)* An emailed `admin` invite sent before the cap is refused the same way. *(#2015)* So is a link whose stored role is outside the group roles; nothing is written and a single-use link stays unconsumed.
 

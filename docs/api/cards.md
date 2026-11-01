@@ -73,6 +73,8 @@ page; treat it as opaque.
 | `?cursor=<opaque>` | Page cursor from a previous response's `next_cursor`. A cursor that cannot be decoded, or whose position is not a timestamp Postgres can store (not a valid date and time, or a UTC offset of 16 hours or more), returns `400` with `{"detail": "cursor is not a valid page cursor.", "code": "invalid_query_param"}` |
 | `?page_size=<n>` | Rows per page (default 50, max 200) |
 
+**Rate limit:** 120 requests/minute per user (scope `card_query`), counted separately from the general 5000/hour per-user budget. Over the limit the endpoint answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header. A client doing incremental sync should pace its page walk and honor `Retry-After`. See [Rate limits](index.md#rate-limits).
+
 A filter value that fails its type check (`?updated_since=x`, `?assignee=x`) returns `400` with `{"updated_since": ["Enter a valid date/time."], "detail": "updated_since: Enter a valid date/time.", "code": "invalid_query_param"}`: the [bad query parameter](index.md#error-responses) shape, plus a field-keyed entry for the parameter.
 
 **Card response fields:** the same fields as the card response field table under
@@ -235,6 +237,8 @@ Update card fields. Requires member or above. Returns `404 Not Found` if the car
 > **Ownership gate:** Members may only edit cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 **Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `custom_field_values`, `external_ref`
+
+**`PUT /api/v1/boards/{board_id}/cards/{id}/`** is also accepted, with the same permissions, ownership gate, side effects and errors. The difference is which fields are required. `PATCH` needs none. `PUT` requires `title`, `column` and `swimlane`, as on create; `column` and `swimlane` must be the card's *current* values (see the note below on moving cards), so a `PUT` is in practice a round trip of a card you just read. Any other field a `PUT` leaves out keeps its current value; it is not reset. Prefer `PATCH` for edits.
 
 > **Weight limit:** raising `weight` in a column with a `weight_limit`, on a board with `enforce_weight_limits` on, returns `409` with `weight_limit_exceeded` (same body as a [move](#wip-weight-limit-enforcement)) when the column's total would exceed the limit; a board admin may override with the optional `?force=true` query parameter. Lowering `weight`, leaving it unchanged, or editing any other field is never blocked, even in a column already over its WIP or weight limit. The WIP limit is not checked, since the column's card count does not change. *Changed in 1.2 (#1428).*
 

@@ -436,9 +436,14 @@ With `DEBUG=False` (production) the API enforces the per-client limits below.
 | Login (`/api/v1/auth/login/`) (1.1+) | 20 / hour per IP | This DRF throttle wraps only the SPA/API endpoint. The allauth `login_failed` gate below applies on top |
 | Password change (`/api/v1/auth/change-password/`, `/api/v1/auth/password/change/`) | 10 / hour per user | One `password_change` bucket shared by both endpoints. Failed current-password checks here also count toward the same per-account and per-IP `login_failed` budgets as sign-in |
 | User search (`/api/v1/users/`) | 30 / minute | Tighter limit to prevent username enumeration |
+| Cross-board card query (`GET /api/v1/cards/`) (1.2+) | 120 / minute per user | `card_query` scope; bounds scraping of a member's whole accessible-card corpus while leaving room for incremental sync |
+| Registration (`/api/v1/auth/registration/`) | 10 / minute per IP | `register` scope; anonymous requests only. Slows invite-token guessing and mass account creation |
+| Choose username (`/api/v1/auth/choose-username/`) | 10 / minute per user | `choose_username` scope; also drawn on by a username or email change through `PATCH /api/v1/auth/me/` and `PUT`/`PATCH /api/v1/auth/user/` |
+| Password reset confirm (`/api/v1/auth/password/reset/confirm/`) | 10 / hour per IP | `password_reset_confirm` scope; prevents token-stuffing |
+| Email-confirm redirect (`/accounts/confirm-email/<key>/`) | 60 / hour per IP | `email_confirm_redirect` scope; generous because the endpoint only redirects |
 | Invite link redemption (`/api/v1/groups/join/.../` and, 1.2+, `/api/v1/boards/join/.../`) | 10 / hour per IP | Low ceiling to prevent invite token brute-force scanning. One `join_group` bucket shared by group and board join requests, preview and redeem alike |
 
-Exceeding a DRF throttle scope returns `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set, so clients should back off exponentially.
+Exceeding a DRF throttle scope returns `HTTP 429 Too Many Requests`. DRF sets the standard `Retry-After` header (seconds) on the response; clients should wait that long before retrying.
 
 **Login lockout (allauth `login_failed`):** `ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"`. It is not a DRF throttle and applies to **both** `/api/v1/auth/login/` (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at `/accounts/login/`, which the DRF throttle does not wrap at all. The gate is two rates, both enforced everywhere it applies:
 
