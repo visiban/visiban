@@ -294,9 +294,10 @@ class GroupBriefSerializer(serializers.ModelSerializer):
         return [{"id": g.id, "name": g.name} for g in reversed(obj.ancestors())]
 
 
-# default_board_member_role is deprecated (#1430): kept for API compatibility
-# (1.0 contract forbids removing a serializer field), flagged in the schema.
-@extend_schema_serializer(deprecate_fields=["default_board_member_role"])
+# default_board_member_role (#1430) and allowed_priorities (#1429) are
+# deprecated: kept for API compatibility (1.0 contract forbids removing a
+# serializer field), flagged in the schema.
+@extend_schema_serializer(deprecate_fields=["default_board_member_role", "allowed_priorities"])
 class GroupSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     # A SerializerMethodField, not `CharField(source="parent.name", default=None)`
@@ -759,7 +760,7 @@ class GroupMemberRoleUpdateSerializer(GroupMembershipSerializer):
         fields = ["id", "user", "role", "joined_at"]
 
 
-@extend_schema_serializer(deprecate_fields=["default_board_member_role"])
+@extend_schema_serializer(deprecate_fields=["default_board_member_role", "allowed_priorities"])
 class GroupDetailSerializer(GroupSerializer):
     """Extended serializer for the group retrieve endpoint.
 
@@ -782,7 +783,7 @@ class GroupDetailSerializer(GroupSerializer):
         return [{"id": g.id, "name": g.name} for g in reversed(obj.ancestors())]
 
 
-@extend_schema_serializer(deprecate_fields=["default_board_member_role"])
+@extend_schema_serializer(deprecate_fields=["default_board_member_role", "allowed_priorities"])
 class GroupBoardDefaultsSerializer(serializers.ModelSerializer):
     """Request body of ``PATCH groups/{id}/board-defaults/`` (#1783).
 

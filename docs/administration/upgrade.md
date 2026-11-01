@@ -450,6 +450,9 @@ Read the notes for every version between your current release and the target bef
               && helm upgrade "$RELEASE" helm/visiban --namespace "$NS" -f my-values.yaml
             ```
 
+!!! note "Deprecated: Board.allowed_priorities and Group.allowed_priorities"
+    Both fields were never enforced: card create and update accept any priority, and no client filters by them (#1429). They are still accepted and returned unchanged through 1.x, and the OpenAPI schema marks them `deprecated`. They will be removed only at a major version, so do not rely on them to restrict priorities.
+
 ### Upgrading to 1.2.x
 
 **The big picture:** most 1.2 changes are additive and need no action. These need a decision or a command, so read their callouts first:

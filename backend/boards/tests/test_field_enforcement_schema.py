@@ -30,7 +30,7 @@ from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
 from boards.models import Card, Column
-from factories import BoardFactory, CardFactory, ColumnFactory, SwimlaneFactory
+from factories import BoardFactory, CardFactory, ColumnFactory, GroupFactory, SwimlaneFactory
 from visiban import field_enforcement as fe
 
 # component -> {field: expected description}
@@ -101,6 +101,19 @@ class FieldEnforcementSchemaTests(SimpleTestCase):
             with self.subTest(component=component):
                 prop = self.components[component]["properties"]["default_board_member_role"]
                 self.assertIs(prop.get("deprecated"), True)
+
+    def test_allowed_priorities_is_marked_deprecated(self):
+        # #1429: Board/Group.allowed_priorities stay (1.0 contract) but nothing
+        # enforces them; the schema flags them on every component carrying them.
+        for component in (
+            "Board", "BoardFull", "BoardRequest", "PatchedBoardRequest",
+            "Group", "GroupDetail", "GroupRequest", "PatchedGroupRequest",
+            "PatchedGroupBoardDefaultsRequest", "BoardImportResponse",
+        ):
+            with self.subTest(component=component):
+                prop = self.components[component]["properties"]["allowed_priorities"]
+                self.assertIs(prop.get("deprecated"), True)
+                self.assertIn("Deprecated (#1429)", prop["description"])
 
     def test_every_description_starts_with_its_class(self):
         # The `Enforcement: <class>` token is the machine-readable half of the
@@ -185,4 +198,61 @@ class WipEnforcementBehaviorTests(TestCase):
         self.assertEqual(r.json()["code"], "wip_hard_blocked")
         self.assertEqual(
             Card.objects.filter(column=self.column, archived_at__isnull=True).count(), 1,
+        )
+
+
+class AllowedPrioritiesDeprecatedRoundTripTests(TestCase):
+    """#1429: deprecated, not removed. Writes and reads behave exactly as before."""
+
+    def setUp(self):
+        self.board = BoardFactory()
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.board.owner)
+
+    def test_board_patch_still_accepts_and_returns_allowed_priorities(self):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.pk}/", {"allowed_priorities": ["low", "high"]}, format="json",
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["allowed_priorities"], ["low", "high"])
+        r = self.client.get(f"/api/v1/boards/{self.board.pk}/")
+        self.assertEqual(r.json()["allowed_priorities"], ["low", "high"])
+
+    def test_card_create_ignores_allowed_priorities(self):
+        self.board.allowed_priorities = ["low"]
+        self.board.save(update_fields=["allowed_priorities"])
+        column = ColumnFactory(board=self.board)
+        swimlane = SwimlaneFactory(board=self.board)
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.pk}/cards/",
+            {"title": "x", "column": column.pk, "swimlane": swimlane.pk, "priority": "urgent"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["priority"], "urgent")
+
+    def test_group_patch_still_accepts_and_returns_allowed_priorities(self):
+        group = GroupFactory()
+        client = APIClient()
+        client.force_authenticate(user=group.owner)
+        r = client.patch(f"/api/v1/groups/{group.pk}/", {"allowed_priorities": ["medium"]}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["allowed_priorities"], ["medium"])
+        r = client.patch(
+            f"/api/v1/groups/{group.pk}/board-defaults/", {"allowed_priorities": ["high"]}, format="json",
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["allowed_priorities"], ["high"])
+
+
+class BoardAdminAllowedPrioritiesHelpTextTests(TestCase):
+    def test_admin_form_says_allowed_priorities_is_deprecated(self):
+        # #1429: the model help_text is left alone (it would need a migration),
+        # so the Django admin form overrides it.
+        from boards.admin import BoardAdminForm
+
+        form = BoardAdminForm(instance=BoardFactory())
+        self.assertEqual(
+            form.fields["allowed_priorities"].help_text,
+            "Deprecated. This setting has no effect: card priorities are not restricted.",
         )

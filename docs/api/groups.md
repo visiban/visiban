@@ -15,7 +15,7 @@ curl -X POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json
 
 **Go deeper:** [Members](#members), [Boards](#boards), [Invite links](#invite-links), [Shared labels](#group-shared-labels), [Board defaults](#board-defaults), [Join](#join-public).
 
-**The big picture:** groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and `allowed_priorities` are copied onto boards created in the group; the default member role is deprecated and has no effect ([#1430](https://gitlab.com/visiban/visiban/-/issues/1430)).
+**The big picture:** groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels are copied onto boards created in the group. `allowed_priorities` is also copied but is deprecated and not enforced ([#1429](https://gitlab.com/visiban/visiban/-/issues/1429)), and the default member role is deprecated and has no effect ([#1430](https://gitlab.com/visiban/visiban/-/issues/1430)).
 
 ## Groups
 
@@ -92,7 +92,7 @@ Get group details.
 | `is_starred` | boolean | Whether the requesting user has starred this group |
 | `shared_labels` | array | Labels shared across all boards in this group |
 | `default_board_member_role` | string | Returned for navigation-only groups as well (see [Ancestor groups](#ancestor-groups-navigation-only)). **Deprecated (#1430).** Has no effect and is kept only for API compatibility; marked `deprecated: true` in the OpenAPI schema. Stored but not read by any code path; group members' board access comes from their group role (scaffold, see [Field Enforcement](../architecture/field-enforcement.md)) |
-| `allowed_priorities` | array | **Advisory.** Copied onto a board's `allowed_priorities` when the board is created through `POST /groups/{id}/boards/`; it does not restrict card priorities, because the board-level field is not enforced either. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
+| `allowed_priorities` | array | **Deprecated (#1429).** Kept only for API compatibility and marked `deprecated: true` in the OpenAPI schema; still accepted and returned unchanged, and removed only in a future major release. Advisory: copied onto a board's `allowed_priorities` when the board is created through `POST /groups/{id}/boards/`; it does not restrict card priorities, because the board-level field is deprecated and not enforced either. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
 | `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. **Only present on this single-object retrieve endpoint** — the list endpoint (`GET /api/v1/groups/`) omits `ancestors`. |
 | `created_at` | string | ISO 8601 timestamp |
 | `navigation_only` | boolean | *(1.2+)* `true` when the requesting user has no access to this group itself and it is returned only so navigation (tree, breadcrumbs) keeps working; its fields are withheld. See [Ancestor groups](#ancestor-groups-navigation-only). |
@@ -133,7 +133,7 @@ Group access is inherited downward only: membership in a subgroup grants nothing
 ### `PUT /api/v1/groups/{id}/` / `PATCH /api/v1/groups/{id}/`
 Update group fields. Both `PUT` and `PATCH` are accepted. Requires group admin.
 
-**Writable fields:** `name`, `description`, `parent`, `default_board_member_role`, `allowed_priorities`. The latter two duplicate what [`PATCH /groups/{id}/board-defaults/`](#board-defaults) does — either endpoint can set them.
+**Writable fields:** `name`, `description`, `parent`, `default_board_member_role`, `allowed_priorities` (both deprecated). The latter two duplicate what [`PATCH /groups/{id}/board-defaults/`](#board-defaults) does — either endpoint can set them.
 
 **Changing `parent`** *(1.2+)*. Sending the group's current `parent` value is not a change and needs nothing beyond group admin. A change is accepted only when, in this order:
 
@@ -239,7 +239,7 @@ Pass `?expand=group` to populate `group_detail` on each board (see [Expanding fo
 
 ### `POST /api/v1/groups/{id}/boards/`
 
-Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically. The seeded `allowed_priorities` value is not enforced on cards (see [Field Enforcement](../architecture/field-enforcement.md)).
+Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically. The seeded `allowed_priorities` value is deprecated and not enforced on cards (see [Field Enforcement](../architecture/field-enforcement.md)).
 
 > **Added in 1.2**
 
@@ -543,14 +543,14 @@ Delete a group shared label. Requires group admin. Does **not** remove the label
 ## Board defaults
 
 ### `PATCH /api/v1/groups/{id}/board-defaults/`
-Update the board defaults for this group. `allowed_priorities` is copied onto boards created in the group; `default_board_member_role` is **deprecated (#1430)**: still accepted and stored, but it has no effect. Requires group admin. Only the two fields below are read; any other key in the body is ignored.
+Update the board defaults for this group. `allowed_priorities` is **deprecated (#1429)**: still accepted, stored and copied onto boards created in the group, but not enforced. `default_board_member_role` is **deprecated (#1430)**: still accepted and stored, but it has no effect. Requires group admin. Only the two fields below are read; any other key in the body is ignored.
 
 **Patchable fields**
 
 | Field | Type | Description |
 |---|---|---|
 | `default_board_member_role` | string | **Deprecated (#1430).** `admin`, `member`, `collaborator`, or `viewer`. Accepted and stored, but has no effect — see the field table above |
-| `allowed_priorities` | array / null | **Advisory.** Seeds `allowed_priorities` on new boards created in this group (e.g. `["low", "medium", "high"]`); `null` means all. Not enforced on cards — see the field table above |
+| `allowed_priorities` | array / null | **Deprecated (#1429).** Still accepted and returned, but not enforced on cards; kept only for API compatibility. Advisory: seeds `allowed_priorities` on new boards created in this group (e.g. `["low", "medium", "high"]`); `null` means all — see the field table above |
 
 **Request**
 ```json

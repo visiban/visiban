@@ -1092,8 +1092,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   empty list is withheld rather than "all allowed" (#1681). */}
               {!group.navigation_only && (
               <div className="mb-5">
-                <label className="text-fg-tertiary text-sm block mb-2">Allowed priorities on new boards</label>
-                <div className="flex flex-wrap gap-2">
+                <label id="group-allowed-priorities-label" className="text-fg-tertiary text-sm block mb-2">Allowed priorities on new boards</label>
+                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="group-allowed-priorities-label" aria-describedby="group-allowed-priorities-hint">
                   {(["low", "medium", "high", "urgent"] as Priority[]).map((p) => {
                     const effectivePriorities = group.allowed_priorities.length > 0 ? group.allowed_priorities : (["low", "medium", "high", "urgent"] as Priority[]);
                     const active = effectivePriorities.includes(p);
@@ -1123,6 +1123,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     );
                   })}
                 </div>
+                {/* #1429: deprecated; copied onto new boards but never enforced. Control kept for API compatibility. */}
+                <p id="group-allowed-priorities-hint" className="text-fg-muted text-xs mt-2">
+                  Deprecated. This setting has no effect: it is copied onto new boards, but card priorities are not restricted.
+                </p>
                 <p className="text-fg-faint text-xs mt-2">Click to toggle. At least one priority must remain enabled.</p>
               </div>
               )}

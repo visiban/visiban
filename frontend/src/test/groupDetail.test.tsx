@@ -1092,9 +1092,17 @@ describe('GroupDetail', () => {
 
     it('associates the deprecation hint with the default role control (#1430)', async () => {
       await loadAndSwitchToSettings()
-      const hint = await screen.findByText(/Deprecated\. This setting has no effect/)
+      const hint = await screen.findByText(/Deprecated\. This setting has no effect: group members/)
       const control = screen.getByLabelText('Default member role for new boards')
       expect(control).toHaveAccessibleDescription(hint.textContent ?? '')
+    })
+
+    it('flags the allowed priorities setting as deprecated and associates the hint (#1429)', async () => {
+      await loadAndSwitchToSettings()
+      const hint = await screen.findByText(
+        'Deprecated. This setting has no effect: it is copied onto new boards, but card priorities are not restricted.',
+      )
+      expect(screen.getByRole('group', { name: 'Allowed priorities on new boards' })).toHaveAccessibleDescription(hint.textContent ?? '')
     })
 
     it('board defaults section shows the allowed priorities label', async () => {

@@ -768,6 +768,7 @@ export interface Board {
   archived_card_count: number;
   staleness_threshold_days: number;
   stale_warning_pct: number;
+  /** @deprecated No effect (#1429); stored and returned for API compatibility, card priorities are not restricted by it. */
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
@@ -846,6 +847,7 @@ export interface BoardFull {
   swimlane_custom_field_definitions: SwimlaneCustomFieldDefinition[];
   staleness_threshold_days: number;
   stale_warning_pct: number;
+  /** @deprecated No effect (#1429); stored and returned for API compatibility, card priorities are not restricted by it. */
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
@@ -902,6 +904,7 @@ export interface Group {
   created_at: string;
   /** @deprecated No effect (#1430); group members get their GroupMembership role on every group board. */
   default_board_member_role: BoardRole;
+  /** @deprecated No effect (#1429); stored and returned for API compatibility, card priorities are not restricted by it. */
   allowed_priorities: Priority[];
   shared_labels: GroupLabel[];
   is_starred: boolean;

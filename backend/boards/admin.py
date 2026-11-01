@@ -709,6 +709,13 @@ class BoardAdminForm(RowVersionFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # #1429: allowed_priorities is deprecated and never enforced. Override
+        # the help text on the form only; changing the model help_text would
+        # emit an AlterField migration for a documentation-only change.
+        if "allowed_priorities" in self.fields:
+            self.fields["allowed_priorities"].help_text = (
+                "Deprecated. This setting has no effect: card priorities are not restricted."
+            )
         # #1725: a stored export_min_role outside the allowed set (only a
         # direct ORM or shell write can leave one) has no matching <option>,
         # so the browser would submit the first option, ``viewer``, on an
