@@ -17,7 +17,7 @@ The `ws-event-reachability` CI job reconciles all three and fails when a name is
 
 ## Naming rule
 
-Name an event `<subject>.<past-tense verb>`: the subject is snake_case (`invite_link`, `custom_field`), a nested subject adds a dot segment (`group.label.created`), and the verb says what already happened (`created`, `updated`, `deleted`, `revoked`, `removed`). `member.removed` and `invite_link.revoked` follow it. Two kinds of name do not: `board.star_changed` and `group.star_changed` end in a noun phrase rather than a verb, and `ping` is a bare keepalive. Don't copy these into new names, and don't rename them (a rename is a breaking change). `maintenance_mode.enabled` is not a WebSocket event at all: it is an admin audit-log action name that happens to share the `<subject>.<verb>` shape.
+Name an event `<subject>.<past-tense verb>`: the subject is snake_case (`invite_link`, `custom_field`), a nested subject adds a dot segment (`group.label.created`), and the verb says what already happened (`created`, `updated`, `deleted`, `revoked`, `removed`). `member.removed` and `invite_link.revoked` follow it. Two kinds of name do not: `board.star_changed` and `group.star_changed` use a compound verb segment (`star_changed`) rather than a single past-tense verb, and `ping` is a bare keepalive. Don't copy these into new names, and don't rename them (a rename is a breaking change). `maintenance_mode.enabled` is not a WebSocket event at all: it is an admin audit-log action name that happens to share the `<subject>.<verb>` shape.
 
 ## Adding an event
 
