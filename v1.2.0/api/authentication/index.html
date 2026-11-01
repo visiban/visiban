@@ -6149,6 +6149,7 @@ actually bootstraps from) returns the identical shape — both are served by
 </tbody>
 </table>
 <h3 id="post-apiv1authregistrationverify-email"><code>POST /api/v1/auth/registration/verify-email/</code><a class="headerlink" href="#post-apiv1authregistrationverify-email" title="Permanent link">&para;</a></h3>
+<p>Two other routes under <code>/api/v1/auth/registration/</code> are browser redirects, not part of the API contract: <code>account-confirm-email/&lt;key&gt;/</code> (redirects a stale emailed link to the SPA's <code>/confirm-email/&lt;key&gt;</code> page) and <code>account-email-verification-sent/</code> (an empty placeholder). Don't call them from a client; use <code>verify-email</code> instead.</p>
 <p>Confirm an email address from the key in a confirmation link. The link in the email opens the SPA's <code>/confirm-email/&lt;key&gt;</code> page, which calls this endpoint. Used both for signup confirmation and for confirming an <a href="#patch-apiv1authme">email change</a>.</p>
 <p><strong>Permission:</strong> None — public endpoint, possession of the key is the credential. IP-throttled (<code>verify_email</code> scope).</p>
 <p><strong>Request body:</strong> <code>{ "key": "&lt;key from the link&gt;" }</code></p>

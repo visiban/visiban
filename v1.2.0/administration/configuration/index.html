@@ -3455,6 +3455,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#variables-documented-on-other-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Variables documented on other pages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#health-check-endpoints" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4246,7 +4257,7 @@
 <h1 id="required-credentials-reference">Required credentials reference<a class="headerlink" href="#required-credentials-reference" title="Permanent link">&para;</a></h1>
 <p>Find every secret, credential, and environment variable Visiban needs in local development, the GitLab CI pipeline, and production.</p>
 <p><strong>Why it matters:</strong> In production, <code>DB_PASSWORD</code>, <code>REDIS_PASSWORD</code>, and <code>APP_VERSION</code> are required, and <code>DJANGO_SECRET_KEY</code> must be unique and kept secret.</p>
-<p><strong>The big picture:</strong> start with your environment (<a href="#local-development">local development</a>, <a href="#gitlab-ci-pipeline">GitLab CI pipeline</a>, <a href="#production-deployment">production</a>), then the feature sections: <a href="#reverse-proxies-and-the-client-ip">reverse proxies</a>, <a href="#optional-features-off-by-default">optional features</a>, <a href="#import-limits">import limits</a>, <a href="#email-smtp">email</a>, <a href="#demo-mode">demo mode</a>, <a href="#health-check-endpoints">health checks</a>, <a href="#deprecated-environment-variable-names">deprecated names</a>.</p>
+<p><strong>The big picture:</strong> start with your environment (<a href="#local-development">local development</a>, <a href="#gitlab-ci-pipeline">GitLab CI pipeline</a>, <a href="#production-deployment">production</a>), then the feature sections: <a href="#reverse-proxies-and-the-client-ip">reverse proxies</a>, <a href="#optional-features-off-by-default">optional features</a>, <a href="#import-limits">import limits</a>, <a href="#email-smtp">email</a>, <a href="#demo-mode">demo mode</a>, <a href="#variables-documented-on-other-pages">variables documented elsewhere</a>, <a href="#health-check-endpoints">health checks</a>, <a href="#deprecated-environment-variable-names">deprecated names</a>.</p>
 <hr />
 <h2 id="local-development">Local development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
 <p>Copy <code>.env.example</code> to <code>.env</code> in the repository root and fill in the values below.</p>
@@ -4956,6 +4967,69 @@ real sender address is set, by either method.</p>
 <p>When <code>DEMO_MODE</code> is on, <code>DEMO_LOGIN_USERNAME</code> and <code>DEMO_LOGIN_PASSWORD</code> are returned to anyone by <code>GET /api/v1/auth/site-config/</code>. Enable it only on a dedicated, throwaway instance with its own database, no SSO or real SMTP, and a scheduled reset. Never enable it on an instance with real data.</p>
 </div>
 <p>See <a href="../demo-data/#hosted-demo-instance">Demo data</a> for seeding, and <a href="../demo-data/#public-demo-mode-helm">Public demo mode</a> for the Helm deployment that sets all of these.</p>
+<h2 id="variables-documented-on-other-pages">Variables documented on other pages<a class="headerlink" href="#variables-documented-on-other-pages" title="Permanent link">&para;</a></h2>
+<p>These variables are set in the same <code>.env</code> file but are explained where they matter. Each row links to the authoritative page, which holds the default and the full behavior.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>What it controls</th>
+<th>Details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FRONTEND_URL</code></td>
+<td>Full URL of the SPA. allauth redirects here after OAuth login and logout. Must be set in production.</td>
+<td><a href="../../getting-started/installation/#environment-variables">Installation</a></td>
+</tr>
+<tr>
+<td><code>SITE_DOMAIN</code></td>
+<td>Public hostname for OAuth callback URLs. Re-synced to the Sites framework on every backend start.</td>
+<td><a href="../../getting-started/installation/#environment-variables">Installation</a>, <a href="../../getting-started/first-boot/">First boot</a></td>
+</tr>
+<tr>
+<td><code>FORCE_INSECURE_COOKIES</code></td>
+<td>Turns off secure session and CSRF cookies for plain-HTTP deployments. <code>init-prod.sh</code> sets it with <code>TLS_MODE=none</code>.</td>
+<td><a href="../../getting-started/installation/#environment-variables">Installation</a></td>
+</tr>
+<tr>
+<td><code>SECURE_HSTS_SECONDS</code></td>
+<td><code>Strict-Transport-Security</code> max-age. In the production Compose stack it also drives the nginx header.</td>
+<td><a href="../../getting-started/installation/#environment-variables">Installation</a></td>
+</tr>
+<tr>
+<td><code>DJANGO_ADMIN_ALLOWED_IPS</code></td>
+<td>IPs and CIDR ranges allowed to reach <code>/admin/</code>. Production default is loopback only.</td>
+<td><a href="../../getting-started/installation/#environment-variables">Installation</a>, <a href="../secret-rotation/">Secret rotation</a></td>
+</tr>
+<tr>
+<td><code>USE_X_ACCEL_REDIRECT</code></td>
+<td>How <code>/media/</code> downloads are delivered after the board-membership check.</td>
+<td><a href="../media-security/">Media security</a></td>
+</tr>
+<tr>
+<td><code>BOARD_EVENT_RETENTION_DAYS</code> (default <code>30</code>), <code>NOTIFICATION_RETENTION_DAYS</code> (default <code>90</code>, minimum <code>14</code>)</td>
+<td>Retention windows for the board change feed and in-app notifications. Enforced only when the matching prune job is scheduled.</td>
+<td><a href="../scheduled-jobs/">Scheduled jobs</a></td>
+</tr>
+<tr>
+<td><code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, <code>OIDC_SERVER_URL</code>, <code>OIDC_PROVIDER_NAME</code></td>
+<td>Generic OIDC single sign-on. Set the first three together to enable it; the provider name labels the login button (default <code>SSO</code>).</td>
+<td><a href="../../getting-started/oauth/">OAuth and SSO</a>, <a href="../authentication/">Authentication</a></td>
+</tr>
+<tr>
+<td><code>DJANGO_SUPERUSER_USERNAME</code>, <code>DJANGO_SUPERUSER_EMAIL</code></td>
+<td>Override the bootstrap site admin's username and email.</td>
+<td><a href="../../getting-started/first-boot/">First boot</a></td>
+</tr>
+<tr>
+<td><code>VISIBAN_ADMIN_PASSWORD_FILE</code></td>
+<td>Where the generated bootstrap admin password is written (default <code>/tmp/visiban_admin_password</code>).</td>
+<td><a href="../../getting-started/first-boot/">First boot</a></td>
+</tr>
+</tbody>
+</table>
 <h2 id="health-check-endpoints">Health check endpoints<a class="headerlink" href="#health-check-endpoints" title="Permanent link">&para;</a></h2>
 <p>The backend exposes two health check endpoints for use by load balancers, monitoring systems, and Kubernetes probes:</p>
 <table>

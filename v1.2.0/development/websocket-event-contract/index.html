@@ -3015,6 +3015,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#naming-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-an-event" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4093,6 +4104,8 @@
 </tbody>
 </table>
 <p>The <code>ws-event-reachability</code> CI job reconciles all three and fails when a name is missing from any of them. A name present in only two of the three looks complete from every angle you would normally check, which is why a machine has to check it.</p>
+<h2 id="naming-rule">Naming rule<a class="headerlink" href="#naming-rule" title="Permanent link">&para;</a></h2>
+<p>Name an event <code>&lt;subject&gt;.&lt;past-tense verb&gt;</code>: the subject is snake_case (<code>invite_link</code>, <code>custom_field</code>), a nested subject adds a dot segment (<code>group.label.created</code>), and the verb says what already happened (<code>created</code>, <code>updated</code>, <code>deleted</code>, <code>revoked</code>, <code>removed</code>). <code>member.removed</code> and <code>invite_link.revoked</code> follow it. Two kinds of name do not: <code>board.star_changed</code> and <code>group.star_changed</code> use a compound verb segment (<code>star_changed</code>) rather than a single past-tense verb, and <code>ping</code> is a bare keepalive. Don't copy these into new names, and don't rename them (a rename is a breaking change). <code>maintenance_mode.enabled</code> is not a WebSocket event at all: it is an admin audit-log action name that happens to share the <code>&lt;subject&gt;.&lt;verb&gt;</code> shape.</p>
 <h2 id="adding-an-event">Adding an event<a class="headerlink" href="#adding-an-event" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
