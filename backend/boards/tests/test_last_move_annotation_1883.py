@@ -37,7 +37,9 @@ def _move(card, user, when, *, from_name="", mtype=CardMovement.MovementType.MOV
     return mv
 
 
-class LastMoveAnnotationTests(TestCase):
+class _Fixture:
+    """Shared board/cards and helpers; a plain mixin so it is not collected."""
+
     def setUp(self):
         self.user = User.objects.create_user(username="lm1883", password="x")
         self.board = Board.objects.create(name="LM", owner=self.user)
@@ -95,6 +97,8 @@ class LastMoveAnnotationTests(TestCase):
             )
         self.assertEqual(row["last_move_is_creation"], creation)
 
+
+class LastMoveAnnotationTests(_Fixture, TestCase):
     def test_expected_fixture_shapes(self):
         # Guard the fixture itself so the equality tests below are not vacuous.
         self.assertEqual(self._expected(self.unmoved), (None, False))
@@ -214,12 +218,9 @@ class LastMoveAnnotationTests(TestCase):
         self.assertEqual(len(before), len(after))
 
 
-class StaleAnnotationReuseTests(LastMoveAnnotationTests):
-    # NOTE: subclassing re-runs the parent tests; cheap and keeps one fixture.
-
+class StaleAnnotationReuseTests(_Fixture, TestCase):
     """is_stale now reuses ``_last_moved_at`` instead of its own subquery."""
 
-    # Inherit the fixture only; skip re-running the parent's tests.
     def _cold_stale(self):
         return {
             c.title: CardSerializer(
@@ -258,3 +259,51 @@ class StaleAnnotationReuseTests(LastMoveAnnotationTests):
         cold = self._cold_stale()
         for c in Card.objects.filter(board=self.board):
             self.assertEqual(by_uid[str(c.uid)], cold[c.title], c.title)
+
+
+class NewestRowSelectionTests(TestCase):
+    """Which row counts as "newest" (#1883): max ``moved_at``, ties by higher id.
+
+    Inserting rows in a different order from their ``moved_at`` values, or
+    with equal timestamps, is what distinguishes ``-moved_at, -id`` from
+    ``-id`` alone (or from insertion order).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="newest1883", password="x")
+        self.board = Board.objects.create(name="NR", owner=self.user)
+        col = Column.objects.create(board=self.board, name="Todo", position=0)
+        lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=lane, title="c",
+            created_by=self.user, position=0,
+        )
+        self.now = timezone.now()
+
+    def _annotated(self):
+        return _card_queryset(Card.objects.filter(pk=self.card.pk)).get()
+
+    def test_out_of_order_insert_picks_max_moved_at(self):
+        # Inserted last, but oldest: a creation row recorded after a later move
+        # (e.g. an import with history). -id alone would pick it.
+        _move(self.card, self.user, self.now - datetime.timedelta(days=1), from_name="Doing")
+        newest_by_time = self.now - datetime.timedelta(hours=1)
+        _move(self.card, self.user, newest_by_time, from_name="Review")
+        _move(self.card, self.user, self.now - datetime.timedelta(days=30), from_name="")
+        card = self._annotated()
+        self.assertEqual(card._last_moved_at, newest_by_time)
+        self.assertEqual(card._last_move_from_column_name, "Review")
+        row = CardSerializer(card, context={"board": self.board}).data
+        self.assertFalse(row["last_move_is_creation"])
+
+    def test_moved_at_tie_picks_higher_id(self):
+        when = self.now - datetime.timedelta(days=2)
+        _move(self.card, self.user, when, from_name="")  # creation-shaped, lower id
+        later = _move(self.card, self.user, when, from_name="Doing")  # higher id
+        card = self._annotated()
+        self.assertEqual(card._last_move_from_column_name, "Doing")
+        self.assertEqual(card._last_moved_at, when)
+        self.assertGreater(later.pk, 0)
+        self.assertFalse(
+            CardSerializer(card, context={"board": self.board}).data["last_move_is_creation"]
+        )

@@ -1145,14 +1145,16 @@ class CardDetailQueryCountTests(TestCase):
         many = self._query_count(8)
         self.assertEqual(few, many, f"query count grew: {few} -> {many}")
 
-    def test_detail_reads_parked_movements_and_checklist(self):
-        """card_detail must read the lists _card_queryset() parks (#1212).
+    def test_detail_loads_movements_once_and_reads_parked_checklist(self):
+        """card_detail issues one movements query and reads parked checklist items.
 
-        Reading ``card.movements.all()`` / ``card.checklist_items.all()``
-        instead misses the to_attr lists and adds one *constant* query per
-        relation, which the scaling test above cannot see (both sides pay
-        it). So count the queries that touch each table directly: exactly one
-        each, the prefetch itself.
+        Checklist items come from the lists _card_queryset() parks (#1212);
+        reading ``card.checklist_items.all()`` instead would add one *constant*
+        query the scaling test above cannot see (both sides pay it). Movements
+        are no longer prefetched (#1883): card_detail fetches the full history
+        itself, exactly once. The card SELECT also mentions ``card_movements``
+        in its last-move subqueries, so count only standalone SELECTs
+        (queries that are not also reading ``cards``).
         """
         user = _make_user("card-parked")
         board = _make_board(user, name="Parked")
@@ -1183,12 +1185,12 @@ class CardDetailQueryCountTests(TestCase):
             table = model._meta.db_table
             hits = [
                 q["sql"] for q in ctx.captured_queries
-                if f'FROM "{table}"' in q["sql"]
+                if f'FROM "{table}"' in q["sql"] and ' FROM "cards"' not in q["sql"]
             ]
             self.assertEqual(
                 len(hits), 1,
                 f"card_detail queried {table} {len(hits)} times — expected only "
-                f"the _card_queryset() prefetch:\n" + "\n".join(hits),
+                f"the single explicit/prefetch query:\n" + "\n".join(hits),
             )
 
 

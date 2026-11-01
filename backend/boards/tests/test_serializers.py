@@ -30,7 +30,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Card, CardChecklist, CardMovement, Column, Swimlane
-from boards.serializers import CardSerializer, PublicCardSerializer
+from boards.serializers import CardSerializer, PublicCardSerializer, _annotate_last_move
 
 
 # ---------------------------------------------------------------------------
@@ -105,13 +105,9 @@ def _serialize_card(card, extra_context=None):
 def _serialize_public_card(card):
     """Serialize a single card via PublicCardSerializer, mirroring PublicBoardSerializer.get_cards()."""
     obj = (
-        Card.objects.filter(pk=card.pk)
+        _annotate_last_move(Card.objects.filter(pk=card.pk))
         .select_related("assignee", "board")
-        .prefetch_related(
-            "labels",
-            "checklist_items",
-            Prefetch("movements", queryset=CardMovement.objects.order_by("-moved_at")),
-        )
+        .prefetch_related("labels", "checklist_items")
         .get()
     )
     return PublicCardSerializer(obj).data
