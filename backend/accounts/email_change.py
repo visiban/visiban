@@ -58,6 +58,25 @@ def _set_pending_pointer(user, address) -> None:
     user.pending_email_address = address
 
 
+def _lock_pending_state(user) -> None:
+    """Serialize this user's email-change writes and re-read the pointer under the lock (#1303).
+
+    Two concurrent requests that each read the pointer, drop that row and
+    create a new one would each leave a different unverified row behind, and
+    only one of them would be tracked: an orphan that cancel cannot tell from
+    a secondary address the user wants. Taking the user-row lock
+    (``credentials.lock_user_row``, the lock every credential change uses)
+    before the pointer is read makes the read, the delete and the create one
+    critical section per user. The in-memory pointer is refreshed from the
+    locked row because the instance was loaded before the lock was won.
+    Must be called inside ``transaction.atomic()``; SQLite has no row locks,
+    so there it is a plain read.
+    """
+    from .credentials import lock_user_row
+
+    user.pending_email_address_id = lock_user_row(user).pending_email_address_id
+
+
 def _drop_tracked_row(user, keep_pk=None) -> None:
     """Delete the row this flow is tracking for ``user`` (unless it is ``keep_pk``).
 
@@ -103,9 +122,10 @@ def cancel_email_change(user) -> None:
     ``DELETE /auth/me/pending-email/`` (#1293): the tracked row is deleted (so
     its link stops working) and the pointer cleared.
     """
-    if user.pending_email_address_id is None:
-        return
     with transaction.atomic():
+        _lock_pending_state(user)
+        if user.pending_email_address_id is None:
+            return
         _drop_tracked_row(user)
         _set_pending_pointer(user, None)
 
@@ -142,7 +162,12 @@ def resend_email_change(request, user) -> bool | None:
         send_verification_email_to_address,
     )
 
-    row = _tracked_row(user)
+    # Under the same lock as a change request, so a resend cannot mail a row
+    # that a concurrent request is replacing (#1303). The mail itself goes out
+    # after the lock is released: a slow mail server must not hold it.
+    with transaction.atomic():
+        _lock_pending_state(user)
+        row = _tracked_row(user)
     if row is None:
         return None
     return bool(send_verification_email_to_address(request, row))
@@ -183,6 +208,7 @@ def request_email_change(request, user, new_email: str) -> bool:
 
     new_email = new_email.lower()
     with transaction.atomic():
+        _lock_pending_state(user)
         existing = EmailAddress.objects.filter(user=user, email=new_email).first()
         if existing is not None and existing.verified:
             if email_collides_with_identifier(existing.email, exclude_pk=user.pk):
