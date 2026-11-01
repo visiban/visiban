@@ -662,9 +662,8 @@ class BoardViewSet(
             )
             # The share state itself goes out as the admin-only
             # share_link.updated (#1967), so other admin sessions and an open
-            # Sharing tab update without a reload. Never carries the token,
-            # and is recorded with no actor so its feed row does not name the
-            # enabler (#1865).
+            # Sharing tab update without a reload. Never carries the token, and
+            # is recorded with no actor.
             from ..services.share_links import record_share_link_updated
             record_share_link_updated(board, issued_at=issued_at)
         return Response(response_data)

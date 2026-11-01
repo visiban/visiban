@@ -97,6 +97,16 @@ interface Props {
 
 const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
 
+/** #1967 — true when share link issue time `a` is later than `b`. Falls back
+ *  to "different" when either value does not parse, so a malformed value can
+ *  only withdraw a reveal, never keep a dead link on screen. */
+function isLaterShareIssue(a: string, b: string): boolean {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return a !== b;
+  return ta > tb;
+}
+
 type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
 
 interface StagedInvite {
@@ -271,6 +281,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // `share_token_issued_at` from the response that created the current
   // reveal; null when nothing is revealed (or an older server sent none).
   const revealIssuedAtRef = useRef<string | null>(null);
+  // The latest issued_at BoardView has seen, for the handler below, which runs
+  // after an await and must not read a stale closure value.
+  const latestShareLinkIssuedAtRef = useRef<string | null>(shareLinkIssuedAt);
+  latestShareLinkIssuedAtRef.current = shareLinkIssuedAt;
   const shareRevealRef = useRef<HTMLDivElement>(null);
   const shareHeadingRef = useRef<HTMLHeadingElement>(null);
   const focusHeadingAfterWithdrawRef = useRef(false);
@@ -327,12 +341,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   }, [boardShareActive, boardShareExpiresAt, withdrawShareReveal]);
 
   // #1967 — a rotation leaves the link active, so it is told apart by
-  // `issued_at`. Keyed on the prop alone: this tab's own enable/rotate echo
-  // carries the same value its response returned (kept in revealIssuedAtRef),
-  // whichever of the two arrives first, so it never withdraws its own reveal.
+  // `issued_at`. This tab's own enable/rotate echo carries the same value its
+  // response returned (kept in revealIssuedAtRef), so it never withdraws its
+  // own reveal. Only a LATER issue replaces the link: links on one board are
+  // issued under its row lock, so a newer link has a later issued_at, and an
+  // older frame arriving late must not withdraw a newer reveal. The reverse
+  // order (another admin's frame before this tab's response) is handled in
+  // handleEnableShare, since this effect runs only when the prop changes.
   useEffect(() => {
     const mine = revealIssuedAtRef.current;
-    if (shareLinkIssuedAt !== null && mine !== null && shareLinkIssuedAt !== mine) {
+    if (shareLinkIssuedAt !== null && mine !== null && isLaterShareIssue(shareLinkIssuedAt, mine)) {
       withdrawShareReveal("rotated");
     }
   }, [shareLinkIssuedAt, withdrawShareReveal]);
@@ -391,8 +409,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setShareNotice(null);
     try {
       const data = await enableBoardSharing(board.id, shareTtl);
+      const mine = data.share_token_issued_at ?? null;
+      const latest = latestShareLinkIssuedAtRef.current;
+      if (mine !== null && latest !== null && isLaterShareIssue(latest, mine)) {
+        // #1967 — another admin's rotation landed (its frame arrived first)
+        // after this request issued its link, so the link in this response
+        // already no longer works. Don't reveal it, and don't merge its state
+        // over the newer link's: `board` already holds that.
+        setShareNotice("The new link was replaced elsewhere before it could be shown. Rotate the link to get a new one.");
+        return;
+      }
       focusCopyAfterRevealRef.current = true;
-      revealIssuedAtRef.current = data.share_token_issued_at ?? null;
+      revealIssuedAtRef.current = mine;
       setShareActive(true);
       setRevealedShareToken(data.share_token);
       setShareExpiresAt(data.share_token_expires_at);

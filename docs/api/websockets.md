@@ -376,14 +376,17 @@ time the new link was issued. It is the same value the share action returned
 to its caller as `share_token_issued_at`. On every other change (a revoke, a
 server-side clear, an expiry edit) it is `null`, because no new link was
 issued. A client that is still showing a link it received can compare the two
-values: a non-null `issued_at` that differs from the one its own request
-returned means that link was replaced and no longer works. `issued_at` is a
-timestamp, not derived from the token.
+values: a non-null `issued_at` later than the one its own request returned
+means that link was replaced and no longer works. Compare the times, not just
+equality: the links of one board are issued one at a time, so a newer link
+always has a later `issued_at`, and a delayed frame for an older link can
+arrive after the response for a newer one. `issued_at` is a timestamp, not
+derived from the token.
 
 The payload never carries the token: show it to the admin from the share
-action response, once. The event also never names the admin who enabled the
-link. Its [change feed](events.md) rows are stored with no actor, so their
-`actor_id` and `actor` are `null`.
+action response, once. Nor does it carry the admin who enabled the link.
+`share_link.updated` rows in the [change feed](events.md) are stored with no
+actor, so their `actor_id` and `actor` are `null`.
 
 Each of these changes also sends `board.updated`, as before 1.3. That frame
 cannot carry the share state, so clients should read it from

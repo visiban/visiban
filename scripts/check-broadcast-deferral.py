@@ -221,19 +221,19 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "capped per board by BOARD_MAX_PENDING_EMAILED_INVITES."
     ),
     "backend/boards/models.py::clear_share_links_of_deleted_enabler": (
-        "One board.updated per board whose public share link is cleared by this "
-        "pre_delete receiver (#1865). The loop iterates boards (distinct "
-        "channels), and each frame carries that board's own serialized state, "
-        "so they cannot be collapsed into one payload. record_board_event() "
-        "defers each publish with on_commit. Bounded by the boards one user "
-        "enabled sharing on."
+        "One board.updated and one admin-only share_link.updated (#1967) per "
+        "board whose public share link is cleared by this pre_delete receiver "
+        "(#1865). The loop iterates boards (distinct channels), and each frame "
+        "carries that board's own state, so they cannot be collapsed into one "
+        "payload. record_board_event() defers each publish with on_commit. "
+        "Bounded by the boards one user enabled sharing on."
     ),
     "backend/boards/services/share_links.py::_clear_lapsed": (
-        "One board.updated per board whose share link lapsed with its "
-        "enabler's access (#1865). Distinct boards mean distinct channels, and "
-        "each frame carries that board's own serialized state. "
-        "record_board_event() defers each publish with on_commit. Bounded by "
-        "the boards one user enabled sharing on."
+        "One board.updated and one admin-only share_link.updated (#1967) per "
+        "board whose share link lapsed with its enabler's access (#1865). "
+        "Distinct boards mean distinct channels, and each frame carries that "
+        "board's own state. record_board_event() defers each publish with "
+        "on_commit. Bounded by the boards one user enabled sharing on."
     ),
     "backend/groups/views.py::GroupViewSet._evict_stale_ws": (
         "One member.removed per board the user actually lost access to — the "

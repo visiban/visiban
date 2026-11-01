@@ -50,8 +50,8 @@ def share_enabler_has_standing(user, board):
 def share_link_state_payload(board, *, issued_at=None):
     """The ``share_link.updated`` payload for *board*'s current share state (#1967).
 
-    ``active`` is the ``/full/`` ``share_link_active`` rule: a stored token
-    with a recorded enabler (an unrecorded link never resolves, #1939).
+    ``active`` is ``Board.has_live_share_link()``, the same rule ``/full/``
+    uses for ``share_link_active``.
     ``expires_at`` is null when there is no live link, matching
     ``/full/`` ``share_token_expires_at``.
 
@@ -63,12 +63,10 @@ def share_link_state_payload(board, *, issued_at=None):
     showing the old link's one-time reveal could not tell that link stopped
     working. It is a timestamp, not derived from the token, and is not stored.
 
-    The token and the enabler are never included: the token is shown once,
-    from the share action's response (#1935), and the enabler is not returned
-    by any endpoint or event (#1865), which is also why the event is recorded
-    with no actor (``record_share_link_updated``).
+    Neither the token nor the enabler is in the payload: the token is shown
+    once, from the share action's response (#1935).
     """
-    active = board.share_token is not None and board.share_enabled_by_id is not None
+    active = board.has_live_share_link()
     expires_at = board.share_token_expires_at if active else None
     issued = issued_at if active else None
     return {
@@ -93,10 +91,9 @@ def record_share_link_updated(board, *, issued_at=None):
     (``boards.permissions.ADMIN_ONLY_EVENTS``): the consumer and the change
     feed withhold it from every role below admin.
 
-    Recorded with NO actor, deliberately: the feed row's ``actor`` on an
-    enable would name the admin who enabled the link, and the enabler is not
-    returned by any endpoint or event (#1865). ``actor_id`` is only used for
-    ``ACTOR_SCOPED_FIELDS``, which this payload has none of.
+    Recorded with no actor: this row's ``actor_id`` and ``actor`` in the
+    change feed are null. ``actor_id`` drives only ``ACTOR_SCOPED_FIELDS``,
+    which this payload has none of.
     """
     from .. import broadcast as _broadcast
 

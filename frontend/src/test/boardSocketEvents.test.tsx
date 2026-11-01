@@ -84,8 +84,12 @@ vi.mock('../components/Card/CardDetail', () => ({
 vi.mock('../components/Board/AddColumnModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: ({ inviteReloadSignal }: { inviteReloadSignal?: number }) => (
-    <div data-testid="settings-modal" data-invite-signal={inviteReloadSignal ?? 0} />
+  default: ({ inviteReloadSignal, shareLinkIssuedAt }: { inviteReloadSignal?: number; shareLinkIssuedAt?: string | null }) => (
+    <div
+      data-testid="settings-modal"
+      data-invite-signal={inviteReloadSignal ?? 0}
+      data-share-issued-at={shareLinkIssuedAt ?? ''}
+    />
   ),
 }))
 vi.mock('../components/Board/FilterBar', () => ({
@@ -688,6 +692,38 @@ describe('BoardView — board invites (#1444)', () => {
     expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-invite-signal', '1')
     act(() => { getOnEvent.dispatch({ event: 'invite_link.revoked', data: { id: 1 } }) })
     expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-invite-signal', '2')
+  })
+
+  // #1967 — the rotation signal reaches the open Sharing tab. The modal's own
+  // tests (boardSettingsModal.test.tsx, "rotation elsewhere") prove that a
+  // changed value withdraws the reveal; this proves BoardView feeds it from
+  // the socket frame, and keeps the last issued value across non-issuing frames.
+  it('share_link.updated passes issued_at to the settings modal as shareLinkIssuedAt', async () => {
+    await openSettings()
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-share-issued-at', '')
+    act(() => {
+      getOnEvent.dispatch({
+        event: 'share_link.updated',
+        data: { board_uid: 'board-uid-1', active: true, expires_at: null, issued_at: '2026-11-01T10:00:00+00:00' },
+      })
+    })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-share-issued-at', '2026-11-01T10:00:00+00:00')
+    // Another admin rotates: the modal sees the new value.
+    act(() => {
+      getOnEvent.dispatch({
+        event: 'share_link.updated',
+        data: { board_uid: 'board-uid-1', active: true, expires_at: null, issued_at: '2026-11-01T10:05:00+00:00' },
+      })
+    })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-share-issued-at', '2026-11-01T10:05:00+00:00')
+    // A frame that issued no link (an expiry edit) leaves the last value.
+    act(() => {
+      getOnEvent.dispatch({
+        event: 'share_link.updated',
+        data: { board_uid: 'board-uid-1', active: true, expires_at: '2999-01-01T00:00:00Z', issued_at: null },
+      })
+    })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-share-issued-at', '2026-11-01T10:05:00+00:00')
   })
 
   it('member.added carrying an invite bumps the signal; a plain member.added does not', async () => {

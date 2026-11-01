@@ -1943,6 +1943,59 @@ describe('BoardSettingsModal — Sharing tab', () => {
       expect(screen.getByRole('status')).not.toHaveTextContent('elsewhere')
     })
 
+    it("reverse order: another admin's newer rotation frame lands before this tab's response", async () => {
+      let resolve!: (v: unknown) => void
+      mockEnableBoardSharing.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+      const onShareChanged = vi.fn()
+      const user = (await import('@testing-library/user-event')).default.setup()
+      const view = (issuedAt: string | null) => (
+        <BoardSettingsModal
+          board={enabled} isAdmin={true} onClose={vi.fn()} initialTab="sharing"
+          shareLinkIssuedAt={issuedAt} onShareChanged={onShareChanged}
+        />
+      )
+      const { rerender } = render(view(null))
+      await user.click(screen.getByRole('button', { name: 'Rotate link' }))
+      // This tab's request issued T1, but another admin's rotation (T2, later)
+      // committed after it and its frame arrives first.
+      rerender(view('2026-11-01T10:05:00+00:00'))
+      await act(async () => {
+        resolve({
+          share_token: 'dead-token-111', share_url: 'http://localhost/share/dead-token-111',
+          share_token_expires_at: null, share_token_issued_at: '2026-11-01T10:00:00+00:00',
+        })
+      })
+      expect(screen.queryByTestId('share-link-reveal')).toBeNull()
+      expect(document.body.innerHTML).not.toContain('dead-token-111')
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'The new link was replaced elsewhere before it could be shown. Rotate the link to get a new one.',
+      )
+      // The stale response must not overwrite the newer link's state.
+      expect(onShareChanged).not.toHaveBeenCalled()
+    })
+
+    it("an older frame arriving after this tab's newer link does not withdraw it", async () => {
+      let resolve!: (v: unknown) => void
+      mockEnableBoardSharing.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+      const user = (await import('@testing-library/user-event')).default.setup()
+      // The prop already holds an older rotation (T0) from before this request.
+      const { rerender } = render(modal('2026-11-01T09:00:00+00:00'))
+      await user.click(screen.getByRole('button', { name: 'Rotate link' }))
+      await act(async () => {
+        resolve({
+          share_token: 'fresh-token-222', share_url: 'http://localhost/share/fresh-token-222',
+          share_token_expires_at: null, share_token_issued_at: '2026-11-01T10:00:00+00:00',
+        })
+      })
+      expect(await screen.findByTestId('share-link-reveal')).toBeInTheDocument()
+      // A delayed, older frame (T0.5) must not withdraw the newer reveal.
+      rerender(modal('2026-11-01T09:30:00+00:00'))
+      expect(screen.getByTestId('share-link-reveal')).toBeInTheDocument()
+      // The tab's own echo (T1) keeps it too.
+      rerender(modal('2026-11-01T10:00:00+00:00'))
+      expect(screen.getByTestId('share-link-reveal')).toBeInTheDocument()
+    })
+
     it('does not steal focus when it was outside the reveal', async () => {
       const user = (await import('@testing-library/user-event')).default.setup()
       const { rerender } = render(modal(null, fakeBoard))

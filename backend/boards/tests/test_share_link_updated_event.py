@@ -12,7 +12,7 @@ also records the admin-only ``share_link.updated``:
 
 The frame goes to admin / site_admin sockets only, its feed rows go to
 admin / site_admin readers only, it is published on commit, and its payload
-never carries the token or the enabler.
+never carries the token or the enabler, and is recorded with no actor.
 """
 
 import asyncio
@@ -126,8 +126,8 @@ class ShareActionTests(_Fixtures):
         call = next(c for c in self.bc.call_args_list if c.args[1] == EVENT)
         self.assertEqual(call.kwargs["event_id"], row.pk)
 
-    def test_recorded_with_no_actor_so_the_feed_never_names_the_enabler(self):
-        """The enabler is not returned by any endpoint or event (#1865)."""
+    def test_share_link_updated_rows_carry_no_actor(self):
+        """The share_link.updated row and frame have no actor."""
         self.share()
         self.share("delete")
         for row in _rows(self.board):
@@ -434,3 +434,25 @@ class DjangoAdminExpiryEditTests(_Fixtures):
     def test_expiry_edit_with_no_link_records_nothing(self):
         self._post(share_token_expires_at_0="2999-01-02", share_token_expires_at_1="03:04:05")
         self.assertEqual(_rows(self.board), [])
+
+
+class LiveLinkRuleSharedTests(TestCase):
+    """The event's ``active`` and ``/full/``'s ``share_link_active`` use one rule."""
+
+    def test_event_and_full_agree_for_every_link_state(self):
+        from boards.serializers import BoardFullSerializer
+
+        owner = User.objects.create_user(username="rule1967", password=PW)
+        board = Board.objects.create(name="Rule1967", owner=owner)
+        serializer = BoardFullSerializer(context={"role": "admin"})
+        for has_token in (False, True):
+            for has_enabler in (False, True):
+                with self.subTest(token=has_token, enabler=has_enabler):
+                    board.clear_share_link()
+                    if has_token:
+                        board.issue_share_token()
+                    board.share_enabled_by = owner if has_enabler else None
+                    expected = has_token and has_enabler
+                    self.assertIs(board.has_live_share_link(), expected)
+                    self.assertIs(share_link_state_payload(board)["active"], expected)
+                    self.assertIs(serializer.get_share_link_active(board), expected)
