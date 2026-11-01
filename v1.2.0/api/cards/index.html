@@ -4758,7 +4758,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">}</span>
 </code></pre></div></p>
 <h3 id="get-apiv1boardsboard_idcardsid"><code>GET /api/v1/boards/{board_id}/cards/{id}/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsid" title="Permanent link">&para;</a></h3>
-<p>Get a single card. The response includes a read-only <code>uid</code> (a stable 16-character hex identifier that survives rename, move, and reassignment) and a <code>version</code> integer that increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and is unchanged by archiving, restoring, comment, attachment, checklist or relation changes, and edits made in the Django admin; it never decreases. Clients may pass <code>version</code> back on the <a href="#move">move endpoint</a> as an optimistic concurrency token.</p>
+<p>Get a single card. The response includes a read-only <code>uid</code> (a stable 16-character hex identifier that survives rename, move, and reassignment) and a <code>version</code> integer that increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040). Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged; it never decreases. Clients may pass <code>version</code> back on the <a href="#move">move endpoint</a> as an optimistic concurrency token.</p>
 <p><strong>Card response field table</strong></p>
 <p>Every card object has these fields, in this endpoint, <code>POST /cards/</code>, <code>PATCH /cards/{id}/</code>, <code>GET /cards/</code>, and all mutation responses (archive, unarchive, move).</p>
 <table>
@@ -4945,7 +4945,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>integer</td>
 <td>yes</td>
 <td>no</td>
-<td>Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and is unchanged by archiving, restoring, comment, attachment, checklist or relation changes, and edits made in the Django admin. It never decreases, so a client can discard a copy of the card whose <code>version</code> is lower than the one it holds. Pass as <code>version</code> in the <a href="#move">move endpoint</a> to enable OCC. PATCH and PUT do not accept or check <code>version</code>.</td>
+<td>Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the <code>version</code> read before an admin save gets <code>409 version_conflict</code>. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose <code>version</code> is lower than the one it holds. Pass as <code>version</code> in the <a href="#move">move endpoint</a> to enable OCC. PATCH and PUT do not accept or check <code>version</code>.</td>
 </tr>
 <tr>
 <td><code>custom_field_values</code></td>
