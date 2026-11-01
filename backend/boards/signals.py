@@ -1,8 +1,9 @@
-from django.db.models.signals import post_save
+from django.db.models import QuerySet
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import Signal, receiver
 
 from accounts.models import User
-from .models import CardMovement, Card, Notification
+from .models import Board, CardMovement, Card, Column, Notification, Swimlane
 
 # Custom field value change signal (#371) — an OSS extension point for the
 # enterprise field-change audit trail, which is out of scope for this repo.
@@ -124,6 +125,40 @@ swimlane_custom_field_value_changed = Signal()
 # extension surface. Arguments may be added; none may be removed or renamed
 # without a major version bump.
 post_notification_created = Signal()
+
+
+@receiver(post_delete, sender=Column)
+def prune_swimlane_limit_columns(sender, instance, origin=None, **kwargs):
+    """Drop a deleted column's id from its board's swimlane limit settings (#1150).
+
+    ``Swimlane.limit_column_ids`` holds column ids with no foreign key, so a
+    column delete would otherwise leave a stale id behind. Enforcement would
+    ignore it (it matches no card), but the swimlane would report a column that
+    no longer exists, and a client echoing the settings back would get a 400.
+    A signal rather than code in the delete views because a column is deleted
+    from several places (REST, the Django admin's delete and bulk delete, and
+    any future path) and every one must clean up.
+
+    A list that loses its last column becomes ``NULL``, the default ("every
+    column not marked done"): an empty list would be a limit that counts
+    nothing, which no client can create or show.
+
+    Skipped when a board delete started the cascade: the swimlanes are being
+    deleted with it. Runs inside the delete's transaction, after the
+    container-delete locks (board -> cards -> columns), so the swimlane rows it
+    updates are taken last, in the card -> column -> swimlane order. No event
+    is broadcast: clients drop the id themselves on ``column.deleted``.
+    """
+    if isinstance(origin, Board) or (isinstance(origin, QuerySet) and origin.model is Board):
+        return
+    lanes = Swimlane.objects.filter(
+        board_id=instance.board_id, limit_column_ids__isnull=False,
+    ).only("pk", "limit_column_ids")
+    for lane in lanes:
+        if instance.pk not in lane.limit_column_ids:
+            continue
+        kept = [pk for pk in lane.limit_column_ids if pk != instance.pk]
+        Swimlane.objects.filter(pk=lane.pk).update(limit_column_ids=kept or None)
 
 
 @receiver(post_save, sender=CardMovement)

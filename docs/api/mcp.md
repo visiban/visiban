@@ -351,7 +351,7 @@ A successful call has `isError: false` and its payload in `structuredContent.res
 
 A client must check that `structuredContent` is present before reading an error `code` from it, and treat an `isError: true` result without one as a generic failure.
 
-Every error has a `code` your agent can branch on, and the table below is the complete set. Codes are never removed; new ones may be added in a minor release, so treat an unrecognized `code` as a generic failure rather than crashing. Most errors also carry a human-readable `detail`. Exactly four codes do not: `wip_limit_exceeded` and `weight_limit_exceeded` carry only their own fields (`column_name` and the counters), `validation_error` carries an `errors` object, and `card_creation_not_allowed` carries a `column` message. `internal_error` carries `code` plus whatever fields the underlying error has, normally `detail`. Branch on `code`, never on `detail`.
+Every error has a `code` your agent can branch on, and the table below is the complete set. Codes are never removed; new ones may be added in a minor release, so treat an unrecognized `code` as a generic failure rather than crashing. Most errors also carry a human-readable `detail`. Exactly six codes do not: `wip_limit_exceeded`, `weight_limit_exceeded`, `swimlane_wip_limit_exceeded` and `swimlane_weight_limit_exceeded` carry only their own fields (`column_name`, `swimlane_name` for the swimlane codes, and the counters), `validation_error` carries an `errors` object, and `card_creation_not_allowed` carries a `column` message. `internal_error` carries `code` plus whatever fields the underlying error has, normally `detail`. Branch on `code`, never on `detail`.
 
 | `code` | Meaning |
 |---|---|
@@ -375,6 +375,8 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee` username or label name that does not resolve to an assignable board member/label. Every unresolved `assignee` returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a `viewer` (who cannot be assigned). |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.2 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
 | `weight_limit_exceeded` | The target column is at its weight limit (`move_card`, and `create_card` since 1.2). |
+| `swimlane_wip_limit_exceeded` / `swimlane_wip_hard_blocked` | The target swimlane is at its own WIP limit (`move_card`, `create_card`). Same fields as the column codes plus `swimlane_name`; `column_name` names the target cell's column and the counters are the swimlane's. A move between two columns that both count toward the swimlane's limit never returns it. When a column and a swimlane limit both trip, the stricter one is returned (hard before soft, the column first when equal). *Added in 1.3 (#1150).* |
+| `swimlane_weight_limit_exceeded` | The target swimlane is at its own weight limit (`move_card`, `create_card`, and `update_card` when the weight goes up). Same fields as `weight_limit_exceeded` plus `swimlane_name`. *Added in 1.3 (#1150).* |
 | `version_conflict` | `move_card`, `update_card`, and `create_card` when `position` is given. For `move_card` and `update_card`, the `version` you passed no longer matches the card (*Added in 1.3, #1974*; see [Optimistic concurrency](#optimistic-concurrency)), or, for `move_card` only, the card kept changing under concurrent writes while the server retried locking it, which can happen without a `version`. Nothing was changed; `current_version` is the card's version now. Re-read the card and retry. For `create_card`, cards kept entering the target column/swimlane cell while the server retried locking it. Nothing was created, so there is no card to report: `current_version` is `null` and `detail` says so. Retry the same call. Added in 1.2 (#1522). |
 
 ### User fields
@@ -421,7 +423,7 @@ Lists a board's swimlanes, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, uid, name, position, color, card_count, is_collapsed}` (`uid` since 1.3), plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
+**Returns:** an array of `{id, uid, name, position, color, card_count, is_collapsed, wip_limit, weight_limit}` (`uid` since 1.3; `wip_limit` and `weight_limit`, the swimlane's own limits or `null`, since 1.3, #1150), plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
 
 ### `list_cards`
 

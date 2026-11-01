@@ -38,6 +38,12 @@ FACTORIES = {
         column_name="c", current_count=1, wip_limit=1),
     "WeightLimitExceeded": lambda: service_errors.WeightLimitExceeded(
         column_name="c", current_weight=1, weight_limit=1, card_weight=1),
+    "SwimlaneWipLimitExceeded": lambda: service_errors.SwimlaneWipLimitExceeded(
+        swimlane_name="s", column_name="c", current_count=1, wip_limit=1),
+    "SwimlaneWipHardBlocked": lambda: service_errors.SwimlaneWipHardBlocked(
+        swimlane_name="s", column_name="c", current_count=1, wip_limit=1),
+    "SwimlaneWeightLimitExceeded": lambda: service_errors.SwimlaneWeightLimitExceeded(
+        swimlane_name="s", column_name="c", current_weight=1, weight_limit=1, card_weight=1),
     "CardCreationNotAllowed": lambda: service_errors.CardCreationNotAllowed(),
     "UseMoveEndpoint": lambda: service_errors.UseMoveEndpoint(
         "column", board_pk=1, card_pk=2),
@@ -69,6 +75,9 @@ EXPECTED_SERVICE_CODES = {
     "WipLimitExceeded": "wip_limit_exceeded",
     "WipHardBlocked": "wip_hard_blocked",
     "WeightLimitExceeded": "weight_limit_exceeded",
+    "SwimlaneWipLimitExceeded": "swimlane_wip_limit_exceeded",
+    "SwimlaneWipHardBlocked": "swimlane_wip_hard_blocked",
+    "SwimlaneWeightLimitExceeded": "swimlane_weight_limit_exceeded",
     "CardCreationNotAllowed": "card_creation_not_allowed",
     "UseMoveEndpoint": "use_move_endpoint",
 }

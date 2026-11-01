@@ -46,6 +46,48 @@ COLUMN_WEIGHT_LIMIT = (
     "Lowering a weight is never blocked. Board import is not checked."
 )
 
+# -- Swimlane (#1150) --------------------------------------------------------
+
+SWIMLANE_WIP_LIMIT = (
+    "Enforcement: binding on every API card write path except board import. "
+    "Maximum number of active (non-archived) cards in this swimlane's counted "
+    "columns (limit_column_ids); null means unlimited, and the minimum is 1. "
+    "Moving a card into a counted column of the swimlane from outside that "
+    "set (another swimlane, or an uncounted column of this one), creating a "
+    "card there, and restoring an archived card there return 409 "
+    "(swimlane_wip_limit_exceeded, or swimlane_wip_hard_blocked in hard mode) "
+    "at the limit when limit_enforcement, or the board flags it inherits, "
+    "enforce it. A move between two counted columns of one swimlane never "
+    "trips it. Board import restores a board as exported and is not checked."
+)
+
+SWIMLANE_WEIGHT_LIMIT = (
+    "Enforcement: binding on every API card write path except board import. "
+    "Maximum total weight of active cards in this swimlane's counted columns; "
+    "null means unlimited, and the minimum is 1. Checked on the same "
+    "placements as wip_limit, and when PATCH raises the weight of a card in a "
+    "counted column (409 swimlane_weight_limit_exceeded). Weight has no hard "
+    "mode: a board admin can always override with ?force=true. Board import "
+    "is not checked."
+)
+
+SWIMLANE_LIMIT_ENFORCEMENT = (
+    "Enforcement: binding -- selects how this swimlane's own wip_limit and "
+    "weight_limit are enforced. `block`: refused with 409, board admins can "
+    "override with ?force=true. `hard`: the WIP limit admits no override for "
+    "any role (the weight limit stays a block). null (the default): inherit "
+    "the board's enforce_wip_limits, enforce_wip_hard and "
+    "enforce_weight_limits, exactly as a column does."
+)
+
+SWIMLANE_LIMIT_COLUMN_IDS = (
+    "Enforcement: binding -- which columns' cards count toward this "
+    "swimlane's wip_limit and weight_limit, as column ids of this board. "
+    "null (the default) means every column that is not marked is_done. An "
+    "empty list is refused. Deleting a column removes its id here; a list "
+    "left empty becomes null."
+)
+
 # -- Board -------------------------------------------------------------------
 
 BOARD_ENFORCE_WIP_LIMITS = (

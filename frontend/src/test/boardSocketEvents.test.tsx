@@ -147,7 +147,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
       { id: 11, uid: 'col002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
     ],
     swimlanes: [
-      { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
+      { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
     ],
     cards: [],
     labels: [{ id: 100, uid: 'lbl001', name: 'Bug', color: '#EF4444' }],
@@ -490,7 +490,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView />)
     await act(async () => {})
     const swimlanes: Swimlane[] = [
-      { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
+      { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
     ]
     act(() => { getOnEvent.dispatch({ event: 'swimlane.reordered', data: { swimlanes } }) })
     expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)
@@ -502,7 +502,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView />)
     await act(async () => {})
     const swimlanes: Swimlane[] = [
-      { id: 21, uid: 'lane002', name: 'Customer B', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
+      { id: 21, uid: 'lane002', name: 'Customer B', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
     ]
     act(() => { getOnEvent.dispatch({ event: 'swimlane.reordered', data: { swimlanes } }) })
     expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)

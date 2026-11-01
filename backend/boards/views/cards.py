@@ -253,9 +253,11 @@ _FORCE_PARAM = OpenApiParameter(
     required=False,
     description=(
         "Board admins/site admins only: pass `true` to override a soft WIP or "
-        "weight limit (`wip_limit_exceeded` / `weight_limit_exceeded`). Ignored — "
-        "the request is always blocked — when the board's hard WIP mode "
-        "(`wip_hard_blocked`) is active."
+        "weight limit of the column or the swimlane (`wip_limit_exceeded` / "
+        "`weight_limit_exceeded` / `swimlane_wip_limit_exceeded` / "
+        "`swimlane_weight_limit_exceeded`). Ignored — the request is always "
+        "blocked — when a hard WIP limit applies (`wip_hard_blocked` / "
+        "`swimlane_wip_hard_blocked`)."
     ),
 )
 
@@ -269,6 +271,9 @@ def _limit_conflict_response(name, description):
                 "code": serializers.CharField(),
                 "detail": serializers.CharField(required=False),
                 "column_name": serializers.CharField(),
+                # The `swimlane_*` codes only (#1150); `column_name` then names
+                # the target cell's column and the counts are the swimlane's.
+                "swimlane_name": serializers.CharField(required=False),
                 "current_count": serializers.IntegerField(required=False),
                 "wip_limit": serializers.IntegerField(required=False),
                 "current_weight": serializers.IntegerField(required=False),
@@ -403,7 +408,11 @@ def _parse_card_limit(request, maximum):
 _ENTER_COLUMN_409 = (
     "`wip_limit_exceeded` / `wip_hard_blocked` — the column is at its WIP limit; "
     "`weight_limit_exceeded` — the card's weight would push the column over its "
-    "weight limit. Same bodies and override rules as the move endpoint (#1428)."
+    "weight limit; `swimlane_wip_limit_exceeded` / `swimlane_wip_hard_blocked` / "
+    "`swimlane_weight_limit_exceeded` — the same for the swimlane's own limits "
+    "(#1150), with `swimlane_name` added and the swimlane's counts. When several "
+    "limits trip, the strictest is reported (hard before soft; column before "
+    "swimlane). Same bodies and override rules as the move endpoint (#1428)."
 )
 
 _CARD_UPDATE_SCHEMA = extend_schema(
@@ -421,7 +430,9 @@ _CARD_UPDATE_SCHEMA = extend_schema(
         409: _limit_conflict_response(
             "CardUpdateLimitConflict",
             "`weight_limit_exceeded` — the new weight would push the column over "
-            "its weight limit.",
+            "its weight limit; `swimlane_weight_limit_exceeded` — the same for "
+            "the swimlane's weight limit (#1150), when the card's column counts "
+            "toward it.",
         ),
     },
 )
@@ -908,8 +919,12 @@ class CardViewSet(viewsets.ModelViewSet):
         summary="Move a card to a new column, swimlane, or position",
         description=(
             "Moves a card, creating a CardMovement audit record when the column or "
-            "swimlane changes. Enforces per-column WIP/weight limits and optimistic "
-            "concurrency control (OCC) via the optional `version` field. This is the "
+            "swimlane changes. Enforces per-column and per-swimlane WIP/weight limits "
+            "and optimistic concurrency control (OCC) via the optional `version` "
+            "field. A swimlane limit is checked only when the move adds to the "
+            "swimlane's counted total (a move between two counted columns of one "
+            "swimlane never trips it); a column limit only when the column changes. "
+            "This is the "
             "only endpoint that may change a card's `column`/`swimlane`/`position` — "
             "PATCH/PUT on the card detail endpoint rejects such changes with "
             "`use_move_endpoint`."
@@ -922,9 +937,10 @@ class CardViewSet(viewsets.ModelViewSet):
                 required=False,
                 description=(
                     "Board admins/site admins only: pass `true` to override a soft "
-                    "WIP or weight limit (`wip_limit_exceeded` / `weight_limit_exceeded`). "
-                    "Ignored — the move is always blocked — when the board's hard WIP "
-                    "mode (`wip_hard_blocked`) is active."
+                    "WIP or weight limit (`wip_limit_exceeded` / `weight_limit_exceeded` / "
+                    "`swimlane_wip_limit_exceeded` / `swimlane_weight_limit_exceeded`). "
+                    "Ignored — the move is always blocked — when a hard WIP limit "
+                    "applies (`wip_hard_blocked` / `swimlane_wip_hard_blocked`)."
                 ),
             ),
         ],
@@ -984,7 +1000,11 @@ class CardViewSet(viewsets.ModelViewSet):
                 description=(
                     "`version_conflict` — the card was modified since the client's version; "
                     "`wip_limit_exceeded` / `wip_hard_blocked` — target column is at its WIP "
-                    "limit; `weight_limit_exceeded` — target column is at its weight limit."
+                    "limit; `weight_limit_exceeded` — target column is at its weight limit; "
+                    "`swimlane_wip_limit_exceeded` / `swimlane_wip_hard_blocked` / "
+                    "`swimlane_weight_limit_exceeded` — the target swimlane is at its own "
+                    "limit (#1150; adds `swimlane_name`, counts are the swimlane's). The "
+                    "strictest tripped limit is reported."
                 ),
                 response=inline_serializer(
                     name="CardMoveConflict",
@@ -993,6 +1013,7 @@ class CardViewSet(viewsets.ModelViewSet):
                         "detail": serializers.CharField(required=False),
                         "current_version": serializers.IntegerField(required=False),
                         "column_name": serializers.CharField(required=False),
+                        "swimlane_name": serializers.CharField(required=False),
                         "current_count": serializers.IntegerField(required=False),
                         "wip_limit": serializers.IntegerField(required=False),
                         "current_weight": serializers.IntegerField(required=False),

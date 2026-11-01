@@ -482,6 +482,26 @@ POST /api/v1/boards/1/cards/42/move/?force=true
 
 `?force=true` only matters when the move would otherwise be blocked by a real WIP or weight breach; on a move that hits no limit it is a no-op that succeeds for any role. A non-admin whose move *does* hit a limit and sends `?force=true` receives `403 Forbidden`.
 
+#### Swimlane limits
+
+> **Added in 1.3** (#1150)
+
+A swimlane can have its own `wip_limit` and `weight_limit` (see [Swimlane limits](boards.md#swimlane-limits-since-13)). The same paths enforce them: move, create, restore, and a `PATCH` that raises `weight`. A move is checked against the target swimlane only when it adds to the swimlane's counted total, so a move between two counted columns of one swimlane never trips it. Each swimlane chooses `limit_enforcement`: `"block"` (board admins can override with `?force=true`), `"hard"` (no override for the WIP limit), or `null` to follow the board's flags as a column does. The bodies add `swimlane_name`; `column_name` names the target cell's column, and the counters are the swimlane's:
+
+```json
+{ "code": "swimlane_wip_limit_exceeded", "column_name": "Doing", "swimlane_name": "Acme Corp", "current_count": 3, "wip_limit": 3 }
+```
+
+```json
+{ "detail": "Swimlane WIP limit enforced — move blocked.", "code": "swimlane_wip_hard_blocked", "column_name": "Doing", "swimlane_name": "Acme Corp", "current_count": 3, "wip_limit": 3 }
+```
+
+```json
+{ "code": "swimlane_weight_limit_exceeded", "column_name": "Doing", "swimlane_name": "Acme Corp", "current_weight": 8, "weight_limit": 10, "card_weight": 3 }
+```
+
+When more than one limit trips, the response names the strictest: a hard limit before a soft one, then the column before the swimlane, then WIP before weight. A board with no swimlane limits gets exactly the column bodies above. One `?force=true` from a board admin overrides every soft limit the move trips, and none of the hard ones.
+
 The `*_uid` fields in the movement record are permanent: they stay set after the referenced column or swimlane is deleted (the FK `*_id` becomes `null`, the UID is preserved). See [Stable UIDs](../features/stable-uids.md).
 
 ---

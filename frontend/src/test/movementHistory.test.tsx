@@ -26,7 +26,7 @@ const mockBoard: BoardFull = {
     { id: 2, uid: 'c2', name: 'Done', position: 1, color: '#22C55E', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: true },
   ],
   swimlanes: [
-    { id: 1, uid: 's1', name: 'Customer A', position: 0, color: '#3B82F6', is_collapsed: false, created_at: '2024-01-01T00:00:00Z' },
+    { id: 1, uid: 's1', name: 'Customer A', position: 0, color: '#3B82F6', is_collapsed: false, created_at: '2024-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
   ],
   cards: [],
   labels: [],

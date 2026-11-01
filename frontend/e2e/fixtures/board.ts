@@ -84,6 +84,10 @@ export const SWIMLANE = {
   color: '#3B82F6',
   is_collapsed: false,
   created_at: '2026-01-01T00:00:00Z',
+  wip_limit: null,
+  weight_limit: null,
+  limit_enforcement: null,
+  limit_column_ids: null,
 }
 
 export const LABEL_BUG = {

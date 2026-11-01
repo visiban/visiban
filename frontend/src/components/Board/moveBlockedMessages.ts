@@ -16,8 +16,34 @@ export function toastBody(error: MoveBlockedError): string {
     const s = error.wip_limit !== 1 ? "s" : "";
     return `"${error.column_name}" is at its limit of ${error.wip_limit} card${s} (${error.current_count} active).`;
   }
+  // Swimlane (row) limits (#1150) name the row, which is what the limit is on.
+  if (error.code === "swimlane_wip_limit_exceeded" || error.code === "swimlane_wip_hard_blocked") {
+    const s = error.wip_limit !== 1 ? "s" : "";
+    return `Swimlane "${error.swimlane_name}" is at its limit of ${error.wip_limit} card${s} (${error.current_count} active).`;
+  }
   const proposed = error.current_weight + error.card_weight;
+  if (error.code === "swimlane_weight_limit_exceeded") {
+    return `Swimlane "${error.swimlane_name}" has ${error.current_weight} weight — adding this card (+${error.card_weight}) would reach ${proposed} of ${error.weight_limit}.`;
+  }
   return `"${error.column_name}" has ${error.current_weight} weight — adding this card (+${error.card_weight}) would reach ${proposed} of ${error.weight_limit}.`;
+}
+
+/** Codes of the six limit refusals (column and swimlane). */
+const LIMIT_REFUSAL_CODES = new Set<string>([
+  "wip_limit_exceeded", "wip_hard_blocked", "weight_limit_exceeded",
+  "swimlane_wip_limit_exceeded", "swimlane_wip_hard_blocked", "swimlane_weight_limit_exceeded",
+]);
+
+/** True for the hard WIP refusals, which no role can override. */
+export function isHardLimit(code: string): boolean {
+  return code === "wip_hard_blocked" || code === "swimlane_wip_hard_blocked";
+}
+
+/** What a hard refusal is on, for the resolution hint: the column or the row. */
+export function hardLimitContainer(error: MoveBlockedError): string | null {
+  if (error.code === "wip_hard_blocked") return error.column_name;
+  if (error.code === "swimlane_wip_hard_blocked") return error.swimlane_name;
+  return null;
 }
 
 export function toastTitle(error: MoveBlockedError): string {
@@ -31,7 +57,10 @@ export function toastTitle(error: MoveBlockedError): string {
   // message must not read as "you personally did something wrong".
   if (error.code === "maintenance_mode") return "The instance is temporarily read-only";
   if (error.code === "wip_hard_blocked") return "Column at capacity — no exceptions";
-  return error.code === "wip_limit_exceeded" ? "WIP limit reached" : "Weight limit reached";
+  if (error.code === "swimlane_wip_hard_blocked") return "Swimlane at capacity — no exceptions";
+  return error.code === "wip_limit_exceeded" || error.code === "swimlane_wip_limit_exceeded"
+    ? "WIP limit reached"
+    : "Weight limit reached";
 }
 
 /**
@@ -39,7 +68,7 @@ export function toastTitle(error: MoveBlockedError): string {
  *
  * Card create and restore return the move endpoint's limit bodies verbatim,
  * so they reuse this toast's own title and body copy rather than inventing a
- * second wording. Returns null for anything that is not one of the three
+ * second wording. Returns null for anything that is not one of the six
  * limit codes, so callers keep their existing generic message for every other
  * failure. No override is offered: the inline surfaces have no force action.
  */
@@ -49,10 +78,14 @@ export function limitBlockedMessage(err: unknown): string | null {
   return `${toastTitle(data)}: ${toastBody(data)}`;
 }
 
-/** The three column-limit refusal bodies (WIP soft, WIP hard, weight). */
+/** The six limit refusal bodies (WIP soft, WIP hard, weight; column and swimlane). */
 export type LimitRefusal = Extract<
   MoveBlockedError,
-  { code: "wip_limit_exceeded" | "wip_hard_blocked" | "weight_limit_exceeded" }
+  {
+    code:
+      | "wip_limit_exceeded" | "wip_hard_blocked" | "weight_limit_exceeded"
+      | "swimlane_wip_limit_exceeded" | "swimlane_wip_hard_blocked" | "swimlane_weight_limit_exceeded";
+  }
 >;
 
 /**
@@ -66,14 +99,8 @@ export function limitRefusal(err: unknown): LimitRefusal | null {
   const response = (err as { response?: { status?: number; data?: unknown } } | null)?.response;
   if (response?.status !== 409) return null;
   const data = response.data as MoveBlockedError | undefined;
-  if (
-    data?.code !== "wip_limit_exceeded" &&
-    data?.code !== "wip_hard_blocked" &&
-    data?.code !== "weight_limit_exceeded"
-  ) {
-    return null;
-  }
-  return data;
+  if (!data || !LIMIT_REFUSAL_CODES.has(data.code)) return null;
+  return data as LimitRefusal;
 }
 
 /**
@@ -82,6 +109,14 @@ export function limitRefusal(err: unknown): LimitRefusal | null {
  * the column name; pluralization matches toastBody.
  */
 export function limitCounts(refusal: LimitRefusal): string {
+  if (refusal.code === "swimlane_weight_limit_exceeded") {
+    return `Swimlane "${refusal.swimlane_name}": weight would reach ${refusal.current_weight + refusal.card_weight} of ${refusal.weight_limit} (this card +${refusal.card_weight}).`;
+  }
+  if (refusal.code === "swimlane_wip_limit_exceeded" || refusal.code === "swimlane_wip_hard_blocked") {
+    // The popover names the column, so the row is named here (#1150).
+    const s = refusal.wip_limit !== 1 ? "s" : "";
+    return `Swimlane "${refusal.swimlane_name}": limit ${refusal.wip_limit} card${s}, ${refusal.current_count} active.`;
+  }
   if (refusal.code === "weight_limit_exceeded") {
     return `Weight would reach ${refusal.current_weight + refusal.card_weight} of ${refusal.weight_limit} (this card +${refusal.card_weight}).`;
   }

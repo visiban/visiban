@@ -157,7 +157,7 @@ Board and group `board.*` event payloads never carry the share-link fields (`sha
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `swimlane.created` | New swimlane created | `SwimlaneSerializer` object (public fields only — `contact_email` and `notes` are omitted regardless of role) |
-| `swimlane.updated` | Swimlane updated | `SwimlaneSerializer` object (same field rules as above) |
+| `swimlane.updated` | Swimlane updated | `SwimlaneSerializer` object (same field rules as above). Since 1.3 the object also carries `wip_limit`, `weight_limit`, `limit_enforcement` and `limit_column_ids` (#1150), additive; a column delete that removes a column from `limit_column_ids` sends no `swimlane.updated`, so a client drops the id itself on `column.deleted` |
 | `swimlane.deleted` | Swimlane deleted, with every card in it (archived cards included). No `card.deleted` frames are sent for those cards; see [Deleting a container deletes its cards](#deleting-a-container-deletes-its-cards) | `{ "swimlane_uid": <string> }` |
 | `swimlane.reordered` | Swimlane order changed (since 1.1) | `{ "swimlanes": [<SwimlaneSerializer>, ...] }` — all swimlanes in new order |
 
