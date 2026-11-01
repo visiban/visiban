@@ -4070,6 +4070,7 @@
 <li>Dates are ISO 8601 strings: <code>"2026-04-01"</code></li>
 <li>Requests with no valid credentials (no session, or a missing, invalid, or expired token) return <code>401 Unauthorized</code> with a <code>WWW-Authenticate: Token</code> header. A credential that is valid but not allowed to perform the action returns <code>403 Forbidden</code>. Re-authenticating fixes a <code>401</code>; it never fixes a <code>403</code></li>
 <li>Permission errors return <code>403 Forbidden</code>; missing resources return <code>404 Not Found</code></li>
+<li>An account with a forced password or username change pending gets <code>403 Forbidden</code> with a body of only <code>{"detail": "You must change your password before continuing."}</code> or <code>{"detail": "You must choose a new username before continuing."}</code> (no <code>code</code>) on most authenticated endpoints, until it completes the change. The endpoints needed to clear or read the flag stay reachable: <code>GET /auth/me/</code>, <code>GET</code>/<code>PUT</code>/<code>PATCH /auth/user/</code>, <code>POST /auth/change-password/</code>, <code>POST /auth/password/change/</code> and <code>POST /auth/choose-username/</code>, along with logout, the public sign-in, registration and password-reset routes, <code>site-config</code>, <code>providers</code>, invite previews, share links, health checks and the schema. See <a href="authentication/#common-errors">Common errors</a></li>
 <li><em>(1.2+)</em> Board-scoped routes answer <code>404 Not Found</code> to a caller with no access to the board, the same as for a board that does not exist. <code>403 Forbidden</code> means the caller can see the board but their role is too low for the action</li>
 </ul>
 <h3 id="error-responses">Error responses<a class="headerlink" href="#error-responses" title="Permanent link">&para;</a></h3>
@@ -4101,6 +4102,63 @@
 </code></pre></div>
 <p>Branch on <code>code</code>, not on which parameter key is present.</p>
 <p>Some parameters are clamped or ignored rather than refused; each endpoint's page says which.</p>
+<h3 id="rate-limits">Rate limits<a class="headerlink" href="#rate-limits" title="Permanent link">&para;</a></h3>
+<p>Requests are throttled per client with DRF throttles. A request over its limit answers <code>429 Too Many Requests</code> with <code>{"detail": "Request was throttled. Expected available in N seconds."}</code> and a <code>Retry-After</code> header (seconds); wait that long before retrying.</p>
+<p>Every endpoint counts against two defaults unless its page names a tighter scope:</p>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Default</th>
+<th>Keyed on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>anon</code></td>
+<td>300 requests/hour</td>
+<td>Client IP, unauthenticated requests</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>5000 requests/hour</td>
+<td>Authenticated user, shared across every endpoint without its own scope</td>
+</tr>
+</tbody>
+</table>
+<p>Some endpoints have their own scope in place of or alongside these. The ones that are easy to trip from a script:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Scope</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/v1/cards/</code></td>
+<td><code>card_query</code></td>
+<td>120 requests/minute per user</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/auth/registration/</code></td>
+<td><code>register</code></td>
+<td>10 requests/minute per IP, anonymous requests only</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/auth/choose-username/</code></td>
+<td><code>choose_username</code></td>
+<td>10 requests/minute per user, shared with username and email changes on <code>PATCH /api/v1/auth/me/</code> and <code>PUT</code>/<code>PATCH /api/v1/auth/user/</code></td>
+</tr>
+<tr>
+<td><code>POST /api/v1/auth/password/reset/confirm/</code></td>
+<td><code>password_reset_confirm</code></td>
+<td>10 requests/hour per IP</td>
+</tr>
+</tbody>
+</table>
+<p>Each endpoint's page lists its own scope and rate. These are the production defaults; development (<code>DEBUG</code>) mode raises most of them to 9999/hour. Nothing here applies to <a href="mcp/#rate-limiting"><code>/mcp</code></a>, which has its own limiter.</p>
 <h3 id="pagination">Pagination<a class="headerlink" href="#pagination" title="Permanent link">&para;</a></h3>
 <p>Most list endpoints return the <strong>standard paginated envelope</strong>. A client must read the list from <code>results</code>, not from the top level of the response:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>

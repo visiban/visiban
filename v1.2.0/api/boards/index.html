@@ -2607,10 +2607,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#put-apiv1boardsidcolumnscol_id" class="md-nav__link">
+  <a href="#put-apiv1boardsidcolumnscol_id-patch-apiv1boardsidcolumnscol_id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PUT /api/v1/boards/{id}/columns/{col_id}/
+        PUT /api/v1/boards/{id}/columns/{col_id}/ / PATCH /api/v1/boards/{id}/columns/{col_id}/
       
     </span>
   </a>
@@ -2690,10 +2690,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#put-apiv1boardsidswimlanesswimlane_id" class="md-nav__link">
+  <a href="#put-apiv1boardsidswimlanesswimlane_id-patch-apiv1boardsidswimlanesswimlane_id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/
+        PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/ / PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/
       
     </span>
   </a>
@@ -2784,10 +2784,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#put-apiv1boardsidlabelslabel_id" class="md-nav__link">
+  <a href="#put-apiv1boardsidlabelslabel_id-patch-apiv1boardsidlabelslabel_id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PUT /api/v1/boards/{id}/labels/{label_id}/
+        PUT /api/v1/boards/{id}/labels/{label_id}/ / PATCH /api/v1/boards/{id}/labels/{label_id}/
       
     </span>
   </a>
@@ -2900,10 +2900,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#patch-apiv1boardsidcustom-fieldsfield_id" class="md-nav__link">
+  <a href="#patch-apiv1boardsidcustom-fieldsfield_id-put-apiv1boardsidcustom-fieldsfield_id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PATCH /api/v1/boards/{id}/custom-fields/{field_id}/
+        PATCH /api/v1/boards/{id}/custom-fields/{field_id}/ / PUT /api/v1/boards/{id}/custom-fields/{field_id}/
       
     </span>
   </a>
@@ -2983,10 +2983,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#patch-apiv1boardsidswimlane-custom-fieldsfield_id" class="md-nav__link">
+  <a href="#patch-apiv1boardsidswimlane-custom-fieldsfield_id-put-apiv1boardsidswimlane-custom-fieldsfield_id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/
+        PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/ / PUT /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/
       
     </span>
   </a>
@@ -7773,9 +7773,10 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <p>WIP and weight limits are enforced when <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board. A card move, create, or restore into an over-limit column (or a PATCH raising a card's <code>weight</code> past the weight limit) returns <code>409 Conflict</code> — see the move endpoint in the <a href="../cards/">Cards API</a> for the full error schema and the <code>?force=true</code> admin override. When enforcement is disabled, limits are displayed but not enforced.</p>
 <p>Since 1.2 (#1428) limits are checked on every API card write path except board import (REST, MCP, and the Django admin), not just the move endpoint. Board import and the operator seed commands are exempt by design: import restores a board as exported, so an imported column can hold more than its limit — see <a href="../../architecture/field-enforcement/">Field Enforcement</a>.</p>
 </blockquote>
-<h3 id="put-apiv1boardsidcolumnscol_id"><code>PUT /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#put-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
+<h3 id="put-apiv1boardsidcolumnscol_id-patch-apiv1boardsidcolumnscol_id"><code>PUT /api/v1/boards/{id}/columns/{col_id}/</code> / <code>PATCH /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#put-apiv1boardsidcolumnscol_id-patch-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
 <p>Update a column. Requires board admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>wip_limit</code> (integer or <code>null</code>), <code>weight_limit</code> (integer or <code>null</code>), <code>allow_card_creation</code> (boolean), <code>is_done</code> (boolean)</p>
+<p><code>PUT</code> and <code>PATCH</code> are both accepted. <code>PATCH</code> changes only the fields you send. <code>PUT</code> requires <code>name</code>, as on create (<code>400</code> with <code>{"name": ["This field is required."]}</code> without it); any other writable field you leave out keeps its current value, it is not reset to its default. To change one field without resending the name, use <code>PATCH</code>.</p>
 <h3 id="delete-apiv1boardsidcolumnscol_id"><code>DELETE /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#delete-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
 <p>Delete a column. Requires board admin.</p>
 <p>Since 1.2, if cards keep being created in, or moved into, the column during the delete, it gives up after a bounded number of internal retries and returns <code>409 Conflict</code> with <code>{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}</code>. Nothing is deleted; retry (#1602). A create or move targeting the column mid-delete waits for the delete, then returns <code>404</code>.</p>
@@ -7858,13 +7859,14 @@ rule as checklist-item reorder, #1292.)</em></p>
 </tbody>
 </table>
 <p><code>contact_email</code> and <code>notes</code> are only returned to <code>admin</code> and <code>site_admin</code> role members (see role-gated fields note above).</p>
-<h3 id="put-apiv1boardsidswimlanesswimlane_id"><code>PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#put-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
+<h3 id="put-apiv1boardsidswimlanesswimlane_id-patch-apiv1boardsidswimlanesswimlane_id"><code>PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code> / <code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#put-apiv1boardsidswimlanesswimlane_id-patch-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
 <p>Update a swimlane. Requires board admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>is_collapsed</code>, <code>contact_email</code>, <code>notes</code>, <code>custom_field_values</code> (since 1.2)</p>
+<p><code>PUT</code> and <code>PATCH</code> are both accepted. <code>PATCH</code> changes only the fields you send. <code>PUT</code> requires <code>name</code>; any other writable field you leave out keeps its current value, it is not reset to its default.</p>
 <blockquote>
 <p>Swimlane names are unique per board. Renaming a swimlane to a name that already exists on the same board returns <code>400 Bad Request</code>.</p>
 </blockquote>
-<p><code>PATCH</code> accepts <code>custom_field_values</code> writes too. Send only the entries you want to change; a swimlane custom field not named keeps its value. Send <code>{"field_definition": &lt;id&gt;, "value": ""}</code> to clear (and delete) a value. At most one entry per <code>field_definition</code> per request; a <code>field_definition</code> id from another board is rejected with <code>400 Bad Request</code>. Writes here are admin-only, so an admin may write an <code>is_admin_only</code> field's value; that is expected, not an escalation. There is no separate values endpoint.</p>
+<p><code>custom_field_values</code> writes work with <code>PUT</code> and <code>PATCH</code> alike. Send only the entries you want to change; a swimlane custom field not named keeps its value. Send <code>{"field_definition": &lt;id&gt;, "value": ""}</code> to clear (and delete) a value. At most one entry per <code>field_definition</code> per request; a <code>field_definition</code> id from another board is rejected with <code>400 Bad Request</code>. Writes here are admin-only, so an admin may write an <code>is_admin_only</code> field's value; that is expected, not an escalation. There is no separate values endpoint.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The <code>PUT</code>/<code>PATCH</code> HTTP response always includes <code>contact_email</code>, <code>notes</code>, and every
@@ -7934,9 +7936,10 @@ same rule as checklist-item reorder, #1292.)</em></p>
 <h3 id="post-apiv1boardsidlabels"><code>POST /api/v1/boards/{id}/labels/</code><a class="headerlink" href="#post-apiv1boardsidlabels" title="Permanent link">&para;</a></h3>
 <p>Create a label. Requires board admin.</p>
 <p><strong>Request</strong> <code>{ "name": "Bug", "color": "#EF4444" }</code></p>
-<h3 id="put-apiv1boardsidlabelslabel_id"><code>PUT /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#put-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
+<h3 id="put-apiv1boardsidlabelslabel_id-patch-apiv1boardsidlabelslabel_id"><code>PUT /api/v1/boards/{id}/labels/{label_id}/</code> / <code>PATCH /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#put-apiv1boardsidlabelslabel_id-patch-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
 <p>Update a label. Requires board admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>color</code></p>
+<p><code>PUT</code> and <code>PATCH</code> are both accepted. <code>PATCH</code> changes only the fields you send. <code>PUT</code> requires <code>name</code>; a <code>color</code> you leave out keeps its current value.</p>
 <h3 id="delete-apiv1boardsidlabelslabel_id"><code>DELETE /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#delete-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
 <p>Delete a label. Requires board admin.</p>
 <hr />
@@ -8277,9 +8280,10 @@ errors below.</p>
   option is out of range, <code>choice_colors</code> is malformed or set on a type without choices
   (see <a href="#choice-colors">Choice colors</a>), the board already has 30 definitions, or a
   third field is pinned with <code>show_on_card</code>.</p>
-<h3 id="patch-apiv1boardsidcustom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidcustom-fieldsfield_id" title="Permanent link">&para;</a></h3>
+<h3 id="patch-apiv1boardsidcustom-fieldsfield_id-put-apiv1boardsidcustom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/custom-fields/{field_id}/</code> / <code>PUT /api/v1/boards/{id}/custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidcustom-fieldsfield_id-put-apiv1boardsidcustom-fieldsfield_id" title="Permanent link">&para;</a></h3>
 <p>Update a definition. Requires board admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>field_type</code>, <code>choices</code>, <code>show_on_card</code>, <code>is_required</code>, <code>help_text</code>, <code>number_prefix</code>, <code>number_suffix</code>, <code>number_decimals</code>, <code>choice_colors</code></p>
+<p><code>PATCH</code> and <code>PUT</code> are both accepted. <code>PATCH</code> changes only the fields you send and is the one to use for a rename or a single-option change. <code>PUT</code> requires <code>name</code>; any other writable field you leave out keeps its current value, it is not reset to its default. Every rule and error below applies to both.</p>
 <blockquote>
 <p>Removing (or renaming) a choice on a dropdown or multi-select does <strong>not</strong> rewrite cards
 that already hold it: the stored value keeps reading back. A dropdown value that is no
@@ -8450,9 +8454,10 @@ another board returns <code>404 Not Found</code>.</p>
   option is out of range, <code>choice_colors</code> is malformed or set on a type without choices
   (see <a href="#choice-colors">Choice colors</a>), the board already has 15
   swimlane field definitions, or a ninth field is pinned with <code>show_on_row</code>.</p>
-<h3 id="patch-apiv1boardsidswimlane-custom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidswimlane-custom-fieldsfield_id" title="Permanent link">&para;</a></h3>
+<h3 id="patch-apiv1boardsidswimlane-custom-fieldsfield_id-put-apiv1boardsidswimlane-custom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code> / <code>PUT /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidswimlane-custom-fieldsfield_id-put-apiv1boardsidswimlane-custom-fieldsfield_id" title="Permanent link">&para;</a></h3>
 <p>Update a definition. Requires board admin.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>field_type</code>, <code>choices</code>, <code>show_on_row</code>, <code>is_admin_only</code>, <code>is_required</code>, <code>help_text</code>, <code>number_prefix</code>, <code>number_suffix</code>, <code>number_decimals</code>, <code>choice_colors</code></p>
+<p><code>PATCH</code> and <code>PUT</code> are both accepted. <code>PATCH</code> changes only the fields you send. <code>PUT</code> requires <code>name</code>; any other writable field you leave out keeps its current value, it is not reset to its default. Every rule and error below applies to both.</p>
 <p><strong>Errors:</strong>
 - <code>400 Bad Request</code> with a <code>field_type</code> key if the request changes <code>field_type</code> and at
   least one swimlane already holds a value for this definition. A definition with zero

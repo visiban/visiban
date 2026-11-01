@@ -4567,7 +4567,7 @@
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>
-<td>The token's account has a pending forced change (<code>must_change_password</code> or <code>must_change_username</code>). Same message and code as the REST API (<code>error.data.code</code> is <code>must_change_username</code> for the username case); change the password or choose a username in the web app, then retry.</td>
+<td>The token's account has a pending forced change (<code>must_change_password</code> or <code>must_change_username</code>). Same message as the REST API; the MCP error also carries <code>error.data.code</code> (<code>must_change_username</code> for the username case); change the password or choose a username in the web app, then retry.</td>
 </tr>
 <tr>
 <td><code>404 Not Found</code></td>
