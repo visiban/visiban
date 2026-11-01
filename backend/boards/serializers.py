@@ -7,7 +7,7 @@ from django.db import models as _db_models
 from django.db.models import Prefetch
 from django.utils.dateparse import parse_date
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 
 from accounts.models import User
@@ -2858,6 +2858,10 @@ def _group_name_for_board(board) -> str | None:
     return board.group.name if board.group_id else None
 
 
+# allowed_priorities is deprecated (#1429): kept for API compatibility (1.0
+# contract forbids removing a serializer field), flagged in the schema. Nothing
+# reads it; card writes accept any priority.
+@extend_schema_serializer(deprecate_fields=["allowed_priorities"])
 class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
@@ -3216,6 +3220,7 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
     joined_at = serializers.DateTimeField(read_only=True)
 
 
+@extend_schema_serializer(deprecate_fields=["allowed_priorities"])
 class BoardFullSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     columns = ColumnSerializer(many=True, read_only=True)

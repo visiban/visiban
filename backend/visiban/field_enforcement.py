@@ -72,10 +72,10 @@ BOARD_ENFORCE_WEIGHT_LIMITS = (
 )
 
 BOARD_ALLOWED_PRIORITIES = (
-    "Enforcement: scaffold -- stored and returned, but not enforced. Card "
-    "create and update accept any priority regardless of this list, and no "
-    "client filters the priority picker by it. An empty list is intended to "
-    "mean all priorities are allowed."
+    "Enforcement: scaffold -- stored and returned, but not enforced. "
+    "Deprecated (#1429): this field has no effect and is kept only for API "
+    "compatibility. Card create and update accept any priority regardless of "
+    "this list, and no client filters the priority picker by it."
 )
 
 # -- Card --------------------------------------------------------------------
@@ -110,8 +110,9 @@ SWIMLANE_CUSTOM_FIELD_IS_REQUIRED = (
 GROUP_ALLOWED_PRIORITIES = (
     "Enforcement: advisory -- copied onto a board's allowed_priorities when the "
     "board is created through the group's boards endpoint, and not consulted "
-    "afterwards. The board-level field it seeds is itself not enforced, so "
-    "this does not restrict card priorities."
+    "afterwards. Deprecated (#1429): the board-level field it seeds is "
+    "deprecated and not enforced, so this does not restrict card priorities. "
+    "Kept only for API compatibility."
 )
 
 GROUP_DEFAULT_BOARD_MEMBER_ROLE = (

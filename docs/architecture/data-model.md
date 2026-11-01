@@ -82,7 +82,7 @@ Group
  ├── owner → User
  ├── parent → Group (nullable — null = top-level)
  ├── default_board_member_role (str — admin | member | collaborator | viewer; default member; deprecated #1430, no effect)
- ├── allowed_priorities (JSON — empty = all allowed)
+ ├── allowed_priorities (JSON — empty = all; deprecated #1429, not enforced)
  ├── GroupLabel  (name, color — shared label library copied to new boards)
  ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
  ├── GroupInviteLink  (name, token, role, expires_at, single_use, used_at, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; reserved_for — nullable account awaiting confirmation of the invited address; 1.2+)
@@ -235,7 +235,7 @@ Append-only record of a fixed set of instance-wide admin actions (#1126):
 
 `stale_warning_pct` (default 50, range 0--100) is the percentage of `staleness_threshold_days` a card has used before it is flagged as approaching stale. It drives the yellow warning band in the analytics heatmap (yellow at this percentage, red at 100%) and the yellow step of the card [aging tint](../features/card-history.md#card-aging-tint). `0` turns the warning step off. The tint's further steps at 2× and 3× the threshold are fixed in the frontend and not stored.
 
-`allowed_priorities` is a JSON list of intended priority values; an empty list means all (`low`, `medium`, `high`, `urgent`). It is a **scaffold**: stored and returned, but card create and update accept any priority. See [Field Enforcement](field-enforcement.md) (#1429).
+`allowed_priorities` is a JSON list of intended priority values; an empty list means all (`low`, `medium`, `high`, `urgent`). It is a deprecated **scaffold** (#1429): stored and returned for API compatibility, but card create and update accept any priority. See [Field Enforcement](field-enforcement.md) (#1429).
 
 **Public sharing:**
 
