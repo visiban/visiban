@@ -62,13 +62,21 @@ matching feed rows, in the same transaction and the same audit entry:
   ``--before`` the row's ``created_at``. Without ``--include-live-cards`` only
   rows whose card no longer exists match. Events are matched on their own, not
   through the movement rows, so a card whose movements an earlier run already
-  purged still has its feed rows redacted.
+  purged still has its feed rows redacted. Two additions keep the feed and
+  the movement delete covering the same cards:
+
+  - rows the MCP tools wrote in 1.2 pre-releases carry no uid, only the
+    integer card id, and are matched on that id (``_select_events``);
+  - ``--board`` also follows the cards its movement rows select onto other
+    boards, since a card moved between boards in the Django admin takes its
+    movements along but leaves its feed rows on the old board.
 - **Filtered in the database.** The feed table grows without bound on a
   default install, so rows are never loaded to be tested in Python: ``--board``
   and the date bounds use the table's ``(board_id, id)`` and ``created_at``
   indexes, and the card is matched with a JSON key lookup. There is no index on
-  the payload, so ``--card`` without ``--board`` reads the table's card events
-  once; that is a plain read, which does not block concurrent feed writes.
+  the payload, so ``--card`` without ``--board``, and the cross-board follow
+  of ``--board``, read the table's card events; those are plain reads, which
+  do not block concurrent feed writes.
   Only the matching rows are fetched and rewritten, in batches.
 
 Usage::
@@ -161,9 +169,12 @@ def redact_card_event_payload(event, data):
     if event in _CARD_PAYLOAD_EVENTS:
         return _redact_card(data)
     if event == _broadcast.EVT_CARD_MOVED:
+        if "card" not in data:
+            # A card.moved the MCP tools wrote in 1.2 pre-releases for a
+            # create-at-position: the card itself, flat, with no movement.
+            return _redact_card(data)
         out = dict(data)
-        if "card" in out:
-            out["card"] = _redact_card(out["card"])
+        out["card"] = _redact_card(out["card"])
         movement = out.get("movement")
         if isinstance(movement, dict):
             out["movement"] = {
@@ -331,12 +342,8 @@ class Command(BaseCommand):
             raise CommandError("--since must be earlier than --before.")
 
         scope = "movement row(s)" + ("" if include_live else " of deleted cards")
-        events = self._feed_events(
-            card_uid=card_uid, board=board, since=since, before=before,
-            include_live=include_live,
-        )
-        uidless = self._uidless_count(
-            card_uid=card_uid, board=board, since=since, before=before,
+        events, uidless = self._select_events(
+            rows=rows, card_uid=card_uid, board=board, since=since, before=before,
             include_live=include_live,
         )
 
@@ -413,19 +420,16 @@ class Command(BaseCommand):
             )
         self._warn_uidless(uidless)
 
-    def _feed_scope(self, *, board, since, before):
-        """Unredacted card-content feed rows within the board and date bounds.
+    def _feed_scope(self, *, since, before):
+        """Unredacted card-content feed rows within the date bounds, any board.
 
         Annotated with ``_card_uid``, the card uid read out of the payload.
-        Every condition is a database filter (module docstring): the indexed
-        ``board_id`` and ``created_at`` first, then the uid, so only matching
-        rows ever leave the database.
+        Every condition is a database filter (module docstring): ``created_at``
+        is indexed, and callers add the indexed ``board_id`` where they can.
         """
         events = BoardEvent.objects.filter(
             event__in=_CARD_CONTENT_EVENTS, redacted_at__isnull=True,
         )
-        if board is not None:
-            events = events.filter(board_id=board.pk)
         if since is not None:
             events = events.filter(created_at__gte=since)
         if before is not None:
@@ -440,42 +444,126 @@ class Command(BaseCommand):
             )
         )
 
-    def _feed_events(self, *, card_uid, board, since, before, include_live):
-        """The unredacted feed rows holding content of the selected cards."""
-        events = self._feed_scope(board=board, since=since, before=before)
-        if card_uid is not None:
-            events = events.filter(_card_uid=card_uid)
-        elif not include_live:
-            # Deleted cards only, as for movements: a row matches when no card
-            # with its uid exists (an anti-join on the unique cards.uid). A
-            # row with no uid in its payload cannot be shown to belong to a
-            # deleted card, so it is left alone.
-            events = events.filter(_card_uid__isnull=False).filter(
-                ~Exists(Card.objects.filter(uid=OuterRef("_card_uid")))
-            )
-        return events.order_by("pk")
+    @staticmethod
+    def _card_id_of(top_id, nested_id):
+        """The integer card id a payload carries, or None.
 
-    def _uidless_count(self, *, card_uid, board, since, before, include_live):
-        """How many in-scope card events have no card uid and so were skipped.
-
-        Only ``--board`` with ``--include-live-cards`` (no ``--card``) matches
-        such rows. Under any other selector they are left unredacted because
-        nothing ties them to the selected card, which would make a run that
-        reports "redacted N" look complete when it is not (1.2 pre-release MCP
-        writes stored card events without a uid). Counting them lets the
-        output say so; the rows themselves, and their content, never leave
-        the database.
+        ``top_id`` is ``data.id`` (a card payload, or a legacy flat
+        ``card.moved``), ``nested_id`` is ``data.card.id`` (``card.moved``).
+        Anything but a plain int (a bool, a string, a missing key) is None.
         """
-        if include_live and card_uid is None:
-            return 0
-        scope = self._feed_scope(board=board, since=since, before=before)
-        return scope.filter(_card_uid__isnull=True).count()
+        for value in (top_id, nested_id):
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+        return None
+
+    def _card_ids_for_uids(self, uids):
+        """Integer ids of the cards with these uids, read from feed payloads.
+
+        A deleted card's id survives nowhere else (``CardMovement`` keeps only
+        the uid), but every REST-shaped card payload carries both ``uid`` and
+        ``id``. Redacted rows are included: redaction keeps both keys.
+        """
+        if not uids:
+            return set()
+        pairs = (
+            BoardEvent.objects.filter(event__in=_CARD_CONTENT_EVENTS)
+            .annotate(
+                _card_uid=Coalesce(
+                    KeyTextTransform("uid", "data"),
+                    KeyTextTransform("uid", KeyTransform("card", "data")),
+                )
+            )
+            .filter(_card_uid__in=list(uids))
+            .values_list("data__id", "data__card__id")
+            .distinct()
+        )
+        return {cid for cid in (self._card_id_of(a, b) for a, b in pairs) if cid is not None}
+
+    def _select_events(self, *, rows, card_uid, board, since, before, include_live):
+        """The feed rows to redact, and how many in-scope rows stay unmatchable.
+
+        Returns ``(events, unmatchable)``. Must run before ``rows`` is deleted:
+        ``--board`` reads the selected cards off the movement rows.
+
+        Rows are matched on the card uid in the payload. Rows written by the
+        MCP tools in 1.2 pre-releases (before #1926) carry no uid but do carry
+        the integer card id, so those are matched on the id: the live card's
+        pk, or for a deleted card the id its REST-shaped payloads recorded
+        next to its uid. Card ids are never reused (a PostgreSQL sequence, and
+        Django's SQLite AUTOINCREMENT key, only move forward), so an id that
+        matches no live card belongs to a deleted card, and a known id names
+        exactly one card.
+        """
+        dated = self._feed_scope(since=since, before=before)
+        in_board = dated.filter(board_id=board.pk) if board is not None else dated
+
+        # The uid-less rows in scope, each with the card id it carries. Only
+        # three scalars per row leave the database, and only for this subset
+        # (pre-release writes). Their deleted-or-live test is done here rather
+        # than as a SQL anti-join on cards.id: that would need the JSON value
+        # cast to bigint in SQL, and one malformed row would then abort the
+        # whole purge instead of being reported as unmatchable.
+        legacy = {
+            pk: self._card_id_of(top, nested)
+            for pk, top, nested in in_board.filter(_card_uid__isnull=True)
+            .values_list("pk", "data__id", "data__card__id")
+        }
+        no_id = sum(1 for cid in legacy.values() if cid is None)
+
+        if card_uid is not None:
+            live = Card.objects.filter(uid=card_uid).values_list("pk", flat=True).first()
+            card_ids = {live} if live is not None else self._card_ids_for_uids({card_uid})
+            matched = [pk for pk, cid in legacy.items() if cid is not None and cid in card_ids]
+            # Without a known id, any uid-less row in scope could be this card's.
+            unmatchable = no_id if card_ids else len(legacy)
+            q = Q(_card_uid=card_uid) | Q(pk__in=matched)
+        elif not include_live:
+            ids = {cid for cid in legacy.values() if cid is not None}
+            live_ids = set(Card.objects.filter(pk__in=ids).values_list("pk", flat=True))
+            matched = [
+                pk for pk, cid in legacy.items() if cid is not None and cid not in live_ids
+            ]
+            unmatchable = no_id
+            # Deleted cards only, as for movements: a uid row matches when no
+            # card with its uid exists (an anti-join on the unique cards.uid).
+            q = (
+                Q(_card_uid__isnull=False)
+                & ~Exists(Card.objects.filter(uid=OuterRef("_card_uid")))
+            ) | Q(pk__in=matched)
+        else:
+            # --board with --include-live-cards: every card row on the board.
+            unmatchable = 0
+            q = Q()
+
+        if board is None:
+            return dated.filter(q).order_by("pk"), unmatchable
+
+        # --board selects cards through their movement rows, and a card moved
+        # to another board in the Django admin takes its movements with it
+        # (BoardEvent rows keep the board they were written on). Follow the
+        # selected cards' rows onto every board, so the movement delete and
+        # the feed redaction always cover the same cards.
+        uids = {
+            uid for uid in rows.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
+            .values_list("_uid", flat=True).distinct()
+            if uid
+        }
+        ids = set(
+            rows.filter(card__isnull=False).values_list("card_id", flat=True).distinct()
+        ) | self._card_ids_for_uids(uids)
+        followed = Q(pk__in=[])
+        if uids:
+            followed |= Q(_card_uid__in=list(uids))
+        if ids:
+            followed |= Q(data__id__in=list(ids)) | Q(data__card__id__in=list(ids))
+        return dated.filter((Q(board_id=board.pk) & q) | followed).order_by("pk"), unmatchable
 
     def _warn_uidless(self, count):
         if count:
             self.stdout.write(
-                f"Note: {count} change-feed card event(s) in this scope have no "
-                "card uid in their payload and were not matched. See "
+                f"Note: {count} change-feed card event(s) in this scope carry "
+                "neither a card uid nor a known card id and were not matched. See "
                 "docs/administration/card-history-retention.md."
             )
 

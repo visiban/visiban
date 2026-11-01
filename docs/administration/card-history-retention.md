@@ -105,13 +105,15 @@ The selector that picks movement records also picks the card's [change-feed](../
 How the selector applies to events:
 
 - **`--card`** matches the card UID recorded in the event, on every board unless `--board` is also given.
-- **`--board`** matches the board the event was recorded on.
+- **`--board`** matches the board the event was recorded on. It also matches, on any board, the events of every card whose movement records it selects. A card moved to another board in the Django admin keeps its earlier events on the old board, and these are redacted with it.
 - **`--since` and `--before`** match the time the event was recorded, not the time of a movement.
-- **Deleted cards only, by default.** Without `--include-live-cards`, an event matches only when no card with its UID exists.
+- **Deleted cards only, by default.** Without `--include-live-cards`, an event matches only when no card with its UID (or, for the events described below, its ID) exists.
 - **Events match on their own.** A card whose movement records an earlier run already deleted, for example a purge made with 1.2, still has its events redacted when you run the command for it again. An event already redacted is skipped, so re-running a purge changes nothing and records nothing.
 
-**Watch out:** an event with no card UID in its payload matches only `--board` with `--include-live-cards`, which also deletes the history of every live card on that board. The MCP write tools recorded card events in that form in 1.2 pre-releases (fixed by #1926). When the selected board and date range hold such events, the dry run and the purge both print how many were not matched. To remove them without redacting live cards, run [`prune_board_events`](scheduled-jobs.md).
+**Events without a card UID.** The MCP write tools recorded card events without a UID in 1.2 pre-releases (fixed by #1926). Those events carry the card's numeric ID instead, and the command matches them on it: a live card's ID, or a deleted card's ID as recorded in its other change-feed events. Card IDs are never reused, so an ID that no existing card has belongs to a deleted card. An event the command cannot attribute is left as it is, and the dry run and the purge both print how many such events the selected board and date range hold. An event cannot be attributed when its payload has no usable ID, or when `--card` names a deleted card that has no other change-feed event giving its ID.
 
-**Yes, but:** a purge with `--card` and no `--board` reads every card event in the feed, because the event payload is not indexed. Add `--board` when you know the board.
+**Deleted boards.** `--board` needs a board that still exists. To redact the events of cards that went with a deleted board, use `--card`, or a date range without `--board`, which matches deleted cards' events on every board. Feed retention after a card or board is deleted without a purge is not covered by this command.
+
+**Yes, but:** the event payload is not indexed. A purge with `--card` and no `--board` reads every card event in the feed, and so does a purge with `--board`, to follow its cards onto other boards. These are plain reads and do not block the feed's other writes, but on a large feed they take time.
 
 Redaction changes stored events only. Copies already delivered are not changed: frames sent over the WebSocket, and events that consumers already read from the feed.

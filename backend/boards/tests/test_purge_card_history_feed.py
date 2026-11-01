@@ -138,6 +138,37 @@ class FeedRedactionBase(TestCase):
             self.assertEqual(resp.status_code, 204, resp.content)
         return uid
 
+    def _legacy(self, board, card_id, event="card.updated", **extra):
+        """A row in the shape the MCP tools wrote in 1.2 pre-releases (#1926).
+
+        No uid; the integer card id, title and description at the top level.
+        """
+        data = {
+            "id": card_id, "title": SECRET_TITLE, "description": SECRET_DESC,
+            "column": {"id": 1, "name": "To Do"}, "labels": [], **extra,
+        }
+        if event == "card.moved" and "flat" not in extra:
+            data = {"card": data, "movement": {"id": 1, "from_column": "To Do"}}
+        data.pop("flat", None)
+        return BoardEvent.objects.create(board_id=board.pk, event=event, data=data)
+
+    def _card_id(self, uid):
+        """The integer id the card's REST-shaped feed rows recorded."""
+        row = next(r for r in self._rows(uid) if r.event == "card.created")
+        return row.data["id"]
+
+    def _assert_legacy_redacted(self, row, redacted=True):
+        row.refresh_from_db()
+        card = row.data.get("card", row.data)
+        if redacted:
+            self.assertIsNotNone(row.redacted_at)
+            self.assertIsNone(card["title"])
+            self.assertIsNone(card["description"])
+            self.assertEqual(card["column"], {"id": 1, "name": "To Do"})
+        else:
+            self.assertIsNone(row.redacted_at)
+            self.assertEqual(card["title"], SECRET_TITLE)
+
     def _rows(self, uid):
         """Every feed row about card *uid*, in id order."""
         rows = []
@@ -209,7 +240,7 @@ class RedactsEveryCardEventTypeTests(FeedRedactionBase):
 
     def test_other_cards_and_boards_are_untouched(self):
         target = self._card_lifecycle(self.board)
-        same_board = self._card_lifecycle(self.board, title="Neighbour 1816")
+        same_board = self._card_lifecycle(self.board, title="Neighbor 1816")
         other_board = self._card_lifecycle(self.other_board, title="Elsewhere 1816")
         untouched = self._snapshot(self._rows(same_board) + self._rows(other_board))
         self.assertTrue(untouched)
@@ -289,46 +320,102 @@ class SelectorTests(FeedRedactionBase):
         state = {r.pk: r.redacted_at for r in self._rows(uid)}
         self.assertTrue(all(state[r.pk] is not None for r in new))
 
-    def test_date_only_sweep_skips_rows_without_a_card_uid(self):
-        # A row whose payload has no uid (as the MCP tools wrote before
-        # 1.2.0 GA) cannot be shown to belong to a deleted card.
-        legacy = BoardEvent.objects.create(
-            board_id=self.board.pk, event="card.created",
-            data={"id": 999999, "title": "legacy 1816"},
-        )
+    def test_legacy_id_only_rows_are_redacted_under_card(self):
+        # A deleted card's id comes from its REST-shaped rows (uid + id).
         uid = self._card_lifecycle(self.board)
+        card_id = self._card_id(uid)
+        nested = self._legacy(self.board, card_id, event="card.moved")
+        flat = self._legacy(self.board, card_id, event="card.moved", flat=True)
+        elsewhere = self._legacy(self.other_board, card_id)
+        other_card = self._legacy(self.board, card_id + 1000)
 
-        self._run("--since", "2000-01-01", "--yes")
+        out = self._run("--card", uid, "--yes")
 
-        legacy.refresh_from_db()
-        self.assertIsNone(legacy.redacted_at)
-        self.assertEqual(legacy.data["title"], "legacy 1816")
-        self.assertTrue(all(
-            r.redacted_at is not None for r in self._rows(uid) if r.event in CONTENT_EVENTS
-        ))
-
-    def test_uidless_rows_in_scope_are_reported_not_hidden(self):
-        # A run that skips rows it cannot tie to the card must say so, or
-        # "redacted N" reads as a complete erasure.
-        BoardEvent.objects.create(
-            board_id=self.board.pk, event="card.updated",
-            data={"id": 999999, "title": "legacy 1816"},
-        )
-        BoardEvent.objects.create(
-            board_id=self.other_board.pk, event="card.updated",
-            data={"id": 999998, "title": "legacy elsewhere 1816"},
-        )
-        uid = self._card_lifecycle(self.board)
-
-        dry = self._run("--card", uid, "--board", str(self.board.pk))
-        real = self._run("--card", uid, "--board", str(self.board.pk), "--yes")
-
-        for out in (dry, real):
-            self.assertIn("Note: 1 change-feed card event(s)", out)
-            self.assertNotIn("legacy", out)
-        # --board with --include-live-cards does match them, so no note.
-        out = self._run("--board", str(self.board.pk), "--include-live-cards", "--yes")
+        self.assertIn("redacted 7 change-feed event(s)", out)
+        for row in (nested, flat, elsewhere):
+            self._assert_legacy_redacted(row)
+        self._assert_legacy_redacted(other_card, redacted=False)
         self.assertNotIn("Note:", out)
+
+    def test_legacy_rows_of_a_live_card_are_redacted_with_include_live(self):
+        uid = self._card_lifecycle(self.board, delete=False)
+        legacy = self._legacy(self.board, Card.objects.get(uid=uid).pk)
+
+        self._run("--card", uid, "--include-live-cards", "--yes")
+
+        self._assert_legacy_redacted(legacy)
+
+    def test_legacy_rows_are_redacted_under_deleted_only(self):
+        uid = self._card_lifecycle(self.board)
+        deleted_row = self._legacy(self.board, self._card_id(uid))
+        live = self._card_lifecycle(self.board, delete=False, title="Live 1816")
+        live_row = self._legacy(self.board, Card.objects.get(uid=live).pk)
+        # No usable id: cannot be attributed, so it stays and is reported.
+        no_id = BoardEvent.objects.create(
+            board_id=self.board.pk, event="card.created",
+            data={"id": "x", "title": "unattributable 1816"},
+        )
+
+        out = self._run("--since", "2000-01-01", "--yes")
+
+        self._assert_legacy_redacted(deleted_row)
+        self._assert_legacy_redacted(live_row, redacted=False)
+        no_id.refresh_from_db()
+        self.assertIsNone(no_id.redacted_at)
+        self.assertEqual(no_id.data["title"], "unattributable 1816")
+        self.assertIn("Note: 1 change-feed card event(s)", out)
+        self.assertNotIn("unattributable", out)
+
+    def test_legacy_rows_are_redacted_on_a_12_era_rerun(self):
+        # 1.2 deleted the movements and left the feed; a rerun with --card
+        # still finds the id, even from rows a previous run already redacted.
+        uid = self._card_lifecycle(self.board)
+        card_id = self._card_id(uid)
+        CardMovement.objects.filter(card_uid=uid).delete()
+        self._run("--card", uid, "--yes")
+        legacy = self._legacy(self.board, card_id)
+
+        out = self._run("--card", uid, "--yes")
+
+        self.assertIn("Deleted 0 movement row(s) of deleted cards and 0 block row(s), and redacted 1", out)
+        self._assert_legacy_redacted(legacy)
+
+    def test_unresolvable_card_id_reports_every_uidless_row_in_scope(self):
+        # A deleted card with no REST-shaped row has no known id: any
+        # uid-less row on the board could be its, so all are reported.
+        uid = "0123456789abcdef"
+        self._legacy(self.board, 424242)
+        self._legacy(self.board, 424243)
+        self._legacy(self.other_board, 424244)
+
+        out = self._run("--card", uid, "--board", str(self.board.pk))
+
+        self.assertIn("redact 0 change-feed event(s)", out)
+        self.assertIn("Note: 2 change-feed card event(s)", out)
+
+    def test_board_selector_follows_a_card_moved_to_another_board(self):
+        # The Django admin can move a card between boards; its movements
+        # follow it (admin.py) but its feed rows keep the old board_id.
+        uid = self._card_lifecycle(self.other_board, delete=False)
+        stay = self._card_lifecycle(self.other_board, title="Stays on Beta 1816")
+        card = Card.objects.get(uid=uid)
+        todo = self._cols(self.board)[0]
+        Card.objects.filter(pk=card.pk).update(
+            board=self.board, column=todo, swimlane=self.board.swimlanes.get(),
+        )
+        CardMovement.objects.filter(card=card).update(board_id=self.board.pk)
+        legacy = self._legacy(self.other_board, card.pk)
+        card_id = card.pk
+        Card.objects.get(pk=card_id).delete()
+        stay_rows = self._snapshot(self._rows(stay))
+
+        self._run("--board", str(self.board.pk), "--yes")
+
+        rows = [r for r in self._rows(uid) if r.event in CONTENT_EVENTS]
+        self.assertEqual({r.board_id for r in rows}, {self.other_board.pk})
+        self.assertTrue(all(r.redacted_at is not None for r in rows))
+        self._assert_legacy_redacted(legacy)
+        self.assertEqual(self._snapshot(self._rows(stay)), stay_rows)
 
     def test_feed_rows_are_redacted_after_movements_were_already_purged(self):
         # A card purged by the 1.2 command (movements only) still has its
@@ -446,3 +533,10 @@ class RedactPayloadUnitTests(TestCase):
         )
         # The input is not mutated.
         self.assertEqual(data["card"]["title"], "t")
+
+    def test_flat_legacy_card_moved_is_redacted_as_a_card(self):
+        # The MCP tools' create-at-position card.moved (1.2 pre-releases).
+        self.assertEqual(
+            redact_card_event_payload("card.moved", {"id": 3, "title": "t", "description": "d"}),
+            {"id": 3, "title": None, "description": None},
+        )
