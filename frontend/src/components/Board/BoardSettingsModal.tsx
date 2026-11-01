@@ -171,12 +171,26 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       const flags = new Map(
         board.members.filter((m) => m.is_site_admin !== undefined).map((m) => [m.user.id, m.is_site_admin]),
       );
+      // Same for the all-content signal (#1301): a row added from the invite
+      // response lacks it, and without it the row would offer a role picker.
+      const allContent = new Map(
+        board.members
+          .filter((m) => m.has_all_content_access !== undefined)
+          .map((m) => [m.user.id, m.has_all_content_access]),
+      );
       let changed = added.length > 0;
       const patched = prev.map((m) => {
         const flag = flags.get(m.user.id);
-        if (flag === undefined || m.is_site_admin === flag) return m;
+        const ac = allContent.get(m.user.id);
+        const flagStale = flag !== undefined && m.is_site_admin !== flag;
+        const acStale = ac !== undefined && m.has_all_content_access !== ac;
+        if (!flagStale && !acStale) return m;
         changed = true;
-        return { ...m, is_site_admin: flag };
+        return {
+          ...m,
+          ...(flagStale ? { is_site_admin: flag } : {}),
+          ...(acStale ? { has_all_content_access: ac } : {}),
+        };
       });
       return changed ? [...patched, ...added] : prev;
     });
@@ -593,7 +607,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setMemberActionError(null);
     try {
       await removeBoardMember(board.id, userId);
-      setMembers((prev) => prev.filter((m) => m.user.id !== userId));
+      setMembers((prev) =>
+        prev.flatMap((m) => {
+          if (m.user.id !== userId) return [m];
+          // Removing the explicit membership of an all-content user does not
+          // remove their access (#1301): they stay listed, as the roster
+          // would list them after a refetch, with no membership row.
+          if (m.has_all_content_access) return [{ ...m, id: null, role: "site_admin" as const }];
+          return [];
+        }),
+      );
     } catch {
       setMemberActionError("Failed to remove member. Please try again.");
     } finally {
@@ -801,6 +824,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 // fails closed rather than offering an edit that is refused.
                 const isLocked =
                   m.id !== null && (m.is_site_admin ?? m.role === "site_admin") && !currentUserIsSiteAdmin;
+                // All-content access resolves to full access before any
+                // membership is consulted, so such a row shows the resolved
+                // role, not the stored one, and offers no role picker (#1301).
+                // A stored membership can still be removed.
+                const allContent = m.role === "site_admin" || m.has_all_content_access === true;
+                const allContentNoteId = `member-allcontent-note-${m.user.id}`;
                 const canManage = isAdmin && !isLocked;
                 const canRemove = canManage && m.id !== null;
 
@@ -815,9 +844,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {isLocked || (!isAdmin && m.role === "site_admin") ? (
+                        {allContent ? (
+                          <span
+                            tabIndex={0}
+                            aria-describedby={allContentNoteId}
+                            className="text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          >
+                            Site admin
+                          </span>
+                        ) : isLocked ? (
                           <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title="Site administrator — role managed at the instance level">
-                            {m.role === "site_admin" ? "site admin" : m.role}
+                            {m.role}
                           </span>
                         ) : canManage ? (
                           <SelectDropdown
@@ -825,7 +862,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             disabled={isDisabled}
                             onChange={(v) => handleRoleChange(m.user.id, v)}
                             options={ROLE_OPTIONS}
-                            placeholder={m.role === "site_admin" ? "Site admin" : undefined}
                             size="xs"
                           />
                         ) : (
@@ -851,7 +887,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     </div>
 
-                    {canManage && m.role !== "site_admin" && (
+                    {allContent && (
+                      <p id={allContentNoteId} className="mt-1 pl-9 text-xs text-fg-muted">
+                        All-content access overrides board roles, so this member has full access to the board.
+                        {m.id !== null && ` Board role on record: ${m.role}.`}
+                      </p>
+                    )}
+
+                    {canManage && !allContent && (
                       <div className="mt-1 pl-9 flex items-center gap-2">
                         {m.role === "admin" ? (
                           // Admins implicitly have full moderator rights — show as checked+disabled

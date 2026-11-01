@@ -143,7 +143,7 @@ The board **Members** settings follow the same rule, for a board admin who is no
 
 The board member list shows the board's own members: direct members, members inherited from the board's group, and the owner.
 
-A site admin (or a user with `can_access_all_content`) viewing the board also sees every user with `can_access_all_content` who has no other role on it, listed with the **Site admin** board role; such a user can still be assigned a board role, but their effective access stays full for as long as they have `can_access_all_content`. Anyone on the board can still @mention such a user by typing their username.
+A site admin (or a user with `can_access_all_content`) viewing the board also sees every user with `can_access_all_content` who has no other role on it, listed with the **Site admin** board role; in the board's **Members** settings such a row shows the member's effective access (**Site admin**), not any board role stored for them, with a note that all-content access overrides board roles. The role picker is disabled for the row, since a board role cannot change what the member can do; if the member also has an explicit board membership, the note names the stored role and the row's remove button deletes it. Their effective access stays full for as long as they have `can_access_all_content`. Anyone on the board can still @mention such a user by typing their username.
 
 **Watch out:** manage `is_site_admin` and `can_access_all_content` together (the `set_site_admin` command does this for you). Separate them only when you have a specific reason — see the tip below.
 

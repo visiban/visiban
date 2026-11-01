@@ -3489,6 +3489,15 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
                   "the requesting user is a site admin, and for a board admin "
                   "on rows backed by a membership on this board (id not null).",
     )
+    # Not read_only, same reason as is_site_admin: get_members() omits it for
+    # readers who are not site admins (#1301).
+    has_all_content_access = serializers.BooleanField(
+        required=False,
+        help_text="Whether the member has all-content access, which always "
+                  "resolves to full access and overrides this row's role. "
+                  "Present only for a site-admin reader (board role "
+                  "site_admin, or an instance site admin).",
+    )
     joined_at = serializers.DateTimeField(read_only=True)
 
 
@@ -3672,7 +3681,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if site_admin_users is None:
             site_admin_users = list(
                 User.objects.filter(can_access_all_content=True).only(
-                    "id", "username", "display_name", "avatar_url", "is_site_admin"
+                    "id", "username", "display_name", "avatar_url", "is_site_admin",
+                    "can_access_all_content",
                 )
             )
             self.context["_site_admin_users"] = site_admin_users
@@ -3821,7 +3831,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 from accounts.models import User as _User
                 site_admin_users = list(
                     _User.objects.filter(can_access_all_content=True).only(
-                        "id", "username", "display_name", "avatar_url", "is_site_admin"
+                        "id", "username", "display_name", "avatar_url", "is_site_admin",
+                    "can_access_all_content",
                     )
                 )
                 self.context["_site_admin_users"] = site_admin_users
@@ -3868,6 +3879,16 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 roster_visible or entry["id"] is not None
             ):
                 row["is_site_admin"] = entry["user"].is_site_admin
+            # Effective-access signal for the Members panel (#1301).
+            # ``can_access_all_content`` always resolves to full access, ahead
+            # of any explicit membership, so a row whose stored ``role`` says
+            # "viewer" can still be a full-access user. ``role`` cannot say so
+            # (it is the stored role whenever a membership exists), and the
+            # flag itself is deliberately kept off the nested user. Gated like
+            # the site_admin roster rows: who has instance-wide access is an
+            # instance fact, so only a roster-visible reader gets it (#1714).
+            if roster_visible:
+                row["has_all_content_access"] = bool(entry["user"].can_access_all_content)
             result.append(row)
         return result
 
