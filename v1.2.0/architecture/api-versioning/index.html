@@ -4179,6 +4179,11 @@
 <td>No effect: it was never read, and group members get their group role on every group board. Still accepted and returned unchanged, and marked <code>deprecated: true</code> in the OpenAPI schema. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1430">#1430</a>.</td>
 </tr>
 <tr>
+<td><code>Board.allowed_priorities</code>, <code>Group.allowed_priorities</code> (also writable via <code>PATCH /groups/{id}/board-defaults/</code>)</td>
+<td>1.3</td>
+<td>Not enforced: card create and update accept any priority. Still accepted and returned unchanged, and marked <code>deprecated: true</code> in the OpenAPI schema. Removed only at a major version bump. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1429">#1429</a>.</td>
+</tr>
+<tr>
 <td><code>next</code> on the change feed response (<code>GET /boards/{id}/events/</code>)</td>
 <td>1.2</td>
 <td>Deprecated in favor of <code>next_cursor</code>. Still returned in every response with a value identical to <code>next_cursor</code>, and marked <code>deprecated: true</code> in the OpenAPI schema. Removed only at a major version bump. Tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1869">#1869</a>.</td>

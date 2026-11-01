@@ -4335,7 +4335,7 @@
 <a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a> ├── owner → User
 <a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a> ├── parent → Group (nullable — null = top-level)
 <a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a> ├── default_board_member_role (str — admin | member | collaborator | viewer; default member; deprecated #1430, no effect)
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a> ├── allowed_priorities (JSON — empty = all allowed)
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a> ├── allowed_priorities (JSON — empty = all; deprecated #1429, not enforced)
 <a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a> ├── GroupLabel  (name, color — shared label library copied to new boards)
 <a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a> ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
 <a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a> ├── GroupInviteLink  (name, token, role, expires_at, single_use, used_at, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; reserved_for — nullable account awaiting confirmation of the invited address; 1.2+)
@@ -4351,7 +4351,7 @@
 <a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a> ├── description (text, optional — board description; blank = no description)
 <a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a> ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
 <a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a> ├── stale_warning_pct (int 0–100 — % of the threshold used before the warning step, for the heatmap and card tint; default 50)
-<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a> ├── allowed_priorities (JSON — intended card priorities; not enforced, see field-enforcement.md)
+<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a> ├── allowed_priorities (JSON — intended card priorities; deprecated #1429, not enforced, see field-enforcement.md)
 <a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a> ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
 <a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a> ├── share_token_hash (str, nullable, unique — SHA-256 of share_token; the share endpoint resolves links by it; never serialized)
 <a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a> ├── share_token_expires_at (datetime, nullable — null = never expires; past this the share endpoint returns 410)
@@ -4474,7 +4474,7 @@
 <li><strong><code>enforce_weight_limits</code></strong> (default true) blocks moving, creating, or restoring a card into a column that would exceed its weight budget, and raising a card's weight past it. Board admins can override unless hard mode is active.</li>
 </ul>
 <p><code>stale_warning_pct</code> (default 50, range 0--100) is the percentage of <code>staleness_threshold_days</code> a card has used before it is flagged as approaching stale. It drives the yellow warning band in the analytics heatmap (yellow at this percentage, red at 100%) and the yellow step of the card <a href="../../features/card-history/#card-aging-tint">aging tint</a>. <code>0</code> turns the warning step off. The tint's further steps at 2× and 3× the threshold are fixed in the frontend and not stored.</p>
-<p><code>allowed_priorities</code> is a JSON list of intended priority values; an empty list means all (<code>low</code>, <code>medium</code>, <code>high</code>, <code>urgent</code>). It is a <strong>scaffold</strong>: stored and returned, but card create and update accept any priority. See <a href="../field-enforcement/">Field Enforcement</a> (#1429).</p>
+<p><code>allowed_priorities</code> is a JSON list of intended priority values; an empty list means all (<code>low</code>, <code>medium</code>, <code>high</code>, <code>urgent</code>). It is a deprecated <strong>scaffold</strong> (#1429): stored and returned for API compatibility, but card create and update accept any priority. See <a href="../field-enforcement/">Field Enforcement</a> (#1429).</p>
 <p><strong>Public sharing:</strong></p>
 <ul>
 <li><code>share_token</code> is a UUID generated when a board admin enables public sharing. While set, the board is readable at <code>/share/:token</code> with no login. Setting it to null disables sharing immediately.</li>

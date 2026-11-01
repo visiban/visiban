@@ -5305,7 +5305,7 @@
 <tr>
 <td><code>allowed_priorities</code></td>
 <td>array / null</td>
-<td>Intended list of priority values for cards on this board (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> or <code>[]</code> means all. <strong>Not enforced:</strong> card create and update accept any priority regardless of this list (scaffold, see <a href="../../architecture/field-enforcement/">Field Enforcement</a>). Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
+<td><strong>Deprecated (#1429).</strong> Has no effect and is kept only for API compatibility; marked <code>deprecated: true</code> in the OpenAPI schema. Still accepted on write and returned unchanged, but not enforced: card create and update accept any priority regardless of this list (scaffold, see <a href="../../architecture/field-enforcement/">Field Enforcement</a>). It will be removed only in a future major release. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
 </tr>
 <tr>
 <td><code>enforce_wip_limits</code></td>

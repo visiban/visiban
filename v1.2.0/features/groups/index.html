@@ -4381,7 +4381,7 @@
 <p><strong>Watch out:</strong> inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.</p>
 <p><strong>API:</strong> <code>GET/POST /api/v1/groups/{id}/labels/</code>, <code>PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/</code></p>
 <h2 id="group-board-defaults">Group board defaults<a class="headerlink" href="#group-board-defaults" title="Permanent link">&para;</a></h2>
-<p>Group admins configure defaults for new boards in the group, in the <strong>Settings</strong> tab on the group detail page. The default member role is deprecated and has no effect. Allowed priorities is copied onto new boards but not enforced.</p>
+<p>Group admins configure defaults for new boards in the group, in the <strong>Settings</strong> tab on the group detail page. The default member role is deprecated and has no effect. Allowed priorities is also deprecated (#1429): it is copied onto new boards but not enforced.</p>
 <table>
 <thead>
 <tr>
@@ -4396,7 +4396,7 @@
 </tr>
 <tr>
 <td><strong>Allowed priorities</strong></td>
-<td>Copied onto new boards created in the group. <strong>Not yet enforced</strong> — cards can still use any priority. An empty list <code>[]</code> (default) means all priorities.</td>
+<td><strong>Deprecated.</strong> Copied onto new boards created in the group, but not enforced — cards can use any priority. Kept for API compatibility and removed only in a future major release. An empty list <code>[]</code> (default) means all priorities.</td>
 </tr>
 </tbody>
 </table>

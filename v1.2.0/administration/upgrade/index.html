@@ -4739,6 +4739,10 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 </li>
 </ol>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Deprecated: Board.allowed_priorities and Group.allowed_priorities</p>
+<p>Both fields were never enforced: card create and update accept any priority, and no client filters by them (#1429). They are still accepted and returned unchanged through 1.x, and the OpenAPI schema marks them <code>deprecated</code>. They will be removed only at a major version, so do not rely on them to restrict priorities.</p>
+</div>
 <h3 id="upgrading-to-12x">Upgrading to 1.2.x<a class="headerlink" href="#upgrading-to-12x" title="Permanent link">&para;</a></h3>
 <p><strong>The big picture:</strong> most 1.2 changes are additive and need no action. These need a decision or a command, so read their callouts first:</p>
 <ul>

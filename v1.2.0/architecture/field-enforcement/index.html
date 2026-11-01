@@ -4137,14 +4137,14 @@
 </tr>
 <tr>
 <td><code>Board.allowed_priorities</code></td>
-<td>Scaffold</td>
+<td>Scaffold, deprecated (#1429)</td>
 <td>Cards on this board use only the listed priorities</td>
-<td>Validated as a list when written, then never read. Card create and update accept any priority, and no UI filters by it</td>
+<td><strong>Deprecated:</strong> kept only for API compatibility, flagged <code>deprecated: true</code> in the schema, and will not be wired. Validated as a list when written, then never read. Card create and update accept any priority, and no UI filters by it</td>
 <td>#1429</td>
 </tr>
 <tr>
 <td><code>Group.allowed_priorities</code></td>
-<td>Advisory</td>
+<td>Advisory, deprecated (#1429)</td>
 <td>Restricts priorities on the group's boards</td>
 <td>Copied onto <code>Board.allowed_priorities</code> when a board is created through <code>POST /groups/{id}/boards/</code>, where it is itself a scaffold</td>
 <td>#1429</td>

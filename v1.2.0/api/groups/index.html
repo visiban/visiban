@@ -4514,7 +4514,7 @@
 <p><strong>By the numbers:</strong> <code>GET /api/v1/groups/</code> is paginated: <code>?offset</code> defaults to <code>0</code>, <code>?page_size</code> defaults to <code>50</code> (max <code>200</code>). Subgroups nest at most 6 levels deep.</p>
 <p><strong>Yes, but:</strong> the list can include groups you have no access to, returned navigation-only with their fields withheld. See <a href="#ancestor-groups-navigation-only">Ancestor groups</a>.</p>
 <p><strong>Go deeper:</strong> <a href="#members">Members</a>, <a href="#boards">Boards</a>, <a href="#invite-links">Invite links</a>, <a href="#group-shared-labels">Shared labels</a>, <a href="#board-defaults">Board defaults</a>, <a href="#join-public">Join</a>.</p>
-<p><strong>The big picture:</strong> groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels and <code>allowed_priorities</code> are copied onto boards created in the group; the default member role is deprecated and has no effect (<a href="https://gitlab.com/visiban/visiban/-/issues/1430">#1430</a>).</p>
+<p><strong>The big picture:</strong> groups organize boards into a hierarchy — subgroups, shared members, shared labels, and board defaults. Shared labels are copied onto boards created in the group. <code>allowed_priorities</code> is also copied but is deprecated and not enforced (<a href="https://gitlab.com/visiban/visiban/-/issues/1429">#1429</a>), and the default member role is deprecated and has no effect (<a href="https://gitlab.com/visiban/visiban/-/issues/1430">#1430</a>).</p>
 <h2 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groups"><code>GET /api/v1/groups/</code><a class="headerlink" href="#get-apiv1groups" title="Permanent link">&para;</a></h3>
 <p><strong>Response</strong> — the standard <a href="../#pagination">paginated envelope</a> <code>{ "count", "offset", "page_size", "results": [ ...groups ] }</code>. It accepts <code>?offset</code> (default <code>0</code>) and <code>?page_size</code> (default <code>50</code>, max <code>200</code>); read the groups from <code>results</code>, not from the top level.</p>
@@ -4659,7 +4659,7 @@
 <tr>
 <td><code>allowed_priorities</code></td>
 <td>array</td>
-<td><strong>Advisory.</strong> Copied onto a board's <code>allowed_priorities</code> when the board is created through <code>POST /groups/{id}/boards/</code>; it does not restrict card priorities, because the board-level field is not enforced either. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
+<td><strong>Deprecated (#1429).</strong> Kept only for API compatibility and marked <code>deprecated: true</code> in the OpenAPI schema; still accepted and returned unchanged, and removed only in a future major release. Advisory: copied onto a board's <code>allowed_priorities</code> when the board is created through <code>POST /groups/{id}/boards/</code>; it does not restrict card priorities, because the board-level field is deprecated and not enforced either. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
 </tr>
 <tr>
 <td><code>ancestors</code></td>
@@ -4729,7 +4729,7 @@
 <p><strong>Backward compatibility:</strong> before 1.2 these fields carried the ancestor's real values for this role; no key was removed or retyped.</p>
 <h3 id="put-apiv1groupsid-patch-apiv1groupsid"><code>PUT /api/v1/groups/{id}/</code> / <code>PATCH /api/v1/groups/{id}/</code><a class="headerlink" href="#put-apiv1groupsid-patch-apiv1groupsid" title="Permanent link">&para;</a></h3>
 <p>Update group fields. Both <code>PUT</code> and <code>PATCH</code> are accepted. Requires group admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>parent</code>, <code>default_board_member_role</code>, <code>allowed_priorities</code>. The latter two duplicate what <a href="#board-defaults"><code>PATCH /groups/{id}/board-defaults/</code></a> does — either endpoint can set them.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>parent</code>, <code>default_board_member_role</code>, <code>allowed_priorities</code> (both deprecated). The latter two duplicate what <a href="#board-defaults"><code>PATCH /groups/{id}/board-defaults/</code></a> does — either endpoint can set them.</p>
 <p><strong>Changing <code>parent</code></strong> <em>(1.2+)</em>. Sending the group's current <code>parent</code> value is not a change and needs nothing beyond group admin. A change is accepted only when, in this order:</p>
 <ol>
 <li><strong>Authority over the group's place in the tree</strong> — required for every change, to another group or to top level (<code>"parent": null</code>): the caller is the group's owner, an admin of one of its current ancestor groups, or has access to all content. An admin of the group itself, without one of those, cannot change its parent. A top-level group has no ancestors, so only its owner (or a user with access to all content) can move it under another group.</li>
@@ -4872,7 +4872,7 @@
 <p>A board is listed only when the caller's role on it resolves the same way as for board detail; a board the caller cannot open is not listed.</p>
 <p>Pass <code>?expand=group</code> to populate <code>group_detail</code> on each board (see <a href="../#expanding-foreign-key-fields">Expanding foreign-key fields</a>). <em>(1.2+)</em> The ancestor chain is resolved with one bulk fetch, so the query count does not grow with the number of boards (#1316).</p>
 <h3 id="post-apiv1groupsidboards"><code>POST /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#post-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
-<p>Create a board in this group. Requires group admin. Boards created here inherit the group's <code>shared_labels</code> and <code>allowed_priorities</code> automatically. The seeded <code>allowed_priorities</code> value is not enforced on cards (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
+<p>Create a board in this group. Requires group admin. Boards created here inherit the group's <code>shared_labels</code> and <code>allowed_priorities</code> automatically. The seeded <code>allowed_priorities</code> value is deprecated and not enforced on cards (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
@@ -5293,7 +5293,7 @@
 <hr />
 <h2 id="board-defaults">Board defaults<a class="headerlink" href="#board-defaults" title="Permanent link">&para;</a></h2>
 <h3 id="patch-apiv1groupsidboard-defaults"><code>PATCH /api/v1/groups/{id}/board-defaults/</code><a class="headerlink" href="#patch-apiv1groupsidboard-defaults" title="Permanent link">&para;</a></h3>
-<p>Update the board defaults for this group. <code>allowed_priorities</code> is copied onto boards created in the group; <code>default_board_member_role</code> is <strong>deprecated (#1430)</strong>: still accepted and stored, but it has no effect. Requires group admin. Only the two fields below are read; any other key in the body is ignored.</p>
+<p>Update the board defaults for this group. <code>allowed_priorities</code> is <strong>deprecated (#1429)</strong>: still accepted, stored and copied onto boards created in the group, but not enforced. <code>default_board_member_role</code> is <strong>deprecated (#1430)</strong>: still accepted and stored, but it has no effect. Requires group admin. Only the two fields below are read; any other key in the body is ignored.</p>
 <p><strong>Patchable fields</strong></p>
 <table>
 <thead>
@@ -5312,7 +5312,7 @@
 <tr>
 <td><code>allowed_priorities</code></td>
 <td>array / null</td>
-<td><strong>Advisory.</strong> Seeds <code>allowed_priorities</code> on new boards created in this group (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all. Not enforced on cards — see the field table above</td>
+<td><strong>Deprecated (#1429).</strong> Still accepted and returned, but not enforced on cards; kept only for API compatibility. Advisory: seeds <code>allowed_priorities</code> on new boards created in this group (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all — see the field table above</td>
 </tr>
 </tbody>
 </table>
