@@ -4296,6 +4296,12 @@
 <td>Playwright (Chromium)</td>
 <td>User-visible flows that span multiple components</td>
 </tr>
+<tr>
+<td>Marketing screenshots (opt-in)</td>
+<td><code>frontend/e2e/marketing/</code></td>
+<td>Playwright (Chromium), own config</td>
+<td>Only when a product surface changes; never part of the regression run</td>
+</tr>
 </tbody>
 </table>
 <h2 id="backend-tests">Backend tests<a class="headerlink" href="#backend-tests" title="Permanent link">&para;</a></h2>
@@ -4353,10 +4359,12 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>├── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
 <a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>├── rich-text-editor.spec.ts  # Card description editor + markdown round-trip
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>├── card-description-caret.spec.ts  # Caret stays visible typing at the end of a description
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>└── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>├── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>└── marketing/            # Opt-in screenshot suite; excluded from the default run (see below)
 </code></pre></div>
 <h3 id="fixture-pattern">Fixture pattern<a class="headerlink" href="#fixture-pattern" title="Permanent link">&para;</a></h3>
-<p>All fixtures live in <code>frontend/e2e/fixtures/board.ts</code>. Every test imports the shared <code>USER</code>, <code>BOARD_FULL</code>, <code>CARD</code>, <code>SITE_CONFIG</code>, etc. — never inline a bespoke payload unless the test is specifically exercising a variant shape.</p>
+<p>All regression-suite fixtures live in <code>frontend/e2e/fixtures/board.ts</code>. Every test imports the shared <code>USER</code>, <code>BOARD_FULL</code>, <code>CARD</code>, <code>SITE_CONFIG</code>, etc. — never inline a bespoke payload unless the test is specifically exercising a variant shape.</p>
+<p>The one exception is the opt-in marketing-screenshot suite in <code>frontend/e2e/marketing/</code>. The default <code>playwright.config.ts</code> ignores it (<code>testIgnore</code>), so <code>npx playwright test</code> never runs it; it has its own config (<code>npm run shots:marketing</code>) and writes PNGs instead of asserting behavior. It keeps its own typed fixtures in <code>e2e/marketing/fixtures.ts</code> because <code>e2e/helpers.ts</code> hard-codes the test <code>USER</code> and <code>BOARD_LIST_ITEM</code>, and the shots need a realistic multi-customer dataset. See <a href="https://gitlab.com/visiban/visiban/-/blob/main/frontend/e2e/marketing/README.md"><code>frontend/e2e/marketing/README.md</code></a> for how to run it and add a shot.</p>
 <p>When a test needs a variant (e.g. a viewer with stricter export permissions), spread the base fixture and override only the differing fields:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">lockedBoard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p">...</span><span class="nx">BOARD_FULL</span><span class="p">,</span>
