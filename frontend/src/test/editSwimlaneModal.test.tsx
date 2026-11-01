@@ -521,13 +521,26 @@ describe('EditSwimlaneModal — limits (#1150)', () => {
     expect(screen.getByRole('checkbox', { name: 'Backlog' })).toHaveFocus()
   })
 
-  it('warns when the new limit is already below the current count', async () => {
+  it('warns when the new limit is already below the current count, worded for the board mode', async () => {
     const user = userEvent.setup()
-    renderModal()
+    renderModal() // Follow board settings; the board blocks with admin override
     await user.type(screen.getByLabelText('WIP limit'), '1')
-    expect(screen.getByText(/Already over: 2 cards count now/)).toBeInTheDocument()
+    expect(screen.getByText('Already over: 2 cards count now. Nothing moves; a new card is refused until no card counts, unless a board admin overrides.')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Weight limit'), '4')
-    expect(screen.getByText(/Already over: 5 weight counts now/)).toBeInTheDocument()
+    expect(screen.getByText('Already over: 5 weight counts now. Nothing moves; a card that would add weight past 4 is refused, unless a board admin overrides.')).toBeInTheDocument()
+  })
+
+  it('the already-over note follows the selected enforcement', async () => {
+    const user = userEvent.setup()
+    renderModal(makeSwimlane(), { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false })
+    await user.type(screen.getByLabelText('WIP limit'), '1')
+    // Follow board settings on a board that enforces nothing.
+    expect(screen.getByText('Already over: 2 cards count now. This limit is not enforced here, so it only shows on the row.')).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: /Block for everyone/ }))
+    expect(screen.getByText('Already over: 2 cards count now. Nothing moves; a new card is refused until no card counts for everyone.')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Weight limit'), '4')
+    // Hard mode leaves weight a block an admin can override.
+    expect(screen.getByText(/a card that would add weight past 4 is refused, unless a board admin overrides\./)).toBeInTheDocument()
   })
 
   it('0 or empty clears a limit; null enforcement is "Follow board settings"', async () => {

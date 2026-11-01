@@ -404,10 +404,17 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     expect(container.querySelector('.bg-danger-emphasis.h-0\\.5')).toBeNull()
   })
 
-  it('at: says "at limit" in text, not color alone', () => {
-    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5 })} cards={cardsIn(5)} />)
+  it('at: says "at limit" in text, not color alone, when the board opts in', () => {
+    render(<SwimlaneRow {...defaultProps()} showWipAtLimit swimlane={limited({ wip_limit: 5 })} cards={cardsIn(5)} />)
     expect(stat()).toHaveTextContent('WIP 5/5 · at limit')
     expect(stat()!.className).toContain('text-fg-secondary')
+  })
+
+  it('at, with the board opt-in off (the default): reads like under, as the column header does', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5 })} cards={cardsIn(5)} />)
+    expect(stat()).toHaveTextContent('WIP 5/5')
+    expect(stat()).not.toHaveTextContent('at limit')
+    expect(stat()!.className).toContain('text-fg-tertiary')
   })
 
   it('over WIP: danger text, the ⚠ glyph and the top accent strip; ⛔ when hard', () => {
@@ -431,14 +438,15 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
     expect(stat()).toHaveTextContent('⛔ Over WIP · 2/1')
   })
 
-  it('over weight: warning text naming the weight', () => {
+  it('over weight: danger text naming the weight', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 9, weight_limit: 12 })} cards={cardsIn(3, 6)} />)
     expect(stat()).toHaveTextContent('Over weight · 18/12')
-    expect(stat()!.className).toContain('text-warning')
+    // § System signals: "Lane over limit" uses fixed danger tokens.
+    expect(stat()!.className).toContain('text-danger')
   })
 
   it('names the metric that is at its limit, not the other one', () => {
-    render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 5, weight_limit: 6 })} cards={cardsIn(3, 2)} />)
+    render(<SwimlaneRow {...defaultProps()} showWipAtLimit swimlane={limited({ wip_limit: 5, weight_limit: 6 })} cards={cardsIn(3, 2)} />)
     expect(stat()).toHaveTextContent('Weight 6/6 · at limit')
   })
 

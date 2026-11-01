@@ -89,7 +89,7 @@ A swimlane can carry its own WIP limit and weight limit, the same way a column d
 
 Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 
-- **WIP limit** and **Weight limit.** Leave a field empty, or enter `0`, for no limit. The helper under each field shows the row's current count ("Now 4"). When the new limit is already below that count, a note says so: nothing moves, but no card can enter until the row drops below the limit.
+- **WIP limit** and **Weight limit.** Leave a field empty, or enter `0`, for no limit. The helper under each field shows the row's current count ("Now 4"). When the new limit is already below that count, a note says so and says what happens next for the enforcement you selected: nothing already in the row moves; with **Block, admins can override** new cards are refused unless a board admin overrides, with **Block for everyone** they are refused for everyone, and when the limit is not enforced (**Follow board settings** on a board that enforces nothing) it only shows on the row.
 - **Columns that count.** Only cards in the checked columns count toward the row's limits. By default every column not marked as done counts, so a finished card stops counting the moment it reaches a done column. Deleting a column removes it from every row's selection; a row left with none goes back to the default.
 - **When the row is full.** **Follow board settings** (the default) applies the board's **Enforce WIP limits**, **Enforce WIP hard** and **Enforce weight limits** rules, exactly as for columns. **Block, admins can override** refuses the move and lets a board admin move anyway. **Block for everyone** is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns.
 
@@ -98,9 +98,9 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 | State | Line |
 |---|---|
 | Under the limit | `WIP 4/6` |
-| At the limit | `WIP 5/5 · at limit` |
+| At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on (as for columns); otherwise the line reads `WIP 5/5` |
 | Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the label panel (`⛔` when the row is in hard mode) |
-| Over the weight limit | `Over weight · 18/12` in amber |
+| Over the weight limit | `Over weight · 18/12` in red |
 
 The small bar next to the text is decorative; the words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.
 

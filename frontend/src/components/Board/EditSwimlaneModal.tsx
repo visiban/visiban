@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { updateSwimlane, deleteSwimlane } from "../../api/boards";
 import type { Card, Column, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneLimitEnforcement } from "../../types";
-import { columnLimitModes, laneUsage, type LimitFlags } from "../../utils/placementLimits";
+import { columnLimitModes, laneUsage, swimlaneLimitModes, type LimitFlags, type LimitMode } from "../../utils/placementLimits";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
@@ -39,6 +39,23 @@ const NUMBER_INPUT = "w-20 bg-surface border border-line rounded px-3 py-1.5 tex
 function parseLimit(raw: string): number | null {
   const n = raw === "" ? 0 : parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * The "Already over" note for a limit typed below the current total. Worded
+ * for the enforcement the modal currently selects (completeness-check on
+ * #1150): not enforced, a block an admin can override, or a hard stop.
+ */
+function alreadyOverNote(kind: "wip" | "weight", current: number, limit: number, mode: LimitMode | null): string {
+  const now = kind === "wip" ? `${current} card${current === 1 ? "" : "s"} count now` : `${current} weight counts now`;
+  if (mode === null) {
+    return `Already over: ${now}. This limit is not enforced here, so it only shows on the row.`;
+  }
+  const what = kind === "wip"
+    ? `a new card is refused until ${limit === 1 ? "no card counts" : `fewer than ${limit} cards count`}`
+    : `a card that would add weight past ${limit} is refused`;
+  const who = mode === "hard" ? " for everyone" : ", unless a board admin overrides";
+  return `Already over: ${now}. Nothing moves; ${what}${who}.`;
 }
 
 /** What "Follow board settings" means on this board right now. */
@@ -97,6 +114,10 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
   const newWeight = parseLimit(weightLimit);
   const wipAlreadyOver = newWip !== null && usage.count > newWip;
   const weightAlreadyOver = newWeight !== null && usage.weight > newWeight;
+  // The modes the selected enforcement gives, for the "Already over" copy.
+  const selectedModes = swimlaneLimitModes(limitFlags, {
+    ...swimlane, limit_enforcement: enforcement === "inherit" ? null : enforcement,
+  });
 
   const toggleCounted = (columnId: number, checked: boolean) => {
     setCountedError(null);
@@ -313,7 +334,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                 <p id={`${limitsId}-wip-help`} className="text-xs min-h-4">
                   {wipAlreadyOver ? (
                     <span className="text-warning">
-                      Already over: {usage.count} cards count now. Nothing moves, but no card can enter until the row is under {newWip}.
+                      {alreadyOverNote("wip", usage.count, newWip ?? 0, selectedModes.wip)}
                     </span>
                   ) : (
                     <span className="text-fg-muted">Now {usage.count} · 0 = no limit</span>
@@ -338,7 +359,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                 <p id={`${limitsId}-weight-help`} className="text-xs min-h-4">
                   {weightAlreadyOver ? (
                     <span className="text-warning">
-                      Already over: {usage.weight} weight counts now. Nothing moves, but no card can push it further past {newWeight}.
+                      {alreadyOverNote("weight", usage.weight, newWeight ?? 0, selectedModes.weight)}
                     </span>
                   ) : (
                     <span className="text-fg-muted">Now {usage.weight} · 0 = no limit</span>

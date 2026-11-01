@@ -16,10 +16,13 @@ import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, t
  * (#973): one line, worst offender first (Over WIP > Over weight > At >
  * Under). The text carries the state; the meter is decorative.
  */
-function SwimlaneLimitStat({ swimlane, usage, reading, hard }: { swimlane: Swimlane; usage: LaneUsage; reading: LaneLimitReading; hard: boolean }) {
+function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { swimlane: Swimlane; usage: LaneUsage; reading: LaneLimitReading; hard: boolean; showAtLimit: boolean }) {
   const wip = swimlane.wip_limit;
   const weight = swimlane.weight_limit;
-  const { state } = reading;
+  // "At limit" is the board's opt-in ambient indicator (Board.show_wip_at_limit),
+  // as on the column header; off, an at-limit row reads like an under-limit
+  // one. The two over-limit states are violations and always show.
+  const state = reading.state === "at" && !showAtLimit ? "under" : reading.state;
   // The line names the metric that decided the state (laneLimitState).
   const showWip = reading.metric === "wip";
   const value = showWip ? usage.count : usage.weight;
@@ -38,8 +41,11 @@ function SwimlaneLimitStat({ swimlane, usage, reading, hard }: { swimlane: Swiml
     title = hard ? "Over the swimlane's hard WIP limit — no override possible" : "Over the swimlane's WIP limit";
   } else if (state === "overWeight") {
     text = <>Over weight · <span className="font-semibold">{numbers}</span></>;
-    tone = "text-warning font-medium";
-    meter = "bg-warning-emphasis";
+    // Fixed danger tokens for both over-limit states: § System signals
+    // reserves "Lane over limit" as danger. The words, not the hue, tell
+    // WIP from weight.
+    tone = "text-danger font-medium";
+    meter = "bg-danger-emphasis";
     title = "Over the swimlane's weight limit";
   } else if (state === "at") {
     text = <>{label} {numbers} · at limit</>;
@@ -149,6 +155,8 @@ interface Props {
    * Swimlane modal's enforcement choice. Omitted, the row reads as unenforced.
    */
   limitFlags?: LimitFlags;
+  /** The board's `show_wip_at_limit` (#973): whether the "at limit" state shows. */
+  showWipAtLimit?: boolean;
   /**
    * The limits a drop of card `cardId` into a cell would trip, strictest
    * first (#1150), for the drop ring. Forwarded to every cell; BoardCell calls
@@ -159,7 +167,7 @@ interface Props {
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -323,7 +331,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             )}
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
             {showLimitStat && limitReading !== null && (
-              <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} />
+              <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} showAtLimit={showWipAtLimit} />
             )}
             {renameError && <p className="text-xs text-danger truncate" role="alert">{renameError}</p>}
             {/* Gated on !collapsed, matching contact_email above: a collapsed
