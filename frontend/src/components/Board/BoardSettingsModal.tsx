@@ -894,6 +894,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <p id={allContentNoteId} className="mt-1 pl-9 text-xs text-fg-muted">
                         All-content access overrides board roles, so this member has full access to the board.
                         {m.id !== null && ` Board role on record: ${ROLES.find((r) => r.value === m.role)?.label ?? m.role}.`}
+                        {isLocked && " This membership is managed at the instance level and cannot be removed here."}
                       </p>
                     )}
 
