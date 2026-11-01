@@ -104,7 +104,7 @@ The selector that picks movement records also picks the card's [change-feed](../
 
 How the selector applies to events:
 
-- **`--card`** matches the card UID recorded in the event, on every board unless `--board` is also given.
+- **`--card`** matches the card UID recorded in the event, on every board. With `--board`, it matches that card only if it has movement records on that board, and then its events on every board (see `--board` below).
 - **`--board`** matches the board the event was recorded on. It also matches, on any board, the events of every card whose movement records it selects. A card moved to another board in the Django admin keeps its earlier events on the old board, and these are redacted with it. A card whose movement records an earlier purge already deleted is not followed this way; use `--card` for it.
 - **`--since` and `--before`** match the time the event was recorded, not the time of a movement.
 - **Deleted cards only, by default.** Without `--include-live-cards`, an event matches only when no card with its UID (or, for the events described below, its ID) exists.

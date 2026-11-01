@@ -590,7 +590,12 @@ class Command(BaseCommand):
                 uid_q &= ~Exists(Card.objects.filter(uid=OuterRef("_card_uid")))
             followed |= uid_q
         if ids:
-            followed |= Q(data__id__in=list(ids)) | Q(data__card__id__in=list(ids))
+            # Id matching is for uid-less legacy rows only. A row that carries
+            # a uid is attributed by that uid alone, so a uid-bearing row of an
+            # unselected card can never be pulled in through an id.
+            followed |= Q(_card_uid__isnull=True) & (
+                Q(data__id__in=list(ids)) | Q(data__card__id__in=list(ids))
+            )
         return dated.filter((Q(board_id=board.pk) & q) | followed).order_by("pk"), unmatchable
 
     def _warn_uidless(self, count):

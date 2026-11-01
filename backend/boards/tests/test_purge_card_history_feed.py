@@ -395,6 +395,55 @@ class SelectorTests(FeedRedactionBase):
 
         self._assert_legacy_redacted(legacy, redacted=False)
 
+    def test_board_follow_skips_a_resolved_id_that_a_live_card_now_has(self):
+        # The --board twin of the test above: the follow resolves a deleted
+        # card's id from its payloads, and must drop it once a live card has it.
+        uid = self._card_lifecycle(self.board)
+        reused = self._card_id(uid)
+        Card.objects.create(
+            id=reused, board=self.board, column=self._cols(self.board)[0],
+            swimlane=self.board.swimlanes.get(), title="Live 1816", position=0,
+        )
+        # On another board, so only the follow could reach it.
+        legacy = self._legacy(self.other_board, reused)
+
+        self._run("--board", str(self.board.pk), "--yes")
+
+        self._assert_legacy_redacted(legacy, redacted=False)
+        self.assertTrue(all(
+            r.redacted_at is not None for r in self._rows(uid) if r.event in CONTENT_EVENTS
+        ))
+
+    def test_board_follow_matches_ids_on_uidless_rows_only(self):
+        # A row that carries a uid is attributed by its uid: an unselected
+        # card's row is left alone even if its payload id equals a selected
+        # card's id.
+        uid = self._card_lifecycle(self.board)
+        card_id = self._card_id(uid)
+        unselected = BoardEvent.objects.create(
+            board_id=self.other_board.pk, event="card.updated",
+            data={"uid": "fedcba9876543210", "id": card_id, "title": SECRET_TITLE},
+        )
+        nested = BoardEvent.objects.create(
+            board_id=self.other_board.pk, event="card.moved",
+            data={"card": {"uid": "fedcba9876543210", "id": card_id, "title": SECRET_TITLE}},
+        )
+        legacy = self._legacy(self.other_board, card_id)
+
+        for args in (
+            ("--board", str(self.board.pk), "--yes"),
+            ("--board", str(self.board.pk), "--include-live-cards", "--yes"),
+        ):
+            with self.subTest(args=args):
+                self._run(*args)
+                for row in (unselected, nested):
+                    row.refresh_from_db()
+                    self.assertIsNone(row.redacted_at)
+                    card = row.data.get("card", row.data)
+                    self.assertEqual(card["title"], SECRET_TITLE)
+        # The selected card's own uid-less row on that board is followed.
+        self._assert_legacy_redacted(legacy)
+
     def test_unresolvable_card_id_reports_every_uidless_row_in_scope(self):
         # A deleted card with no REST-shaped row has no known id: any
         # uid-less row on the board could be its, so all are reported.
