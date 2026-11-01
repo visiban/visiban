@@ -56,7 +56,7 @@ The full ancestor list is also in the API: `GET /api/v1/groups/{id}/` returns an
 
 ## Boards inside groups
 
-Boards in a group are visible to all group members. Group admins can create boards from the group detail page, or **import** a board from a previously exported JSON or CSV file directly into the group. Move a board between groups (or back to personal) with the move button that appears on hover.
+Boards in a group are visible to all group members. This includes `viewer` members, who get read access to every board in the group; see [Group membership implies board access](rbac/roles.md#group-membership-board-visibility). Group admins can create boards from the group detail page, or **import** a board from a previously exported JSON or CSV file directly into the group. Move a board between groups (or back to personal) with the move button that appears on hover.
 
 ## Subgroups
 
