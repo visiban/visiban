@@ -60,6 +60,26 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const cards = loadedCards.filter((c) => columnIds.has(c.column) && swimlaneIds.has(c.swimlane));
   const pruned = loadedCards.length - cards.length;
   const total = Math.max(0, loadedTotal - pruned);
+  const prunedRef = useRef(0);
+  prunedRef.current = pruned;
+
+  // The client cannot know how many *unloaded* archived cards went with a
+  // deleted container, so subtracting only the loaded ones leaves a phantom
+  // "Load more (N remaining)" that returns nothing (#1637). Rather than guess,
+  // re-read the authoritative count from the server whenever the set of
+  // columns or swimlanes changes. loadedTotal is kept as server count plus the
+  // pruned cards still held in loadedCards, so `total` stays server-true.
+  const containerKey = `${board.columns.map((c) => c.id).join(",")}|${board.swimlanes.map((s) => s.id).join(",")}`;
+  const lastContainerKey = useRef(containerKey);
+  useEffect(() => {
+    if (lastContainerKey.current === containerKey) return;
+    lastContainerKey.current = containerKey;
+    getArchivedCards(board.id, 0)
+      .then((page) => setTotal(page.count + prunedRef.current))
+      .catch(() => {
+        // Keep the local estimate; the next Load more re-syncs from the server.
+      });
+  }, [containerKey, board.id]);
 
   const handleLoadMore = () => {
     setLoadingMore(true);
@@ -70,6 +90,9 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       .then((page) => {
         setCards((prev) => [...prev, ...page.results]);
         setOffset((prev) => prev + page.results.length);
+        // Re-sync with the server so an empty page can never leave a phantom
+        // remainder behind (#1637).
+        setTotal(page.count + pruned);
       })
       .catch(() => setLoadError("Could not load more archived cards. Please try again."))
       .finally(() => setLoadingMore(false));
@@ -82,6 +105,9 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       const unarchived = await unarchiveCard(board.id, card.id);
       setCards((prev) => prev.filter((c) => c.id !== card.id));
       setTotal((prev) => Math.max(0, prev - 1));
+      // The server's list shrank by this card too; without this the next
+      // page would be requested one row too far and skip a card (#1637).
+      setOffset((prev) => Math.max(0, prev - 1));
       onUnarchived(unarchived);
     } catch (err) {
       // Restoring into a full column is refused with the move path's limit

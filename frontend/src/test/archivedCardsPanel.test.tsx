@@ -323,9 +323,10 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
       const { rerender } = render(<ArchivedCardsPanel board={twoColumnBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
       await waitFor(() => screen.getByText('Old feature'))
 
+      // The server's count after the delete: 4 left, 1 of them already shown.
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([], 4))
       rerender(<ArchivedCardsPanel board={{ ...twoColumnBoard, columns: twoColumnBoard.columns.filter((c) => c.id !== 10) }} onClose={vi.fn()} onUnarchived={vi.fn()} />)
-      // 5 archived, 1 deleted with its column, 1 shown: 3 remain on the server.
-      expect(screen.getByText('Load more (3 remaining)')).toBeInTheDocument()
+      expect(await screen.findByText('Load more (3 remaining)')).toBeInTheDocument()
 
       mockGetArchivedCards.mockResolvedValueOnce(makePage([], 4))
       await userEvent.click(screen.getByText(/Load more/))
@@ -333,6 +334,46 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
       // already loaded is the whole of the first page now.
       await waitFor(() => expect(mockGetArchivedCards).toHaveBeenLastCalledWith(1, 1))
     })
+
+    it('drops the Load more remainder when the deleted container held only unloaded cards (#1637)', async () => {
+      // 50 loaded would be typical; here 1 shown of 3, the other 2 (never
+      // loaded) are in the column that is then deleted.
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([otherCard], 3))
+      const { rerender } = render(<ArchivedCardsPanel board={twoColumnBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      await waitFor(() => screen.getByText('Kept card'))
+      expect(screen.getByText('Load more (2 remaining)')).toBeInTheDocument()
+
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([otherCard], 1))
+      rerender(<ArchivedCardsPanel board={{ ...twoColumnBoard, swimlanes: [...twoColumnBoard.swimlanes, { ...twoColumnBoard.swimlanes[0], id: 21, uid: 'laneuid00002' }] }} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      await waitFor(() => expect(screen.queryByText(/Load more/)).not.toBeInTheDocument())
+      expect(screen.getByText('(1)')).toBeInTheDocument()
+    })
+
+    it('re-syncs the total from the server when a Load more page comes back empty (#1637)', async () => {
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([otherCard], 3))
+      render(<ArchivedCardsPanel board={twoColumnBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+      await waitFor(() => screen.getByText('Load more (2 remaining)'))
+
+      mockGetArchivedCards.mockResolvedValueOnce(makePage([], 1))
+      await userEvent.click(screen.getByText(/Load more/))
+      await waitFor(() => expect(screen.queryByText(/Load more/)).not.toBeInTheDocument())
+    })
+  })
+
+  it('steps the next-page offset back after an unarchive (#1637)', async () => {
+    const second: Card = { ...archivedCard, id: 98, uid: 'carduid00098', title: 'Second' }
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, second], 5))
+    mockUnarchiveCard.mockResolvedValue({ ...archivedCard, archived_at: null })
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} />)
+    await waitFor(() => screen.getByText('Load more (3 remaining)'))
+
+    await userEvent.click(screen.getAllByText('Unarchive')[0])
+    await waitFor(() => expect(screen.queryByText('Old feature')).not.toBeInTheDocument())
+
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([], 4))
+    await userEvent.click(screen.getByText(/Load more/))
+    // Two were loaded, one restored: the server's list now starts one shorter.
+    await waitFor(() => expect(mockGetArchivedCards).toHaveBeenLastCalledWith(1, 1))
   })
 })
 

@@ -35,10 +35,12 @@ vi.mock('../api/boards', () => ({
 
 vi.mock('../api/cards', () => ({
   moveCard: vi.fn(),
+  getArchivedCards: vi.fn(),
 }))
 
 import { getBoardFull, reorderColumns, reorderSwimlanes, deleteSwimlane, deleteColumn, patchBoard } from '../api/boards'
-import { moveCard } from '../api/cards'
+import { moveCard, getArchivedCards } from '../api/cards'
+const mockGetArchivedCards = getArchivedCards as ReturnType<typeof vi.fn>
 
 const mockGetBoardFull = getBoardFull as ReturnType<typeof vi.fn>
 const mockMoveCard = moveCard as ReturnType<typeof vi.fn>
@@ -866,6 +868,45 @@ describe('useBoard', () => {
     expect(result.current.board!.columns[0].uid).toBe('coluid000002')
     expect(result.current.board!.cards).toHaveLength(1)
     expect(result.current.board!.cards[0].uid).toBe('carduid00002')
+  })
+
+  it('evictColumn refreshes archived_card_count from the server (#1637)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 5 }))
+    mockGetArchivedCards.mockResolvedValue({ count: 2, offset: 0, page_size: 50, results: [] })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictColumn('coluid000001') })
+    await waitFor(() => expect(result.current.board!.archived_card_count).toBe(2))
+    expect(mockGetArchivedCards).toHaveBeenCalledWith(1, 0)
+  })
+
+  it('evictSwimlane refreshes archived_card_count from the server (#1637)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 5 }))
+    mockGetArchivedCards.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictSwimlane('laneuid00001') })
+    await waitFor(() => expect(result.current.board!.archived_card_count).toBe(0))
+  })
+
+  it('evict keeps the old archived_card_count when the refresh fails, and skips it at zero (#1637)', async () => {
+    mockGetArchivedCards.mockReset()
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 3 }))
+    mockGetArchivedCards.mockRejectedValue(new Error('boom'))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    act(() => { result.current.evictColumn('coluid000001') })
+    await waitFor(() => expect(mockGetArchivedCards).toHaveBeenCalledTimes(1))
+    expect(result.current.board!.archived_card_count).toBe(3)
+
+    mockGetArchivedCards.mockClear()
+    mockGetBoardFull.mockResolvedValue(makeBoard({ archived_card_count: 0 }))
+    const second = renderHook(() => useBoard())
+    await waitFor(() => expect(second.result.current.board).not.toBeNull())
+    act(() => { second.result.current.evictColumn('coluid000001') })
+    expect(mockGetArchivedCards).not.toHaveBeenCalled()
   })
 
   it('evictSwimlane removes the swimlane and its cards from state', async () => {

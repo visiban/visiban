@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
-import { moveCard as apiMoveCard } from "../api/cards";
+import { moveCard as apiMoveCard, getArchivedCards } from "../api/cards";
 import { failureReason } from "../utils/moveFailure";
 import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "../utils/placementLimits";
 import { dropUnknownLabels } from "../utils/cardLabels";
@@ -634,6 +634,24 @@ export function useBoard() {
   // Pure state-only helpers for WebSocket receive path — these update local
   // state without firing API calls, preventing redundant round-trips when
   // another client's mutation is broadcast to all connected clients.
+  // Deleting a column or swimlane cascades to its archived cards, which the
+  // client never holds (they are paged in only by ArchivedCardsPanel) and the
+  // *.deleted event does not say how many there were (#1637). Guessing would
+  // either under-count, which lets the Danger Zone skip typed confirmation, or
+  // keep the stale overstated count. Ask the server for the authoritative
+  // count instead; it is one cheap page-0 request and only needed when the
+  // board had archived cards at all.
+  const refreshArchivedCount = useCallback(() => {
+    if (!(boardRef.current?.archived_card_count)) return;
+    getArchivedCards(boardId, 0)
+      .then((page) => {
+        setBoard((b) => b ? { ...b, archived_card_count: page.count } : b);
+      })
+      .catch(() => {
+        // Keep the previous count: it can only overstate, the safe direction.
+      });
+  }, [boardId]);
+
   const evictColumn = useCallback((columnUid: string) => {
     setBoard((b) => {
       if (!b) return b;
@@ -645,7 +663,8 @@ export function useBoard() {
         swimlanes: col ? pruneLaneLimitColumn(b.swimlanes, col.id) : b.swimlanes,
       };
     });
-  }, []);
+    refreshArchivedCount();
+  }, [refreshArchivedCount]);
 
   const evictSwimlane = useCallback((swimlaneUid: string) => {
     setBoard((b) => {
@@ -657,7 +676,8 @@ export function useBoard() {
         cards: sl ? b.cards.filter((c) => c.swimlane !== sl.id) : b.cards,
       };
     });
-  }, []);
+    refreshArchivedCount();
+  }, [refreshArchivedCount]);
 
   const evictCardByUid = useCallback((cardUid: string) => {
     setBoard((b) => b ? { ...b, cards: b.cards.filter((c) => c.uid !== cardUid) } : b);
