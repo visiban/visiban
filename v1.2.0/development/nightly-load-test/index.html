@@ -4338,6 +4338,7 @@
 <li>The baseline's <code>fixture</code> block records <code>extra_board_count</code> and <code>multi_board_accessible_boards</code>.</li>
 </ul>
 </li>
+<li><strong>Deep movement history.</strong> With <code>--scale &gt; 1</code>, every card that has moved off the first column also gets 10 extra back-and-forth moves right after creation, so cards carry ~12-16 lifetime movements. Card-serving reads must not scale with that history (<a href="https://gitlab.com/visiban/visiban/-/issues/1883">#1883</a>); a regression to loading every movement per card is invisible to query-count guards but shows up here as latency. The extra moves predate the real stage transitions, so each card's current column and <code>last_moved_at</code> are unchanged.</li>
 <li><strong><code>--with-notifications</code></strong> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user. That is more than the 50-row cap <code>NotificationListView</code> applies (<code>NotificationUnreadCountView</code> is uncapped and counts all 60), so the job exercises the same "more unread than the cap" path a busy real inbox hits.</li>
 <li><strong>A fixture size with no stated card/swimlane count is meaningless</strong>: a p95 is only interpretable next to its data volume. <code>nightly-load-test-results.json</code> (the job's artifact) records the actual card and swimlane count with the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets were derived against.</li>
 </ul>
@@ -4512,7 +4513,7 @@ it isn't a clean before/after of the code. <code>card_search_multi_board</code> 
 <ul>
 <li>This is Django ticket <a href="https://code.djangoproject.com/ticket/36960">#36960</a>, fixed upstream only in Django 6.1 (commit <code>994fa77</code>).</li>
 <li>psycopg2 parsed these values in C.</li>
-<li>One <code>board_full</code> response on the load-test board loads about 44,000 <code>timestamptz</code> values (cards, movements and the other prefetched rows).</li>
+<li>One <code>board_full</code> response on the load-test board loads about 44,000 <code>timestamptz</code> values (cards, movements and the other prefetched rows). <em>(Measured before #1883, when every card's full movement history was loaded; <code>board_full</code> no longer loads movement rows, so the current figure is lower. The full re-measure is tracked in #2039.)</em></li>
 </ul>
 <p>The cause was measured locally on a scale-20 fixture against PostgreSQL 17, not inferred from the dates.</p>
 <ul>
