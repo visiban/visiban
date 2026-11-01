@@ -380,6 +380,21 @@ class SelectorTests(FeedRedactionBase):
         self.assertIn("Deleted 0 movement row(s) of deleted cards and 0 block row(s), and redacted 1", out)
         self._assert_legacy_redacted(legacy)
 
+    def test_resolved_id_that_a_live_card_now_has_is_skipped(self):
+        # A restore with a reset sequence can give a live card a deleted
+        # card's id; a deleted-card purge must not touch the live card's rows.
+        uid = self._card_lifecycle(self.board)
+        reused = self._card_id(uid)
+        Card.objects.create(
+            id=reused, board=self.board, column=self._cols(self.board)[0],
+            swimlane=self.board.swimlanes.get(), title="Live 1816", position=0,
+        )
+        legacy = self._legacy(self.board, reused)
+
+        self._run("--card", uid, "--yes")
+
+        self._assert_legacy_redacted(legacy, redacted=False)
+
     def test_unresolvable_card_id_reports_every_uidless_row_in_scope(self):
         # A deleted card with no REST-shaped row has no known id: any
         # uid-less row on the board could be its, so all are reported.
@@ -490,6 +505,10 @@ class DryRunAuditAndRollbackTests(FeedRedactionBase):
         # Rows are fetched and written in batches, never one query per row.
         one = self._card_lifecycle(self.board, title="one")
         many = [self._card_lifecycle(self.other_board, title=f"m{i}") for i in range(3)]
+        # Uid-less legacy rows too: 1 against 3, attributed without a query each.
+        self._legacy(self.board, self._card_id(one))
+        for uid in many:
+            self._legacy(self.other_board, self._card_id(uid))
         with CaptureQueriesContext(connection) as small:
             self._run("--board", str(self.board.pk), "--yes")
         self.assertTrue(all(

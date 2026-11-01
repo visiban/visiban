@@ -480,6 +480,20 @@ class Command(BaseCommand):
         )
         return {cid for cid in (self._card_id_of(a, b) for a, b in pairs) if cid is not None}
 
+    @staticmethod
+    def _without_live_ids(ids):
+        """*ids* minus those a live card has.
+
+        Ids resolved from a deleted card's payloads name that deleted card.
+        Visiban never reuses an id, but a database restored with its id
+        sequence reset can, and then a live card would inherit one; dropping
+        live ids keeps such a card's rows out of a deleted-card purge.
+        """
+        if not ids:
+            return set()
+        live = set(Card.objects.filter(pk__in=ids).values_list("pk", flat=True))
+        return set(ids) - live
+
     def _select_events(self, *, rows, card_uid, board, since, before, include_live):
         """The feed rows to redact, and how many in-scope rows stay unmatchable.
 
@@ -490,10 +504,12 @@ class Command(BaseCommand):
         MCP tools in 1.2 pre-releases (before #1926) carry no uid but do carry
         the integer card id, so those are matched on the id: the live card's
         pk, or for a deleted card the id its REST-shaped payloads recorded
-        next to its uid. Card ids are never reused (a PostgreSQL sequence, and
+        next to its uid. Card ids are not reused (a PostgreSQL sequence, and
         Django's SQLite AUTOINCREMENT key, only move forward), so an id that
         matches no live card belongs to a deleted card, and a known id names
-        exactly one card.
+        exactly one card. A restore that reset the sequence could break that,
+        so ids resolved for a deleted card that a live card now has are
+        dropped (``_without_live_ids``).
         """
         dated = self._feed_scope(since=since, before=before)
         in_board = dated.filter(board_id=board.pk) if board is not None else dated
@@ -504,7 +520,9 @@ class Command(BaseCommand):
         # than as a SQL anti-join on cards.id: that would need the JSON value
         # cast to bigint in SQL, and one malformed row would then abort the
         # whole purge instead of being reported as unmatchable.
-        legacy = {
+        # Not needed for --board with --include-live-cards, which matches
+        # every card row on the board whatever its payload carries.
+        legacy = {} if (include_live and card_uid is None) else {
             pk: self._card_id_of(top, nested)
             for pk, top, nested in in_board.filter(_card_uid__isnull=True)
             .values_list("pk", "data__id", "data__card__id")
@@ -513,7 +531,10 @@ class Command(BaseCommand):
 
         if card_uid is not None:
             live = Card.objects.filter(uid=card_uid).values_list("pk", flat=True).first()
-            card_ids = {live} if live is not None else self._card_ids_for_uids({card_uid})
+            card_ids = (
+                {live} if live is not None
+                else self._without_live_ids(self._card_ids_for_uids({card_uid}))
+            )
             matched = [pk for pk, cid in legacy.items() if cid is not None and cid in card_ids]
             # Without a known id, any uid-less row in scope could be this card's.
             unmatchable = no_id if card_ids else len(legacy)
@@ -549,12 +570,25 @@ class Command(BaseCommand):
             .values_list("_uid", flat=True).distinct()
             if uid
         }
+        # A live card's id is on its movement row; only deleted cards' ids
+        # need the feed lookup, so a run selecting none skips that scan.
+        deleted_uids = {
+            uid for uid in rows.filter(card__isnull=True)
+            .values_list("card_uid", flat=True).distinct()
+            if uid
+        }
         ids = set(
             rows.filter(card__isnull=False).values_list("card_id", flat=True).distinct()
-        ) | self._card_ids_for_uids(uids)
+        ) | self._without_live_ids(self._card_ids_for_uids(deleted_uids))
         followed = Q(pk__in=[])
         if uids:
-            followed |= Q(_card_uid__in=list(uids))
+            uid_q = Q(_card_uid__in=list(uids))
+            if not include_live:
+                # Belt and braces: the movement rows are deleted-only here, so
+                # no uid should be live, but a live card's rows must never be
+                # redacted without --include-live-cards.
+                uid_q &= ~Exists(Card.objects.filter(uid=OuterRef("_card_uid")))
+            followed |= uid_q
         if ids:
             followed |= Q(data__id__in=list(ids)) | Q(data__card__id__in=list(ids))
         return dated.filter((Q(board_id=board.pk) & q) | followed).order_by("pk"), unmatchable
