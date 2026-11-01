@@ -34,7 +34,7 @@ from rest_framework.exceptions import (
 
 from visiban.request_shape import id_in_db_range
 
-from ..models import Board, BoardFavorite, BoardMembership, Card
+from ..models import Board, BoardFavorite, BoardMembership, Card, Column
 from ..permissions import (
     GROUP_ANCESTOR_SELECT_RELATED,
     can_modify_others_content as _can_modify_others_content,  # noqa: F401
@@ -80,6 +80,23 @@ CONTAINER_CHANGED_409 = OpenApiResponse(
         },
     ),
 )
+
+
+def missing_limit_columns(board_id, column_ids):
+    """The ids in a swimlane's ``limit_column_ids`` that are no longer columns
+    of the board (#1150), read now.
+
+    Shared by the REST swimlane save (which answers 400) and the Django admin
+    swimlane save (which drops them), both called once the board row is held.
+    A column delete holds that row from the start of its cascade, so what this
+    reads stays true until the caller's save commits; an id a delete removed
+    meanwhile would otherwise be stored behind the delete's own cleanup
+    (``prune_swimlane_limit_columns``).
+    """
+    if not column_ids:
+        return []
+    live = set(Column.objects.filter(board_id=board_id, pk__in=column_ids).values_list("pk", flat=True))
+    return [pk for pk in column_ids if pk not in live]
 
 
 def lock_board_row_or_404(board, *, no_key=False):
