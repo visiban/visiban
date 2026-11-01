@@ -46,7 +46,7 @@
       "measured_p95_ms": 73.1,
       "measured_p99_ms": 268.3,
       "budget_p95_ms": 105,
-      "note": "The cross-board card query as a one-board user (demo2): access filter plus one 51-row cursor page. Card search now filters with the ci_contains lookup (ILIKE on PostgreSQL), which the pg_trgm GIN indexes from migration 0030 (card_title_trgm_idx / card_desc_trgm_idx) can serve for selective terms (#1809). This budget was measured before that change and is to be re-derived at the next load-test run. Derived after the #1805 fix (#1808). 'the' is a deliberately broad, high-cardinality search term -- it matches a large fraction of the corpus, closer to a real user's search-as-you-type behavior than a highly selective term would be."
+      "note": "The cross-board card query as a one-board user (demo2): access filter plus one 51-row cursor page. Card search now filters with the ci_contains lookup (ILIKE on PostgreSQL), which the pg_trgm GIN indexes from migration 0030 (card_title_trgm_idx / card_desc_trgm_idx) can serve for selective terms (#1809). This budget was measured before that change and is to be re-derived, and broad/short terms re-measured, in #2063. Derived after the #1805 fix (#1808). 'the' is a deliberately broad, high-cardinality search term -- it matches a large fraction of the corpus, closer to a real user's search-as-you-type behavior than a highly selective term would be."
     },
     "card_search_multi_board": {
       "method": "GET",

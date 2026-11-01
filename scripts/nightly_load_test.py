@@ -15,7 +15,7 @@ one boards/migrations 0045 (activity/comment composite indexes) exists to keep
 fast. card_search filters with ci_contains (ILIKE on PostgreSQL, #1809), which
 migration 0030's trigram GIN indexes can serve for selective terms; its broad
 'the' term still scans. Its budget was measured before that change and is to be
-re-derived at the next load-test run. It measures the access filter and one
+re-derived (#2063). It measures the access filter and one
 cursor page, as a one-board user (#1805).
   - board_list              GET  /api/v1/boards/                    (#1723, budget: #1767)
   - board_full              GET  /api/v1/boards/{id}/full/

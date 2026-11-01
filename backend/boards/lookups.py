@@ -14,7 +14,10 @@ class CardTextContains(IContains):
     Why: Django renders ``icontains`` on PostgreSQL as ``UPPER(col::text) LIKE
     UPPER(%s)``. The trigram indexes are on the bare columns, so the planner
     cannot use them for that expression and falls back to a sequential scan.
-    ``col ILIKE %s`` matches the index and returns the same rows.
+    ``col ILIKE %s`` matches the index and returns the same rows for ASCII text.
+    ILIKE lowercases both sides where the old path uppercased both, so case
+    folding of some non-ASCII letters (Turkish dotted/dotless i, Greek final
+    sigma) may differ.
 
     Everything else is inherited from ``IContains``: the right-hand side is a
     bound parameter, and ``%``, ``_`` and ``\\`` in the user's term are escaped by
@@ -32,6 +35,13 @@ class CardTextContains(IContains):
         if not self.rhs_is_direct_value():
             raise NotImplementedError(
                 "ci_contains supports only literal right-hand values."
+            )
+        # A bilateral transform (e.g. unaccent) wraps the pattern in the
+        # transform after get_rhs_op ran without pattern_ops, so it would
+        # silently become an exact match.
+        if self.bilateral_transforms:
+            raise NotImplementedError(
+                "ci_contains does not support bilateral transforms."
             )
         return super().process_rhs(compiler, connection)
 

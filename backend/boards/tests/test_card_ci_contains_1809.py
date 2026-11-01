@@ -1,9 +1,9 @@
 """Card search uses the ``ci_contains`` lookup so the trigram indexes apply (#1809)."""
 
 from django.db import connection
-from django.db.models import F
+from django.db.models import CharField, F, Transform
 from django.test import TestCase
-from django.test.utils import CaptureQueriesContext
+from django.test.utils import CaptureQueriesContext, register_lookup
 import unittest
 
 from rest_framework.test import APIClient
@@ -86,6 +86,18 @@ class CardCiContainsTests(TestCase):
         # An F() right-hand side would render without % wrapping or escaping.
         with self.assertRaises(NotImplementedError):
             str(Card.objects.filter(title__ci_contains=F("description")).query)
+
+    def test_bilateral_transform_is_rejected(self):
+        # A bilateral transform would wrap the unescaped pattern and turn the
+        # substring match into an exact match.
+        class BilateralLower(Transform):
+            lookup_name = "blower"
+            function = "LOWER"
+            bilateral = True
+
+        with register_lookup(CharField, BilateralLower):
+            with self.assertRaises(NotImplementedError):
+                str(Card.objects.filter(title__blower__ci_contains="abc").query)
 
     def _assert_search_uses_ilike(self, url):
         client = APIClient()
