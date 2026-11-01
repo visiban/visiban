@@ -628,10 +628,12 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 |---|---|
 | `move` | All `CardMovement` records |
 | `comment` | `comment_added` |
-| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change` |
+| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) |
 | `checklist` | `checklist_item_added`, `checklist_item_checked`, `checklist_item_unchecked`, `checklist_item_deleted` |
 | `attachment` | `attachment_added`, `attachment_deleted` |
 | `system` | `archived`, `reactivated` |
+
+An `unblocked` entry's `data` also carries `block_duration_seconds` (*added in 1.3*, #1149): how long the block it closed lasted, or `null` when no closed block matches (an imported entry whose block history was not imported).
 
 **Response**
 

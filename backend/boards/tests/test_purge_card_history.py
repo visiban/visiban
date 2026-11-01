@@ -19,7 +19,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import AdminActionLog, User
-from boards.models import Board, Card, CardMovement, Column, Swimlane
+from boards.models import Board, Card, CardBlock, CardMovement, Column, Swimlane
 
 PURGED = AdminActionLog.Action.CARD_HISTORY_PURGED
 SECRET_TITLE = "Layoffs plan 1797"
@@ -280,6 +280,7 @@ class PurgeCardHistoryTests(TestCase):
                     "include_live_cards": False,
                 },
                 "deleted_count": 2,
+                "deleted_block_count": 0,
             },
         )
         blob = repr((entry.action, entry.actor_username, entry.metadata))
@@ -332,3 +333,57 @@ class PurgeCardHistoryTests(TestCase):
                 self._run("--card", uid, "--yes")
         self.assertEqual(self._remaining(pks), set(pks))
         self.assertFalse(AdminActionLog.objects.exists())
+
+
+class PurgeCardBlockHistoryTests(TestCase):
+    """Blocks of a deleted card keep its title and free text too (#1149)."""
+
+    # The fixtures, borrowed without inheriting (and so re-running) the tests.
+    setUp = PurgeCardHistoryTests.setUp
+    _board = PurgeCardHistoryTests._board
+    _card = PurgeCardHistoryTests._card
+    _run = PurgeCardHistoryTests._run
+
+    def _deleted_card_with_blocks(self, board, *moments):
+        card = self._card(board)
+        uid = card.uid
+        pks = [
+            CardBlock.objects.create(
+                card=card, board=board, card_uid=card.uid, card_title=card.title,
+                reason=SECRET_NOTE, resolution=SECRET_NOTE, blocked_at=at,
+                unblocked_at=at + datetime.timedelta(hours=1),
+            ).pk
+            for at in moments
+        ]
+        card.delete()
+        return uid, pks
+
+    def test_card_purge_erases_blocks_with_their_reason(self):
+        uid, block_pks = self._deleted_card_with_blocks(self.board, _utc(2026, 1, 5), _utc(2026, 1, 9))
+        _, other_pks = self._deleted_card_with_blocks(self.other_board, _utc(2026, 1, 5))
+        dry = self._run("--card", uid)
+        self.assertIn("and 2 block row(s)", dry)
+        self.assertEqual(CardBlock.objects.filter(pk__in=block_pks).count(), 2)
+        out = self._run("--card", uid, "--yes")
+        self.assertIn("Deleted 0 movement row(s) of deleted cards and 2 block row(s)", out)
+        self.assertFalse(CardBlock.objects.filter(pk__in=block_pks).exists())
+        self.assertEqual(CardBlock.objects.filter(pk__in=other_pks).count(), 1)
+        entry = AdminActionLog.objects.get(action=AdminActionLog.Action.CARD_HISTORY_PURGED)
+        self.assertEqual(entry.metadata["deleted_block_count"], 2)
+        self.assertEqual(entry.metadata["deleted_count"], 0)
+        self.assertNotIn(SECRET_NOTE, repr(entry.metadata))
+        self.assertNotIn(SECRET_NOTE, out)
+
+    def test_date_range_selects_blocks_by_blocked_at(self):
+        _, pks = self._deleted_card_with_blocks(self.board, _utc(2026, 1, 5), _utc(2026, 3, 5))
+        self._run("--board", str(self.board.pk), "--before", "2026-02-01", "--yes")
+        self.assertEqual(list(CardBlock.objects.filter(pk__in=pks).values_list("pk", flat=True)), [pks[1]])
+
+    def test_live_card_blocks_need_include_live_cards(self):
+        card = self._card(self.board)
+        block = CardBlock.objects.create(card=card, board=self.board, reason="Live", blocked_at=_utc(2026, 1, 5))
+        self._run("--board", str(self.board.pk), "--yes")
+        self.assertTrue(CardBlock.objects.filter(pk=block.pk).exists())
+        self._run("--board", str(self.board.pk), "--include-live-cards", "--yes")
+        self.assertFalse(CardBlock.objects.filter(pk=block.pk).exists())
+

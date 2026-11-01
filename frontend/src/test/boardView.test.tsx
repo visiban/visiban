@@ -770,6 +770,34 @@ describe('BoardView', () => {
       expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
     })
 
+    // #1149
+    it('reads Blocked only from ?f_blocked=1 and filters the board with it', () => {
+      mockSearchParams = new URLSearchParams('f_blocked=1')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      expect((capturedFilterBarProps.filters as { blockedOnly?: boolean } | undefined)?.blockedOnly).toBe(true)
+      expect(screen.getByText('No cards match the active filters.')).toBeInTheDocument()
+    })
+
+    it('writes f_blocked to the URL when Blocked only is turned on, and removes it when off', () => {
+      mockSearchParams = new URLSearchParams()
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      const onChange = (capturedFilterBarProps as { onChange?: (f: unknown) => void }).onChange!
+      const base = capturedFilterBarProps.filters as Record<string, unknown>
+      mockSetSearchParams.mockClear()
+      act(() => { onChange({ ...base, blockedOnly: true }) })
+      const resolve = (call: unknown[]) => (call[0] as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams())
+      expect(resolve(mockSetSearchParams.mock.calls.at(-1)!).get('f_blocked')).toBe('1')
+      act(() => { onChange({ ...base, blockedOnly: false }) })
+      const off = (mockSetSearchParams.mock.calls.at(-1)![0] as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams('f_blocked=1'))
+      expect(off.get('f_blocked')).toBeNull()
+    })
+
     it('does not persist the previous board\'s filters under the new board on a board switch', () => {
       mockSearchParams = new URLSearchParams('f_assignees=5&f_labels=100')
       mockBoardContextValue = defaultContext({ board: makeBoard({ id: 1 }) })

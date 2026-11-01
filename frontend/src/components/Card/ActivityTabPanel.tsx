@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getCardTimeline } from "../../api/cards";
 import type { CardTimelineEntry, CardActivity, CardMovement, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
+import { formatBlockedDuration } from "../../utils/blockedState";
 import { formatRelativeTime, formatDateStr, formatDateTimeUser } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
 import ActivityFilterDropdown from "./ActivityFilterDropdown";
@@ -153,8 +154,13 @@ function activityLabel(
     // reason it cleared (from_value) and the optional resolution (to_value).
     case "blocked":
       return d.to_value ? `Blocked: ${d.to_value}` : "Blocked";
-    case "unblocked":
-      return d.to_value ? `Unblocked: ${d.to_value}` : d.from_value ? `Unblocked (was: ${d.from_value})` : "Unblocked";
+    case "unblocked": {
+      // The timeline adds the closed block's duration (#1149); null or
+      // absent when it has no matching block (e.g. imported history).
+      const seconds = (data as { block_duration_seconds?: number | null }).block_duration_seconds;
+      const head = typeof seconds === "number" ? `Unblocked after ${formatBlockedDuration(seconds * 1000, 2)}` : "Unblocked";
+      return d.to_value ? `${head}: ${d.to_value}` : d.from_value ? `${head} (was: ${d.from_value})` : head;
+    }
     case "archived":
       return "Card archived";
     case "reactivated":

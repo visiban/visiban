@@ -45,7 +45,7 @@ TEMPLATES = sorted(p for p in SAMPLE_DIR.glob("*.json") if p.name != "manifest.j
 # in the shipped samples yet: a blocked/unblocked activity without the
 # matching per-card `blocks` history and `blocked_at` state would show an
 # activity trail that contradicts the card, and teaching the generator to emit
-# all three is a sample-content change of its own, not part of the feature.
+# all three is a sample-content change of its own, tracked in #2061.
 CARRIED_EVENT_TYPES = {
     e.value for e in CardActivity.EventType
 } - {

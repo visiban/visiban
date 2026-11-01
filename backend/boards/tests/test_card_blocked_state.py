@@ -306,6 +306,28 @@ class BlockApiTests(_BlockTestBase):
         self.assertIsInstance(first["duration_seconds"], int)
         self.assertIsNone(resp.data[0]["unblocked_at"])
 
+    def test_timeline_lists_block_events_with_the_unblock_duration(self):
+        self._block(reason="First")
+        CardBlock.objects.filter(card=self.card).update(blocked_at=timezone.now() - datetime.timedelta(hours=3))
+        self._unblock(resolution="Done")
+        self._block(reason="Second")
+        resp = self.client.get(self._url(self.card, "timeline"))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        entries = [e for e in resp.data["results"] if e["kind"] == "activity"]
+        self.assertEqual([e["event_type"] for e in entries], ["blocked", "unblocked", "blocked"])
+        unblocked = entries[1]["data"]
+        self.assertAlmostEqual(unblocked["block_duration_seconds"], 3 * 3600, delta=5)
+        self.assertNotIn("block_duration_seconds", entries[0]["data"])
+        # The "field" group carries them.
+        field = self.client.get(self._url(self.card, "timeline"), {"event_types": "field"}).data
+        self.assertEqual(field["count"], 3)
+
+    def test_timeline_unblocked_without_a_closed_block_has_null_duration(self):
+        CardActivity.objects.create(card=self.card, event_type=CardActivity.EventType.UNBLOCKED, from_value="x")
+        CardBlock.objects.create(card=self.card, board=self.board, reason="Open still")
+        data = self.client.get(self._url(self.card, "timeline")).data["results"][0]["data"]
+        self.assertIsNone(data["block_duration_seconds"])
+
     def test_duration_seconds_measures_to_unblock(self):
         start = timezone.now() - datetime.timedelta(hours=5)
         CardBlock.objects.create(
@@ -691,6 +713,23 @@ class BlockExportImportTests(_BlockTestBase):
         self.assertEqual(block.imported_from_username, "")
         self.assertEqual(block.column.name, "Todo")
 
+    def test_imported_reasons_are_trimmed(self):
+        data = {
+            "name": "Trim", "columns": [{"name": "Todo"}], "swimlanes": [{"name": "Lane"}],
+            "cards": [{
+                "title": "Stuck", "column": "Todo", "swimlane": "Lane",
+                "blocked_at": "2026-10-01T09:00:00+00:00", "blocked_reason": "  Budget  ",
+                "blocks": [{
+                    "blocked_at": "2026-09-01T09:00:00+00:00", "unblocked_at": "2026-09-02T09:00:00+00:00",
+                    "reason": " Old ", "resolution": " Fixed ",
+                }],
+            }],
+        }
+        card = Card.objects.get(board=self._import(data))
+        self.assertEqual(card.blocked_reason, "Budget")
+        reasons = sorted(CardBlock.objects.filter(card=card).values_list("reason", "resolution"))
+        self.assertEqual(reasons, [("Budget", ""), ("Old", "Fixed")])
+
     def test_files_without_block_keys_import_unblocked(self):
         data = {
             "name": "Old", "columns": [{"name": "Todo"}], "swimlanes": [{"name": "Lane"}],
@@ -722,6 +761,12 @@ class BlockExportImportTests(_BlockTestBase):
             ({"blocks": [{"blocked_at": "2026-01-01T00:00:00Z", "unblocked_at": "bad"}]}, "invalid 'unblocked_at'"),
             ({"blocks": [{"reason": "r" * 501}]}, "'reason' must be at most 500"),
             ({"blocks": [{"blocked_by": ["x"]}]}, "'blocked_by' must be a string"),
+            # The API's reason rule (#1149): a block always has a reason.
+            ({"blocked_at": "2026-01-01T00:00:00Z"}, "'blocked_reason' is required when 'blocked_at' is set"),
+            ({"blocked_at": "2026-01-01T00:00:00Z", "blocked_reason": "   "}, "'blocked_reason' is required"),
+            ({"blocks": [{"blocked_at": "2026-01-01T00:00:00Z", "unblocked_at": "2026-01-02T00:00:00Z"}]},
+             "block at index 0: 'reason' is required"),
+            ({"blocks": [{"blocked_at": "2026-01-01T00:00:00Z", "reason": " "}]}, "block at index 0: 'reason' is required"),
         ]
         for extra, fragment in cases:
             with self.subTest(extra=str(extra)[:40]):
@@ -735,3 +780,67 @@ class SavedFilterBlockedOnlyTests(TestCase):
         self.assertEqual(ser.validate_state_json({"blockedOnly": True}), {"blockedOnly": True})
         with self.assertRaisesMessage(Exception, "blockedOnly must be true or false"):
             ser.validate_state_json({"blockedOnly": "yes"})
+
+
+class BlockAdminAndRetentionTests(_BlockTestBase):
+    """Paths outside the block service that touch block rows (#1149)."""
+
+    def _admin_save(self, card):
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from accounts.models import User
+        from boards.admin import CardAdmin
+        from boards.tests.test_admin_broadcast import _DummyForm
+
+        root = User.objects.create_superuser(username="blk_root", email="blk_root@example.com", password="pw-1149-x!")
+        request = RequestFactory().post("/admin/")
+        request.user = root
+        with self.captureOnCommitCallbacks(execute=True):
+            CardAdmin(Card, AdminSite()).save_model(request, card, _DummyForm(), change=True)
+
+    def test_admin_board_move_takes_block_history_along(self):
+        self._block(reason="Vendor")
+        self._unblock()
+        self._block(reason="Again")
+        b2 = _make_board(self.owner, name="B2")
+        col2, lane2 = _make_column(b2, name="Other"), _make_swimlane(b2)
+        card = Card.objects.get(pk=self.card.pk)
+        card.board, card.column, card.swimlane = b2, col2, lane2
+        self._admin_save(card)
+        self.assertEqual(set(CardBlock.objects.filter(card=card).values_list("board_id", flat=True)), {b2.pk})
+        # The column snapshot keeps where the card was when blocked.
+        self.assertEqual(set(CardBlock.objects.filter(card=card).values_list("column_name", flat=True)), {"Doing"})
+        # Deleting the old board leaves the moved card's history alone.
+        Board.objects.filter(pk=self.board.pk).delete()
+        self.assertEqual(CardBlock.objects.filter(card=card).count(), 2)
+
+    def test_admin_save_does_not_overwrite_a_block_made_after_the_form_loaded(self):
+        stale = Card.objects.get(pk=self.card.pk)  # loaded before the block, as the admin form is
+        self._block(reason="Vendor")
+        stale.title = "Edited in admin"
+        self._admin_save(stale)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.title, "Edited in admin")
+        self.assertIsNotNone(self.card.blocked_at)
+        self.assertEqual(self.card.blocked_reason, "Vendor")
+        # And the state still agrees with the open row: unblock works.
+        self.assertEqual(self._unblock().status_code, status.HTTP_200_OK)
+
+    def test_user_delete_locks_cards_the_user_blocked_or_unblocked(self):
+        from accounts.admin import VisibanUserAdmin
+
+        member = _make_user("blk_deletee")
+        _make_membership(self.board, member, role="admin")
+        client = APIClient()
+        client.force_authenticate(member)
+        self._block(card=self.card, client=client)
+        self._block(card=self.other)
+        self._unblock(card=self.other, client=client)
+        third = _make_card(self.col, self.lane, title="Untouched", position=5)
+        # Leave the block rows as the only reference to the user: the blocked /
+        # unblocked activity rows already put these cards in the set.
+        CardActivity.objects.filter(actor=member).delete()
+        locked = set(VisibanUserAdmin._cards_to_lock([member.pk]).values_list("pk", flat=True))
+        self.assertTrue({self.card.pk, self.other.pk} <= locked)
+        self.assertNotIn(third.pk, locked)

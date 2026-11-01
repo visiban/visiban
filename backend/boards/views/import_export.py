@@ -903,6 +903,8 @@ def _validate_json_import_values(data):
             for ji, entry in enumerate(items):
                 if error := _check_keys(entry, specs, f"{where}, {child_label} at index {ji}"):
                     return error
+        if error := _block_reason_error(card, where):
+            return error
         total_rows += _card_rows(card)
         if total_rows > _IMPORT_MAX_ROWS:
             return f"Import would write more than {_IMPORT_MAX_ROWS} rows in total."
@@ -913,6 +915,29 @@ def _validate_json_import_values(data):
             usernames.add(value)
         if len(usernames) > _IMPORT_MAX_USERNAMES:
             return f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames."
+    return None
+
+
+def _blank(value):
+    return not isinstance(value, str) or not value.strip()
+
+
+def _block_reason_error(card, where):
+    """The reason rule of ``BlockCardSerializer``, applied to an import (#1149).
+
+    A block needs a reason (the API refuses a blank one), so a file that
+    carries a blocked card without ``blocked_reason``, or a block entry
+    without ``reason``, is refused with a 400 rather than imported as a
+    reasonless block or silently unblocked. Lengths and types are checked
+    by the specs above; this adds only "required and not just whitespace".
+    Entries the importer drops anyway (no usable ``blocked_at``) are not
+    judged.
+    """
+    if card.get("blocked_at") and _blank(card.get("blocked_reason")):
+        return f"{where}: 'blocked_reason' is required when 'blocked_at' is set"
+    for ji, entry in enumerate(card.get("blocks", [])):
+        if entry.get("blocked_at") and _blank(entry.get("reason")):
+            return f"{where}, block at index {ji}: 'reason' is required"
     return None
 
 
@@ -1166,7 +1191,7 @@ def _imported_card_blocks(card_obj, card_data, column_map, importer, history_on)
             continue
         rows.append(_row(
             entry, blocked_at=blocked_at, unblocked_at=unblocked_at,
-            reason=entry.get("reason") or "", resolution=entry.get("resolution") or "",
+            reason=entry["reason"].strip(), resolution=(entry.get("resolution") or "").strip(),
             imported_name=_imported_from_username(entry, "blocked_by"),
         ))
     if card_obj.blocked_at is not None:
@@ -1780,7 +1805,7 @@ class BoardImportExportMixin:
                 blocked_at = _aware_timestamp(card_data.get("blocked_at"))
                 if blocked_at is not None:
                     card_obj.blocked_at = blocked_at
-                    card_obj.blocked_reason = card_data.get("blocked_reason") or ""
+                    card_obj.blocked_reason = card_data["blocked_reason"].strip()
 
                 cards_to_create.append(card_obj)
                 cards_raw.append(card_data)

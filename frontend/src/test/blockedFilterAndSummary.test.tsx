@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import FilterBar, { EMPTY_FILTER, countActiveFilters } from '../components/Board/FilterBar'
 import SummaryView from '../components/Board/SummaryView'
 import AnalyticsView from '../components/Board/AnalyticsView'
@@ -101,6 +102,21 @@ describe('Blocked only filter (#1149)', () => {
     const [, dismiss] = screen.getAllByRole('button', { name: 'Remove Blocked only filter' })
     fireEvent.click(dismiss)
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, blockedOnly: false })
+  })
+
+  it('is also a facet under "+ Filter", counted in its badge', async () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={onChange} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Blocked' }))
+    await user.click(screen.getByRole('button', { name: 'Blocked' }))
+    await user.click(screen.getByText('Blocked only (2)'))
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, blockedOnly: true })
+
+    rerender(<FilterBar board={makeBoard()} filters={{ ...EMPTY_FILTER, blockedOnly: true }} onChange={onChange} />)
+    const trigger = screen.getByText('+ Filter').closest('button') as HTMLButtonElement
+    expect(trigger).toHaveAttribute('aria-label', '+ Filter, 1 active')
   })
 
   it('saved filters restore blockedOnly and default it to off', async () => {

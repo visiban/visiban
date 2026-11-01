@@ -928,7 +928,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const fPriorities = searchParams.get("f_priorities");
     const fDue = searchParams.get("f_due");
     const fSearch = searchParams.get("f_search");
-    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null;
+    // #1149 — "Blocked only" travels in a shared filter link as f_blocked=1.
+    const fBlocked = searchParams.get("f_blocked");
+    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null;
     if (!hasUrlFilters) return persistedFilters;
     return {
       search: fSearch ?? "",
@@ -947,6 +949,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // controls the user already had open.
       customFields: {},
       visibleCustomFieldFilterIds: persistedFilters.visibleCustomFieldFilterIds,
+      blockedOnly: fBlocked === "1",
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount; searchParams and persistedFilters are stable on first render
   }, []);
@@ -969,8 +972,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         next.assigneeIds.length === 0 &&
         next.labelIds.length === 0 &&
         next.priorities.length === 0 &&
-        next.dueDate === null;
+        next.dueDate === null &&
+        !next.blockedOnly;
       if (isEmptyFilter) {
+        prev.delete("f_blocked");
         prev.delete("f_assignees");
         prev.delete("f_labels");
         prev.delete("f_priorities");
@@ -987,6 +992,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         else prev.delete("f_due");
         if (next.search !== "") prev.set("f_search", next.search);
         else prev.delete("f_search");
+        if (next.blockedOnly) prev.set("f_blocked", "1");
+        else prev.delete("f_blocked");
       }
       return prev;
     }, { replace: true });

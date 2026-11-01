@@ -206,13 +206,16 @@ const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: str
 // "+ Filter" menu. FACET_ORDER is the canonical render order regardless of
 // pick order, matching the order the dropdowns appeared in before this
 // change.
-type FacetId = "assignee" | "label" | "priority" | "dueDate";
-const FACET_ORDER: FacetId[] = ["assignee", "label", "priority", "dueDate"];
+// #1149 adds "blocked": the same filter as the Blocked only toggle, offered
+// here too so every built-in facet is reachable from one menu (UI spec).
+type FacetId = "assignee" | "label" | "priority" | "dueDate" | "blocked";
+const FACET_ORDER: FacetId[] = ["assignee", "label", "priority", "dueDate", "blocked"];
 const FACET_OPTIONS: { value: FacetId; label: string }[] = [
   { value: "assignee", label: "Assignee" },
   { value: "label", label: "Label" },
   { value: "priority", label: "Priority" },
   { value: "dueDate", label: "Due date" },
+  { value: "blocked", label: "Blocked" },
 ];
 
 export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY" }: Props) {
@@ -236,6 +239,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     filters.labelIds.length > 0,
     filters.priorities.length > 0,
     filters.dueDate !== null,
+    !!filters.blockedOnly,
   ].filter(Boolean).length;
 
   // #964 — a facet's control auto-collapses out of Row 1 the moment the user
@@ -520,6 +524,17 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
                   selected={filters.dueDate}
                   onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
                   onOpenChange={(open) => handleFacetOpenChange("dueDate", open)}
+                />
+              );
+            case "blocked":
+              return (
+                <SingleSelectDropdown
+                  key="blocked"
+                  label="Blocked"
+                  options={[{ value: "blocked" as const, label: `Blocked only (${blockedCount})` }]}
+                  selected={filters.blockedOnly ? "blocked" : null}
+                  onChange={(v) => onChange({ ...filters, blockedOnly: v === "blocked" })}
+                  onOpenChange={(open) => handleFacetOpenChange("blocked", open)}
                 />
               );
             default:

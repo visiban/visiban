@@ -1225,6 +1225,8 @@ class CardViewSet(viewsets.ModelViewSet):
         "field": [
             "priority_change", "weight_change", "assignee_change",
             "label_change", "title_change", "description_change", "due_date_change",
+            # Manual block state (#1149) is a field of the card.
+            "blocked", "unblocked",
         ],
         "checklist": [
             "checklist_item_added", "checklist_item_checked",
@@ -1410,8 +1412,41 @@ class CardViewSet(viewsets.ModelViewSet):
                 },
             })
 
+        # Block durations for the unblocked entries (#1149): an `unblocked`
+        # activity is written in the transaction that closes its CardBlock,
+        # just after it, so it belongs to the latest block closed at or
+        # before the activity's time. One query over this card's closed
+        # blocks, only when the page has an unblocked entry.
+        block_spans = []
+        if any(a.event_type == CardActivity.EventType.UNBLOCKED for a in capped_activities):
+            block_spans = list(
+                card.blocks.filter(unblocked_at__isnull=False)
+                .order_by("unblocked_at")
+                .values_list("blocked_at", "unblocked_at")
+            )
+
+        def _block_duration(activity):
+            match = None
+            for blocked_at, unblocked_at in block_spans:
+                if unblocked_at > activity.created_at:
+                    break
+                match = (blocked_at, unblocked_at)
+            if match is None:
+                return None
+            return max(0, int((match[1] - match[0]).total_seconds()))
+
         for a in capped_activities:
             actor_obj = a.actor
+            data = {
+                "event_type": a.event_type,
+                "from_value": a.from_value,
+                "to_value": a.to_value,
+            }
+            if a.event_type == CardActivity.EventType.UNBLOCKED:
+                # Additive key (#1149), present only on unblocked entries;
+                # null when no closed block matches (e.g. an imported entry
+                # whose block history was not imported).
+                data["block_duration_seconds"] = _block_duration(a)
             raw_entries.append({
                 "id": a.id,
                 "kind": "activity",
@@ -1419,11 +1454,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 "actor": actor_obj,
                 "event_type": a.event_type,
                 "imported_from_username": a.imported_from_username,
-                "data": {
-                    "event_type": a.event_type,
-                    "from_value": a.from_value,
-                    "to_value": a.to_value,
-                },
+                "data": data,
             })
 
         # --- Sort merged list newest-first ---

@@ -1,4 +1,4 @@
-"""Erase retained movement history on request (#1797).
+"""Erase retained movement and block history on request (#1797, #1149).
 
 Since #1469, hard-deleting a card keeps its ``CardMovement`` rows, including
 the ``card_title`` snapshot taken at each move and any movement notes, until
@@ -6,6 +6,12 @@ the board itself is deleted. Board members keep seeing them in Board History.
 That is the intended audit trail, but it leaves no way to honor a request to
 erase a deleted card's title short of deleting the whole board. This command
 is that way.
+
+Since #1149 the same holds for manual blocks: a ``CardBlock`` keeps the
+card's title snapshot plus the free-text ``reason`` and ``resolution`` after
+the card is deleted. Every selector below matches block rows the same way it
+matches movements (``--since`` / ``--before`` by ``blocked_at``), and one run
+erases both.
 
 It deliberately breaks the append-only rule. ``CardMovement.delete()`` refuses
 every call, as a guard against *accidental* application deletes; this command
@@ -50,7 +56,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 
 from accounts.models import AdminActionLog
-from boards.models import Board, Card, CardMovement
+from boards.models import Board, Card, CardBlock, CardMovement
 
 # Card and board uids are 16 lowercase hex characters (boards/uid.py).
 _UID_RE = re.compile(r"[0-9a-f]{16}")
@@ -85,7 +91,7 @@ def _parse_moment(value, option):
 
 class Command(BaseCommand):
     help = (
-        "Delete the retained movement history of deleted cards, by card uid, "
+        "Delete the retained movement and block history of deleted cards, by card uid, "
         "board and/or date range, and record the purge in the admin action log. "
         "Dry run unless --yes is given."
     )
@@ -161,8 +167,10 @@ class Command(BaseCommand):
             )
 
         rows = CardMovement.objects.all()
+        blocks = CardBlock.objects.all()
         if not include_live:
             rows = rows.filter(card__isnull=True)
+            blocks = blocks.filter(card__isnull=True)
 
         if card_uid is not None:
             card_uid = card_uid.strip().lower()
@@ -174,6 +182,9 @@ class Command(BaseCommand):
                 rows = rows.filter(
                     Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
                 )
+                blocks = blocks.filter(
+                    Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
+                )
             else:
                 if Card.objects.filter(uid=card_uid).exists():
                     raise CommandError(
@@ -182,19 +193,23 @@ class Command(BaseCommand):
                         "--include-live-cards to erase a live card's history."
                     )
                 rows = rows.filter(card_uid=card_uid)
+                blocks = blocks.filter(card_uid=card_uid)
 
         board = None
         if board_value is not None:
             board = self._resolve_board(board_value)
             rows = rows.filter(board_id=board.pk)
+            blocks = blocks.filter(board_id=board.pk)
 
         since = before = None
         if since_raw is not None:
             since = _parse_moment(since_raw, "--since")
             rows = rows.filter(moved_at__gte=since)
+            blocks = blocks.filter(blocked_at__gte=since)
         if before_raw is not None:
             before = _parse_moment(before_raw, "--before")
             rows = rows.filter(moved_at__lt=before)
+            blocks = blocks.filter(blocked_at__lt=before)
         if since is not None and before is not None and since >= before:
             raise CommandError("--since must be earlier than --before.")
 
@@ -208,7 +223,7 @@ class Command(BaseCommand):
             )
             boards = rows.values("board_id").distinct().count()
             self.stdout.write(
-                f"Dry run: would delete {count} {scope} "
+                f"Dry run: would delete {count} {scope} and {blocks.count()} block row(s) "
                 f"({cards} card(s), {boards} board(s)). Re-run with --yes to delete."
             )
             return
@@ -230,24 +245,37 @@ class Command(BaseCommand):
             # delete, which never calls the refusing CardMovement.delete().
             _, per_model = rows.order_by().delete()
             deleted = per_model.get(CardMovement._meta.label, 0)
-            if deleted:
+            # Block rows (#1149) carry the same title snapshot plus free text.
+            # CardBlock has no refusing delete(), but a queryset delete keeps
+            # it one statement, like the movements above.
+            _, per_model = blocks.order_by().delete()
+            deleted_blocks = per_model.get(CardBlock._meta.label, 0)
+            if deleted or deleted_blocks:
                 AdminActionLog.record(
                     action=AdminActionLog.Action.CARD_HISTORY_PURGED,
                     source=AdminActionLog.Source.CLI,
                     actor=actor,
-                    metadata={"selector": selector, "deleted_count": deleted},
+                    # deleted_count keeps meaning movement rows (#1797);
+                    # deleted_block_count is additive.
+                    metadata={
+                        "selector": selector, "deleted_count": deleted,
+                        "deleted_block_count": deleted_blocks,
+                    },
                 )
 
-        if deleted:
+        if deleted or deleted_blocks:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Deleted {deleted} {scope}; recorded in the admin action log."
+                    f"Deleted {deleted} {scope} and {deleted_blocks} block row(s); "
+                    "recorded in the admin action log."
                 )
             )
         else:
             # Nothing changed, so nothing is recorded: the action log holds
             # real changes, not no-op runs (same rule as SiteSetting changes).
-            self.stdout.write(f"No {scope} matched; nothing deleted, nothing recorded.")
+            self.stdout.write(
+                f"No {scope} or block row(s) matched; nothing deleted, nothing recorded."
+            )
 
     def _resolve_actor(self, username):
         user_model = get_user_model()

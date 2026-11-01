@@ -15,6 +15,8 @@ Each movement record of a deleted card keeps:
 - the card's UID, and the card's title **as it was at the time of that move** (`card_uid`, `card_title`);
 - the movement's notes, the columns and swimlanes involved, who moved it and when.
 
+Since 1.3, each [block](../features/blocked-cards.md) of a deleted card is kept the same way (#1149): the card's UID and title when it was blocked, the block's **reason** and **resolution** (free text), the column, who blocked and unblocked it and when. Board members see the reasons in [Analytics](../features/analytics.md#blocked-time).
+
 While the card exists, its history shows under its current title. Once it is deleted, each movement shows under the title recorded with it, so a card renamed before deletion appears in the board's **History** view under each earlier title. This is intended: it is what the card was called at each move.
 
 **Yes, but:** two exceptions.
@@ -30,7 +32,7 @@ See [Card History](../features/card-history.md#deleted-cards-keep-their-history)
 
 ### Other places a deleted card's title can remain
 
-**Watch out:** `purge_card_history` erases movement records only. A deleted card's title can also remain in the places below, and the command does not touch any of them.
+**Watch out:** `purge_card_history` erases movement records and, since 1.3, block records only. A deleted card's title can also remain in the places below, and the command does not touch any of them.
 
 - **The board [change feed](../api/events.md)** (`GET /api/v1/boards/{id}/events/`). Each event stores its broadcast payload verbatim. `card.created` and `card.updated` events, and the `card` object inside `card.moved`, hold the full card as it was at that moment: title, description, custom field values and external reference; `card.moved` also holds the movement's notes. Events are not tied to the board by a foreign key, so they remain even after the board is deleted. The command does not remove change-feed events; covering them is tracked in #1816. The current mitigation is the [`prune_board_events`](scheduled-jobs.md) job, which deletes events older than its retention window (30 days by default). The job is **off** by default (`SCHEDULE_PRUNE_BOARD_EVENTS`), so unless you have enabled it or run the command yourself, change-feed events are never removed.
 - **The Django admin log** (`django_admin_log`). Any change made to a card in the Django admin, including deleting it there, records the card's title (`object_repr`) in the admin's own history. Visiban does not prune this table.
@@ -59,10 +61,12 @@ On Kubernetes, run the same command with `kubectl exec` in a backend pod.
 | `--actor USERNAME` | Required. An active **superuser**; any other account is refused. Recorded as the actor of the action-log entry. |
 | `--card CARD_UID` | Only the history of the card with this UID. |
 | `--board BOARD` | Only history on this board, given as its numeric ID or its UID. |
-| `--since DATE` | Only movements at or after this moment. |
-| `--before DATE` | Only movements strictly before this moment. |
+| `--since DATE` | Only movements at or after this moment (blocks by their start). |
+| `--before DATE` | Only movements strictly before this moment (blocks by their start). |
 | `--include-live-cards` | Also delete matching history of cards that still exist. Needs `--card` or `--board`. |
 | `--yes` | Delete. Without it the command only reports what would be deleted. |
+
+Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (`deleted_count` is movements, `deleted_block_count` blocks, since 1.3).
 
 Dates are `YYYY-MM-DD` (midnight UTC at the start of that day) or an ISO 8601 datetime (UTC when it has no offset). `--since 2026-03-01 --before 2026-04-01` covers exactly March.
 
