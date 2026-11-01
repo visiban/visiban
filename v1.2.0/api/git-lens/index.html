@@ -4919,7 +4919,7 @@ renders a board instead of returning <code>400</code>.</p>
 <tr>
 <td><code>502 Bad Gateway</code></td>
 <td><code>{ "detail": "...", "code": "lens_error" }</code></td>
-<td>Upstream provider returned an unexpected error or the request timed out.</td>
+<td>Upstream provider returned an unexpected error or the request timed out. Redirects are not followed, so a moved or renamed repository (the provider answers <code>301</code>) also returns this error; update the connection's repo slug.</td>
 </tr>
 </tbody>
 </table>
