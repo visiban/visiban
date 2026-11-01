@@ -1168,6 +1168,9 @@ export interface ShareActionResponse {
   share_token: string | null;
   share_url: string | null;
   share_token_expires_at: string | null;
+  /** #1967 (1.3+) — when the link was issued; null on revoke. Equals the
+   *  `issued_at` of the share_link.updated event for the same change. */
+  share_token_issued_at: string | null;
 }
 
 export interface SavedFilter {
@@ -1533,6 +1536,21 @@ export interface BoardSummary {
  * include it; keep `Board.is_starred` required.
  */
 export type BoardEventPayload = Omit<Board, "is_starred"> & { is_starred?: boolean };
+
+/**
+ * `share_link.updated` WebSocket payload (#1967). Admin-only: the server sends
+ * it to admin / site_admin sockets only. `active` and `expires_at` are the
+ * values `/full/` returns as `share_link_active` and `share_token_expires_at`
+ * (renamed on the wire because those keys are stripped from every frame).
+ * `issued_at` is the rotation signal: the issue time of the new link on an
+ * enable or rotate, null on every other change. Never carries the token.
+ */
+export interface ShareLinkUpdatedPayload {
+  board_uid: string;
+  active: boolean;
+  expires_at: string | null;
+  issued_at: string | null;
+}
 
 /** `group.created` / `group.updated` WebSocket payload; `is_starred` omitted for non-actors (#1705). */
 export type GroupEventPayload = Omit<Group, "is_starred"> & { is_starred?: boolean };

@@ -1476,18 +1476,21 @@ If a token exists, this call invalidates it immediately and returns a new UUID, 
 
 *(1.2+, #1865)* The **Sharing** tab in board settings pre-selects **30 days** and sends it explicitly; choosing **Never** sends `null`. Clients calling the API directly keep the "never expires" default unless they send a value.
 
-*(1.2+, #1865)* The link records the admin who enabled it, and lasts only while that account keeps the standing that let it enable sharing on this board: active, and a board `admin` or `site_admin` there (by membership, ownership, group role, or all-content access). When that account is deactivated or deleted, demoted below board admin (including by being added to the board directly with a lower role, which takes precedence over a group role), removed from the board or from the group that made it an admin, loses that group role because it joined a nearer group with a lower role, the board's group is changed (`PATCH`/`PUT` with `group`, or move-group), or a group is moved or deleted, or loses all-content access, the token and its expiry are cleared and a `board.updated` event is sent. An account that is still an admin of the board another way keeps the link. Links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier), record no enabler and do not resolve from the upgrade on (#1939); a `POST` here issues a new link that records the caller. The enabler is never returned by any endpoint or event.
+*(1.2+, #1865)* The link records the admin who enabled it, and lasts only while that account keeps the standing that let it enable sharing on this board: active, and a board `admin` or `site_admin` there (by membership, ownership, group role, or all-content access). When that account is deactivated or deleted, demoted below board admin (including by being added to the board directly with a lower role, which takes precedence over a group role), removed from the board or from the group that made it an admin, loses that group role because it joined a nearer group with a lower role, the board's group is changed (`PATCH`/`PUT` with `group`, or move-group), or a group is moved or deleted, or loses all-content access, the token and its expiry are cleared and a `board.updated` event is sent, plus *(1.3+)* the admin-only [`share_link.updated`](websockets.md#share-link-events-since-13) event with `active: false`. An account that is still an admin of the board another way keeps the link. Links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier), record no enabler and do not resolve from the upgrade on (#1939); a `POST` here issues a new link that records the caller. No response body or event payload includes the enabler.
 
 **Response**
 ```json
 {
   "share_token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "share_url": "https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "share_token_expires_at": "2026-04-28T17:30:00+00:00"
+  "share_token_expires_at": "2026-04-28T17:30:00+00:00",
+  "share_token_issued_at": "2026-04-21T17:30:00+00:00"
 }
 ```
 
 `share_token_expires_at` is `null` when no TTL was requested.
+
+*(1.3+, #1967)* `share_token_issued_at` is when this link was issued. It is additive. Besides `board.updated`, a successful call sends the admin-only [`share_link.updated`](websockets.md#share-link-events-since-13) WebSocket event with `active: true`, the new expiry, and `issued_at` set to this same `share_token_issued_at`, so other admin sessions see the change and the caller can tell its own change from a later rotation by someone else. The event never carries the token. `DELETE` below sends it with `active: false`.
 
 **Errors:** `403 Forbidden` if the caller can see the board but is not a board admin, including a caller whose admin role was removed while the request was waiting on a concurrent change to the board; `404 Not Found` if the caller has no access to it. `400 Bad Request` if `expires_in_days` is not one of the allowed values.
 
@@ -1501,7 +1504,8 @@ Revoke the board's public share token. Requires board admin. Existing share link
 {
   "share_token": null,
   "share_url": null,
-  "share_token_expires_at": null
+  "share_token_expires_at": null,
+  "share_token_issued_at": null
 }
 ```
 

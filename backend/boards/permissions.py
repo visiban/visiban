@@ -12,6 +12,7 @@ from .broadcast import (
     EVT_MEMBER_UPDATED,
     EVT_SAVED_FILTER_CREATED,
     EVT_SAVED_FILTER_DELETED,
+    EVT_SHARE_LINK_UPDATED,
 )
 from .models import BoardMembership
 
@@ -172,6 +173,28 @@ def per_user_event_visible(viewer_user_id, data):
         return False
     owner_id = data.get("user_id")
     return owner_id is not None and owner_id == viewer_user_id
+
+
+# Event types that only board admins may receive at all (#1967). Unlike the
+# per-field gates above, the whole frame is withheld from every other role:
+# its payload is admin-only state (the public share link's on/off and expiry,
+# which ``/full/`` nulls below admin), so there is nothing left to send once
+# that state is removed. The board consumer drops the frame for a subscriber
+# below admin, and the change feed excludes the rows for a reader below admin.
+ADMIN_ONLY_EVENTS = frozenset({EVT_SHARE_LINK_UPDATED})
+
+ROLES_WITH_ADMIN_ONLY_EVENT_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
+
+
+def admin_only_event_visible(role):
+    """Return True if an ``ADMIN_ONLY_EVENTS`` frame or feed row may reach this role.
+
+    Admin and site_admin only, the roles that may enable or revoke the share
+    link and that read its state on ``/full/``. An unknown role (``None``)
+    fails closed. Called by the board consumer (per subscriber, with the
+    re-resolved role) and the change-feed view (per reader).
+    """
+    return role in ROLES_WITH_ADMIN_ONLY_EVENT_VISIBILITY
 
 
 # Event types whose payload is built by a serializer running in the ACTING

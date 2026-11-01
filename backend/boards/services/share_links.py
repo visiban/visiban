@@ -47,6 +47,62 @@ def share_enabler_has_standing(user, board):
     return get_board_role(user, board) in SHARE_ADMIN_ROLES
 
 
+def share_link_state_payload(board, *, issued_at=None):
+    """The ``share_link.updated`` payload for *board*'s current share state (#1967).
+
+    ``active`` is ``Board.has_live_share_link()``, the same rule ``/full/``
+    uses for ``share_link_active``.
+    ``expires_at`` is null when there is no live link, matching
+    ``/full/`` ``share_token_expires_at``.
+
+    ``issued_at`` is the rotation signal: on the frame for an enable or rotate
+    it is the time that new link was issued (the share action passes the same
+    value it returns as ``share_token_issued_at``), and it is null on every
+    other change (revoke, server-side clear, expiry edit), none of which issues
+    a link. A rotation leaves ``active`` true, so without it a client still
+    showing the old link's one-time reveal could not tell that link stopped
+    working. It is a timestamp, not derived from the token, and is not stored.
+
+    Neither the token nor the enabler is in the payload: the token is shown
+    once, from the share action's response (#1935).
+    """
+    active = board.has_live_share_link()
+    expires_at = board.share_token_expires_at if active else None
+    issued = issued_at if active else None
+    return {
+        "board_uid": board.uid,
+        "active": active,
+        "expires_at": expires_at.isoformat() if expires_at is not None else None,
+        "issued_at": issued.isoformat() if issued is not None else None,
+    }
+
+
+def record_share_link_updated(board, *, issued_at=None):
+    """Persist ``share_link.updated`` for *board* and publish it on commit (#1967).
+
+    Every write that enables, rotates or clears a share link calls this after
+    the write, in the same transaction: the share action, ``_clear_lapsed``
+    below, the deleted-enabler receiver in ``boards.models``, and a Django
+    admin edit of ``share_token_expires_at`` on a live link
+    (``BoardAdmin.save_model``). The ``board.updated`` those writes also
+    record cannot carry the share state (``ADMIN_ONLY_BOARD_FIELDS`` drops it
+    from every payload), so without this event an open admin session kept
+    showing a revoked link as active. The event is admin-only
+    (``boards.permissions.ADMIN_ONLY_EVENTS``): the consumer and the change
+    feed withhold it from every role below admin.
+
+    Recorded with no actor: this row's ``actor_id`` and ``actor`` in the
+    change feed are null. ``actor_id`` drives only ``ACTOR_SCOPED_FIELDS``,
+    which this payload has none of.
+    """
+    from .. import broadcast as _broadcast
+
+    return _broadcast.record_board_event(
+        board.pk, _broadcast.EVT_SHARE_LINK_UPDATED,
+        share_link_state_payload(board, issued_at=issued_at),
+    )
+
+
 def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, include_unrecorded=False):
     """Clear the share links whose enabler no longer has standing on the board.
 
@@ -64,10 +120,10 @@ def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, in
     Each clear is a conditional UPDATE that matches only while the board still
     carries the link that was judged (same enabler, same token), so a link an
     admin re-enabled meanwhile is never cleared by mistake. Each cleared board
-    records ``board.updated`` (persisted, published on commit), the same event
-    the share action records. The share fields are admin-only and stripped
-    from every frame and feed row, so clients see the cleared link on their
-    next board load.
+    records ``board.updated`` and ``share_link.updated`` (persisted, published
+    on commit), the same pair the share action records. The share fields are
+    admin-only and stripped from ``board.updated``, so admin clients learn the
+    link is off from ``share_link.updated``, which only admins receive (#1967).
     """
     from django.db import transaction
 
@@ -114,7 +170,11 @@ def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, in
 
 
 def _clear_lapsed(lapsed, actor_id):
-    """Clear each judged link that is still in place; record board.updated per clear.
+    """Clear each judged link that is still in place; record the events per clear.
+
+    Each clear records ``board.updated`` (kept for the clients that treat it
+    as a "board changed" signal) and the admin-only ``share_link.updated``
+    that carries the new share state (#1967).
 
     ``share_enabled_by_id=None`` in the match below is an IS NULL test, so an
     unrecorded link is cleared only while it is still unrecorded.
@@ -143,4 +203,5 @@ def _clear_lapsed(lapsed, actor_id):
             board.pk, _broadcast.EVT_BOARD_UPDATED, BoardSerializer(board).data,
             actor_id=actor_id,
         )
+        record_share_link_updated(board)
     return revoked

@@ -56,5 +56,6 @@ describe('card-sheet tail utilities (#1946)', () => {
     ]).process('@tailwind utilities;', { from: undefined })
     expect(result.css).toMatch(/\.fill-primary-emphasis\s*\{[^}]*fill:\s*rgb\(var\(--primary-emphasis\)/)
     expect(result.css).toContain('.border-primary-emphasis')
-  })
+    // Compiling Tailwind in-process takes ~1s idle but >10s on a loaded CI runner, past Vitest's 5s default.
+  }, 30_000)
 })

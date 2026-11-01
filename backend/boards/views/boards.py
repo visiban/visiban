@@ -30,7 +30,10 @@ from ..models import (
     Board, BoardEvent, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
     Swimlane,
 )
-from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, PER_USER_EVENTS, get_board_role, SITE_ADMIN
+from ..permissions import (
+    ADMIN_ONLY_EVENTS, GROUP_ANCESTOR_SELECT_RELATED, PER_USER_EVENTS, SITE_ADMIN,
+    admin_only_event_visible, get_board_role,
+)
 from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
@@ -512,6 +515,14 @@ class BoardViewSet(
                     ),
                     "share_url": serializers.CharField(allow_null=True),
                     "share_token_expires_at": serializers.DateTimeField(allow_null=True),
+                    "share_token_issued_at": serializers.DateTimeField(
+                        allow_null=True,
+                        help_text=(
+                            "When this link was issued (1.3+, #1967). The same value is the "
+                            "issued_at of the share_link.updated event for this change, so a "
+                            "client can tell its own enable or rotate from another admin's."
+                        ),
+                    ),
                 },
             ),
             400: OpenApiResponse(
@@ -531,6 +542,7 @@ class BoardViewSet(
                     "share_token": serializers.CharField(allow_null=True),
                     "share_url": serializers.CharField(allow_null=True),
                     "share_token_expires_at": serializers.DateTimeField(allow_null=True),
+                    "share_token_issued_at": serializers.DateTimeField(allow_null=True),
                 },
             ),
         },
@@ -611,10 +623,16 @@ class BoardViewSet(
                 board.share_enabled_by = request.user
                 board.save(update_fields=Board.SHARE_LINK_FIELDS)
                 share_url = request.build_absolute_uri(f"/api/share/{board.share_token}")
+                # Rotation signal (#1967): the same value goes out as
+                # share_link.updated's ``issued_at``, so the tab that made this
+                # request can tell its own echo from another admin's rotation.
+                # Not stored, and not derived from the token.
+                issued_at = timezone.now()
                 response_data = {
                     "share_token": str(board.share_token),
                     "share_url": share_url,
                     "share_token_expires_at": expires_at.isoformat() if expires_at else None,
+                    "share_token_issued_at": issued_at.isoformat(),
                 }
             else:
                 # DELETE — clear both the token and the TTL so re-enabling
@@ -624,10 +642,16 @@ class BoardViewSet(
                 # share_url is included as null on DELETE so the response
                 # shape matches POST and the TS ShareActionResponse interface
                 # does not need a discriminated union (#1005).
-                response_data = {"share_token": None, "share_url": None, "share_token_expires_at": None}
+                issued_at = None
+                response_data = {
+                    "share_token": None, "share_url": None, "share_token_expires_at": None,
+                    "share_token_issued_at": None,
+                }
 
-            # Notify connected clients so the Sharing tab updates without a reload.
-            # Re-fetch through get_queryset() so the broadcast payload includes
+            # board.updated is kept for clients that treat it as a "board
+            # changed" signal, but it cannot carry the share state: the share
+            # fields are in ADMIN_ONLY_BOARD_FIELDS and dropped from every
+            # payload. Re-fetch through get_queryset() so the payload includes
             # annotations (_member_count, _card_count, _is_starred) rather than
             # triggering per-field subqueries from the bare post-save instance (#647).
             board_id = board.pk
@@ -636,6 +660,12 @@ class BoardViewSet(
             _broadcast.record_board_event(
                 board_id, _broadcast.EVT_BOARD_UPDATED, board_summary, actor_id=request.user.id,
             )
+            # The share state itself goes out as the admin-only
+            # share_link.updated (#1967), so other admin sessions and an open
+            # Sharing tab update without a reload. Never carries the token, and
+            # is recorded with no actor.
+            from ..services.share_links import record_share_link_updated
+            record_share_link_updated(board, issued_at=issued_at)
         return Response(response_data)
 
     # Schema only (#1783): the view reads `group_id` alone, not a BoardRequest.
@@ -806,8 +836,9 @@ class BoardViewSet(
         retained row for the board, whenever the caller joined it, bounded by
         retention. Each row is filtered for the caller by the rules the socket
         applies per subscriber, so the feed is not a way to read something the
-        socket would not send: per-user rows are excluded in the query below,
-        and ``BoardEventSerializer`` applies the per-reader field rules
+        socket would not send: per-user rows, and admin-only rows for a reader
+        below admin (#1967), are excluded in the query below, and
+        ``BoardEventSerializer`` applies the per-reader field rules
         (``is_moderator``, ``is_site_admin``, ``invite``, admin-only board
         fields, swimlane custom field values). See security-invariants Rule 8.
 
@@ -829,6 +860,11 @@ class BoardViewSet(
         qs = BoardEvent.objects.filter(board_id=board.id).exclude(
             Q(event__in=PER_USER_EVENTS) & ~Q(actor_id=request.user.id)
         )
+        # Admin-only rows (ADMIN_ONLY_EVENTS: share_link.updated, #1967) are
+        # returned to admin / site_admin readers only, matching the socket.
+        # Also filtered in the query so a page stays `limit` rows long.
+        if not admin_only_event_visible(role):
+            qs = qs.exclude(event__in=ADMIN_ONLY_EVENTS)
         if after:
             qs = qs.filter(pk__gt=after)
         rows = list(qs.order_by("id")[:limit])

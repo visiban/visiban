@@ -132,7 +132,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 
 ### Board events
 
-Board and group `board.*` event payloads never carry the share-link fields (`share_token`, `share_token_expires_at`, and from 1.2 `share_link_active`), and neither does the change feed. Board admins read them over REST from [`GET /api/v1/boards/{id}/full/`](boards.md) and from the share action response (`share_token` on `/full/` is deprecated since 1.2; the share action response is where the token is meant to be read).
+Board and group `board.*` event payloads never carry the share-link fields (`share_token`, `share_token_expires_at`, and from 1.2 `share_link_active`), and neither does the change feed. Board admins read them over REST from [`GET /api/v1/boards/{id}/full/`](boards.md) and from the share action response (`share_token` on `/full/` is deprecated since 1.2; the share action response is where the token is meant to be read). A change to the share link reaches admin sockets as [`share_link.updated`](#share-link-events-since-13) (since 1.3), which carries the link's state but never the token.
 
 | Event | Trigger | `data` shape |
 |---|---|---|
@@ -342,6 +342,58 @@ invite list keeps showing it as pending until it is next fetched.
 These rows are also stored in the board's [change feed](events.md), where any
 board member can read them — with the same `{ "id": <int> }` payload and
 nothing more.
+
+### Share link events (since 1.3)
+
+Emitted when the board's [public share link](boards.md#post-apiv1boardsidshare)
+is enabled, rotated or revoked, and when its expiry is edited in the Django
+admin. It is also emitted when the server turns the link off on its own: when
+the admin who enabled it loses admin rights on the board or their account is
+deactivated or deleted, or when the public page refuses a link that has no
+recorded enabler. **Admin-only:** the server sends the frame only to sockets
+whose user is a board `admin` or `site_admin`, re-checked with the same
+access check every frame gets (see
+[Access re-check and eviction](#access-re-check-and-eviction)). Other
+subscribers receive nothing, and their socket stays open. The
+[change feed](events.md) applies the same rule to its rows.
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `share_link.updated` | A board admin enabled, rotated or revoked the share link; a Django admin user changed the link's expiry; or the server turned the link off because its enabler lost admin standing on the board | `{ "board_uid": <string>, "active": <bool>, "expires_at": <string or null>, "issued_at": <string or null> }` |
+
+`active` and `expires_at` hold the values `GET /api/v1/boards/{id}/full/`
+returns as `share_link_active` and `share_token_expires_at`. The names differ
+because those two keys are removed from every frame, this one included.
+`expires_at` is an ISO-8601 timestamp, or `null` for a link that never expires
+and whenever `active` is `false`. A link past its expiry stays `active: true`
+until it is rotated or revoked, as on `/full/`; no frame is sent when a link
+expires.
+
+`issued_at` tells a rotation apart. A rotation replaces the link but leaves
+`active` at `true`, and with a never-expiring link `expires_at` does not change
+either. On the frame for an enable or a rotate, `issued_at` is the ISO-8601
+time the new link was issued. It is the same value the share action returned
+to its caller as `share_token_issued_at`. On every other change (a revoke, a
+server-side clear, an expiry edit) it is `null`, because no new link was
+issued. A client that is still showing a link it received can compare the two
+values: a non-null `issued_at` later than the one its own request returned
+means that link was replaced and no longer works. Compare the times, not just
+equality: the links of one board are issued one at a time, so a newer link
+always has a later `issued_at`, and a delayed frame for an older link can
+arrive after the response for a newer one. `issued_at` is a timestamp, not
+derived from the token.
+
+The payload never carries the token: show it to the admin from the share
+action response, once. Nor does it carry the admin who enabled the link.
+`share_link.updated` rows in the [change feed](events.md) are stored with no
+actor, so their `actor_id` and `actor` are `null`.
+
+Each of these changes also sends `board.updated`, as before 1.3. That frame
+cannot carry the share state, so clients should read it from
+`share_link.updated`. The Visiban web app merges this event into the open
+board, so the **Sharing** tab follows another admin's change without a reload,
+even while it is open. If the tab is still showing a link that was then
+revoked or rotated elsewhere, it removes that link and says why.
 
 ### Git Lens events (since 1.2)
 

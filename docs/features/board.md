@@ -682,7 +682,7 @@ In detail, the link is turned off automatically, as if that admin had toggled it
 
 An admin who still administers the board another way (for example as its owner, or through a direct board admin role) keeps the link.
 
-- For the changes listed above, the **Sharing** tab shows sharing as off once the board page is reloaded.
+- For the changes listed above, the **Sharing** tab shows sharing as off straight away, even if it is open at the time. *(1.3+, #1967)* In 1.2 it showed the change only once the board page was reloaded.
 - The public page also checks this every time it is opened, so the link never stays usable after the admin's role ends, however that happens.
 - Another board admin can turn sharing back on, which creates a new link.
 
@@ -704,6 +704,8 @@ Drag-and-drop, card click-to-open, and all editing actions are disabled in the p
 ### Revoking a share link
 
 Toggle **Enable public share link** off to revoke the current token immediately. Any visitor who follows the old URL will see a "This board is no longer shared" page with a link to sign in. Toggling sharing back on generates a new token; the previous link cannot be restored.
+
+*(1.3+, #1967)* Other board admins who have the board open see the change without a reload, including in a **Sharing** tab they already have open: it switches to off when you revoke the link, and to on, with the new expiry, when you enable or rotate it. If you revoke or rotate the link while another admin still has its one-time copy on screen, that copy is removed and the tab says why, because the link no longer works.
 
 ### Rate limiting
 

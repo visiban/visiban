@@ -11,9 +11,11 @@ from visiban.authorization import authorize_account
 from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import Board
 from .permissions import (
+    ADMIN_ONLY_EVENTS,
     GROUP_ANCESTOR_SELECT_RELATED,
     MODERATOR_BEARING_EVENTS,
     PER_USER_EVENTS,
+    admin_only_event_visible,
     get_board_role,
     invite_field_visible,
     moderator_field_visible,
@@ -274,6 +276,12 @@ class BoardConsumer(AsyncWebsocketConsumer):
             # _access_close_code). Either way this frame is not forwarded.
             self._role = None
             await self.close(code=close_code)
+            return
+        # Admin-only events (#1967: the share link's state) go to admin /
+        # site_admin subscribers only. Judged after the access re-check so the
+        # role is the re-resolved one: a demoted admin stops receiving them
+        # within the same window as every other role-gated field.
+        if payload.get("event") in ADMIN_ONLY_EVENTS and not admin_only_event_visible(self._role):
             return
         # Strip `is_moderator` from member.added/member.updated payloads when
         # the subscriber is below admin role (#978).  REST responses already

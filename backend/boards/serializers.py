@@ -3769,7 +3769,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         it on issues a new link that records the admin. Same answer as after
         the public view clears such a link on its first read.
         """
-        return obj.share_token is not None and obj.share_enabled_by_id is not None
+        return obj.has_live_share_link()
 
     @extend_schema_field({"type": "object", "additionalProperties": {"type": "boolean"}})
     def get_capabilities(self, obj):

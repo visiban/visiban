@@ -64,6 +64,7 @@ FROZEN_BOARD_EVENTS = {
     "EVT_MEMBER_REMOVED": "member.removed",
     "EVT_INVITE_LINK_CREATED": "invite_link.created",
     "EVT_INVITE_LINK_REVOKED": "invite_link.revoked",
+    "EVT_SHARE_LINK_UPDATED": "share_link.updated",  # 1.3, #1967 (admin-only)
     "EVT_LENS_CONNECTION_CONFIGURED": "lens_connection.configured",
     "EVT_LENS_CONNECTION_REMOVED": "lens_connection.removed",
     "EVT_PING": "ping",

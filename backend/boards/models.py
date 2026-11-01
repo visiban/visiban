@@ -287,6 +287,20 @@ class Board(models.Model):
         for name, value in self.SHARE_LINK_CLEARED.items():
             setattr(self, name, value)
 
+    def has_live_share_link(self):
+        """True when this board has a share link that can resolve.
+
+        The single rule behind both ``/full/``'s ``share_link_active``
+        (``BoardFullSerializer._has_live_share_link``) and the ``active`` flag
+        of the ``share_link.updated`` event
+        (``boards.services.share_links.share_link_state_payload``), so the two
+        cannot drift apart. A link with no recorded enabler never resolves
+        (#1939), so it counts as no link. If this rule is ever re-derived
+        (for example from ``share_token_hash`` once the stored token goes),
+        change it here and both readers follow.
+        """
+        return self.share_token is not None and self.share_enabled_by_id is not None
+
 
 class BoardMembership(models.Model):
     """Junction table recording a user's role on a board.
@@ -1995,6 +2009,9 @@ def clear_share_links_of_deleted_enabler(sender, instance, **kwargs):
             _board_broadcast.record_board_event(
                 board_id, _board_broadcast.EVT_BOARD_UPDATED, BoardSerializer(board).data,
             )
+            # The cleared share state, for admin sessions only (#1967).
+            from .services.share_links import record_share_link_updated
+            record_share_link_updated(board)
 
 
 @receiver(pre_delete, sender=settings.AUTH_USER_MODEL, dispatch_uid="boards_revoke_deleted_creator_links")

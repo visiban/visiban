@@ -89,6 +89,17 @@ EVT_MEMBER_REMOVED = "member.removed"
 EVT_INVITE_LINK_CREATED = "invite_link.created"
 EVT_INVITE_LINK_REVOKED = "invite_link.revoked"
 
+# Public share link state (#1967). ADMIN-ONLY EVENT: the board consumer forwards
+# it to admin / site_admin subscribers only, and the change feed returns its rows
+# to admin / site_admin readers only (boards.permissions.ADMIN_ONLY_EVENTS). The
+# payload is ``{board_uid, active, expires_at}``, never the token: the token is
+# read once, from the share action's own response (#1935). The keys are
+# deliberately not the ``/full/`` names (``share_link_active``,
+# ``share_token_expires_at``). Those are in ``ADMIN_ONLY_BOARD_FIELDS``, which
+# the write path drops from every payload, this one included, so that guard
+# stays unconditional rather than growing a per-event exemption.
+EVT_SHARE_LINK_UPDATED = "share_link.updated"
+
 # Emitted from the git_lens app, but onto the *board* channel — so they are
 # board-channel contract and belong in this registry rather than a third one.
 # Both names are FROZEN under the 1.x WebSocket contract (additive-only payloads,
@@ -139,6 +150,7 @@ BOARD_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_MEMBER_REMOVED,
     EVT_INVITE_LINK_CREATED,
     EVT_INVITE_LINK_REVOKED,
+    EVT_SHARE_LINK_UPDATED,
     EVT_LENS_CONNECTION_CONFIGURED,
     EVT_LENS_CONNECTION_REMOVED,
     EVT_PING,
@@ -175,7 +187,9 @@ INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
 # unchanged, so a payload that nests a board must be built without these fields.
 # ``BoardSerializer`` does not declare them today (a test pins that); this list
 # keeps a payload built from a richer serializer from changing that. Admin clients read these fields over
-# REST (``/full/`` and the ``share`` response), never from a frame.
+# REST (``/full/`` and the ``share`` response), never from a frame. A change to
+# the share state reaches admin sockets as the admin-only ``share_link.updated``
+# event (#1967), under other key names (see EVT_SHARE_LINK_UPDATED).
 # ``share_token_hash`` (#1880) is declared by no serializer at all; it is listed
 # so a payload built from the model's fields could not carry it either.
 # ``share_link_active`` (#1935) is the admin-only "a link is set" flag on
