@@ -844,6 +844,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
   
 
     
@@ -1574,7 +1604,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1596,14 +1626,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5601,11 +5631,12 @@
 <a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">"avg_cycle_days"</span><span class="p">:</span><span class="w"> </span><span class="mf">6.5</span><span class="p">,</span>
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">      </span><span class="nt">"stage_distribution"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Backlog"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"In Progress"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"Done"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">},</span>
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">      </span><span class="nt">"velocity_7d"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">"velocity_30d"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">  </span><span class="nt">"extension_panels"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="p">}</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">"velocity_30d"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">      </span><span class="nt">"blocked_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">  </span><span class="nt">"extension_panels"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5655,6 +5686,11 @@
 <td><code>velocity_30d</code></td>
 <td>integer</td>
 <td>Moves into any column with <code>is_done: true</code> in the last 30 days, for cards that are not archived (counts moves, not cards)</td>
+</tr>
+<tr>
+<td><code>blocked_cards</code></td>
+<td>integer</td>
+<td><em>Added in 1.3</em> (#1149). Active cards in this swimlane (not archived and not in a done column, the cards <code>active_cards</code> counts) that are blocked now, manually or by an active <code>blocks</code> relation (the card's <a href="../cards/#block-and-unblock-since-13"><code>is_blocked</code></a>). One more aggregate query</td>
 </tr>
 <tr>
 <td><code>extension_panels</code></td>
@@ -5835,8 +5871,16 @@
 <a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"days_since_move"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="w"> </span><span class="p">}</span>
 <a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">      </span><span class="p">]</span>
 <a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="p">}</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="w">  </span><span class="nt">"blocked"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="w">    </span><span class="nt">"days_per_column"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Backlog"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"In Progress"</span><span class="p">:</span><span class="w"> </span><span class="mf">3.5</span><span class="p">,</span><span class="w"> </span><span class="nt">"Done"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="w">    </span><span class="nt">"seconds_per_column"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Backlog"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"In Progress"</span><span class="p">:</span><span class="w"> </span><span class="mi">302400</span><span class="p">,</span><span class="w"> </span><span class="nt">"Done"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="w">    </span><span class="nt">"blocks_per_column"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Backlog"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"In Progress"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"Done"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="w">    </span><span class="nt">"top_reasons"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Waiting on customer"</span><span class="p">,</span><span class="w"> </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"total_days"</span><span class="p">:</span><span class="w"> </span><span class="mf">3.5</span><span class="p">,</span><span class="w"> </span><span class="nt">"total_seconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">302400</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response fields:</strong></p>
 <table>
@@ -5922,6 +5966,31 @@
 <td><code>swimlanes[].deal_velocity_days</code></td>
 <td>number or null</td>
 <td>Average days from a card's first movement ever to its most recent movement, over this swimlane's cards whose most recent movement falls in the period. Cards count whether or not they reached a done column. <code>null</code> when there is no velocity data.</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td>object</td>
+<td><em>Added in 1.3</em> (#1149). Manual blocked time inside the <code>days</code> window, by the column each block started in. A block counts for the part of it inside the window; an open block runs to now, or to the card's archive time while the card is archived (after a restore it runs to now again, archived period included). Every end is clipped to now, so an imported block with future timestamps adds nothing beyond now. An open block whose card was hard-deleted is left out; a closed block of a hard-deleted card still counts, as its movements do. Relation blocks are not timed.</td>
+</tr>
+<tr>
+<td><code>blocked.days_per_column</code></td>
+<td>object</td>
+<td>Blocked days per column, keyed by column name, every column (done columns included) with zeros. One decimal.</td>
+</tr>
+<tr>
+<td><code>blocked.seconds_per_column</code></td>
+<td>object</td>
+<td>The same blocked time in whole seconds, for durations under a day.</td>
+</tr>
+<tr>
+<td><code>blocked.blocks_per_column</code></td>
+<td>object</td>
+<td>Number of blocks overlapping the window per column.</td>
+</tr>
+<tr>
+<td><code>blocked.top_reasons</code></td>
+<td>array</td>
+<td>Up to 10 <code>{reason, count, total_days, total_seconds}</code>, most frequent first (ties: more blocked time first). Reasons that differ only in case or spacing are one entry, shown with the newest spelling. Includes blocks in a column that no longer exists.</td>
 </tr>
 <tr>
 <td><code>swimlanes[].stalled_cards</code></td>
@@ -6217,6 +6286,11 @@
 <td>string | null</td>
 <td>One of <code>overdue</code>, <code>today</code>, <code>this_week</code>, <code>none</code>, or <code>null</code> for "no filter"</td>
 </tr>
+<tr>
+<td><code>blockedOnly</code></td>
+<td>boolean</td>
+<td><em>Added in 1.3</em> (#1149). <code>true</code> shows only blocked cards (manual or relation). Absent means <code>false</code></td>
+</tr>
 </tbody>
 </table>
 <p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB.</p>
@@ -6269,6 +6343,7 @@
 <p>Comments (with <code>comments</code> on) work the same way since 1.2: each is posted under the importing user, keeps the file's <code>created_at</code>, and keeps its source name in <code>imported_from_username</code>: the comment's own value when the file has one, otherwise its <code>author</code> (a string; any other value is ignored, as before), or <code>""</code>. An <code>author</code> is never resolved to an account, and one over 150 characters is cut to 150. The same <code>imported_from_username</code> validation applies.</p>
 <p>Since 1.2 the payload also carries the board's <code>custom_fields</code> schema and each card's <code>custom_field_values</code>, keyed by field name. Both are <strong>additive</strong>: <code>schema_version</code> stays <code>2</code>. JSON import restores both (see <a href="#custom-fields-on-import">Custom fields on import</a>).</p>
 <p>Also since 1.2, each card carries <code>external_ref</code> (<code>{ provider, ref, url }</code>, or <code>null</code> when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.</p>
+<p>Since 1.3 (#1149), each card also carries its <a href="../cards/#block-and-unblock-since-13">manual blocked state</a>: <code>blocked_at</code> (ISO 8601 or <code>null</code>), <code>blocked_reason</code> (<code>""</code> when not blocked), and <code>blocks</code>, the full block history oldest first (<code>{blocked_at, blocked_by, reason, unblocked_at, unblocked_by, resolution, column, imported_from_username}</code>; <code>blocked_by</code>/<code>unblocked_by</code> are usernames, <code>column</code> the name of the column the block started in). Additive: <code>schema_version</code> stays <code>2</code>, and an importer that predates these keys ignores them. The <code>blocked</code> and <code>unblocked</code> activity entries ride in <code>activities</code> as usual. On import, the card's current block (<code>blocked_at</code>/<code>blocked_reason</code>) is restored whatever the <code>history</code> option, as card state like <code>archived_at</code>; the closed entries of <code>blocks</code> are restored only with <code>history</code> on, attributed to the importing user with the file's <code>blocked_by</code> kept in <code>imported_from_username</code>, keeping their times and resolution. An open entry in <code>blocks</code> is not restored as such: the card's own <code>blocked_at</code> decides whether it is blocked, so the card and its open block cannot disagree. An entry without a valid <code>blocked_at</code>, or that ends before it starts, is dropped. A reason is required, as on the <a href="../cards/#block-and-unblock-since-13">block endpoint</a>: a card with <code>blocked_at</code> but a missing or blank <code>blocked_reason</code>, or a <code>blocks</code> entry with a <code>blocked_at</code> but no reason, makes the import fail with <code>400</code> naming the card and entry, rather than importing a block with no reason; reasons and resolutions are trimmed. <code>blocks</code> is capped at 1000 entries per card and its text values at 500 characters; CSV export and import do not carry it.</p>
 <p>Also since 1.2, each swimlane object carries <code>custom_field_values</code> (keyed by <a href="#swimlane-custom-fields-since-12">swimlane custom field</a> name), and a top-level <code>swimlane_custom_fields</code> array carries that schema. These are separate keys from the card-level pair because they are independent per-board sets on different objects. Both are additive, and JSON import restores them. A definition with <code>is_admin_only: true</code>, and any value under it, is omitted for a caller below <code>admin</code>, the same gate this export applies to a swimlane's <code>contact_email</code> and <code>notes</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"schema_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
@@ -6528,7 +6603,7 @@
 <tr>
 <td><code>shift_dates_from</code></td>
 <td><code>YYYY-MM-DD</code> string, JSON only, optional</td>
-<td>The day to move dates <em>from</em>. Moves every date in the file by the whole days between this date and the target day (<code>shift_dates_to</code>, default today): card due dates, <code>date</code> custom field values on cards and swimlanes, the timestamps on cards, comments, movements, and activities, and the old and new values of due-date-change history entries. Spacing between dates is preserved. When absent, a file's own top-level <code>date_anchor</code> is used in its place; a file without one is not shifted. Must not be in the future or more than 10 years ago. Used by the sample gallery with a sample's <code>date_anchor</code>. When given, it is echoed in <code>import_summary.options_applied</code> and the <code>board.created</code> event's <code>import_options</code>.</td>
+<td>The day to move dates <em>from</em>. Moves every date in the file by the whole days between this date and the target day (<code>shift_dates_to</code>, default today): card due dates, <code>date</code> custom field values on cards and swimlanes, the timestamps on cards (including a blocked card's <code>blocked_at</code>), comments, movements, activities and, since 1.3 (#1149), block history entries (<code>blocks[].blocked_at</code> / <code>unblocked_at</code>, so block durations are unchanged), and the old and new values of due-date-change history entries. Spacing between dates is preserved. When absent, a file's own top-level <code>date_anchor</code> is used in its place; a file without one is not shifted. Must not be in the future or more than 10 years ago. Used by the sample gallery with a sample's <code>date_anchor</code>. When given, it is echoed in <code>import_summary.options_applied</code> and the <code>board.created</code> event's <code>import_options</code>.</td>
 </tr>
 <tr>
 <td><code>shift_dates</code></td>

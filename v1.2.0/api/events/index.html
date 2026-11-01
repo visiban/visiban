@@ -844,6 +844,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
   
 
     
@@ -1574,7 +1604,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1596,14 +1626,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4332,6 +4362,10 @@ reference</a> is the single list of payload shapes
 for both surfaces.</p>
 <p>Two consequences worth knowing:</p>
 <ul>
+<li><strong>Blocking is a <code>card.updated</code> row (since 1.3).</strong> Blocking or unblocking a
+  card records <code>card.updated</code> with the full card, whose additive <code>is_blocked</code>,
+  <code>blocked_at</code> and <code>blocked_reason</code> fields carry the new state (#1149). There
+  is no <code>card.blocked</code> event type.</li>
 <li><strong>A rolled-back mutation appears nowhere.</strong> The feed row is written inside the
   same database transaction as the mutation it describes, and the broadcast is
   deferred until that transaction commits. A mutation the database refused

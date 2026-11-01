@@ -844,6 +844,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
   
 
     
@@ -1574,7 +1604,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1596,14 +1626,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2407,6 +2437,28 @@
     <span class="md-ellipsis">
       
         update_card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#block_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        block_card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unblock_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unblock_card
       
     </span>
   </a>
@@ -4546,7 +4598,7 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p><code>mcp:read</code> opens a session and is enough for every read tool below. Any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) additionally requires <strong><code>mcp:write</code></strong> on the same token. Scopes are non-hierarchical: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
+<p><code>mcp:read</code> opens a session and is enough for every read tool below. Any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) additionally requires <strong><code>mcp:write</code></strong> on the same token. Scopes are non-hierarchical: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
 <p>Unlike a missing <code>mcp:read</code> (rejected at the transport, before any tool runs), a missing <code>mcp:write</code> is reported by the tool as a <a href="#tool-errors">tool error</a>: an <code>isError: true</code> result carrying <code>{"error": {"code": "missing_scope", "detail": "..."}}</code>, not a <code>401</code>. The session is valid; only that call was declined.</p>
 <h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
@@ -4889,7 +4941,7 @@
 </tr>
 <tr>
 <td><code>permission_denied</code></td>
-<td>Your board role is <code>collaborator</code> or <code>viewer</code>; card writes require <code>admin</code> or <code>member</code>. Also returned by <code>update_card</code> and <code>archive_card</code> when your role only allows changing cards you created, and by <code>move_card</code> when the card is assigned to someone else and your role is below moderator.</td>
+<td>Your board role is <code>collaborator</code> or <code>viewer</code>; card writes require <code>admin</code> or <code>member</code>. Also returned by <code>update_card</code>, <code>archive_card</code>, <code>block_card</code> and <code>unblock_card</code> when your role only allows changing cards you created, and by <code>move_card</code> when the card is assigned to someone else and your role is below moderator.</td>
 </tr>
 <tr>
 <td><code>force_not_permitted</code></td>
@@ -4916,6 +4968,14 @@
 <td>Reserved: no tool currently emits it, because <code>update_card</code> takes no column, swimlane, or position. An update tried to change a card's column, swimlane, or position. Use <code>move_card</code> instead.</td>
 </tr>
 <tr>
+<td><code>card_already_blocked</code></td>
+<td><code>block_card</code> on a card that already has an open manual block. Nothing changed; unblock it first. Added in 1.3 (#1149).</td>
+</tr>
+<tr>
+<td><code>card_not_blocked</code></td>
+<td><code>unblock_card</code> on a card with no open manual block. A <code>blocks</code> relation to another card is not a manual block and is not cleared by <code>unblock_card</code>. Added in 1.3 (#1149).</td>
+</tr>
+<tr>
 <td><code>internal_error</code></td>
 <td>A tool error with no registered code. Should not occur; report it as a bug.</td>
 </tr>
@@ -4929,7 +4989,7 @@
 </tr>
 <tr>
 <td><code>maintenance_mode</code></td>
-<td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>) keep working regardless. Added in 1.2.</td>
+<td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>) keep working regardless. Added in 1.2.</td>
 </tr>
 <tr>
 <td><code>throttled</code></td>
@@ -4969,7 +5029,7 @@
 <blockquote>
 <p><strong>Added in 1.3</strong> (#1974)</p>
 </blockquote>
-<p>Every card object in tool and resource output (from <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>board://</code> and <code>card://</code>) carries <code>version</code>, a counter that goes up on every field update and every move of the card, over MCP or REST. Pass it back as the optional <code>version</code> argument of <code>move_card</code> or <code>update_card</code> to make the write conditional: if the card changed since you read it, the call returns a <code>version_conflict</code> <a href="#tool-errors">tool error</a> carrying <code>current_version</code>, and nothing is written or broadcast. Omit <code>version</code> and the call behaves exactly as before 1.3, with no check.</p>
+<p>Every card object in tool and resource output (from <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>board://</code> and <code>card://</code>) carries <code>version</code>, a counter that goes up on every field update, every block or unblock (since 1.3), and every move of the card, over MCP or REST. Pass it back as the optional <code>version</code> argument of <code>move_card</code> or <code>update_card</code> to make the write conditional: if the card changed since you read it, the call returns a <code>version_conflict</code> <a href="#tool-errors">tool error</a> carrying <code>current_version</code>, and nothing is written or broadcast. Omit <code>version</code> and the call behaves exactly as before 1.3, with no check.</p>
 <p><code>move_card</code>'s <code>version</code> is the REST move endpoint's <code>version</code> body field, with the same semantics and the same error. The REST <code>PATCH</code>/<code>PUT</code> card endpoints still neither accept nor check <code>version</code>; the conditional update exists on the MCP <code>update_card</code> tool only.</p>
 <p>A successful <code>create_card</code>, <code>move_card</code>, or <code>update_card</code> returns the card with its new <code>version</code>, which is the one to send on the next write.</p>
 <h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
@@ -4987,7 +5047,7 @@
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>column_id</code>, <code>swimlane_id</code> (integers), <code>assignee</code> (username, case-insensitive), <code>priority</code>, <code>label</code> (name) — all optional filters, ANDed together; <code>include_archived</code> (boolean, default <code>false</code>); <code>limit</code> (integer, default and maximum <code>200</code>; a larger value is clamped to <code>200</code>, as in REST); <code>offset</code> (integer, default <code>0</code>); <code>include_meta</code> (boolean, default <code>false</code>). A negative <code>limit</code>, or an <code>offset</code> above 2^62, returns a <code>validation_error</code>; a negative <code>offset</code> is treated as <code>0</code>, as on every REST endpoint (<em>1.2, #1823</em>), while a non-numeric <code>offset</code> is rejected by the input schema like any mistyped argument. The tool's input schema coerces numeric strings, whole numbers and JSON booleans (<code>"5"</code>, <code>5.0</code>, <code>true</code> becomes <code>1</code>) to integers and rejects non-numeric or fractional values (<code>"abc"</code>, <code>5.5</code>) with an <code>isError</code> result.</p>
 <p><strong>Deliberate differences from REST:</strong> the MCP tool filters by names an agent can read, where REST filters by integer ids. <code>assignee</code> is a username (REST <code>?assignee=</code> takes a user id) and <code>label</code> is a label name (REST <code>?label=</code> on the cross-board <code>GET /api/v1/cards/</code> takes a label id; the board-scoped list has no label filter). The <code>unassigned</code> and <code>overdue</code> filters exist only on the board-scoped REST list (<code>GET /api/v1/boards/{board_id}/cards/</code>); the cross-board <code>GET /api/v1/cards/</code> and this tool do not have them. To find unassigned cards over MCP, list the cards and check for <code>assignee: null</code>.</p>
 <p><em>Changed in 1.2: <code>limit</code>, <code>offset</code> and <code>include_meta</code> are new and optional, and the card fields are unchanged. A call that omits them returns the same array as before; the only difference is the in-band notice and <code>_meta</code> on a call that was truncated (#1762).</em></p>
-<p><strong>Returns:</strong> by default, an array of <code>{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}</code>. <code>assignee</code> is a <code>{username, display_name}</code> object or <code>null</code> (see <a href="#user-fields">User fields</a>); <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, uid, name}</code> objects so a result can be fed straight into <code>move_card</code>. <code>uid</code>, <code>version</code>, and the <code>uid</code> inside <code>column</code>/<code>swimlane</code> are new in 1.3 (#1974; see <a href="#stable-identifiers-uid">Stable identifiers</a> and <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
+<p><strong>Returns:</strong> by default, an array of <code>{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason}</code>. <code>assignee</code> is a <code>{username, display_name}</code> object or <code>null</code> (see <a href="#user-fields">User fields</a>); <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, uid, name}</code> objects so a result can be fed straight into <code>move_card</code>. <code>uid</code>, <code>version</code>, and the <code>uid</code> inside <code>column</code>/<code>swimlane</code> are new in 1.3 (#1974; see <a href="#stable-identifiers-uid">Stable identifiers</a> and <a href="#optimistic-concurrency">Optimistic concurrency</a>). <code>blocked_at</code> (ISO 8601, or <code>null</code>) and <code>blocked_reason</code> (<code>""</code> when not blocked) are the card's manual blocked state, <em>added in 1.3</em> (#1149; see <a href="#block_card"><code>block_card</code></a>).</p>
 <p>With <code>include_meta: true</code>, an object instead (and no in-band notice, since the data carries the signal): <code>{cards, total, truncated, limit, offset}</code>. <code>cards</code> is the same array described above; <code>total</code> is the number of cards matching the filters, ignoring <code>limit</code>/<code>offset</code>; <code>truncated</code> is <code>true</code> when more matching cards exist after the returned ones (fetch them with a larger <code>offset</code>); <code>limit</code> and <code>offset</code> echo the values applied.</p>
 <h3 id="create_card"><code>create_card</code><a class="headerlink" href="#create_card" title="Permanent link">&para;</a></h3>
 <p>Creates a card, appended to the end of its column/swimlane cell (or inserted at <code>position</code> if given). Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
@@ -5004,6 +5064,20 @@
 <p>Updates one or more fields on a card. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>card_id</code> (required); any of <code>title</code>, <code>description</code>, <code>priority</code>, <code>assignee</code> (username), <code>labels</code>, <code>due_date</code> — omitted fields are left unchanged. <code>labels: []</code> clears every label; <code>assignee: ""</code> unassigns the card. Cannot change a card's column or swimlane — use <code>move_card</code>. <code>version</code> (integer, optional, <em>added in 1.3</em>): the card's <code>version</code> from a prior read; the update then fails with <code>version_conflict</code>, changing nothing, if the card changed since (see <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
 <p><strong>Returns:</strong> the updated card, same shape as <code>create_card</code>. Records a <code>CardActivity</code> audit entry per field that actually changed. Broadcasts <code>card.updated</code> with the full card, as a REST update does, not the tool's return shape. <em>Fixed in 1.2 (#1926).</em></p>
+<h3 id="block_card"><code>block_card</code><a class="headerlink" href="#block_card" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1149)</p>
+</blockquote>
+<p>Marks a card manually blocked, with a reason, so its blocked time is measured and can be grouped by reason. Same rules as the REST <a href="../cards/#block-and-unblock-since-13">block endpoint</a>: requires <code>admin</code> or <code>member</code> board role (a <code>member</code> may block only cards they created, unless a moderator) and the <code>mcp:write</code> scope.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> and <code>reason</code> (required). <code>reason</code> is trimmed and must then be 1-500 characters; a blank or longer one returns <code>validation_error</code> with <code>errors.reason</code>.</p>
+<p><strong>Returns:</strong> the updated card, same shape as <code>create_card</code>, with <code>blocked_at</code> and <code>blocked_reason</code> set and <code>version</code> bumped. Writes a block record and a <code>blocked</code> activity, and broadcasts <code>card.updated</code> with the full card. Returns <code>card_already_blocked</code> if the card already has an open block.</p>
+<h3 id="unblock_card"><code>unblock_card</code><a class="headerlink" href="#unblock_card" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1149)</p>
+</blockquote>
+<p>Clears a card's manual block. Same roles and scope as <code>block_card</code>.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> (required); <code>resolution</code> (optional, up to 500 characters): how the block was resolved.</p>
+<p><strong>Returns:</strong> the updated card with <code>blocked_at: null</code> and <code>blocked_reason: ""</code>. Closes the block record (keeping its reason and duration), writes an <code>unblocked</code> activity, and broadcasts <code>card.updated</code>. Returns <code>card_not_blocked</code> if the card has no open block. A <code>blocks</code> relation to another card is a separate signal (<code>blocker_count</code>) and is not cleared.</p>
 <h3 id="archive_card"><code>archive_card</code><a class="headerlink" href="#archive_card" title="Permanent link">&para;</a></h3>
 <p>Soft-deletes a card. Idempotent — archiving an already-archived card succeeds and returns its existing <code>archived_at</code>. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>card_id</code> (required).</p>
@@ -5144,7 +5218,7 @@
 </blockquote>
 <p>The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
 <ul>
-<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
+<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, and since 1.3 <code>block_card</code>, <code>unblock_card</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
 <li><strong>Argument schemas</strong> change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.</li>
 <li><strong>Results and error payloads</strong> only gain fields; existing fields keep their name and type. The error <code>code</code> values listed under <a href="#tool-errors">Tool errors</a> are never removed.</li>
 <li>A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>

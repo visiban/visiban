@@ -846,6 +846,8 @@
       
         
       
+        
+      
     
     
     
@@ -1106,6 +1108,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../card-links/" class="md-nav__link">
         
   
@@ -1332,6 +1362,17 @@
     <span class="md-ellipsis">
       
         Stalled cards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blocked-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blocked time
       
     </span>
   </a>
@@ -1812,7 +1853,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1834,14 +1875,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4216,6 +4257,7 @@
 <li>the total card count and an inline proportional bar</li>
 <li><strong>7-day velocity:</strong> moves into any column marked <code>is_done = true</code> in the last 7 days, for cards that are not archived. It counts moves, not cards: a card that enters a done column twice counts twice, and a card archived since leaves the count.</li>
 <li><strong>30-day velocity:</strong> the same over 30 days</li>
+<li><strong>Blocked</strong> <em>(1.3+)</em>: how many active cards in the swimlane (not in a done column) are <a href="../blocked-cards/">blocked</a> right now, manually or by a relation</li>
 </ul>
 <p>Mark columns as done in the <strong>Edit Column</strong> modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts movements into either as completed. See <a href="../board/#columns">Board &amp; Cards — Columns</a>.</p>
 <p>Use it for a quick health check across all active pipelines.</p>
@@ -4326,6 +4368,14 @@
 <li><strong>Override:</strong> pass the <code>stalled_days</code> query parameter. It affects only the stalled list, not the heatmap coloring.</li>
 <li><strong>Excluded:</strong> archived cards and cards in done columns, since they are no longer in flight and flagging them would mislead.</li>
 </ul>
+<h3 id="blocked-time">Blocked time<a class="headerlink" href="#blocked-time" title="Permanent link">&para;</a></h3>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>Below the heatmap, <strong>Blocked time (last N days)</strong> shows how long cards were <a href="../blocked-cards/">manually blocked</a> during the selected period, and why:</p>
+<ul>
+<li><strong>Per column:</strong> blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed.</li>
+<li><strong>Top reasons:</strong> the ten most common reasons, with how many blocks and how many days each one cost. Reasons that differ only in capitals or spacing count as one.</li>
+</ul>
+<p>A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.</p>
 <h3 id="empty-period">Empty period<a class="headerlink" href="#empty-period" title="Permanent link">&para;</a></h3>
 <p>When the selected window has no movement data at all (a new board, or a period before any activity), the view shows an informational message instead of an empty heatmap. Widen the period or add some card movements.</p>
 <h3 id="csv-export">CSV export<a class="headerlink" href="#csv-export" title="Permanent link">&para;</a></h3>

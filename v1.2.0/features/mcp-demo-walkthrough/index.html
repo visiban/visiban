@@ -846,6 +846,8 @@
       
         
       
+        
+      
     
     
     
@@ -1086,6 +1088,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
   
 
     
@@ -1695,7 +1725,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1717,14 +1747,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4117,7 +4147,7 @@
 </li>
 </ol>
 <p><strong>Yes, but:</strong> this step uses the API so the walkthrough is scriptable. In the web app you would tick <strong>mcp:read</strong> under Settings &gt; Access Tokens instead (see the <a href="../../api/mcp/">API Reference</a>).</p>
-<p>A token with only <code>mcp:read</code> can list and read boards, columns, swimlanes, cards, and card history. Calling a write tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) fails with a structured error. Scopes are not hierarchical; see <a href="../personal-access-tokens/#scopes">Personal Access Tokens</a>.</p>
+<p>A token with only <code>mcp:read</code> can list and read boards, columns, swimlanes, cards, and card history. Calling a write tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) fails with a structured error. Scopes are not hierarchical; see <a href="../personal-access-tokens/#scopes">Personal Access Tokens</a>.</p>
 <h2 id="4-connect-your-agent">4. Connect your agent<a class="headerlink" href="#4-connect-your-agent" title="Permanent link">&para;</a></h2>
 <p><strong>Claude Code:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span>visiban<span class="w"> </span>http://localhost:8000/mcp<span class="w"> </span><span class="se">\</span>

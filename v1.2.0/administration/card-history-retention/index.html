@@ -844,6 +844,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
   
 
     
@@ -1574,7 +1604,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1596,14 +1626,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4051,6 +4081,7 @@
 <li>the card's UID, and the card's title <strong>as it was at the time of that move</strong> (<code>card_uid</code>, <code>card_title</code>);</li>
 <li>the movement's notes, the columns and swimlanes involved, who moved it and when.</li>
 </ul>
+<p>Since 1.3, each <a href="../../features/blocked-cards/">block</a> of a deleted card is kept the same way (#1149): the card's UID and title when it was blocked, the block's <strong>reason</strong> and <strong>resolution</strong> (free text), the column, who blocked and unblocked it and when. Board members see the reasons in <a href="../../features/analytics/#blocked-time">Analytics</a>.</p>
 <p>While the card exists, its history shows under its current title. Once it is deleted, each movement shows under the title recorded with it, so a card renamed before deletion appears in the board's <strong>History</strong> view under each earlier title. This is intended: it is what the card was called at each move.</p>
 <p><strong>Yes, but:</strong> two exceptions.</p>
 <ul>
@@ -4061,7 +4092,7 @@
 <p><strong>How long it lasts:</strong> until the board is deleted, or until a superuser purges it with the command below. Nothing expires it on a schedule.</p>
 <p>See <a href="../../features/card-history/#deleted-cards-keep-their-history">Card History</a> for how deleted-card history appears to board members and how it affects metrics and exports.</p>
 <h3 id="other-places-a-deleted-cards-title-can-remain">Other places a deleted card's title can remain<a class="headerlink" href="#other-places-a-deleted-cards-title-can-remain" title="Permanent link">&para;</a></h3>
-<p><strong>Watch out:</strong> <code>purge_card_history</code> erases movement records only. A deleted card's title can also remain in the places below, and the command does not touch any of them.</p>
+<p><strong>Watch out:</strong> <code>purge_card_history</code> erases movement records and, since 1.3, block records only. A deleted card's title can also remain in the places below, and the command does not touch any of them.</p>
 <ul>
 <li><strong>The board <a href="../../api/events/">change feed</a></strong> (<code>GET /api/v1/boards/{id}/events/</code>). Each event stores its broadcast payload verbatim. <code>card.created</code> and <code>card.updated</code> events, and the <code>card</code> object inside <code>card.moved</code>, hold the full card as it was at that moment: title, description, custom field values and external reference; <code>card.moved</code> also holds the movement's notes. Events are not tied to the board by a foreign key, so they remain even after the board is deleted. The command does not remove change-feed events; covering them is tracked in #1816. The current mitigation is the <a href="../scheduled-jobs/"><code>prune_board_events</code></a> job, which deletes events older than its retention window (30 days by default). The job is <strong>off</strong> by default (<code>SCHEDULE_PRUNE_BOARD_EVENTS</code>), so unless you have enabled it or run the command yourself, change-feed events are never removed.</li>
 <li><strong>The Django admin log</strong> (<code>django_admin_log</code>). Any change made to a card in the Django admin, including deleting it there, records the card's title (<code>object_repr</code>) in the admin's own history. Visiban does not prune this table.</li>
@@ -4104,11 +4135,11 @@
 </tr>
 <tr>
 <td><code>--since DATE</code></td>
-<td>Only movements at or after this moment.</td>
+<td>Only movements at or after this moment (blocks by their start).</td>
 </tr>
 <tr>
 <td><code>--before DATE</code></td>
-<td>Only movements strictly before this moment.</td>
+<td>Only movements strictly before this moment (blocks by their start).</td>
 </tr>
 <tr>
 <td><code>--include-live-cards</code></td>
@@ -4120,6 +4151,7 @@
 </tr>
 </tbody>
 </table>
+<p>Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (<code>deleted_count</code> is movements, <code>deleted_block_count</code> blocks, since 1.3).</p>
 <p>Dates are <code>YYYY-MM-DD</code> (midnight UTC at the start of that day) or an ISO 8601 datetime (UTC when it has no offset). <code>--since 2026-03-01 --before 2026-04-01</code> covers exactly March.</p>
 <p>How the command behaves:</p>
 <ul>

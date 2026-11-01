@@ -844,6 +844,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
   
 
     
@@ -1574,7 +1604,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1596,14 +1626,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2112,6 +2142,56 @@
     <span class="md-ellipsis">
       
         GET /api/v1/boards/{board_id}/cards/{id}/status/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#block-and-unblock-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Block and unblock (since 1.3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Block and unblock (since 1.3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsboard_idcardsidblock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{board_id}/cards/{id}/block/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsboard_idcardsidunblock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{board_id}/cards/{id}/unblock/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsboard_idcardsidblocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{board_id}/cards/{id}/blocks/
       
     </span>
   </a>
@@ -4735,6 +4815,10 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>Cards past their due date (due date is set and is before today). <code>false</code> returns the rest: cards with no due date or a due date of today or later</td>
 </tr>
 <tr>
+<td><code>?blocked=true</code></td>
+<td>Cards that are blocked, manually or by an active <code>blocks</code> relation (the card's <code>is_blocked</code>). <code>false</code> returns the rest. <em>Added in 1.3</em> (#1149)</td>
+</tr>
+<tr>
 <td><code>?ordering=&lt;field&gt;</code></td>
 <td>Sort results. Prefix with <code>-</code> for descending. Allowed fields: <code>position</code> (default), <code>due_date</code>, <code>created_at</code>, <code>priority</code>. Example: <code>?ordering=-due_date</code></td>
 </tr>
@@ -4758,7 +4842,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">}</span>
 </code></pre></div></p>
 <h3 id="get-apiv1boardsboard_idcardsid"><code>GET /api/v1/boards/{board_id}/cards/{id}/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsid" title="Permanent link">&para;</a></h3>
-<p>Get a single card. The response includes a read-only <code>uid</code> (a stable 16-character hex identifier that survives rename, move, and reassignment) and a <code>version</code> integer that increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040). Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged; it never decreases. Clients may pass <code>version</code> back on the <a href="#move">move endpoint</a> as an optimistic concurrency token.</p>
+<p>Get a single card. The response includes a read-only <code>uid</code> (a stable 16-character hex identifier that survives rename, move, and reassignment) and a <code>version</code> integer that increments when the card's fields are updated (including its labels and custom-field values), the card is blocked or unblocked (since 1.3, #1149), or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040). Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged; it never decreases. Clients may pass <code>version</code> back on the <a href="#move">move endpoint</a> as an optimistic concurrency token.</p>
 <p><strong>Card response field table</strong></p>
 <p>Every card object has these fields, in this endpoint, <code>POST /cards/</code>, <code>PATCH /cards/{id}/</code>, <code>GET /cards/</code>, and all mutation responses (archive, unarchive, move).</p>
 <table>
@@ -4945,7 +5029,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>integer</td>
 <td>yes</td>
 <td>no</td>
-<td>Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values) or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the <code>version</code> read before an admin save gets <code>409 version_conflict</code>. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose <code>version</code> is lower than the one it holds. Pass as <code>version</code> in the <a href="#move">move endpoint</a> to enable OCC. PATCH and PUT do not accept or check <code>version</code>.</td>
+<td>Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values), the card is blocked or unblocked (since 1.3, #1149), or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the <code>version</code> read before an admin save gets <code>409 version_conflict</code>. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose <code>version</code> is lower than the one it holds. Pass as <code>version</code> in the <a href="#move">move endpoint</a> to enable OCC. PATCH and PUT do not accept or check <code>version</code>.</td>
 </tr>
 <tr>
 <td><code>custom_field_values</code></td>
@@ -4960,6 +5044,27 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>no</td>
 <td>no</td>
 <td>Link to the GitLab/GitHub merge request, pull request, or issue that implements this card (since 1.2) — <code>{ provider, ref, url }</code> or <code>null</code>. Always present; <code>null</code> when unset. Readable and writable in the same shape; see <a href="#external-ref-since-12">External ref</a>.</td>
+</tr>
+<tr>
+<td><code>is_blocked</code></td>
+<td>boolean</td>
+<td>yes</td>
+<td>no</td>
+<td><em>Added in 1.3</em> (#1149). <code>true</code> when the card is blocked manually (<code>blocked_at</code> is set) or by at least one active <code>blocks</code> relation (<code>blocker_count</code> &gt; 0). Derived; the one signal the card face and the board's <strong>Blocked only</strong> filter show.</td>
+</tr>
+<tr>
+<td><code>blocked_at</code></td>
+<td>string / null</td>
+<td>yes</td>
+<td>no</td>
+<td><em>Added in 1.3</em> (#1149). When the card's open <a href="#block-and-unblock-since-13">manual block</a> started, or <code>null</code> when it is not manually blocked. Changes only through the block and unblock endpoints; PATCH ignores it.</td>
+</tr>
+<tr>
+<td><code>blocked_reason</code></td>
+<td>string</td>
+<td>yes</td>
+<td>no</td>
+<td><em>Added in 1.3</em> (#1149). The open manual block's reason; <code>""</code> when not manually blocked. Changes only through the block endpoint.</td>
 </tr>
 <tr>
 <td><code>blocker_count</code></td>
@@ -5004,8 +5109,11 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">    </span><span class="nt">"ref"</span><span class="p">:</span><span class="w"> </span><span class="s2">"acme/webapp!45"</span><span class="p">,</span>
 <a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="w">    </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://gitlab.com/acme/webapp/-/merge_requests/45"</span>
 <a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="w">  </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="p">}</span>
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="w">  </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="w">  </span><span class="nt">"is_blocked"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a><span class="w">  </span><span class="nt">"blocked_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="w">  </span><span class="nt">"blocked_reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="patch-apiv1boardsboard_idcardsid"><code>PATCH /api/v1/boards/{board_id}/cards/{id}/</code><a class="headerlink" href="#patch-apiv1boardsboard_idcardsid" title="Permanent link">&para;</a></h3>
 <p>Update card fields. Requires member or above. Returns <code>404 Not Found</code> if the card was deleted concurrently; nothing is saved. A PATCH/PUT racing an archive or move is evaluated against the card's state when written, not when the request began: it returns <code>404 Not Found</code> if the card was archived concurrently (as for any archived card), and a concurrent move is kept. Only the submitted fields change, and echoing the pre-move <code>column</code>/<code>swimlane</code>/<code>position</code> is rejected with <code>use_move_endpoint</code> (see below).</p>
@@ -5175,6 +5283,191 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </table>
 <p><strong>Errors:</strong> <code>404 Not Found</code> if the card does not belong to this board or has been hard-deleted.</p>
 <hr />
+<h2 id="block-and-unblock-since-13">Block and unblock (since 1.3)<a class="headerlink" href="#block-and-unblock-since-13" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1149)</p>
+</blockquote>
+<p>A card can be marked <strong>blocked</strong> with a reason ("Waiting on customer", "Vendor outage") and later unblocked. It is a <em>state</em>, not a dependency: use a <a href="#relations-since-12"><code>blocks</code> relation</a> when the blocker is another card. Each block is recorded with who, when and why, so blocked time can be measured per card, summed per column in <a href="../boards/#get-apiv1boardsidanalytics">Analytics</a>, and grouped by reason. See <a href="../../features/blocked-cards/">Blocked cards</a>.</p>
+<p>Both actions follow the edit rule: <strong>minimum role Member</strong>, and a member may block or unblock only cards they created unless they have the <code>is_moderator</code> entitlement or are a board admin (<code>403</code> otherwise). Viewers and collaborators get <code>403</code> before the body is read. An archived card, or a card on another board, is <code>404</code>. Each bumps <code>version</code>, writes a <code>CardActivity</code> row (<code>blocked</code> / <code>unblocked</code>), and broadcasts <code>card.updated</code> with the full card after the transaction commits. There is no new WebSocket event type.</p>
+<h3 id="post-apiv1boardsboard_idcardsidblock"><code>POST /api/v1/boards/{board_id}/cards/{id}/block/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidblock" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Trimmed; then 1-500 characters. A missing or blank reason is <code>400</code> with <code>{"reason": ["Enter a reason to block this card."]}</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> — <code>200 OK</code>, the full card with <code>is_blocked: true</code> and <code>blocked_at</code> / <code>blocked_reason</code> set.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400</code></td>
+<td><code>reason</code> missing, blank, over 500 characters, or contains a NUL character</td>
+</tr>
+<tr>
+<td><code>403</code></td>
+<td>Viewer or collaborator, or a member blocking a card another user created</td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>No such card on this board, or the card is archived</td>
+</tr>
+<tr>
+<td><code>409</code></td>
+<td><code>{"code": "card_already_blocked", "detail": "This card is already blocked."}</code>: the card already has an open block</td>
+</tr>
+</tbody>
+</table>
+<h3 id="post-apiv1boardsboard_idcardsidunblock"><code>POST /api/v1/boards/{board_id}/cards/{id}/unblock/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidunblock" title="Permanent link">&para;</a></h3>
+<p>The body is optional.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>resolution</code></td>
+<td>string</td>
+<td>no</td>
+<td>How the block was resolved; up to 500 characters. Default <code>""</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> — <code>200 OK</code>, the full card with <code>blocked_at: null</code> and <code>blocked_reason: ""</code>. <code>is_blocked</code> stays <code>true</code> if a <code>blocks</code> relation still blocks the card: unblock clears the manual block only.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400</code></td>
+<td><code>resolution</code> over 500 characters</td>
+</tr>
+<tr>
+<td><code>403</code></td>
+<td>As for block</td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>As for block</td>
+</tr>
+<tr>
+<td><code>409</code></td>
+<td><code>{"code": "card_not_blocked", "detail": "This card is not blocked."}</code>: the card has no open block</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-apiv1boardsboard_idcardsidblocks"><code>GET /api/v1/boards/{board_id}/cards/{id}/blocks/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidblocks" title="Permanent link">&para;</a></h3>
+<p>Every manual block of the card, newest first, open or closed. Readable by every board member, viewers included, and for archived cards too, like the card's other history.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>blocked_at</code></td>
+<td>string</td>
+<td>ISO 8601</td>
+</tr>
+<tr>
+<td><code>blocked_by</code></td>
+<td>object | <code>null</code></td>
+<td>User who blocked the card; <code>null</code> once that user is deleted</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>unblocked_at</code></td>
+<td>string | <code>null</code></td>
+<td><code>null</code> while the block is open</td>
+</tr>
+<tr>
+<td><code>unblocked_by</code></td>
+<td>object | <code>null</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>resolution</code></td>
+<td>string</td>
+<td><code>""</code> when none was given</td>
+</tr>
+<tr>
+<td><code>column_name</code></td>
+<td>string</td>
+<td>The column the card was in when it was blocked (kept after the column is deleted)</td>
+</tr>
+<tr>
+<td><code>column_uid</code></td>
+<td>string</td>
+<td>That column's <a href="../../features/stable-uids/">stable UID</a></td>
+</tr>
+<tr>
+<td><code>duration_seconds</code></td>
+<td>integer</td>
+<td>Measured to <code>unblocked_at</code>, or to now while open</td>
+</tr>
+<tr>
+<td><code>imported_from_username</code></td>
+<td>string | <code>null</code></td>
+<td>As on activities: set only on blocks created by a board import</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">[</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">"blocked_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-28T09:12:00Z"</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">"blocked_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jordan"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jordan Lee"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Waiting on customer sign-off"</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">"unblocked_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="nt">"unblocked_by"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">"resolution"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Review"</span><span class="p">,</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="nt">"column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c0l5a1b2c3d4e5f6"</span><span class="p">,</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="nt">"duration_seconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">284400</span><span class="p">,</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">    </span><span class="nt">"imported_from_username"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="p">]</span>
+</code></pre></div>
+<p>Hard-deleting a card keeps its block history for the board's analytics; deleting the board removes it.</p>
+<hr />
 <h2 id="move">Move<a class="headerlink" href="#move" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1boardsboard_idcardsidmove"><code>POST /api/v1/boards/{board_id}/cards/{id}/move/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidmove" title="Permanent link">&para;</a></h3>
 <p>Move a card to a new column/swimlane/position. Creates a <code>CardMovement</code> record if column or swimlane changes. Requires member or above. Returns <code>404 Not Found</code> if the card was deleted concurrently; the move is not saved (#1585). Since 1.2 it also returns <code>404</code> when the destination column or swimlane, or the board, was deleted while the request was in flight (#1602).</p>
@@ -5182,7 +5475,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <p><strong>Ownership gate:</strong> Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card that is assigned to a different user and that the member did not create requires the <code>is_moderator</code> entitlement or Admin role. In that case, non-moderator members receive <code>403 Forbidden</code> with body <code>{"code": "permission_denied", "detail": "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."}</code>.</p>
 </blockquote>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"column_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"swimlane_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"column_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"swimlane_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -5216,37 +5509,37 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tbody>
 </table>
 <p><strong>Version conflict error</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"version_conflict"</span><span class="p">,</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This card was modified by another user. Please refresh and try again."</span><span class="p">,</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">"current_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"version_conflict"</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This card was modified by another user. Please refresh and try again."</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">"current_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">"movement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="nt">"card_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="nt">"from_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="nt">"from_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"To Do"</span><span class="p">,</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">    </span><span class="nt">"from_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60718"</span><span class="p">,</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">    </span><span class="nt">"to_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">    </span><span class="nt">"to_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span>
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="nt">"to_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9f8e7d6c5b4a3210"</span><span class="p">,</span>
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">    </span><span class="nt">"from_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">    </span><span class="nt">"from_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="nt">"from_swimlane_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deadbeef01234567"</span><span class="p">,</span>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">    </span><span class="nt">"to_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">    </span><span class="nt">"to_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">    </span><span class="nt">"to_swimlane_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deadbeef01234567"</span><span class="p">,</span>
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">    </span><span class="nt">"moved_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">    </span><span class="nt">"moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span><span class="p">,</span>
-<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="w">    </span><span class="nt">"movement_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
-<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="w">    </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">"movement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nt">"card_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3a9f1c2d7e4b8a05"</span><span class="p">,</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="nt">"from_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="nt">"from_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"To Do"</span><span class="p">,</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="nt">"from_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60718"</span><span class="p">,</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="nt">"to_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="nt">"to_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span><span class="nt">"to_column_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9f8e7d6c5b4a3210"</span><span class="p">,</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">    </span><span class="nt">"from_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">    </span><span class="nt">"from_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">    </span><span class="nt">"from_swimlane_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deadbeef01234567"</span><span class="p">,</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">    </span><span class="nt">"to_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">    </span><span class="nt">"to_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="w">    </span><span class="nt">"to_swimlane_uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deadbeef01234567"</span><span class="p">,</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="w">    </span><span class="nt">"moved_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="w">    </span><span class="nt">"moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span><span class="p">,</span>
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="w">    </span><span class="nt">"movement_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="w">    </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -5282,15 +5575,15 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <p>The <code>movement</code> key is <strong>absent</strong> from the response when only the position changed within the same cell (no column or swimlane change) — a <code>CardMovement</code> record is created, and the <code>movement</code> key included, only when the card actually changes column or swimlane.</p>
 <h4 id="wip-weight-limit-enforcement">WIP / weight limit enforcement<a class="headerlink" href="#wip-weight-limit-enforcement" title="Permanent link">&para;</a></h4>
 <p>When <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board and the target column is at or above its limit, the move returns <code>409 Conflict</code>. Since 1.2 (#1428) the same check, bodies, and override rules also apply to card create, restore from archive, and a <code>PATCH</code> that raises <code>weight</code> (see those endpoints above). Board import is exempt by design, because it restores a board as exported. The bodies:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weight_limit_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"card_weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"weight_limit_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"card_weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>When <code>enforce_wip_hard</code> is enabled on the board, the limit cannot be overridden by any role — all users receive <code>409 Conflict</code> with code <code>wip_hard_blocked</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"WIP limit enforced — move blocked."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_hard_blocked"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"WIP limit enforced — move blocked."</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_hard_blocked"</span><span class="p">,</span><span class="w"> </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">,</span><span class="w"> </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>When <code>enforce_wip_hard</code> is not enabled, board admins may override the limit by appending <code>?force=true</code> to the move URL:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>POST<span class="w"> </span>/api/v1/boards/1/cards/42/move/?force<span class="o">=</span><span class="nb">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>POST<span class="w"> </span>/api/v1/boards/1/cards/42/move/?force<span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
 <p><code>?force=true</code> only matters when the move would otherwise be blocked by a real WIP or weight breach; on a move that hits no limit it is a no-op that succeeds for any role. A non-admin whose move <em>does</em> hit a limit and sends <code>?force=true</code> receives <code>403 Forbidden</code>.</p>
 <p>The <code>*_uid</code> fields in the movement record are permanent: they stay set after the referenced column or swimlane is deleted (the FK <code>*_id</code> becomes <code>null</code>, the UID is preserved). See <a href="../../features/stable-uids/">Stable UIDs</a>.</p>
@@ -5299,7 +5592,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <h3 id="get-apiv1boardsboard_idcardsidmovements"><code>GET /api/v1/boards/{board_id}/cards/{id}/movements/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidmovements" title="Permanent link">&para;</a></h3>
 <p>Full movement history for a card. Each record includes <code>card_uid</code>, <code>card_title</code>, <code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, and <code>to_swimlane_uid</code> in addition to the FK and name fields, and since 1.2 <code>imported_from_username</code> (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See <a href="../../features/stable-uids/">Stable UIDs</a>.</p>
 <h3 id="get-apiv1boardsboard_idcardsidactivities"><code>GET /api/v1/boards/{board_id}/cards/{id}/activities/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidactivities" title="Permanent link">&para;</a></h3>
-<p>Activity log (field changes, comments, attachments, checklist events).</p>
+<p>Activity log (field changes, comments, attachments, checklist events, and since 1.3 manual blocks: <code>blocked</code> carries the reason in <code>to_value</code>; <code>unblocked</code> carries the cleared reason in <code>from_value</code> and the resolution in <code>to_value</code>).</p>
 <table>
 <thead>
 <tr>
@@ -5346,17 +5639,17 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">[</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="p">{</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">501</span><span class="p">,</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"status_changed"</span><span class="p">,</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="nt">"from_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"To Do"</span><span class="p">,</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="nt">"to_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jordan"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jordan Lee"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-20T14:03:11Z"</span><span class="p">,</span>
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">    </span><span class="nt">"imported_from_username"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">[</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">501</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"status_changed"</span><span class="p">,</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">    </span><span class="nt">"from_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"To Do"</span><span class="p">,</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="nt">"to_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jordan"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jordan Lee"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-20T14:03:11Z"</span><span class="p">,</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">    </span><span class="nt">"imported_from_username"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h2 id="timeline">Timeline<a class="headerlink" href="#timeline" title="Permanent link">&para;</a></h2>
@@ -5413,7 +5706,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tr>
 <tr>
 <td><code>field</code></td>
-<td><code>priority_change</code>, <code>weight_change</code>, <code>assignee_change</code>, <code>label_change</code>, <code>title_change</code>, <code>description_change</code>, <code>due_date_change</code></td>
+<td><code>priority_change</code>, <code>weight_change</code>, <code>assignee_change</code>, <code>label_change</code>, <code>title_change</code>, <code>description_change</code>, <code>due_date_change</code>, and since 1.3 <code>blocked</code>, <code>unblocked</code> (#1149)</td>
 </tr>
 <tr>
 <td><code>checklist</code></td>
@@ -5429,57 +5722,58 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tr>
 </tbody>
 </table>
+<p>An <code>unblocked</code> entry's <code>data</code> also carries <code>block_duration_seconds</code> (<em>added in 1.3</em>, #1149): how long the block it closed lasted, or <code>null</code> when no closed block matches (an imported entry whose block history was not imported).</p>
 <p><strong>Response</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">,</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">"next"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://your-instance.example.com/api/v1/boards/1/cards/42/timeline/?limit=50&amp;offset=50"</span><span class="p">,</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">"previous"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">317</span><span class="p">,</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">      </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">      </span><span class="nt">"ts"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-10T14:22:00Z"</span><span class="p">,</span>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">      </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">        </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">        </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">        </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span>
-<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">        </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">      </span><span class="p">},</span>
-<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">      </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
-<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">      </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">        </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">317</span><span class="p">,</span>
-<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">        </span><span class="nt">"from_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">        </span><span class="nt">"from_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
-<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">        </span><span class="nt">"to_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="w">        </span><span class="nt">"to_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Done"</span><span class="p">,</span>
-<a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a><span class="w">        </span><span class="nt">"from_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="w">        </span><span class="nt">"from_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
-<a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a><span class="w">        </span><span class="nt">"to_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a><span class="w">        </span><span class="nt">"to_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
-<a id="__codelineno-18-27" name="__codelineno-18-27" href="#__codelineno-18-27"></a><span class="w">        </span><span class="nt">"moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-10T14:22:00Z"</span><span class="p">,</span>
-<a id="__codelineno-18-28" name="__codelineno-18-28" href="#__codelineno-18-28"></a><span class="w">        </span><span class="nt">"movement_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
-<a id="__codelineno-18-29" name="__codelineno-18-29" href="#__codelineno-18-29"></a><span class="w">        </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-18-30" name="__codelineno-18-30" href="#__codelineno-18-30"></a><span class="w">      </span><span class="p">}</span>
-<a id="__codelineno-18-31" name="__codelineno-18-31" href="#__codelineno-18-31"></a><span class="w">    </span><span class="p">},</span>
-<a id="__codelineno-18-32" name="__codelineno-18-32" href="#__codelineno-18-32"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-18-33" name="__codelineno-18-33" href="#__codelineno-18-33"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">204</span><span class="p">,</span>
-<a id="__codelineno-18-34" name="__codelineno-18-34" href="#__codelineno-18-34"></a><span class="w">      </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"activity"</span><span class="p">,</span>
-<a id="__codelineno-18-35" name="__codelineno-18-35" href="#__codelineno-18-35"></a><span class="w">      </span><span class="nt">"ts"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-09T10:05:00Z"</span><span class="p">,</span>
-<a id="__codelineno-18-36" name="__codelineno-18-36" href="#__codelineno-18-36"></a><span class="w">      </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-37" name="__codelineno-18-37" href="#__codelineno-18-37"></a><span class="w">        </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span>
-<a id="__codelineno-18-38" name="__codelineno-18-38" href="#__codelineno-18-38"></a><span class="w">        </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span>
-<a id="__codelineno-18-39" name="__codelineno-18-39" href="#__codelineno-18-39"></a><span class="w">        </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bob Jones"</span><span class="p">,</span>
-<a id="__codelineno-18-40" name="__codelineno-18-40" href="#__codelineno-18-40"></a><span class="w">        </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-18-41" name="__codelineno-18-41" href="#__codelineno-18-41"></a><span class="w">      </span><span class="p">},</span>
-<a id="__codelineno-18-42" name="__codelineno-18-42" href="#__codelineno-18-42"></a><span class="w">      </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"priority_change"</span><span class="p">,</span>
-<a id="__codelineno-18-43" name="__codelineno-18-43" href="#__codelineno-18-43"></a><span class="w">      </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-18-44" name="__codelineno-18-44" href="#__codelineno-18-44"></a><span class="w">        </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"priority_change"</span><span class="p">,</span>
-<a id="__codelineno-18-45" name="__codelineno-18-45" href="#__codelineno-18-45"></a><span class="w">        </span><span class="nt">"from_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"medium"</span><span class="p">,</span>
-<a id="__codelineno-18-46" name="__codelineno-18-46" href="#__codelineno-18-46"></a><span class="w">        </span><span class="nt">"to_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span>
-<a id="__codelineno-18-47" name="__codelineno-18-47" href="#__codelineno-18-47"></a><span class="w">      </span><span class="p">}</span>
-<a id="__codelineno-18-48" name="__codelineno-18-48" href="#__codelineno-18-48"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-18-49" name="__codelineno-18-49" href="#__codelineno-18-49"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-18-50" name="__codelineno-18-50" href="#__codelineno-18-50"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">,</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">"next"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://your-instance.example.com/api/v1/boards/1/cards/42/timeline/?limit=50&amp;offset=50"</span><span class="p">,</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">"previous"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">317</span><span class="p">,</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">      </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">      </span><span class="nt">"ts"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-10T14:22:00Z"</span><span class="p">,</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">      </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">        </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">        </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">        </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="w">        </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="w">      </span><span class="p">},</span>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="w">      </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="w">      </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="w">        </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">317</span><span class="p">,</span>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="w">        </span><span class="nt">"from_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a><span class="w">        </span><span class="nt">"from_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
+<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a><span class="w">        </span><span class="nt">"to_column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a><span class="w">        </span><span class="nt">"to_column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Done"</span><span class="p">,</span>
+<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a><span class="w">        </span><span class="nt">"from_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a><span class="w">        </span><span class="nt">"from_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
+<a id="__codelineno-19-25" name="__codelineno-19-25" href="#__codelineno-19-25"></a><span class="w">        </span><span class="nt">"to_swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-19-26" name="__codelineno-19-26" href="#__codelineno-19-26"></a><span class="w">        </span><span class="nt">"to_swimlane_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
+<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a><span class="w">        </span><span class="nt">"moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-10T14:22:00Z"</span><span class="p">,</span>
+<a id="__codelineno-19-28" name="__codelineno-19-28" href="#__codelineno-19-28"></a><span class="w">        </span><span class="nt">"movement_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"move"</span><span class="p">,</span>
+<a id="__codelineno-19-29" name="__codelineno-19-29" href="#__codelineno-19-29"></a><span class="w">        </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-19-30" name="__codelineno-19-30" href="#__codelineno-19-30"></a><span class="w">      </span><span class="p">}</span>
+<a id="__codelineno-19-31" name="__codelineno-19-31" href="#__codelineno-19-31"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-19-32" name="__codelineno-19-32" href="#__codelineno-19-32"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-19-33" name="__codelineno-19-33" href="#__codelineno-19-33"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">204</span><span class="p">,</span>
+<a id="__codelineno-19-34" name="__codelineno-19-34" href="#__codelineno-19-34"></a><span class="w">      </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"activity"</span><span class="p">,</span>
+<a id="__codelineno-19-35" name="__codelineno-19-35" href="#__codelineno-19-35"></a><span class="w">      </span><span class="nt">"ts"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-09T10:05:00Z"</span><span class="p">,</span>
+<a id="__codelineno-19-36" name="__codelineno-19-36" href="#__codelineno-19-36"></a><span class="w">      </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-37" name="__codelineno-19-37" href="#__codelineno-19-37"></a><span class="w">        </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span>
+<a id="__codelineno-19-38" name="__codelineno-19-38" href="#__codelineno-19-38"></a><span class="w">        </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span>
+<a id="__codelineno-19-39" name="__codelineno-19-39" href="#__codelineno-19-39"></a><span class="w">        </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bob Jones"</span><span class="p">,</span>
+<a id="__codelineno-19-40" name="__codelineno-19-40" href="#__codelineno-19-40"></a><span class="w">        </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-19-41" name="__codelineno-19-41" href="#__codelineno-19-41"></a><span class="w">      </span><span class="p">},</span>
+<a id="__codelineno-19-42" name="__codelineno-19-42" href="#__codelineno-19-42"></a><span class="w">      </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"priority_change"</span><span class="p">,</span>
+<a id="__codelineno-19-43" name="__codelineno-19-43" href="#__codelineno-19-43"></a><span class="w">      </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-44" name="__codelineno-19-44" href="#__codelineno-19-44"></a><span class="w">        </span><span class="nt">"event_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"priority_change"</span><span class="p">,</span>
+<a id="__codelineno-19-45" name="__codelineno-19-45" href="#__codelineno-19-45"></a><span class="w">        </span><span class="nt">"from_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"medium"</span><span class="p">,</span>
+<a id="__codelineno-19-46" name="__codelineno-19-46" href="#__codelineno-19-46"></a><span class="w">        </span><span class="nt">"to_value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span>
+<a id="__codelineno-19-47" name="__codelineno-19-47" href="#__codelineno-19-47"></a><span class="w">      </span><span class="p">}</span>
+<a id="__codelineno-19-48" name="__codelineno-19-48" href="#__codelineno-19-48"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-19-49" name="__codelineno-19-49" href="#__codelineno-19-49"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-19-50" name="__codelineno-19-50" href="#__codelineno-19-50"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong><code>CardTimelineEntry</code> fields</strong></p>
 <table>
@@ -5610,8 +5904,8 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <h3 id="get-apiv1boardsboard_idcardsidattachments"><code>GET /api/v1/boards/{board_id}/cards/{id}/attachments/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidattachments" title="Permanent link">&para;</a></h3>
 <p>List attachments. Response fields per attachment: <code>id</code>, <code>filename</code>, <code>size</code> (bytes), <code>url</code> (absolute URL — scheme + host + path, built from the request), <code>uploaded_by</code> (user object, or <code>null</code> if the uploader has since been deleted), <code>uploaded_at</code>.</p>
 <p>To download a file, fetch its <code>url</code> with the same <code>Authorization</code> header as API requests; attachments are served via the authenticated <code>/media/&lt;path&gt;</code> route. Unauthenticated requests return <code>401 Unauthorized</code>; users without board membership get <code>404 Not Found</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>-J<span class="w"> </span>http://localhost:8000/media/attachments/abc123.pdf<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>-J<span class="w"> </span>http://localhost:8000/media/attachments/abc123.pdf<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span>
 </code></pre></div>
 <h3 id="post-apiv1boardsboard_idcardsidattachments"><code>POST /api/v1/boards/{board_id}/cards/{id}/attachments/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidattachments" title="Permanent link">&para;</a></h3>
 <p>Upload an attachment (<code>multipart/form-data</code>, field name <code>file</code>). Max size: 10 MB by default, operator-configurable via the <code>MAX_UPLOAD_SIZE_BYTES</code> env var. <strong>Minimum role: Collaborator.</strong> Returns <code>404 Not Found</code> if the card was deleted concurrently; the request has no effect.</p>
@@ -5648,22 +5942,22 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tbody>
 </table>
 <p><strong>Error response (unsupported type)</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File type 'application/x-executable' is not allowed. Accepted types: images (JPEG, PNG, GIF, WebP), PDF, Office documents (DOCX, XLSX, PPTX), plain text, CSV, ZIP."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File type 'application/x-executable' is not allowed. Accepted types: images (JPEG, PNG, GIF, WebP), PDF, Office documents (DOCX, XLSX, PPTX), plain text, CSV, ZIP."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Error response (magic-byte mismatch)</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Error response (no file provided)</strong> — <code>400 Bad Request</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"No file provided."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"No file provided."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Error response (file too large)</strong> — <code>400 Bad Request</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File too large. Maximum size is 10 MB."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File too large. Maximum size is 10 MB."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Error response (viewer role)</strong> — <code>403 Forbidden</code>. Viewers cannot upload attachments; collaborators and above can.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Viewers cannot perform this action."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Viewers cannot perform this action."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Error response (uploads disabled)</strong> — <code>403 Forbidden</code>. Returned when the site administrator has disabled uploads instance-wide; applies to all roles including admins.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"feature_disabled"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File uploads are disabled by the site administrator."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"feature_disabled"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"File uploads are disabled by the site administrator."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <h3 id="delete-apiv1boardsboard_idcardsidattachmentsattachment_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidattachmentsattachment_id" title="Permanent link">&para;</a></h3>
 <p>Delete an attachment. <strong>Minimum role: Collaborator.</strong> Collaborators may delete only their own attachments, regardless of <code>is_moderator</code>. Members with the <code>is_moderator</code> entitlement (or admin role) may delete any attachment. Returns <code>404 Not Found</code> if the card was deleted concurrently; the request has no effect.</p>
@@ -5706,21 +6000,21 @@ Any board role may read.</p>
 <p>Ordered: <code>blocked_by</code> first, then <code>blocks</code>, then <code>relates_to</code>; oldest first
 within each group.</p>
 <p><strong>Response</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">[</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="p">{</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">    </span><span class="nt">"relation_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blocks"</span><span class="p">,</span>
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">    </span><span class="nt">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blocked_by"</span><span class="p">,</span>
-<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">    </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">88</span><span class="p">,</span>
-<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9f2c1a7b3d4e5f60"</span><span class="p">,</span>
-<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Provision the staging cluster"</span><span class="p">,</span>
-<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a><span class="w">      </span><span class="nt">"archived"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
-<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a><span class="w">    </span><span class="p">},</span>
-<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-15T11:02:31Z"</span>
-<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">[</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">    </span><span class="nt">"relation_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blocks"</span><span class="p">,</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="w">    </span><span class="nt">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blocked_by"</span><span class="p">,</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="w">    </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">88</span><span class="p">,</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9f2c1a7b3d4e5f60"</span><span class="p">,</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Provision the staging cluster"</span><span class="p">,</span>
+<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="w">      </span><span class="nt">"archived"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-15T11:02:31Z"</span>
+<a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a><span class="p">]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5913,13 +6207,13 @@ complete card payload. See <a href="../websockets/">WebSockets</a>.</p>
 </tbody>
 </table>
 <p><strong>Example response</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span>
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">,</span>
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">  </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span>
-<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">  </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="w">  </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">,</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">  </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="w">  </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="w">  </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="p">}</span>
 </code></pre></div>
 
 

@@ -844,6 +844,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
   
 
     
@@ -1574,7 +1604,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_25" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1596,14 +1626,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_25" id="__nav_3_25_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_25_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_25">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_26">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4252,7 +4282,7 @@ authenticate (session cookie or personal access token).</p>
 <p>A small set of endpoints stay writable even during maintenance — mainly login, logout, the
 password-reset/forced-change flows, the admin API itself, and the health probes. See
 <a href="admin/#maintenance-mode">Maintenance mode → endpoints that stay writable</a> for the exact list.
-MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) return an equivalent
+MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) return an equivalent
 <code>{"error": {"code": "maintenance_mode", "detail": "..."}}</code> result instead of a 503 — see
 <a href="mcp/#tool-errors">MCP Server</a>.</p>
 <h3 id="actor-fields-who-did-it">Actor fields ("who did it")<a class="headerlink" href="#actor-fields-who-did-it" title="Permanent link">&para;</a></h3>
