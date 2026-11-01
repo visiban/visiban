@@ -153,16 +153,26 @@ class StringNamedHookListTests(TestCase):
                 self.assertIsInstance(getattr(hooks, name, None), list)
 
     def test_every_literal_hook_name_in_source_is_pinned(self):
-        """Any ``*_VALIDATORS`` string literal in the views/serializers is a pinned name."""
+        """Any ``*_VALIDATORS`` string literal in non-test backend source is a pinned name.
+
+        Scans every non-test, non-migration ``.py`` file (single or double
+        quotes), so a new string-named lookup in a third file is caught too.
+        """
         import re
         from pathlib import Path
 
         import boards
 
-        root = Path(boards.__file__).parent
+        backend = Path(boards.__file__).parent.parent
+        pattern = re.compile(r"""["']([A-Z][A-Z_]*_VALIDATORS)["']""")
         found = set()
-        for rel in ("serializers.py", "views/import_export.py"):
-            found |= set(re.findall(r'"([A-Z_]+_VALIDATORS)"', (root / rel).read_text()))
+        for path in backend.rglob("*.py"):
+            parts = path.relative_to(backend).parts
+            if "tests" in parts or "migrations" in parts or path.name.startswith("test_"):
+                continue
+            if parts[0] in {".venv", "venv", "node_modules"}:
+                continue
+            found |= set(pattern.findall(path.read_text(encoding="utf-8")))
         self.assertTrue(found, "expected string-named hook lookups in the source")
         self.assertLessEqual(found, set(self.HOOK_NAMES))
 
@@ -187,6 +197,13 @@ class StringNamedHookListTests(TestCase):
                 finally:
                     registered.remove(validator)
                 self.assertEqual(calls, ["x"])
+
+
+class BoardCapabilitiesContractTests(TestCase):
+    """``capabilities`` on the board payload is an additive-only contract (#1897).
+
+    Adding a key means updating ``docs/api/boards.md`` and this test.
+    """
 
     def test_capabilities_keys_are_pinned(self):
         """``capabilities`` exposes exactly ``movement_export`` in OSS (#1897)."""

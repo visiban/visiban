@@ -3727,7 +3727,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         ``boards.hooks`` list is non-empty, so OSS returns ``False`` for every
         key and enterprise flips one by registering a backend (e.g.
         ``MOVEMENT_EXPORT_BACKENDS``). A new key must be added to that page and
-        to ``StringNamedHookListTests`` in ``test_extensibility.py``.
+        to ``BoardCapabilitiesContractTests`` in ``test_extensibility.py``.
         """
         from .hooks import MOVEMENT_EXPORT_BACKENDS
         return {"movement_export": bool(MOVEMENT_EXPORT_BACKENDS)}
