@@ -230,6 +230,16 @@ describe('BoardCell', () => {
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 
+  it('lifts the built-in count badge above the cards but below the sticky label and header (#1162)', () => {
+    // CardItem's root is `relative z-0`; a z-auto badge paints underneath the first card.
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 }), makeCard({ id: 2, title: 'Card B' })]
+    render(<BoardCell {...props} />)
+    const badge = screen.getByTestId('cell-card-count')
+    expect(badge.className).toContain('z-[5]')
+    expect(badge.className).not.toMatch(/\bz-(10|20|30)\b/)
+  })
+
   it('does not show count badge for a single card', () => {
     const props = defaultProps()
     props.cards = [makeCard({ id: 1 })]
