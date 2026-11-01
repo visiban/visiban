@@ -1459,6 +1459,20 @@ class ArchiveCardTests(CrudToolsTestCase):
         card.refresh_from_db()
         self.assertIsNotNone(card.archived_at)
 
+    def test_result_carries_card_uid_matching_the_archived_frame(self):
+        # #1974: additive; card_id and archived_at keep their meaning.
+        card = _make_card(self.column, self.swimlane, title="To archive")
+        result = self._call("archive_card", self.write_token, card_id=card.id)
+        card.refresh_from_db()
+        self.assertEqual(set(result), {"card_id", "card_uid", "archived_at"})
+        self.assertEqual(result["card_id"], card.id)
+        self.assertEqual(result["card_uid"], card.uid)
+        self.assertEqual(result["archived_at"], card.archived_at.isoformat())
+        (frame,) = BoardEvent.objects.filter(
+            board_id=self.board.id, event="card.archived",
+        ).values_list("data", flat=True)
+        self.assertEqual(frame, {"card_uid": result["card_uid"]})
+
     def test_archiving_a_blocker_sends_its_peer_a_full_card_update(self):
         """The blocked card's card.updated is a full card with the new count (#1634).
 

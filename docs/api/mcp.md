@@ -391,7 +391,7 @@ The `assignee` argument of `list_cards`, `create_card`, and `update_card` takes 
 
 > **Added in 1.3** (#1974)
 
-Every board, column, swimlane, label, and card in tool and resource output carries a `uid` next to its integer `id`: the 16-character [stable UID](../features/stable-uids.md) the REST API, the [WebSocket frames](websockets.md) (`card_uid`, `column_uid`, ...) and the [change feed](events.md) use. Use `uid` to match an MCP card to a `card.*` event or a REST card, and as the key in any external system. Tool arguments still take the integer `id`s, unchanged.
+Every board, column, swimlane, label, and card in tool and resource output carries a `uid` next to its integer `id` (`archive_card`, which returns no card object, carries it as `card_uid` next to `card_id`): the 16-character [stable UID](../features/stable-uids.md) the REST API, the [WebSocket frames](websockets.md) (`card_uid`, `column_uid`, ...) and the [change feed](events.md) use. Use `uid` to match an MCP card to a `card.*` event or a REST card, and as the key in any external system. Tool arguments still take the integer `id`s, unchanged.
 
 A movement has no `uid` of its own (its integer `id` identifies it), but it carries the `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` snapshots REST's movement history serves, which survive a rename or delete of the column or swimlane.
 
@@ -401,11 +401,11 @@ A movement has no `uid` of its own (its integer `id` identifies it), but it carr
 
 > **Added in 1.3** (#1974)
 
-Every card in tool and resource output carries `version`, a counter that goes up on every field update and every move of the card, over MCP or REST. Pass it back as the optional `version` argument of `move_card` or `update_card` to make the write conditional: if the card changed since you read it, the call returns a `version_conflict` [tool error](#tool-errors) carrying `current_version`, and nothing is written or broadcast. Omit `version` and the call behaves exactly as before 1.3, with no check.
+Every card object in tool and resource output (from `list_cards`, `create_card`, `move_card`, `update_card`, `board://` and `card://`) carries `version`, a counter that goes up on every field update and every move of the card, over MCP or REST. Pass it back as the optional `version` argument of `move_card` or `update_card` to make the write conditional: if the card changed since you read it, the call returns a `version_conflict` [tool error](#tool-errors) carrying `current_version`, and nothing is written or broadcast. Omit `version` and the call behaves exactly as before 1.3, with no check.
 
 `move_card`'s `version` is the REST move endpoint's `version` body field, with the same semantics and the same error. The REST `PATCH`/`PUT` card endpoints still neither accept nor check `version`; the conditional update exists on the MCP `update_card` tool only.
 
-A successful write returns the card with its new `version`, which is the one to send on the next write.
+A successful `create_card`, `move_card`, or `update_card` returns the card with its new `version`, which is the one to send on the next write.
 
 ### `list_columns`
 
@@ -475,7 +475,7 @@ Soft-deletes a card. Idempotent — archiving an already-archived card succeeds 
 
 **Arguments:** `card_id` (required).
 
-**Returns:** `{"card_id": <id>, "archived_at": <ISO 8601 timestamp>}`.
+**Returns:** `{"card_id": <id>, "card_uid": <uid>, "archived_at": <ISO 8601 timestamp>}`. `card_uid` (*added in 1.3, #1974*) is the card's [stable UID](#stable-identifiers-uid), the same value the `card.archived` WebSocket frame carries. The result has no card object and so no `version`.
 
 ---
 

@@ -1005,8 +1005,13 @@ def archive_card(*, card_id):
         board, role, card = _resolve_board_for_card(user, card_id)
         result = card_services.archive_card(
             actor=user, board=board, role=role, card_id=card_id,
+            # Only the tool's return value: the service broadcasts its own
+            # {card_uid} frame and renders blocked peers with render_many.
             render=lambda c: {
                 "card_id": c.id,
+                # #1974: the key the card.archived frame and the change feed
+                # carry. A column on the row the service already loaded.
+                "card_uid": c.uid,
                 "archived_at": c.archived_at.isoformat() if c.archived_at else None,
             },
             # The cards this one blocks lose a blocker; their card.updated
