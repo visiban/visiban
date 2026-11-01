@@ -443,15 +443,27 @@ def _serialize_user(user):
 
 
 def _serialize_card(card):
+    """The agent-facing card shape.
+
+    ``uid`` (and the ``uid`` inside ``column``/``swimlane``) is the stable key
+    REST, the WebSocket frames and the change feed already carry (#1974), so
+    an agent can correlate an MCP card with a ``card.*`` event or a REST card;
+    ``version`` is the optimistic-concurrency counter ``move_card``/
+    ``update_card`` accept back. All are columns on rows every caller already
+    fetches (the card, and its ``select_related`` column and swimlane), so
+    they cost no query. Additive only: the integer ``id`` keys stay.
+    """
     return {
         "id": card.id,
+        "uid": card.uid,
+        "version": card.version,
         "title": card.title,
         "description": card.description,
         "priority": card.priority,
         "assignee": _serialize_user(card.assignee) if card.assignee_id else None,
         "labels": sorted(label.name for label in card.labels.all()),
-        "column": {"id": card.column_id, "name": card.column.name},
-        "swimlane": {"id": card.swimlane_id, "name": card.swimlane.name},
+        "column": {"id": card.column_id, "uid": card.column.uid, "name": card.column.name},
+        "swimlane": {"id": card.swimlane_id, "uid": card.swimlane.uid, "name": card.swimlane.name},
         "due_date": card.due_date.isoformat() if card.due_date else None,
         "position": card.position,
         "created_at": card.created_at.isoformat(),
@@ -541,6 +553,15 @@ def _serialize_movement(movement):
         "to_column": movement.to_column_name or None,
         "from_swimlane": movement.from_swimlane_name or None,
         "to_swimlane": movement.to_swimlane_name or None,
+        # The write-time uid snapshots REST's CardMovementSerializer serves
+        # under the same names (#1974). They survive a rename or delete of the
+        # column/swimlane, which the names above do not. ``or None`` like the
+        # names: a creation row has no "from", and a row whose FK was already
+        # null when the uid columns were backfilled stores "".
+        "from_column_uid": movement.from_column_uid or None,
+        "to_column_uid": movement.to_column_uid or None,
+        "from_swimlane_uid": movement.from_swimlane_uid or None,
+        "to_swimlane_uid": movement.to_swimlane_uid or None,
         "moved_at": movement.moved_at.isoformat(),
         "moved_by": _serialize_user(movement.moved_by) if movement.moved_by_id else None,
         # Same as the REST field (#1675): the source file's username on a row
@@ -550,7 +571,7 @@ def _serialize_movement(movement):
 
 
 def _serialize_label(label):
-    return {"id": label.id, "name": label.name, "color": label.color}
+    return {"id": label.id, "uid": label.uid, "name": label.name, "color": label.color}
 
 
 # `actor`/`author` use the same `_serialize_user` shape as `assignee` and
@@ -611,6 +632,7 @@ def _columns_payload(board):
     return [
         {
             "id": c.id,
+            "uid": c.uid,  # #1974: the key column_uid in WS/change-feed events names
             "name": c.name,
             "position": c.position,
             "color": c.color,
@@ -658,6 +680,7 @@ def _swimlanes_payload(board, role):
     for s in swimlanes:
         row = {
             "id": s.id,
+            "uid": s.uid,  # #1974, as for columns
             "name": s.name,
             "position": s.position,
             "color": s.color,
@@ -892,7 +915,7 @@ def create_card(*, board_id, column_id, swimlane_id, title, description=None,
         return _error_payload(exc)
 
 
-def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0):
+def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, version=None):
     """Move a card to a new column, swimlane, and/or position.
 
     At least one of ``to_column_id``/``to_swimlane_id`` is required; the other
@@ -901,9 +924,15 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0):
     with an unchanged column/swimlane id.
 
     WIP/weight limits are enforced exactly as they are over REST, with no
-    override: this tool never exposes ``force`` or ``version`` (optimistic
-    concurrency), so a blocked move always comes back as a structured
-    ``wip_limit_exceeded``/``wip_hard_blocked`` error rather than a 500.
+    override: this tool never exposes ``force``, so a blocked move always
+    comes back as a structured ``wip_limit_exceeded``/``wip_hard_blocked``
+    error rather than a 500.
+
+    ``version`` (#1974) is the REST move endpoint's optional ``version`` body
+    field, passed to the same service argument, so the two agree on what
+    increments it and on the ``version_conflict`` error (carrying
+    ``current_version``) a stale value gets. Omitted, no check is made, which
+    is exactly the pre-1.3 behavior.
     """
     user = get_current_user()
     if to_column_id is None and to_swimlane_id is None:
@@ -919,7 +948,7 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0):
             actor=user, board=board, role=role, card_id=card_id,
             target_column_id=target_column_id, target_swimlane_id=target_swimlane_id,
             position=position if position is not None else 0,
-            render=render.moved,
+            render=render.moved, expected_version=version,
         )
         return {"card": render.tool_card, "movement": render.tool_movement}
     except CardServiceError as exc:
@@ -927,7 +956,7 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0):
 
 
 def update_card(*, card_id, title=None, description=None, priority=None,
-                 assignee=None, labels=None, due_date=None):
+                 assignee=None, labels=None, due_date=None, version=None):
     """Update one or more fields on a card.
 
     Cannot change ``column``/``swimlane`` — use ``move_card``, which is the
@@ -936,6 +965,12 @@ def update_card(*, card_id, title=None, description=None, priority=None,
     (``None``) argument is left untouched; only ``labels=[]`` and
     ``assignee=""`` are recognized as an explicit "clear" — see
     ``_translate_card_fields``.
+
+    ``version`` (#1974) is the same optional optimistic-concurrency guard
+    ``move_card`` takes, checked by the service under the card lock; a stale
+    value returns ``version_conflict`` with ``current_version`` and changes
+    nothing. REST PATCH/PUT still take no version: this adds the guard to the
+    MCP tool, not to the REST contract.
     """
     user = get_current_user()
     try:
@@ -956,6 +991,7 @@ def update_card(*, card_id, title=None, description=None, priority=None,
         card_services.update_card(
             actor=user, board=board, role=role, card=card,
             submitted=submitted, apply=apply, render=render.card,
+            expected_version=version,
         )
         return render.tool_card
     except (CardServiceError, ValidationFailed, _DRFValidationError) as exc:
@@ -1049,6 +1085,8 @@ def board_snapshot(*, board_id):
     cards, cards_total = _cards_page(board)
     return {
         "id": board.id,
+        # list_boards already carried it; the snapshot did not (#1974).
+        "uid": board.uid,
         "name": board.name,
         "description": board.description,
         "created_at": board.created_at.isoformat(),

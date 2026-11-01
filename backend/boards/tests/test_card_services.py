@@ -21,7 +21,9 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from boards import hooks
-from boards.models import BoardMembership, Card, CardActivity, CardMovement, CardRelation
+from boards.models import (
+    BoardEvent, BoardMembership, Card, CardActivity, CardMovement, CardRelation, Notification,
+)
 from boards.permissions import get_board_role, get_board_roles
 from boards.services import cards as svc
 from boards.services.errors import (
@@ -525,6 +527,110 @@ class VersionConflictTests(CardServiceTestBase):
         before = Card.objects.get(pk=self.card.pk).version
         self._move()
         self.assertEqual(Card.objects.get(pk=self.card.pk).version, before + 1)
+
+
+class UpdateVersionTests(CardServiceTestBase):
+    """``update_card``'s optional ``expected_version`` (#1974).
+
+    Same semantics as ``move_card``'s: opt-in, coerced after the role, 404
+    and ownership gates, compared against the row read under the card lock.
+    The REST PATCH adapter never passes it; the MCP ``update_card`` tool does.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.events = []
+        self._recorder = lambda event, c, b, a: self.events.append((event, c, b, a))
+        hooks.CARD_MUTATION_HOOKS.append(self._recorder)
+
+    def tearDown(self):
+        hooks.CARD_MUTATION_HOOKS.remove(self._recorder)
+        super().tearDown()
+
+    def _update(self, actor=None, title="Changed", **kwargs):
+        card = Card.objects.get(pk=self.card.pk)
+
+        def apply():
+            card.title = title
+            card.save(update_fields=["title"])
+
+        return svc.update_card(
+            actor=actor or self.owner, board=self.board, card=card,
+            submitted={"title": title}, apply=apply, render=_render, **kwargs,
+        )
+
+    def test_matching_version_is_accepted_bumped_and_broadcast(self):
+        version = Card.objects.get(pk=self.card.pk).version
+        with self.captureOnCommitCallbacks(execute=True):
+            self._update(expected_version=version)
+        card = Card.objects.get(pk=self.card.pk)
+        self.assertEqual(card.title, "Changed")
+        self.assertEqual(card.version, version + 1)
+        # The guard does not swallow the side effects of an accepted write.
+        self.broadcast.assert_called_once()
+        board_id, event, _payload = self.broadcast.call_args[0]
+        self.assertEqual((board_id, event), (self.board.pk, "card.updated"))
+        self.assertEqual(self.events, [
+            ("card.updated", self.card.pk, self.board.pk, self.owner.pk),
+        ])
+
+    def test_a_numeric_string_version_is_accepted(self):
+        self._update(expected_version=str(Card.objects.get(pk=self.card.pk).version))
+        self.assertEqual(Card.objects.get(pk=self.card.pk).title, "Changed")
+
+    def test_stale_version_is_rejected_before_anything_is_written(self):
+        Card.objects.filter(pk=self.card.pk).update(version=F("version") + 1)
+        current = Card.objects.get(pk=self.card.pk).version
+        feed_before = BoardEvent.objects.filter(board_id=self.board.pk).count()
+        notifications_before = Notification.objects.count()
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            with self.assertRaises(VersionConflict) as ctx:
+                self._update(expected_version=current - 1)
+        self.assertEqual(ctx.exception.current_version, current)
+        card = Card.objects.get(pk=self.card.pk)
+        self.assertEqual(card.title, "Subject")
+        self.assertEqual(card.version, current)
+        self.assertFalse(CardActivity.objects.filter(card=self.card).exists())
+        # No broadcast, change-feed row, hook or notification.
+        self.assertEqual(callbacks, [])
+        self.broadcast.assert_not_called()
+        self.assertEqual(BoardEvent.objects.filter(board_id=self.board.pk).count(), feed_before)
+        self.assertEqual(self.events, [])
+        self.assertEqual(Notification.objects.count(), notifications_before)
+
+    def test_version_is_compared_under_the_lock_not_on_the_callers_snapshot(self):
+        """A write committing between the caller's read and the lock must be
+        caught: the caller's snapshot still shows the old version."""
+        snapshot = Card.objects.get(pk=self.card.pk)
+        seen = snapshot.version
+        Card.objects.filter(pk=self.card.pk).update(version=F("version") + 1)
+        with self.assertRaises(VersionConflict) as ctx:
+            svc.update_card(
+                actor=self.owner, board=self.board, card=snapshot,
+                submitted={"title": "x"}, apply=lambda: None, render=_render,
+                expected_version=seen,
+            )
+        self.assertEqual(ctx.exception.current_version, seen + 1)
+
+    def test_omitting_the_version_skips_the_check(self):
+        Card.objects.filter(pk=self.card.pk).update(version=F("version") + 7)
+        self._update(expected_version=None)
+        self.assertEqual(Card.objects.get(pk=self.card.pk).title, "Changed")
+
+    def test_a_non_integer_version_is_rejected(self):
+        with self.assertRaises(InvalidVersion):
+            self._update(expected_version="not-a-number")
+        self.assertEqual(Card.objects.get(pk=self.card.pk).title, "Subject")
+
+    def test_role_archive_and_ownership_are_checked_before_the_version_is_coerced(self):
+        with self.assertRaises(NotPermitted):
+            self._update(actor=self.viewer, expected_version="garbage")
+        # A member editing someone else's card: the ownership gate answers.
+        with self.assertRaises(NotPermitted):
+            self._update(actor=self.member, expected_version="garbage")
+        Card.objects.filter(pk=self.card.pk).update(archived_at=timezone.now())
+        with self.assertRaises(CardNotFound):
+            self._update(expected_version="garbage")
 
 
 class MovePositionTests(CardServiceTestBase):

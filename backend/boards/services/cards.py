@@ -23,10 +23,10 @@ response. Three consequences worth knowing before you call it:
 
 1. **Parsing is mostly the caller's job.** ``force`` arrives as a ``bool``.
    ``expected_version`` is the exception: it arrives raw and ``move_card``
-   coerces it, because *when* the "version must be an integer" 400 is raised is
-   part of the frozen contract — it must come after the role allow-list, the
-   card lookup and the assignment gate, so a caller who fails one of those sees
-   that answer instead.
+   (and, since #1974, ``update_card``) coerces it, because *when* the "version
+   must be an integer" 400 is raised is part of the frozen contract — it must
+   come after the role allow-list, the card lookup and the assignment gate, so
+   a caller who fails one of those sees that answer instead.
 
 2. **Field validation is the caller's job, for now.** Per the project rule that
    input is validated at the serializer boundary, ``create_card`` and
@@ -780,7 +780,10 @@ def _adopt_locked_state(card, locked):
             field.delete_cached_value(card)
 
 
-def update_card(*, actor, board, card, submitted, apply, render, role=None, force=False):
+def update_card(
+    *, actor, board, card, submitted, apply, render, role=None, force=False,
+    expected_version=None,
+):
     """Apply a field update, recording a ``CardActivity`` row per changed field.
 
     ``submitted`` is the mapping of field names the caller actually supplied. It
@@ -797,6 +800,16 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
     ``force`` is consulted only when the write raises the card's ``weight`` in
     a column with an enforced ``weight_limit`` (#1428); it then follows the
     move path's rule — a board admin may override, nobody else.
+
+    ``expected_version`` is the optimistic-concurrency guard ``move_card``
+    already takes, with the same semantics (#1974): ``None`` skips the check
+    (the REST PATCH/PUT adapter never passes one, so REST behavior is
+    unchanged); a non-integer raises ``InvalidVersion`` after the role, 404
+    and ownership gates, as on move; a mismatch raises ``VersionConflict``
+    carrying the stored version, and nothing is written or broadcast. The
+    comparison is made against the row read under the card lock, not the
+    caller's snapshot: comparing earlier would let a write that committed
+    between the snapshot and the lock slip past the guard.
 
     The whole sequence — save, activity rows, notification, deferred broadcast
     registration — is one transaction, so a failure at any step rolls back
@@ -821,6 +834,15 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
             else "You can only edit cards you created."
         ),
     )
+
+    # Coerced here, after the role, 404 and ownership gates, for the reason
+    # move_card coerces its own: a caller who fails one of those must see that
+    # answer, not a 400 about a malformed version they also sent.
+    if expected_version is not None:
+        try:
+            expected_version = int(expected_version)
+        except (TypeError, ValueError):
+            raise InvalidVersion() from None
 
     _reject_cell_change(board, card, submitted)
 
@@ -856,6 +878,12 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None, forc
         # and a column/swimlane/position that no longer matches is a move.
         if card.archived_at is not None:
             raise CardNotFound()
+        # OCC (#1974): compared against the locked row, which nothing can
+        # change again before COMMIT, so a match here cannot go stale before
+        # the write. Raising rolls the transaction back before apply() and
+        # before the broadcast is registered.
+        if expected_version is not None and card.version != expected_version:
+            raise VersionConflict(card.version)
         _reject_cell_change(board, card, submitted)
         # Snapshot before the write so the activity diff can name what changed.
         old_title = card.title

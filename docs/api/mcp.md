@@ -362,7 +362,7 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `object_not_found` | Reserved generic not-found code for a lookup with no more specific code above. |
 | `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. Also returned by `update_card` and `archive_card` when your role only allows changing cards you created, and by `move_card` when the card is assigned to someone else and your role is below moderator. |
 | `force_not_permitted` | Reserved: no tool currently exposes `force`. A `force` override of a WIP or weight limit was requested by someone who is not a board admin. |
-| `invalid_version` | Reserved: no tool currently takes `version`. The supplied `version` is not an integer. |
+| `invalid_version` | Reserved: `version` (on `move_card` and `update_card` since 1.3) is schema-typed as an integer, so this is not currently reachable. The supplied `version` is not an integer. |
 | `invalid_position` | Reserved: `position` is schema-typed as an integer, so this is not currently reachable. The supplied move `position` is not an integer. |
 | `card_creation_not_allowed` | `create_card` targeted a column that has card creation turned off. Carries a `column` message instead of `detail`: `{"column": "Card creation is not allowed in this column.", "code": "card_creation_not_allowed"}`. |
 | `container_changed` | Reserved: no MCP tool deletes containers. A column, swimlane, or board kept gaining cards while it was being locked for deletion; nothing was deleted. Retry. |
@@ -375,7 +375,7 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee` username or label name that does not resolve to an assignable board member/label. Every unresolved `assignee` returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a `viewer` (who cannot be assigned). |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.2 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
 | `weight_limit_exceeded` | The target column is at its weight limit (`move_card`, and `create_card` since 1.2). |
-| `version_conflict` | `move_card`, and `create_card` when `position` is given. For `move_card`, the card kept changing under concurrent writes while the server retried locking it; `move_card` takes no `version` argument, so this is the only cause. Re-read the card and retry. For `create_card`, cards kept entering the target column/swimlane cell while the server retried locking it. Nothing was created, so there is no card to report: `current_version` is `null` and `detail` says so. Retry the same call. Added in 1.2 (#1522). |
+| `version_conflict` | `move_card`, `update_card`, and `create_card` when `position` is given. For `move_card` and `update_card`, the `version` you passed no longer matches the card (*Added in 1.3, #1974*; see [Optimistic concurrency](#optimistic-concurrency)), or, for `move_card` only, the card kept changing under concurrent writes while the server retried locking it, which can happen without a `version`. Nothing was changed; `current_version` is the card's version now. Re-read the card and retry. For `create_card`, cards kept entering the target column/swimlane cell while the server retried locking it. Nothing was created, so there is no card to report: `current_version` is `null` and `detail` says so. Retry the same call. Added in 1.2 (#1522). |
 
 ### User fields
 
@@ -387,13 +387,33 @@ The `assignee` argument of `list_cards`, `create_card`, and `update_card` takes 
 
 *Changed in 1.2 (before GA, #2004): `assignee_email` is no longer listed in the `create_card`/`update_card` input schema. A call that passes it with any non-null value, including an empty string, is rejected with an `isError: true` [tool error](#tool-errors), code `validation_error`, `errors` `` {"assignee_email": ["This argument was replaced by `assignee` (a username)."]} ``, and nothing is created or changed. An explicit `"assignee_email": null` is ignored, and the call runs as if the argument were absent. For clients of v1.2.0-beta.2 through rc.1, which already rejected a non-null value and ignored `null` the same way, only `isError` changed. For clients of v1.2.0-beta.1 and earlier, where `assignee_email` was the working email-based assignee argument, it no longer assigns anyone: send `assignee` (a username) instead. Other arguments a tool does not declare are ignored by the MCP SDK (`mcp` 2.3.0), not rejected.*
 
+### Stable identifiers (`uid`)
+
+> **Added in 1.3** (#1974)
+
+Every board, column, swimlane, label, and card in tool and resource output carries a `uid` next to its integer `id`: the 16-character [stable UID](../features/stable-uids.md) the REST API, the [WebSocket frames](websockets.md) (`card_uid`, `column_uid`, ...) and the [change feed](events.md) use. Use `uid` to match an MCP card to a `card.*` event or a REST card, and as the key in any external system. Tool arguments still take the integer `id`s, unchanged.
+
+A movement has no `uid` of its own (its integer `id` identifies it), but it carries the `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` snapshots REST's movement history serves, which survive a rename or delete of the column or swimlane.
+
+*Changed in 1.3 (#1974): before 1.3 only `list_boards` returned a `uid`. The new keys are additive; no existing key changed.*
+
+### Optimistic concurrency
+
+> **Added in 1.3** (#1974)
+
+Every card in tool and resource output carries `version`, a counter that goes up on every field update and every move of the card, over MCP or REST. Pass it back as the optional `version` argument of `move_card` or `update_card` to make the write conditional: if the card changed since you read it, the call returns a `version_conflict` [tool error](#tool-errors) carrying `current_version`, and nothing is written or broadcast. Omit `version` and the call behaves exactly as before 1.3, with no check.
+
+`move_card`'s `version` is the REST move endpoint's `version` body field, with the same semantics and the same error. The REST `PATCH`/`PUT` card endpoints still neither accept nor check `version`; the conditional update exists on the MCP `update_card` tool only.
+
+A successful write returns the card with its new `version`, which is the one to send on the next write.
+
 ### `list_columns`
 
 Lists a board's columns, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards. `wip_limit` is checked by both `move_card` and `create_card` (since 1.2, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)).
+**Returns:** an array of `{id, uid, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards; `uid` is new in 1.3 (see [Stable identifiers](#stable-identifiers-uid)). `wip_limit` is checked by both `move_card` and `create_card` (since 1.2, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)).
 
 ### `list_swimlanes`
 
@@ -401,7 +421,7 @@ Lists a board's swimlanes, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, name, position, color, card_count, is_collapsed}`, plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
+**Returns:** an array of `{id, uid, name, position, color, card_count, is_collapsed}` (`uid` since 1.3), plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
 
 ### `list_cards`
 
@@ -415,7 +435,7 @@ Lists a board's cards, ordered by column position, then swimlane position, then 
 
 *Changed in 1.2: `limit`, `offset` and `include_meta` are new and optional, and the card fields are unchanged. A call that omits them returns the same array as before; the only difference is the in-band notice and `_meta` on a call that was truncated (#1762).*
 
-**Returns:** by default, an array of `{id, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}`. `assignee` is a `{username, display_name}` object or `null` (see [User fields](#user-fields)); `labels` is an array of names; `column`/`swimlane` are `{id, name}` objects so a result can be fed straight into `move_card`.
+**Returns:** by default, an array of `{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}`. `assignee` is a `{username, display_name}` object or `null` (see [User fields](#user-fields)); `labels` is an array of names; `column`/`swimlane` are `{id, uid, name}` objects so a result can be fed straight into `move_card`. `uid`, `version`, and the `uid` inside `column`/`swimlane` are new in 1.3 (#1974; see [Stable identifiers](#stable-identifiers-uid) and [Optimistic concurrency](#optimistic-concurrency)).
 
 With `include_meta: true`, an object instead (and no in-band notice, since the data carries the signal): `{cards, total, truncated, limit, offset}`. `cards` is the same array described above; `total` is the number of cards matching the filters, ignoring `limit`/`offset`; `truncated` is `true` when more matching cards exist after the returned ones (fetch them with a larger `offset`); `limit` and `offset` echo the values applied.
 
@@ -435,9 +455,9 @@ Enforces the column's WIP and weight limits exactly as `move_card` does, with no
 
 Moves a card to a new column and/or swimlane and/or position. Requires `admin` or `member` board role and the `mcp:write` scope.
 
-**Arguments:** `card_id` (required); `to_column_id`, `to_swimlane_id` — at least one required, the other defaults to the card's current value; `position` (default `0`).
+**Arguments:** `card_id` (required); `to_column_id`, `to_swimlane_id` — at least one required, the other defaults to the card's current value; `position` (default `0`); `version` (integer, optional, *added in 1.3*): the card's `version` from a prior read, which makes the move fail with `version_conflict` if the card changed since (see [Optimistic concurrency](#optimistic-concurrency)).
 
-**Returns:** `{"card": <card>, "movement": <movement-or-null>}`. `movement` is `null` for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries `{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by, imported_from_username}`. `imported_from_username` is `null` except on a row created by a board import with history (since 1.2), where it holds the username the import file named and `moved_by` is the user who imported it. Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded` rather than moving the card.
+**Returns:** `{"card": <card>, "movement": <movement-or-null>}`. `movement` is `null` for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries `{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}`. The four `*_uid` keys (*added in 1.3*) are the column and swimlane UIDs captured when the movement was written, `null` where the matching name is `null` (no "from" cell on a creation row) or where an old row predates UID capture. `imported_from_username` is `null` except on a row created by a board import with history (since 1.2), where it holds the username the import file named and `moved_by` is the user who imported it. Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded` rather than moving the card.
 
 Broadcasts `card.moved` with the same payload as the REST move endpoint (`{card, movement}`, full card and movement objects, `movement` omitted for a same-cell reorder), not the tool's return shape. *Fixed in 1.2 (#1926).*
 
@@ -445,7 +465,7 @@ Broadcasts `card.moved` with the same payload as the REST move endpoint (`{card,
 
 Updates one or more fields on a card. Requires `admin` or `member` board role and the `mcp:write` scope.
 
-**Arguments:** `card_id` (required); any of `title`, `description`, `priority`, `assignee` (username), `labels`, `due_date` — omitted fields are left unchanged. `labels: []` clears every label; `assignee: ""` unassigns the card. Cannot change a card's column or swimlane — use `move_card`.
+**Arguments:** `card_id` (required); any of `title`, `description`, `priority`, `assignee` (username), `labels`, `due_date` — omitted fields are left unchanged. `labels: []` clears every label; `assignee: ""` unassigns the card. Cannot change a card's column or swimlane — use `move_card`. `version` (integer, optional, *added in 1.3*): the card's `version` from a prior read; the update then fails with `version_conflict`, changing nothing, if the card changed since (see [Optimistic concurrency](#optimistic-concurrency)).
 
 **Returns:** the updated card, same shape as `create_card`. Records a `CardActivity` audit entry per field that actually changed. Broadcasts `card.updated` with the full card, as a REST update does, not the tool's return shape. *Fixed in 1.2 (#1926).*
 
@@ -478,6 +498,7 @@ A read-only board snapshot: metadata, columns, swimlanes, up to 200 active cards
 | Field | Type | Description |
 |---|---|---|
 | `id` | integer | Board primary key. |
+| `uid` | string | Stable public short id, as in `list_boards`. Added in 1.3 (#1974). |
 | `name` | string | Board name. |
 | `description` | string | Board description; empty string when unset. |
 | `created_at` | string | ISO 8601 timestamp. |
@@ -487,7 +508,7 @@ A read-only board snapshot: metadata, columns, swimlanes, up to 200 active cards
 | `cards` | array | Same shape as `list_cards`'s return above, unfiltered and excluding archived cards. Capped at 200 cards like `list_cards`; `cards_total` and `cards_truncated` say whether it was. |
 | `cards_total` | integer | Number of active cards on the board, ignoring the 200-card cap. Added in 1.2 (#1762). |
 | `cards_truncated` | boolean | `true` when `cards` holds fewer than `cards_total` rows; fetch the rest with `list_cards` (`limit`/`offset`). Added in 1.2 (#1762). |
-| `labels` | array | `{id, name, color}` objects, one per label defined on the board. |
+| `labels` | array | `{id, uid, name, color}` objects, one per label defined on the board (`uid` since 1.3). A card's `labels` stay an array of names, which are unique per board; map them to a `uid` through this list. |
 
 !!! note
     `board://{board_id}` deliberately omits every web-session-only field the REST board detail response carries — `share_token` (deprecated on REST since 1.2), `share_token_expires_at`, `share_link_active`, `capabilities`, `is_starred`, `members`, `current_user_role`. These have no meaning for an AI agent reading board context, and a share token in particular is a bearer credential that must never appear in agent-facing output.
@@ -501,7 +522,7 @@ Card detail plus full audit history. Requires board membership — any role, inc
 | Field | Type | Description |
 |---|---|---|
 | `archived_at` | string or `null` | ISO 8601 timestamp, or `null` if the card is not archived. |
-| `movements` | array | `{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by, imported_from_username}` objects — same shape as `move_card`'s `movement` above. |
+| `movements` | array | `{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}` objects — same shape as `move_card`'s `movement` above (the `*_uid` keys since 1.3). |
 | `checklist_items` | array | `{id, text, is_checked, position}` objects. |
 | `activities` | array | `{id, event_type, from_value, to_value, actor, created_at, imported_from_username}` objects, newest first. `imported_from_username` works as on `movements`. |
 | `comments` | array | `{id, body, author, created_at, updated_at, imported_from_username}` objects, oldest first. `imported_from_username` is `null` except on a comment created by a board import (since 1.2), where it holds the author name the source named and `author` is the user who imported it. |
@@ -526,6 +547,7 @@ The MCP surface is a public contract from 1.2 and follows the same compatibility
 - **Argument schemas** change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.
 - **Results and error payloads** only gain fields; existing fields keep their name and type. The error `code` values listed under [Tool errors](#tool-errors) are never removed.
 - A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
+- **Resource URIs address objects by integer id.** `board://{board_id}` and `card://{card_id}` take the same integer `id` the tools take, and that scheme is frozen. A `uid` is not accepted in their place. If uid-addressed reads are ever added, they will be new, additional resource templates, and these two will keep working unchanged. *Recorded in 1.3 (#1974).*
 - New tools, resources, optional arguments, and result fields can appear in any minor release, so clients should ignore fields they do not recognize.
 - The configuration names `MCP_SERVER_ENABLED`, `MCP_ALLOWED_HOSTS`, `MCP_THROTTLE_*_RATE`, and the `/mcp` path follow the environment-variable rules: they are not renamed, and a rename keeps the old name as a deprecated alias for at least one minor release.
 
