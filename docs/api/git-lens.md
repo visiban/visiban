@@ -159,7 +159,7 @@ Retrieve the saved LensConnection for a board.
 
 ### `PUT /api/v1/git-lens/connections/{board_id}/`
 
-Create or replace the LensConnection for a board. If no connection exists, one is created; if one already exists, it is replaced in full.
+Create or replace the LensConnection for a board. If no connection exists, one is created; if one already exists, `provider` and `repo_slug` are replaced and any optional field you omit **keeps its stored value**.
 
 **Permissions:** Board admin, board owner, or site admin. Board members without admin role receive `403 Forbidden`.
 
@@ -171,6 +171,8 @@ Create or replace the LensConnection for a board. If no connection exists, one i
 | `repo_slug` | string | Yes | Repository in `owner/repo` format. Must be a public repository |
 | `column_dim` | string | No | Dimension for board columns. One of `"status"`, `"state"`, `"pipeline"` (default: `"pipeline"`) |
 | `swimlane_dim` | string | No | Dimension for swimlanes. One of `"milestone"`, `"assignee"`, `"label"` (default: `"milestone"`) |
+
+**Omitted optional fields:** on an existing connection, an omitted `column_dim` or `swimlane_dim` is left unchanged. The defaults above apply only when the connection is first created. Send the field explicitly to change it.
 
 **Example request**
 ```json
