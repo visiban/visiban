@@ -898,6 +898,27 @@ describe('CardDetail', () => {
     expect(screen.getByText('One item per line')).toBeInTheDocument()
   })
 
+  it('Escape in the new-label input closes only the input; a second Escape closes the panel (#1972)', async () => {
+    const props = defaultProps()
+    const user = userEvent.setup()
+    render(<CardDetail {...props} />)
+    await user.click(screen.getByText('+ New label'))
+    const input = screen.getByPlaceholderText('Label name')
+    expect(input).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByPlaceholderText('Label name')).not.toBeInTheDocument()
+    expect(props.onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape with no label input open still closes the panel (#1972)', async () => {
+    const props = defaultProps()
+    render(<CardDetail {...props} />)
+    await userEvent.setup().keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('Escape closes the bulk-add overlay first, without closing the card panel (#1376)', async () => {
     const props = defaultProps()
     const user = userEvent.setup()
