@@ -19,6 +19,9 @@ ENABLED = override_settings(
     DEMO_MODE=False,
     WEBHOOK_SETTLE_SECONDS=0,
     WEBHOOK_ALLOWED_PRIVATE_TARGETS="",
+    # The constant-time refusal floor is pinned by its own test; elsewhere it
+    # would only make the suite slow.
+    WEBHOOK_REFUSAL_FLOOR_SECONDS=0,
 )
 
 

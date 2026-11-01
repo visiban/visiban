@@ -745,7 +745,7 @@ export interface WebhookSubscription {
   id: number;
   board: number;
   name: string;
-  /** `scheme://host/…` — never the path, query or port. */
+  /** `host/…/last4` — never the rest of the URL. */
   url_display: string;
   url_host: string;
   /** Empty = every subscribable type, including types added later. */
@@ -797,6 +797,8 @@ export interface WebhookTestResult {
   /** null on success. */
   code: string | null;
   status_code: number | null;
+  /** Time to the receiver's status line; null when nothing answered. */
+  latency_ms: number | null;
 }
 
 export interface CardMovement {

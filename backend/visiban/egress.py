@@ -9,7 +9,7 @@ Without a guard, that one text field reaches whatever the backend can reach:
 the cloud metadata service, the database, an admin panel bound to localhost.
 
 Every outbound request to a user-supplied destination therefore goes through
-this module and nowhere else (security-invariants Rule 15). The guard has three
+this module and nowhere else (security-invariants Rule 14). The guard has three
 parts, and each one closes a gap the others leave open:
 
 1. **Classify every resolved address.** :func:`classify_ip` sorts an address
@@ -54,6 +54,7 @@ import dataclasses
 import ipaddress
 import socket
 import ssl
+import threading
 import urllib.parse
 
 import urllib3
@@ -286,17 +287,53 @@ def _admitted(ip, category: str, host: str, allowlist: Allowlist) -> bool:
 # ─── URL validation and resolution ───────────────────────────────────────────
 
 
+# ``invalid_url`` sub-reasons. Each is decided from the URL text alone, with
+# no DNS lookup, so naming it tells a caller nothing about the network.
+REASON_HTTP = "http"  # http:// with no operator allowlist at all
+REASON_CREDS = "creds"  # a user name or password in the address
+REASON_FORMAT = "format"  # anything else that is not a usable https address
+
+
 class EgressError(Exception):
     """A destination was refused or a delivery failed.
 
-    ``code`` is one of the module constants and is the ONLY thing a caller may
-    store or return. The exception message is fixed text, never derived from
-    the URL or an underlying exception.
+    ``code`` (and, for ``invalid_url``, ``reason``) is the ONLY thing a caller
+    may store or return. The exception message is fixed text, never derived
+    from the URL or an underlying exception.
     """
 
-    def __init__(self, code: str):
+    def __init__(self, code: str, reason: str | None = None):
         super().__init__(code)
         self.code = code
+        self.reason = reason
+
+
+def _call_with_deadline(fn, timeout: float):
+    """Run *fn* on a daemon thread and give up after *timeout* seconds.
+
+    Returns its result or re-raises its exception. On a timeout raises
+    ``EgressError(timeout)`` and abandons the thread: neither
+    ``socket.getaddrinfo`` nor a per-read socket timeout bounds the WALL clock
+    (a resolver or a receiver that answers one byte at a time resets the clock
+    on every read). The abandoned thread ends on its own when its per-operation
+    timeouts fire; the caller is free at the deadline either way.
+    """
+    box = {}
+
+    def run():
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # noqa: BLE001 — re-raised on the caller's thread
+            box["error"] = exc
+
+    thread = threading.Thread(target=run, name="visiban-egress", daemon=True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise EgressError(TIMEOUT)
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -308,8 +345,12 @@ class Destination:
     is_ip_literal: bool
 
 
-def parse_url(url) -> Destination:
+def parse_url(url, allowlist: "Allowlist | None" = None) -> Destination:
     """Validate the syntax of a webhook URL. Raises ``EgressError(invalid_url)``.
+
+    The error carries a ``reason``: ``creds`` for userinfo, ``http`` for an
+    http:// address when the operator allowlist is empty (it can then never be
+    allowed), ``format`` for everything else. None needs DNS.
 
     Refuses: anything but ``https`` / ``http``, userinfo, a missing or
     malformed host, a bad port, whitespace or control characters, and URLs
@@ -317,37 +358,42 @@ def parse_url(url) -> Destination:
     sent). Whether ``http`` or a low port is acceptable depends on the
     allowlist and is decided in :func:`resolve_destination`.
     """
+    def bad(reason=REASON_FORMAT):
+        return EgressError(INVALID_URL, reason)
+
     if not isinstance(url, str) or not url or len(url) > MAX_URL_LENGTH:
-        raise EgressError(INVALID_URL)
+        raise bad()
     if any(c.isspace() or ord(c) < 0x20 or ord(c) == 0x7F for c in url):
-        raise EgressError(INVALID_URL)
+        raise bad()
     try:
         parts = urllib.parse.urlsplit(url)
         port = parts.port
     except ValueError:
-        raise EgressError(INVALID_URL) from None
+        raise bad() from None
     scheme = parts.scheme.lower()
     if scheme not in ("https", "http"):
-        raise EgressError(INVALID_URL)
+        raise bad()
     if "@" in parts.netloc or parts.username is not None or parts.password is not None:
-        raise EgressError(INVALID_URL)
+        raise bad(REASON_CREDS)
     raw_host = parts.hostname
     # A zone id ("fe80::1%eth0") names a local interface; never valid here.
     if not raw_host or "%" in raw_host:
-        raise EgressError(INVALID_URL)
+        raise bad()
     try:
         ipaddress.ip_address(raw_host)
         host, is_ip = raw_host, True
     except ValueError:
         if ":" in raw_host:
-            raise EgressError(INVALID_URL) from None
+            raise bad() from None
         host, is_ip = _normalize_host(raw_host), False
         if host is None:
-            raise EgressError(INVALID_URL)
+            raise bad()
     if port is None:
         port = 443 if scheme == "https" else 80
     if not 1 <= port <= 65535:
-        raise EgressError(INVALID_URL)
+        raise bad()
+    if scheme == "http" and allowlist is not None and not allowlist:
+        raise bad(REASON_HTTP)
     target = parts.path or "/"
     if parts.query:
         target = f"{target}?{parts.query}"
@@ -367,7 +413,7 @@ def _resolve(host: str, port: int) -> list:
     return seen
 
 
-def resolve_destination(url, allowlist: Allowlist = EMPTY_ALLOWLIST):
+def resolve_destination(url, allowlist: Allowlist = EMPTY_ALLOWLIST, *, dns_timeout: float = 3.0):
     """Validate *url* and resolve it to admitted addresses.
 
     Returns ``(destination, addresses)``. Raises ``EgressError(invalid_url)``
@@ -376,13 +422,14 @@ def resolve_destination(url, allowlist: Allowlist = EMPTY_ALLOWLIST):
     to a destination that is not allowlisted, or a port below 1024 other than
     443 to a destination that is not allowlisted.
     """
-    dest = parse_url(url)
+    dest = parse_url(url, allowlist)
     if dest.is_ip_literal:
         addresses = [ipaddress.ip_address(dest.host)]
     else:
         try:
-            addresses = _resolve(dest.host, dest.port)
-        except (OSError, UnicodeError, ValueError):
+            # Wall-clock bound: getaddrinfo has no timeout of its own.
+            addresses = _call_with_deadline(lambda: _resolve(dest.host, dest.port), dns_timeout)
+        except (EgressError, OSError, UnicodeError, ValueError):
             raise EgressError(URL_NOT_ALLOWED) from None
     if not addresses:
         raise EgressError(URL_NOT_ALLOWED)
@@ -400,18 +447,23 @@ def resolve_destination(url, allowlist: Allowlist = EMPTY_ALLOWLIST):
     return dest, addresses
 
 
-def display_url(url) -> str:
-    """``scheme://host/…`` for a URL, with no path, query or port.
+def masked_url(url) -> str:
+    """``host/…/last4`` for a stored URL: its host and its last four characters.
 
-    Slack and Zapier URLs carry their credential in the path, so after creation
-    the API only ever shows this form. An unparsable value yields ``""``.
+    The masked form the API returns after creation (the path or query is often
+    the credential). A URL with no path beyond ``/`` shows only the host. An
+    unparsable value yields ``""``.
     """
     try:
         dest = parse_url(url)
     except EgressError:
         return ""
     host = f"[{dest.host}]" if ":" in dest.host else dest.host
-    return f"{dest.scheme}://{host}/…"
+    rest = dest.target.rstrip("/")  # path + query, fragment already dropped
+    if not rest:
+        return host
+    # A slash in the tail adds nothing and reads as a second separator.
+    return f"{host}/…/{rest[-4:].lstrip('/')}"
 
 
 # ─── The one outbound call ───────────────────────────────────────────────────
@@ -447,7 +499,7 @@ def guarded_post(
     *ca_certs* overrides the CA bundle; it exists for the TLS pinning test.
     """
     try:
-        dest, addresses = resolve_destination(url, allowlist)
+        dest, addresses = resolve_destination(url, allowlist, dns_timeout=connect_timeout)
     except EgressError:
         raise EgressError(CONNECTION_FAILED) from None
     ip = str(addresses[0])
@@ -476,7 +528,7 @@ def guarded_post(
         pool = urllib3.HTTPConnectionPool(
             ip, port=dest.port, timeout=timeout, retries=False, maxsize=1,
         )
-    try:
+    def exchange():
         response = pool.urlopen(
             "POST",
             dest.target,
@@ -490,6 +542,13 @@ def guarded_post(
         status = int(response.status)
         response.close()
         return status
+
+    try:
+        # urllib3's total timeout bounds each socket operation, not the whole
+        # exchange; the deadline caps it (one second of grace for the close).
+        return _call_with_deadline(exchange, total_timeout + 1)
+    except EgressError:
+        raise
     except Urllib3SSLError:
         raise EgressError(TLS_ERROR) from None
     except NewConnectionError:

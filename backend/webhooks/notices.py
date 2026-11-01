@@ -10,12 +10,30 @@ reason code. Never the URL (it may be a credential) and never anything the
 receiver sent back.
 """
 
-from boards.models import Board, BoardMembership, Notification
-from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role
+from boards.models import Board, Notification
+from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, get_board_role
 from boards.services.notifications import clip_text, create_notifications
 from boards.utils import _explicit_membership_roles, _group_inherited_roles
 
-ADMIN_ROLES = frozenset({BoardMembership.Role.ADMIN, SITE_ADMIN})
+#: Plain-language label for each automatic reason code, shown beside the code
+#: (which is printed too, so the email and the settings tab match).
+REASON_LABELS = {
+    "failures": "Repeated delivery failures",
+    "cursor_expired": "Fell too far behind",
+    "creator_lost_access": "Its creator lost access",
+    "secret_unavailable": "Its stored secret can't be read",
+}
+
+
+def reason_label(reason: str) -> str:
+    return REASON_LABELS.get(reason, reason)
+
+
+def _admin_roles():
+    # Imported lazily: dispatch imports this module.
+    from .dispatch import STANDING_ROLES
+
+    return STANDING_ROLES
 
 
 def board_admin_ids(board) -> list[int]:
@@ -32,13 +50,15 @@ def board_admin_ids(board) -> list[int]:
     candidates = {board.owner_id, *_explicit_membership_roles(board), *_group_inherited_roles(board)}
     candidates.discard(None)
     users = User.objects.filter(pk__in=candidates, is_active=True)
-    return sorted(u.pk for u in users if get_board_role(u, board) in ADMIN_ROLES)
+    return sorted(u.pk for u in users if get_board_role(u, board) in _admin_roles())
 
 
 def verb_for(subscription_id: int, reason: str, board_name: str) -> str:
+    """``A webhook on "Board" was turned off (webhook #12, failures)``."""
     max_len = Notification._meta.get_field("verb").max_length
-    lead = f"Webhook #{subscription_id} was turned off ({reason}) on "
-    return f'{lead}"{clip_text(board_name, max_len - len(lead) - 2)}"'
+    lead = "A webhook on "
+    tail = f" was turned off (webhook #{subscription_id}, {reason})"
+    return f'{lead}"{clip_text(board_name, max_len - len(lead) - len(tail) - 2)}"{tail}'
 
 
 def notify_disabled(subscription, reason: str):

@@ -567,6 +567,10 @@ WEBHOOK_DISABLE_AFTER_HOURS = env.float("WEBHOOK_DISABLE_AFTER_HOURS", default=2
 # committed after a later-numbered row is still picked up (best-effort until
 # #2053 gives the feed a commit-ordered cursor).
 WEBHOOK_SETTLE_SECONDS = env.int("WEBHOOK_SETTLE_SECONDS", default=10)
+# Every url_not_allowed refusal takes at least this long, so its timing does not
+# reveal which address rule matched. Unset = WEBHOOK_CONNECT_TIMEOUT_SECONDS
+# (the DNS deadline), which makes every refusal take the same time.
+WEBHOOK_REFUSAL_FLOOR_SECONDS = env.float("WEBHOOK_REFUSAL_FLOOR_SECONDS", default=None)
 WEBHOOK_DISPATCHER_STALE_SECONDS = env.int("WEBHOOK_DISPATCHER_STALE_SECONDS", default=300)
 
 # In-app notifications (#1158) — how long a row in `notifications` is kept,
@@ -1394,6 +1398,23 @@ LOGGING = {
         "git_lens.outbound": {
             "handlers": ["console"],
             "level": env("GIT_LENS_OUTBOUND_LOG_LEVEL", default="INFO"),
+            "propagate": False,
+        },
+        # Outbound webhooks (#863): the configuration audit trail (one line per
+        # create, URL change, rotate, re-enable, disable, delete, test) and
+        # delivery failures. Ids and fixed codes only, never a URL or secret.
+        # Configured explicitly for the same reason as git_lens.outbound.
+        "webhooks": {
+            "handlers": ["console"],
+            "level": env("WEBHOOK_LOG_LEVEL", default="INFO"),
+            "propagate": False,
+        },
+        # urllib3's DEBUG connection log prints the request line, which for a
+        # Slack or Zapier webhook is the credential. Pinned above DEBUG so a
+        # root-level DEBUG override cannot expose it.
+        "urllib3": {
+            "handlers": ["console"],
+            "level": "WARNING",
             "propagate": False,
         },
     },

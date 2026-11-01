@@ -170,6 +170,69 @@ class DeliveryTests(DispatcherBase):
         self.assertIsNone(self.sub.lease_token)
 
 
+class FairnessAndCostTests(DispatcherBase):
+    """perf-check findings on #863: no starvation, bounded idle cost."""
+
+    def test_run_budget_round_robins_by_last_scan_not_by_id(self):
+        others = [make_subscription(self.board, self.admin) for _ in range(3)]
+        all_ids = [self.sub.pk] + [o.pk for o in others]
+        self.event()
+        state = {"t": 0.0, "n": 0}
+        real_process = dispatch._process
+
+        def two_per_run(sub_id, deadline, clock, result):
+            real_process(sub_id, deadline, clock, result)
+            state["n"] += 1
+            if state["n"] == 2:
+                state["t"] = 1e9  # budget spent after two subscriptions
+
+        rec = Recorder()
+        with patch("visiban.egress.guarded_post", rec), patch("webhooks.dispatch._process", two_per_run):
+            for _ in range(2):
+                state.update(t=0.0, n=0)
+                dispatch.run_once(budget_seconds=100, clock=lambda: state["t"])
+        served = sorted({int(c["headers"]["X-Visiban-Subscription-Id"]) for c in rec.calls})
+        self.assertEqual(served, sorted(all_ids), "every subscription served within two budget-limited runs")
+
+    def test_due_order_is_least_recently_scanned_first(self):
+        other = make_subscription(self.board, self.admin)
+        now = timezone.now()
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(last_scanned_at=now)
+        WebhookSubscription.objects.filter(pk=other.pk).update(last_scanned_at=now - timedelta(minutes=5))
+        third = make_subscription(self.board, self.admin)  # never scanned
+        self.assertEqual(dispatch._due_ids(now), [third.pk, other.pk, self.sub.pk])
+
+    def test_idle_subscription_skips_the_feed(self):
+        self.event()
+        self.run_with()  # catch up
+        with patch("webhooks.dispatch.feed_queryset") as fq, patch("webhooks.dispatch.cursor_expired") as ce:
+            rec, _ = self.run_with()
+        fq.assert_not_called()
+        ce.assert_not_called()
+        self.assertEqual(rec.calls, [])
+        self.assertIsNotNone(self.sub.last_scanned_at)
+
+    def test_idle_run_still_checks_standing(self):
+        self.event()
+        self.run_with()
+        self.admin.is_active = False
+        self.admin.save(update_fields=["is_active"])
+        self.run_with()
+        self.assertEqual(self.sub.disabled_reason, "creator_lost_access")
+
+    def test_full_page_cut_at_an_unsettled_row(self):
+        first = self.event()
+        mid = self.event()
+        self.event()
+        old = timezone.now() - timedelta(seconds=60)
+        BoardEvent.objects.filter(pk__in=[first.pk]).update(created_at=old)
+        BoardEvent.objects.exclude(pk__in=[first.pk, mid.pk]).update(created_at=old)
+        with override_settings(WEBHOOK_SETTLE_SECONDS=10, WEBHOOK_MAX_EVENTS_PER_RUN=2):
+            rec, _ = self.run_with()
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [first.pk])
+        self.assertEqual(self.sub.cursor, first.pk)
+
+
 class RedactionParityTests(DispatcherBase):
     """The webhook payload never has a key the viewer feed does not."""
 
@@ -232,6 +295,51 @@ class RedactionParityTests(DispatcherBase):
         self.assertIn("Ann", sent)
 
 
+class SubscribableTypesTests(TestCase):
+    def test_allow_list_is_the_feed_coverage_minus_private_and_admin_rows(self):
+        import pathlib
+        import re
+
+        from boards.broadcast import BOARD_CHANNEL_EVENTS
+        from boards.permissions import ADMIN_ONLY_EVENTS, PER_USER_EVENTS
+        from webhooks.models import SUBSCRIBABLE_EVENT_TYPES
+
+        expected = BOARD_CHANNEL_EVENTS - PER_USER_EVENTS - ADMIN_ONLY_EVENTS - {"ping", "board.deleted"}
+        self.assertEqual(set(SUBSCRIBABLE_EVENT_TYPES), expected)
+        self.assertEqual(list(SUBSCRIBABLE_EVENT_TYPES), sorted(expected))
+        # Every offered prefix is one docs/api/events.md § Event coverage lists.
+        doc = (pathlib.Path(__file__).resolve().parents[3] / "docs/api/events.md").read_text()
+        section = doc.split("## Event coverage", 1)[1].split("\n## ", 1)[0]
+        documented = set(re.findall(r"`([a-z_]+)\.\*`", section))
+        offered = {t.rsplit(".", 1)[0] for t in SUBSCRIBABLE_EVENT_TYPES}
+        self.assertEqual(offered - documented, set())
+        for group in ("custom_field", "swimlane_custom_field", "card", "column", "swimlane", "label", "member", "board"):
+            self.assertIn(group, offered)
+        for hidden in ("board.star_changed", "saved_filter.created", "saved_filter.deleted", "share_link.updated", "ping", "board.deleted"):
+            self.assertNotIn(hidden, SUBSCRIBABLE_EVENT_TYPES)
+
+
+class AdminOnlySwimlaneValueTests(DispatcherBase):
+    """The payload never carries an admin-only swimlane field value (#863 follow-up spec)."""
+
+    def test_admin_only_values_are_dropped_even_for_an_admin_owned_webhook(self):
+        lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        hidden = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Budget", field_type="text", is_admin_only=True, position=0
+        )
+        shown = SwimlaneCustomFieldDefinition.objects.create(
+            board=self.board, name="Owner", field_type="text", is_admin_only=False, position=1
+        )
+        self.event("swimlane.updated", data={"id": lane.pk, "custom_field_values": [
+            {"field_definition": hidden.pk, "value": "ADMIN-ONLY-1M"},
+            {"field_definition": shown.pk, "value": "Ann"},
+        ]})
+        rec, _ = self.run_with()
+        values = rec.calls[0]["row"]["data"]["custom_field_values"]
+        self.assertEqual(values, [{"field_definition": shown.pk, "value": "Ann"}])
+        self.assertNotIn(b"ADMIN-ONLY-1M", rec.calls[0]["body"])
+
+
 class FailureTests(DispatcherBase):
     def test_first_failure_stops_the_run_and_backs_off(self):
         first = self.event()
@@ -292,17 +400,20 @@ class FailureTests(DispatcherBase):
         self.assertEqual([n.recipient_id for n in notes], [self.admin.pk])
         note = notes.get()
         self.assertEqual(note.board_id, self.board.pk)
-        self.assertIn(f"#{self.sub.pk}", note.verb)
-        self.assertIn("failures", note.verb)
-        self.assertIn(self.board.name, note.verb)
+        self.assertEqual(note.verb, f'A webhook on "{self.board.name}" was turned off (webhook #{self.sub.pk}, failures)')
         self.assertEqual(len(mail.outbox), 1)
         msg = mail.outbox[0]
         self.assertEqual(msg.to, [self.admin.email])
-        text = msg.subject + msg.body
+        self.assertEqual(msg.subject, f"A webhook on {self.board.name} was turned off")
+        # Exactly three facts: board name, subscription id, reason code (+ label).
+        self.assertIn(f"Board:   {self.board.name}", msg.body)
+        self.assertIn(f"Webhook: #{self.sub.pk}", msg.body)
+        self.assertIn("Reason:  Repeated delivery failures (failures)", msg.body)
         self.assertIn(f"/boards/{self.board.pk}?settings=webhooks", msg.body)
+        self.assertIn("sent even if you turned email notifications off", msg.body)
+        text = msg.subject + msg.body
         for leak in ("hooks.example.com", "s3cr3tpath", "token=abc", "whsec_", "500"):
             self.assertNotIn(leak, text)
-        self.assertIn("whatever your email settings", msg.body)
 
     @override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1)
     def test_notice_email_needs_a_verified_address(self):
@@ -329,7 +440,7 @@ class FailureTests(DispatcherBase):
 
     def test_logs_and_error_fields_never_carry_url_or_secret(self):
         self.event()
-        with self.assertLogs(level=logging.DEBUG) as logs, override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1):
+        with self.assertLogs("webhooks", level=logging.DEBUG) as logs, override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1):
             logging.getLogger("webhooks.dispatch").info("marker")
             self.run_with(EgressError("connection_failed"))
         text = "\n".join(logs.output)

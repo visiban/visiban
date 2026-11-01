@@ -221,6 +221,7 @@ By default each HTTP request opens and closes its own PostgreSQL connection. Set
 | `WEBHOOK_BACKOFF_MAX_SECONDS` | `3600` | Longest retry delay. Keep it under 23 hours, or a backed-off webhook can be wrongly treated as fallen behind retention. |
 | `WEBHOOK_DISABLE_AFTER_FAILURES` | `20` | Consecutive failures that turn a webhook off. |
 | `WEBHOOK_DISABLE_AFTER_HOURS` | `24` | Hours of continuous failure that turn a webhook off. |
+| `WEBHOOK_REFUSAL_FLOOR_SECONDS` | `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | Every "can't send to this address" refusal at save time takes at least this long, so its timing does not reveal which address rule matched. Lowering it trades that for a faster answer. |
 | `WEBHOOK_SETTLE_SECONDS` | `10` | Events younger than this wait for the next run, so an event from a transaction that committed late is not skipped. |
 | `WEBHOOK_DISPATCHER_STALE_SECONDS` | `300` | After this long without a dispatcher run, the board's Webhooks tab warns its admins. |
 

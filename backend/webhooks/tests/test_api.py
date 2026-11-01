@@ -211,7 +211,7 @@ class CreateTests(WebhookApiBase):
         self.assertEqual(r.data["url"], HOOK_URL)
         self.assertTrue(r.data["secret"].startswith("whsec_"))
         self.assertGreaterEqual(len(r.data["secret"]), 40)
-        self.assertEqual(r.data["url_display"], "https://hooks.example.com/…")
+        self.assertEqual(r.data["url_display"], "hooks.example.com/…/=abc")
         self.assertEqual(r.data["url_host"], "hooks.example.com")
         self.assertEqual(r.data["configured_by"]["id"], self.admin.pk)
         self.assertEqual(r.data["created_by"]["id"], self.admin.pk)
@@ -241,11 +241,17 @@ class CreateTests(WebhookApiBase):
         self.assertEqual(self.create().data["last_delivered_event_id"], 0)
 
     def test_invalid_url_codes(self):
-        for url in ["ftp://x.example/", "https://user:pw@hooks.example.com/", "not a url", "https://hooks.example.com:0/"]:
+        for url, reason in [
+            ("ftp://x.example/", "format"),
+            ("https://user:pw@hooks.example.com/", "creds"),
+            ("not a url", "format"),
+            ("https://hooks.example.com:0/", "format"),
+            ("http://hooks.example.com/", "http"),
+        ]:
             with self.subTest(url=url):
                 r = self.create(url=url)
                 self.assertEqual(r.status_code, 400)
-                self.assertEqual(r.data, {"code": "invalid_url", "detail": r.data["detail"]})
+                self.assertEqual(r.data, {"code": "invalid_url", "reason": reason, "detail": r.data["detail"]})
                 self.assertIsInstance(r.data["code"], str)
         r = self.client.post(_url(self.board.pk), {"name": "no url"}, format="json")
         self.assertEqual(r.data["code"], "invalid_url")
@@ -265,16 +271,22 @@ class CreateTests(WebhookApiBase):
             self.assertEqual(r.data["code"], "url_not_allowed")
             details.add(r.data["detail"])
         self.assertEqual(len(details), 1)
-        self.assertIn("WEBHOOK_ALLOWED_PRIVATE_TARGETS", details.pop())
+        detail = details.pop()
+        self.assertEqual(detail, "Visiban can't send to this address. If it should be allowed, ask your Visiban operator.")
+        for addr in ("10.0.0.1", "127.0.0.1", "169.254", "192.168"):
+            self.assertNotIn(addr, detail)
         self.assertFalse(WebhookSubscription.objects.exists())
 
     def test_http_needs_allowlist(self):
         r = self.create(url="http://hooks.example.com/x")
-        self.assertEqual(r.data["code"], "url_not_allowed")
-        with override_settings(WEBHOOK_ALLOWED_PRIVATE_TARGETS="n8n.lan"), resolving("192.168.1.5"):
-            r = self.client.post(_url(self.board.pk), {"url": "http://n8n.lan:5678/hook"}, format="json")
+        self.assertEqual((r.data["code"], r.data["reason"]), ("invalid_url", "http"))
+        with override_settings(WEBHOOK_ALLOWED_PRIVATE_TARGETS="n8n.lan"):
+            r = self.create(url="http://hooks.example.com/x")
+            self.assertEqual(r.data["code"], "url_not_allowed")
+            with resolving("192.168.1.5"):
+                r = self.client.post(_url(self.board.pk), {"url": "http://n8n.lan:5678/hook"}, format="json")
         self.assertEqual(r.status_code, 201, r.content)
-        self.assertEqual(r.data["url_display"], "http://n8n.lan/…")
+        self.assertEqual(r.data["url_display"], "n8n.lan/…/hook")
 
     def test_invalid_event_types(self):
         for value in [["board.star_changed"], ["saved_filter.created"], ["share_link.updated"], ["ping"], ["board.deleted"], ["nope"], "card.moved", [1], ["card.moved", "card.moved"], None]:
@@ -390,7 +402,7 @@ class RotateReenableTestActionTests(WebhookApiBase):
         _make_membership(self.board, other, "admin")
         c = APIClient()
         c.force_login(other)
-        r = c.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {}, format="json")
+        r = c.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {"current_password": "pass"}, format="json")
         self.assertEqual(r.data["configured_by"]["id"], other.pk)
 
     def test_reenable_refused_when_secret_unreadable(self):
@@ -405,7 +417,9 @@ class RotateReenableTestActionTests(WebhookApiBase):
         sub = make_subscription(self.board, self.admin)
         with patch("visiban.egress.guarded_post", return_value=204) as post:
             r = self.client.post(_url(self.board.pk, f"{sub.pk}/test/"))
-        self.assertEqual(r.data, {"ok": True, "code": None, "status_code": 204})
+        self.assertEqual(set(r.data), {"ok", "code", "status_code", "latency_ms"})
+        self.assertEqual((r.data["ok"], r.data["code"], r.data["status_code"]), (True, None, 204))
+        self.assertIsInstance(r.data["latency_ms"], int)
         body = post.call_args.args[1]
         headers = post.call_args.args[2]
         self.assertIn(b'"event":"webhook.test"', body)
@@ -413,12 +427,13 @@ class RotateReenableTestActionTests(WebhookApiBase):
         self.assertEqual(headers["X-Visiban-Event-Id"], "0")
         with patch("visiban.egress.guarded_post", return_value=500):
             r = self.client.post(_url(self.board.pk, f"{sub.pk}/test/"))
-        self.assertEqual(r.data, {"ok": False, "code": "http_error", "status_code": 500})
+        self.assertEqual((r.data["ok"], r.data["code"], r.data["status_code"]), (False, "http_error", 500))
+        self.assertIsInstance(r.data["latency_ms"], int)
         from visiban.egress import EgressError
 
         with patch("visiban.egress.guarded_post", side_effect=EgressError("timeout")):
             r = self.client.post(_url(self.board.pk, f"{sub.pk}/test/"))
-        self.assertEqual(r.data, {"ok": False, "code": "timeout", "status_code": None})
+        self.assertEqual(r.data, {"ok": False, "code": "timeout", "status_code": None, "latency_ms": None})
         sub.refresh_from_db()
         self.assertEqual((sub.consecutive_failures, sub.last_error_code, sub.cursor), (0, "", 0))
 
@@ -426,7 +441,7 @@ class RotateReenableTestActionTests(WebhookApiBase):
         sub = make_subscription(self.board, self.admin)
         with resolving("127.0.0.1"):
             r = self.client.post(_url(self.board.pk, f"{sub.pk}/test/"))
-        self.assertEqual(r.data, {"ok": False, "code": "connection_failed", "status_code": None})
+        self.assertEqual(r.data, {"ok": False, "code": "connection_failed", "status_code": None, "latency_ms": None})
 
     def test_send_test_is_throttled(self):
         sub = make_subscription(self.board, self.admin)
@@ -457,3 +472,46 @@ class SeparateBoardFixtureTests(TestCase):
         u = _make_user()
         b = _make_board(u)
         self.assertEqual(b.memberships.get(user=u).role, "admin")
+
+
+@ENABLED
+class NeutralRefusalTests(WebhookApiBase):
+    """Every address refusal: same status, same body, same timing (#863 follow-up spec)."""
+
+    def _refuse(self, url, addrs=None, side_effect=None):
+        import ipaddress as _ip
+
+        kwargs = {"side_effect": side_effect} if side_effect else {"return_value": [_ip.ip_address(a) for a in addrs or ()]}
+        with patch("visiban.egress._resolve", **kwargs), patch("webhooks.serializers._sleep") as sleep, patch(
+            "webhooks.serializers.time.monotonic", side_effect=[100.0, 100.05]
+        ):
+            r = self.client.post(_url(self.board.pk), {"url": url}, format="json")
+        return r, sleep
+
+    @override_settings(WEBHOOK_REFUSAL_FLOOR_SECONDS=None, WEBHOOK_CONNECT_TIMEOUT_SECONDS=3)
+    def test_every_rule_answers_identically_and_waits_for_the_same_floor(self):
+        cases = [
+            ("https://10.0.0.1/hook", None, None),  # private literal, no DNS
+            ("https://169.254.169.254/latest", None, None),  # metadata literal
+            ("https://[::1]/x", None, None),  # loopback literal
+            ("https://internal.example.com/", ["192.168.0.9"], None),  # resolves to private
+            ("https://meta.example.com/", ["169.254.169.254"], None),  # resolves to metadata
+            ("https://nx.example.com/", None, OSError("nxdomain")),  # does not resolve
+        ]
+        bodies = set()
+        for url, addrs, err in cases:
+            with self.subTest(url=url):
+                r, sleep = self._refuse(url, addrs, err)
+                self.assertEqual(r.status_code, 400)
+                bodies.add(r.content)
+                # The refusal is held until the same floor (the DNS deadline).
+                sleep.assert_called_once()
+                self.assertAlmostEqual(sleep.call_args.args[0], 3 - 0.05, places=3)
+        self.assertEqual(len(bodies), 1)
+        self.assertNotIn(b"10.0.0.1", bodies.pop())
+
+    def test_input_shape_errors_answer_at_once(self):
+        with patch("webhooks.serializers._sleep") as sleep:
+            r = self.client.post(_url(self.board.pk), {"url": "https://u:p@hooks.example.com/"}, format="json")
+        self.assertEqual(r.data["reason"], "creds")
+        sleep.assert_not_called()

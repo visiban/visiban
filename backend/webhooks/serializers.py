@@ -9,9 +9,12 @@ as ``CodedValidationError`` so the body is ``{"detail", "code"}`` with a string
 ``code`` (a serializer ``ValidationError`` would wrap the code in a list).
 """
 
+import time
+
 from django.conf import settings
 from drf_spectacular.utils import extend_schema_field
-from rest_framework import serializers
+from rest_framework import serializers, status
+from rest_framework.exceptions import APIException
 
 from accounts.serializers import BoardUserSerializer
 from visiban import egress
@@ -22,18 +25,41 @@ from .models import SUBSCRIBABLE_EVENT_TYPES, WebhookSubscription
 INVALID_EVENT_TYPES = "invalid_event_types"
 LIMIT_REACHED = "limit_reached"
 
-INVALID_URL_DETAIL = (
-    "Enter a full https:// URL with no username or password. Ports below 1024 "
-    "other than 443 are not allowed."
-)
-# One neutral message for every "may not send there" outcome: an unresolvable
-# name, a private or blocked address, http to a public host. Saying which one
-# would let a caller map internal names (security-invariants Rule 15).
-URL_NOT_ALLOWED_DETAIL = (
-    "Visiban can't send to this address. Private, local and unresolvable "
-    "addresses are blocked. To allow one, ask whoever runs this server to add "
-    "it to WEBHOOK_ALLOWED_PRIVATE_TARGETS."
-)
+INVALID_URL_DETAILS = {
+    egress.REASON_HTTP: (
+        "Use an https:// address. Your Visiban operator can allow plain http for specific hosts."
+    ),
+    egress.REASON_CREDS: (
+        "Remove the user name and password from the address. Receivers check "
+        "Visiban with the signing secret instead."
+    ),
+    egress.REASON_FORMAT: "Enter a full address, like https://hooks.example.com/visiban.",
+}
+INVALID_URL_DETAIL = INVALID_URL_DETAILS[egress.REASON_FORMAT]
+# One neutral message for every "may not send there" outcome that depends on
+# where the name resolves: an unresolvable name, a private or blocked address,
+# http or a low port to a destination that is not allowlisted. Saying which one
+# would let a caller map internal names (security-invariants Rule 14). Never
+# echoes a resolved address.
+URL_NOT_ALLOWED_DETAIL = "Visiban can't send to this address. If it should be allowed, ask your Visiban operator."
+
+
+class InvalidUrlError(APIException):
+    """400 ``{"code": "invalid_url", "reason": ..., "detail": ...}``.
+
+    ``reason`` is ``http``, ``creds`` or ``format``; each is decided from the
+    URL text alone (no DNS), so it reveals nothing about the network.
+    """
+
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_code = egress.INVALID_URL
+
+    def __init__(self, reason=egress.REASON_FORMAT):
+        reason = reason if reason in INVALID_URL_DETAILS else egress.REASON_FORMAT
+        super().__init__(
+            detail={"code": egress.INVALID_URL, "reason": reason, "detail": INVALID_URL_DETAILS[reason]},
+            code=egress.INVALID_URL,
+        )
 INVALID_EVENT_TYPES_DETAIL = (
     "event_types must be a list of distinct subscribable event types. Per-user, "
     "admin-only, ping and board.deleted events cannot be subscribed to."
@@ -44,13 +70,44 @@ def current_allowlist():
     return egress.parse_allowlist(getattr(settings, "WEBHOOK_ALLOWED_PRIVATE_TARGETS", ""))
 
 
+def _sleep(seconds):
+    time.sleep(seconds)
+
+
+def refusal_floor_seconds() -> float:
+    """How long every ``url_not_allowed`` answer takes, at least.
+
+    Defaults to the DNS deadline, so a refusal always lands at the same moment
+    whichever rule matched: an IP literal (no lookup), a name resolving to a
+    private or metadata address, an unresolvable name, or a lookup that hit
+    the deadline. Without it the answer time would say how the name resolved.
+    """
+    configured = getattr(settings, "WEBHOOK_REFUSAL_FLOOR_SECONDS", None)
+    if configured is not None:
+        return float(configured)
+    return float(getattr(settings, "WEBHOOK_CONNECT_TIMEOUT_SECONDS", 3.0))
+
+
 def validate_destination(url):
-    """Return ``(url, host)`` for an acceptable destination, or raise the coded 400."""
+    """Return ``(url, host)`` for an acceptable destination, or raise the coded 400.
+
+    ``invalid_url`` (decided from the text alone) answers at once.
+    ``url_not_allowed`` answers with one status, one body and one timing for
+    every address rule (security-invariants Rule 14).
+    """
+    started = time.monotonic()
     try:
-        dest, _ = egress.resolve_destination(url, current_allowlist())
+        dest, _ = egress.resolve_destination(
+            url,
+            current_allowlist(),
+            dns_timeout=float(getattr(settings, "WEBHOOK_CONNECT_TIMEOUT_SECONDS", 3.0)),
+        )
     except egress.EgressError as exc:
         if exc.code == egress.INVALID_URL:
-            raise CodedValidationError(egress.INVALID_URL, INVALID_URL_DETAIL) from None
+            raise InvalidUrlError(exc.reason) from None
+        remaining = refusal_floor_seconds() - (time.monotonic() - started)
+        if remaining > 0:
+            _sleep(remaining)
         raise CodedValidationError(egress.URL_NOT_ALLOWED, URL_NOT_ALLOWED_DETAIL) from None
     return url, dest.host
 
@@ -78,7 +135,7 @@ class WebhookWriteSerializer(serializers.Serializer):
             if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
                 raise CodedValidationError(INVALID_EVENT_TYPES, INVALID_EVENT_TYPES_DETAIL)
         if isinstance(data, dict) and "url" in data and not isinstance(data.get("url"), str):
-            raise CodedValidationError(egress.INVALID_URL, INVALID_URL_DETAIL)
+            raise InvalidUrlError()
         return super().to_internal_value(data)
 
     def validate_event_types(self, value):
@@ -93,7 +150,7 @@ class WebhookWriteSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if self.context.get("require_url") and "url" not in attrs:
-            raise CodedValidationError(egress.INVALID_URL, INVALID_URL_DETAIL)
+            raise InvalidUrlError()
         return attrs
 
 
@@ -104,6 +161,19 @@ class WebhookReenableSerializer(serializers.Serializer):
         help_text=(
             "`cursor` (default) delivers the events missed while disabled; "
             "`latest` skips to events recorded from now on."
+        ),
+    )
+    current_password = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=False,
+        write_only=True,
+        max_length=4096,
+        style={"input_type": "password"},
+        help_text=(
+            "Required to take over a webhook turned off with `creator_lost_access`, "
+            "for an account that has a password. An account without one needs a "
+            "recent sign-in with its provider instead."
         ),
     )
 
@@ -160,14 +230,14 @@ class WebhookSubscriptionSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.CharField())
     def get_url_display(self, obj):
-        """``scheme://host/…``: never the path, query or port.
+        """``host/…/last4``: the host and the URL's last four characters only.
 
-        Decrypted rather than stored so the scheme is right for an allowlisted
-        ``http`` target. A value that no longer decrypts (the key changed)
-        falls back to the stored host alone.
+        Webhook URLs often embed a token in the path or query, so the rest is
+        never shown after creation (1.3 UI spec Part 8, departure 21). A value
+        that no longer decrypts (the key changed) falls back to ``host/…``.
         """
         try:
-            shown = egress.display_url(obj.get_url())
+            shown = egress.masked_url(obj.get_url())
         except Exception:  # noqa: BLE001 — SecretDecryptionError or a malformed value
             shown = ""
         if shown:
@@ -205,3 +275,7 @@ class WebhookTestResultSerializer(serializers.Serializer):
     ok = serializers.BooleanField()
     code = serializers.CharField(allow_null=True, help_text="null on success, else a delivery error code.")
     status_code = serializers.IntegerField(allow_null=True)
+    latency_ms = serializers.IntegerField(
+        allow_null=True,
+        help_text="Milliseconds from send to the receiver's status line; null when nothing was sent.",
+    )

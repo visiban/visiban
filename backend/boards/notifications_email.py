@@ -155,6 +155,39 @@ def card_link(notification):
     return f"{base}/boards/{notification.board_id}?card={notification.card_id}"
 
 
+def _build_webhook_disabled_body(notification, context):
+    """The disable notice (#863, 1.3 UI spec Part 8): exactly three facts.
+
+    Board name, subscription id and reason code with its plain label, from the
+    ``context`` the notice was created with. Never the URL, the host or
+    anything the receiver sent back, and the footer says why the user's email
+    opt-out did not apply. Plain text like every other notice: the HTML-email
+    escaping risk described in ``_build_body`` applies here too.
+    """
+    from webhooks.notices import reason_label
+
+    context = context or {}
+    board_name = _flatten(notification.board.name) if notification.board is not None else ""
+    reason = str(context.get("reason") or "")
+    lines = [
+        f"A webhook on the board {board_name} was turned off automatically.",
+        "",
+        f"Board:   {board_name}",
+        f"Webhook: #{context.get('subscription_id', '')}",
+        f"Reason:  {reason_label(reason)} ({reason})",
+        "",
+        "A board admin can review it and turn it back on in Board settings → Webhooks:",
+        card_link(notification),
+        "",
+        "--",
+        "You are getting this because you are an admin of this board. It is a "
+        "security and operations notice, so it is sent even if you turned email "
+        "notifications off. It never includes the webhook's address or what the "
+        "receiver sent back.",
+    ]
+    return "\n".join(lines)
+
+
 def _build_body(notification):
     """Plain text only — no HTML alternative.
 
@@ -178,16 +211,10 @@ def _build_body(notification):
         "",
         "--",
     ]
-    if notification.action_type in MANDATORY_EMAIL_ACTIONS:
-        lines.append(
-            "You are receiving this because you are an admin of this board. "
-            "This notice is sent whatever your email settings."
-        )
-    else:
-        lines += [
-            "You are receiving this because you turned on email for this notification.",
-            f"Change your notification settings: {_frontend_url()}/settings",
-        ]
+    lines += [
+        "You are receiving this because you turned on email for this notification.",
+        f"Change your notification settings: {_frontend_url()}/settings",
+    ]
     return "\n".join(lines)
 
 
@@ -276,9 +303,9 @@ def eligible_recipients(notifications):
     """Filter ``notifications`` down to the ones that should produce an email."""
     candidates = []
     for notification in notifications:
-        mandatory = notification.action_type in MANDATORY_EMAIL_ACTIONS
+        is_mandatory = notification.action_type in MANDATORY_EMAIL_ACTIONS
         preference = EMAIL_PREFERENCE_BY_ACTION.get(notification.action_type)
-        if preference is None and not mandatory:
+        if preference is None and not is_mandatory:
             continue
         recipient = notification.recipient
         if recipient is None:
@@ -287,7 +314,7 @@ def eligible_recipients(notifications):
         # it must not keep receiving mail about them.
         if not recipient.is_active or not _address_is_sendable(recipient.email):
             continue
-        if not mandatory and not getattr(recipient, preference, False):
+        if not is_mandatory and not getattr(recipient, preference, False):
             continue
         candidates.append(notification)
 
@@ -319,9 +346,8 @@ def deliver_notification_emails(notifications, context=None):
     accepted; the send itself happens on a daemon thread. Never raises for a
     delivery failure, on either path — see the module docstring.
 
-    ``context`` is accepted (and currently unused) so this signature matches the
-    signal's and a future template can use the structured event detail without a
-    change at the call site.
+    ``context`` is the structured event detail shared by the batch; only the
+    ``webhook_disabled`` body reads it (subscription id and reason code).
     """
     if _suppressed or not getattr(settings, "NOTIFICATION_EMAIL_ENABLED", True):
         return 0
@@ -334,11 +360,17 @@ def deliver_notification_emails(notifications, context=None):
     messages = []
     for notification in targets:
         board = notification.board
-        prefix = f"[{board.name}] " if board is not None else ""
+        if notification.action_type == Notification.ActionType.WEBHOOK_DISABLED:
+            subject = f"A webhook on {board.name if board is not None else 'a board'} was turned off"
+            body = _build_webhook_disabled_body(notification, context)
+        else:
+            prefix = f"[{board.name}] " if board is not None else ""
+            subject = f"{prefix}{notification.verb}"
+            body = _build_body(notification)
         messages.append(
             EmailMessage(
-                subject=_flatten_subject(f"{prefix}{notification.verb}"),
-                body=_build_body(notification),
+                subject=_flatten_subject(subject),
+                body=body,
                 to=[notification.recipient.email],
                 headers={
                     # RFC 8058 wants a one-click POST target; Visiban has no

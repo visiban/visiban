@@ -56,32 +56,33 @@ You can limit a webhook to some event types. **All events** also includes event 
 ## Set up a webhook (board admins)
 
 1. Open the board, then **Board settings → Webhooks**.
-2. Choose **New webhook**, give it a name, paste the receiver's URL, and choose **All events** or the events you want.
-3. Choose **Create webhook**. Visiban shows the full URL and the **signing secret once**. Copy the secret into your receiver now; you cannot see it again. If you lose it, rotate it.
-4. Choose **Send test**. Visiban sends a `webhook.test` event straight away and shows what your receiver answered.
+2. Choose **Add webhook**, paste the receiver's address, and choose **All events** or **Only these events**.
+3. Choose **Create webhook**. Visiban shows the **signing secret once**, above the list. Copy it into your receiver, tick **I've stored this secret somewhere safe**, then choose **Done**. Until you tick it, Board settings will not close by accident: Escape and Close ask first. If you lose the secret, rotate it.
+4. Open the webhook with **Manage** and choose **Send test event**. Visiban sends a `webhook.test` event straight away and shows what your receiver answered and how long it took.
 
-Creating, re-pointing, re-enabling, rotating and testing a webhook need a signed-in browser session; a personal access token cannot do them. Listing, renaming, changing the event types, disabling and deleting work with a token too.
+After you save, Visiban shows the address only as `host/…/last4`, because webhook addresses often carry a token. To change it, enter the full new address.
+
+Creating a webhook, changing its address, turning it back on and rotating its secret need a signed-in browser session; a personal access token cannot do them. Listing, changing the event types, turning off and deleting work with a token too.
 
 ### Who owns a webhook
 
-A webhook keeps delivering only while the person who last set it up (created it, changed its URL, rotated its secret, or re-enabled it) is still an active admin of the board. If that person loses admin access, by demotion, removal from the board or a group, deactivation or account deletion, the webhook is turned off at its next delivery. Any other board admin can re-enable it, which makes them the owner.
+A webhook keeps delivering only while the person who last set it up (created it, changed its address, rotated its secret, or turned it back on) is still an active admin of the board. If that person loses admin access, by demotion, removal from the board or a group, deactivation, account deletion or a forced password change, the webhook is turned off at its next run. Another board admin can **take it over**: that turns it back on with them as the owner, and asks for their current password first (or, for an account that signs in through SSO, a fresh SSO sign-in).
 
 ### Notices
 
-When a webhook is turned off automatically, every admin of the board gets an in-app notification and an email. The email is sent whatever your email notification settings are, but only to a verified address. The notice names the board, the webhook's number and the reason. It never contains the URL or anything the receiver sent back.
+When a webhook is turned off automatically, every admin of the board gets an in-app notification and an email. The email is sent whatever your email notification settings are, but only to a verified address. The notice says exactly three things: the board, the webhook's number, and the reason code with its plain-language label. It never contains the address, the host, or anything the receiver sent back. **Open board settings** in the notification goes straight to the Webhooks tab.
 
 Turning a webhook off yourself sends no notice.
 
-### Re-enable
+### Turn on again
 
-**Re-enable** asks where to resume:
+Turning a webhook back on is always confirmed, and the confirmation says what will happen:
 
-- **Send the events it missed** (the default) delivers everything since the webhook stopped, if it is still in the feed.
-- **Skip to new events only** starts with the next event.
+- After **repeated delivery failures** or a manual turn-off: sending resumes with the events it missed.
+- After it **fell too far behind** (its missed events were removed by history cleanup): it starts with new events, and the gap is never sent.
+- After **its creator lost access**: you take it over (see above).
 
-If the missed events have already been removed by history cleanup, only the second option is offered.
-
-A webhook turned off because its stored URL or secret can no longer be read (usually after the server's secret key changed) cannot be re-enabled. Delete it and create a new one.
+A webhook turned off because its stored address or secret can no longer be read (usually after the server's secret key changed) cannot be turned back on. Delete it and create a new one.
 
 ## For operators
 

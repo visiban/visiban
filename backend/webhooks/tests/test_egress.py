@@ -234,8 +234,13 @@ class ResolveDestinationTests(SimpleTestCase):
             resolve_destination("https://local.test/", parse_allowlist("::1/128"))
 
     def test_http_only_for_allowlisted_targets(self):
+        # No allowlist at all: refused from the text alone, with the http reason.
+        with patch.object(egress, "_resolve", side_effect=AssertionError("no DNS needed")), self.assertRaises(EgressError) as ctx:
+            resolve_destination("http://hooks.example.com/")
+        self.assertEqual((ctx.exception.code, ctx.exception.reason), (egress.INVALID_URL, egress.REASON_HTTP))
+        # An allowlist exists but does not admit this public host: neutral code.
         with _resolving("93.184.216.34"):
-            self.assertEqual(self._refused("http://hooks.example.com/"), egress.URL_NOT_ALLOWED)
+            self.assertEqual(self._refused("http://hooks.example.com/", parse_allowlist("n8n.lan")), egress.URL_NOT_ALLOWED)
         with _resolving("192.168.1.20"):
             resolve_destination("http://n8n.lan:5678/hook", parse_allowlist("n8n.lan"))
             resolve_destination("http://n8n.lan/hook", parse_allowlist("192.168.0.0/16"))
@@ -250,11 +255,89 @@ class ResolveDestinationTests(SimpleTestCase):
             resolve_destination("https://n8n.lan:80/", parse_allowlist("n8n.lan"))
 
 
-class DisplayUrlTests(SimpleTestCase):
-    def test_strips_path_query_and_port(self):
-        self.assertEqual(egress.display_url("https://hooks.slack.com/services/T0/B0/secret?x=1"), "https://hooks.slack.com/…")
-        self.assertEqual(egress.display_url("http://n8n.lan:5678/webhook/abc"), "http://n8n.lan/…")
-        self.assertEqual(egress.display_url("garbage"), "")
+class MaskedUrlTests(SimpleTestCase):
+    def test_host_and_last_four(self):
+        self.assertEqual(egress.masked_url("https://hooks.slack.com/services/T0/B0/secretk3f9"), "hooks.slack.com/…/k3f9")
+        self.assertEqual(egress.masked_url("https://hooks.zapier.com/hooks/catch/1/?token=ab12"), "hooks.zapier.com/…/ab12")
+        self.assertEqual(egress.masked_url("http://n8n.lan:5678/webhook/abc"), "n8n.lan/…/abc")
+        self.assertEqual(egress.masked_url("http://n8n.lan:5678/hook"), "n8n.lan/…/hook")
+        self.assertEqual(egress.masked_url("https://hooks.example.com/"), "hooks.example.com")
+        self.assertEqual(egress.masked_url("https://hooks.example.com/x#fragment-not-sent"), "hooks.example.com/…/x")
+        self.assertEqual(egress.masked_url("https://[2606:4700::1]/abcdef"), "[2606:4700::1]/…/cdef")
+        self.assertEqual(egress.masked_url("garbage"), "")
+
+
+class InvalidUrlReasonTests(SimpleTestCase):
+    def test_reasons(self):
+        for url, reason in [
+            ("https://user:pw@hooks.example.com/", egress.REASON_CREDS),
+            ("https://user@hooks.example.com/", egress.REASON_CREDS),
+            ("ftp://hooks.example.com/", egress.REASON_FORMAT),
+            ("hooks.example.com/x", egress.REASON_FORMAT),
+            ("https://hooks.example.com:0/", egress.REASON_FORMAT),
+        ]:
+            with self.subTest(url=url), self.assertRaises(EgressError) as ctx:
+                parse_url(url, egress.EMPTY_ALLOWLIST)
+            self.assertEqual((ctx.exception.code, ctx.exception.reason), (egress.INVALID_URL, reason))
+        with self.assertRaises(EgressError) as ctx:
+            parse_url("http://hooks.example.com/", egress.EMPTY_ALLOWLIST)
+        self.assertEqual(ctx.exception.reason, egress.REASON_HTTP)
+        # With an allowlist, http is decided after resolution, never here.
+        parse_url("http://hooks.example.com/", parse_allowlist("n8n.lan"))
+
+
+class DeadlineTests(SimpleTestCase):
+    """Wall-clock bounds that per-operation socket timeouts do not give."""
+
+    def test_slow_dns_is_url_not_allowed_within_the_deadline(self):
+        import time as _time
+
+        def slow(host, port):
+            _time.sleep(2)
+            return [PUBLIC]
+
+        started = _time.monotonic()
+        with patch.object(egress, "_resolve", side_effect=slow), self.assertRaises(EgressError) as ctx:
+            resolve_destination("https://slow-dns.example.com/", dns_timeout=0.2)
+        self.assertEqual(ctx.exception.code, egress.URL_NOT_ALLOWED)
+        self.assertLess(_time.monotonic() - started, 1.5)
+
+    def test_slow_drip_receiver_times_out_on_the_wall_clock(self):
+        import time as _time
+
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+        stop = threading.Event()
+
+        def drip():
+            conn, _ = srv.accept()
+            try:
+                conn.recv(4096)
+                conn.sendall(b"HTTP/1.1 200 OK\r\n")
+                while not stop.is_set():
+                    conn.sendall(b"X-Drip: 1\r\n")  # a header line every 0.3s, forever
+                    stop.wait(0.3)
+            except OSError:
+                pass
+            finally:
+                conn.close()
+
+        threading.Thread(target=drip, daemon=True).start()
+        self.addCleanup(lambda: (stop.set(), srv.close()))
+        started = _time.monotonic()
+        with _resolving("127.0.0.1"), self.assertRaises(EgressError) as ctx:
+            egress.guarded_post(
+                f"http://drip.test:{port}/",
+                b"{}",
+                {},
+                allowlist=parse_allowlist("127.0.0.1"),
+                connect_timeout=1,
+                total_timeout=1,
+            )
+        self.assertEqual(ctx.exception.code, egress.TIMEOUT)
+        self.assertLess(_time.monotonic() - started, 4)
 
 
 # ─── Live sockets: pinning, TLS, redirects, rebinding ─────────────────────────

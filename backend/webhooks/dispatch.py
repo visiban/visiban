@@ -48,13 +48,14 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import F, Max, Min, Q
+from django.db.models import F, Max, Q
 from django.utils import timezone
 
 from boards.models import Board, BoardEvent, BoardMembership
 from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role
 from boards.services.feed import feed_queryset, serialize_feed_rows
 from visiban import crypto, egress
+from visiban.authorization import authorize_account
 
 from . import notices, signing
 from .models import WebhookDispatcherState, WebhookSubscription
@@ -139,7 +140,10 @@ def post(url: str, body: bytes, headers: dict):
 
 
 def send_test(subscription: WebhookSubscription):
-    """Send a ``webhook.test`` event now. Returns ``(ok, code, status_code)``.
+    """Send a ``webhook.test`` event now. Returns ``(ok, code, status_code, latency_ms)``.
+
+    ``latency_ms`` is the time from send to the receiver's status line, or
+    ``None`` when nothing was sent or nothing answered.
 
     The test row has ``id`` 0, so a receiver deduplicating on event id never
     confuses it with a real row. It does not touch the cursor or the failure
@@ -149,7 +153,7 @@ def send_test(subscription: WebhookSubscription):
         url = subscription.get_url()
         secret = subscription.get_secret()
     except crypto.SecretDecryptionError:
-        return False, Reason.SECRET_UNAVAILABLE.value, None
+        return False, Reason.SECRET_UNAVAILABLE.value, None, None
     now = timezone.now()
     row = {
         "id": 0,
@@ -160,8 +164,10 @@ def send_test(subscription: WebhookSubscription):
         "created_at": now.isoformat().replace("+00:00", "Z"),
     }
     body, headers = build_request(subscription.pk, subscription.board_id, row, secret, now=now)
+    started = time.monotonic()
     status, code = post(url, body, headers)
-    return code is None, code, status
+    latency_ms = int((time.monotonic() - started) * 1000) if status is not None else None
+    return code is None, code, status, latency_ms
 
 
 # ─── Cursor helpers (shared with the API) ────────────────────────────────────
@@ -192,8 +198,14 @@ def cursor_expired(subscription: WebhookSubscription, *, now=None) -> bool:
 
 
 def configurer_has_standing(user, board) -> bool:
-    """D4: the configurer is active and an admin or site admin of *board*."""
-    if user is None or not user.is_active:
+    """D4: the configurer passes the account-state gates and administers *board*.
+
+    The account gates are the ones every non-REST transport applies
+    (security-invariants Rule 1): inactive, or a forced password or username
+    change pending, and the webhook stops. A NULL configurer (account
+    deleted) fails closed.
+    """
+    if user is None or not user.is_active or not authorize_account(user):
         return False
     return get_board_role(user, board) in STANDING_ROLES
 
@@ -267,13 +279,21 @@ def _heartbeat(**fields):
     WebhookDispatcherState.objects.update_or_create(pk=1, defaults=fields)
 
 
-def _due_ids(now, limit=500):
+def _due_ids(now):
+    """Every due subscription, least recently scanned first.
+
+    Round-robin by ``last_scanned_at`` (never-scanned first), not by id: a
+    healthy subscription is due on every run (``next_attempt_at`` stays null),
+    so ordering by id would let the run budget be spent on the same low ids
+    every time and starve the rest. No row cap: the list is bounded by
+    ``WEBHOOK_MAX_TOTAL``, and the run stops at its budget.
+    """
     return list(
         WebhookSubscription.objects.filter(enabled=True)
         .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
         .filter(Q(lease_until__isnull=True) | Q(lease_until__lt=now))
-        .order_by(F("next_attempt_at").asc(nulls_first=True), "id")
-        .values_list("id", flat=True)[:limit]
+        .order_by(F("last_scanned_at").asc(nulls_first=True), "id")
+        .values_list("id", flat=True)
     )
 
 
@@ -346,25 +366,41 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
         return
 
     now = timezone.now()
+    # Idle fast path: nothing newer than the cursor on the board at all. One
+    # indexed MAX instead of the feed, settle and tail queries. Standing and
+    # the secrets were still checked above, every run (D4). A cursor at or past
+    # the newest row cannot be expired: there is nothing it could have missed.
+    if latest_event_id(board.pk) <= sub.cursor:
+        WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(last_scanned_at=now)
+        return
     if cursor_expired(sub, now=now):
         if disable(sub_id, Reason.CURSOR_EXPIRED, lease_token=token):
             result.disabled += 1
         return
 
     settle_cutoff = now - timedelta(seconds=int(_setting("WEBHOOK_SETTLE_SECONDS", 10)))
-    board_rows = BoardEvent.objects.filter(board_id=board.pk, pk__gt=sub.cursor)
-    # Stop before the oldest row that has not settled yet: a lower id that
-    # committed late must not be skipped by delivering a higher one first.
-    first_unsettled = board_rows.filter(created_at__gt=settle_cutoff).aggregate(m=Min("id"))["m"]
-    window = Q(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
-    if first_unsettled is not None:
-        window &= Q(pk__lt=first_unsettled)
     max_events = int(_setting("WEBHOOK_MAX_EVENTS_PER_RUN", 100))
     rows = list(
         feed_queryset(board.pk, role=WEBHOOK_READER_ROLE, reader_id=None)
-        .filter(window)
+        .filter(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
         .order_by("id")[:max_events]
     )
+    # Stop before the oldest row that has not settled yet: a lower id that
+    # committed late must not be skipped by delivering a higher one first.
+    # Bounded by the page when it is full, so a subscription far behind does
+    # not scan its whole backlog on every run; first() walks the (board_id, id)
+    # index forward and stops at the first match.
+    unsettled = BoardEvent.objects.filter(
+        board_id=board.pk, pk__gt=sub.cursor, created_at__gt=settle_cutoff
+    )
+    if len(rows) == max_events:
+        unsettled = unsettled.filter(pk__lte=rows[-1].pk)
+    first_unsettled = unsettled.order_by("id").values_list("id", flat=True).first()
+    if first_unsettled is not None:
+        rows = [r for r in rows if r.pk < first_unsettled]
+    window = Q(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
+    if first_unsettled is not None:
+        window &= Q(pk__lt=first_unsettled)
     WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(last_scanned_at=now)
     payloads = serialize_feed_rows(board.pk, rows, role=WEBHOOK_READER_ROLE, reader_id=None)
 
@@ -376,6 +412,12 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
             pending = event_id
             continue
         if clock() >= deadline:
+            break
+        if not _still_configured_as_read(sub, token):
+            # Disabled, re-pointed, rotated or taken over since this run read
+            # the row: stop, so no further row goes out with the old URL or
+            # secret. The next run starts from the new state.
+            result.lost_lease += 1
             break
         body, headers = build_request(sub.pk, board.pk, payload, secret)
         attempt_at = timezone.now()
@@ -397,12 +439,25 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
         # caught up: move the cursor past rows this reader never sees (per-user
         # and admin-only rows) up to the newest settled id, so the next run and
         # the cursor-expiry rule start from a row that exists.
+        # A page cut short by an unsettled row is also short: the window
+        # already stops before that row, so the tail stays below it.
         if len(rows) < max_events:
             tail = BoardEvent.objects.filter(board_id=board.pk).filter(window).aggregate(m=Max("id"))["m"]
             if tail and tail > pending:
                 pending = tail
     if pending != cursor and not _advance(sub_id, token, cursor, pending):
         result.lost_lease += 1
+
+
+def _still_configured_as_read(sub, token) -> bool:
+    """True while the row still has the lease and the configuration this run read."""
+    return WebhookSubscription.objects.filter(
+        pk=sub.pk,
+        lease_token=token,
+        enabled=True,
+        configured_at=sub.configured_at,
+        secret_rotated_at=sub.secret_rotated_at,
+    ).exists()
 
 
 def _advance(sub_id, token, old_cursor, new_cursor, *, success_at=None, status=None) -> bool:
