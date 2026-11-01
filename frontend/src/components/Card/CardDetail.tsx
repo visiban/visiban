@@ -1815,7 +1815,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
                         // void: handleBulkAdd now catches its own rejection and surfaces it via checklistError.
-                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleBulkAdd(); if (e.key === "Escape") setShowBulkAdd(false); }}
+                        // Escape is handled by the useEscapeStack registration (priority 37), not here (#1891).
+                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleBulkAdd(); }}
                         placeholder={"Buy milk\nCall client\nReview PR"}
                         rows={6}
                         className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"

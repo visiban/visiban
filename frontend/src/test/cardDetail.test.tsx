@@ -932,6 +932,21 @@ describe('CardDetail', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('Escape with focus on a bulk-add dialog button closes only the dialog and clears its error (#1891)', async () => {
+    const props = defaultProps()
+    const user = userEvent.setup()
+    render(<CardDetail {...props} />)
+    await user.click(screen.getByText('Bulk'))
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    cancel.focus()
+    expect(cancel).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText('Add checklist items')).not.toBeInTheDocument()
+    expect(props.onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('Escape closes an open multi-select field menu first, without closing the card panel (#1391)', async () => {
     const props = defaultProps()
     props.board = makeBoard({
