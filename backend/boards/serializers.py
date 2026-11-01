@@ -2102,9 +2102,6 @@ class CardRelationCreateSerializer(serializers.Serializer):
         return attrs
 
 
-_LAST_MOVE_ATTRS = ("_last_moved_at", "_last_move_type", "_last_move_from_column_name")
-
-
 def _annotate_last_move(qs):
     """Annotate the newest movement's three read fields onto each card (#1883).
 

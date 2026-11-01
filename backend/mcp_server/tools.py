@@ -1116,9 +1116,10 @@ def card_detail(*, card_id):
     ``move_card``/``update_card``/``archive_card``; see the module-level
     comment above for why its failure is raised rather than returned.
 
-    Movements and checklist items come from ``_card_queryset``'s shared
-    prefetch chain (no extra query — the same one ``list_cards`` and the
-    REST card endpoints use). Activities and comments are NOT part of that
+    Checklist items come from ``_card_queryset``'s shared prefetch chain (no
+    extra query). The full movement history is fetched here for this one card
+    because list reads no longer load it (#1883). Activities and comments are
+    NOT part of that
     chain (it is built for listing many cards on a board at once, and most
     board reads never need a card's full comment/activity history), so they
     are fetched here as two additional queries scoped to this one card —
@@ -1134,8 +1135,8 @@ def card_detail(*, card_id):
     except CardServiceError as exc:
         raise ValueError(exc.body()["detail"]) from None
 
-    # Re-fetch with the shared prefetch chain so labels/checklist_items/
-    # movements are already loaded rather than queried lazily one at a time.
+    # Re-fetch with the shared prefetch chain so labels/checklist_items are
+    # already loaded rather than queried lazily one at a time.
     try:
         card = _fetch_card_or_not_found(card)
     except CardServiceError as exc:
@@ -1144,8 +1145,6 @@ def card_detail(*, card_id):
 
     data = _serialize_card(card)
     data["archived_at"] = card.archived_at.isoformat() if card.archived_at else None
-    # Read the lists _card_queryset() parks with to_attr (#1212); the managers'
-    # .all() would miss them and query again.
     # The full history is the one reader that needs every movement, so it is
     # fetched here for this single card rather than prefetched for every card
     # a list read serves (#1883).
