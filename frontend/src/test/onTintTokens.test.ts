@@ -77,11 +77,11 @@ describe('urgent-on-tint contrast (#1594)', () => {
 // card surfaces, because plain `warning` (orange-600) is 3.56:1 on white (#2029). Pin the claimed ratios.
 describe('system-signal on-tint text on untinted surfaces (#2046)', () => {
   it.each([
-    ['dark', darkBlock, 'warning-on-tint', 8.6],
-    ['dark', darkBlock, 'danger-on-tint', 7.7],
-    ['light', lightBlock, 'warning-on-tint', 6.9],
-    ['light', lightBlock, 'danger-on-tint', 7.9],
-  ])('%s theme: %s holds the documented ratio on surface and surface-sunken', (_n, block, name, pinned) => {
+    ['dark', 'warning-on-tint', darkBlock, 8.6],
+    ['dark', 'danger-on-tint', darkBlock, 7.7],
+    ['light', 'warning-on-tint', lightBlock, 6.9],
+    ['light', 'danger-on-tint', lightBlock, 7.9],
+  ])('%s theme: %s holds the documented ratio on surface and surface-sunken', (_theme, name, block, pinned) => {
     const text = rgbOf(block, name)
     for (const surf of ['surface', 'surface-sunken']) {
       const r = ratio(text, rgbOf(block, surf))
