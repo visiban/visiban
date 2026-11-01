@@ -595,6 +595,33 @@ class SeedScaleTests(TestCase):
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
         self.assertEqual(board.swimlanes.count(), 30)
 
+    def test_scale_n_seeds_deep_movement_history(self):
+        """The load-test fixture carries ~10+ movements on moved cards (#1883),
+        so a read that loads every movement per card shows up as latency; the
+        default demo board is unchanged."""
+        from django.db.models import Count
+
+        _seed(scale=2)
+        board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
+        counts = list(
+            board.cards.annotate(n=Count("movements")).values_list("n", flat=True)
+        )
+        self.assertGreater(max(counts), 10)
+        # Rework moves must not change where a card currently sits.
+        for card in board.cards.filter(archived_at__isnull=True):
+            last = card.movements.order_by("-moved_at", "-id").first()
+            if last.notes == "" and last.to_column_id is not None:
+                self.assertEqual(last.to_column_id, card.column_id)
+
+    def test_scale_1_has_no_rework_movements(self):
+        _seed(scale=1)
+        board = Board.objects.get(name=BOARD_NAME)
+        from django.db.models import Count
+
+        self.assertLessEqual(
+            max(board.cards.annotate(n=Count("movements")).values_list("n", flat=True)), 8
+        )
+
     def test_scale_n_replicates_swimlanes_with_suffixed_names(self):
         _seed(scale=2)
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)

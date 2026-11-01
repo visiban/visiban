@@ -805,7 +805,6 @@ class ParkedPrefetchQueryCountTests(TestCase):
     PARKED_ATTRS = (
         "_prefetched_attachments",
         "_prefetched_checklist_items",
-        "_prefetched_movements",
         "_prefetched_custom_field_values",
         "_prefetched_labels",
     )
@@ -838,8 +837,9 @@ class ParkedPrefetchQueryCountTests(TestCase):
             board_serializers.PublicBoardSerializer(self.board).data
         self.assertTrue(captured["cards"])
         for card in captured["cards"]:
-            # The public payload reads only checklist items and movements.
-            for attr in ("_prefetched_checklist_items", "_prefetched_movements"):
+            # The public payload reads checklist items; movements are no
+            # longer loaded at all (#1883) -- see test_last_move_annotation_1883.py.
+            for attr in ("_prefetched_checklist_items",):
                 self.assertIsInstance(
                     card.__dict__.get(attr), list,
                     f"PublicBoardSerializer.get_cards() no longer parks {attr} "
@@ -1593,12 +1593,12 @@ class CardMutationQueryCountTests(TestCase):
     # +2 on create and update (#1632): the board row FOR SHARE that every card
     # create/update now takes first, and the re-read of the labels the write
     # names, so a concurrent label delete answers 400, not 500.
-    BUDGET_CREATE = 41              # measured 38 (36 pre-#1632, 33 pre-#449, 31 pre-#371)
+    BUDGET_CREATE = 41              # measured 40 (41 pre-#1883, 38 stale; 36 pre-#1632, 33 pre-#449, 31 pre-#371)
     # +1 on update (#1587): update_card locks the card row before the write so
     # a concurrent hard delete cannot be undone by save()'s INSERT fallback.
-    BUDGET_UPDATE = 37              # measured 34 (32 pre-#1632, 31 pre-#1587, 28 pre-#449, 26 pre-#371)
-    BUDGET_MOVE_COLUMN_CHANGE = 30  # measured 27 (was 25 pre-#449, 24 pre-#371)
-    BUDGET_MOVE_REORDER = 25        # measured 22 (was 20 pre-#449, 19 pre-#371)
+    BUDGET_UPDATE = 35              # measured 32 (34 pre-#1883, 32 pre-#1632, 31 pre-#1587, 28 pre-#449, 26 pre-#371)
+    BUDGET_MOVE_COLUMN_CHANGE = 30  # measured 28 (29 pre-#1883; was 25 pre-#449, 24 pre-#371)
+    BUDGET_MOVE_REORDER = 25        # measured 24 (25 pre-#1883; was 20 pre-#449, 19 pre-#371)
     # Archive, unarchive and destroy each carry one further query: the lookup
     # of the cards this one actively blocks, whose blocker_count moves when it
     # leaves the board and which therefore need their own `card.updated` frame
@@ -1606,14 +1606,14 @@ class CardMutationQueryCountTests(TestCase):
     # a single batched pass, so the cost does not scale with how many cards
     # this one blocks — `CardRelationPeerBroadcastQueryCountTests` below pins
     # that separately.
-    BUDGET_ARCHIVE = 23             # measured 20 (was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_UNARCHIVE = 23           # measured 20 (was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_DESTROY = 28             # measured 25 (was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
+    BUDGET_ARCHIVE = 23             # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
+    BUDGET_UNARCHIVE = 23           # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
+    BUDGET_DESTROY = 28             # measured 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
     # Relation write paths (#449). Both re-render BOTH endpoint cards for the
     # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
     # these budgets are what stops that quietly becoming two passes again.
-    BUDGET_RELATION_CREATE = 27     # measured 24
-    BUDGET_RELATION_DELETE = 23     # measured 20
+    BUDGET_RELATION_CREATE = 27     # measured 24 (25 pre-#1883)
+    BUDGET_RELATION_DELETE = 22     # measured 19 (20 pre-#1883)
 
     def setUp(self):
         # MaintenanceModeMiddleware consults get_maintenance_state() on every
@@ -1727,9 +1727,11 @@ class CardMutationQueryCountTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(
             # 34 = 31 + the card row lock update_card takes first (#1587)
-            # + the board row FOR SHARE and the label_ids re-read (#1632).
-            len(ctx), 34,
-            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 34. "
+            # + the board row FOR SHARE and the label_ids re-read (#1632)
+            # - the two movements prefetches (card fetch + response re-fetch)
+            # that last-move subquery annotations replaced (#1883).
+            len(ctx), 32,
+            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 32. "
             "If this grew by exactly one, check for a reader that fell back "
             "from a to_attr-parked list to the manager's .all() (#1223); if "
             "it is a legitimate change, re-measure and move this number in "
