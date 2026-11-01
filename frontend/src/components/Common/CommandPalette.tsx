@@ -53,6 +53,8 @@ interface ResultItem {
 
 interface Props {
   open: boolean;
+  /** Current user id; scopes the recent-boards list (#1955). Omit ⇒ no recents. */
+  userId?: number | null;
   /** Board-scope inputs. Omit on off-board surfaces (Dashboard, Group,
    * Settings, Admin) to render the palette in "jump" mode: boards + global
    * actions only. */
@@ -70,6 +72,7 @@ interface Props {
 
 export default function CommandPalette({
   open,
+  userId,
   boardCards,
   columns,
   isAdmin,
@@ -94,7 +97,7 @@ export default function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { recentBoards, pruneByIds } = useRecentBoardsPref();
+  const { recentBoards, pruneByIds } = useRecentBoardsPref(userId);
 
   // Fetch all boards once when opened. The authoritative board list is also used
   // to prune stale entries from the recent-boards localStorage cache (IDOR-safe:

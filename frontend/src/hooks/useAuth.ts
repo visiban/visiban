@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser, logout as apiLogout } from "../api/auth";
+import { clearRecentBoardsPrefs } from "./useRecentBoardsPref";
 import { stashDemoNextReset } from "../utils/demoReset";
 import type { User } from "../types";
 
@@ -20,6 +21,9 @@ export function useAuth() {
       // tab doesn't inherit a stale join intent from the previous session.
       sessionStorage.removeItem("pendingJoinToken");
       sessionStorage.removeItem("returnTo");
+      // Recent boards hold board/group names; drop them so the next account on
+      // this browser cannot read them (#1955).
+      clearRecentBoardsPrefs();
       setUser(null);
     };
     window.addEventListener("auth:sessionExpired", handleSessionExpired);
@@ -33,6 +37,7 @@ export function useAuth() {
     stashDemoNextReset(null);
     sessionStorage.removeItem("pendingJoinToken");
     sessionStorage.removeItem("returnTo");
+    clearRecentBoardsPrefs();
     setUser(null);
   };
 
