@@ -215,6 +215,8 @@ def transfer_group_ownership(
         # which could deadlock against a member change on the same group: that
         # holds the admins' account rows while it waits for the group row.
         # Holding it also fixes ``is_active`` for the ``require_active`` check.
+        # Locks the row; the result is unused (pinned by
+        # test_transfer_takes_the_new_owner_account_before_the_group_row).
         get_user_model().objects.select_for_update(no_key=True).filter(
             pk=new_owner_id
         ).values_list("pk", flat=True).first()
