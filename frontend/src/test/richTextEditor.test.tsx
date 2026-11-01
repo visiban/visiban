@@ -449,6 +449,13 @@ describe('RichTextEditor toolbar actions (fake non-null editor)', () => {
       fireEvent.mouseDown(screen.getByTitle('Red'))
       expect(calls).toContain(`setColor(${JSON.stringify(['#f87171'])})`)
 
+      // Swatches expose pressed state and a themed (never border-white) selected treatment
+      fireEvent.mouseDown(colorButton)
+      const red = screen.getByTitle('Red')
+      expect(red).toHaveAttribute('aria-pressed')
+      expect(red.className).not.toContain('border-white')
+      fireEvent.mouseDown(red)
+
       fireEvent.mouseDown(colorButton)
       fireEvent.mouseDown(screen.getByTitle('Default'))
       expect(calls).toContain('unsetColor')

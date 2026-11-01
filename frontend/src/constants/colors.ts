@@ -19,3 +19,22 @@ export const PRIORITY_COLORS: Record<string, string> = {
   high:   "#EF4444",
   urgent: "#B91C1C",
 };
+
+/** Human-readable names for the swatch colors in COLUMN_COLORS / PALETTE_COLORS.
+ *  Swatch pickers use these as the accessible name ("Select color Blue"); a raw hex
+ *  tells a screen-reader user nothing. Keys are uppercase hex. */
+export const COLOR_NAMES: Record<string, string> = {
+  "#6B7280": "Gray",
+  "#3B82F6": "Blue",
+  "#10B981": "Green",
+  "#F59E0B": "Amber",
+  "#EF4444": "Red",
+  "#8B5CF6": "Purple",
+  "#EC4899": "Pink",
+  "#14B8A6": "Teal",
+};
+
+/** Name for a swatch hex; falls back to "Custom color" for a value outside the palette. */
+export function colorName(hex: string): string {
+  return COLOR_NAMES[hex.toUpperCase()] ?? "Custom color";
+}

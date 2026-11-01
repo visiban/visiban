@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createColumn } from "../../api/boards";
 import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
+import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
@@ -74,18 +75,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
         </div>
         <div>
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-          <div className="flex gap-2">
-            {COLUMN_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                aria-label={`Select color ${c}`}
-                aria-pressed={color === c}
-                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${color === c ? "border-white scale-110" : "border-transparent"}`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
+          <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} />
         </div>
       </div>
 
