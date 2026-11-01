@@ -46,7 +46,7 @@ export default function ColorSwatchPicker({
             aria-label={getAriaLabel ? getAriaLabel(c, name) : `Select color ${name}`}
             aria-pressed={selected}
             title={name}
-            className={`${dim} rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            className={`${dim} rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-2 focus:ring-offset-surface ${
               selected
                 ? "border-fg scale-110 ring-2 ring-fg ring-offset-2 ring-offset-surface"
                 : "border-transparent"
