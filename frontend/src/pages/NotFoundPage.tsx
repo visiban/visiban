@@ -12,8 +12,9 @@ interface Props {
 /**
  * Catch-all for authenticated routes that match nothing (#1740). Previously
  * these redirected silently to the dashboard, so a mistyped or stale link gave
- * the user no explanation. Share links and missing boards/groups never reach
- * this page: they are matched by their own routes and handle absence themselves.
+ * the user no explanation. Share links, boards, and groups never reach this
+ * page: they are matched by their own routes. (A missing or revoked board or
+ * group still redirects to the dashboard from its own page; unchanged here.)
  */
 export default function NotFoundPage({ user, onLogout, onUserUpdated }: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);

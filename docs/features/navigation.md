@@ -134,4 +134,4 @@ The footer is hidden entirely when the sidebar is collapsed to the icon rail.
 
 ## Unknown pages
 
-A link to a page that doesn't exist, such as a mistyped address or an out-of-date bookmark, shows a "Page not found" page with a **Go to dashboard** button instead of silently sending you to the dashboard. Missing boards, groups, and expired share links keep their own messages.
+A link to a page that doesn't exist, such as a mistyped address or an out-of-date bookmark, shows a "Page not found" page with a **Go to dashboard** button instead of silently sending you to the dashboard. Expired share links keep their own messages, and a missing or revoked board or group behaves as before. `/login` takes a signed-in user to the dashboard.

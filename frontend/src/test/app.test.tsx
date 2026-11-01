@@ -40,8 +40,14 @@ vi.mock('../contexts/BoardContext', () => {
 })
 
 vi.mock('../components/Auth/LoginPage', () => ({
-  default: () => <div data-testid="login-page">Login</div>,
+  default: ({ onLogin }: { onLogin?: (u: unknown) => void }) => (
+    <div data-testid="login-page">
+      Login
+      <button onClick={() => onLogin?.(mockLoginUser)}>complete-login</button>
+    </div>
+  ),
 }))
+let mockLoginUser: unknown = null
 
 vi.mock('../components/Auth/ForceChangePasswordModal', () => ({
   default: () => <div data-testid="force-password">Change Password</div>,
@@ -309,6 +315,37 @@ describe('App', () => {
     render(<MemoryRouter initialEntries={['/nonexistent']}><App /></MemoryRouter>)
     expect(screen.getByTestId('login-page')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+  })
+
+  describe('signing in from a URL that matches no route (#1740)', () => {
+    function loginFrom(path: string) {
+      const authState: { user: User | null } = { user: null }
+      const updateUser = vi.fn((u: User) => { authState.user = u })
+      mockLoginUser = fakeUser
+      mockUseAuth.mockImplementation(() => ({ user: authState.user, loading: false, logout: vi.fn(), updateUser }))
+      const ui = <MemoryRouter initialEntries={[path]}><App /></MemoryRouter>
+      const { rerender } = render(ui)
+      act(() => { screen.getByText('complete-login').click() })
+      mockUseAuth.mockImplementation(() => ({ user: authState.user, loading: false, logout: vi.fn(), updateUser }))
+      rerender(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
+    }
+
+    it.each(['/login', '/nonexistent'])('lands on the dashboard after signing in at %s', async (path) => {
+      loginFrom(path)
+      expect(await screen.findByTestId('dashboard')).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+    })
+
+    it('stays on a real page (/settings) after signing in', async () => {
+      loginFrom('/settings')
+      expect(await screen.findByTestId('settings-page')).toBeInTheDocument()
+    })
+
+    it('an already-signed-in visitor to /login goes to the dashboard', () => {
+      mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+      render(<MemoryRouter initialEntries={['/login']}><App /></MemoryRouter>)
+      expect(screen.getByTestId('dashboard')).toBeInTheDocument()
+    })
   })
 
   it('handleLogin navigates to sessionStorage returnTo and clears it', () => {

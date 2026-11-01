@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "./hooks/useEscapeStack";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useInstanceFlagsState } from "./hooks/useInstanceFlagsState";
 import { InstanceFlagsContext, useInstanceFlags } from "./contexts/InstanceFlagsContext";
@@ -34,6 +34,11 @@ import type { ImportSummary, User } from "./types";
 import { joinBoard, starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
+
+// Authenticated paths that render a real page (mirrors AuthenticatedRoutes).
+// handleLogin uses it to tell "signed in on a real page, stay" from "signed in
+// on a URL that matches nothing (/login, a stale link), go to the dashboard".
+const KNOWN_APP_PATHS = ["/", "/groups/:id", "/boards/:id", "/settings", "/admin"];
 
 export default function App() {
   const { user, loading: authLoading, logout, updateUser } = useAuth();
@@ -84,6 +89,7 @@ export default function App() {
       .catch(() => navigate(`/join/${pendingToken}`));
   }, [user, navigate]);
 
+  const location = useLocation();
   const handleLogin = (loggedInUser: User) => {
     updateUser(loggedInUser);
     const returnTo = sessionStorage.getItem("returnTo");
@@ -114,6 +120,13 @@ export default function App() {
     // construct the URL, not to bypass any authorization.
     if (loggedInUser.default_board_id) {
       void navigate(`/boards/${loggedInUser.default_board_id}`);
+      return;
+    }
+    // Logged-out users see LoginPage on every unmatched URL (including /login),
+    // and signing in keeps the URL. Without this they would land on "Page not
+    // found" (#1740) where they used to be bounced to the dashboard.
+    if (!KNOWN_APP_PATHS.some((pattern) => matchPath(pattern, location.pathname))) {
+      void navigate("/", { replace: true });
     }
   };
 
@@ -245,6 +258,9 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
         <Route path="/boards/:id" element={<BoardProvider><BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} /></BoardProvider>} />
         <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
         <Route path="/admin" element={<AdminPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+        {/* /login is a real URL (bookmarks, the demo's Cloudflare challenge);
+            an already-signed-in visitor goes to the dashboard, not a 404. */}
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFoundPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
       </Routes>
     </>
