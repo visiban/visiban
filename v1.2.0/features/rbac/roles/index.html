@@ -4250,7 +4250,7 @@
 <td style="text-align: center;">—</td>
 </tr>
 <tr>
-<td>Delete board</td>
+<td>Delete board¶</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">owner only</td>
 <td style="text-align: center;">—</td>
@@ -4571,6 +4571,7 @@
 </tr>
 </tbody>
 </table>
+<p><strong>¶</strong> Deleting a board is permanent and removes every card on it, including archived cards, so it is limited to the board's <strong>owner</strong> and to users with <code>can_access_all_content</code> (the computed <code>site_admin</code> role). A board admin who is not the owner can manage the board's members, structure and settings but gets <code>403 Forbidden</code> on <code>DELETE /api/v1/boards/{id}/</code>. This is intentional. Group admins and the separate <code>is_site_admin</code> account flag don't grant it either, unless the user is also the owner or has <code>can_access_all_content</code>.</p>
 <p><strong>†</strong> <code>mod</code> = only members with the moderator entitlement. Regular members can only perform these actions on content they created. See <a href="#moderator-entitlement">Moderator entitlement</a> below.</p>
 <p><strong>†</strong> <code>move</code> = Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member that the moving user did not create requires the moderator entitlement or Admin role. When blocked, the card snaps back to its original position and an amber toast displays: "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."</p>
 <p><strong>‡</strong> The ownership gate on adding, editing, checking/unchecking, and deleting checklist items was added in 1.1 (<a href="https://gitlab.com/visiban/visiban/-/issues/692">#692</a>) — before that release, any member or collaborator could act on any item.</p>
