@@ -4715,7 +4715,7 @@ page; treat it as opaque.</p>
 </tr>
 <tr>
 <td><code>?search=&lt;q&gt;</code></td>
-<td>Filter by title and description (partial, case-insensitive). A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
+<td>Filter by title and description (partial, case-insensitive; results are unchanged for ASCII text; case folding of some non-ASCII letters, such as Turkish dotted/dotless i and Greek final sigma, may differ from earlier releases). A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
 </tr>
 <tr>
 <td><code>?ordering=&lt;field&gt;</code></td>
@@ -4791,7 +4791,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 </tr>
 <tr>
 <td><code>?search=&lt;q&gt;</code></td>
-<td>Filter by title and description (partial, case-insensitive). A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
+<td>Filter by title and description (partial, case-insensitive; results are unchanged for ASCII text; case folding of some non-ASCII letters, such as Turkish dotted/dotless i and Greek final sigma, may differ from earlier releases). A value containing a NUL (0x00) character returns <code>400</code> with <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code> (<em>Changed in 1.3, #1887</em>; it was a <code>500</code> on PostgreSQL)</td>
 </tr>
 <tr>
 <td><code>?assignee=&lt;id&gt;</code></td>
