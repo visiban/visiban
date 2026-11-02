@@ -306,6 +306,67 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.updateCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, version: 4 }))
   })
 
+  it('custom_field frames pass updaters, so two frames before a re-render both survive (#1970)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const def = (id: number, name: string) => ({ id, uid: `cf${id}`, name }) as unknown as Record<string, unknown>
+    // created then updated, dispatched back-to-back with no re-render between.
+    act(() => {
+      getOnEvent.dispatch({ event: 'custom_field.created', data: def(1, 'A') })
+      getOnEvent.dispatch({ event: 'custom_field.created', data: def(2, 'B') })
+      getOnEvent.dispatch({ event: 'custom_field.updated', data: def(1, 'A2') })
+    })
+    const calls = (ctx.applyCustomFieldDefinitions as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls).toHaveLength(3)
+    // Fold the updaters over a state the way React's setBoard queue would.
+    let state: unknown[] = []
+    for (const [arg] of calls) {
+      expect(typeof arg).toBe('function')
+      state = arg(state)
+    }
+    expect(state.map((f) => (f as { name: string }).name)).toEqual(['A2', 'B'])
+    act(() => { getOnEvent.dispatch({ event: 'custom_field.deleted', data: { custom_field_uid: 'cf1' } }) })
+    const last = (ctx.applyCustomFieldDefinitions as ReturnType<typeof vi.fn>).mock.calls[3][0]
+    expect((last(state) as { id: number }[]).map((f) => f.id)).toEqual([2])
+  })
+
+  it('swimlane_custom_field frames pass updaters, so two frames before a re-render both survive (#1970)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const def = (id: number, name: string) => ({ id, uid: `sf${id}`, name }) as unknown as Record<string, unknown>
+    act(() => {
+      getOnEvent.dispatch({ event: 'swimlane_custom_field.created', data: def(1, 'A') })
+      getOnEvent.dispatch({ event: 'swimlane_custom_field.created', data: def(2, 'B') })
+      getOnEvent.dispatch({ event: 'swimlane_custom_field.updated', data: def(2, 'B2') })
+    })
+    const calls = (ctx.applySwimlaneFieldDefinitions as ReturnType<typeof vi.fn>).mock.calls
+    let state: unknown[] = []
+    for (const [arg] of calls) {
+      expect(typeof arg).toBe('function')
+      state = arg(state)
+    }
+    expect(state.map((f) => (f as { name: string }).name)).toEqual(['A', 'B2'])
+  })
+
+  it('swimlane.updated resolves the merge against the latest board, not a render capture (#1970)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const incoming = { id: 7, uid: 'sl7', name: 'Renamed' } as unknown as Record<string, unknown>
+    act(() => { getOnEvent.dispatch({ event: 'swimlane.updated', data: incoming }) })
+    const arg = (ctx.updateSwimlane as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(typeof arg).toBe('function')
+    const latest = makeBoard({
+      swimlanes: [{ id: 7, uid: 'sl7', name: 'Old', contact_email: 'ops@acme.test' } as unknown as Swimlane],
+    })
+    expect(arg(latest)).toMatchObject({ id: 7, name: 'Renamed', contact_email: 'ops@acme.test' })
+  })
+
   it('saved_filter.created refreshes the filter list for the owning user (#1054)', async () => {
     mockBoardContextValue = makeContext()
     render(<BoardView currentUser={fakeUser} />)

@@ -575,18 +575,22 @@ export function useBoard() {
   }, []);
 
   // Custom fields (#371) — one wholesale-replace setter rather than granular
-  // add/update/remove mutators like labels above. Every caller (the Fields
-  // tab's local mutations, and each `custom_field.*` WS event handled in
-  // BoardView) already computes the full resulting array before calling
-  // this, so there's no delta-application logic to duplicate per call site.
-  const applyCustomFieldDefinitions = useCallback((definitions: CustomFieldDefinition[]) => {
-    setBoard((b) => b ? { ...b, custom_field_definitions: definitions } : b);
+  // add/update/remove mutators like labels above. Callers pass either the full
+  // resulting array (the Fields tab's local mutations, `custom_field.reordered`)
+  // or an updater `(prev) => next` (the `custom_field.created/updated/deleted`
+  // WS events in BoardView, #1970). The updater runs inside `setBoard`, so it
+  // sees the latest state even when frames arrive before a re-render.
+  const applyCustomFieldDefinitions = useCallback((definitions: CustomFieldDefinition[] | ((prev: CustomFieldDefinition[]) => CustomFieldDefinition[])) => {
+    // Updater form (#1970): socket frames can land before React re-renders, so
+    // a caller building the next array from render-captured state would
+    // overwrite a previous frame's change.
+    setBoard((b) => b ? { ...b, custom_field_definitions: typeof definitions === 'function' ? definitions(b.custom_field_definitions) : definitions } : b);
   }, []);
 
   // Row field schema (#1140) — exactly parallel to the card version above,
   // and separate because the two are independent per-board schemas.
-  const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[]) => {
-    setBoard((b) => b ? { ...b, swimlane_custom_field_definitions: definitions } : b);
+  const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => {
+    setBoard((b) => b ? { ...b, swimlane_custom_field_definitions: typeof definitions === 'function' ? definitions(b.swimlane_custom_field_definitions) : definitions } : b);
   }, []);
 
   const addMember = useCallback((membership: BoardMembership) => {
@@ -657,8 +661,14 @@ export function useBoard() {
    * serializer and would otherwise blank an admin's contact_email, notes, and
    * admin-only field values (#1140).
    */
-  const updateSwimlane = useCallback((swimlane: Swimlane) => {
-    setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.map((s) => s.id === swimlane.id ? swimlane : s) } : b);
+  const updateSwimlane = useCallback((swimlane: Swimlane | ((board: BoardFull) => Swimlane)) => {
+    // Resolver form (#1970): the socket handler derives the merged swimlane
+    // from the latest board state, not a render-captured copy.
+    setBoard((b) => {
+      if (!b) return b;
+      const next = typeof swimlane === 'function' ? swimlane(b) : swimlane;
+      return { ...b, swimlanes: b.swimlanes.map((s) => s.id === next.id ? next : s) };
+    });
   }, []);
 
   const removeSwimlane = useCallback(async (swimlaneId: number) => {

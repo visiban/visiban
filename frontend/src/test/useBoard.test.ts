@@ -1192,6 +1192,51 @@ describe('useBoard', () => {
     expect(result.current.board!.swimlane_custom_field_definitions[0].name).toBe('Owner')
   })
 
+  it('applyCustomFieldDefinitions updaters compose when queued before a re-render (#1970)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const def = (id: number, name: string) => ({
+      id, uid: `cfduid${id}`, name, field_type: 'number', choices: [], choice_colors: {}, position: id,
+      show_on_card: false, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+    }) as never
+    act(() => {
+      result.current.applyCustomFieldDefinitions((prev) => [...prev, def(1, 'A')])
+      result.current.applyCustomFieldDefinitions((prev) => [...prev, def(2, 'B')])
+      result.current.applyCustomFieldDefinitions((prev) => prev.map((f) => (f.id === 1 ? def(1, 'A2') : f)))
+    })
+    expect(result.current.board!.custom_field_definitions.map((f) => f.name)).toEqual(['A2', 'B'])
+  })
+
+  it('applySwimlaneFieldDefinitions updaters compose when queued before a re-render (#1970)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const def = (id: number, name: string) => ({
+      id, uid: `sfduid${id}`, name, field_type: 'text', choices: [], choice_colors: {}, position: id,
+      show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01',
+    }) as never
+    act(() => {
+      result.current.applySwimlaneFieldDefinitions((prev) => [...prev, def(1, 'A')])
+      result.current.applySwimlaneFieldDefinitions((prev) => [...prev, def(2, 'B')])
+    })
+    expect(result.current.board!.swimlane_custom_field_definitions.map((f) => f.name)).toEqual(['A', 'B'])
+  })
+
+  it('updateSwimlane accepts a resolver fed the latest board (#1970)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const existing = result.current.board!.swimlanes[0]
+    expect(existing).toBeDefined()
+    act(() => {
+      result.current.updateSwimlane((b) => ({ ...b.swimlanes.find((s) => s.id === existing.id)!, name: 'Resolved' }))
+    })
+    expect(result.current.board!.swimlanes.find((s) => s.id === existing.id)!.name).toBe('Resolved')
+  })
+
   it('applyColumnOrder and applySwimlaneOrder replace the board arrays wholesale', async () => {
     const board = makeBoard()
     mockGetBoardFull.mockResolvedValue(board)
