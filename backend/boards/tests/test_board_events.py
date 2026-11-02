@@ -24,8 +24,9 @@ import types
 from unittest.mock import patch
 
 from django.core.management import call_command
-from django.db import transaction
+from django.db import connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -1127,3 +1128,40 @@ class PruneMarkTests(BoardEventTestBase):
         self.assertEqual(self._mark(other), b1)
         self.assertIsNone(self._mark(untouched))
         self.assertLess(a1, a2)
+
+    # -- query cost of the retention check ---------------------------------
+
+    def _retention_queries(self, url):
+        """(prune-mark lookups, board_events queries) one feed request runs.
+
+        Counted by table rather than as a total so the assertion pins only the
+        retention check: the page fetch is the one board_events query every
+        request makes, and anything beyond it is the old EXISTS fallback.
+        """
+        with CaptureQueriesContext(connection) as ctx:
+            resp = self.client_for(self.owner).get(url)
+        sqls = [q["sql"] for q in ctx.captured_queries]
+        return (
+            resp.status_code,
+            sum("board_event_prune_marks" in s for s in sqls),
+            sum("board_events" in s for s in sqls),
+        )
+
+    def test_after_zero_runs_no_retention_query(self):
+        self._record(aged_days=45)
+        call_command("prune_board_events")
+        self._record()
+        self.assertEqual(self._retention_queries(f"{self.url}?after=0"), (200, 0, 1))
+
+    def test_cursor_at_or_below_the_mark_costs_one_pk_lookup(self):
+        cursor = self._record(aged_days=45)
+        missed = self._record(aged_days=44)
+        call_command("prune_board_events")
+        self._record()
+        self.assertEqual(self._retention_queries(f"{self.url}?after={missed}"), (200, 1, 1))
+        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 1, 1))
+
+    def test_board_with_no_mark_adds_the_old_exists_check(self):
+        cursor = self._record()
+        self._record()
+        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (200, 1, 2))
