@@ -46,6 +46,7 @@ function dispatch(e: KeyboardEvent): void {
  *   31 — RichTextEditor edit-mode cancel
  *   30 — side panels (card detail, archived cards)
  *   25 — dropdowns (SelectDropdown, FilterBar, BulkActionToolbar) — via useDropdownEscape
+ *   21 — inline board text fields (add-card, column/swimlane/board rename, search) — via useInlineEditEscape (#1860)
  *   20 — inline confirmation dialogs (bulk delete confirm)
  *   18 — movement-history slide-in (above the view-toggle's 15, below menus and dropdowns at 25)
  *   15 — view-toggle navigation (analytics → summary → board)

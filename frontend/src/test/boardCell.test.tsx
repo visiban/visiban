@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardCell from '../components/Board/BoardCell'
+import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import type { Card, Column, Swimlane } from '../types'
 
 // Mutable so a test can simulate an in-flight drag (#1287).
@@ -408,5 +409,36 @@ describe('BoardCell', () => {
     await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
     await user.click(screen.getByText('Add'))
     expect(await screen.findByText('Failed to add card.')).toBeInTheDocument()
+  })
+})
+
+describe('BoardCell — Escape in the add-card input (#1860)', () => {
+  it('cancels the input without reaching the selection-clear handler', async () => {
+    const user = userEvent.setup()
+    const onLower = vi.fn()
+    render(<><EscapeLowerHandlers onLower={onLower} /><BoardCell {...defaultProps()} selectedCardIds={new Set([1])} /></>)
+    await user.click(screen.getByText('+ Add card'))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
+    expect(onLower).not.toHaveBeenCalled()
+  })
+
+  it('closes only the focused cell when two add-card inputs are open', async () => {
+    const user = userEvent.setup()
+    render(<><BoardCell {...defaultProps()} /><BoardCell {...defaultProps()} /></>)
+    const adds = screen.getAllByText('+ Add card')
+    await user.click(adds[0])
+    await user.click(screen.getAllByText('+ Add card')[0])
+    expect(screen.getAllByPlaceholderText('Card title…')).toHaveLength(2)
+    await user.keyboard('{Escape}')
+    expect(screen.getAllByPlaceholderText('Card title…')).toHaveLength(1)
+  })
+
+  it('lets Escape fall through when no input is open', async () => {
+    const user = userEvent.setup()
+    const onLower = vi.fn()
+    render(<><EscapeLowerHandlers onLower={onLower} /><BoardCell {...defaultProps()} /></>)
+    await user.keyboard('{Escape}')
+    expect(onLower).toHaveBeenCalled()
   })
 })

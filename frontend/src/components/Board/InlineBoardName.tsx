@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 
 interface Props {
   name: string;
@@ -11,6 +12,14 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
   const [value, setValue] = useState(name);
   const [error, setError] = useState<string | null>(null);
 
+  const cancel = () => {
+    setEditing(false);
+    setError(null);
+  };
+
+  // Escape cancels the rename through the stack so it does not also clear the board selection (#1860).
+  useInlineEditEscape(() => editing, cancel);
+
   if (!canEdit) {
     return <span className="text-fg text-sm font-medium">{name}</span>;
   }
@@ -19,11 +28,6 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
     setValue(name);
     setError(null);
     setEditing(true);
-  };
-
-  const cancel = () => {
-    setEditing(false);
-    setError(null);
   };
 
   const save = async () => {
@@ -47,7 +51,6 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") { e.preventDefault(); void save(); } // save manages its own error state and never rejects
-    if (e.key === "Escape") { e.preventDefault(); cancel(); }
   };
 
   return (

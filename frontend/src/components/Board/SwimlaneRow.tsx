@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
@@ -230,6 +231,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     setDraft("");
   };
 
+  // Escape cancels the rename through the stack so it does not also clear the selection (#1860).
+  useInlineEditEscape(() => renaming, cancelRename);
+
   const handleHeightResizeStart = (e: React.MouseEvent) => {
     if (!setSwimlaneHeight) return;
     e.preventDefault();
@@ -305,7 +309,6 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
-                  if (e.key === "Escape") { e.preventDefault(); cancelRename(); }
                 }}
                 onBlur={commitRename}
                 onClick={(e) => e.stopPropagation()}

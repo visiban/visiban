@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
+import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import type { Card, Column, Swimlane } from '../types'
 import { cellKey } from '../gridOverlays/types'
 import { encodeOverlayLevel } from '../gridOverlays/scale'
@@ -476,5 +477,19 @@ describe('SwimlaneRow — row limit state (#1150)', () => {
   it('the meter is decorative', () => {
     render(<SwimlaneRow {...defaultProps()} swimlane={limited({ wip_limit: 6 })} cards={cardsIn(3)} />)
     expect(stat()!.querySelector('[aria-hidden="true"]')).not.toBeNull()
+  })
+})
+
+describe('SwimlaneRow — Escape in the rename input (#1860)', () => {
+  it('cancels the rename without reaching the selection-clear handler', async () => {
+    const user = userEvent.setup()
+    const onLower = vi.fn()
+    render(<><EscapeLowerHandlers onLower={onLower} /><SwimlaneRow {...defaultProps()} /></>)
+    await user.click(screen.getByRole('button', { name: 'Customer A' }))
+    await user.type(screen.getByDisplayValue('Customer A'), 'x{Escape}')
+    expect(screen.queryByDisplayValue('Customer Ax')).not.toBeInTheDocument()
+    expect(onLower).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onLower).toHaveBeenCalled()
   })
 })

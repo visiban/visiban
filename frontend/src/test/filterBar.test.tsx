@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterBar, { EMPTY_FILTER } from '../components/Board/FilterBar'
+import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import type { FilterState } from '../components/Board/FilterBar'
 import type { BoardFull, User } from '../types'
 import { choiceColor } from '../utils/customFieldValue'
@@ -716,5 +717,22 @@ describe('FilterBar — choice color dots (#1391)', () => {
     await user.click(screen.getByRole('button', { name: /^Severity/ }))
     expect(dotFor('High')).toBeNull()
     expect(dotFor('Low')).toBeNull()
+  })
+})
+
+describe('FilterBar — Escape in the search input (#1860)', () => {
+  it('clears the search and blurs without reaching the selection-clear handler', async () => {
+    const user = userEvent.setup()
+    const onLower = vi.fn()
+    const onChange = vi.fn()
+    render(<><EscapeLowerHandlers onLower={onLower} /><FilterBar board={makeBoard()} filters={{ ...EMPTY_FILTER, search: 'abc' }} onChange={onChange} /></>)
+    const input = screen.getByPlaceholderText('Search cards on this board…')
+    await user.click(input)
+    await user.keyboard('{Escape}')
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ search: '' }))
+    expect(input).not.toHaveFocus()
+    expect(onLower).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onLower).toHaveBeenCalled()
   })
 })

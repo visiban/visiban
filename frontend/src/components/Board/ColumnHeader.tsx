@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column } from "../../types";
@@ -85,6 +86,9 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
     setRenaming(false);
     setDraft("");
   };
+
+  // Escape cancels the rename through the stack so it does not also clear the selection (#1860).
+  useInlineEditEscape(() => renaming, cancelRename);
 
   // Kebab items are memoized so the OverflowMenu's items-driven effects don't
   // re-fire on every parent render. `column.name` is captured for the delete
@@ -216,7 +220,6 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") { e.preventDefault(); void commitRename(); } // commitRename manages its own error state (renameError) and never rejects
-                if (e.key === "Escape") { e.preventDefault(); cancelRename(); }
               }}
               onBlur={commitRename}
               onClick={(e) => e.stopPropagation()}

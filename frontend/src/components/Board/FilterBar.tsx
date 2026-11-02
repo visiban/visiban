@@ -9,6 +9,7 @@ import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../
 import { CHOICE_COLORS } from "../../constants/choiceColors";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { isCardBlocked } from "../../utils/blockedState";
+import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 
 // #371 — one filter value per custom field, keyed by field_definition id in
 // FilterState.customFields. Number/date are equality-only (the value is
@@ -258,6 +259,16 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   // the close now being processed was actually triggered by Escape.
   const escapeCloseRef = useRef(false);
 
+  // Escape in the focused search box clears it and drops focus, through the stack so it does not also
+  // clear the card selection (#1860). Keyed on the focused element, not the ref: searchRef is optional.
+  useInlineEditEscape(
+    () => document.activeElement instanceof HTMLInputElement && document.activeElement.dataset.boardSearch === "true",
+    () => {
+      onChange({ ...filters, search: "" });
+      (document.activeElement as HTMLInputElement).blur();
+    },
+  );
+
   const handleRow1KeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Escape") return;
     // Row 1's own onKeyDown (React's synthetic bubble phase, delegated at the
@@ -425,7 +436,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
               title={searchDisabled ? "Switch scope to \"This board\" to search here" : undefined}
               aria-describedby={searchDisabled ? "filterbar-search-helper" : undefined}
               onChange={(e) => onChange({ ...filters, search: e.target.value })}
-              onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
+              data-board-search="true"
               aria-keyshortcuts="/"
               className="bg-surface border border-line rounded px-2 py-1 pr-12 text-sm text-fg-secondary placeholder-fg-muted w-36 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent disabled:opacity-40 disabled:cursor-not-allowed"
             />

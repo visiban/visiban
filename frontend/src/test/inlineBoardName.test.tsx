@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InlineBoardName from '../components/Board/InlineBoardName'
+import { EscapeLowerHandlers } from './escapeSelectionProbe'
 
 describe('InlineBoardName', () => {
   it('renders plain text for non-admins with no affordance', () => {
@@ -125,5 +126,19 @@ describe('InlineBoardName — keyboard (#1376)', () => {
     expect(screen.getByRole('button', { name: 'My board' })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: /rename board/i })).not.toHaveFocus()
+  })
+})
+
+describe('InlineBoardName — Escape (#1860)', () => {
+  it('cancels the rename without reaching the selection-clear handler', async () => {
+    const user = userEvent.setup()
+    const onLower = vi.fn()
+    render(<><EscapeLowerHandlers onLower={onLower} /><InlineBoardName name="My board" canEdit onSave={vi.fn()} /></>)
+    await user.click(screen.getByRole('button', { name: /rename board/i }))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(onLower).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onLower).toHaveBeenCalled()
   })
 })
