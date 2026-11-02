@@ -107,7 +107,7 @@ A button pair in the analytics toolbar toggles the heatmap mode. The choice pers
 | Mode | What the heatmap shows | Use it to |
 |---|---|---|
 | **Age** | Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now. | Find current bottlenecks |
-| **Throughput** | Average time cards that **exited** a stage during the selected period spent there before moving on. Reflects historical flow efficiency, not current queue depth. | Compare historical flow across periods |
+| **Throughput** | Average time cards that **exited** a stage during the selected period spent there before moving on. Reflects historical flow efficiency, not current queue depth. | View historical flow over a chosen 7, 30 or 90-day window |
 
 In **Throughput** mode the column footer row shows how many cards contributed to each average (for example "5 cards"), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
 
