@@ -298,9 +298,22 @@ export interface Column {
   policy: ColumnPolicy | null;
 }
 
-/** A column as the anonymous share link serves it (`PublicColumnSerializer`):
- *  `policy` is left out (#1101). */
-export type PublicColumn = Omit<Column, "policy">;
+/** A column as the anonymous share link serves it (`PublicColumnSerializer`,
+ *  nested on `BoardPublic.columns`): every `Column` field except `policy`
+ *  (#1101). A dedicated interface rather than `Omit<>`, so the
+ *  serializer-ts-parity gate can compare it (the #1296 `PublicSwimlane`
+ *  precedent). */
+export interface PublicColumn {
+  id: number;
+  uid: string;
+  name: string;
+  position: number;
+  color: string;
+  wip_limit: number | null;
+  weight_limit: number | null;
+  allow_card_creation: boolean;
+  is_done: boolean;
+}
 
 /** How a column policy's entry criteria are used on a move into the column. */
 export type ColumnPolicyMode = "advisory" | "confirm";

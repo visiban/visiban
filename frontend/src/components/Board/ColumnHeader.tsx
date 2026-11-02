@@ -33,6 +33,10 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const policyTriggerRef = useRef<HTMLButtonElement>(null);
   const policy = columnPolicy(column);
   const hasPolicy = policy !== null;
+  // A policy removed over the socket closes the popover for good: left set,
+  // the stale anchor would reopen it (and take focus) the moment a policy is
+  // added again. Adjusted during render, so no stale frame is committed.
+  if (!hasPolicy && policyRect !== null) setPolicyRect(null);
   const closePolicy = useCallback(() => setPolicyRect(null), []);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");

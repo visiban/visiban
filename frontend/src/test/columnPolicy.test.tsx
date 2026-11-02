@@ -137,6 +137,22 @@ describe('ColumnHeader Policy button (#1101)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
+  it('a policy removed over the socket closes the popover and a re-added one stays closed', async () => {
+    const user = userEvent.setup()
+    const props = {
+      cards: [], boardId: 1, isAdmin: false, onColumnUpdated: vi.fn(), onRequestDelete: vi.fn(),
+      collapsed: false, onToggleCollapse: vi.fn(),
+    }
+    const { rerender } = render(<ColumnHeader {...props} column={makeColumn({ policy: POLICY })} />)
+    await user.click(screen.getByRole('button', { name: /Column policy for Review/ }))
+    expect(screen.getByRole('dialog', { name: 'Column policy for Review' })).toBeInTheDocument()
+    rerender(<ColumnHeader {...props} column={makeColumn({ policy: null })} />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    rerender(<ColumnHeader {...props} column={makeColumn({ policy: POLICY })} />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Column policy for Review/ })).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('Edit policy opens the editor on the Policy tab, and closing returns focus to the Policy button', async () => {
     const user = userEvent.setup()
     renderHeader()

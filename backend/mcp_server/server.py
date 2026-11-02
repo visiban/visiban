@@ -365,8 +365,10 @@ def build_mcp_server():
     @mcp.tool(
         name="list_columns",
         description=(
-            "List a board's columns (id, uid, name, position, color, wip_limit, card_count), ordered by "
-            "position. wip_limit is checked on move_card only, so card_count can exceed it."
+            "List a board's columns (id, uid, name, position, color, wip_limit, policy, card_count), "
+            "ordered by position. wip_limit is checked on move_card only, so card_count can exceed it. "
+            "policy is the column's written entry criteria and definition of done (or null); it is "
+            "advisory, so move_card never refuses a move because of it."
         ),
     )
     @_throttled()
