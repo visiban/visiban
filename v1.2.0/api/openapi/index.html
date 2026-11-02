@@ -4317,6 +4317,17 @@ shape: an object keyed by field name (or <code>detail</code>), or an array of me
 <a href="https://gitlab.com/visiban/visiban/-/issues/1124">#1124</a>). A path-parameter-only lookup
 cannot answer <code>400</code>, so it is not documented there. Because it is a whole-class rule, a new
 write endpoint gets its <code>400</code> for free and never needs a per-operation baseline entry.</p>
+<p>A form body over one of Django's upload limits is in that class too:
+<code>DATA_UPLOAD_MAX_NUMBER_FILES</code> and <code>DATA_UPLOAD_MAX_NUMBER_FIELDS</code> for a multipart or
+urlencoded body, and <code>DATA_UPLOAD_MAX_MEMORY_SIZE</code> for the non-file parts of a multipart body.
+Django raises those as a <code>SuspiciousOperation</code>, which DRF does not catch and Django answers with
+an HTML page, so <code>visiban/parsers.py</code> re-raises them as DRF's <code>ParseError</code> from the form parsers
+in <code>DEFAULT_PARSER_CLASSES</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/2072">#2072</a>). A
+view that pins <code>parser_classes</code> must use those classes, not DRF's, or its oversize bodies go
+back to HTML. Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
+body over <code>DATA_UPLOAD_MAX_MEMORY_SIZE</code> (DRF reads <code>request.body</code> before calling the parser),
+and a query string over <code>DATA_UPLOAD_MAX_NUMBER_FIELDS</code>. Both are tracked in
+<a href="https://gitlab.com/visiban/visiban/-/issues/2073">#2073</a>.</p>
 <p><strong>Server-layer multipart rejections are filtered, not baselined.</strong> When a request's
 <code>Content-Type</code> is <code>multipart/form-data</code> but the body is malformed, the ASGI server
 (Twisted, under daphne) answers a bare <code>400</code> — no body, no <code>Content-Type</code> — before Django or
