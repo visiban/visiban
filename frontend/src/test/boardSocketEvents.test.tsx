@@ -140,6 +140,7 @@ const fakeUser: User = {
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
+    health_status: null, effective_health_status: null, health_status_source: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [
@@ -684,6 +685,22 @@ describe('BoardView socket event routing — new event types', () => {
     act(() => { getOnEvent.dispatch({ event: 'board.updated', data: patch }) })
     expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
     expect(ctx.updateBoardSettings).not.toHaveBeenCalled()
+  })
+
+  it('board.updated carrying health status forwards all three fields to mergeBoardState (#1133)', async () => {
+    // They are not per-user fields, so they must not be stripped: Row 1's
+    // health pill reads them from the merged context board.
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const patch = {
+      health_status: null,
+      effective_health_status: 'off_track',
+      health_status_source: { id: 3, name: 'Platform' },
+    }
+    act(() => { getOnEvent.dispatch({ event: 'board.updated', data: patch }) })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
   })
 
   it('board.updated drops the acting user is_starred before merging (#1559)', async () => {

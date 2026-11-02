@@ -949,6 +949,24 @@ export interface Board {
   is_starred: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * Health status (#1133). `health_status` is this entity's own value (null =
+   * inherit); `effective_health_status` is what applies (own value, else the
+   * nearest ancestor group's, else null); `health_status_source` names that
+   * ancestor group, and is null when the value is set here or nothing applies.
+   */
+  health_status: HealthStatus | null;
+  effective_health_status: HealthStatus | null;
+  health_status_source: HealthStatusSource | null;
+}
+
+/** Board and group health values (#1133); `null` on the wire means inherit / none. */
+export type HealthStatus = "on_track" | "at_risk" | "off_track";
+
+/** The ancestor group that supplies an inherited health status (#1133). */
+export interface HealthStatusSource {
+  id: number;
+  name: string;
 }
 
 export type BoardExportMinRole = "viewer" | "collaborator" | "member" | "admin";
@@ -1031,6 +1049,17 @@ export interface BoardFull {
   current_user_role: BoardOrSiteRole | null;
   capabilities: { movement_export: boolean; [key: string]: boolean };
   /**
+   * Health status (#1133), read-only here (written with `patchBoard`).
+   * `health_status` is this entity's own value (null = inherit);
+   * `effective_health_status` is what applies (own value, else the nearest
+   * ancestor group's, else null); `health_status_source` names that
+   * ancestor group, and is null when the value is set here or nothing applies.
+   */
+  health_status: HealthStatus | null;
+  effective_health_status: HealthStatus | null;
+  health_status_source: HealthStatusSource | null;
+
+  /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share
    * link is shown once, from the `enableBoardSharing` response
    * (`ShareActionResponse.share_token`). Use `share_link_active` to tell
@@ -1090,6 +1119,16 @@ export interface Group {
    * can_access_all_content. Same rule the server enforces on those writes.
    */
   can_place_boards: boolean;
+  /**
+   * Health status (#1133). `health_status` is this entity's own value (null =
+   * inherit); `effective_health_status` is what applies (own value, else the
+   * nearest ancestor group's, else null); `health_status_source` names that
+   * ancestor group, and is null when the value is set here or nothing applies.
+   * All three are null on a `navigation_only` group (withheld).
+   */
+  health_status: HealthStatus | null;
+  effective_health_status: HealthStatus | null;
+  health_status_source: HealthStatusSource | null;
   // Only present on the retrieve endpoint (GroupDetailSerializer); absent on list.
   ancestors?: { id: number; name: string }[];
 }

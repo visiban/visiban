@@ -83,6 +83,7 @@ const fakeMember2: User = {
 }
 
 const fakeBoard: BoardFull = {
+  health_status: null, effective_health_status: null, health_status_source: null,
   id: 1,
   uid: 'boarduid0001',
   archived_card_count: 0,

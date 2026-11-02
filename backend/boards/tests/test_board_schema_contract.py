@@ -405,6 +405,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "archived_card_count",
             # Additive (#1935): "a share link is set", without the token.
             "share_link_active",
+            # Additive (#1133): own, effective and source health status.
+            "health_status", "effective_health_status", "health_status_source",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")

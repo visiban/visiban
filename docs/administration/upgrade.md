@@ -458,6 +458,9 @@ Read the notes for every version between your current release and the target bef
 !!! note "`purge_card_history` also redacts the change feed"
     Since 1.3, a `purge_card_history` run also redacts the purged cards' content in the board change feed: in `card.created`, `card.updated`, `card.unarchived` and `card.moved` events the content values become `null`, every key stays, and the event's new `redacted_at` field is set (#1816). Migration `boards/0093` adds that column to `board_events`. It is nullable with no default or index, so on PostgreSQL it changes the catalog only and does not rewrite or scan the table. To redact the feed for cards you purged with 1.2, run the same `purge_card_history` command again: their events are matched even though their movement records are gone. See [Card History Retention](card-history-retention.md#what-the-purge-redacts-in-the-change-feed).
 
+!!! note "Board and group health status (#1133)"
+    Migrations `boards/0095` and `groups/0024` each add one column, `health_status`, to `boards` and `groups`. Both are nullable with no default and no index, so on PostgreSQL they change the catalog only and do not rewrite or scan either table. Existing boards and groups start with no status (`null`), which shows nothing. The API adds `health_status`, `effective_health_status` and `health_status_source` to every board and group payload; nothing was removed or retyped. See [Health Status](../features/health-status.md).
+
 !!! note "Deprecated: Board.allowed_priorities and Group.allowed_priorities"
     Both fields were never enforced: card create and update accept any priority, and no client filters by them (#1429). They are still accepted and returned unchanged through 1.x, and the OpenAPI schema marks them `deprecated`. They will be removed only at a major version, so do not rely on them to restrict priorities.
 

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { INVITE_STATUS_STYLES } from '../constants/invites'
 import { AGING_STAGE_CLASSES, staleBadgeToneClass, urgencyBadgeToneClass } from '../utils/agingTint'
 import { CHOICE_COLORS } from '../constants/choiceColors'
+import { HEALTH_STATUS_STYLES, HEALTH_STATUS_TEXT } from '../constants/healthStatus'
 
 // #1550: every on-tint text token must be declared in both theme blocks of index.css and exposed
 // to Tailwind. Read from disk: Vitest stubs CSS imports (`?raw` on a .css file comes back empty).
@@ -463,6 +464,43 @@ describe('design-system leftovers (#1857)', () => {
       expect(darkBlock).toContain(`--${t}:`)
       expect(lightBlock).toContain(`--${t}:`)
       expect(tw).toContain(`"${t}": "rgb(var(--${t}) / <alpha-value>)"`)
+    }
+  })
+})
+
+// #1133: health pills are `bg-<hue>/20` with on-tint text (HEALTH_STATUS_STYLES), on every
+// surface they sit on (the board's Row 1 and the group header on canvas/sunken, list rows and
+// the group tree on surface). Pin the four pairings at the #1550 floor of 5.26:1, both themes.
+describe('health status pairings (#1133)', () => {
+  const pair = (cls: string) => {
+    const fill = /\bbg-([a-z-]+)\/20\b/.exec(cls)
+    const text = /\btext-([a-z-]+-on-tint)\b/.exec(cls)
+    if (!fill || !text) throw new Error(`unparseable health classes: ${cls}`)
+    return { fill: fill[1], text: text[1] }
+  }
+
+  it('every state uses a /20 tint, a /60 border and on-tint text, with a hollow neutral for No status', () => {
+    for (const cls of Object.values(HEALTH_STATUS_STYLES)) {
+      expect(cls).toMatch(/\bbg-[a-z-]+\/20\b/)
+      expect(cls).toMatch(/\bborder-[a-z-]+\/60\b/)
+      expect(cls).toMatch(/\btext-[a-z-]+-on-tint\b/)
+    }
+    expect(pair(HEALTH_STATUS_STYLES.none)).toEqual({ fill: 'fg-muted', text: 'muted-on-tint' })
+    for (const v of ['on_track', 'at_risk', 'off_track'] as const) {
+      expect(HEALTH_STATUS_TEXT[v]).toBe(`text-${pair(HEALTH_STATUS_STYLES[v]).text}`)
+    }
+  })
+
+  it.each([
+    ['dark', darkBlock],
+    ['light', lightBlock],
+  ])('%s theme: every pairing holds >= 5.26:1 on canvas, sunken and surface', (_n, block) => {
+    for (const [state, cls] of Object.entries(HEALTH_STATUS_STYLES)) {
+      const { fill, text } = pair(cls)
+      for (const surf of ['canvas', 'surface-sunken', 'surface']) {
+        const tint = blend(rgbOf(block, fill), rgbOf(block, surf), 0.2)
+        expect(ratio(rgbOf(block, text), tint), `${state} on ${surf}`).toBeGreaterThanOrEqual(5.26)
+      }
     }
   })
 })

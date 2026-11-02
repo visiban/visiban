@@ -20,7 +20,10 @@ from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_prioritie
 # evaluation time — see BoardSerializer.get_group_detail. No import cycle: neither
 # groups.serializers nor groups.models imports anything from boards (groups.views
 # does, but lazily, inside its methods).
-from groups.serializers import GroupBriefSerializer
+from groups.health import HealthStatus
+from groups.serializers import (
+    HEALTH_STATUS_HELP, GroupBriefSerializer, HealthStatusFieldsMixin, HealthStatusListSerializer,
+)
 
 from .broadcast import (
     EVT_SWIMLANE_CREATED,
@@ -3138,8 +3141,19 @@ def _group_name_for_board(board) -> str | None:
 # allowed_priorities is deprecated (#1429): kept for API compatibility (1.0
 # contract forbids removing a serializer field), flagged in the schema. Nothing
 # reads it; card writes accept any priority.
+def _board_health_start(board):
+    """Where a board's health walk starts (#1133): its group, loaded or not.
+
+    Shared by BoardSerializer and BoardFullSerializer. Every board queryset
+    that feeds them select_related's ``group``, so the group row is normally
+    already loaded; see ``groups.health.build_health_map``.
+    """
+    group_field = Board._meta.get_field("group")
+    return (board.group if board.group_id and group_field.is_cached(board) else None, board.group_id)
+
+
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
-class BoardSerializer(serializers.ModelSerializer):
+class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
@@ -3194,8 +3208,10 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source"]
         read_only_fields = ["uid", "created_at", "updated_at"]
+        # Resolves every row's effective health from one ancestor map (#1133).
+        list_serializer_class = HealthStatusListSerializer
         # `group` keeps its auto-generated field (same schema type, nullable,
         # optional); only the unknown-id message is replaced, so that an
         # unknown id and a group the caller may not use answer with the same
@@ -3430,6 +3446,9 @@ class BoardSerializer(serializers.ModelSerializer):
     def get_group_name(self, obj) -> str | None:
         return _group_name_for_board(obj)
 
+    def _health_start(self, obj):
+        return _board_health_start(obj)
+
     def get_is_starred(self, obj) -> bool:
         if hasattr(obj, "_is_starred"):
             return obj._is_starred
@@ -3507,7 +3526,7 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
 
 
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
-class BoardFullSerializer(serializers.ModelSerializer):
+class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     columns = ColumnSerializer(many=True, read_only=True)
     swimlanes = serializers.SerializerMethodField()
@@ -3562,6 +3581,12 @@ class BoardFullSerializer(serializers.ModelSerializer):
     swimlane_custom_field_definitions = SwimlaneCustomFieldDefinitionSerializer(
         many=True, read_only=True
     )
+    # Read-only here like every field of /full/; written through
+    # PATCH /boards/{id}/ (BoardSerializer). Overrides the mixin's writable one.
+    health_status = serializers.ChoiceField(
+        choices=HealthStatus.choices, allow_null=True, read_only=True,
+        help_text=HEALTH_STATUS_HELP,
+    )
 
     class Meta:
         model = Board
@@ -3571,6 +3596,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             "archived_card_count", "share_link_active",
+            "health_status", "effective_health_status", "health_status_source",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.
@@ -3586,6 +3612,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
     def get_group_name(self, obj) -> str | None:
         return _group_name_for_board(obj)
+
+    def _health_start(self, obj):
+        # get_board_for_user loads the group's ancestor chain, so /full/
+        # resolves health from loaded rows with no extra query.
+        return _board_health_start(obj)
 
     @extend_schema_field(GroupBriefSerializer(allow_null=True))
     def get_group_detail(self, obj):

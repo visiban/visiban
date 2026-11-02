@@ -14,6 +14,7 @@ import { getBoardMovements } from '../api/boards'
 const mockGetBoardMovements = getBoardMovements as ReturnType<typeof vi.fn>
 
 const mockBoard: BoardFull = {
+  health_status: null, effective_health_status: null, health_status_source: null,
   id: 1,
   uid: 'abc123',
   archived_card_count: 0,

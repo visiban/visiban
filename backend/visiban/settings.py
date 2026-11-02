@@ -801,6 +801,12 @@ SPECTACULAR_SETTINGS = {
     "CONTACT": {"name": "Visiban", "url": "https://visiban.com"},
     "SERVE_INCLUDE_SCHEMA": False,  # exclude the schema endpoints themselves from the schema
     "COMPONENT_SPLIT_REQUEST": True,  # separate request/response schemas for write endpoints
+    # One name for the health-status choice set (#1133): health_status and
+    # effective_health_status share it, and without an override the enum hook
+    # names it after whichever property it meets first.
+    "ENUM_NAME_OVERRIDES": {
+        "HealthStatusEnum": "groups.models.HealthStatus",
+    },
     # Documents the 401/403/404/429 error envelope on every operation that
     # doesn't already declare one, so backend-schema-fuzz's
     # response_schema_conformance check has something to validate against

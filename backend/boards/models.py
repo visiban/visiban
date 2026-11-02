@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from boards.uid import _generate_uid
+from groups.models import HealthStatus
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,13 @@ class Board(models.Model):
             "show their name. Board-level admin setting, not a per-viewer "
             "preference; card-face chips are unaffected."
         ),
+    )
+    # Health status (#1133): null = inherit from the nearest group above the
+    # board that sets one (groups.health resolves it on read; never stored).
+    # Values are limited to HealthStatus by the serializer; no index and no
+    # database constraint (nothing filters on it).
+    health_status = models.CharField(
+        max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

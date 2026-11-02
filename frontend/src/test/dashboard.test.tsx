@@ -581,3 +581,28 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/77'))
   })
 })
+
+describe('Dashboard health status (#1133)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockListGroups.mockResolvedValue([])
+  })
+
+  it('board rows show a pill beside the name only when a status applies', async () => {
+    mockListBoards.mockResolvedValue([
+      {
+        id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1,
+        created_at: '', updated_at: '', health_status: 'off_track', effective_health_status: 'off_track', health_status_source: null,
+      },
+      {
+        id: 2, name: 'Quiet Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1,
+        created_at: '', updated_at: '', health_status: null, effective_health_status: null, health_status_source: null,
+      },
+    ])
+    renderDashboard()
+    const name = await screen.findByText('Sprint Board')
+    expect(name.nextElementSibling).toHaveAttribute('data-health-status', 'off_track')
+    expect(screen.getByText('Quiet Board').nextElementSibling).toBeNull()
+    expect(screen.getByRole('button', { name: /Sprint Board Health status: Off track/ })).toBeInTheDocument()
+  })
+})

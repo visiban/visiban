@@ -10,6 +10,7 @@ const fakeUser: User = {
 
 function makeGroup(id: number, parent: number | null = null): Group {
   return {
+    health_status: null, effective_health_status: null, health_status_source: null,
     id, name: `Group ${id}`, description: '', owner: fakeUser,
     parent, parent_name: null, member_count: 0, board_count: 0,
     subgroup_count: 0, created_at: '', default_board_member_role: 'member',
@@ -21,6 +22,7 @@ function makeGroup(id: number, parent: number | null = null): Group {
 
 function makeBoard(id: number, group: number | null = null): Board {
   return {
+    health_status: null, effective_health_status: null, health_status_source: null,
     id, uid: `uid${id}`, name: `Board ${id}`, description: '', owner: fakeUser,
     archived_card_count: 0,
     group, group_name: group !== null ? `Group ${group}` : null,

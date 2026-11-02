@@ -17,6 +17,7 @@ import { hasImportSkips } from "../utils/importSummary";
 import Spinner from "../components/Common/Spinner";
 import { DEMO_IMPORT_REASON, DEMO_NEW_BOARD_REASON } from "../constants/demoCopy";
 import { useInstanceFlags } from "../contexts/InstanceFlagsContext";
+import { HealthListingPill } from "../components/Common/HealthStatusPill";
 
 interface Props {
   user: User;
@@ -118,7 +119,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         onClick={() => navigate(`/boards/${b.id}`)}
         className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
-        <p className="font-medium">{b.name}</p>
+        {/* Left-aligned beside the name: the hover actions sit absolute right-3 (#1133). */}
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="font-medium truncate">{b.name}</p>
+          <HealthListingPill fields={b} />
+        </div>
         {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
       </button>
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">

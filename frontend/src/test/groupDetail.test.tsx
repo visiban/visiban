@@ -139,6 +139,7 @@ const fakeUser: User = {
 }
 
 const fakeGroup: Group = {
+  health_status: null, effective_health_status: null, health_status_source: null,
   id: 1, name: 'Engineering', description: '', owner: fakeUser,
   parent: null, parent_name: null,
   member_count: 2, board_count: 1, subgroup_count: 0, created_at: '',
@@ -1952,5 +1953,107 @@ describe('GroupDetail — navigation (#1374)', () => {
     const breadcrumbNav = screen.getByRole('navigation', { name: 'Group breadcrumb' })
     fireEvent.click(within(breadcrumbNav).getByText('RootOrg'))
     expect(mockNavigate).toHaveBeenCalledWith('/groups/10')
+  })
+})
+
+describe('GroupDetail — health status (#1133)', () => {
+  const sub: Group = {
+    ...fakeGroup, id: 2, name: 'Platform', parent: 1, parent_name: 'Engineering',
+    health_status: null, effective_health_status: 'at_risk', health_status_source: { id: 1, name: 'Engineering' },
+  }
+  const board = {
+    id: 5, uid: 'b5', name: 'Roadmap', description: '', owner: fakeUser, group: 1, group_name: 'Engineering',
+    member_count: 1, created_at: '', updated_at: '',
+    health_status: 'off_track', effective_health_status: 'off_track', health_status_source: null,
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    capturedOnEvent = null
+    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([sub])
+    mockGetGroupBoards.mockResolvedValue([board])
+  })
+
+  it('lists inherited and own statuses on subgroup cards and board rows', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    renderGroupDetail()
+    await screen.findByText('Roadmap')
+    const subCard = screen.getByText('Platform').closest('button') as HTMLElement
+    const subPill = subCard.querySelector('[data-health-status="at_risk"]') as HTMLElement
+    expect(subPill).toHaveClass('border-dashed')
+    expect(subPill).toHaveTextContent('inherited from Engineering')
+    const row = screen.getByText('Roadmap').closest('[data-board-id]') as HTMLElement
+    expect(row.querySelector('[data-health-status="off_track"]')).not.toBeNull()
+  })
+
+  it('hides listing pills when no status applies', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetSubgroups.mockResolvedValue([{ ...sub, effective_health_status: null, health_status_source: null }])
+    mockGetGroupBoards.mockResolvedValue([{ ...board, health_status: null, effective_health_status: null }])
+    renderGroupDetail(undefined, { ...fakeUser, id: 99 })
+    await screen.findByText('Roadmap')
+    expect(document.querySelector('[data-health-status]')).toBeNull()
+  })
+
+  it('a non-admin sees no header control when nothing is set, and a plain pill when inherited', async () => {
+    const member = { ...fakeUser, id: 99 }
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: member, role: 'member', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    const { unmount } = renderGroupDetail(undefined, member)
+    await screen.findByText('Engineering', { selector: 'h1' })
+    expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()
+    expect(document.querySelector('[data-health-status]')).toBeNull()
+    unmount()
+    mockGetGroup.mockResolvedValue({ ...sub, owner: fakeUser })
+    renderGroupDetail(undefined, member)
+    await screen.findByText('Platform', { selector: 'h1' })
+    expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Inherited from Engineering')).toBeInTheDocument()
+  })
+
+  it('withholds the control on a navigation-only group', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, navigation_only: true, effective_health_status: null })
+    renderGroupDetail()
+    await screen.findByRole('heading', { name: 'Engineering', level: 1 })
+    expect(screen.queryByRole('button', { name: /^Health status:/ })).not.toBeInTheDocument()
+  })
+
+  it('an admin saves through updateGroup, merges the response and refetches the lists', async () => {
+    const user = userEvent.setup()
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockUpdateGroup.mockResolvedValue({ ...fakeGroup, health_status: 'off_track', effective_health_status: 'off_track' })
+    renderGroupDetail()
+    await screen.findByText('Roadmap')
+    expect(mockGetSubgroups).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: /^Health status: No status/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Health status for Engineering' })
+    await user.click(within(dialog).getByRole('radio', { name: /Off track/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(mockUpdateGroup).toHaveBeenCalledWith(1, { health_status: 'off_track' }))
+    expect(await screen.findByRole('button', { name: /^Health status: Off track/ })).toBeInTheDocument()
+    await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(2))
+    expect(mockGetGroupBoards).toHaveBeenCalledTimes(2)
+  })
+
+  it('group.updated refetches subgroups, boards and the shown subgroup boards', async () => {
+    const user = userEvent.setup()
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    renderGroupDetail()
+    await screen.findByText('Roadmap')
+    await user.click(screen.getByRole('switch'))
+    await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
+    mockGetSubgroups.mockResolvedValue([{ ...sub, effective_health_status: 'on_track' }])
+    act(() => {
+      capturedOnEvent?.({ event: 'group.updated', data: { id: 1 } } as BoardEvent)
+    })
+    await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(2))
+    expect(mockGetGroupBoards).toHaveBeenCalledTimes(2)
+    expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2)
+    const subCard = screen.getByText('Platform').closest('button') as HTMLElement
+    await waitFor(() => expect(subCard.querySelector('[data-health-status="on_track"]')).not.toBeNull())
   })
 })

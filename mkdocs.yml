@@ -83,6 +83,7 @@ nav:
     - Card History: features/card-history.md
     - Stable UIDs: features/stable-uids.md
     - Groups: features/groups.md
+    - Health Status: features/health-status.md
     - Navigation: features/navigation.md
     - Keyboard Shortcuts: features/keyboard-shortcuts.md
     - Appearance: features/appearance.md
