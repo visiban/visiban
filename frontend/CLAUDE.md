@@ -191,6 +191,8 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 
 Any chip built as an `inline-flex` container around one or more `truncate` text spans (custom-field chips, multi-select sub-chips, and any future nested-flex chip) must give **every** truncating span an explicit `min-w-0` (or a numeric `min-w-[Nrem]` floor), and give the **chip itself** `overflow-hidden`. A flex child's default `min-width: auto` is content-based — without an explicit override, `truncate`'s ellipsis never engages inside a flex container, and long content silently overflows the chip's own box onto whatever renders next in the row (#1411: this is why pinned custom-field chips rendered on top of their neighbors instead of clipping). A chip that needs to shrink in its own parent flex context (e.g. the card metadata row) must not be `shrink-0` with only a `max-w` — pair an explicit `min-w-[Nrem]` floor with the `max-w` instead, or it will overflow its parent rather than shrink into it.
 
+`overflow-hidden` on a chip is a backstop, not the truncation mechanism: every flex child that can hold long text still needs `min-w-0` plus `truncate`. Anything inside a clipped chip with a focus ring needs at least ring-width (2px) of padding on each clipped edge, so do not reduce the chip's `py-0.5`.
+
 ## Top chrome — two-row composition
 
 The authenticated UI is framed by two horizontally-divided chrome rows and a main region. Maintain this skeleton across all routes; feature work lands inside the rows, not on top of them.

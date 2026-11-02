@@ -639,3 +639,25 @@ describe("BoardSettingsFieldsTab — choice colors (#1391)", () => {
     })));
   });
 });
+
+// #1413 — truncation inside nested flex chips (frontend/CLAUDE.md). jsdom does
+// no layout, so these pin the classes that make `truncate` engage.
+describe("CustomFieldValueDisplay — chip truncation classes (#1413)", () => {
+  const longDef = shape({ name: "A very long custom field name that must clip", field_type: "text", choices: [] });
+
+  it.each(["row-chip", "chip"] as const)("%s: chip clips its overflow and every truncating span has min-w-0", (variant) => {
+    const { container } = render(
+      <CustomFieldValueDisplay definition={longDef} value="some value" variant={variant} />,
+    );
+    const chip = container.firstElementChild as HTMLElement;
+    expect(chip.className).toContain("overflow-hidden");
+    const truncating = Array.from(chip.querySelectorAll("span")).filter((el) => el.className.includes("truncate"));
+    expect(truncating.length).toBeGreaterThanOrEqual(2);
+    for (const el of truncating) expect(el.className).toContain("min-w-0");
+  });
+
+  it("chip: the single-value chip is no longer shrink-0 (it must shrink into its parent row)", () => {
+    const { container } = render(<CustomFieldValueDisplay definition={longDef} value="x" variant="chip" />);
+    expect((container.firstElementChild as HTMLElement).className).not.toContain("shrink-0");
+  });
+});
