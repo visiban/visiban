@@ -219,3 +219,40 @@ class CardTimelinePaginationTests(TestCase):
     def test_previous_is_set_on_second_page(self):
         r = self.client.get(self.url, {"limit": 2, "offset": 2})
         self.assertIsNotNone(r.json()["previous"])
+
+    def _real_total(self):
+        return (
+            CardMovement.objects.filter(card=self.card).count()
+            + CardActivity.objects.filter(card=self.card).count()
+        )
+
+    def test_limit_zero_reports_real_count(self):
+        # #2032: limit=0 with offset=0 slices both sources to nothing, so the
+        # window total had no row to ride on and count came back 0.
+        _make_movement(self.card, self.user, to_col=self.col)
+        total = self._real_total()
+        self.assertGreaterEqual(total, 6)
+        r = self.client.get(self.url, {"limit": 0})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["count"], total)
+
+    def test_negative_limit_reports_real_count(self):
+        # A negative limit is clamped to 0 and must behave like limit=0.
+        r = self.client.get(self.url, {"limit": -5})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["count"], self._real_total())
+
+    def test_limit_zero_count_respects_event_types_filter(self):
+        r = self.client.get(self.url, {"limit": 0, "event_types": "move"})
+        self.assertEqual(r.json()["count"], CardMovement.objects.filter(card=self.card).count())
+
+    def test_limit_zero_on_empty_timeline_reports_zero(self):
+        empty = _make_card(self.board, self.col, self.swim, self.user, title="Empty")
+        CardMovement.objects.filter(card=empty).delete()
+        CardActivity.objects.filter(card=empty).delete()
+        url = f"/api/v1/boards/{self.board.id}/cards/{empty.id}/timeline/"
+        self.assertEqual(self.client.get(url, {"limit": 0}).json()["count"], 0)

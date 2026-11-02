@@ -965,7 +965,14 @@ class CardViewSet(viewsets.ModelViewSet):
         page_qs = list(
             qs.annotate(_total=Window(Count("id")))[offset: offset + self._ARCHIVED_PAGE_SIZE]
         )
-        total = page_qs[0]._total if page_qs else 0
+        if page_qs:
+            total = page_qs[0]._total
+        elif offset == 0:
+            total = 0
+        else:
+            # Empty page past the end: no row carries the window value, so
+            # count separately (#2032). Never hit by a first-page request.
+            total = qs.order_by().count()
         # Pre-compute shared context values so CardSerializer does not call
         # _get_effective_member_ids() once per card instance (O(n) queries).
         member_ids = _get_effective_member_ids(board)
@@ -1387,7 +1394,14 @@ class CardViewSet(viewsets.ModelViewSet):
             capped_movements = list(
                 movements_qs.annotate(_total=Window(Count("id")))[:fetch_cap]
             )
-            move_count = capped_movements[0]._total if capped_movements else 0
+            if capped_movements:
+                move_count = capped_movements[0]._total
+            elif fetch_cap == 0:
+                # limit=0 (or negative, clamped) with offset=0 slices to
+                # nothing, so no row carries the window total (#2032).
+                move_count = movements_qs.order_by().count()
+            else:
+                move_count = 0
         else:
             move_count = 0
             capped_movements = []
@@ -1401,7 +1415,12 @@ class CardViewSet(viewsets.ModelViewSet):
             capped_activities = list(
                 activities_qs.annotate(_total=Window(Count("id")))[:fetch_cap]
             )
-            activity_count = capped_activities[0]._total if capped_activities else 0
+            if capped_activities:
+                activity_count = capped_activities[0]._total
+            elif fetch_cap == 0:
+                activity_count = activities_qs.order_by().count()
+            else:
+                activity_count = 0
         else:
             activity_count = 0
             capped_activities = []

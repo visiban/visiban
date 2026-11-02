@@ -371,3 +371,20 @@ class TestAnalyticsDwellWithArchiving(CardArchivingSetup):
         for swimlane_data in r.json().get("swimlanes", []):
             stalled_ids = [s["id"] for s in swimlane_data.get("stalled_cards", [])]
             self.assertNotIn(self.card.pk, stalled_ids)
+
+
+class TestArchivedListCountOnEmptyPage(CardArchivingSetup):
+    """#2032: count must be the real total even when the page slice is empty."""
+
+    def test_offset_past_end_reports_real_count(self):
+        Card.objects.filter(pk=self.card.pk).update(archived_at=timezone.now())
+        r = self._client_for(self.admin).get(self._archived_list_url(), {"offset": 10})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["count"], 1)
+
+    def test_no_archived_cards_reports_zero_at_any_offset(self):
+        for offset in (0, 10):
+            r = self._client_for(self.admin).get(self._archived_list_url(), {"offset": offset})
+            self.assertEqual(r.json()["count"], 0)
