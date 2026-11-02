@@ -32,9 +32,12 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
 3. When the socket drops and reconnects, call
    `GET /api/v1/boards/{id}/events/?after=<last event_id>` and replay the
    results through the same handler. No `/full/` re-fetch, no diffing.
-4. If that call returns `410 Gone`, your cursor has aged out of the retention
-   window. Re-fetch `GET /api/v1/boards/{id}/full/`, then resume from the newest
-   `event_id` you see after that.
+4. If that call returns `410 Gone`, events after your cursor have aged out of
+   the retention window. Keep the `next_cursor` from the `410` body, re-fetch
+   `GET /api/v1/boards/{id}/full/`, then resume with
+   `GET /api/v1/boards/{id}/events/?after=<that next_cursor>` (1.3+). An event
+   written between the `410` and your re-fetch can arrive both in `/full/` and
+   on the resumed feed, so apply events idempotently; none is skipped.
 
 A consumer with no socket can poll the feed on its own schedule; the cursor makes repeat reads exact.
 
@@ -123,10 +126,19 @@ New cursor-paginated endpoints should name the response key `next_cursor` but do
 | `400 Bad Request` | `{"detail": "after must be an integer event id.", "code": "invalid_query_param"}` | `after` is not an integer, or is negative (`"after must not be negative."`). |
 | `400 Bad Request` | `{"detail": "limit must be between 1 and 500.", "code": "invalid_query_param"}` | `limit` is not an integer (`"limit must be an integer."`), or is out of range. |
 | `404 Not Found` | — | No board with that id, or the requesting user has no access to it. |
-| `410 Gone` | `{"detail": "...", "code": "cursor_expired", "resync_url": "http://.../api/v1/boards/42/full/"}` | The cursor has been pruned and newer events exist, so continuity cannot be proven. Re-sync via `resync_url` and resume from the newest `event_id` seen after that. |
+| `410 Gone` | `{"detail": "...", "code": "cursor_expired", "resync_url": "http://.../api/v1/boards/42/full/", "next_cursor": 84213}` | An event after the cursor has been pruned, so the consumer has missed events it can no longer read. Re-sync via `resync_url`, then resume with `next_cursor` as `after`. `next_cursor` *(1.3+, #2058)* is the board's newest event id or its highest pruned id, whichever is greater, taken when the `410` is sent. Resuming from it does not return `410` again unless a later prune removes events after it. |
 
-!!! note "410 is deliberately narrow"
-    A pruned cursor returns `410` only when newer events exist that the consumer might have skipped. A cursor pruned with *nothing newer behind it* returns an ordinary empty page: a consumer idle longer than the retention window has missed nothing and need not re-sync.
+!!! note "When a cursor expires"
+    *(1.3+, #2058)* The pruner records, per board, the highest event id it deleted, and a cursor is expired exactly when that id is greater than the cursor:
+
+    - **Your cursor's own event was pruned, but nothing after it was.** Not expired. A consumer idle on a quiet board for longer than the retention window has missed nothing: it gets an empty page, or the new events once they arrive.
+    - **An event after your cursor was pruned.** `410`, even when the page would otherwise be empty. The events you missed are gone, whether or not anything newer has been written since.
+    - **`after` omitted or `0`.** Never `410`: it means "start at the oldest retained event", not a position you held.
+    - **A cursor that was never one of this board's event ids** (for example, one taken from another board's feed). `410` once the board has newer events.
+
+    **The record is per board, not per reader.** If the only events pruned after your cursor were ones you would never have been shown (another user's per-user events such as stars and saved filters, or `share_link.updated` when you are below admin), you still get `410`, even on an otherwise empty page. That costs one re-sync you did not strictly need, after which you resume from the `410`'s `next_cursor`; it never skips an event you could have read.
+
+    **Boards not pruned since the upgrade to 1.3.** An install that pruned with 1.2 recorded nothing, so for a board whose events have not been pruned since the upgrade the feed keeps the 1.2 rule: a missing cursor returns `410` when newer events exist and an empty page when none do. The board switches to the exact rule the first time the pruner deletes one of its events.
 
 ---
 
@@ -259,7 +271,7 @@ Schedule it nightly. Both deployment paths ship an opt-in scheduler with this jo
 
 See [Scheduled Jobs](../administration/scheduled-jobs.md).
 
-Deletion runs in batches (`--batch-size`, default `5000`), so a large cleanup does not hold locks against concurrent writers for the whole run.
+Deletion runs in batches (`--batch-size`, default `5000`), so a large cleanup does not hold locks against concurrent writers for the whole run. Each batch also records, per board, the highest event id it deleted, in the same transaction; that record is what decides [when a cursor expires](#errors). `--dry-run` records nothing.
 
 See [Configuration](../administration/configuration.md) for
 `BOARD_EVENT_RETENTION_DAYS`.
@@ -270,7 +282,7 @@ A [webhook](webhooks.md) that falls further behind than the window is turned off
 
 ## Sizing the window
 
-Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: it gets a `410` and re-syncs. But every re-sync is a full `/full/` fetch, so a too-short window makes routine restarts expensive.
+Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: if events it had not read were pruned, it gets a `410` and re-syncs; if the board was quiet and nothing it missed was pruned, it keeps reading. But every re-sync is a full `/full/` fetch, so a too-short window makes routine restarts expensive.
 
 ---
 
@@ -280,11 +292,12 @@ Pick a retention window longer than the longest outage a consumer should survive
 
 The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
 
-- **The endpoint, its `after` and `limit` parameters, and the response envelope** (`results`, `next_cursor`, and the deprecated `next`) are never removed or renamed in a minor or patch release. The cursor semantics (`after` is exclusive, ordering is by `id`, `next_cursor` is `null` once a page comes back short) and the `400`, `404`, and `410` error behavior described on this page do not change.
+- **The endpoint, its `after` and `limit` parameters, and the response envelope** (`results`, `next_cursor`, and the deprecated `next`) are never removed or renamed in a minor or patch release. The cursor semantics (`after` is exclusive, ordering is by `id`, `next_cursor` is `null` once a page comes back short) and the `400`, `404`, and `410` error behavior described on this page do not change, with one stated exception: the condition for `410` was corrected in 1.3 (see the bullet on it below). The `410` status, `code`, `detail` and `resync_url` did not change; the body only gained `next_cursor`.
 - **Row fields** (`id`, `event`, `data`, `actor_id`, `actor`, `created_at`, and since 1.3 `redacted_at`) only gain fields; an existing field keeps its name and type and is never removed.
 - **Redacted rows are the exception to "verbatim".** A row an operator's purge redacted keeps every payload key but carries `null` content values (see [Redacted card events](#redacted-card-events)). Clients must accept `null` for those fields on a row whose `redacted_at` is set.
 - **Event types and payloads** carry the same `{event, data}` payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in [Retiring an event](../development/websocket-event-contract.md#retiring-an-event).
 - **Per-reader fields are the exception.** The fields documented under [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading) are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.
 - **`next_cursor` is the cursor; `next` is deprecated.** `next_cursor` is the documented cursor field. `next` was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read `next_cursor`. `next` is removed only at a major version bump. See [Pagination shapes](#pagination-shapes).
+- **When `410` fires was corrected in 1.3** (#2058). It now fires exactly when an event after the cursor was pruned: an idle consumer whose own cursor event was pruned no longer gets it, and a consumer whose missed events were all pruned now does, rather than an empty page. The status, `code` and `resync_url` are unchanged, and the body gained `next_cursor`, the cursor to resume from after re-syncing. A client that handles `410` by re-syncing keeps working; reading `next_cursor` lets it resume the feed without a socket `event_id`. See [When a cursor expires](#errors).
 - A part of the feed that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
 - **Not covered:** how long history is kept. The retention window is an operator setting (`BOARD_EVENT_RETENTION_DAYS`), so a consumer must handle `410 Gone` rather than assume any particular depth of history. See [Retention](#retention).

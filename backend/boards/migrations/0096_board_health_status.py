@@ -10,7 +10,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0094_notification_webhook_disabled_action_type"),
+        ("boards", "0095_board_event_prune_mark"),
     ]
 
     operations = [
