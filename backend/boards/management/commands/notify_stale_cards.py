@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from boards.models import Board, Card, CardMovement, Notification
+from boards.notifications_email import drain_email_on_exit
 from boards.services.notifications import clip_text, create_notifications, quoted_card_verb
 from boards.utils import _get_effective_member_ids
 
@@ -26,6 +27,12 @@ class Command(BaseCommand):
     help = "Create notifications for cards that exceed the board staleness threshold."
 
     def handle(self, *args, **options):
+        # The email for what this creates is sent on a daemon thread; without
+        # the drain, exiting here (cron runs this one-shot) can drop it (#2077).
+        with drain_email_on_exit(self.stderr):
+            self._handle(*args, **options)
+
+    def _handle(self, *args, **options):
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         created_count = 0

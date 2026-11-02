@@ -21,11 +21,8 @@ import threading
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 
-from boards.notifications_email import wait_for_pending_email
+from boards.notifications_email import EMAIL_DRAIN_SECONDS, wait_for_pending_email  # noqa: F401 — EMAIL_DRAIN_SECONDS stays importable from here
 from webhooks import dispatch
-
-#: How long an exiting dispatcher waits for notice email still being sent.
-EMAIL_DRAIN_SECONDS = 30
 
 
 class Command(BaseCommand):

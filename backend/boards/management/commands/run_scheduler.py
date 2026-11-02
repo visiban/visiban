@@ -42,6 +42,8 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
 
+from boards.notifications_email import drain_email_on_exit
+
 logger = logging.getLogger(__name__)
 
 OFF_VALUES = {"", "off", "false", "disabled", "none"}
@@ -155,10 +157,14 @@ class Command(BaseCommand):
             self._log(f"scheduled {job.command} daily at {job.at:%H:%M} UTC")
 
         scheduler = Scheduler(jobs, self._now(), self._run_job)
-        while True:
-            scheduler.tick(self._now())
-            if stop.wait(poll):
-                break
+        # Jobs run in-process, and this process outlives their email threads, so
+        # nothing is lost between runs. Only the stop path needs the drain: a
+        # SIGTERM seconds after a job fired would otherwise kill a send (#2077).
+        with drain_email_on_exit(self.stderr):
+            while True:
+                scheduler.tick(self._now())
+                if stop.wait(poll):
+                    break
         self._log("scheduler stopped")
 
     @staticmethod

@@ -435,6 +435,29 @@ def wait_for_pending_email(timeout: float) -> bool:
     return not any(t.is_alive() for t in pending)
 
 
+#: How long an exiting one-shot command waits for email still being sent.
+EMAIL_DRAIN_SECONDS = 30
+
+
+@contextmanager
+def drain_email_on_exit(stderr, what="notification"):
+    """Wrap a management command's work so it does not exit mid-send (#2077).
+
+    ``create_notifications`` hands each batch to a daemon thread when
+    ``NOTIFICATION_EMAIL_ASYNC`` is on (the default), so a command that returns
+    straight after creating notifications ends the process and kills that thread
+    before the mail leaves. ``finally`` rather than a call at the end, because the
+    commands have early returns and a raise part-way through still leaves earlier
+    batches in flight. Bounded by ``EMAIL_DRAIN_SECONDS`` so a tarpitting relay
+    cannot hold a cron job open forever; the loss is then reported, not silent.
+    """
+    try:
+        yield
+    finally:
+        if not wait_for_pending_email(EMAIL_DRAIN_SECONDS):
+            stderr.write(f"A {what} email was still sending at exit and may be lost.")
+
+
 def _send_batch_in_thread(messages, ids):
     """Thread entry point: send, then release this thread's DB connection.
 
