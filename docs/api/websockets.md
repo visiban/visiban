@@ -534,8 +534,10 @@ A transient publish failure does **not** close the socket, so a connected client
 How to resync:
 
 - **API clients** can replay board events from the durable [change feed](events.md). Keep the last `event_id` you processed and call `GET /api/v1/boards/{id}/events/?after=<event_id>`.
+- **On first connect**, the same gap exists between your initial `GET /api/v1/boards/{id}/full/` and the socket's handshake. The server adds a connection to the board's broadcast group only during the handshake, so a change committed after the snapshot was read and before the handshake completes is in neither the snapshot nor the stream. To close the gap, open the socket first and fetch `/full/` after it opens, applying frames that arrive meanwhile idempotently. Alternatively, re-fetch `/full/` once after the socket opens.
 - **The Visiban web app** does not read the change feed. The board view re-fetches full board state (`GET /api/v1/boards/{id}/full/`) in these cases:
     - When its socket reconnects. This happens immediately, without the 30-second throttle. If a drag is in progress, the refetch waits until the drag ends.
+    - When its socket first opens more than 1 second after the board loaded (since 1.3, #1968), for example after a slow handshake or a first connection attempt that failed and was retried. It follows the same rules as a reconnect. A socket that opens within 1 second does not trigger a refetch, so a frame committed inside that shorter gap is missed until the next resync below.
     - When the tab regains focus, at most once every 30 seconds.
     - After an event that triggers a refetch.
     - When you choose **Refresh board** in the connection popover.

@@ -263,6 +263,16 @@ const ReplayTourIcon = (
 // trigger a second re-read (#1706).
 const MEMBER_ECHO_MS = 2000;
 
+// First-open resync threshold (#1968). The socket joins the board's broadcast
+// group only during its handshake, after `/full/` returned, so a frame committed
+// in between is in neither the snapshot nor the stream. When the socket's first
+// open comes more than this long after the latest `/full/` response was applied
+// (a slow handshake, or a first connect that failed and retried), the board
+// re-reads once. Below it the gap is the normal mount-to-handshake time, and
+// re-reading on every board open would double the cost of the heaviest read.
+// A frame inside a shorter gap is still missed until the next resync.
+const FIRST_OPEN_RESYNC_MS = 1000;
+
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   // #1913: instance flags come from site-config, not the deprecated User copies.
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
@@ -300,6 +310,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     evictCardByUid,
     mergeBoardState,
     silentReload,
+    getLastFullFetchAt,
   } = useBoardContext();
 
   // BoardView is only rendered when board is non-null (guarded by the parent).
@@ -727,7 +738,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const onServerClose = useCallback(() => {
     if (!selfDeletingRef.current) silentReload();
   }, [silentReload]);
-  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync, onServerClose });
+  // First open (#1968): reuses the reconnect path (drag-deferred silentReload)
+  // when the load-to-connect gap was long enough to have lost frames; see
+  // FIRST_OPEN_RESYNC_MS. An unknown fetch time counts as a long gap.
+  //
+  // Safe with respect to #2038 (a full fetch replacing cards with a snapshot
+  // serialized before a frame that arrived mid-fetch): the socket is already
+  // in the broadcast group when this runs, so every later commit arrives as a
+  // frame and the re-read only adds what the gap dropped. Its exposure is the
+  // same one every reconnect and tab-focus resync already has, it runs at most
+  // once per socket, and only after a gap long enough to have lost frames.
+  const lastFullFetchAtRef = useRef(getLastFullFetchAt);
+  lastFullFetchAtRef.current = getLastFullFetchAt;
+  const onFirstConnected = useCallback(() => {
+    const fetchedAt = lastFullFetchAtRef.current?.() ?? null;
+    if (fetchedAt === null || Date.now() - fetchedAt > FIRST_OPEN_RESYNC_MS) reconnectResync();
+  }, [reconnectResync]);
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync, onFirstConnected, onServerClose });
   // Access loss reaches the client as a 4001/4003 close (status "failed") or,
   // for a direct member removal, a server-sent 1000 (onServerClose above).
   // Re-read the board over REST so a revoked or deleted board swaps in the

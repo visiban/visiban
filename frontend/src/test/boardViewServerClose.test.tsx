@@ -1,7 +1,8 @@
 /**
  * BoardView drives the REAL useBoardSocket here (a fake WebSocket), to prove a
  * server-sent normal close (member removed, #2041) re-reads the board, and that
- * BoardView's own unmount close does not.
+ * BoardView's own unmount close does not. Also covers the first-open resync
+ * (#1968): a socket that opens long after `/full/` returned re-reads once.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
@@ -260,5 +261,68 @@ describe('BoardView with the real board socket (#2041)', () => {
     expect(sockets[0].close).toHaveBeenCalledWith(1000)
     act(() => { sockets[0].onclose?.({ code: 1000 }) })
     expect(ctx.silentReload).not.toHaveBeenCalled()
+  })
+})
+
+describe('BoardView first-open resync (#1968)', () => {
+  const FETCHED_AT = 100_000
+  let now: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    sockets = []
+    vi.stubGlobal('WebSocket', FakeWebSocket)
+    now = vi.spyOn(Date, 'now').mockReturnValue(FETCHED_AT)
+  })
+  afterEach(() => {
+    now.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  async function openAfter(ms: number, overrides: Partial<BoardContextType> = {}) {
+    const ctx = makeContext({ getLastFullFetchAt: () => FETCHED_AT, ...overrides })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    now.mockReturnValue(FETCHED_AT + ms)
+    act(() => { sockets[0].onopen?.() })
+    return ctx
+  }
+
+  it('re-reads once when the socket first opens more than 1s after /full/', async () => {
+    const ctx = await openAfter(1500)
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not re-read when the socket opens promptly after /full/', async () => {
+    const ctx = await openAfter(200)
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+  })
+
+  it('does not re-read at exactly the threshold', async () => {
+    const ctx = await openAfter(1000)
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+  })
+
+  it('re-reads when no /full/ time is known', async () => {
+    const ctx = await openAfter(0, { getLastFullFetchAt: () => null })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-reads when the context does not provide the fetch time', async () => {
+    const ctx = await openAfter(0, { getLastFullFetchAt: undefined })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves later reconnects to the reconnect resync, which always re-reads', async () => {
+    const ctx = await openAfter(200)
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      act(() => { sockets[0].onclose?.({ code: 1006 }) })
+      act(() => { vi.advanceTimersByTime(3000) })
+      act(() => { sockets[1].onopen?.() })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
