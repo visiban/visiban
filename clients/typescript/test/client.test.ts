@@ -25,6 +25,17 @@ describe("constructor", () => {
     expect(() => new Client({ baseUrl: "https://example.com", token: "t" })).not.toThrow();
   });
 
+  it("rejects a token with whitespace without echoing it", () => {
+    for (const token of ["vbn_secret\n", "vbn secret", "vbn_\u0000x"]) {
+      expect(() => new Client({ baseUrl: "http://127.0.0.1:1", token })).toThrow(/whitespace or control/);
+      try {
+        new Client({ baseUrl: "http://127.0.0.1:1", token });
+      } catch (e) {
+        expect((e as Error).message).not.toContain("vbn");
+      }
+    }
+  });
+
   it("uses global fetch by default", () => {
     expect(() => new Client({ baseUrl: "https://example.com", token: "t" })).not.toThrow();
   });
@@ -109,6 +120,24 @@ describe("protocol", () => {
     await expect(drain(client.iterEvents(1, { cursor: 1 }))).rejects.toMatchObject({ resyncUrl: gone.resync_url });
     const again = make([{ status: 410, body: gone }]);
     await expect(drain(again.client.iterEvents(1, { cursor: 1 }))).rejects.toBeInstanceOf(ResyncUnsupported);
+  });
+
+  it("gives up after repeated 410s", async () => {
+    const gone = { code: "cursor_expired", next_cursor: 4, resync_url: "http://x/api/v1/boards/1/full/" };
+    const { client } = make(Array.from({ length: 4 }, () => [{ status: 410, body: gone }, { status: 200, body: { id: 1 } }]).flat());
+    let seen = 0;
+    await expect(
+      (async () => {
+        for await (const _ of client.iterEvents(1, { cursor: 1 })) seen++;
+      })(),
+    ).rejects.toBeInstanceOf(ProtocolError);
+    expect(seen).toBe(3);
+  });
+
+  it("rejects a negative resync cursor", async () => {
+    const gone = { code: "cursor_expired", next_cursor: -1, resync_url: "http://x/api/v1/boards/1/full/" };
+    const { client } = make([{ status: 410, body: gone }]);
+    await expect(drain(client.iterEvents(1, { cursor: 1 }))).rejects.toBeInstanceOf(ProtocolError);
   });
 
   it("a 410 that is not cursor_expired is an APIError", async () => {

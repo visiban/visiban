@@ -22,6 +22,12 @@ class ConstructorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Client("file:///etc/passwd", "vbn_x")
 
+    def test_rejects_token_with_whitespace_without_echoing_it(self):
+        for token in ("vbn_secret\n", "vbn secret", "vbn_\x00x"):
+            with self.subTest(token), self.assertRaises(ValueError) as ctx:
+                Client("http://127.0.0.1:1", token)
+            self.assertNotIn("vbn", str(ctx.exception))
+
     def test_refuses_plain_http_to_remote_host(self):
         with self.assertRaises(ValueError):
             Client("http://example.com", "vbn_x")
@@ -113,6 +119,28 @@ class ProtocolTests(unittest.TestCase):
             with self.assertRaises(ResyncUnsupported) as ctx:
                 list(Client(s.url, "vbn_x").iter_events(1, cursor=1))
         self.assertEqual(ctx.exception.resync_url, gone["resync_url"])
+
+    def test_non_ascii_retry_after_does_not_crash(self):
+        sleeps = []
+        with ScriptedServer([{"status": 429, "headers": {"Retry-After": "\u00b2"}, "body": None}, {"status": 200, "body": {"results": [], "next_cursor": None}}]) as s:
+            list(Client(s.url, "vbn_x", jitter=False, sleep=sleeps.append).iter_events(1))
+        self.assertEqual(sleeps, [0.5])
+
+    def test_repeated_410_gives_up(self):
+        gone = {"code": "cursor_expired", "next_cursor": 4, "resync_url": "http://x/api/v1/boards/1/full/"}
+        responses = [{"status": 410, "body": gone}, {"status": 200, "body": {"id": 1}}] * 4
+        with ScriptedServer(responses) as s:
+            seen = 0
+            with self.assertRaises(ProtocolError):
+                for _ in Client(s.url, "vbn_x").iter_events(1, cursor=1):
+                    seen += 1
+        self.assertEqual(seen, 3)
+
+    def test_negative_resync_cursor_is_rejected(self):
+        gone = {"code": "cursor_expired", "next_cursor": -1, "resync_url": "http://x/api/v1/boards/1/full/"}
+        with ScriptedServer([{"status": 410, "body": gone}]) as s:
+            with self.assertRaises(ProtocolError):
+                list(Client(s.url, "vbn_x").iter_events(1, cursor=1))
 
     def test_non_cursor_expired_410_is_an_api_error(self):
         with ScriptedServer([{"status": 410, "body": {"detail": "gone", "code": "other"}}]) as s:

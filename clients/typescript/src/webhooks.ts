@@ -42,15 +42,24 @@ export function verifySignature(
   rawBody: Uint8Array,
   options: VerifyOptions = {},
 ): boolean {
+  if (secret.length === 0) {
+    // An empty key would let anyone forge a valid signature.
+    throw new TypeError("secret must not be empty");
+  }
+  const tolerance = options.toleranceSeconds ?? TOLERANCE_SECONDS;
+  if (!Number.isFinite(tolerance) || tolerance < 0) {
+    throw new RangeError("toleranceSeconds must be a finite number >= 0");
+  }
   if (!(rawBody instanceof Uint8Array)) {
     throw new TypeError("rawBody must be bytes: verify the unparsed request body");
   }
   const timestamp = header(headers, "X-Visiban-Timestamp");
   const signature = header(headers, "X-Visiban-Signature");
-  if (!/^[0-9]+$/.test(timestamp)) return false;
+  // Length cap keeps the check cheap and the number exactly representable.
+  if (!/^[0-9]{1,12}$/.test(timestamp)) return false;
   const now = options.now ?? Date.now() / 1000;
   // abs(): reject a timestamp too far in the future as well as one too old.
-  if (Math.abs(now - Number(timestamp)) > (options.toleranceSeconds ?? TOLERANCE_SECONDS)) {
+  if (Math.abs(now - Number(timestamp)) > tolerance) {
     return false;
   }
   const expected = "v1=" + createHmac("sha256", secret).update(`${timestamp}.`).update(rawBody).digest("hex");

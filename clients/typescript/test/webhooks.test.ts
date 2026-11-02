@@ -34,6 +34,16 @@ describe("verifySignature", () => {
     expect(verifySignature(sig.secret, headers, enc(sig.body))).toBe(false);
   });
 
+  it("rejects an empty secret and a bad tolerance", () => {
+    const h = { "X-Visiban-Timestamp": sig.timestamp, "X-Visiban-Signature": sig.signature };
+    expect(() => verifySignature("", h, enc("x"))).toThrow(TypeError);
+    for (const t of [NaN, Infinity, -1]) expect(() => verifySignature("s", h, enc("x"), { toleranceSeconds: t })).toThrow(RangeError);
+  });
+
+  it("returns false for a huge timestamp", () => {
+    expect(verifySignature("s", { "X-Visiban-Timestamp": "9".repeat(5000), "X-Visiban-Signature": "v1=x" }, enc("x"))).toBe(false);
+  });
+
   it("rejects a string body", () => {
     expect(() => verifySignature("s", {}, "x" as unknown as Uint8Array)).toThrow(TypeError);
   });

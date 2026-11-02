@@ -78,7 +78,8 @@ class Gone {
   constructor(readonly body: unknown) {}
 }
 
-const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+const MAX_CONSECUTIVE_RESYNCS = 3;
+const isInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v);
 const asRecord = (v: unknown): Record<string, unknown> | null =>
   typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 
@@ -101,6 +102,11 @@ export class Client {
 
   constructor(options: ClientOptions) {
     if (!options.token) throw new TypeError("token is required (a scoped personal access token)");
+    // eslint-disable-next-line no-control-regex -- rejecting control characters is the point
+    if (/[\s\x00-\x1f\x7f]/.test(options.token)) {
+      // Fixed message: never echo the token. A trailing newline from a token file is the usual cause.
+      throw new TypeError("token contains whitespace or control characters");
+    }
     let url: URL;
     try {
       url = new URL(options.baseUrl);
@@ -211,6 +217,7 @@ export class Client {
     const rec = asRecord(body) ?? {};
     const nextCursor = rec.next_cursor;
     const resyncUrl = rec.resync_url;
+    if (isInt(nextCursor) && nextCursor < 0) throw new ProtocolError("410 next_cursor is negative");
     if (!isInt(nextCursor)) {
       throw new ResyncUnsupported(
         "410 cursor_expired without next_cursor: the server predates 1.3 and offers no safe resume point; upgrade the server to 1.3 or later",
@@ -244,6 +251,7 @@ export class Client {
     const store = options.store ?? new MemoryCursorStore();
     let current = options.cursor ?? (await store.get(boardId)) ?? 0;
     let delivered = new Set<number>();
+    let resyncs = 0; // consecutive, reset by any successful page
 
     for (;;) {
       let after = Math.max(0, current - overlap);
@@ -254,6 +262,7 @@ export class Client {
           page = await this.getJson(`${this.base}/api/v1/boards/${Math.trunc(boardId)}/events/?${new URLSearchParams({ after: String(after), limit: String(limit) })}`);
         } catch (exc) {
           if (!(exc instanceof Gone)) throw exc;
+          if (++resyncs > MAX_CONSECUTIVE_RESYNCS) throw new ProtocolError("server keeps answering 410 after re-syncing; giving up");
           const resync = await this.resync(boardId, exc.body);
           yield resync;
           await store.set(boardId, resync.cursor);
@@ -263,6 +272,7 @@ export class Client {
           continue;
         }
         const { results, nextCursor } = validatePage(page, after);
+        resyncs = 0;
         for (const event of results) {
           if (delivered.has(event.id)) continue;
           yield event;

@@ -1408,7 +1408,7 @@ clients-python-unit:
         - clients/**/*
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet coverage
+    - pip install --quiet 'coverage>=7.6,<8'
   script:
     - cd clients/python
     # The package is stdlib-only; PYTHONPATH stands in for an install. The live
@@ -1438,7 +1438,7 @@ clients-typescript-unit:
         - clients/**/*
   script:
     - cd clients/typescript
-    - npm ci --prefer-offline
+    - npm ci --prefer-offline --ignore-scripts
     - npm run typecheck
     - npm test
     - npm run build
@@ -1522,7 +1522,7 @@ clients-contract:
         sleep 1
       done
     - cd ..
-    - cd clients/typescript && npm ci --prefer-offline && cd ../..
+    - cd clients/typescript && npm ci --prefer-offline --ignore-scripts && cd ../..
   script:
     - export VISIBAN_CONTRACT_PHASE=feed
     - (cd clients/python && PYTHONPATH=src VISIBAN_CONTRACT_STATE=/tmp/state-python.json python -m unittest tests.test_live -v)
@@ -3358,7 +3358,7 @@ clients-typescript-sast:
         - clients/typescript/**/*
   script:
     - cd clients/typescript
-    - npm ci --prefer-offline
+    - npm ci --prefer-offline --ignore-scripts
     - npm run lint
   allow_failure: false
 

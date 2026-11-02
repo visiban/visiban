@@ -45,11 +45,17 @@ def verify_signature(
     re-serialized JSON will not match. Returns False (never raises) for a
     missing or malformed header, a stale or future timestamp, or a mismatch.
     """
+    if not secret:
+        # An empty key would let anyone forge a valid signature.
+        raise ValueError("secret must not be empty")
+    if not (tolerance >= 0 and tolerance != float("inf")):
+        raise ValueError("tolerance must be a finite number >= 0")
     if not isinstance(raw_body, (bytes, bytearray)):
         raise TypeError("raw_body must be bytes: verify the unparsed request body")
     timestamp = _header(headers, TIMESTAMP_HEADER)
     signature = _header(headers, SIGNATURE_HEADER)
-    if not (timestamp.isascii() and timestamp.isdigit()):
+    # Length cap: int() on thousands of digits raises, and a receiver must not 500.
+    if not (timestamp.isascii() and timestamp.isdigit() and len(timestamp) <= 12):
         return False
     current = time.time() if now is None else now
     # abs(): reject a timestamp too far in the future as well as one too old.

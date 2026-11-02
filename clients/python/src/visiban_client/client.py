@@ -32,6 +32,7 @@ from .errors import (
 
 Event = dict  # a feed row, passed through verbatim (unknown fields included)
 
+_MAX_CONSECUTIVE_RESYNCS = 3
 _LOOPBACK = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -84,6 +85,10 @@ class Client:
     ) -> None:
         if not token:
             raise ValueError("token is required (a scoped personal access token)")
+        if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in token):
+            # Fixed message: never echo the token. A trailing newline from a
+            # token file is the usual cause (strip it).
+            raise ValueError("token contains whitespace or control characters")
         parts = urlsplit(base_url)
         if parts.scheme not in ("http", "https") or not parts.hostname:
             raise ValueError("base_url must be an http(s) URL")
@@ -104,7 +109,7 @@ class Client:
     # -- transport ---------------------------------------------------------
 
     def _delay(self, attempt: int, retry_after: str | None) -> float:
-        if retry_after is not None and retry_after.strip().isdigit():
+        if retry_after is not None and retry_after.strip().isascii() and retry_after.strip().isdigit():
             return min(float(retry_after.strip()), self._backoff_max)
         delay = min(self._backoff_base * (2 ** attempt), self._backoff_max)
         if self._jitter:
@@ -211,6 +216,7 @@ class Client:
         store = store if store is not None else MemoryCursorStore()
         current = cursor if cursor is not None else (store.get(board_id) or 0)
         delivered: set[int] = set()
+        resyncs = 0  # consecutive, reset by any successful page
 
         while True:
             after = max(0, current - overlap)
@@ -218,6 +224,9 @@ class Client:
                 try:
                     page = self._fetch_page(board_id, after, limit)
                 except _Gone as gone:
+                    resyncs += 1
+                    if resyncs > _MAX_CONSECUTIVE_RESYNCS:
+                        raise ProtocolError("server keeps answering 410 after re-syncing; giving up")
                     resync = self._resync(board_id, gone.body)
                     yield resync
                     # Reached only when the consumer asked for the next item.
@@ -227,6 +236,7 @@ class Client:
                     after = max(0, current - overlap)
                     continue
                 results, next_cursor = _validate_page(page, after)
+                resyncs = 0
                 for event in results:
                     eid = event["id"]
                     if eid in delivered:
@@ -250,6 +260,8 @@ class Client:
         data = body if isinstance(body, dict) else {}
         next_cursor = data.get("next_cursor")
         resync_url = data.get("resync_url")
+        if _is_int(next_cursor) and next_cursor < 0:
+            raise ProtocolError("410 next_cursor is negative")
         if not _is_int(next_cursor):
             raise ResyncUnsupported(
                 "410 cursor_expired without next_cursor: the server predates 1.3 and "
