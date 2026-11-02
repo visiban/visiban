@@ -219,3 +219,68 @@ class CardTimelinePaginationTests(TestCase):
     def test_previous_is_set_on_second_page(self):
         r = self.client.get(self.url, {"limit": 2, "offset": 2})
         self.assertIsNotNone(r.json()["previous"])
+
+    def _real_total(self):
+        return (
+            CardMovement.objects.filter(card=self.card).count()
+            + CardActivity.objects.filter(card=self.card).count()
+        )
+
+    def test_limit_zero_reports_real_count(self):
+        # #2032: limit=0 with offset=0 slices both sources to nothing, so the
+        # window total had no row to ride on and count came back 0.
+        _make_movement(self.card, self.user, to_col=self.col)
+        total = self._real_total()
+        self.assertGreaterEqual(total, 6)
+        r = self.client.get(self.url, {"limit": 0})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["count"], total)
+
+    def test_negative_limit_reports_real_count(self):
+        # A negative limit is clamped to 0 and must behave like limit=0.
+        r = self.client.get(self.url, {"limit": -5})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["count"], self._real_total())
+
+    def test_limit_zero_count_respects_event_types_filter(self):
+        r = self.client.get(self.url, {"limit": 0, "event_types": "move"})
+        self.assertEqual(r.json()["count"], CardMovement.objects.filter(card=self.card).count())
+
+    def test_limit_zero_on_empty_timeline_reports_zero(self):
+        empty = _make_card(self.board, self.col, self.swim, self.user, title="Empty")
+        CardMovement.objects.filter(card=empty).delete()
+        CardActivity.objects.filter(card=empty).delete()
+        url = f"/api/v1/boards/{self.board.id}/cards/{empty.id}/timeline/"
+        self.assertEqual(self.client.get(url, {"limit": 0}).json()["count"], 0)
+
+    def test_limit_zero_with_negative_offset_reports_real_count(self):
+        # Both params are clamped to 0 before use, so this is the limit=0 path.
+        r = self.client.get(self.url, {"limit": 0, "offset": -1})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["count"], self._real_total())
+
+    def _timeline_count_queries(self, params):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.get(self.url, params)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return [q["sql"] for q in ctx.captured_queries if "COUNT(" in q["sql"].upper()
+                and "OVER" not in q["sql"].upper()]
+
+    def test_default_request_issues_no_fallback_count(self):
+        # Normal first page: the window total rides the page query, so the
+        # fallback COUNT(*) must not run.
+        self.assertEqual(self._timeline_count_queries({}), [])
+
+    def test_limit_zero_issues_one_fallback_count_per_source(self):
+        # Movements + activities are both included by default: exactly one
+        # standalone COUNT each, in place of their page queries.
+        self.assertEqual(len(self._timeline_count_queries({"limit": 0})), 2)

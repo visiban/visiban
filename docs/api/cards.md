@@ -364,7 +364,7 @@ List all archived cards for the board, newest archived first. Available to all b
 
 | Parameter | Description |
 |---|---|
-| `offset` | Pagination offset (default: `0`). A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. |
+| `offset` | Pagination offset (default: `0`). A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. `count` is always the total number of archived cards, including when `offset` is past the end and `results` is empty. |
 
 **Response** — paginated envelope, page size fixed at 50:
 
@@ -638,7 +638,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0` and a non-integer value as the default. |
+| `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0` and a non-integer value as the default. `count` is the real total even when the page is empty (`limit=0`). |
 | `offset` | integer | `0` | Zero-based page offset. A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. |
 | `event_types` | string | _(all)_ | Comma-separated filter groups. Valid values: `move`, `comment`, `field`, `checklist`, `attachment`, `system`. Omit to include all event types. |
 
