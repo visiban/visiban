@@ -106,7 +106,7 @@ How the selector applies to events:
 
 - **`--card`** matches the card UID recorded in the event, on every board. With `--board`, it matches that card's events on that board, and on other boards only if it has movement or block records on that board (see `--board` below).
 - **`--board`** matches the board the event was recorded on. It also matches, on any board, the events of every card whose movement or block records it selects. A card moved to another board in the Django admin keeps its earlier events on the old board, and these are redacted with it. A card whose movement and block records an earlier purge already deleted is not followed this way; use `--card` for it.
-- **`--since` and `--before`** match the time the event was recorded, not the time of a movement.
+- **`--since` and `--before`** match the time the event was recorded, not the time of a movement or block. An event is recorded a moment after the record it describes, so a `--before` that falls in that gap deletes the record and leaves its event, with the same text, unredacted. Keep `--before` at least a minute clear of anything you need erased. Re-running with a later `--before` redacts an event that was missed.
 - **Deleted cards only, by default.** Without `--include-live-cards`, an event matches only when no card with its UID (or, for the events described below, its ID) exists.
 - **Events match on their own.** A card whose movement records an earlier run already deleted, for example a purge made with 1.2, still has its events redacted when you run the command for it again. An event already redacted is skipped, so re-running a purge changes nothing and records nothing.
 

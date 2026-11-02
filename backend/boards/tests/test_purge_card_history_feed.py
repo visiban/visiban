@@ -32,10 +32,14 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import AdminActionLog, User
-from boards.management.commands.purge_card_history import redact_card_event_payload
+from boards.management.commands.purge_card_history import (
+    _CARD_CONTENT_KEYS, _EXTERNAL_REF_CONTENT_KEYS, _MOVEMENT_CONTENT_KEYS,
+    redact_card_event_payload,
+)
 from boards.models import (
     BoardEvent, BoardMembership, Card, CardBlock, CardMovement, CustomFieldDefinition,
 )
+from boards.serializers import CardMovementSerializer, CardSerializer, ExternalRefSerializer
 from boards.tests.conftest import (
     _make_board, _make_column, _make_membership, _make_swimlane, _make_user,
 )
@@ -749,6 +753,55 @@ class BlockedStateTests(FeedRedactionBase):
         out = self._run("--card", uid, "--yes")
         self.assertIn("nothing deleted, nothing recorded", out)
         self.assertEqual(AdminActionLog.objects.count(), entries)
+
+
+class EveryPayloadFieldIsClassifiedTests(TestCase):
+    """A new payload field must be decided on, not silently left readable.
+
+    The redaction is a list of keys, so a free-text field added to a serializer
+    would ship unredacted and nothing else would notice: #1149's
+    ``blocked_reason`` did exactly that. A failure here means choosing. Text a
+    user wrote goes in the command's ``*_CONTENT_KEYS``; anything else goes in
+    the structure set below. Rows a purge already redacted are skipped on a
+    re-run, so a new content key also needs a plan for those rows.
+    """
+
+    # Nulled by _redact_card with their own rules, not by _CARD_CONTENT_KEYS.
+    CARD_NESTED_CONTENT = {"custom_field_values", "external_ref"}
+    CARD_STRUCTURE = {
+        "id", "uid", "column", "swimlane", "priority", "assignee", "assignee_id",
+        "labels", "label_ids", "due_date", "weight", "position", "created_by",
+        "created_at", "updated_at", "last_moved_at", "last_move_is_creation",
+        "attachment_count", "checklist_total", "checklist_done", "is_stale",
+        "archived_at", "version", "blocker_count", "is_blocked", "blocked_at",
+    }
+    MOVEMENT_STRUCTURE = {
+        "id", "card_uid",
+        "from_column", "from_column_name", "from_column_uid",
+        "to_column", "to_column_name", "to_column_uid",
+        "from_swimlane", "from_swimlane_name", "from_swimlane_uid",
+        "to_swimlane", "to_swimlane_name", "to_swimlane_uid",
+        "moved_by", "moved_at", "movement_type", "imported_from_username",
+    }
+    EXTERNAL_REF_STRUCTURE = {"provider"}
+
+    def test_card_fields(self):
+        self.assertEqual(
+            set(CardSerializer.Meta.fields),
+            self.CARD_STRUCTURE | self.CARD_NESTED_CONTENT | set(_CARD_CONTENT_KEYS),
+        )
+
+    def test_movement_fields(self):
+        self.assertEqual(
+            set(CardMovementSerializer.Meta.fields),
+            self.MOVEMENT_STRUCTURE | set(_MOVEMENT_CONTENT_KEYS),
+        )
+
+    def test_external_ref_fields(self):
+        self.assertEqual(
+            set(ExternalRefSerializer().fields),
+            self.EXTERNAL_REF_STRUCTURE | set(_EXTERNAL_REF_CONTENT_KEYS),
+        )
 
 
 class RedactPayloadUnitTests(TestCase):
