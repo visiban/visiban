@@ -1527,6 +1527,8 @@ If a token exists, this call invalidates it immediately and returns a new UUID, 
 
 *(1.3+, #1967)* `share_token_issued_at` is when this link was issued. It is additive. Besides `board.updated`, a successful call sends the admin-only [`share_link.updated`](websockets.md#share-link-events-since-13) WebSocket event with `active: true`, the new expiry, and `issued_at` set to this same `share_token_issued_at`, so other admin sessions see the change and the caller can tell its own change from a later rotation by someone else. The event never carries the token. `DELETE` below sends it with `active: false`.
 
+The `board.updated` recorded with a share link's enable, rotate, revoke or server-side clear is a system event: `actor_id` and `actor` are `null` on its [change feed](events.md) row, and its payload has no `is_starred`.
+
 **Errors:** `403 Forbidden` if the caller can see the board but is not a board admin, including a caller whose admin role was removed while the request was waiting on a concurrent change to the board; `404 Not Found` if the caller has no access to it. `400 Bad Request` if `expires_in_days` is not one of the allowed values.
 
 ### `DELETE /api/v1/boards/{id}/share/`

@@ -141,6 +141,11 @@ DEFERRING_EMIT_FUNCS = frozenset({
     "record_board_event",
     "record_group_event",
     "_broadcast_after_commit",
+    # boards/services/share_links.py wrappers around record_board_event. Listed
+    # by name because the storm check matches call names and does not follow a
+    # call into its callee, so a loop over one of these would otherwise go unseen.
+    "record_share_state_board_updated",
+    "record_share_link_updated",
 })
 
 ALL_EMIT_FUNCS = RAW_EMIT_FUNCS | DEFERRING_EMIT_FUNCS

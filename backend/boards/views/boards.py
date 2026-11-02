@@ -409,7 +409,7 @@ class BoardViewSet(
                 # share link enabled through it ends with it (#1865), as on
                 # move-group.
                 from ..services.share_links import revoke_lapsed_share_links
-                revoke_lapsed_share_links(board_ids=[board_id], actor_id=self.request.user.id)
+                revoke_lapsed_share_links(board_ids=[board_id])
             # Re-fetch through get_queryset() so the serializer response includes
             # annotations (_member_count, _card_count, _is_starred) rather than
             # triggering per-field subqueries from the bare post-save instance (#647).
@@ -716,17 +716,16 @@ class BoardViewSet(
             # payload. Re-fetch through get_queryset() so the payload includes
             # annotations (_member_count, _card_count, _is_starred) rather than
             # triggering per-field subqueries from the bare post-save instance (#647).
+            # Recorded with no actor (#2043).
+            from ..services.share_links import record_share_link_updated, record_share_state_board_updated
             board_id = board.pk
             annotated = self.get_queryset().get(pk=board_id)
             board_summary = BoardSerializer(annotated, context={"request": request}).data
-            _broadcast.record_board_event(
-                board_id, _broadcast.EVT_BOARD_UPDATED, board_summary, actor_id=request.user.id,
-            )
+            record_share_state_board_updated(board_id, board_summary)
             # The share state itself goes out as the admin-only
             # share_link.updated (#1967), so other admin sessions and an open
             # Sharing tab update without a reload. Never carries the token, and
             # is recorded with no actor.
-            from ..services.share_links import record_share_link_updated
             record_share_link_updated(board, issued_at=issued_at)
         return Response(response_data)
 
@@ -782,7 +781,7 @@ class BoardViewSet(
             # A group-derived admin role can end with the move; a share link
             # enabled through it ends with it (#1865).
             from ..services.share_links import revoke_lapsed_share_links
-            revoke_lapsed_share_links(board_ids=[board_id], actor_id=request.user.id)
+            revoke_lapsed_share_links(board_ids=[board_id])
             # Re-fetch through get_queryset() so the response and broadcast include
             # annotations (_member_count, _card_count, _is_starred) rather than
             # triggering per-field subqueries from the bare post-save instance (#647).
@@ -1314,9 +1313,7 @@ class BoardViewSet(
             # create too: a direct membership outranks a group-derived role,
             # so adding a group admin as a direct member lowers their role.
             from ..services.share_links import revoke_lapsed_share_links
-            revoke_lapsed_share_links(
-                enabler=target_user, board_ids=[board.pk], actor_id=request.user.id,
-            )
+            revoke_lapsed_share_links(enabler=target_user, board_ids=[board.pk])
             # Assign user directly so BoardMembershipSerializer does not issue a
             # separate query to load the FK — target_user is already in scope.
             membership.user = target_user
@@ -1397,7 +1394,5 @@ class BoardViewSet(
             # A removed admin stops holding a share link they enabled, unless
             # still an admin another way (#1865).
             from ..services.share_links import revoke_lapsed_share_links
-            revoke_lapsed_share_links(
-                enabler=target_user, board_ids=[board_id], actor_id=request.user.id,
-            )
+            revoke_lapsed_share_links(enabler=target_user, board_ids=[board_id])
         return Response(status=status.HTTP_204_NO_CONTENT)

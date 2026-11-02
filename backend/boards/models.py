@@ -1624,6 +1624,7 @@ class BoardEvent(models.Model):
         default=dict,
         help_text="The broadcast payload, verbatim — identical to the WebSocket frame's 'data' object.",
     )
+    # The API wording of this field is BoardEventSerializer.Meta.extra_kwargs.
     actor_id = models.BigIntegerField(
         null=True,
         blank=True,
@@ -2290,8 +2291,8 @@ def clear_share_links_of_deleted_enabler(sender, instance, **kwargs):
     if not enabled:
         return
 
-    from . import broadcast as _board_broadcast
     from .serializers import BoardSerializer
+    from .services.share_links import record_share_link_updated, record_share_state_board_updated
 
     for board_id in enabled:
         # Keywords spelled out (the columns of Board.SHARE_LINK_CLEARED): the
@@ -2304,11 +2305,8 @@ def clear_share_links_of_deleted_enabler(sender, instance, **kwargs):
             continue
         board = Board.objects.filter(pk=board_id).first()
         if board is not None:
-            _board_broadcast.record_board_event(
-                board_id, _board_broadcast.EVT_BOARD_UPDATED, BoardSerializer(board).data,
-            )
+            record_share_state_board_updated(board_id, BoardSerializer(board).data)
             # The cleared share state, for admin sessions only (#1967).
-            from .services.share_links import record_share_link_updated
             record_share_link_updated(board)
 
 

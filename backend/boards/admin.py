@@ -966,7 +966,7 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             # share link's enabler (#1865). The refresh is defensive: it keeps
             # ``obj`` in step with the row for anything that reads it after
             # this point (the payload below carries no share fields).
-            revoked = revoke_lapsed_share_links(board_ids=[obj.pk], actor_id=request.user.pk)
+            revoked = revoke_lapsed_share_links(board_ids=[obj.pk])
             obj.refresh_from_db(fields=Board.SHARE_LINK_FIELDS)
             # The expiry is editable here, and board.updated cannot carry it
             # (ADMIN_ONLY_BOARD_FIELDS), so an edit to it on a live link tells
@@ -1140,22 +1140,20 @@ class BoardMembershipAdmin(RowVersionAdminMixin, _BoardEventAdminMixin, admin.Mo
         # A role change (or a membership moved to another user or board) can
         # end the standing a share link's enabler held (#1865). So can an add:
         # a direct membership outranks a group-derived admin role.
-        revoke_lapsed_share_links(
-            board_ids={stored_board_id, obj.board_id}, actor_id=request.user.pk,
-        )
+        revoke_lapsed_share_links(board_ids={stored_board_id, obj.board_id})
 
     def delete_model(self, request, obj):
         board_id = obj.board_id
         with transaction.atomic():
             super().delete_model(request, obj)
             # A removed admin stops holding a share link they enabled (#1865).
-            revoke_lapsed_share_links(board_ids=[board_id], actor_id=request.user.pk)
+            revoke_lapsed_share_links(board_ids=[board_id])
 
     def delete_queryset(self, request, queryset):
         with transaction.atomic():
             board_ids = set(queryset.values_list("board_id", flat=True))
             super().delete_queryset(request, queryset)
-            revoke_lapsed_share_links(board_ids=board_ids, actor_id=request.user.pk)
+            revoke_lapsed_share_links(board_ids=board_ids)
 
     def _board_id(self, obj):
         return obj.board_id

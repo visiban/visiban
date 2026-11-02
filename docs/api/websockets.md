@@ -137,7 +137,7 @@ Board and group `board.*` event payloads never carry the share-link fields (`sha
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `board.created` | New board created (only emitted to subscribers already connected to the board channel) | Full `BoardSerializer` object. `is_starred` is sent only to the sockets of the user who made the change (creator or importer), with that user's value; every other subscriber gets the payload without the `is_starred` key (since 1.2, #1705). On a board created in the Django admin there is no request, so the value that user receives is a constant `false`. Use `board.star_changed` for per-user star state (#1559). On a Visiban JSON/CSV import ([`POST /api/v1/boards/import/`](boards.md#post-apiv1boardsimport)) it also carries `import_options` — all five resolved booleans (`labels`, `cards`, `comments`, `checklist`, `history`; added in 1.2), plus `shift_dates_from` (a `YYYY-MM-DD` string; added in 1.2) when the import sent it or applied the file's `date_anchor` in its place, `shift_dates` when the import sent it, and `shift_dates_to` when it was sent and dates moved (#1949). The same payload goes to the group channel when the import sets `group_id`. `import_options` is absent on ordinary board creation, Trello imports, and group-move events. |
-| `board.updated` | Board name, description, or settings changed | Full `BoardSerializer` object. `is_starred` is sent only to the sockets of the user who made the change, with that user's value; every other subscriber gets the payload without the `is_starred` key (since 1.2, #1705). On a board changed in the Django admin there is no request, so the value that user receives is a constant `false`. A client merging the payload keeps its own value. Use `board.star_changed` for per-user star state (#1559). |
+| `board.updated` | Board name, description, or settings changed | Full `BoardSerializer` object. `is_starred` is sent only to the sockets of the user who made the change, with that user's value; every other subscriber gets the payload without the `is_starred` key (since 1.2, #1705). A share link's enable, rotate, revoke or server-side clear has no acting user, so `is_starred` is omitted for every subscriber (see [Share link events](#share-link-events-since-13)). On a board changed in the Django admin there is no request, so the value that user receives is a constant `false`. A client merging the payload keeps its own value. Use `board.star_changed` for per-user star state (#1559). |
 | `board.deleted` | Board was deleted, with everything on it. No `card.deleted` or `column.deleted` frames are sent for the cascade; see [Deleting a container deletes its cards](#deleting-a-container-deletes-its-cards) | `{ "board_uid": <string> }` |
 | `board.star_changed` | Board starred or unstarred. Per-user state: delivered only to the sockets of the user in `user_id` (the starring user's other tabs), never to other subscribers (#1677). Clients should still filter on `user_id === me` | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
 | `saved_filter.created` | Saved filter created (the private `state_json` is intentionally not broadcast — only the creating user receives the full filter via the REST response). Per-user state: delivered only to the sockets of the user in `user_id` (#1677) | `{ "filter_id": <int>, "user_id": <int> }` |
@@ -403,7 +403,12 @@ actor, so their `actor_id` and `actor` are `null`.
 
 Each of these changes also sends `board.updated`, as before 1.3. That frame
 cannot carry the share state, so clients should read it from
-`share_link.updated`. The Visiban web app merges this event into the open
+`share_link.updated`. On an enable, rotate, revoke or server-side clear, that
+`board.updated` has no acting user: its row in the change feed has a `null`
+`actor_id` and `actor`, and its payload omits `is_starred` for every subscriber,
+so a client merging it keeps its own value. A change to a board's group or owner
+that also clears a link sends its own ordinary `board.updated` as well, which
+keeps its actor. The Visiban web app merges this event into the open
 board, so the **Sharing** tab follows another admin's change without a reload,
 even while it is open. If the tab is still showing a link that was then
 revoked or rotated elsewhere, it removes that link and says why.
