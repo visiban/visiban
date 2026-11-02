@@ -133,7 +133,7 @@ Site admins can't be demoted or removed by anyone but another site admin. A role
 
 The board **Members** settings follow the same rule, for a board admin who is not a site admin:
 
-- A member with `is_site_admin=True` and a membership on the board (a row with a numeric `id`) shows their role as plain text, with no role dropdown and no remove button. This holds even when the member also has all-content access: the **Full access** chip (below) carries the explanation, and the remove action is not offered because the server refuses to change that membership.
+- A member with `is_site_admin=True` and a membership on the board (a row with a numeric `id`) shows their role as plain text, with no role dropdown and no remove button. When the member also has all-content access, the row instead shows the **Full access** chip (below) with the stored role line and no dropdown, and a visible line, "This membership is managed at the instance level and cannot be removed here", says why there is no **Remove board role** action: the server refuses to change that membership.
 - Members who belong through the board's group, and a board owner without a membership, are editable even when their row carries `is_site_admin=True`, because the server accepts a role change for a user with no membership on the board: the first role change creates a board membership for them.
 - The lock keys on a membership-backed row plus the site-admin flag, so it does not depend on which readers receive the flag.
 - Which readers get the instance-wide roster is unchanged: a reader with `can_access_all_content` already resolves to the `site_admin` board role and gets it, as does a reader with `is_site_admin`.

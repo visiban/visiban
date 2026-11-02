@@ -507,6 +507,51 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.silentReload).toHaveBeenCalledTimes(1)
   })
 
+  it('a frame for a second unknown member inside the window earns one trailing re-read (#1301)', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
+      mockBoardContextValue = ctx
+      const view = render(<BoardView currentUser={fakeUser} />)
+      await act(async () => {})
+      const other: User = { ...fakeUser, id: 98, username: 'carol', display_name: 'Carol' }
+      const second: BoardMembership = { id: 3, user: other, role: 'viewer', is_moderator: false, joined_at: '' }
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: flaglessMembership() as unknown as Record<string, unknown> }) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+      // Same member again: an echo, no extra request even after the window closes.
+      act(() => { getOnEvent.dispatch({ event: 'member.updated', data: flaglessMembership() as unknown as Record<string, unknown> }) })
+      // A different member inside the window is not dropped: one request when it closes.
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: second as unknown as Record<string, unknown> }) })
+      act(() => { getOnEvent.dispatch({ event: 'member.updated', data: second as unknown as Record<string, unknown> }) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+      act(() => { vi.advanceTimersByTime(2100) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(2)
+      act(() => { vi.advanceTimersByTime(5000) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(2)
+      view.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('clears a pending trailing re-read on unmount (#1301)', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
+      mockBoardContextValue = ctx
+      const view = render(<BoardView currentUser={fakeUser} />)
+      await act(async () => {})
+      const other: User = { ...fakeUser, id: 98, username: 'carol', display_name: 'Carol' }
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: flaglessMembership() as unknown as Record<string, unknown> }) })
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: { id: 3, user: other, role: 'viewer', is_moderator: false, joined_at: '' } as unknown as Record<string, unknown> }) })
+      view.unmount()
+      act(() => { vi.advanceTimersByTime(5000) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   // #1301 — a membership frame never carries has_all_content_access. An admin
   // re-reads for a subject whose value is unknown, even when the frame carries
   // is_site_admin (invite redemption, a site admin's members POST).
