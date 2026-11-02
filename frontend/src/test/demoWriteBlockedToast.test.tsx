@@ -26,4 +26,13 @@ describe('DemoWriteBlockedToast (#1179 safety net)', () => {
     act(() => { vi.advanceTimersByTime(DEMO_TOAST_MS) })
     expect(screen.queryByTestId('demo-write-blocked-toast')).not.toBeInTheDocument()
   })
+
+  it('has an explicit width so it does not shrink-wrap at narrow viewports (#1439)', () => {
+    render(<DemoWriteBlockedToast />)
+    fire('x')
+    const toast = screen.getByTestId('demo-write-blocked-toast')
+    expect(toast.className).toContain('w-max')
+    expect(toast.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
+    expect(toast.className).not.toContain('max-w-sm')
+  })
 })

@@ -27,7 +27,7 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
       role="alert"
       // A click here never closes an open card detail sheet (#1914).
       data-keeps-card-sheet-open
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 bg-surface border border-warning text-fg text-sm rounded-lg px-4 py-3 shadow-xl max-w-sm"
+      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 bg-surface border border-warning text-fg text-sm rounded-lg px-4 py-3 shadow-xl w-max max-w-[min(24rem,calc(100%-2rem))]"
     >
       <span className="text-warning shrink-0 mt-0.5">{hardBlocked ? "⛔" : "⚠"}</span>
       <div className="flex-1 min-w-0">
