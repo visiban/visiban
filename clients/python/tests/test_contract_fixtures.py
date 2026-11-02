@@ -54,7 +54,7 @@ def run_scenario(case: dict) -> None:
             jitter=False,
             max_retries=opts.get("max_retries", 5),
         )
-        kwargs = {"store": store, "overlap": opts.get("overlap", 0)}
+        kwargs = {"store": store}
         if "limit" in opts:
             kwargs["limit"] = opts["limit"]
         if "cursor" in opts:

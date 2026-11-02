@@ -34,14 +34,17 @@ for item in client.iter_events(board_id, store=store, poll_interval=5):
 
 - **At-least-once.** The stored cursor advances when you ask for the *next*
   item, after your loop body returned. A `break` or an exception leaves that item
-  uncommitted, so it is delivered again. Make handlers idempotent; there is no
-  exactly-once mode.
+  uncommitted. To redeliver it, call `iter_events` again (a new iterator over the
+  same store); do not resume the old generator after an exception, because it
+  would treat the failed item as handled and commit it. Make handlers idempotent;
+  there is no exactly-once mode.
 - **Resync.** On `410` the client keeps the response's `next_cursor`, fetches
   `/full/` (using only the path of `resync_url`, with your configured origin),
   and yields `Resync(board_id, snapshot, cursor)`. The cursor moves to
   `resync.cursor` after your body returns. An event can appear in both the
   snapshot and the resumed feed.
-- **Caught up** means `next_cursor` was `null`, never a short page.
+- **Caught up** means the server's `next_cursor` was `null`; the client never
+  counts rows.
 - **Cursor store.** Any object with `get(board_id) -> int | None` and
   `set(board_id, cursor)` (the `CursorStore` protocol). Make `set` durable if you
   need to survive restarts.
@@ -50,12 +53,18 @@ for item in client.iter_events(board_id, store=store, poll_interval=5):
 - **Retries.** 429, 5xx and network errors back off exponentially (`Retry-After`
   honored, capped by `backoff_max`); 400/401/403/404 raise typed errors at once.
 - **Late-committing rows.** Event ids follow insertion order, not commit order
-  ([#2053](https://gitlab.com/visiban/visiban/-/issues/2053)). `overlap=N`
-  (default 0, off) re-reads from `cursor - N` and de-duplicates on `id`. It
-  narrows the window; it is not gap-free.
-- **Auth.** A scoped personal access token, sent only to `base_url`. Redirects
-  are never followed, and plain `http://` to a non-loopback host is refused
-  unless `allow_insecure=True`.
+  ([#2053](https://gitlab.com/visiban/visiban/-/issues/2053)), so a read can step
+  past a row that commits a moment later. There is **no overlap option** in 0.x;
+  reads are not gap-free.
+- **Auth.** A scoped personal access token (`read` is enough; the client only
+  issues GETs), sent only to the host in `base_url`. Redirects are never followed,
+  and plain `http://` to a non-loopback host is refused unless
+  `allow_insecure=True`. `urllib` honors `HTTP_PROXY` / `HTTPS_PROXY`, so the
+  token travels through a configured proxy (readable by it over plain `http`):
+  use `https` and check the environment.
+- **Default store.** Without `store=`, each `iter_events` call gets a fresh
+  `MemoryCursorStore`, so a bare call replays from 0. Reuse one store (or pass
+  `cursor=`) to resume.
 
 ## Webhook signatures (experimental)
 

@@ -1468,9 +1468,15 @@ clients-contract:
         - backend/boards/services/feed.py
         - backend/boards/models.py
         - backend/boards/urls.py
+        - backend/boards/permissions.py
         - backend/boards/management/commands/prune_board_events.py
         - backend/accounts/**/*
         - backend/visiban/settings.py
+        - backend/visiban/urls.py
+        - backend/visiban/permissions.py
+        - backend/visiban/exceptions.py
+        - backend/requirements.txt
+        - .gitlab-ci.yml
         - backend/webhooks/**/*
         - docs/api/events.md
         - docs/api/webhooks.md
@@ -1496,6 +1502,9 @@ clients-contract:
     VISIBAN_FUZZ_TOKEN_FILE: "/tmp/visiban_client_token"
     VISIBAN_CONTRACT_BASE_URL: "http://localhost:8000"
     VISIBAN_CONTRACT_TOKEN_FILE: "/tmp/visiban_client_token"
+    # Fail closed: a missing or renamed VISIBAN_CONTRACT_* variable must fail the
+    # job, not skip every live test and leave it green.
+    VISIBAN_CONTRACT_REQUIRED: "1"
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:

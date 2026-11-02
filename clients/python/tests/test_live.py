@@ -2,7 +2,11 @@
 
 Environment:
   VISIBAN_CONTRACT_BASE_URL   e.g. http://localhost:8000
-  VISIBAN_CONTRACT_TOKEN_FILE file holding a PAT with the ``read`` and ``write`` scopes
+  VISIBAN_CONTRACT_TOKEN_FILE file holding a PAT with the ``read`` and ``write`` scopes.
+                              The client only issues GETs; write is for creating cards over
+                              REST to produce events (provision_fuzz_token cannot mint a
+                              read-only PAT).
+  VISIBAN_CONTRACT_REQUIRED   ``1`` makes missing configuration a failure, not a skip (CI sets it)
   VISIBAN_CONTRACT_STATE      path where the feed phase leaves the cursor for the expired phase
   VISIBAN_CONTRACT_PHASE      ``feed`` (default) or ``expired``
 
@@ -23,6 +27,9 @@ from visiban_client import BadRequestError, Client, MemoryCursorStore, Resync
 
 BASE = os.environ.get("VISIBAN_CONTRACT_BASE_URL")
 TOKEN_FILE = os.environ.get("VISIBAN_CONTRACT_TOKEN_FILE")
+# CI sets VISIBAN_CONTRACT_REQUIRED=1 so a missing or renamed variable fails the
+# job instead of skipping every test. A plain local run (unset) still skips.
+REQUIRED = os.environ.get("VISIBAN_CONTRACT_REQUIRED") == "1"
 PHASE = os.environ.get("VISIBAN_CONTRACT_PHASE", "feed")
 STATE = os.environ.get("VISIBAN_CONTRACT_STATE", "visiban-contract-state-python.json")
 
@@ -43,9 +50,11 @@ def _api(method: str, path: str, body: dict | None = None):
         return json.loads(resp.read())
 
 
-@unittest.skipUnless(BASE and TOKEN_FILE, "live backend not configured")
+@unittest.skipUnless((BASE and TOKEN_FILE) or REQUIRED, "live backend not configured")
 class LiveFeedTests(unittest.TestCase):
     def setUp(self):
+        if not (BASE and TOKEN_FILE):
+            self.fail("VISIBAN_CONTRACT_BASE_URL and VISIBAN_CONTRACT_TOKEN_FILE must be set when VISIBAN_CONTRACT_REQUIRED=1")
         self.client = Client(BASE, _token(), allow_insecure=True)
         self.board_id = int(os.environ.get("VISIBAN_CONTRACT_BOARD_ID") or _api("GET", "/api/v1/boards/")["results"][0]["id"])
 
@@ -73,11 +82,6 @@ class LiveFeedTests(unittest.TestCase):
         self.assertEqual(store.get(self.board_id), ids[-1])
         # Resuming from the committed cursor yields nothing: caught up.
         self.assertEqual(list(self.client.iter_events(self.board_id, store=store)), [])
-        # overlap re-reads below the cursor (a fresh process has no delivered
-        # set, so rows in that window are delivered) but never twice.
-        again = [e["id"] for e in self.client.iter_events(self.board_id, head, limit=2, overlap=5)]
-        self.assertEqual(len(again), len(set(again)))
-        self.assertTrue(set(ids) <= set(again))
         Path(STATE).write_text(json.dumps({"board_id": self.board_id, "cursor": ids[0]}))
 
     @unittest.skipUnless(PHASE == "feed", "feed phase only")

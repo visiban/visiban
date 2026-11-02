@@ -58,18 +58,16 @@ export interface ClientOptions {
 export interface IterEventsOptions {
   /** Start after this event id. Default: the store's value, else 0. */
   cursor?: number;
+  /**
+   * Default: a fresh MemoryCursorStore created per iterEvents call, so a bare
+   * call replays from 0 every time. Keep one store across calls, or pass
+   * `cursor`, to resume.
+   */
   store?: CursorStore;
   /** 1-500. Default 100. */
   limit?: number;
   /** Unset: return once caught up. A number of ms: sleep and poll until aborted. */
   pollIntervalMs?: number;
-  /**
-   * Default 0 (off). Ids follow insert order, not commit order (#2053), so a
-   * late-committing row can land below an id already passed. With overlap N each
-   * poll re-reads from cursor - N and drops ids already delivered. Narrows the
-   * window; does not make reads gap-free.
-   */
-  overlap?: number;
   signal?: AbortSignal;
 }
 
@@ -264,20 +262,21 @@ export class Client {
    * Yield events in feed order, and a Resync when the cursor expired. The
    * stored cursor moves to an item's id when you ask for the *next* item, i.e.
    * after your loop body returned; `break` or a throw leaves it uncommitted.
-   * "Caught up" means next_cursor was null, never a short page.
+   * After a throw call iterEvents again for a new generator: calling next() on
+   * the old one would treat the failed item as handled and commit it.
+   * "Caught up" means the server's next_cursor was null; the client never
+   * counts rows. There is no overlap option: ids follow insert order, not
+   * commit order (#2053), so reads are not gap-free.
    */
   async *iterEvents(boardId: number, options: IterEventsOptions = {}): AsyncGenerator<FeedItem, void, undefined> {
     const limit = options.limit ?? 100;
-    const overlap = options.overlap ?? 0;
     if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw new RangeError("limit must be between 1 and 500");
-    if (!Number.isInteger(overlap) || overlap < 0) throw new RangeError("overlap must not be negative");
     const store = options.store ?? new MemoryCursorStore();
     let current = options.cursor ?? (await store.get(boardId)) ?? 0;
-    let delivered = new Set<number>();
     let resyncs = 0; // consecutive, reset by any successful page
 
     for (;;) {
-      let after = Math.max(0, current - overlap);
+      let after = current;
       for (;;) {
         if (options.signal?.aborted) return;
         let page: unknown;
@@ -297,16 +296,13 @@ export class Client {
           yield resync;
           await store.set(boardId, resync.cursor);
           current = resync.cursor;
-          delivered = new Set();
-          after = Math.max(0, current - overlap);
+          after = current;
           continue;
         }
         const { results, nextCursor } = validatePage(page, after);
         resyncs = 0;
         for (const event of results) {
-          if (delivered.has(event.id)) continue;
           yield event;
-          if (overlap) delivered.add(event.id);
           if (event.id > current) {
             current = event.id;
             await store.set(boardId, current);
@@ -315,7 +311,6 @@ export class Client {
         if (nextCursor === null) break;
         after = nextCursor;
       }
-      if (overlap) delivered = new Set([...delivered].filter((i) => i > current - overlap));
       if (options.pollIntervalMs === undefined || options.signal?.aborted) return;
       await this.opts.sleep(options.pollIntervalMs, options.signal);
       if (options.signal?.aborted) return;

@@ -41,9 +41,9 @@ class ConstructorTests(unittest.TestCase):
         Client("http://example.com", "vbn_x", allow_insecure=True)
         Client("https://example.com", "vbn_x")
 
-    def test_limit_and_overlap_validated(self):
+    def test_limit_validated(self):
         client = Client("http://127.0.0.1:1", "vbn_x")
-        for kwargs in ({"limit": 0}, {"limit": 501}, {"overlap": -1}):
+        for kwargs in ({"limit": 0}, {"limit": 501}):
             with self.subTest(kwargs), self.assertRaises(ValueError):
                 next(client.iter_events(1, **kwargs))
 
@@ -113,6 +113,29 @@ class TransportTests(unittest.TestCase):
             client = Client(s.url, "vbn_x", backoff_max=7, sleep=sleeps.append)
             list(client.iter_events(1))
         self.assertEqual(sleeps, [7.0])
+
+
+class RedeliveryTests(unittest.TestCase):
+    def test_new_iterator_after_handler_exception_redelivers(self):
+        page = {"status": 200, "body": {"results": [{"id": 1}, {"id": 2}], "next_cursor": None}}
+        store = MemoryCursorStore()
+        with ScriptedServer([page, page]) as s:
+            client = Client(s.url, "vbn_x")
+            with self.assertRaises(RuntimeError):
+                for event in client.iter_events(1, store=store):
+                    raise RuntimeError("handler failed on %d" % event["id"])
+            self.assertIsNone(store.get(1))  # nothing was committed
+            again = [e["id"] for e in client.iter_events(1, store=store)]
+        self.assertEqual(again, [1, 2])
+
+    def test_default_store_is_per_call(self):
+        page = {"status": 200, "body": {"results": [{"id": 1}], "next_cursor": None}}
+        with ScriptedServer([page, page]) as s:
+            client = Client(s.url, "vbn_x")
+            first = [e["id"] for e in client.iter_events(1)]
+            second = [e["id"] for e in client.iter_events(1)]
+        self.assertEqual((first, second), ([1], [1]))
+        self.assertEqual([r["query"]["after"] for r in s.requests], ["0", "0"])
 
 
 class ProtocolTests(unittest.TestCase):

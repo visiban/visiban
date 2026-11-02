@@ -10,7 +10,6 @@ export interface Scenario {
     store_initial?: number;
     poll_interval_s?: number;
     stop_after_sleeps?: number;
-    overlap?: number;
     max_retries?: number;
     break_after?: number;
   };
@@ -47,6 +46,7 @@ export interface Recorded {
   path: string;
   query: Record<string, string>;
   authorization: string | null;
+  redirect: string | undefined;
 }
 
 /** A fetch that replays scripted responses and records each request. */
@@ -59,6 +59,7 @@ export function scriptedFetch(responses: Scenario["responses"]) {
       path: url.pathname,
       query: Object.fromEntries(url.searchParams),
       authorization: new Headers(init?.headers).get("Authorization"),
+      redirect: init?.redirect,
     });
     const next = queue.shift();
     if (!next) return new Response(null, { status: 599 });

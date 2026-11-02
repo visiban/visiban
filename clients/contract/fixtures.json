@@ -359,6 +359,51 @@
       }
     },
     {
+      "name": "resync_snapshot_gone",
+      "description": "A 410 on the /full/ snapshot fetch is a ProtocolError in both languages, not a leaked internal exception",
+      "options": {
+        "board_id": 7,
+        "cursor": 10
+      },
+      "responses": [
+        {
+          "status": 410,
+          "body": {
+            "detail": "cursor expired",
+            "code": "cursor_expired",
+            "resync_url": "http://internal-host:8000/api/v1/boards/7/full/",
+            "next_cursor": 50
+          }
+        },
+        {
+          "status": 410,
+          "body": {
+            "detail": "x",
+            "code": "cursor_expired"
+          }
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "10",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/full/",
+            "query": {}
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "ProtocolError"
+      }
+    },
+    {
       "name": "resync_break_leaves_cursor_uncommitted",
       "description": "Leaving the loop on a Resync does not commit its cursor (at-least-once applies to the resync too)",
       "options": {
@@ -761,138 +806,6 @@
         "sleeps_s": [
           5,
           5
-        ],
-        "error": null
-      }
-    },
-    {
-      "name": "overlap_dedupes",
-      "description": "overlap re-reads below the cursor, delivers a late row once, drops duplicates, never moves the cursor back",
-      "options": {
-        "board_id": 7,
-        "cursor": 10,
-        "overlap": 3,
-        "poll_interval_s": 1,
-        "stop_after_sleeps": 2
-      },
-      "responses": [
-        {
-          "status": 200,
-          "body": {
-            "results": [
-              {
-                "id": 9,
-                "event": "card.updated",
-                "data": {
-                  "id": 109,
-                  "title": "card 9"
-                },
-                "actor_id": 7,
-                "actor": null,
-                "created_at": "2026-11-01T10:00:00Z",
-                "redacted_at": null
-              },
-              {
-                "id": 11,
-                "event": "card.updated",
-                "data": {
-                  "id": 111,
-                  "title": "card 11"
-                },
-                "actor_id": 7,
-                "actor": null,
-                "created_at": "2026-11-01T10:00:00Z",
-                "redacted_at": null
-              }
-            ],
-            "next_cursor": null,
-            "next": null
-          }
-        },
-        {
-          "status": 200,
-          "body": {
-            "results": [
-              {
-                "id": 9,
-                "event": "card.updated",
-                "data": {
-                  "id": 109,
-                  "title": "card 9"
-                },
-                "actor_id": 7,
-                "actor": null,
-                "created_at": "2026-11-01T10:00:00Z",
-                "redacted_at": null
-              },
-              {
-                "id": 11,
-                "event": "card.updated",
-                "data": {
-                  "id": 111,
-                  "title": "card 11"
-                },
-                "actor_id": 7,
-                "actor": null,
-                "created_at": "2026-11-01T10:00:00Z",
-                "redacted_at": null
-              },
-              {
-                "id": 12,
-                "event": "card.updated",
-                "data": {
-                  "id": 112,
-                  "title": "card 12"
-                },
-                "actor_id": 7,
-                "actor": null,
-                "created_at": "2026-11-01T10:00:00Z",
-                "redacted_at": null
-              }
-            ],
-            "next_cursor": null,
-            "next": null
-          }
-        }
-      ],
-      "expected": {
-        "items": [
-          [
-            "event",
-            9
-          ],
-          [
-            "event",
-            11
-          ],
-          [
-            "event",
-            12
-          ]
-        ],
-        "requests": [
-          {
-            "path": "/api/v1/boards/7/events/",
-            "query": {
-              "after": "7",
-              "limit": "100"
-            }
-          },
-          {
-            "path": "/api/v1/boards/7/events/",
-            "query": {
-              "after": "8",
-              "limit": "100"
-            }
-          }
-        ],
-        "commits": [
-          11,
-          12
-        ],
-        "sleeps_s": [
-          1,
-          1
         ],
         "error": null
       }

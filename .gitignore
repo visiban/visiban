@@ -103,3 +103,4 @@ clients/typescript/coverage/
 clients/python/htmlcov/
 clients/python/.coverage
 .coverage
+clients/typescript/*.tgz

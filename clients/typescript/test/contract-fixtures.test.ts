@@ -42,7 +42,6 @@ async function run(scenario: Scenario): Promise<void> {
       store,
       limit: opts.limit,
       cursor: opts.cursor,
-      overlap: opts.overlap,
       pollIntervalMs: opts.poll_interval_s === undefined ? undefined : opts.poll_interval_s * 1000,
     })) {
       items.push(item);

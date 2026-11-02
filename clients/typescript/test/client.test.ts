@@ -50,11 +50,10 @@ describe("constructor", () => {
     expect(() => new Client({ baseUrl: "https://example.com", token: "t" })).not.toThrow();
   });
 
-  it("validates limit and overlap", async () => {
+  it("validates limit", async () => {
     const { client } = make([]);
     await expect(drain(client.iterEvents(1, { limit: 0 }))).rejects.toThrow(RangeError);
     await expect(drain(client.iterEvents(1, { limit: 501 }))).rejects.toThrow(RangeError);
-    await expect(drain(client.iterEvents(1, { overlap: -1 }))).rejects.toThrow(RangeError);
   });
 });
 
@@ -63,6 +62,8 @@ describe("transport", () => {
     const { client, requests } = make([{ status: 302, headers: { Location: "http://127.0.0.1:9/x" }, body: null }]);
     await expect(drain(client.iterEvents(1))).rejects.toMatchObject({ status: 302 });
     expect(requests).toHaveLength(1);
+    // The mock ignores the option, so assert it is what the client asked for.
+    expect(requests[0]?.redirect).toBe("manual");
   });
 
   it("retries network errors then raises RetriesExhausted", async () => {
@@ -233,6 +234,30 @@ describe("protocol", () => {
     const { client, requests } = make([ok([{ id: 1 }])]);
     expect(await client.fetchPage(1, 3, 5)).toEqual({ results: [{ id: 1 }], next_cursor: null });
     expect(requests[0]?.query).toEqual({ after: "3", limit: "5" });
+  });
+});
+
+describe("redelivery and default store", () => {
+  it("a new iterator after a handler throw redelivers the failed item", async () => {
+    const page = { status: 200, body: { results: [{ id: 1 }, { id: 2 }], next_cursor: null } };
+    const { client } = make([page, page]);
+    const store = new MemoryCursorStore();
+    await expect(
+      (async () => {
+        for await (const _ of client.iterEvents(1, { store })) throw new Error("handler failed");
+      })(),
+    ).rejects.toThrow("handler failed");
+    expect(store.get(1)).toBeUndefined();
+    const again = (await drain(client.iterEvents(1, { store }))) as { id: number }[];
+    expect(again.map((e) => e.id)).toEqual([1, 2]);
+  });
+
+  it("the default store is per call, so a bare call replays from 0", async () => {
+    const page = { status: 200, body: { results: [{ id: 1 }], next_cursor: null } };
+    const { client, requests } = make([page, page]);
+    await drain(client.iterEvents(1));
+    await drain(client.iterEvents(1));
+    expect(requests.map((r) => r.query.after)).toEqual(["0", "0"]);
   });
 });
 

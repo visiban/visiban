@@ -3,8 +3,8 @@
 **Experimental (0.x), not published.** A thin client for the Visiban change feed
 ([`docs/api/events.md`](../../docs/api/events.md)): it holds a cursor, pages
 `GET /api/v1/boards/{id}/events/`, and turns a `410 cursor_expired` into a typed
-`Resync`. It is not a general REST SDK. Zero runtime dependencies; Node 20+
-(global `fetch`); ESM with types.
+`Resync`. It is not a general REST SDK. Zero runtime dependencies; Node 20.3+
+(global `fetch`, `AbortSignal.any`); ESM with types.
 
 Requires **Visiban server 1.3 or later**. A 1.2 server's `410` has no
 `next_cursor`, so the client throws `ResyncUnsupported` instead of guessing.
@@ -36,24 +36,33 @@ for await (const item of client.iterEvents(boardId, { store, pollIntervalMs: 500
 
 - **At-least-once.** The stored cursor advances when the loop asks for the *next*
   item, after your body returned. A `break` or a throw leaves that item
-  uncommitted, so it is delivered again. Make handlers idempotent; there is no
-  exactly-once mode.
+  uncommitted. To redeliver it, call `iterEvents` again (a new iterator over the
+  same store); do not resume the old generator after a throw, because it would
+  treat the failed item as handled and commit it. Make handlers idempotent; there
+  is no exactly-once mode.
 - **Resync.** On `410` the client keeps the response's `next_cursor`, fetches
   `/full/` (using only the path of `resync_url`, against your configured origin),
   and yields `Resync { boardId, snapshot, cursor }`. The cursor moves to it after
   your body returns. An event can appear in both the snapshot and the resumed feed.
-- **Caught up** means `next_cursor` was `null`, never a short page.
+- **Caught up** means the server's `next_cursor` was `null`; the client never
+  counts rows.
 - **Polling.** Without `pollIntervalMs` the iterator ends once caught up; with it,
   the iterator sleeps and polls until `signal` aborts.
 - **Retries.** 429, 5xx and network errors back off exponentially (`Retry-After`
   honored, capped by `backoffMaxMs`); 400/401/403/404 throw typed errors at once.
 - **Late-committing rows.** Event ids follow insertion order, not commit order
-  ([#2053](https://gitlab.com/visiban/visiban/-/issues/2053)). `overlap: N`
-  (default 0, off) re-reads from `cursor - N` and de-duplicates on `id`. It
-  narrows the window; it is not gap-free.
-- **Auth.** A scoped personal access token, sent only to `baseUrl`. Redirects are
-  never followed, and plain `http://` to a non-loopback host is refused unless
-  `allowInsecure: true`.
+  ([#2053](https://gitlab.com/visiban/visiban/-/issues/2053)), so a read can step
+  past a row that commits a moment later. There is **no overlap option** in 0.x;
+  reads are not gap-free.
+- **Auth.** A scoped personal access token (`read` is enough; the client only
+  issues GETs), sent only to the host in `baseUrl`. Redirects are never followed,
+  and plain `http://` to a non-loopback host is refused unless
+  `allowInsecure: true`. Node's built-in `fetch` does not read proxy environment
+  variables by default; if you route it through a proxy, the token travels
+  through it, so use `https`.
+- **Default store.** Without `store`, each `iterEvents` call gets a fresh
+  `MemoryCursorStore`, so a bare call replays from 0. Reuse one store (or pass
+  `cursor`) to resume.
 
 ## Webhook signatures (experimental)
 

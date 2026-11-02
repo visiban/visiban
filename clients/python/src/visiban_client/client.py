@@ -202,36 +202,37 @@ class Client:
         store: CursorStore | None = None,
         limit: int = 100,
         poll_interval: float | None = None,
-        overlap: int = 0,
     ) -> Iterator[Item]:
         """Yield events in feed order, and a ``Resync`` when the cursor expired.
 
         - Start: ``cursor`` if given, else ``store.get(board_id)``, else 0.
+          With no ``store`` a fresh ``MemoryCursorStore`` is created *per call*,
+          so a bare ``iter_events(board_id)`` replays from 0 every time it is
+          called. Keep one store across calls, or pass ``cursor``, to resume.
         - Advance: the stored cursor moves to an item's id when you ask for the
           *next* item, i.e. after your loop body returned. Leaving the loop
           early (``break``, an exception) leaves that item uncommitted.
+          After an exception call ``iter_events`` again for a new generator.
+          Calling ``next()`` on the old one would treat the failed item as
+          handled and commit it; a generator cannot see your exception.
         - ``poll_interval``: ``None`` (default) returns once caught up; a number
           of seconds sleeps and polls forever.
-        - ``overlap``: default 0 (off). Event ids follow insert order, not commit
-          order (#2053), so a late-committing row can land below an id you
-          already passed. With ``overlap=N`` each poll re-reads from
-          ``cursor - N`` and drops ids already delivered. This narrows the
-          window; it does not make reads gap-free.
 
-        Caught up means ``next_cursor`` was null, never a short page: rows a
-        reader may not see are filtered out of pages.
+        Caught up means the server's ``next_cursor`` was null. The client never
+        counts rows: a full page may or may not be the last one.
+
+        There is no overlap option. Event ids follow insert order, not commit
+        order (#2053), so a page read can step past a row that commits a moment
+        later. Reads are not gap-free.
         """
         if not 1 <= limit <= 500:
             raise ValueError("limit must be between 1 and 500")
-        if overlap < 0:
-            raise ValueError("overlap must not be negative")
         store = store if store is not None else MemoryCursorStore()
         current = cursor if cursor is not None else (store.get(board_id) or 0)
-        delivered: set[int] = set()
         resyncs = 0  # consecutive, reset by any successful page
 
         while True:
-            after = max(0, current - overlap)
+            after = current
             while True:  # pages of one poll cycle
                 try:
                     page = self._fetch_page(board_id, after, limit)
@@ -244,26 +245,18 @@ class Client:
                     # Reached only when the consumer asked for the next item.
                     store.set(board_id, resync.cursor)
                     current = resync.cursor
-                    delivered.clear()
-                    after = max(0, current - overlap)
+                    after = current
                     continue
                 results, next_cursor = _validate_page(page, after)
                 resyncs = 0
                 for event in results:
-                    eid = event["id"]
-                    if eid in delivered:
-                        continue
                     yield event
-                    if overlap:
-                        delivered.add(eid)
-                    if eid > current:
-                        current = eid
+                    if event["id"] > current:
+                        current = event["id"]
                         store.set(board_id, current)
                 if next_cursor is None:
                     break
                 after = next_cursor
-            if overlap:
-                delivered = {i for i in delivered if i > current - overlap}
             if poll_interval is None:
                 return
             self._sleep(poll_interval)
@@ -282,7 +275,10 @@ class Client:
             )
         if not isinstance(resync_url, str):
             raise ProtocolError("410 cursor_expired without resync_url")
-        snapshot = self._get_json(self._same_origin_url(resync_url))
+        try:
+            snapshot = self._get_json(self._same_origin_url(resync_url))
+        except _Gone:
+            raise ProtocolError("unexpected 410 fetching the snapshot") from None
         if not isinstance(snapshot, dict):
             raise ProtocolError("resync snapshot is not a JSON object")
         return Resync(board_id=board_id, snapshot=snapshot, cursor=next_cursor)
