@@ -28,8 +28,8 @@ export interface BoardContextType {
   addLabel: (label: Label) => void;
   updateLabel: (label: Label) => void;
   removeLabel: (labelUid: string) => void;
-  applyCustomFieldDefinitions: (definitions: CustomFieldDefinition[]) => void;
-  applySwimlaneFieldDefinitions: (definitions: SwimlaneCustomFieldDefinition[]) => void;
+  applyCustomFieldDefinitions: (definitions: CustomFieldDefinition[] | ((prev: CustomFieldDefinition[]) => CustomFieldDefinition[])) => void;
+  applySwimlaneFieldDefinitions: (definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => void;
   addMember: (membership: BoardMembership) => void;
   updateMember: (membership: BoardMembership) => void;
   removeMember: (userId: number) => void;
@@ -37,7 +37,7 @@ export interface BoardContextType {
   applySwimlaneOrder: (swimlanes: Swimlane[]) => void;
   reorderColumns: (orderedIds: number[]) => Promise<void>;
   reorderSwimlanes: (orderedIds: number[]) => Promise<void>;
-  updateSwimlane: (swimlane: Swimlane) => void;
+  updateSwimlane: (swimlane: Swimlane | ((board: BoardFull) => Swimlane)) => void;
   removeSwimlane: (swimlaneId: number) => Promise<void>;
   updateBoardSettings: (patch: Record<string, unknown>) => Promise<void>;
   evictColumn: (columnUid: string) => void;

@@ -481,10 +481,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Merge, never replace: the broadcast is built from the *public*
       // SwimlaneSerializer, so a straight replace would blank this admin's
       // contact_email, notes, and every admin-only row field value (#1140).
-      onSwimlaneUpdated(mergeSwimlaneFromBroadcast(
-        board.swimlanes,
+      onSwimlaneUpdated((b) => mergeSwimlaneFromBroadcast(
+        b.swimlanes,
         d as unknown as Swimlane,
-        board.swimlane_custom_field_definitions,
+        b.swimlane_custom_field_definitions,
       ));
     } else if (event.event === "swimlane.deleted") {
       // Use state-only eviction — the delete already happened on the server;
@@ -500,30 +500,24 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       onLabelDeleted((d as { label_uid: string }).label_uid);
     } else if (event.event === "custom_field.created") {
       const created = d as unknown as CustomFieldDefinition;
-      onCustomFieldDefinitionsApplied([...board.custom_field_definitions, created]);
+      onCustomFieldDefinitionsApplied((prev) => [...prev, created]);
     } else if (event.event === "custom_field.updated") {
       const updated = d as unknown as CustomFieldDefinition;
-      onCustomFieldDefinitionsApplied(
-        board.custom_field_definitions.map((f) => (f.id === updated.id ? updated : f))
-      );
+      onCustomFieldDefinitionsApplied((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
     } else if (event.event === "custom_field.deleted") {
       const { custom_field_uid } = d as { custom_field_uid: string };
-      onCustomFieldDefinitionsApplied(board.custom_field_definitions.filter((f) => f.uid !== custom_field_uid));
+      onCustomFieldDefinitionsApplied((prev) => prev.filter((f) => f.uid !== custom_field_uid));
     } else if (event.event === "custom_field.reordered") {
       onCustomFieldDefinitionsApplied((d as { custom_fields: CustomFieldDefinition[] }).custom_fields);
     } else if (event.event === "swimlane_custom_field.created") {
       const created = d as unknown as SwimlaneCustomFieldDefinition;
-      onSwimlaneFieldDefinitionsApplied([...board.swimlane_custom_field_definitions, created]);
+      onSwimlaneFieldDefinitionsApplied((prev) => [...prev, created]);
     } else if (event.event === "swimlane_custom_field.updated") {
       const updated = d as unknown as SwimlaneCustomFieldDefinition;
-      onSwimlaneFieldDefinitionsApplied(
-        board.swimlane_custom_field_definitions.map((f) => (f.id === updated.id ? updated : f))
-      );
+      onSwimlaneFieldDefinitionsApplied((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
     } else if (event.event === "swimlane_custom_field.deleted") {
       const { swimlane_custom_field_uid } = d as { swimlane_custom_field_uid: string };
-      onSwimlaneFieldDefinitionsApplied(
-        board.swimlane_custom_field_definitions.filter((f) => f.uid !== swimlane_custom_field_uid)
-      );
+      onSwimlaneFieldDefinitionsApplied((prev) => prev.filter((f) => f.uid !== swimlane_custom_field_uid));
     } else if (event.event === "swimlane_custom_field.reordered") {
       onSwimlaneFieldDefinitionsApplied(
         (d as { swimlane_custom_fields: SwimlaneCustomFieldDefinition[] }).swimlane_custom_fields
@@ -608,7 +602,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, board.custom_field_definitions, silentReload, reloadForMemberFlag, onSwimlaneFieldDefinitionsApplied, board.swimlane_custom_field_definitions, board.swimlanes, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
