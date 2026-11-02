@@ -10,7 +10,8 @@ interface Props {
   /** `undefined` = no value row for this field on this card or swimlane. */
   value: string | undefined;
   /**
-   * `chip` — the bordered card-face pill (#371 Direction A). `detail` — plain
+   * `chip` — legacy bordered pill (#371 Direction A); test-only, no production
+   * call site (the card face renders its own inline chip in CardItem). `detail` — plain
    * text inside the card-detail read-only section. `row-chip` — the swimlane
    * label-panel chip (#1140). Peek-popover text does *not* go through this
    * component — it's a single joined line of plain strings, formatted
@@ -37,8 +38,8 @@ interface Props {
 }
 
 /**
- * Read-only renderer for one custom field value, shared by the card-face
- * chip and the card-detail read-only section — the defensive-rendering
+ * Read-only renderer for one custom field value, shared by the card-detail
+ * read-only section, the swimlane row chip, and (test-only) the legacy chip — the defensive-rendering
  * contract (#371 ux-design spec §5) lives here once rather than being
  * reimplemented per call site:
  *
