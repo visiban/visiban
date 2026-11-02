@@ -74,7 +74,8 @@ Both parameters are validated, not clamped. A malformed `after` is a `400`, not 
       "data": { "card": { "...": "..." }, "movement": { "...": "..." } },
       "actor_id": 7,
       "actor": { "id": 7, "username": "alice", "display_name": "Alice", "avatar_url": "" },
-      "created_at": "2026-09-15T10:22:41.881Z"
+      "created_at": "2026-09-15T10:22:41.881Z",
+      "redacted_at": null
     }
   ],
   "next_cursor": 84213,
@@ -86,10 +87,11 @@ Both parameters are validated, not clamped. A malformed `after` is a `400`, not 
 |---|---|---|
 | `id` | integer | The event's id. This is the value that appears as `event_id` on the matching WebSocket frame, and the value to pass back as `after`. |
 | `event` | string | Event type — the same dotted names the WebSocket uses. See the [event reference](websockets.md#event-reference). |
-| `data` | object | The broadcast payload, verbatim. Identical to the WebSocket frame's `data`. |
+| `data` | object | The broadcast payload, verbatim. Identical to the WebSocket frame's `data`, except on a [redacted row](#redacted-card-events). |
 | `actor_id` | integer / null | The user who caused the event, or `null` when there was no authenticated actor. A plain column, not a foreign key: it keeps its value even after the account is deleted. |
 | `actor` | object / null | *Added in 1.2 (#1663).* The same user as `actor_id`, in the nested `BoardUser` shape (`id`, `username`, `display_name`, `avatar_url`) used by every board-scoped actor field except invite links — see [Actor fields](index.md#actor-fields-who-did-it). It resolves even when the actor has since left the board, so you do not need the member list to label a row. `null` when `actor_id` is `null` or the account no longer exists. Every actor on a page is fetched in one query, so page cost does not grow with the number of distinct actors. |
 | `created_at` | string | ISO 8601 timestamp of the write. |
+| `redacted_at` | string / null | *Added in 1.3 (#1816).* ISO 8601 timestamp at which an operator's card-history purge redacted this row's card content, or `null` for a row that was never redacted. See [Redacted card events](#redacted-card-events). |
 | `next_cursor` | integer / null | Cursor for the following page, or `null` when the caller is caught up. `null` means "this page was short, so it was the last one"; a non-null value means "ask again with `after=<next_cursor>`". It is an integer, not an opaque string: it is the exclusive `id` cursor that `after` takes. |
 | `next` | integer / null | **Deprecated; use `next_cursor`.** Always identical to `next_cursor`. Kept through 1.x for clients written against 1.2.0-beta.1. |
 
@@ -217,6 +219,21 @@ Two consequences worth knowing:
   not rewritten, so a field made shareable again replays again. The
   `custom_field_values` key itself is always present.
 
+### Redacted card events
+
+> **Added in 1.3** (#1816)
+
+An operator can erase a card's content on request with the `purge_card_history` command (see [Card History Retention](../administration/card-history-retention.md#what-the-purge-redacts-in-the-change-feed)). It **redacts** that card's `card.created`, `card.updated`, `card.unarchived` and `card.moved` rows rather than deleting them, so cursors and paging are unaffected.
+
+A redacted row has a non-null `redacted_at`, and in its `data`:
+
+- `title`, `description` and `blocked_reason` are `null`, in the card object (the top-level `data`, or `data.card` for `card.moved`);
+- each `custom_field_values` entry keeps its `field_definition` and has `value: null`;
+- `external_ref`, when the card had one, keeps `provider` and has `ref: null` and `url: null`;
+- in `card.moved`, `movement.card_title` and `movement.notes` are `null`.
+
+Every key is kept, at every level, so the row has the same shape as when it was written. `uid`, `id`, `column`, `swimlane`, `labels`, `is_blocked`, `blocked_at` and the other fields are unchanged. A consumer that replays rows into local state should skip the content fields of a row whose `redacted_at` is set. Otherwise it overwrites a live card's title with `null`, which can happen after a purge that included live cards.
+
 ---
 
 ## Retention
@@ -264,7 +281,8 @@ Pick a retention window longer than the longest outage a consumer should survive
 The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
 
 - **The endpoint, its `after` and `limit` parameters, and the response envelope** (`results`, `next_cursor`, and the deprecated `next`) are never removed or renamed in a minor or patch release. The cursor semantics (`after` is exclusive, ordering is by `id`, `next_cursor` is `null` once a page comes back short) and the `400`, `404`, and `410` error behavior described on this page do not change.
-- **Row fields** (`id`, `event`, `data`, `actor_id`, `actor`, `created_at`) only gain fields; an existing field keeps its name and type and is never removed.
+- **Row fields** (`id`, `event`, `data`, `actor_id`, `actor`, `created_at`, and since 1.3 `redacted_at`) only gain fields; an existing field keeps its name and type and is never removed.
+- **Redacted rows are the exception to "verbatim".** A row an operator's purge redacted keeps every payload key but carries `null` content values (see [Redacted card events](#redacted-card-events)). Clients must accept `null` for those fields on a row whose `redacted_at` is set.
 - **Event types and payloads** carry the same `{event, data}` payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in [Retiring an event](../development/websocket-event-contract.md#retiring-an-event).
 - **Per-reader fields are the exception.** The fields documented under [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading) are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.
 - **`next_cursor` is the cursor; `next` is deprecated.** `next_cursor` is the documented cursor field. `next` was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read `next_cursor`. `next` is removed only at a major version bump. See [Pagination shapes](#pagination-shapes).

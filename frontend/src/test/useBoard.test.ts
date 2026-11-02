@@ -1110,6 +1110,20 @@ describe('useBoard', () => {
     expect(result.current.board!.cards[0]).toBe(clean)
   })
 
+  // #1301 — a membership frame never carries has_all_content_access; the
+  // known value must survive so the panel keeps showing effective access.
+  it('updateMember keeps the known has_all_content_access when a frame omits it (#1301)', async () => {
+    const root = { id: 3, username: 'root', display_name: 'Root', avatar_url: '' }
+    mockGetBoardFull.mockResolvedValue({
+      ...makeBoard(),
+      members: [{ id: 30, user: root, role: 'viewer', is_moderator: false, has_all_content_access: true, joined_at: '' }],
+    })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    act(() => { result.current.updateMember({ id: 30, user: root, role: 'member', joined_at: '' }) })
+    expect(result.current.board!.members[0]).toMatchObject({ role: 'member', has_all_content_access: true })
+  })
+
   // #1290 — a member.* frame can arrive without is_site_admin (sent to admin
   // subscribers only); the known value must survive the row replacement.
   it('updateMember / addMember keep the known is_site_admin when a frame omits it', async () => {
@@ -1154,6 +1168,21 @@ describe('useBoard', () => {
 
     act(() => { result.current.removeMember(3) })
     expect(result.current.board!.members).toHaveLength(0)
+  })
+
+  // #1301 — removing an all-content user's membership leaves their access
+  // intact, so the row stays, as a refetch would return it.
+  it('removeMember keeps an all-content user listed without a membership (#1301)', async () => {
+    const root = { id: 3, username: 'root', display_name: 'Root', avatar_url: '' }
+    mockGetBoardFull.mockResolvedValue(makeBoard({
+      members: [{ id: 30, user: root, role: 'viewer', has_all_content_access: true, joined_at: '' }],
+    }))
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.removeMember(3) })
+    expect(result.current.board!.members).toHaveLength(1)
+    expect(result.current.board!.members[0]).toMatchObject({ id: null, role: 'site_admin', has_all_content_access: true })
   })
 
   it('applyCustomFieldDefinitions replaces the board-level definitions wholesale', async () => {

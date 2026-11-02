@@ -106,14 +106,18 @@ def site_admin_field_visible(role):
 def site_admin_roster_visible(role, viewer_is_site_admin):
     """Return True if the reader gets the instance-wide rows of ``/full/`` members (#1714).
 
-    "Instance-wide" means two things in ``BoardFullSerializer.get_members()``:
+    "Instance-wide" means these things in ``BoardFullSerializer.get_members()``:
 
     - the synthesized rows for ``can_access_all_content`` users who hold no
       role on the board (``role: "site_admin"``, ``id: null``), and
     - ``is_site_admin`` on a row that has no membership row on this board
       (group-inherited, or an owner without a row).
 
-    Both describe the instance rather than the board, so only a reader who is
+    ``has_all_content_access`` (#1301) is deliberately not one of them: it is
+    sent to every board admin and site admin, on every row, because the
+    Members tab needs it to withhold a role picker that cannot take effect.
+
+    The first two describe the instance rather than the board, so only a reader who is
     a site admin in either sense gets them: a board role of ``site_admin``
     (``can_access_all_content``) or ``User.is_site_admin``. Every other reader
     gets the board's own members, and a board admin keeps ``is_site_admin``

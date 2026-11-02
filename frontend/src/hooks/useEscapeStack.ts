@@ -31,6 +31,7 @@ function dispatch(e: KeyboardEvent): void {
  * handler to run. Any other return value (including void) consumes the event.
  *
  * Priority conventions (the authoritative, fuller list is in frontend/CLAUDE.md):
+ *   57 — inline confirm removing an all-content member's board role (BoardSettingsModal, #1301)
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   42 — card-detail block/unblock reason form (CardBlockSection, #1149)
  *   40 — modals and overlays

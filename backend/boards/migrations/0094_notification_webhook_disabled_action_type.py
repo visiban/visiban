@@ -14,7 +14,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0092_column_policy"),
+        ("boards", "0093_board_event_redacted_at"),
     ]
 
     operations = [

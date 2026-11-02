@@ -183,9 +183,9 @@ beforeEach(() => {
   mockGetSiteConfig.mockResolvedValue(fakeSiteConfig)
 })
 
-function renderAdminPage(user: User = adminUser) {
+function renderAdminPage(user: User = adminUser, initialEntry = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <AdminPage user={user} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
     </MemoryRouter>
   )
@@ -232,6 +232,16 @@ describe('AdminPage — access control', () => {
     await waitFor(() => {
       expect(screen.getByText('Site Administration')).toBeInTheDocument()
     })
+  })
+
+  it('opens the tab named by ?tab= and ignores an unknown one (#1301)', async () => {
+    const { unmount } = renderAdminPage(adminUser, '/admin?tab=users')
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Users' })).toHaveAttribute('aria-current', 'page')
+    })
+    unmount()
+    renderAdminPage(adminUser, '/admin?tab=nope')
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
   })
 })
 

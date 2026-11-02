@@ -5,6 +5,8 @@ import { useState } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import type { BoardFull, User } from '../types'
 
+const FULL_ACCESS = "Full access to all boards. This account's board role doesn't apply."
+
 vi.mock('../api/boards', () => ({
   setBoardMember: vi.fn(),
   removeBoardMember: vi.fn(),
@@ -345,7 +347,10 @@ describe('BoardSettingsModal — Members tab', () => {
 
     // The prompt stays open until the request settles, so the guard is live
     // (not dead code) and prevents a double submit.
-    expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+    const confirm = screen.getByRole('button', { name: 'Confirm' })
+    expect(confirm).toHaveAttribute('aria-disabled', 'true')
+    await user.click(confirm)
+    expect(mockRemoveBoardMember).toHaveBeenCalledTimes(1)
   })
 
   it('Cancel on the hard WIP confirm returns focus to the hard mode toggle (#1367)', async () => {
@@ -424,44 +429,240 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
 
   it('locks a site-admin member with an explicit membership for a non-site-admin caller', () => {
     render(<BoardSettingsModal board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
-    // Two dropdowns: the caller's own row and the all-content row. The
-    // site-admin member's row is static text with no dropdown.
-    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    // One dropdown: the caller's own row. The site-admin member's row is
+    // static text, and the all-content row has no picker either (#1301).
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
     const locked = screen.getByTitle('Site administrator — role managed at the instance level')
     expect(locked).toHaveTextContent('member')
     // One remove button: the site-admin row has none, the all-content row has
     // no membership row to remove (id null).
     expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /Remove board role/ })).toBeNull()
     // No moderator checkbox on the locked row either — only the admin's row.
     expect(screen.getAllByText('Moderator')).toHaveLength(1)
   })
 
-  it('leaves an all-content member (role "site_admin", not a site admin) editable', async () => {
-    const user = userEvent.setup()
-    mockSetBoardMember.mockResolvedValue({ ...allContentMember, id: 13, role: 'viewer' })
+  // #1301 — all-content access resolves to full access before any membership,
+  // so the panel shows the resolved role, explains it, and offers no picker.
+  it('shows the Full access chip and no secondary line for a row without a membership (#1301)', () => {
     render(<BoardSettingsModal board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
-    const dropdown = screen.getByText('Site admin').closest('button') as HTMLButtonElement
-    expect(dropdown).not.toBeDisabled()
-    await user.click(dropdown)
-    await user.click(screen.getByRole('option', { name: 'Viewer' }))
-    await waitFor(() => {
-      expect(mockSetBoardMember).toHaveBeenCalledWith(lockBoard.id, allContentMember.user.id, 'viewer')
-    })
+    const chip = screen.getByText('Full access')
+    expect(chip.closest('button')).toBeNull()
+    expect(chip).toHaveAttribute('aria-disabled', 'true')
+    expect(chip).toHaveAttribute('title', FULL_ACCESS)
+    expect(document.getElementById(chip.getAttribute('aria-describedby')!)).toHaveTextContent(FULL_ACCESS)
+    expect(screen.queryByText(/Board role:/)).toBeNull()
+    expect(screen.queryByRole('button', { name: /Remove board role/ })).toBeNull()
+    expect(mockSetBoardMember).not.toHaveBeenCalled()
   })
 
-  // #1300 — a synthesized row (id: null) must pick up the created membership's
-  // id so the Remove button appears without a refetch.
-  it('shows the Remove button on a synthesized row right after a role is assigned (#1300)', async () => {
+  const storedViewerAllContent = {
+    id: 21,
+    user: { id: 8, username: 'viewerish', display_name: 'Viewer Ish', avatar_url: '' },
+    role: 'viewer' as const,
+    is_moderator: false,
+    is_site_admin: false,
+    has_all_content_access: true,
+    joined_at: '',
+  }
+  const storedBoard: BoardFull = {
+    ...fakeBoard,
+    members: [
+      { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+      storedViewerAllContent,
+    ],
+  }
+
+  it('never shows a stored role that differs from effective access without saying so (#1301)', () => {
+    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    // Only the caller's row has a picker; the stored "viewer" is not offered.
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getByText('Full access')).toBeInTheDocument()
+    expect(screen.getByText(/Board role: Viewer — not in effect while this account has all-content access\./)).toBeInTheDocument()
+    // No moderator controls for a row whose access is already full.
+    expect(screen.getAllByText('Moderator')).toHaveLength(1)
+    // A board admin who is not a site admin gets no admin link.
+    expect(screen.queryByText(/Manage in Admin/)).toBeNull()
+  })
+
+  it('links site admins to Admin → Users from an all-content row (#1301)', () => {
+    render(<BoardSettingsModal board={storedBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getByRole('link', { name: 'Manage in Admin → Users' })).toHaveAttribute('href', '/admin?tab=users')
+  })
+
+  it('removes an explicit role through the inline confirm and focuses the chip, keeping the user listed (#1301)', async () => {
     const user = userEvent.setup()
-    mockSetBoardMember.mockResolvedValue({ ...allContentMember, id: 13, role: 'viewer' })
-    render(<BoardSettingsModal board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
+    mockRemoveBoardMember.mockResolvedValue(undefined)
+    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' }))
+    const prompt = screen.getByText('Remove this board role? Full access is not affected.')
+    expect(prompt.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.queryByText(/from this board\?/)).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => {
+      expect(mockRemoveBoardMember).toHaveBeenCalledWith(storedBoard.id, storedViewerAllContent.user.id)
+    })
+    // Access is unchanged, so the row stays with the chip and no secondary line.
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Remove board role/ })).toBeNull()
+    })
+    expect(screen.queryByText(/Board role:/)).toBeNull()
+    expect(screen.getByText('Full access')).toHaveFocus()
+  })
+
+  it('Cancel and Escape dismiss the all-content confirm without removing, focus back on the trigger (#1301)', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={onClose} />)
+    const trigger = () => screen.getByRole('button', { name: 'Remove board role for Viewer Ish' })
+    await user.click(trigger())
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(trigger()).toHaveFocus()
+    await user.click(trigger())
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText(/Full access is not affected/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' })).toHaveFocus()
+    // The first Escape only closed the prompt; the modal stays open.
+    expect(onClose).not.toHaveBeenCalled()
+    expect(mockRemoveBoardMember).not.toHaveBeenCalled()
+  })
+
+  it('keeps the chip and a visible stored role on a failed remove (#1301)', async () => {
+    const user = userEvent.setup()
+    mockRemoveBoardMember.mockRejectedValue(new Error('nope'))
+    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    // Announced through an always-mounted polite region, with role-accurate copy.
+    const region = await screen.findByText('Failed to remove the board role. Please try again.')
+    expect(region.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.queryByText(/Failed to remove member/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' })).toHaveFocus()
+    expect(screen.getByText(/Board role: Viewer —/)).toBeInTheDocument()
+  })
+
+  it('shows the chip and line, but offers no remove, for a membership that is both site admin and all-content (#1301)', () => {
+    const both = { ...storedViewerAllContent, id: 22, is_site_admin: true }
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+        both,
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    // The server refuses to change a site-admin membership (#1706).
     expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
-    await user.click(screen.getByText('Site admin').closest('button') as HTMLButtonElement)
+    expect(screen.queryByRole('button', { name: /Remove board role/ })).toBeNull()
+    expect(screen.getByText('Full access')).toHaveAttribute('title', expect.stringContaining(FULL_ACCESS))
+    expect(screen.getByText(/Board role: Viewer —/)).toBeInTheDocument()
+    // The reason is visible text, not only a tooltip.
+    expect(screen.getByText('This membership is managed at the instance level and cannot be removed here.')).toBeVisible()
+    const chip = screen.getByText('Full access')
+    expect(document.getElementById(chip.getAttribute('aria-describedby')!)).toHaveTextContent('cannot be removed here')
+  })
+
+  // The guards on the stored-role line: a row with no membership, and a role
+  // the panel has no label for, each show the chip and no line (#1301).
+  it('shows no stored-role line for an id-null row with an ordinary role (#1301)', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+        { id: null, user: { id: 31, username: 'inh', display_name: 'Inherited AC', avatar_url: '' }, role: 'member', is_moderator: false, has_all_content_access: true, joined_at: '' },
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getByText('Full access')).toBeInTheDocument()
+    expect(screen.queryByText(/Board role:/)).toBeNull()
+  })
+
+  it('shows no stored-role line for a role without a label (#1301)', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+        { id: 32, user: { id: 32, username: 'leg', display_name: 'Legacy AC', avatar_url: '' }, role: 'legacy' as unknown as 'viewer', is_moderator: false, has_all_content_access: true, joined_at: '' },
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getByText('Full access')).toBeInTheDocument()
+    expect(screen.queryByText(/Board role:/)).toBeNull()
+  })
+
+  it('swallows Escape while the removal is in flight, keeping the prompt and focus (#1437)', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    let resolve!: () => void
+    mockRemoveBoardMember.mockReturnValue(new Promise<void>((r) => { resolve = r }))
+    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={onClose} />)
+    await user.click(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' }))
+    const confirm = screen.getByRole('button', { name: 'Confirm' })
+    await user.click(confirm)
+    await user.keyboard('{Escape}')
+    expect(screen.getByText('Remove this board role? Full access is not affected.')).toBeInTheDocument()
+    expect(confirm).toHaveAttribute('aria-disabled', 'true')
+    expect(confirm).toHaveFocus()
+    expect(onClose).not.toHaveBeenCalled()
+    await act(async () => { resolve() })
+    await waitFor(() => { expect(screen.getByText('Full access')).toHaveFocus() })
+    expect(mockRemoveBoardMember).toHaveBeenCalledTimes(1)
+  })
+
+  it('picks up the all-content signal from a re-read board for an already-listed row (#1301)', async () => {
+    const plain = { ...storedViewerAllContent, has_all_content_access: undefined }
+    const { rerender } = render(
+      <BoardSettingsModal board={{ ...storedBoard, members: [storedBoard.members[0], plain] }} isAdmin={true} onClose={vi.fn()} />,
+    )
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    rerender(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    await waitFor(() => {
+      expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    })
+    expect(screen.getByText('Full access')).toBeInTheDocument()
+  })
+
+  it('leaves an ordinary row unchanged: picker, no all-content note (#1301)', () => {
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+        { ...storedViewerAllContent, has_all_content_access: false },
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    expect(screen.queryByText('Full access')).toBeNull()
+    expect(screen.queryByText(/Board role:/)).toBeNull()
+  })
+
+  // #1300 — a synthesized row (id: null, e.g. group-inherited) must pick up
+  // the created membership's id so Remove appears without a refetch.
+  it('shows the Remove button on a group-inherited row right after a role is assigned (#1300)', async () => {
+    const user = userEvent.setup()
+    const inherited = {
+      id: null,
+      user: { id: 9, username: 'inherit', display_name: 'Inherited One', avatar_url: '' },
+      role: 'member' as const,
+      is_moderator: false,
+      has_all_content_access: false,
+      joined_at: '',
+    }
+    mockSetBoardMember.mockResolvedValue({ ...inherited, id: 13, role: 'viewer' })
+    const board: BoardFull = {
+      ...fakeBoard,
+      members: [
+        { id: 10, user: fakeUser, role: 'admin', is_moderator: false, is_site_admin: false, joined_at: '' },
+        inherited,
+      ],
+    }
+    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
+    await user.click(screen.getAllByRole('combobox')[1])
     await user.click(screen.getByRole('option', { name: 'Viewer' }))
     await waitFor(() => {
       expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(2)
     })
-    expect(mockSetBoardMember).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to the role and stays locked when a row has no is_site_admin key', () => {
@@ -474,7 +675,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     }
     render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
-    expect(screen.getByText('site admin')).toBeInTheDocument()
+    expect(screen.getByText('Full access')).toBeInTheDocument()
   })
 
   // #1717 — a row with no membership here (group-inherited, owner, instance-wide
@@ -510,7 +711,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     expect(screen.getByTitle('Site administrator — role managed at the instance level')).toHaveTextContent('member')
   })
 
-  it('leaves an unflagged all-content row (id null, no is_site_admin, role "site_admin") editable (#1717)', () => {
+  it('shows an unflagged all-content row (id null, no is_site_admin, role "site_admin") as resolved access, not editable (#1301)', () => {
     const board: BoardFull = {
       ...fakeBoard,
       members: [
@@ -519,8 +720,9 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
       ],
     }
     render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
-    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
     expect(screen.queryByTitle('Site administrator — role managed at the instance level')).toBeNull()
+    expect(screen.getByText('Full access')).toBeInTheDocument()
   })
 
   it('shows neither site-admin row locked to a site-admin viewer (#1717)', () => {
@@ -531,7 +733,8 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
 
   it('unlocks a site-admin member when the caller is a site admin', () => {
     render(<BoardSettingsModal board={lockBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
-    expect(screen.getAllByRole('combobox')).toHaveLength(3)
+    // The all-content row has no picker even for a site admin (#1301).
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
     expect(screen.queryByTitle('Site administrator — role managed at the instance level')).toBeNull()
     expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(2)
   })

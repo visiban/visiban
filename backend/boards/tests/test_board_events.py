@@ -596,9 +596,12 @@ class EventsEndpointTests(BoardEventTestBase):
     def test_event_shape(self):
         row = self.client_for(self.owner).get(self.url).data["results"][0]
         self.assertEqual(
-            set(row), {"id", "event", "data", "actor_id", "actor", "created_at"},
+            set(row),
+            {"id", "event", "data", "actor_id", "actor", "created_at", "redacted_at"},
         )
         self.assertEqual(row["event"], "card.created")
+        # Additive (#1816): null unless purge_card_history redacted the row.
+        self.assertIsNone(row["redacted_at"])
         self.assertEqual(row["actor_id"], self.owner.pk)
 
     def test_actor_is_the_nested_board_user_shape(self):

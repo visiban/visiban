@@ -72,7 +72,7 @@ class ClassifyIpTests(SimpleTestCase):
         ("168.63.129.16", SENSITIVE),
         # never: unspecified, this-network, multicast (is_global True in
         # Python!), reserved, broadcast, documentation, benchmarking
-        ("0.0.0.0", NEVER),
+        ("0.0.0.0", NEVER),  # nosec B104 — SSRF test fixture, never bound
         ("0.1.2.3", NEVER),
         ("224.0.0.1", NEVER),
         ("239.1.1.1", NEVER),
@@ -133,7 +133,7 @@ class ParseAllowlistTests(SimpleTestCase):
             "8.8.8.8",  # global single address
             "10.0.0.0/7",  # spills into global 11/8
             "224.0.0.1",  # multicast
-            "0.0.0.0",  # never
+            "0.0.0.0",  # nosec B104 — SSRF test fixture, never bound
             "192.0.2.0/24",  # documentation
             "bad host!",
         ]:
@@ -191,7 +191,7 @@ class ResolveDestinationTests(SimpleTestCase):
             self.assertEqual(self._refused("https://mixed.example.com/"), egress.URL_NOT_ALLOWED)
 
     def test_private_loopback_metadata_refused_by_default(self):
-        for addr in ["10.0.0.5", "127.0.0.1", "169.254.169.254", "fd00:ec2::254", "0.0.0.0"]:
+        for addr in ["10.0.0.5", "127.0.0.1", "169.254.169.254", "fd00:ec2::254", "0.0.0.0"]:  # nosec B104 — SSRF test fixture, never bound
             with self.subTest(addr=addr), _resolving(addr):
                 self.assertEqual(self._refused("https://internal.example.com/"), egress.URL_NOT_ALLOWED)
 

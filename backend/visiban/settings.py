@@ -623,6 +623,17 @@ REST_FRAMEWORK = {
         "visiban.filters.CodedDjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
     ],
+    # DRF's default list and order (so the same media types are accepted, and
+    # JSON stays the schema's first request content type), with the form
+    # parsers swapped for subclasses that turn Django's upload-limit errors
+    # (DATA_UPLOAD_MAX_NUMBER_FILES/_FIELDS, DATA_UPLOAD_MAX_MEMORY_SIZE) into
+    # a JSON ParseError rather than Django's HTML 400 (#2072). A view that pins
+    # parser_classes must use visiban.parsers too.
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "visiban.parsers.LimitedFormParser",
+        "visiban.parsers.LimitedMultiPartParser",
+    ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "visiban.pagination.OffsetCountPagination",
     "PAGE_SIZE": 50,

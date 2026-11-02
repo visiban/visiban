@@ -100,8 +100,16 @@ export interface PendingMove {
  * known value stays correct.
  */
 function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership): EffectiveBoardMember {
-  if ("is_site_admin" in incoming || prev.is_site_admin === undefined) return incoming;
-  return { ...incoming, is_site_admin: prev.is_site_admin };
+  let merged: EffectiveBoardMember = incoming;
+  if (!("is_site_admin" in incoming) && prev.is_site_admin !== undefined) {
+    merged = { ...merged, is_site_admin: prev.is_site_admin };
+  }
+  // Same for the all-content signal (#1301): a membership frame never carries
+  // it, and dropping it would bring the role picker back on a reopened panel.
+  if (prev.has_all_content_access !== undefined) {
+    merged = { ...merged, has_all_content_access: prev.has_all_content_access };
+  }
+  return merged;
 }
 
 /**
@@ -608,7 +616,19 @@ export function useBoard() {
   }, []);
 
   const removeMember = useCallback((userId: number) => {
-    setBoard((b) => b ? { ...b, members: b.members.filter((m) => m.user.id !== userId) } : b);
+    // Removing a membership does not remove an all-content user's access
+    // (#1301): keep them listed with no membership row. A later re-read lists
+    // them again only for a reader who sees the all-content roster, or when
+    // they are also inherited from the board's group or the owner.
+    setBoard((b) => b ? {
+      ...b,
+      members: b.members.flatMap((m): EffectiveBoardMember[] => {
+        if (m.user.id !== userId) return [m];
+        return m.has_all_content_access
+          ? [{ ...m, id: null, role: "site_admin", has_all_content_access: true }]
+          : [];
+      }),
+    } : b);
   }, []);
 
   const applyColumnOrder = useCallback((columns: Column[]) => {

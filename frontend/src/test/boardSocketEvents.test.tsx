@@ -465,11 +465,16 @@ describe('BoardView socket event routing — new event types', () => {
   })
 
   it('member.updated does not refetch when a different user role changes', async () => {
-    const ctx = makeContext()
+    const otherUser: User = { ...fakeUser, id: 99, username: 'bob', display_name: 'Bob' }
+    // The subject's all-content flag is already known, so the frame needs no re-read.
+    const ctx = makeContext({
+      board: makeBoard({
+        members: [{ id: 2, user: otherUser, role: 'viewer', is_moderator: false, has_all_content_access: false, joined_at: '' }],
+      }),
+    })
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
     await act(async () => {})
-    const otherUser: User = { ...fakeUser, id: 99, username: 'bob', display_name: 'Bob' }
     const membership: BoardMembership = { id: 2, user: otherUser, role: 'viewer', is_moderator: false, is_site_admin: false, joined_at: '' }
     act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
     expect(ctx.silentReload).not.toHaveBeenCalled()
@@ -502,13 +507,87 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.silentReload).toHaveBeenCalledTimes(1)
   })
 
-  it('a member event that carries the flag does not re-read the board', async () => {
-    const ctx = makeContext({ board: makeBoard({ current_user_role: 'site_admin' }) })
+  it('a frame for a second unknown member inside the window earns one trailing re-read (#1301)', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
+      mockBoardContextValue = ctx
+      const view = render(<BoardView currentUser={fakeUser} />)
+      await act(async () => {})
+      const other: User = { ...fakeUser, id: 98, username: 'carol', display_name: 'Carol' }
+      const second: BoardMembership = { id: 3, user: other, role: 'viewer', is_moderator: false, joined_at: '' }
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: flaglessMembership() as unknown as Record<string, unknown> }) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+      // Same member again: an echo, no extra request even after the window closes.
+      act(() => { getOnEvent.dispatch({ event: 'member.updated', data: flaglessMembership() as unknown as Record<string, unknown> }) })
+      // A different member inside the window is not dropped: one request when it closes.
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: second as unknown as Record<string, unknown> }) })
+      act(() => { getOnEvent.dispatch({ event: 'member.updated', data: second as unknown as Record<string, unknown> }) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+      act(() => { vi.advanceTimersByTime(2100) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(2)
+      act(() => { vi.advanceTimersByTime(5000) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(2)
+      view.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('clears a pending trailing re-read on unmount (#1301)', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
+      mockBoardContextValue = ctx
+      const view = render(<BoardView currentUser={fakeUser} />)
+      await act(async () => {})
+      const other: User = { ...fakeUser, id: 98, username: 'carol', display_name: 'Carol' }
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: flaglessMembership() as unknown as Record<string, unknown> }) })
+      act(() => { getOnEvent.dispatch({ event: 'member.added', data: { id: 3, user: other, role: 'viewer', is_moderator: false, joined_at: '' } as unknown as Record<string, unknown> }) })
+      view.unmount()
+      act(() => { vi.advanceTimersByTime(5000) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // #1301 — a membership frame never carries has_all_content_access. An admin
+  // re-reads for a subject whose value is unknown, even when the frame carries
+  // is_site_admin (invite redemption, a site admin's members POST).
+  it('a member event with is_site_admin but an unknown all-content flag re-reads the board (#1301)', async () => {
+    const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
     await act(async () => {})
     const withFlag = { ...flaglessMembership(), is_site_admin: false }
     act(() => { getOnEvent.dispatch({ event: 'member.added', data: withFlag as unknown as Record<string, unknown> }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('member.updated with is_site_admin and an unknown all-content flag re-reads for an admin (#1301)', async () => {
+    const ctx = makeContext({ board: makeBoard({ current_user_role: 'admin' }) })
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    const withFlag = { ...flaglessMembership(), is_site_admin: false }
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: withFlag as unknown as Record<string, unknown> }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('a member event that carries is_site_admin and a known all-content flag does not re-read', async () => {
+    const known = { ...flaglessMembership(), is_site_admin: false }
+    const ctx = makeContext({
+      board: makeBoard({
+        current_user_role: 'site_admin',
+        members: [{ ...known, has_all_content_access: false }],
+      }),
+    })
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'member.added', data: known as unknown as Record<string, unknown> }) })
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: known as unknown as Record<string, unknown> }) })
     expect(ctx.silentReload).not.toHaveBeenCalled()
   })
 

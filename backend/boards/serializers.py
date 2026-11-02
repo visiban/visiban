@@ -221,6 +221,11 @@ class BoardEventSerializer(serializers.ModelSerializer):
     since been deleted (``actor_id`` keeps the stale integer — the column is not
     a FK), or when no ``actors`` map was supplied: a missing map must mean "show
     less", never a per-row fetch.
+
+    ``redacted_at`` (#1816) is additive: null on every row except one whose
+    card content ``purge_card_history`` replaced with nulls. It is a row field
+    rather than a key inside ``data`` so that a redacted payload keeps exactly
+    the key set it was broadcast with.
     """
 
     actor = serializers.SerializerMethodField(
@@ -232,7 +237,7 @@ class BoardEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BoardEvent
-        fields = ["id", "event", "data", "actor_id", "actor", "created_at"]
+        fields = ["id", "event", "data", "actor_id", "actor", "created_at", "redacted_at"]
         read_only_fields = fields
 
     @staticmethod
@@ -748,8 +753,9 @@ class SwimlaneSerializer(serializers.ModelSerializer):
         # a max_length is published as maxItems, and the schema fuzzer's
         # negative test then sends maxItems + 1 items as one multipart part each,
         # which with the other parts crosses Django's
-        # DATA_UPLOAD_MAX_NUMBER_FILES (100) and answers an HTML 400
-        # (TooManyFilesSent) the schema does not document.
+        # DATA_UPLOAD_MAX_NUMBER_FILES (100). That was an undocumented HTML 400
+        # (TooManyFilesSent) until #2072; it is now a JSON ParseError
+        # (visiban.parsers), but still not this field's validation error.
         allow_null=True, allow_empty=False, required=False,
         help_text=field_enforcement.SWIMLANE_LIMIT_COLUMN_IDS,
     )
@@ -3488,6 +3494,15 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
                   "the requesting user is a site admin, and for a board admin "
                   "on rows backed by a membership on this board (id not null).",
     )
+    # Not read_only, same reason as is_site_admin: get_members() omits it for
+    # readers below board admin who are not site admins either (#1301).
+    has_all_content_access = serializers.BooleanField(
+        required=False,
+        help_text="Whether the member has all-content access, which always "
+                  "resolves to full access and overrides this row's role. "
+                  "Present only for a board admin, a site admin (board role "
+                  "site_admin) or an instance site admin reader, on every row.",
+    )
     joined_at = serializers.DateTimeField(read_only=True)
 
 
@@ -3671,7 +3686,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if site_admin_users is None:
             site_admin_users = list(
                 User.objects.filter(can_access_all_content=True).only(
-                    "id", "username", "display_name", "avatar_url", "is_site_admin"
+                    "id", "username", "display_name", "avatar_url", "is_site_admin",
+                    "can_access_all_content",
                 )
             )
             self.context["_site_admin_users"] = site_admin_users
@@ -3820,7 +3836,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 from accounts.models import User as _User
                 site_admin_users = list(
                     _User.objects.filter(can_access_all_content=True).only(
-                        "id", "username", "display_name", "avatar_url", "is_site_admin"
+                        "id", "username", "display_name", "avatar_url", "is_site_admin",
+                        "can_access_all_content",
                     )
                 )
                 self.context["_site_admin_users"] = site_admin_users
@@ -3867,6 +3884,25 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 roster_visible or entry["id"] is not None
             ):
                 row["is_site_admin"] = entry["user"].is_site_admin
+            # Effective-access signal for the Members panel (#1301).
+            # ``can_access_all_content`` always resolves to full access, ahead
+            # of any explicit membership, so a row whose stored ``role`` says
+            # "viewer" can still be a full-access user. ``role`` cannot say so
+            # (it is the stored role whenever a membership exists), and the
+            # flag itself is deliberately kept off the nested user.
+            # Sent to the readers who render the Members controls, board
+            # admins and site admins (``site_admin_field_visible``), on every
+            # row: a board admin who is not a site admin would otherwise get
+            # a role picker on an all-content row (group-inherited, or the
+            # #1717 auditor case), and a role set there changes nothing. It
+            # is one boolean per member the admin can already see, and it
+            # does not reveal who else holds instance-wide access: the
+            # synthesized roster rows stay limited to roster-visible readers
+            # (#1714). Readers below admin get no key.
+            # An instance site admin on a lower board role is roster-visible
+            # and already sees these users listed, so they get it too.
+            if site_admin_field_visible(viewer_role) or roster_visible:
+                row["has_all_content_access"] = bool(entry["user"].can_access_all_content)
             result.append(row)
         return result
 

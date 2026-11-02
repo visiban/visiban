@@ -190,6 +190,18 @@ shape: an object keyed by field name (or `detail`), or an array of messages
 cannot answer `400`, so it is not documented there. Because it is a whole-class rule, a new
 write endpoint gets its `400` for free and never needs a per-operation baseline entry.
 
+A form body over one of Django's upload limits is in that class too:
+`DATA_UPLOAD_MAX_NUMBER_FILES` and `DATA_UPLOAD_MAX_NUMBER_FIELDS` for a multipart or
+urlencoded body, and `DATA_UPLOAD_MAX_MEMORY_SIZE` for the non-file parts of a multipart body.
+Django raises those as a `SuspiciousOperation`, which DRF does not catch and Django answers with
+an HTML page, so `visiban/parsers.py` re-raises them as DRF's `ParseError` from the form parsers
+in `DEFAULT_PARSER_CLASSES` ([#2072](https://gitlab.com/visiban/visiban/-/issues/2072)). A
+view that pins `parser_classes` must use those classes, not DRF's, or its oversize bodies go
+back to HTML. Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
+body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),
+and a query string over `DATA_UPLOAD_MAX_NUMBER_FIELDS`. Both are tracked in
+[#2073](https://gitlab.com/visiban/visiban/-/issues/2073).
+
 **Server-layer multipart rejections are filtered, not baselined.** When a request's
 `Content-Type` is `multipart/form-data` but the body is malformed, the ASGI server
 (Twisted, under daphne) answers a bare `400` — no body, no `Content-Type` — before Django or
