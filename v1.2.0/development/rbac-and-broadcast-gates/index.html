@@ -4280,7 +4280,7 @@
 <p>Current entries:</p>
 <ul>
 <li><strong><code>NO_BROADCAST_BY_DESIGN</code>:</strong> invite-link creation, which has no event type because a group-channel frame reaches every subscriber and the payload carries the raw token.</li>
-<li><strong><code>LOOP_FANOUT_BY_DESIGN</code>:</strong> five loops that iterate channels or distinct cards: admin bulk delete, the blocked-peer fan-out, relation changes, and the post-commit membership eviction.</li>
+<li><strong><code>LOOP_FANOUT_BY_DESIGN</code>:</strong> loops that iterate channels or distinct rows, each frame carrying that row's own payload: admin bulk delete, the blocked-peer fan-out, relation changes, the post-commit membership eviction, the invite-link and share-link revocations, and the column-delete swimlane prune (one <code>swimlane.updated</code> per swimlane whose counted columns lost the column, #1150).</li>
 </ul>
 <h2 id="what-rbac-coverage-checks">What <code>rbac-coverage</code> checks<a class="headerlink" href="#what-rbac-coverage-checks" title="Permanent link">&para;</a></h2>
 <p>Scope: <code>backend/boards/views/</code>, <code>backend/groups/views.py</code>, <code>backend/git_lens/views.py</code>.</p>

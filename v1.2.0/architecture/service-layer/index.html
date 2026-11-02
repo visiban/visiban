@@ -4292,7 +4292,7 @@
 </tr>
 <tr>
 <td>Limit enforcement</td>
-<td>WIP soft, WIP hard, weight, and the <code>force</code> override authorization — one helper, <code>enforce_column_limits()</code>, shared by move, create, restore, and a weight increase on update (#1428)</td>
+<td>WIP soft, WIP hard, weight, and the <code>force</code> override authorization — one helper, <code>enforce_column_limits()</code>, shared by move, create, restore, and a weight increase on update (#1428). Since #1150 it also checks the target swimlane's own limits: it builds one list of <code>PlacementConstraint</code> for the cell (column and swimlane) and evaluates it in one pass, strictest first, so a further kind of limit (#1103) is another entry, not another function</td>
 </tr>
 <tr>
 <td>Audit trail</td>
@@ -4318,6 +4318,7 @@
 <li><strong>Re-read the cells' members once the columns are held (<code>_require_cells_locked</code>).</strong> The card-row lock statement locks the rows of the snapshot it took before it waited. A card that a concurrent move commits into a cell during that wait is not locked, so the later compaction or shift <code>UPDATE</code> would lock it outside pk order and a third move could deadlock (#1567). Every service path that puts a card into a cell (<code>create_card</code>, <code>move_card</code> and the tools that call them) takes the column rows, so <code>move_card</code> retries if any cell member is unlocked.</li>
 <li><strong>Django admin follows the same order (#1588).</strong> <code>CardAdminForm.clean</code> locks the card row and re-reads it. It then locks the source and target columns in one pk-ordered statement whenever the card's column or swimlane changes (archived cards included) or a WIP/weight check runs. The check counts under that lock.</li>
 <li><strong><code>create_card</code> against a column reorder (#1566).</strong> Fixed by taking the reorder's board-row lock <code>FOR NO KEY UPDATE</code>. The card insert's foreign-key check needs <code>FOR KEY SHARE</code> on the board row at commit, which a <code>FOR UPDATE</code> board lock blocks while the reorder waits on the column the create holds.</li>
+<li><strong>The swimlane row comes last: card -&gt; column -&gt; swimlane (#1150).</strong> A swimlane limit counts cards across columns, so the column lock cannot serialize two moves into one full swimlane through different columns. When the target swimlane has a limit the placement is checked against, <code>enforce_column_limits</code> locks that swimlane row <code>FOR NO KEY UPDATE</code> after the column rows, and counts under it. No path takes a card or column row after a swimlane row. A move then needs <code>FOR KEY SHARE</code> on the board row for its <code>CardMovement</code> insert, so a writer that holds the board row and waits on a swimlane row must not hold the board row <code>FOR UPDATE</code>: the swimlane reorder takes it <code>FOR NO KEY UPDATE</code> since #1150 (it took <code>FOR UPDATE</code> before, which deadlocked with such a move; <code>test_swimlane_limit_lock.py</code> pins both).</li>
 </ol>
 <p><strong>Deleting a user from the Django admin (#1616):</strong> locks go user, group, card, user, in three statements.</p>
 <ol>
@@ -4398,11 +4399,11 @@
 </tr>
 <tr>
 <td>Card entry (<code>create_card</code>, <code>move_card</code>, <code>create_card_at_position</code>, admin card form)</td>
-<td>(<code>create_card</code>, <code>create_card_at_position</code> and the admin card form: board row <code>FOR SHARE</code> first, #1632) -&gt; moved card and cell cards (one pk-ordered statement) -&gt; source and target column rows (one pk-ordered statement); <code>FOR KEY SHARE</code> on the board, column and swimlane only at commit. <code>create_card_at_position</code> (the MCP <code>create_card</code> tool with <code>position</code>, #1992) takes the target cell's cards and column in that order <em>before</em> it calls <code>create_card</code> and then <code>move_card</code> in one transaction. It re-reads the cell once it holds the column and retries from a savepoint if a card entered it; every lock the two calls take is then already held. A bare transaction around the two calls would hold the column from the create and then lock the cell's cards in the move (a card after a column), which deadlocks with a concurrent move in that cell</td>
+<td>(<code>create_card</code>, <code>create_card_at_position</code> and the admin card form: board row <code>FOR SHARE</code> first, #1632) -&gt; moved card and cell cards (one pk-ordered statement) -&gt; source and target column rows (one pk-ordered statement) -&gt; (only when the target swimlane has a limit the placement is checked against, #1150) the target swimlane row <code>FOR NO KEY UPDATE</code>; <code>FOR KEY SHARE</code> on the board, column and swimlane only at commit. <code>create_card_at_position</code> (the MCP <code>create_card</code> tool with <code>position</code>, #1992) takes the target cell's cards and column in that order <em>before</em> it calls <code>create_card</code> and then <code>move_card</code> in one transaction. It re-reads the cell once it holds the column and retries from a savepoint if a card entered it; every lock the two calls take is then already held. A bare transaction around the two calls would hold the column from the create and then lock the cell's cards in the move (a card after a column), which deadlocks with a concurrent move in that cell</td>
 </tr>
 <tr>
 <td>Card write and card delete</td>
-<td>(<code>update_card</code> and the admin card form: board row <code>FOR SHARE</code> first, #1632) -&gt; card row -&gt; any column row</td>
+<td>(<code>update_card</code> and the admin card form: board row <code>FOR SHARE</code> first, #1632) -&gt; card row -&gt; any column row -&gt; (a weight increase in a swimlane with a weight limit, #1150) the swimlane row; restore (<code>unarchive_card</code>) takes the same card -&gt; column -&gt; swimlane order</td>
 </tr>
 <tr>
 <td>Labels and custom-field definitions a card create or update names (REST, MCP, admin card form)</td>
@@ -4421,8 +4422,16 @@
 <td>board row <code>FOR NO KEY UPDATE</code> -&gt; every column row <code>FOR UPDATE</code> (pk order)</td>
 </tr>
 <tr>
-<td>Column or swimlane create, swimlane reorder, custom-field definition create, invite caps</td>
+<td>Column or swimlane create, custom-field definition create, invite caps</td>
 <td>board row <code>FOR UPDATE</code> -&gt; its own rows</td>
+</tr>
+<tr>
+<td>Swimlane reorder</td>
+<td>board row <code>FOR NO KEY UPDATE</code> (#1150; was <code>FOR UPDATE</code>) -&gt; the swimlane rows, <code>bulk_update</code></td>
+</tr>
+<tr>
+<td>Column delete's swimlane cleanup (<code>prune_swimlane_limit_columns</code>, #1150)</td>
+<td>after the container delete's board -&gt; cards -&gt; column locks, an <code>UPDATE</code> of each swimlane row whose <code>limit_column_ids</code> named the column, then a <code>swimlane.updated</code> event for each (none when a board or user delete started the cascade)</td>
 </tr>
 <tr>
 <td>Invite redemption (join view; invite-only registration, REST and OAuth) (#1631)</td>

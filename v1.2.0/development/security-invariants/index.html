@@ -3059,6 +3059,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rule-14-a-card-placement-respects-its-columns-and-its-swimlanes-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 14: A card placement respects its column's and its swimlane's limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-to-add-a-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4243,7 +4254,7 @@ audit code.</p>
 <p><strong>What it doesn't enumerate.</strong></p>
 <ul>
 <li>Rule 3: the revocation table is a review checklist.</li>
-<li>Rule 5, Rule 9, Rule 10 and Rule 13: review checklists, pinned by the tests named under each.</li>
+<li>Rule 5, Rule 9, Rule 10, Rule 13 and Rule 14: review checklists, pinned by the tests named under each.</li>
 <li>Locking: the concurrent tests for each consume-once path cover it.</li>
 <li>Rules 11 and 12 are enumerated by their own tests instead: <code>groups/tests/test_group_member_guards.py</code> <code>GroupMembershipEntryPointTests</code> (Rule 11) and <code>boards/tests/test_analytics_panel_min_role_1826.py</code> <code>AnalyticsExtensionsEntryPointTests</code> (Rule 12). Both rules also keep their shared function outside <code>visiban/authorization.py</code> (<code>groups/services.py</code> <code>lock_membership_for_removal_or_demotion</code> and <code>boards/permissions.py</code> <code>analytics_extensions_for_role</code>), an accepted deviation from step 5 of <a href="#how-to-add-a-rule">How to add a rule</a>.</li>
 </ul>
@@ -5474,6 +5485,111 @@ ones, directly and under <code>migrate</code>), <code>groups/tests/test_groups.p
 <code>boards/tests/test_board_invites.py</code> (the board create serializer),
 <code>boards/tests/test_seed_demo_data.py</code>
 (<code>test_demo_group_has_label_and_invite_link</code>).</p>
+<h2 id="rule-14-a-card-placement-respects-its-columns-and-its-swimlanes-limits">Rule 14: A card placement respects its column's and its swimlane's limits<a class="headerlink" href="#rule-14-a-card-placement-respects-its-columns-and-its-swimlanes-limits" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> A write that puts a card into a cell, or grows a card inside one,
+honors the target column's <code>wip_limit</code>/<code>weight_limit</code> and, since 1.3 (#1150),
+the target swimlane's, on every transport. A soft limit (<code>block</code>, or a board
+flag) refuses the write with <code>409</code> unless a board admin or site admin passes
+<code>?force=true</code>; a hard WIP limit refuses every role and ignores <code>force</code>. When
+several limits trip, the strictest one is reported (hard before block; the
+column first when equal), and one <code>force</code> covers every soft limit tripped. A
+swimlane limit applies only when the write adds to the swimlane's counted total
+(a move between two counted columns of one swimlane never trips it; a move
+into a counted column from an uncounted column of the same swimlane is checked). Archived
+cards never count. Board import is exempt by design: it restores a board as
+exported.</p>
+<p><strong>Why.</strong> A limit enforced on one transport is not a limit. Before #1428 only
+the move endpoint checked column limits, so a member could exceed even a hard
+limit by creating or restoring a card; a swimlane limit checked on REST moves
+alone would repeat that on MCP or in the admin.</p>
+<p>The one implementation is <code>boards/services/cards.py</code> <code>enforce_column_limits</code>
+(the name predates swimlane limits). It builds a list of <code>PlacementConstraint</code>
+for the cell and evaluates it in one pass, locking the column row and then the
+swimlane row <code>FOR NO KEY UPDATE</code> before counting (card -&gt; column -&gt; swimlane).
+It lives in the service layer rather than <code>visiban/authorization.py</code>, an
+accepted deviation from step 5 below, like Rules 11 and 12: it is a placement
+invariant shared by the card service's own transitions, not an authorization
+check.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REST move</td>
+<td><code>boards/views/cards.py</code> <code>CardViewSet.move</code></td>
+<td><code>boards/services/cards.py</code> <code>move_card</code> -&gt; <code>_move_card_attempt</code>: <code>enforce_column_limits(..., swimlane=target_swimlane, source=(card.column, card.swimlane_id), check_column=column_changed)</code> when the column or the swimlane changes; <code>force</code> from <code>?force=true</code>, authorized by <code>_require_force_role</code></td>
+</tr>
+<tr>
+<td>REST create</td>
+<td><code>boards/views/cards.py</code> <code>CardViewSet.create</code></td>
+<td><code>create_card</code>: <code>enforce_column_limits(..., swimlane=swimlane, lock=False)</code> after the column lock, inside the create transaction (a refusal rolls the insert back)</td>
+</tr>
+<tr>
+<td>REST restore</td>
+<td><code>boards/views/cards.py</code> <code>CardViewSet.unarchive</code></td>
+<td><code>unarchive_card</code>: <code>enforce_column_limits(..., swimlane=card.swimlane)</code> under the card lock</td>
+</tr>
+<tr>
+<td>REST weight increase</td>
+<td><code>boards/views/cards.py</code> <code>CardViewSet.update</code> / <code>partial_update</code></td>
+<td><code>update_card</code>: <code>enforce_column_limits(..., check_wip=False, swimlane=card.swimlane)</code> when <code>weight</code> goes up</td>
+</tr>
+<tr>
+<td>Bulk move</td>
+<td><code>frontend/src/components/Board/BulkActionToolbar.tsx</code> <code>handleMove</code></td>
+<td>No server bulk endpoint: one REST move per card, so each is checked as above; a refusal is reported per card (<code>utils/moveFailure.ts</code> <code>LIMIT_CODES</code>)</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td><code>mcp_server/tools.py</code> <code>move_card</code>, <code>create_card</code></td>
+<td>The same service calls (<code>create_card_at_position</code> for a create with <code>position</code>); no tool exposes <code>force</code>, so every soft limit is a refusal over MCP. <code>update_card</code> takes no <code>weight</code>, <code>column</code>, <code>swimlane</code> or <code>position</code>, so it cannot place or grow a card</td>
+</tr>
+<tr>
+<td>Django admin card form</td>
+<td><code>boards/admin.py</code> <code>CardAdminForm.clean</code></td>
+<td><code>enforce_column_limits</code> with <code>role=SITE_ADMIN, force=False</code> (no override in the admin), <code>swimlane</code> re-read from the database, <code>source</code> from the row read under <code>lock_card_row</code>, <code>check_column=False</code> for a swimlane-only change, and a separate column weight check when a swimlane change also raises the weight; every refusal (<code>LIMIT_ERRORS</code>) is a form error</td>
+</tr>
+<tr>
+<td>Django admin swimlane form</td>
+<td><code>boards/admin.py</code> <code>SwimlaneAdminForm.clean</code></td>
+<td><code>limit_column_ids</code> validated as the API does (a non-empty list of this board's column ids, stored sorted)</td>
+</tr>
+<tr>
+<td>Swimlane settings (REST)</td>
+<td><code>boards/views/swimlanes.py</code> <code>SwimlaneViewSet.perform_create</code> / <code>perform_update</code></td>
+<td>Board admin or site admin only; <code>SwimlaneSerializer</code> validates the four fields (<code>wip_limit</code>/<code>weight_limit</code> at least 1, <code>limit_enforcement</code> <code>block</code>/<code>hard</code>/<code>null</code>, <code>limit_column_ids</code> this board's columns, one message for an unknown or foreign id); <code>_require_live_limit_columns</code> re-reads the ids under the board lock</td>
+</tr>
+<tr>
+<td>Column delete</td>
+<td><code>boards/signals.py</code> <code>prune_swimlane_limit_columns</code> (<code>post_delete</code> on <code>Column</code>)</td>
+<td>Removes the id from every swimlane of the board on every delete path (REST, admin delete and bulk delete), and records a <code>swimlane.updated</code> for each swimlane changed; an emptied list becomes <code>null</code></td>
+</tr>
+<tr>
+<td>JSON, CSV and Trello import; seed commands</td>
+<td><code>boards/views/import_export.py</code>, <code>boards/services/trello_import.py</code>, <code>boards/management/commands/</code></td>
+<td>Exempt by design: <code>bulk_create</code>, no limit check. JSON import restores swimlane limits as exported (<code>limit_columns</code> by name, re-keyed to the new column ids)</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>none</td>
+<td>No consumer writes cards</td>
+</tr>
+</tbody>
+</table>
+<p>Coverage: <code>boards/tests/test_swimlane_limits.py</code> (every path above except MCP,
+modes and inheritance, strictest-wins, counted columns, archived cards, the
+query budget, the settings API, column-delete cleanup, import/export, the admin
+forms), <code>boards/tests/test_swimlane_limit_lock.py</code> (PostgreSQL: two moves into
+one swimlane through different columns queue; a swimlane reorder queues behind
+a move instead of deadlocking), <code>boards/tests/test_card_error_bodies.py</code> (the
+exact <code>409</code> bodies), <code>mcp_server/tests/test_mcp_crud.py</code> and
+<code>mcp_server/tests/test_error_codes.py</code> (MCP), and, for the column limits,
+<code>boards/tests/test_limit_enforcement_paths.py</code>.</p>
 <h2 id="how-to-add-a-rule">How to add a rule<a class="headerlink" href="#how-to-add-a-rule" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Write the rule as a statement of behavior, not an implementation: what must

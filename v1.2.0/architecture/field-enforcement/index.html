@@ -4145,6 +4145,34 @@
 <td>— (by design, #1428)</td>
 </tr>
 <tr>
+<td><code>Swimlane.wip_limit</code></td>
+<td>Binding (import exempt by design)</td>
+<td>At most N active cards in the swimlane's counted columns</td>
+<td>Checked by the same helper, <code>enforce_column_limits()</code>, on every API card write path that adds a card to the swimlane's counted columns from outside them: move (from another swimlane, or from an uncounted column of this one), create (REST and MCP), restore from archive, and the Django admin card form. A move between two counted columns of one swimlane never trips it. Enforced per <code>Swimlane.limit_enforcement</code>. Board import restores it as exported and does not check it</td>
+<td>— (by design, #1150)</td>
+</tr>
+<tr>
+<td><code>Swimlane.weight_limit</code></td>
+<td>Binding (import exempt by design)</td>
+<td>The swimlane's counted weight stays within budget</td>
+<td>Same paths as <code>Swimlane.wip_limit</code>, plus raising a card's <code>weight</code> with PATCH (or in the Django admin) when its column counts. No hard mode: a board admin can always override it with <code>?force=true</code></td>
+<td>— (by design, #1150)</td>
+</tr>
+<tr>
+<td><code>Swimlane.limit_enforcement</code></td>
+<td>Binding</td>
+<td>How the swimlane's own limits are enforced</td>
+<td><code>block</code> (admin override), <code>hard</code> (no override for the WIP limit), or <code>null</code> to inherit the board's three flags, as a column does</td>
+<td>— (#1150)</td>
+</tr>
+<tr>
+<td><code>Swimlane.limit_column_ids</code></td>
+<td>Binding</td>
+<td>Which columns count toward the swimlane's limits</td>
+<td>Column ids of the board, or <code>null</code> for every column not marked <code>is_done</code>. A column delete removes its id (an emptied list becomes <code>null</code>)</td>
+<td>— (#1150)</td>
+</tr>
+<tr>
 <td><code>Board.enforce_wip_limits</code></td>
 <td>Binding (import exempt by design)</td>
 <td>Over-limit placement returns 409</td>
