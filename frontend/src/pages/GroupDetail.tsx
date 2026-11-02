@@ -1053,6 +1053,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     ) : (
                       <div className="flex items-center gap-2 shrink-0">
                         <p className="text-fg-muted text-xs capitalize">{m.role}</p>
+                        {m.user.id === group?.owner.id && (
+                          <span className="text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
+                        )}
                       </div>
                     )}
                   </div>

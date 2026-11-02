@@ -462,6 +462,7 @@ describe('GroupDetail', () => {
     expect(within(ownerRow).queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove Big Boss from group' })).not.toBeInTheDocument()
     expect(within(ownerRow).getByText('admin')).toBeInTheDocument()
+    expect(within(ownerRow).getByText('Owner')).toBeInTheDocument()
     const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
     expect(within(aliceRow).getByRole('combobox')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toBeInTheDocument()
