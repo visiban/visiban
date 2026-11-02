@@ -53,6 +53,10 @@ interface Props {
   /** #863 — false for an SSO-only account: a webhook take-over then needs a recent provider sign-in, not a password. */
   currentUserHasPassword?: boolean;
   onBoardDeleted?: () => void;
+  /** Fired just before the delete request, so the owner can tell its own deletion's socket echo from another user's (#2041). */
+  onBoardDeleting?: () => void;
+  /** Fired if the delete request fails, undoing onBoardDeleting. */
+  onBoardDeleteFailed?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
@@ -149,7 +153,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -1737,7 +1741,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       />
                       <button
                         disabled={deleteInput !== board.name}
-                        onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
+                        onClick={async () => {
+                        onBoardDeleting?.();
+                        // A failed delete leaves the board in place; undo the announcement.
+                        try { await deleteBoard(board.id); } catch { onBoardDeleteFailed?.(); return; }
+                        onBoardDeleted();
+                      }}
                         className="w-full bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-danger text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                       >
                         Delete board
@@ -1745,7 +1754,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </div>
                   ) : (
                     <button
-                      onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
+                      onClick={async () => {
+                        onBoardDeleting?.();
+                        // A failed delete leaves the board in place; undo the announcement.
+                        try { await deleteBoard(board.id); } catch { onBoardDeleteFailed?.(); return; }
+                        onBoardDeleted();
+                      }}
                       className="w-full bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                     >
                       Delete board

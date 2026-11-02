@@ -480,6 +480,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     onSavedFilterEvicted,
   } = useSavedFilters(board.id);
 
+  // Set while this session's own settings modal is deleting the board (#2041).
+  const selfDeletingRef = useRef(false);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
     if (event.event === "card.created") {
@@ -611,8 +613,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const issuedAt = shareLinkIssuedAtFromEvent(sharePayload);
       if (issuedAt !== null) setShareLinkIssuedAt(issuedAt);
     } else if (event.event === "board.deleted") {
-      // Board was deleted by another user — navigate away
-      onBoardDeleted?.();
+      // Deleted by someone else: re-read over REST so the 404 swaps in the
+      // "isn't available" page (#2041). The deleter's own session also gets
+      // this event, but it navigates back itself (BoardSettingsModal), so it
+      // keeps the old path; otherwise it would flash the unavailable page.
+      if (selfDeletingRef.current) onBoardDeleted?.();
+      else silentReload();
     } else if (event.event === "board.star_changed") {
       // Star is per-user state; only apply when the event belongs to the
       // current user's session (e.g. another tab for the same user).
@@ -715,7 +721,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     silentReload,
     activeCard !== null || activeColumn !== null || activeSwimlane !== null,
   );
-  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync });
+  // The server closes with a plain 1000 when this user is removed from the
+  // board; re-read so the REST 404 swaps in the unavailable page (#2041). Not
+  // while this session is itself deleting the board.
+  const onServerClose = useCallback(() => {
+    if (!selfDeletingRef.current) silentReload();
+  }, [silentReload]);
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync, onServerClose });
+  // Access loss reaches the client as a 4001/4003 close (status "failed") or,
+  // for a direct member removal, a server-sent 1000 (onServerClose above).
+  // Re-read the board over REST so a revoked or deleted board swaps in the
+  // "isn't available" page (#2041) instead of sitting on a dead, stale board;
+  // a 200 means the failure was something else (the session probe owns
+  // sign-out) and changes nothing. Skipped while this session is deleting the
+  // board itself, whose own flow navigates away.
+  useEffect(() => {
+    if (socketStatus === "failed" && !selfDeletingRef.current) silentReload();
+  }, [socketStatus, silentReload]);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -2867,6 +2889,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onBoardDeleted={onBoardDeleted}
+          onBoardDeleting={() => { selfDeletingRef.current = true; }}
+          onBoardDeleteFailed={() => { selfDeletingRef.current = false; }}
           onUpdateBoardSettings={onUpdateBoardSettings}
           cardDensityOverride={cardDensityOverride}
           onSetCardDensityOverride={setCardDensityOverride}

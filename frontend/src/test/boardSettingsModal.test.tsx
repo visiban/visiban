@@ -2648,6 +2648,65 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
   })
 })
 
+describe('BoardSettingsModal — own delete signals (#2041)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('announces the delete before the request, then navigates via onBoardDeleted', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    const order: string[] = []
+    vi.mocked(deleteBoard).mockImplementation(async () => { order.push('request'); return {} as never })
+    const onBoardDeleting = vi.fn(() => { order.push('deleting') })
+    const onBoardDeleted = vi.fn(() => { order.push('deleted') })
+    render(
+      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
+        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="data" />
+    )
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
+    await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
+    expect(order).toEqual(['deleting', 'request', 'deleted'])
+  })
+
+  it('typed-confirm branch (board with content) also announces before the request and reports failure', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    const order: string[] = []
+    vi.mocked(deleteBoard).mockImplementationOnce(async () => { order.push('request'); return {} as never })
+    const onBoardDeleting = vi.fn(() => { order.push('deleting') })
+    const onBoardDeleted = vi.fn(() => { order.push('deleted') })
+    const onBoardDeleteFailed = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()}
+        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+    )
+    await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
+    expect(order).toEqual(['deleting', 'request', 'deleted'])
+
+    vi.mocked(deleteBoard).mockRejectedValueOnce(new Error('boom'))
+    onBoardDeleted.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    await waitFor(() => expect(onBoardDeleteFailed).toHaveBeenCalledTimes(1))
+    expect(onBoardDeleted).not.toHaveBeenCalled()
+  })
+
+  it('reports a failed delete and does not navigate', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    vi.mocked(deleteBoard).mockRejectedValue(new Error('boom'))
+    const onBoardDeleteFailed = vi.fn()
+    const onBoardDeleted = vi.fn()
+    render(
+      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
+        onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+    )
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
+    await waitFor(() => expect(onBoardDeleteFailed).toHaveBeenCalled())
+    expect(onBoardDeleted).not.toHaveBeenCalled()
+  })
+})
+
 // ─── Invite by email (#1444) ────────────────────────────────────────────────
 
 describe('BoardSettingsModal — invite by email (#1444)', () => {

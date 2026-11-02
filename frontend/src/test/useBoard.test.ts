@@ -185,27 +185,50 @@ describe('useBoard', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
-  it('navigates to / when board returns 404', async () => {
+  it('flags the board unavailable instead of redirecting when it returns 404 (#2041)', async () => {
     mockGetBoardFull.mockRejectedValue({ response: { status: 404 } })
 
     // Wrap render in act so the rejected promise is flushed before waitFor
     // asserts — without this the rejection races against the assertion.
-    await act(async () => {
-      renderHook(() => useBoard())
-    })
+    const { result } = await act(async () => renderHook(() => useBoard()))
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+      expect(result.current.unavailable).toBe(true)
     })
+    expect(result.current.error).toBeNull()
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
-  it('navigates to / when board returns 403', async () => {
+  it('flags the board unavailable the same way for 403 (#2041)', async () => {
     mockGetBoardFull.mockRejectedValue({ response: { status: 403 } })
-    renderHook(() => useBoard())
+    const { result } = renderHook(() => useBoard())
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+      expect(result.current.unavailable).toBe(true)
     })
+    expect(result.current.error).toBeNull()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it("does not carry one board's unavailable state into the next board (#2041)", async () => {
+    mockGetBoardFull.mockRejectedValue({ response: { status: 404 } })
+    const { result, rerender } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.unavailable).toBe(true))
+
+    // /boards/:id reuses this hook instance; board 2 is slow, then fails with a 5xx.
+    let rejectB: (e: unknown) => void = () => {}
+    mockGetBoardFull.mockImplementation(() => new Promise((_, rej) => { rejectB = rej }))
+    mockParamId = '2'
+    try {
+      rerender()
+      await waitFor(() => expect(result.current.unavailable).toBe(false))
+      expect(result.current.loading).toBe(true)
+      await act(async () => { rejectB(new Error('boom')) })
+      await waitFor(() => expect(result.current.error).toBe('Failed to load board'))
+      expect(result.current.unavailable).toBe(false)
+    } finally {
+      mockParamId = '1'
+    }
   })
 
   it('addCard adds a new card', async () => {
@@ -1298,7 +1321,7 @@ describe('useBoard', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('silentReload navigates away on 404/403 like the initial load', async () => {
+  it('silentReload flags the board unavailable on 404/403 like the initial load (#2041)', async () => {
     mockGetBoardFull.mockResolvedValue(makeBoard())
     const { result } = renderHook(() => useBoard())
     await waitFor(() => expect(result.current.board).not.toBeNull())
@@ -1306,7 +1329,13 @@ describe('useBoard', () => {
     mockGetBoardFull.mockRejectedValue({ response: { status: 403 } })
     await act(async () => { result.current.silentReload() })
 
-    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    expect(result.current.unavailable).toBe(true)
+    expect(mockNavigate).not.toHaveBeenCalled()
+
+    // A later successful read (access restored) clears the state.
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    await act(async () => { result.current.silentReload() })
+    expect(result.current.unavailable).toBe(false)
   })
 
   it('silentReload swallows a non-404/403 error without surfacing it', async () => {
@@ -1361,7 +1390,7 @@ describe('useBoard', () => {
     })
   })
 
-  it('moveCard reloads the board on 404 and leaves the page when access was lost', async () => {
+  it('moveCard reloads the board on 404 and shows the unavailable state when access was lost', async () => {
     const board = makeBoard()
     mockGetBoardFull.mockResolvedValueOnce(board)
     mockMoveCard.mockRejectedValue({ response: { status: 404, data: {} } })
@@ -1374,7 +1403,8 @@ describe('useBoard', () => {
     await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
 
     await waitFor(() => expect(mockGetBoardFull).toHaveBeenCalledTimes(1))
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true }))
+    await waitFor(() => expect(result.current.unavailable).toBe(true))
+    expect(mockNavigate).not.toHaveBeenCalled()
     expect(result.current.board!.cards[0].column).toBe(10)
   })
 

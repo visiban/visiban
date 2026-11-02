@@ -81,12 +81,15 @@ vi.mock('../components/Card/CardDetail', () => ({
     <div data-testid="card-detail" data-refresh-signal={refreshSignal ?? 0} />
   ),
 }))
+const settingsDeleteHooks: { deleting?: () => void; failed?: () => void } = {}
 vi.mock('../components/Board/AddColumnModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: ({ inviteReloadSignal, shareLinkIssuedAt }: { inviteReloadSignal?: number; shareLinkIssuedAt?: string | null }) => (
+  default: ({ inviteReloadSignal, shareLinkIssuedAt, onBoardDeleting, onBoardDeleteFailed }: { inviteReloadSignal?: number; shareLinkIssuedAt?: string | null; onBoardDeleting?: () => void; onBoardDeleteFailed?: () => void }) => (
     <div
       data-testid="settings-modal"
+      data-on-deleting={String(!!onBoardDeleting)}
+      ref={() => { settingsDeleteHooks.deleting = onBoardDeleting; settingsDeleteHooks.failed = onBoardDeleteFailed }}
       data-invite-signal={inviteReloadSignal ?? 0}
       data-share-issued-at={shareLinkIssuedAt ?? ''}
     />
@@ -748,13 +751,42 @@ describe('BoardView socket event routing — new event types', () => {
     act(() => { getOnEvent.dispatch({ event: 'board.updated', data: { name: 'New name' } }) })
   })
 
-  it('board.deleted routes to onBoardDeleted', async () => {
+  it('board.deleted by someone else re-reads the board instead of navigating (#2041)', async () => {
     const onBoardDeleted = vi.fn()
-    mockBoardContextValue = makeContext()
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
     render(<BoardView onBoardDeleted={onBoardDeleted} />)
     await act(async () => {})
     act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_uid: 'abc123', board_id: 1 } }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    expect(onBoardDeleted).not.toHaveBeenCalled()
+  })
+
+  it("board.deleted echoing this session's own delete keeps the old path, no reload (#2041)", async () => {
+    const onBoardDeleted = vi.fn()
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView onBoardDeleted={onBoardDeleted} />)
+    await act(async () => {})
+    act(() => { window.dispatchEvent(new Event('visiban:open-settings')) })
+    act(() => { settingsDeleteHooks.deleting?.() })
+    act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_uid: 'abc123', board_id: 1 } }) })
     expect(onBoardDeleted).toHaveBeenCalledTimes(1)
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+  })
+
+  it('a failed own delete re-arms the reload path for a later board.deleted (#2041)', async () => {
+    const onBoardDeleted = vi.fn()
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView onBoardDeleted={onBoardDeleted} />)
+    await act(async () => {})
+    act(() => { window.dispatchEvent(new Event('visiban:open-settings')) })
+    act(() => { settingsDeleteHooks.deleting?.() })
+    act(() => { settingsDeleteHooks.failed?.() })
+    act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_uid: 'abc123', board_id: 1 } }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    expect(onBoardDeleted).not.toHaveBeenCalled()
   })
 
   it('board.deleted is a no-op when onBoardDeleted is not provided', async () => {

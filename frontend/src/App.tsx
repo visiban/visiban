@@ -31,6 +31,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import UnavailablePage from "./pages/UnavailablePage";
 import type { HealthStatus, ImportSummary, User } from "./types";
 import { joinBoard, patchBoard, starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
@@ -267,7 +268,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { board, loading, error, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState } = useBoardContext();
+  const { board, loading, error, unavailable, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState } = useBoardContext();
 
   // Skipped-counts notice after a selective import (#119), handed over in the
   // navigation state by the import modal's caller. Captured once on mount and
@@ -355,6 +356,12 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
       {isStarred ? "★" : "☆"}
     </button>
   ) : null;
+
+  // Deleted or access lost (#2041), at first load or mid-session: one page for
+  // 404 and 403 alike. Declared after every hook above.
+  if (unavailable) {
+    return <UnavailablePage kind="board" user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />;
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
