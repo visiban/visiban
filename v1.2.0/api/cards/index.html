@@ -5376,7 +5376,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <tbody>
 <tr>
 <td><code>offset</code></td>
-<td>Pagination offset (default: <code>0</code>). A negative value is treated as <code>0</code>; a value above <code>2^62</code> returns <code>400</code> with <code>{"detail": "...", "code": "invalid_query_param"}</code>.</td>
+<td>Pagination offset (default: <code>0</code>). A negative value is treated as <code>0</code>; a value above <code>2^62</code> returns <code>400</code> with <code>{"detail": "...", "code": "invalid_query_param"}</code>. <code>count</code> is always the total number of archived cards, including when <code>offset</code> is past the end and <code>results</code> is empty.</td>
 </tr>
 </tbody>
 </table>
@@ -5814,7 +5814,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <td><code>limit</code></td>
 <td>integer</td>
 <td><code>50</code></td>
-<td>Page size. Capped at <code>200</code>; a negative value is treated as <code>0</code> and a non-integer value as the default.</td>
+<td>Page size. Capped at <code>200</code>; a negative value is treated as <code>0</code> and a non-integer value as the default. <code>count</code> is the real total even when the page is empty (<code>limit=0</code>).</td>
 </tr>
 <tr>
 <td><code>offset</code></td>
