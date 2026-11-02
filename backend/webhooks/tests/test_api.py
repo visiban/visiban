@@ -225,6 +225,16 @@ class CreateTests(WebhookApiBase):
         self.assertEqual(sub.get_url(), HOOK_URL)
         self.assertEqual(sub.get_secret(), r.data["secret"])
 
+    def test_create_on_empty_board_is_not_expired_by_its_first_event(self):
+        # Cursor 0 with no scan is judged from creation; still "never scanned",
+        # so it keeps its place at the front of the dispatch order.
+        self.create(name="n")
+        sub = WebhookSubscription.objects.get()
+        self.assertEqual(sub.cursor, 0)
+        self.assertIsNone(sub.last_scanned_at)
+        BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
+        self.assertFalse(dispatch.cursor_expired(sub))
+
     def test_url_and_secret_never_returned_after_create(self):
         sid = self.create().data["id"]
         for r in (

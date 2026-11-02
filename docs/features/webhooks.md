@@ -70,7 +70,7 @@ A webhook keeps delivering only while the person who last set it up (created it,
 
 ### Notices
 
-When a webhook is turned off automatically, every admin of the board gets an in-app notification and an email. The email is sent whatever your email notification settings are, but only to a verified address. The notice says exactly three things: the board, the webhook's number, and the reason code with its plain-language label. It never contains the address, the host, or anything the receiver sent back. **Open board settings** in the notification goes straight to the Webhooks tab.
+When a webhook is turned off automatically, every admin of the board, and the person who last set the webhook up if they still administer the board (a site admin who isn't a member, for example), gets an in-app notification and an email. The email is sent whatever your email notification settings are, but only to a verified address. The notice says exactly three things: the board, the webhook's number, and the reason code with its plain-language label. It never contains the address, the host, or anything the receiver sent back. **Open board settings** in the notification goes straight to the Webhooks tab.
 
 Turning a webhook off yourself sends no notice.
 
@@ -142,7 +142,7 @@ WEBHOOK_ALLOWED_PRIVATE_TARGETS=n8n.lan,192.168.10.0/24
 - `http://` and ports below 1024 other than 443 are allowed only for allowlisted destinations.
 - `0.0.0.0/8`, multicast and reserved ranges are never admitted. A `/0` or a public range is a startup error (`webhooks.E002`).
 
-A board admin who tries to save a destination that is not allowed sees one message, which names this setting and says to ask the operator.
+A board admin who tries to save a destination that is not allowed sees one message, which says to ask the operator. It does not name this setting, and it is the same whatever the reason, so it reveals nothing about the network.
 
 ### Limits and tuning
 

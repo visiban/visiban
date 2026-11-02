@@ -1,7 +1,8 @@
 """The "webhook disabled" notice (#863, owner decision D7).
 
 Sent in-app and by email when a subscription is disabled automatically, to the
-board's current effective admins. Email bypasses the recipient's opt-in
+board's current effective admins and to the webhook's owner (its standing
+principal, ``configured_by``) while the owner still has standing (decision #7). Email bypasses the recipient's opt-in
 (``boards.notifications_email.MANDATORY_EMAIL_ACTIONS``) but still requires an
 active account, current board access and a verified address.
 
@@ -61,8 +62,27 @@ def verb_for(subscription_id: int, reason: str, board_name: str) -> str:
     return f'{lead}"{clip_text(board_name, max_len - len(lead) - len(tail) - 2)}"{tail}'
 
 
+def recipient_ids(subscription, board) -> list[int]:
+    """The board's admins plus the webhook's owner while the owner has standing.
+
+    ``board_admin_ids`` leaves out accounts that see every board through
+    instance-wide content access, so a site admin who set up a webhook on a
+    board they are not a member of would otherwise never hear it stopped. The
+    owner is added only while ``configurer_has_standing`` holds, so an owner
+    who lost access (the ``creator_lost_access`` case) is not told about a
+    board they can no longer see.
+    """
+    from .dispatch import configurer_has_standing
+
+    ids = set(board_admin_ids(board))
+    owner = subscription.configured_by
+    if owner is not None and owner.pk not in ids and configurer_has_standing(owner, board):
+        ids.add(owner.pk)
+    return sorted(ids)
+
+
 def notify_disabled(subscription, reason: str):
-    """Create the notice for every board admin. Call inside the disabling transaction."""
+    """Create the notice for every recipient. Call inside the disabling transaction."""
     board = Board.objects.select_related("owner", GROUP_ANCESTOR_SELECT_RELATED).get(
         pk=subscription.board_id
     )
@@ -76,7 +96,7 @@ def notify_disabled(subscription, reason: str):
                 verb=verb,
                 board=board,
             )
-            for uid in board_admin_ids(board)
+            for uid in recipient_ids(subscription, board)
         ],
         context={"subscription_id": subscription.pk, "reason": reason},
     )

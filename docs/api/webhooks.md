@@ -33,7 +33,7 @@ Checked in this order:
 | A personal access token on a session-only action | `403 {"code": "session_required"}` |
 | A subscription id that belongs to another board | `404` |
 
-Board admins and site admins (`can_access_all_content`) may use every action. **Session-only** actions are the ones that choose where data goes or how it is signed: create, a `PATCH` that changes `url`, `reenable`, `rotate` and `test`. They refuse personal access tokens and any other non-session credential, before the subscription is looked up (so a token gets `403`, not `404`, for an unknown id). On the other actions a token needs the `read` scope for `GET` and `write` for `PATCH`, `DELETE` and `disable`.
+Board admins and site admins (`can_access_all_content`) may use every action. **Session-only** actions are the ones that choose where data goes or how it is signed: create, a `PATCH` that changes `url`, `reenable`, `rotate` and `test`. They refuse personal access tokens and any other non-session credential. `reenable`, `rotate` and `test` refuse before the subscription is looked up, so a token gets `403`, not `404`, for an unknown id. A `PATCH` looks the subscription up first, because it has to read the body to see whether `url` is present, so a token gets `404` for an unknown id and `403` for a known one. On the other actions a token needs the `read` scope for `GET` and `write` for `PATCH`, `DELETE` and `disable`.
 
 ## Endpoints
 
@@ -271,4 +271,4 @@ Test vector: secret `whsec_test`, timestamp `1700000000`, body `{"a":1}` gives
 
 ## Stability
 
-These endpoints are new in 1.3 and are not yet covered by the 1.x stability guarantee. Until that is announced, the endpoints, the subscription object, the delivery headers, the body shape and the signature scheme may change in a 1.3 pre-release. The delivery body is a change-feed row, so it follows the [change feed's stability rules](events.md#stability-and-versioning).
+These endpoints are new in 1.3. The endpoints, the subscription object, the delivery headers, the body shape and the signature scheme may change in a 1.3 pre-release, and become part of the 1.x contract at 1.3.0 GA ([#2070](https://gitlab.com/visiban/visiban/-/issues/2070)). The delivery body is a change-feed row, so it follows the [change feed's stability rules](events.md#stability-and-versioning).

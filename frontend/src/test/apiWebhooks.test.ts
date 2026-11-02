@@ -20,6 +20,7 @@ import {
   testResultCopy,
   urlErrorFromResponse,
   urlShapeError,
+  webhookPosition,
   webhookRowStatus,
 } from '../constants/webhooks'
 
@@ -98,6 +99,13 @@ describe('constants/webhooks (#863, Part 8)', () => {
     expect(testResultCopy('rate_limited').tone).toBe('warn')
   })
 
+  it('names a webhook by its list position', () => {
+    const subs = [{ id: 7 }, { id: 3 }, { id: 9 }]
+    expect(webhookPosition(subs, 7)).toBe('Webhook 1 of 3')
+    expect(webhookPosition(subs, 3)).toBe('Webhook 2 of 3')
+    expect(webhookPosition(subs, 9)).toBe('Webhook 3 of 3')
+  })
+
   it('maps disabled reasons and the turn-on confirm', () => {
     const owner = { id: 2, username: 'alex', display_name: 'Alex Reed', avatar_url: '' }
     expect(disabledReasonCopy({ disabled_reason: 'failures', configured_by: owner }, 20)?.body).toMatch(/after 20 failed deliveries/)
@@ -107,9 +115,9 @@ describe('constants/webhooks (#863, Part 8)', () => {
     expect(disabledReasonCopy({ disabled_reason: 'cursor_expired', configured_by: owner }, 20)?.action).toBe('Turn on from now')
     expect(disabledReasonCopy({ disabled_reason: 'secret_unavailable', configured_by: owner }, 20)?.action).toBe('')
     expect(disabledReasonCopy({ disabled_reason: 'manual', configured_by: owner }, 20)).toBeNull()
-    expect(reenableConfirmCopy({ disabled_reason: 'failures', url_host: 'h.example' })).toMatch(/resumes to h\.example/)
-    expect(reenableConfirmCopy({ disabled_reason: 'cursor_expired', url_host: 'h' })).toMatch(/gap won't be sent/)
-    expect(reenableConfirmCopy({ disabled_reason: 'creator_lost_access', url_host: 'h' })).toMatch(/Take it over/)
+    expect(reenableConfirmCopy({ disabled_reason: 'failures' })).toMatch(/resumes to this address/)
+    expect(reenableConfirmCopy({ disabled_reason: 'cursor_expired' })).toMatch(/gap won't be sent/)
+    expect(reenableConfirmCopy({ disabled_reason: 'creator_lost_access' })).toMatch(/Take it over/)
   })
 
   it('summarizes event types', () => {

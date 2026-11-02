@@ -14,6 +14,7 @@ import {
   updateWebhook,
 } from "../../api/webhooks";
 import type { WebhookStatus, WebhookSubscription } from "../../types";
+import { webhookPosition } from "../../constants/webhooks";
 import WebhookList from "./webhooks/WebhookList";
 import WebhookCreateForm from "./webhooks/WebhookCreateForm";
 import { axiosResponse } from "./webhooks/webhookFormUtils";
@@ -285,7 +286,8 @@ export default function BoardSettingsWebhooksTab({
           setSubs((prev) => [sub, ...(prev ?? [])]);
           setView({ kind: "list" });
           setReveal({ subId: sub.id, host: sub.url_host, secret, origin: "create", acknowledged: false, guardOpen: false });
-          setLive(`Webhook for ${sub.url_host} created. Copy its signing secret now.`);
+          // The new row is first in the list.
+          setLive(`Webhook 1 of ${(subs?.length ?? 0) + 1} created. Copy its signing secret now.`);
         }}
       />
     );
@@ -313,12 +315,12 @@ export default function BoardSettingsWebhooksTab({
           onDisable={async () => {
             replaceSub(await guarded(() => disableWebhook(boardId, sub.id)));
             setConfirm(null);
-            setLive(`Webhook for ${sub.url_host} turned off.`);
+            setLive(`${webhookPosition(subs, sub.id)} turned off.`);
           }}
           onReenable={async (resumeFrom, password) => {
             replaceSub(await guarded(() => reenableWebhook(boardId, sub.id, resumeFrom, password)));
             setConfirm(null);
-            setLive(`Webhook for ${sub.url_host} is on.`);
+            setLive(`${webhookPosition(subs, sub.id)} is on.`);
             setPendingFocus("detail-heading");
           }}
           onRotate={async () => {
@@ -329,13 +331,15 @@ export default function BoardSettingsWebhooksTab({
           }}
           onDelete={async () => {
             await guarded(() => deleteWebhook(boardId, sub.id));
+            // Read before the row leaves the list.
+            const position = webhookPosition(subs, sub.id);
             setSubs((prev) => (prev ? prev.filter((s) => s.id !== sub.id) : prev));
             // Deleting destroys the secret too: nothing left to protect.
             if (reveal?.subId === sub.id) {
               setReveal(null);
               guardProceedRef.current = null;
             }
-            setLive(`Webhook for ${sub.url_host} deleted.`);
+            setLive(`${position} deleted.`);
             openList("list-heading");
           }}
           onChangeAddress={async (url) => {

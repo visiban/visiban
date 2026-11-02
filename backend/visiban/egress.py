@@ -9,7 +9,7 @@ Without a guard, that one text field reaches whatever the backend can reach:
 the cloud metadata service, the database, an admin panel bound to localhost.
 
 Every outbound request to a user-supplied destination therefore goes through
-this module and nowhere else (security-invariants Rule 14). The guard has three
+this module and nowhere else (security-invariants Rule 15). The guard has three
 parts, and each one closes a gap the others leave open:
 
 1. **Classify every resolved address.** :func:`classify_ip` sorts an address

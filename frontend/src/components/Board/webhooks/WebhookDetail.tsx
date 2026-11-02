@@ -444,7 +444,7 @@ export default function WebhookDetail(props: Props) {
 
       <div className="pt-3 border-t border-line flex flex-col gap-1">
         {sub.enabled && (confirm === "disable"
-          ? inlineConfirm("disable", `Turn off this webhook? Visiban stops sending to ${sub.url_host} until an admin turns it back on.`, () =>
+          ? inlineConfirm("disable", "Turn off this webhook? Visiban stops sending to this address until an admin turns it back on.", () =>
               void handle("disable", async () => { await props.onDisable(); setFocusTurnOn(true); }, () => setConfirmError("Couldn't turn the webhook off. Try again.")))
           : (
             <div>
@@ -454,7 +454,7 @@ export default function WebhookDetail(props: Props) {
             </div>
           ))}
         {confirm === "delete"
-          ? inlineConfirm("delete", `Delete this webhook? Visiban stops sending to ${sub.url_host}, and its secret is destroyed. This can't be undone.`, () =>
+          ? inlineConfirm("delete", "Delete this webhook? Visiban stops sending to this address, and its secret is destroyed. This can't be undone.", () =>
               void handle("delete", props.onDelete, () => setConfirmError("Couldn't delete the webhook. Try again.")))
           : (
             <div>

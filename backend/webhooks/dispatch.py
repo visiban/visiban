@@ -184,16 +184,22 @@ def cursor_expired(subscription: WebhookSubscription, *, now=None) -> bool:
     condition: the last scan is older than 23 hours. A subscription scanned
     recently cannot have missed a row, because pruning keeps at least a day,
     so a quiet board whose cursor row aged out is not "expired".
+
+    A cursor of 0 (subscribed while the board had no events) has no row whose
+    absence would prove pruning, so it is judged by the gap alone, measured
+    from creation if it was never scanned: a brand-new webhook missed nothing,
+    but one idle for over 23 hours may have. That errs toward a loud
+    ``cursor_expired`` over a silent skip (D5).
     """
     now = now or timezone.now()
-    if not subscription.cursor:
-        return False
     board_rows = BoardEvent.objects.filter(board_id=subscription.board_id)
     if board_rows.filter(pk=subscription.cursor).exists():
         return False
     if not board_rows.filter(pk__gt=subscription.cursor).exists():
         return False
     scanned = subscription.last_scanned_at
+    if scanned is None and not subscription.cursor:
+        scanned = subscription.created_at
     return scanned is None or scanned < now - CURSOR_EXPIRY_SCAN_GAP
 
 
@@ -242,7 +248,7 @@ def disable(subscription_id: int, reason: str, *, lease_token=None, notify=True,
         )
         if not changed:
             return False
-        sub = WebhookSubscription.objects.select_related("board").get(pk=subscription_id)
+        sub = WebhookSubscription.objects.select_related("board", "configured_by").get(pk=subscription_id)
         if notify:
             notices.notify_disabled(sub, reason)
     log_config_event("disable", sub, actor_id=actor_id, reason=reason)

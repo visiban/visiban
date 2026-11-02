@@ -163,6 +163,28 @@ class DeliveryTests(DispatcherBase):
         rec, _ = self.run_with()
         self.assertEqual(rec.calls, [])
 
+    def test_process_refuses_a_row_whose_lease_is_still_live(self):
+        # _due_ids already filters leased rows, so a run never reaches
+        # _process for one; this calls _process directly to pin the
+        # conditional UPDATE itself (the race where two runs both saw the row
+        # as due). The other run's lease must survive untouched.
+        import time as _time
+
+        self.event()
+        cursor_before = self.sub.cursor
+        other_token = dispatch.uuid.uuid4()
+        until = timezone.now() + timedelta(minutes=5)
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(lease_until=until, lease_token=other_token)
+        rec = Recorder()
+        result = dispatch.RunResult()
+        with patch("visiban.egress.guarded_post", rec):
+            dispatch._process(self.sub.pk, _time.monotonic() + 60, _time.monotonic, result)
+        self.sub.refresh_from_db()
+        self.assertEqual(rec.calls, [])
+        self.assertEqual(result.lost_lease, 1)
+        self.assertEqual((self.sub.lease_token, self.sub.lease_until), (other_token, until))
+        self.assertEqual(self.sub.cursor, cursor_before)
+
     def test_lease_is_released_after_the_run(self):
         self.event()
         self.run_with()
@@ -416,6 +438,35 @@ class FailureTests(DispatcherBase):
             self.assertNotIn(leak, text)
 
     @override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1)
+    def test_site_admin_owner_who_is_not_a_member_gets_the_notice(self):
+        # Decision #7: the owner hears about it while still in standing, even
+        # when their access comes from instance-wide content access alone.
+        site_admin = _make_user(email="sa@example.com", can_access_all_content=True)
+        EmailAddress.objects.create(user=site_admin, email=site_admin.email, verified=True, primary=True)
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(configured_by=site_admin)
+        self.event()
+        self.run_with(500)
+        self.assertEqual(self.sub.disabled_reason, "failures")
+        recipients = set(
+            Notification.objects.filter(action_type="webhook_disabled").values_list("recipient_id", flat=True)
+        )
+        self.assertEqual(recipients, {self.admin.pk, site_admin.pk})
+        self.assertIn([site_admin.email], [m.to for m in mail.outbox])
+
+    def test_owner_who_lost_standing_is_not_notified(self):
+        other = _make_user()
+        _make_membership(self.board, other, "admin")
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(configured_by=other)
+        BoardMembership.objects.filter(board=self.board, user=other).delete()
+        self.event()
+        self.run_with()
+        self.assertEqual(self.sub.disabled_reason, "creator_lost_access")
+        recipients = list(
+            Notification.objects.filter(action_type="webhook_disabled").values_list("recipient_id", flat=True)
+        )
+        self.assertEqual(recipients, [self.admin.pk])
+
+    @override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1)
     def test_notice_email_needs_a_verified_address(self):
         self.event()
         self.run_with(500)
@@ -469,6 +520,46 @@ class CursorExpiryTests(DispatcherBase):
             cursor=old.pk, last_scanned_at=timezone.now() - timedelta(hours=1)
         )
         old.delete()
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_cursor_zero_expires_when_rows_were_pruned_unseen(self):
+        # Subscribed on an empty board; the first events were pruned before
+        # any scan. The survivors must not be delivered as if nothing was lost.
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
+            cursor=0, last_scanned_at=timezone.now() - timedelta(days=2)
+        )
+        first, second = self.event(), self.event()
+        self.event()
+        first.delete()
+        second.delete()
+        rec, _ = self.run_with()
+        self.assertEqual(rec.calls, [])
+        self.assertEqual((self.sub.enabled, self.sub.disabled_reason), (False, "cursor_expired"))
+
+    def test_cursor_zero_never_scanned_and_old_expires(self):
+        # The dispatcher never ran for this webhook: the gap runs from creation.
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
+            cursor=0, last_scanned_at=None, created_at=timezone.now() - timedelta(days=2)
+        )
+        self.event()
+        rec, _ = self.run_with()
+        self.assertEqual(rec.calls, [])
+        self.assertEqual(self.sub.disabled_reason, "cursor_expired")
+
+    def test_cursor_zero_never_scanned_and_new_delivers(self):
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(cursor=0, last_scanned_at=None)
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_cursor_zero_scanned_recently_delivers(self):
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
+            cursor=0, last_scanned_at=timezone.now() - timedelta(hours=1)
+        )
         new = self.event()
         rec, _ = self.run_with()
         self.assertTrue(self.sub.enabled)

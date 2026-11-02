@@ -115,10 +115,19 @@ export function disabledReasonCopy(
 }
 
 /** What turning on again does, stated in its confirm (departure 23). */
-export function reenableConfirmCopy(sub: Pick<WebhookSubscription, "disabled_reason" | "url_host">): string {
+/**
+ * How an announcement names a webhook: by its place in the list, never by its
+ * host. The host is part of the URL, and a live region can later be reused for
+ * a shared refetch or event (frontend/CLAUDE.md § Webhooks announcements).
+ */
+export function webhookPosition(subs: readonly Pick<WebhookSubscription, "id">[], id: number): string {
+  return `Webhook ${subs.findIndex((s) => s.id === id) + 1} of ${subs.length}`;
+}
+
+export function reenableConfirmCopy(sub: Pick<WebhookSubscription, "disabled_reason">): string {
   if (sub.disabled_reason === "creator_lost_access") return "Take it over: it will send as you, and its notices will come to you.";
   if (sub.disabled_reason === "cursor_expired") return "Sending resumes with new events. Events from the gap won't be sent.";
-  return `Sending resumes to ${sub.url_host}, starting with the events it missed. If it keeps failing, it turns off again.`;
+  return "Sending resumes to this address, starting with the events it missed. If it keeps failing, it turns off again.";
 }
 
 /** Test-event result copy: headline in tone + remedy (spec Part 8 "Test event"). */

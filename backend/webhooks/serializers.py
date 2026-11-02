@@ -1,7 +1,7 @@
 """Webhook API serializers (#863).
 
 Read side: the full URL never appears after creation. ``url_display`` is
-``scheme://host/…`` and ``url_host`` the bare host; the path can be a
+``host/…/last4`` and ``url_host`` the bare host; the path can be a
 credential (Slack, Zapier), so only the create response carries ``url``, once.
 
 Write side: validation runs here, at the boundary, but its refusals are raised
@@ -39,7 +39,7 @@ INVALID_URL_DETAIL = INVALID_URL_DETAILS[egress.REASON_FORMAT]
 # One neutral message for every "may not send there" outcome that depends on
 # where the name resolves: an unresolvable name, a private or blocked address,
 # http or a low port to a destination that is not allowlisted. Saying which one
-# would let a caller map internal names (security-invariants Rule 14). Never
+# would let a caller map internal names (security-invariants Rule 15). Never
 # echoes a resolved address.
 URL_NOT_ALLOWED_DETAIL = "Visiban can't send to this address. If it should be allowed, ask your Visiban operator."
 
@@ -93,7 +93,7 @@ def validate_destination(url):
 
     ``invalid_url`` (decided from the text alone) answers at once.
     ``url_not_allowed`` answers with one status, one body and one timing for
-    every address rule (security-invariants Rule 14).
+    every address rule (security-invariants Rule 15).
     """
     started = time.monotonic()
     try:

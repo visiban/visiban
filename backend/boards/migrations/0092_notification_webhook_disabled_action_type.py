@@ -14,7 +14,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0089_board_share_token_hash_uniq"),
+        ("boards", "0091_swimlane_limits"),
     ]
 
     operations = [

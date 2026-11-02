@@ -179,7 +179,7 @@ describe('Webhooks tab — create and the acknowledged reveal', () => {
     expect(m.create).toHaveBeenCalledWith(3, { url: 'https://hooks.new.example/x/abcd', event_types: ['custom_field.created'] })
 
     const reveal = await screen.findByTestId('webhook-secret-reveal')
-    expect(screen.getByText('Webhook for hooks.new.example created. Copy its signing secret now.')).toBeInTheDocument()
+    expect(screen.getByText(/^Webhook 1 of \d+ created\. Copy its signing secret now\.$/)).toBeInTheDocument()
     expect(within(reveal).getByRole('button', { name: 'Copy' })).toHaveFocus()
     expect(within(reveal).getByRole('textbox', { name: 'Signing secret' })).toHaveValue('whsec_abc')
     expect(screen.queryByRole('button', { name: 'Add webhook' })).not.toBeInTheDocument()
@@ -366,11 +366,11 @@ describe('Webhooks tab — detail', () => {
     await renderTab()
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Turn off' }))
-    expect(screen.getByText(/Turn off this webhook\? Visiban stops sending to hooks.zapier.com/)).toBeInTheDocument()
+    expect(screen.getByText(/Turn off this webhook\? Visiban stops sending to this address/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^Confirm: Turn off this webhook/ }))
     expect(m.disable).toHaveBeenCalledWith(3, 1)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Turn on again' })).toHaveFocus())
-    expect(screen.getByText('Webhook for hooks.zapier.com turned off.')).toBeInTheDocument()
+    expect(screen.getByText('Webhook 1 of 1 turned off.')).toBeInTheDocument()
     expect(screen.getByText(/Turned off by a board admin on/)).toBeInTheDocument()
   })
 
@@ -384,13 +384,39 @@ describe('Webhooks tab — detail', () => {
     expect(screen.getByText(/after 20 failed deliveries/)).toBeInTheDocument()
     expect(screen.getByText('Reason code: failures')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Turn on again' }))
-    expect(screen.getByText(/Sending resumes to hooks.zapier.com, starting with the events it missed/)).toBeInTheDocument()
+    expect(screen.getByText(/Sending resumes to this address, starting with the events it missed/)).toBeInTheDocument()
     // The confirm replaced its trigger, so focus moves into it.
     expect(screen.getByRole('button', { name: 'Turn on' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Turn on' }))
     expect(m.reenable).toHaveBeenCalledWith(3, 1, 'cursor', undefined)
-    expect(await screen.findByText('Webhook for hooks.zapier.com is on.')).toBeInTheDocument()
+    expect(await screen.findByText('Webhook 1 of 1 is on.')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('heading', { name: 'hooks.zapier.com/…/k3f9' })).toHaveFocus())
+  })
+
+  it('announcements name the position and never the address', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([
+      sub({ id: 1, url_host: 'a.example', url_display: 'a.example/…/aaaa' }),
+      sub({ id: 2, url_host: 'hooks.secret.example', url_display: 'hooks.secret.example/…/k3f9' }),
+      sub({ id: 3, url_host: 'c.example', url_display: 'c.example/…/cccc' }),
+    ])
+    m.disable.mockResolvedValue(sub({ id: 2, url_host: 'hooks.secret.example', url_display: 'hooks.secret.example/…/k3f9', enabled: false, disabled_reason: 'manual', disabled_at: minsAgo(0) }))
+    await renderTab()
+    await openDetail(user, 'hooks.secret.example')
+    const liveText = () => Array.from(document.querySelectorAll('[role="status"], [aria-live], [role="alert"]')).map((el) => el.textContent ?? '').join(' | ')
+
+    await user.click(screen.getByRole('button', { name: 'Turn off' }))
+    expect(liveText()).toMatch(/Turn off this webhook/)
+    expect(liveText()).not.toMatch(/hooks\.secret\.example/)
+
+    await user.click(screen.getByRole('button', { name: /^Confirm: Turn off this webhook/ }))
+    expect(await screen.findByText('Webhook 2 of 3 turned off.')).toBeInTheDocument()
+    expect(liveText()).not.toMatch(/hooks\.secret\.example/)
+
+    // The turn-on confirm is a live region too.
+    await user.click(screen.getByRole('button', { name: 'Turn on again' }))
+    expect(liveText()).toMatch(/Sending resumes to this address/)
+    expect(liveText()).not.toMatch(/hooks\.secret\.example/)
   })
 
   it('cursor_expired turns on from now; a server 409 swaps to it too', async () => {
@@ -495,7 +521,7 @@ describe('Webhooks tab — detail', () => {
     await user.click(screen.getByRole('button', { name: /^Confirm: Delete this webhook/ }))
     expect(m.del).toHaveBeenCalledWith(3, 1)
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Webhooks' })).toHaveFocus())
-    expect(screen.getByText('Webhook for hooks.zapier.com deleted.')).toBeInTheDocument()
+    expect(screen.getByText('Webhook 1 of 1 deleted.')).toBeInTheDocument()
   })
 
   it.each(['Turn off', 'Rotate secret…'])('Escape cancels the %s confirm', async (trigger) => {
