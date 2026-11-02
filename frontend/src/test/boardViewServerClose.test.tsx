@@ -15,8 +15,17 @@ import type { BoardContextType } from '../contexts/BoardContext'
 // Standard test infrastructure mocks (same as boardView.test.tsx)
 // ---------------------------------------------------------------------------
 
+// The DndContext mock records its drag handlers so the first-open resync test
+// (#1968) can start and end a column drag directly.
+const { dndHandlers } = vi.hoisted(() => ({
+  dndHandlers: {} as { start?: (e: unknown) => void; end?: (e: unknown) => void },
+}))
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DndContext: ({ children, onDragStart, onDragEnd }: { children: React.ReactNode; onDragStart?: (e: unknown) => void; onDragEnd?: (e: unknown) => void }) => {
+    dndHandlers.start = onDragStart
+    dndHandlers.end = onDragEnd
+    return <div>{children}</div>
+  },
   DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   MouseSensor: class { static activators = [] },
   TouchSensor: class {},
@@ -309,6 +318,19 @@ describe('BoardView first-open resync (#1968)', () => {
 
   it('re-reads when the context does not provide the fetch time', async () => {
     const ctx = await openAfter(0, { getLastFullFetchAt: undefined })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for an in-flight drag to end, then re-reads once', async () => {
+    const ctx = makeContext({ getLastFullFetchAt: () => FETCHED_AT })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { dndHandlers.start?.({ active: { id: 'col:10' } }) })
+    now.mockReturnValue(FETCHED_AT + 1500)
+    act(() => { sockets[0].onopen?.() })
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+    act(() => { dndHandlers.end?.({ active: { id: 'col:10' }, over: null }) })
     expect(ctx.silentReload).toHaveBeenCalledTimes(1)
   })
 
