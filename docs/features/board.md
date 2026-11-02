@@ -153,11 +153,12 @@ Columns represent pipeline stages. Each column has:
 - **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows `Weight weight/limit` and the header gains a 2 px amber top accent strip. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a `409` error; board admins can override with `?force=true`. Lowering a card's weight is never blocked. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
+- **Policy** (since 1.3) — the column's entry criteria and definition of done, shown from a **Policy** button in its header. See [Column Policies](column-policies.md).
 
 **Managing a column:**
 
 - Drag a column header left or right to reorder it.
-- Use the **`⋮` kebab** on its header (hover or keyboard focus): **Rename**, **Edit settings…**, **Delete column**. Double-click the column name to rename directly.
+- Use the **`⋮` kebab** on its header (hover or keyboard focus): **Rename**, **Edit settings…**, **Add policy…** (only on a column without a policy), **Delete column**. Double-click the column name to rename directly.
 - The kebab is the keyboard-accessible path; mouse users can also drag a column onto the trash zone (see *Column trash zone* below) for the same delete confirmation.
 
 ### Adding columns and swimlanes

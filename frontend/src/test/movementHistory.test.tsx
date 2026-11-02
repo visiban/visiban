@@ -22,8 +22,8 @@ const mockBoard: BoardFull = {
   group: null,
   group_name: null,
   columns: [
-    { id: 1, uid: 'c1', name: 'To Do', position: 0, color: '#6B7280', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-    { id: 2, uid: 'c2', name: 'Done', position: 1, color: '#22C55E', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: true },
+    { id: 1, uid: 'c1', name: 'To Do', position: 0, color: '#6B7280', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+    { id: 2, uid: 'c2', name: 'Done', position: 1, color: '#22C55E', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: true, policy: null },
   ],
   swimlanes: [
     { id: 1, uid: 's1', name: 'Customer A', position: 0, color: '#3B82F6', is_collapsed: false, created_at: '2024-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },

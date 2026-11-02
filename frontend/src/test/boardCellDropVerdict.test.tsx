@@ -22,7 +22,7 @@ vi.mock('@dnd-kit/sortable', () => ({
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
 
-const column: Column = { id: 10, uid: 'c10', name: 'Ready', position: 0, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }
+const column: Column = { id: 10, uid: 'c10', name: 'Ready', position: 0, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }
 const swimlane: Swimlane = { id: 20, uid: 's20', name: 'Payouts', position: 0, color: '#000000', is_collapsed: false, created_at: '', wip_limit: 5, weight_limit: null, limit_enforcement: null, limit_column_ids: null }
 
 const tripped = (mode: 'hard' | 'block'): TrippedLimit => ({ scope: 'swimlane', kind: 'wip', mode, name: 'Payouts', current: 5, limit: 5, cardWeight: 1 })
@@ -79,5 +79,41 @@ describe('BoardCell drop verdict (#1150)', () => {
     renderCell(verdict)
     expect(verdict).not.toHaveBeenCalled()
     dnd.active = { id: '7' }
+  })
+})
+
+describe('BoardCell entry criteria drop message (#1101)', () => {
+  const renderWithCriteria = (
+    getEntryCriteria: (cardId: number, col: Column) => string[],
+    getDropVerdict?: (cardId: number) => TrippedLimit[],
+  ) => render(
+    <BoardCell
+      column={column} swimlane={swimlane} cards={[]} boardId={1} canEdit closeEditorOnEnter={false}
+      filteredCardIds={null} selectedCardIds={new Set()} onToggleCardSelection={vi.fn()}
+      onCardClick={vi.fn()} onCardAdded={vi.fn()}
+      getDropVerdict={getDropVerdict} getEntryCriteria={getEntryCriteria}
+    />,
+  )
+
+  it('lists the entry criteria while a card is over the cell', () => {
+    const criteria = vi.fn(() => ['Has an owner', 'Tests pass'])
+    renderWithCriteria(criteria, () => [])
+    expect(criteria).toHaveBeenCalledWith(7, column)
+    const pill = screen.getByTestId('cell-drop-entry-criteria')
+    expect(pill).toHaveTextContent('Entry: Has an owner · Tests pass')
+    // The drag live region reads them; the pill is visual only.
+    expect(pill).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('a blocked cell shows only its verdict', () => {
+    const criteria = vi.fn(() => ['Has an owner'])
+    renderWithCriteria(criteria, () => [tripped('block')])
+    expect(screen.queryByTestId('cell-drop-entry-criteria')).not.toBeInTheDocument()
+    expect(screen.getByTestId('cell-drop-blocked')).toBeInTheDocument()
+  })
+
+  it('shows nothing for a column without criteria', () => {
+    renderWithCriteria(() => [], () => [])
+    expect(screen.queryByTestId('cell-drop-entry-criteria')).not.toBeInTheDocument()
   })
 })

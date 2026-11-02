@@ -39,7 +39,9 @@ Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` 
 
 **Grid overlays** shade each cell by card count, without hiding or resizing anything, so you can spot hot spots at a glance.
 
-→ [Board & Cards](board.md) · [Grid overlays](board.md#grid-overlays)
+**Column policies** (1.3+) write down each column's entry criteria and definition of done, shown from the column header, while you drag, and in card detail.
+
+→ [Board & Cards](board.md) · [Grid overlays](board.md#grid-overlays) · [Column Policies](column-policies.md)
 
 ---
 

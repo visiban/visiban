@@ -293,6 +293,21 @@ export interface Column {
   weight_limit: number | null;
   allow_card_creation: boolean;
   is_done: boolean;
+  /** Explicit column policy (#1101), or null for none. Advisory: the server
+   *  never refuses a move for it. */
+  policy: ColumnPolicy | null;
+}
+
+/** How a column policy's entry criteria are used on a move into the column. */
+export type ColumnPolicyMode = "advisory" | "confirm";
+
+/** `Column.policy` (#1101): the versioned shape the serializer validates.
+ *  At most 8 criteria per list, each at most 200 characters. */
+export interface ColumnPolicy {
+  v: 1;
+  entry: string[];
+  done: string[];
+  mode: ColumnPolicyMode;
 }
 
 export interface Swimlane {

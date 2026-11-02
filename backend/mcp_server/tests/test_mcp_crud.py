@@ -95,11 +95,22 @@ class ListColumnsTests(CrudToolsTestCase):
         self.assertEqual([c["name"] for c in result], ["Backlog", "Doing"])
         backlog = result[0]
         self.assertEqual(
-            set(backlog), {"id", "uid", "name", "position", "color", "wip_limit", "card_count"},
+            set(backlog),
+            {"id", "uid", "name", "position", "color", "wip_limit", "policy", "card_count"},
         )
         self.assertEqual(backlog["card_count"], 1)  # archived card excluded
         self.assertEqual(backlog["id"], self.column.id)
         self.assertEqual(backlog["uid"], self.column.uid)  # #1974
+        self.assertIsNone(backlog["policy"])
+
+    def test_returns_the_column_policy(self):
+        # #1101: an agent that moves cards can read the written policy.
+        policy = {"v": 1, "entry": ["Has an owner"], "done": ["Reviewed"], "mode": "confirm"}
+        self.column.policy = policy
+        self.column.save(update_fields=["policy"])
+        result = self._call("list_columns", self.raw_token, board_id=self.board.id)
+        row = next(r for r in result if r["id"] == self.column.id)
+        self.assertEqual(row["policy"], policy)
 
     def test_every_role_may_call_list_columns(self):
         for role in BoardMembership.Role.values:

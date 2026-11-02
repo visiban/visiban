@@ -1,7 +1,7 @@
 import type { MoveOutcome } from '../hooks/useBoard'
 import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
@@ -107,7 +107,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
-    columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }],
+    columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
     swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null }],
     cards: [], labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
@@ -1560,8 +1560,8 @@ describe('CardDetail', () => {
     function makeBoardWithTwoCols(): BoardFull {
       return makeBoard({
         columns: [
-          { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-          { id: 11, uid: 'coluid000002', name: 'In Progress', position: 1, color: '#F59E0B', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+          { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+          { id: 11, uid: 'coluid000002', name: 'In Progress', position: 1, color: '#F59E0B', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
         ],
         swimlanes: [
           { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
@@ -3547,5 +3547,44 @@ describe('CardDetail — a stale save response does not regress the panel (#1969
     fireEvent.blur(title)
     await waitFor(() => expect(props.onUpdated).toHaveBeenCalledWith(expect.objectContaining({ version: 2 })))
     expect(screen.getByDisplayValue('Saved')).toBeInTheDocument()
+  })
+})
+
+describe('CardDetail — definition of done (#1101)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUpdateCard.mockImplementation((_boardId: number, _cardId: number, patch: Record<string, unknown>) =>
+      Promise.resolve({ ...makeCard(), ...patch })
+    )
+  })
+
+  const withPolicy = (done: string[]) => makeBoard({
+    columns: [{
+      id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null,
+      allow_card_creation: true, is_done: false,
+      policy: { v: 1, entry: ['Has an owner'], done, mode: 'confirm' },
+    }],
+  })
+
+  it("lists the current column's definition of done, display-only", () => {
+    render(<CardDetail {...defaultProps()} board={withPolicy(['Reviewed', 'Docs updated'])} />)
+    const section = screen.getByRole('region', { name: 'Definition of done · To Do' })
+    expect(within(section).getByText('Reviewed')).toBeInTheDocument()
+    expect(within(section).getByText('Docs updated')).toBeInTheDocument()
+    expect(within(section).getByText('For reference. It never blocks moving the card on.')).toBeInTheDocument()
+    // Display-only: nothing to tick.
+    expect(within(section).queryByRole('checkbox')).not.toBeInTheDocument()
+    // Entry criteria are not shown here.
+    expect(within(section).queryByText('Has an owner')).not.toBeInTheDocument()
+  })
+
+  it('omits the section when the column has no done criteria', () => {
+    render(<CardDetail {...defaultProps()} board={withPolicy([])} />)
+    expect(screen.queryByText(/Definition of done/)).not.toBeInTheDocument()
+  })
+
+  it('omits the section when the column has no policy', () => {
+    render(<CardDetail {...defaultProps()} />)
+    expect(screen.queryByText(/Definition of done/)).not.toBeInTheDocument()
   })
 })

@@ -143,6 +143,7 @@ const col = (
   weight_limit: null,
   allow_card_creation: true,
   is_done: false,
+  policy: null,
   ...extra,
 })
 

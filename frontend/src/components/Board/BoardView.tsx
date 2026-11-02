@@ -26,6 +26,8 @@ import { SortableContext, horizontalListSortingStrategy, verticalListSortingStra
 import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { placementVerdict, trippedLimitSentence } from "../../utils/placementLimits";
+import { entryCriteriaFor, entryCriteriaSentence, needsEntryConfirm } from "../../utils/columnPolicy";
+import PolicyConfirmModal from "./PolicyConfirmModal";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
@@ -1066,6 +1068,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return () => window.clearTimeout(timer);
   }, [foldToolbarControls, overflowSeen, markOverflowSeen]);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
+  // A drop into a confirm-on-entry column waiting on its checklist (#1101).
+  const [pendingPolicyMove, setPendingPolicyMove] = useState<{
+    cardId: number; columnId: number; swimlaneId: number; position: number;
+  } | null>(null);
   // Name-typed confirmation input for column delete (#965). Only required when the
   // column has cards — empty columns keep the simple Cancel/Delete flow. Reset on
   // every open/close of the dialog.
@@ -1642,6 +1648,45 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     [board],
   );
 
+  // Entry criteria a dragged card would meet in *column* (#1101): none when it
+  // is already there. Stable per board so the memoized cells don't re-render.
+  const getEntryCriteria = useCallback(
+    (cardId: number, column: Column) => {
+      const card = board.cards.find((c) => c.id === cardId);
+      return card ? entryCriteriaFor(card, column) : [];
+    },
+    [board.cards],
+  );
+
+  // Send a drag-and-drop move and announce its outcome once known. Shared by
+  // a plain drop and a drop confirmed through the entry checklist (#1101).
+  const commitCardMove = (card: Card, targetColumnId: number, targetSwimlaneId: number, position: number) => {
+    const targetCol = board.columns.find((c) => c.id === targetColumnId);
+    const targetSwim = board.swimlanes.find((s) => s.id === targetSwimlaneId);
+    // onMoveCard (useBoard.moveCard) does its own optimistic update, rollback,
+    // and visible error surfacing (moveError) on failure and never rejects. Only
+    // announce the outcome once known: announcing "moved" up front told screen
+    // reader users a failed move had succeeded (#1761).
+    void Promise.resolve(onMoveCard(card.id, targetColumnId, targetSwimlaneId, position)).then((outcome) => {
+      if (outcome && outcome.ok === false) {
+        // The move_failed / limit toast is role="alert" and already announces the
+        // cause; blank this status region so the failure is read once (#1761).
+        setDndAnnouncement("");
+      } else if (targetCol && targetSwim) {
+        setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}', swimlane '${targetSwim.name}'`);
+      }
+    });
+  };
+
+  // Focus returns to the moved card after the checklist closes either way
+  // (#1101). After the modal's own focus restore, which only acts when focus
+  // would otherwise be lost.
+  const focusCardSoon = (cardId: number) => {
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`)?.focus();
+    });
+  };
+
   const handleDragStart = (e: DragStartEvent) => {
     clearSelection();
     const id = String(e.active.id);
@@ -1673,12 +1718,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // (5/5), admins can override."
     const cardId = Number(e.active.id);
     const verdict = Number.isNaN(cardId) ? [] : getDropVerdict(cardId, col, swim);
-    const suffix = verdict.length > 0 ? `. ${verdict.map(trippedLimitSentence).join(" ")}` : "";
+    // Entry criteria (#1101) are read only when no limit blocks the drop: a
+    // blocked move is refused before anyone would check them.
+    const criteria = verdict.length > 0 || Number.isNaN(cardId) ? [] : getEntryCriteria(cardId, col);
+    const suffix = verdict.length > 0
+      ? `. ${verdict.map(trippedLimitSentence).join(" ")}`
+      : criteria.length > 0 ? `. ${entryCriteriaSentence(col.name, criteria)}` : "";
     // The throttle keeps a fast pointer drag from flooding the live region,
     // but it must never swallow a blocked cell's verdict, which is the only
     // non-visual carrier of the drop ring: a cell with a verdict always
-    // announces (ux-review on #1150).
-    if (dndHoverThrottleRef.current && verdict.length === 0) return;
+    // announces (ux-review on #1150). Entry criteria are the only non-visual
+    // carrier of the drop message the same way (#1101).
+    if (dndHoverThrottleRef.current && verdict.length === 0 && criteria.length === 0) return;
     if (dndHoverThrottleRef.current) clearTimeout(dndHoverThrottleRef.current);
     dndHoverThrottleRef.current = setTimeout(() => {
       dndHoverThrottleRef.current = null;
@@ -1768,19 +1819,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       .filter((c) => c.column === targetColumnId && c.swimlane === targetSwimlaneId && c.id !== cardId)
       .sort((a, b) => a.position - b.position);
 
-    // onMoveCard (useBoard.moveCard) does its own optimistic update, rollback,
-    // and visible error surfacing (moveError) on failure and never rejects. Only
-    // announce the outcome once known: announcing "moved" up front told screen
-    // reader users a failed move had succeeded (#1761).
-    void Promise.resolve(onMoveCard(cardId, targetColumnId, targetSwimlaneId, siblings.length)).then((outcome) => {
-      if (outcome && outcome.ok === false) {
-        // The move_failed / limit toast is role="alert" and already announces the
-        // cause; blank this status region so the failure is read once (#1761).
-        setDndAnnouncement("");
-      } else if (targetCol && targetSwim) {
-        setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}', swimlane '${targetSwim.name}'`);
-      }
-    });
+    // Confirm on entry (#1101): hold the move for the checklist. A limit block
+    // wins, in the same order the server applies: when the drop would trip a
+    // limit, send it as is so the refusal raises MoveBlockedToast, and open
+    // no checklist for a move that will not happen.
+    if (
+      targetCol && targetSwim && needsEntryConfirm(card, targetCol)
+      && getDropVerdict(cardId, targetCol, targetSwim).length === 0
+    ) {
+      setPendingPolicyMove({ cardId, columnId: targetColumnId, swimlaneId: targetSwimlaneId, position: siblings.length });
+      return;
+    }
+
+    commitCardMove(card, targetColumnId, targetSwimlaneId, siblings.length);
   };
 
   const activeCount = countActiveFilters(effectiveFilters);
@@ -2592,6 +2643,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       limitFlags={board}
                       showWipAtLimit={board.show_wip_at_limit}
                       getDropVerdict={getDropVerdict}
+                      getEntryCriteria={getEntryCriteria}
                     />
                   </React.Fragment>
                 ));
@@ -2817,6 +2869,35 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           }}
         />
       )}
+
+      {pendingPolicyMove && (() => {
+        const { cardId, columnId, swimlaneId, position } = pendingPolicyMove;
+        const card = board.cards.find((c) => c.id === cardId);
+        const target = board.columns.find((c) => c.id === columnId);
+        const source = card ? board.columns.find((c) => c.id === card.column) : undefined;
+        // The card or column went away (another user, over the socket) while
+        // the checklist was open: nothing left to confirm.
+        if (!card || !target || !source) return null;
+        return (
+          <PolicyConfirmModal
+            key={`${cardId}:${columnId}`}
+            cardTitle={card.title}
+            targetColumnName={target.name}
+            sourceColumnName={source.name}
+            criteria={entryCriteriaFor(card, target)}
+            onConfirm={() => {
+              setPendingPolicyMove(null);
+              commitCardMove(card, columnId, swimlaneId, position);
+              focusCardSoon(cardId);
+            }}
+            onCancel={() => {
+              setPendingPolicyMove(null);
+              setDndAnnouncement(`Move canceled, card '${card.title}' stays in column '${source.name}'`);
+              focusCardSoon(cardId);
+            }}
+          />
+        );
+      })()}
 
       {confirmDeleteColumn && (() => {
         const cardCount = board.cards.filter((c) => c.column === confirmDeleteColumn.id).length;

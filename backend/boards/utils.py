@@ -41,6 +41,7 @@ def create_template_columns(board, template):
     and the two silently drifted from what GET /boards/templates/ listed
     (#1115).
     """
+    from .column_policy import policy_or_none
     from .models import Column
 
     if not template or not template.columns_json:
@@ -60,6 +61,10 @@ def create_template_columns(board, template):
             color=col.get("color") or "#6B7280",
             allow_card_creation=(i == 0),
             is_done=bool(col.get("is_done", False)),
+            # Explicit column policy (#1101). policy_or_none, not the
+            # raising validator: a malformed provider-supplied policy yields
+            # a column with no policy rather than a failed board creation.
+            policy=policy_or_none(col.get("policy")),
         )
         for i, col in enumerate(template.columns_json)
     ])

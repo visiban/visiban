@@ -46,6 +46,18 @@ COLUMN_WEIGHT_LIMIT = (
     "Lowering a weight is never blocked. Board import is not checked."
 )
 
+COLUMN_POLICY = (
+    "Enforcement: advisory -- the column's written policy (#1101): "
+    '{"v": 1, "entry": [...], "done": [...], "mode": "advisory" | "confirm"}, '
+    "or null for none. entry and done hold up to 8 criteria each, every one a "
+    "non-blank string of at most 200 characters; unknown keys are rejected, "
+    "and a policy with both lists empty is stored as null. No card write is "
+    "ever rejected because of it: mode \"confirm\" only asks the web client to "
+    "have the mover tick the entry criteria before a drag-and-drop move into "
+    "the column, and API, MCP and import moves never see it. The definition "
+    "of done is shown in card detail and never blocks moving a card out."
+)
+
 # -- Swimlane (#1150) --------------------------------------------------------
 
 SWIMLANE_WIP_LIMIT = (

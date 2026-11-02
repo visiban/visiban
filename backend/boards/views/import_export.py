@@ -43,6 +43,7 @@ from ..models import (
     SwimlaneCustomFieldValue,
 )
 from .. import broadcast as _broadcast
+from ..column_policy import PolicyError, normalize_policy
 from ..custom_field_types import parse_multi_select
 from ..services.date_shift import shift_board_dates
 from ..permissions import SITE_ADMIN
@@ -766,6 +767,15 @@ def _limit_columns_error(value):
     return None
 
 
+def _policy_error(value):
+    """A column ``policy`` (#1101): null or the v1 shape, same rules as the API."""
+    try:
+        normalize_policy(value)
+    except PolicyError as exc:
+        return f"is invalid: {exc}"
+    return None
+
+
 def _bounded_text(value, limit=_IMPORT_ECHO_MAX):
     """A value for an error message: strings unquoted, both bounded."""
     if isinstance(value, str):
@@ -840,6 +850,8 @@ def _validate_json_import_values(data):
         ("weight_limit", _nullable_int_error),
         ("allow_card_creation", _bool_error),
         ("is_done", _bool_error),
+        # Explicit column policy (#1101), validated like a REST write.
+        ("policy", _policy_error),
     )
     swimlane_specs = (
         ("name", _text(_field_max_length(Swimlane, "name"))),
@@ -1719,6 +1731,9 @@ class BoardImportExportMixin:
                     weight_limit=col.get("weight_limit"),
                     allow_card_creation=col.get("allow_card_creation", i == 0),
                     is_done=col.get("is_done", False),
+                    # Already validated by _policy_error; normalized here so
+                    # an import stores what a REST write would (#1101).
+                    policy=normalize_policy(col.get("policy")),
                 )
                 for i, col in enumerate(col_data)
             ])
@@ -3145,6 +3160,7 @@ class BoardImportExportMixin:
                         "weight_limit": col.weight_limit,
                         "allow_card_creation": col.allow_card_creation,
                         "is_done": col.is_done,
+                        "policy": col.policy,
                     }
                     for col in columns
                 ],
