@@ -43,17 +43,20 @@ The board change feed (#1816)
 ``BoardEvent`` rows store each broadcast payload verbatim, so the same card
 content survives there: ``card.created``, ``card.updated`` and
 ``card.unarchived`` hold the whole card, and ``card.moved`` holds it under
-``card`` plus the movement's ``card_title`` and ``notes``. Erasing movements
-without these would leave the title readable to every board member through
-``GET /boards/{id}/events/``. The same selector therefore also **redacts** the
+``card`` plus the movement's ``card_title`` and ``notes``. Since #1149 the card
+carries its block's free-text ``blocked_reason``, and blocking publishes
+``card.updated``, so the feed holds what the deleted ``CardBlock`` row held
+(the ``resolution`` is on no card payload, so it is only ever in that row).
+Erasing history without these would leave the text readable to every board
+member through ``GET /boards/{id}/events/``. The same selector therefore also **redacts** the
 matching feed rows, in the same transaction and the same audit entry:
 
 - **Redact, not delete.** A feed consumer pages by an id cursor, so a deleted
   row is an unexplained gap; and the event contract (CLAUDE.md) never removes a
   payload key. The content values become ``null`` (``title``,
-  ``description``, each custom field entry's ``value``, ``external_ref``'s
-  ``ref`` and ``url``, and the movement's ``card_title`` and ``notes``), every
-  key stays, and the row's ``redacted_at`` says when. Card ``uid``, ids,
+  ``description``, ``blocked_reason``, each custom field entry's ``value``,
+  ``external_ref``'s ``ref`` and ``url``, and the movement's ``card_title`` and
+  ``notes``), every key stays, and the row's ``redacted_at`` says when. Card ``uid``, ids,
   positions, labels, columns and swimlanes are structure, not content, and are
   kept, which is also what lets a re-run find the same rows (already-redacted
   rows are skipped).
@@ -67,9 +70,9 @@ matching feed rows, in the same transaction and the same audit entry:
 
   - rows the MCP tools wrote in 1.2 pre-releases carry no uid, only the
     integer card id, and are matched on that id (``_select_events``);
-  - ``--board`` also follows the cards its movement rows select onto other
-    boards, since a card moved between boards in the Django admin takes its
-    movements along but leaves its feed rows on the old board.
+  - ``--board`` also follows the cards its movement and block rows select
+    onto other boards, since a card moved between boards in the Django admin
+    takes those rows along but leaves its feed rows on the old board.
 - **Filtered in the database.** The feed table grows without bound on a
   default install, so rows are never loaded to be tested in Python: ``--board``
   and the date bounds use the table's ``(board_id, id)`` and ``created_at``
@@ -117,8 +120,10 @@ _CARD_PAYLOAD_EVENTS = (
 )
 # Every feed event type whose payload embeds card content.
 _CARD_CONTENT_EVENTS = _CARD_PAYLOAD_EVENTS + (_broadcast.EVT_CARD_MOVED,)
-# Card keys whose values are the card's own content.
-_CARD_CONTENT_KEYS = ("title", "description")
+# Card keys whose values are the card's own content. ``blocked_reason`` (#1149)
+# is the free text of the block the purge deletes; ``is_blocked`` and
+# ``blocked_at`` say only that and when, like a position or a due date, and stay.
+_CARD_CONTENT_KEYS = ("title", "description", "blocked_reason")
 # Keys of the card's ``external_ref`` object ({provider, ref, url}) that
 # identify the linked work; ``provider`` is an enum and is kept, like a custom
 # field entry's ``field_definition``.
@@ -343,7 +348,7 @@ class Command(BaseCommand):
 
         scope = "movement row(s)" + ("" if include_live else " of deleted cards")
         events, uidless = self._select_events(
-            rows=rows, card_uid=card_uid, board=board, since=since, before=before,
+            rows=rows, blocks=blocks, card_uid=card_uid, board=board, since=since, before=before,
             include_live=include_live,
         )
 
@@ -494,11 +499,11 @@ class Command(BaseCommand):
         live = set(Card.objects.filter(pk__in=ids).values_list("pk", flat=True))
         return set(ids) - live
 
-    def _select_events(self, *, rows, card_uid, board, since, before, include_live):
+    def _select_events(self, *, rows, blocks, card_uid, board, since, before, include_live):
         """The feed rows to redact, and how many in-scope rows stay unmatchable.
 
-        Returns ``(events, unmatchable)``. Must run before ``rows`` is deleted:
-        ``--board`` reads the selected cards off the movement rows.
+        Returns ``(events, unmatchable)``. Must run before ``rows`` and
+        ``blocks`` are deleted: ``--board`` reads the selected cards off them.
 
         Rows are matched on the card uid in the payload. Rows written by the
         MCP tools in 1.2 pre-releases (before #1926) carry no uid but do carry
@@ -560,31 +565,38 @@ class Command(BaseCommand):
         if board is None:
             return dated.filter(q).order_by("pk"), unmatchable
 
-        # --board selects cards through their movement rows, and a card moved
-        # to another board in the Django admin takes its movements with it
+        # --board selects cards through their movement and block rows, and a
+        # card moved to another board in the Django admin takes both with it
         # (BoardEvent rows keep the board they were written on). Follow the
-        # selected cards' rows onto every board, so the movement delete and
-        # the feed redaction always cover the same cards.
-        uids = {
-            uid for uid in rows.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
-            .values_list("_uid", flat=True).distinct()
-            if uid
-        }
-        # A live card's id is on its movement row; only deleted cards' ids
-        # need the feed lookup, so a run selecting none skips that scan.
-        deleted_uids = {
-            uid for uid in rows.filter(card__isnull=True)
-            .values_list("card_uid", flat=True).distinct()
-            if uid
-        }
-        ids = set(
-            rows.filter(card__isnull=False).values_list("card_id", flat=True).distinct()
-        ) | self._without_live_ids(self._card_ids_for_uids(deleted_uids))
+        # selected cards' rows onto every board, so the deletes and the feed
+        # redaction always cover the same cards. Blocks count on their own: a
+        # card can have a block row in scope and no movement row (a 1.2 purge
+        # removed its movements, or a date range selects only the block).
+        uids = set()
+        deleted_uids = set()
+        ids = set()
+        for history in (rows, blocks):
+            uids.update(
+                uid for uid in history.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
+                .values_list("_uid", flat=True).distinct()
+                if uid
+            )
+            # A live card's id is on its history row; only deleted cards' ids
+            # need the feed lookup, so a run selecting none skips that scan.
+            deleted_uids.update(
+                uid for uid in history.filter(card__isnull=True)
+                .values_list("card_uid", flat=True).distinct()
+                if uid
+            )
+            ids.update(
+                history.filter(card__isnull=False).values_list("card_id", flat=True).distinct()
+            )
+        ids |= self._without_live_ids(self._card_ids_for_uids(deleted_uids))
         followed = Q(pk__in=[])
         if uids:
             uid_q = Q(_card_uid__in=list(uids))
             if not include_live:
-                # Belt and braces: the movement rows are deleted-only here, so
+                # Belt and braces: the history rows are deleted-only here, so
                 # no uid should be live, but a live card's rows must never be
                 # redacted without --include-live-cards.
                 uid_q &= ~Exists(Card.objects.filter(uid=OuterRef("_card_uid")))

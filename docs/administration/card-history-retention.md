@@ -34,7 +34,7 @@ See [Card History](../features/card-history.md#deleted-cards-keep-their-history)
 
 **Watch out:** `purge_card_history` erases movement records and, since 1.3, block records, and redacts the card's change-feed events (see [What the purge redacts in the change feed](#what-the-purge-redacts-in-the-change-feed)). A deleted card's title can also remain in the places below.
 
-- **The board [change feed](../api/events.md)** (`GET /api/v1/boards/{id}/events/`), when you have not purged the card. Each event stores its broadcast payload verbatim. `card.created`, `card.updated` and `card.unarchived` events, and the `card` object inside `card.moved`, hold the full card as it was at that moment: title, description, custom field values and external reference; `card.moved` also holds the movement's notes. Deleting a card does not remove or redact these events. They are not tied to the board by a foreign key either, so deleting the board does not remove them. Only a `purge_card_history` run or the [`prune_board_events`](scheduled-jobs.md) job changes them. The job deletes events older than its retention window (30 days by default) and is **off** by default (`SCHEDULE_PRUNE_BOARD_EVENTS`). Unless you enable it or run the command yourself, events are kept forever.
+- **The board [change feed](../api/events.md)** (`GET /api/v1/boards/{id}/events/`), when you have not purged the card. Each event stores its broadcast payload verbatim. `card.created`, `card.updated` and `card.unarchived` events, and the `card` object inside `card.moved`, hold the full card as it was at that moment: title, description, block reason, custom field values and external reference; `card.moved` also holds the movement's notes. Deleting a card does not remove or redact these events. They are not tied to the board by a foreign key either, so deleting the board does not remove them. Only a `purge_card_history` run or the [`prune_board_events`](scheduled-jobs.md) job changes them. The job deletes events older than its retention window (30 days by default) and is **off** by default (`SCHEDULE_PRUNE_BOARD_EVENTS`). Unless you enable it or run the command yourself, events are kept forever.
 - **The Django admin log** (`django_admin_log`). Any change made to a card in the Django admin, including deleting it there, records the card's title (`object_repr`) in the admin's own history. Visiban does not prune this table.
 - **Attachment files** in media storage. Since 1.2, deleting a card, its column, its swimlane or its board, or deleting it in the Django admin, removes its attachment files after the delete commits. Files from deletes made before upgrading, or whose removal failed (for example, storage was down at the time), stay until you run [`purge_orphaned_attachments`](media-security.md#removing-orphaned-attachment-files). Deleting a user does not remove their uploads: the file stays with its card.
 - **Copies outside the instance:** notification emails already sent, deliveries to installed extensions, board exports downloaded before the card was deleted, and any copies made of them.
@@ -66,7 +66,7 @@ On Kubernetes, run the same command with `kubectl exec` in a backend pod.
 | `--include-live-cards` | Also delete matching history, and redact matching change-feed events, of cards that still exist. Needs `--card` or `--board`. |
 | `--yes` | Delete and redact. Without it the command only reports what would be deleted and redacted. |
 
-Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (`deleted_count` is movements, `deleted_block_count` blocks, since 1.3).
+Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (`deleted_count` is movements, `deleted_block_count` blocks and `redacted_event_count` change-feed events, both since 1.3).
 
 Dates are `YYYY-MM-DD` (midnight UTC at the start of that day) or an ISO 8601 datetime (UTC when it has no offset). `--since 2026-03-01 --before 2026-04-01` covers exactly March.
 
@@ -91,21 +91,21 @@ Finding the card UID: a deleted card's UID is shown in the Django admin's **Card
 
 > **Added in 1.3** (#1816)
 
-The selector that picks movement records also picks the card's [change-feed](../api/events.md) events. The command **redacts** these events rather than deleting them: a feed consumer reads by an ID cursor, and a removed event would leave a gap it cannot explain.
+The selector that picks movement and block records also picks the card's [change-feed](../api/events.md) events. The command **redacts** these events rather than deleting them: a feed consumer reads by an ID cursor, and a removed event would leave a gap it cannot explain.
 
 **What changes:** in each matching `card.created`, `card.updated`, `card.unarchived` and `card.moved` event, the card's content values become `null`:
 
-- the card's `title` and `description`;
+- the card's `title`, `description` and `blocked_reason` (the free-text reason of a manual block, since 1.3);
 - the `value` of each `custom_field_values` entry (the entry and its `field_definition` stay);
 - the `ref` and `url` of `external_ref` (`provider` stays);
 - in `card.moved`, the movement's `card_title` and `notes`, and the same card fields inside `card`.
 
-**What stays:** every key; the card's `uid` and `id`, column, swimlane, position, labels, priority, due date and weight; its assignee and creator; in `card.moved`, the movement's columns, swimlanes, mover and time; and the event's ID, type, actor and time. The event's `redacted_at` field shows when it was redacted. `card.deleted` and `card.archived` events carry only the card UID and are not changed.
+**What stays:** every key; the card's `uid` and `id`, column, swimlane, position, labels, priority, due date and weight; its `is_blocked` and `blocked_at`; its assignee and creator; in `card.moved`, the movement's columns, swimlanes, mover and time; and the event's ID, type, actor and time. The event's `redacted_at` field shows when it was redacted. `card.deleted` and `card.archived` events carry only the card UID and are not changed. A block's `resolution` is never in an event; it is only in the block record, which the purge deletes.
 
 How the selector applies to events:
 
-- **`--card`** matches the card UID recorded in the event, on every board. With `--board`, it matches that card only if it has movement records on that board, and then its events on every board (see `--board` below).
-- **`--board`** matches the board the event was recorded on. It also matches, on any board, the events of every card whose movement records it selects. A card moved to another board in the Django admin keeps its earlier events on the old board, and these are redacted with it. A card whose movement records an earlier purge already deleted is not followed this way; use `--card` for it.
+- **`--card`** matches the card UID recorded in the event, on every board. With `--board`, it matches that card's events on that board, and on other boards only if it has movement or block records on that board (see `--board` below).
+- **`--board`** matches the board the event was recorded on. It also matches, on any board, the events of every card whose movement or block records it selects. A card moved to another board in the Django admin keeps its earlier events on the old board, and these are redacted with it. A card whose movement and block records an earlier purge already deleted is not followed this way; use `--card` for it.
 - **`--since` and `--before`** match the time the event was recorded, not the time of a movement.
 - **Deleted cards only, by default.** Without `--include-live-cards`, an event matches only when no card with its UID (or, for the events described below, its ID) exists.
 - **Events match on their own.** A card whose movement records an earlier run already deleted, for example a purge made with 1.2, still has its events redacted when you run the command for it again. An event already redacted is skipped, so re-running a purge changes nothing and records nothing.

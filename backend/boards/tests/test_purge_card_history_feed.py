@@ -33,7 +33,9 @@ from rest_framework.test import APIClient
 
 from accounts.models import AdminActionLog, User
 from boards.management.commands.purge_card_history import redact_card_event_payload
-from boards.models import BoardEvent, BoardMembership, Card, CardMovement, CustomFieldDefinition
+from boards.models import (
+    BoardEvent, BoardMembership, Card, CardBlock, CardMovement, CustomFieldDefinition,
+)
 from boards.tests.conftest import (
     _make_board, _make_column, _make_membership, _make_swimlane, _make_user,
 )
@@ -48,6 +50,9 @@ SECRET_URL = "https://gitlab.example.com/acme/secret-repo/-/merge_requests/1816"
 SECRETS = (SECRET_TITLE, SECRET_TITLE_2, SECRET_DESC, SECRET_NOTE, SECRET_VALUE, SECRET_REF, SECRET_URL)
 
 CONTENT_EVENTS = {"card.created", "card.updated", "card.unarchived", "card.moved"}
+
+SECRET_REASON = "waiting on acquisition legal 1816"
+SECRET_RESOLUTION = "legal cleared the deal 1816"
 
 
 def _utc(*args):
@@ -573,6 +578,179 @@ class DryRunAuditAndRollbackTests(FeedRedactionBase):
         self.assertEqual(len(large.captured_queries), len(small.captured_queries))
 
 
+class BlockedStateTests(FeedRedactionBase):
+    """The block reason (#1149) is card content like the title.
+
+    ``card.updated`` from a block, and every later card payload while the card
+    stays blocked, hold ``blocked_reason``. ``CardBlock`` holds the same text,
+    so deleting that row and leaving the event would not erase it.
+    """
+
+    def _blocked_card(self, board):
+        """Create and block a card via REST; move, archive and restore it while blocked.
+
+        Returns ``(id, uid)``. The card is still blocked, so every event type
+        that renders the whole card has been written with the reason in it.
+        """
+        todo, done = self._cols(board)
+        lane = board.swimlanes.get()
+        resp = self.client.post(
+            self._base(board), {"column": todo.pk, "swimlane": lane.pk, "title": SECRET_TITLE},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        card_id, uid = resp.json()["id"], resp.json()["uid"]
+        url = f"{self._base(board)}{card_id}/"
+        resp = self.client.post(f"{url}block/", {"reason": SECRET_REASON}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        resp = self.client.post(
+            f"{url}move/", {"column_id": done.pk, "swimlane_id": lane.pk, "position": 0},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        for action in ("archive", "unarchive"):
+            resp = self.client.post(f"{url}{action}/")
+            self.assertIn(resp.status_code, (200, 204), resp.content)
+        return card_id, uid
+
+    def _unblock_and_delete(self, board, card_id):
+        url = f"{self._base(board)}{card_id}/"
+        resp = self.client.post(f"{url}unblock/", {"resolution": SECRET_RESOLUTION}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self.client.delete(url).status_code, 204)
+
+    def test_reason_is_redacted_from_every_event_that_carries_it(self):
+        card_id, uid = self._blocked_card(self.board)
+        self._unblock_and_delete(self.board, card_id)
+        rows = [r for r in self._rows(uid) if r.event in CONTENT_EVENTS]
+        carrying = {r.event for r in rows if SECRET_REASON in repr(r.data)}
+        # Pins the premise: if a writer stops or starts carrying the text,
+        # this test should be re-read rather than pass for the wrong reason.
+        self.assertEqual(carrying, {"card.updated", "card.moved", "card.unarchived"})
+        self.assertNotIn(SECRET_RESOLUTION, repr(list(BoardEvent.objects.values_list("data", flat=True))))
+        shapes = {r.pk: _key_shape(r.data) for r in rows}
+
+        out = self._run("--card", uid, "--yes")
+
+        self.assertIn("and 1 block row(s)", out)
+        self.assertFalse(CardBlock.objects.filter(card_uid=uid).exists())
+        for row in BoardEvent.objects.order_by("pk"):
+            self.assertNotIn(SECRET_REASON, repr(row.data))
+            self.assertNotIn(SECRET_RESOLUTION, repr(row.data))
+        blocked_rows = 0
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual(_key_shape(row.data), shapes[row.pk])
+            card = row.data["card"] if row.event == "card.moved" else row.data
+            self.assertIsNone(card["blocked_reason"])
+            # Only the text is content: that it was blocked, and when, stays.
+            if card["blocked_at"] is not None:
+                blocked_rows += 1
+                self.assertTrue(card["is_blocked"])
+        self.assertGreaterEqual(blocked_rows, 3)
+        entry = AdminActionLog.objects.get(action=AdminActionLog.Action.CARD_HISTORY_PURGED)
+        self.assertEqual(entry.metadata["deleted_block_count"], 1)
+        self.assertEqual(entry.metadata["redacted_event_count"], len(rows))
+        self.assertGreater(entry.metadata["deleted_count"], 0)
+        self.assertNotIn(SECRET_REASON, repr(entry.metadata))
+        self.assertNotIn(SECRET_REASON, out)
+
+    def test_feed_api_no_longer_returns_the_reason(self):
+        card_id, uid = self._blocked_card(self.board)
+        self._unblock_and_delete(self.board, card_id)
+        self._run("--card", uid, "--yes")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/events/")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertNotIn(SECRET_REASON, resp.content.decode())
+
+    def _block_only_card_moved_from_other_board(self):
+        """A card blocked on Beta, then moved to Alpha in the admin, with no movement rows.
+
+        Its block moves with it (admin.py) and its feed rows keep Beta's id.
+        The movements are gone as after a 1.2 purge, so only the block row
+        ties the card to Alpha.
+        """
+        card_id, uid = self._blocked_card(self.other_board)
+        Card.objects.filter(pk=card_id).update(
+            board=self.board, column=self._cols(self.board)[0], swimlane=self.board.swimlanes.get(),
+        )
+        CardBlock.objects.filter(card_id=card_id).update(board_id=self.board.pk)
+        CardMovement.objects.filter(card_id=card_id).delete()
+        return card_id, uid
+
+    def _assert_all_redacted_on_other_board(self, uid):
+        rows = [r for r in self._rows(uid) if r.event in CONTENT_EVENTS]
+        self.assertTrue(rows)
+        self.assertEqual({r.board_id for r in rows}, {self.other_board.pk})
+        self.assertTrue(all(r.redacted_at is not None for r in rows))
+        self.assertNotIn(SECRET_REASON, repr([r.data for r in rows]))
+
+    def test_board_selector_follows_a_deleted_card_selected_only_by_its_block(self):
+        card_id, uid = self._block_only_card_moved_from_other_board()
+        stay = self._card_lifecycle(self.other_board, title="Stays on Beta 1816")
+        stay_rows = self._snapshot(self._rows(stay))
+        Card.objects.get(pk=card_id).delete()
+
+        out = self._run("--board", str(self.board.pk), "--yes")
+
+        self.assertIn("and 1 block row(s)", out)
+        self.assertFalse(CardBlock.objects.filter(card_uid=uid).exists())
+        self._assert_all_redacted_on_other_board(uid)
+        self.assertEqual(self._snapshot(self._rows(stay)), stay_rows)
+
+    def test_board_selector_follows_a_live_card_selected_only_by_its_block(self):
+        card_id, uid = self._block_only_card_moved_from_other_board()
+        legacy = self._legacy(self.other_board, card_id)
+
+        self._run("--board", str(self.board.pk), "--include-live-cards", "--yes")
+
+        self.assertFalse(CardBlock.objects.filter(card_id=card_id).exists())
+        self._assert_all_redacted_on_other_board(uid)
+        self._assert_legacy_redacted(legacy)
+
+    def test_dry_run_reports_movements_blocks_and_events_and_changes_nothing(self):
+        card_id, uid = self._blocked_card(self.board)
+        self._unblock_and_delete(self.board, card_id)
+        before = self._snapshot(self._rows(uid))
+        movements = CardMovement.objects.filter(card_uid=uid).count()
+        events = sum(1 for r in self._rows(uid) if r.event in CONTENT_EVENTS)
+
+        out = self._run("--card", uid)
+
+        self.assertIn(
+            f"would delete {movements} movement row(s) of deleted cards and 1 block row(s)", out,
+        )
+        self.assertIn(f"redact {events} change-feed event(s)", out)
+        self.assertEqual(self._snapshot(self._rows(uid)), before)
+        self.assertEqual(CardBlock.objects.filter(card_uid=uid).count(), 1)
+        self.assertFalse(AdminActionLog.objects.exists())
+
+    def test_failed_log_write_rolls_back_movements_blocks_and_events(self):
+        card_id, uid = self._blocked_card(self.board)
+        self._unblock_and_delete(self.board, card_id)
+        before = self._snapshot(self._rows(uid))
+        movements = CardMovement.objects.filter(card_uid=uid).count()
+        self.assertGreater(movements, 0)
+
+        with patch.object(AdminActionLog, "record", side_effect=RuntimeError("log down")):
+            with self.assertRaises(RuntimeError):
+                self._run("--card", uid, "--yes")
+
+        self.assertEqual(self._snapshot(self._rows(uid)), before)
+        self.assertEqual(CardMovement.objects.filter(card_uid=uid).count(), movements)
+        self.assertEqual(CardBlock.objects.filter(card_uid=uid).count(), 1)
+        self.assertFalse(AdminActionLog.objects.exists())
+
+    def test_rerun_after_a_block_only_purge_records_nothing(self):
+        card_id, uid = self._blocked_card(self.board)
+        self._unblock_and_delete(self.board, card_id)
+        self._run("--card", uid, "--yes")
+        entries = AdminActionLog.objects.count()
+        out = self._run("--card", uid, "--yes")
+        self.assertIn("nothing deleted, nothing recorded", out)
+        self.assertEqual(AdminActionLog.objects.count(), entries)
+
+
 class RedactPayloadUnitTests(TestCase):
     def test_unrecognized_shapes_are_returned_unchanged(self):
         for event, data in (
@@ -583,6 +761,18 @@ class RedactPayloadUnitTests(TestCase):
         ):
             with self.subTest(event=event, data=data):
                 self.assertEqual(redact_card_event_payload(event, data), data)
+
+    def test_block_reason_is_nulled_and_block_state_kept(self):
+        at = "2026-11-01T00:00:00Z"
+        card = {"uid": "u", "is_blocked": True, "blocked_at": at, "blocked_reason": "why"}
+        redacted = {"uid": "u", "is_blocked": True, "blocked_at": at, "blocked_reason": None}
+        self.assertEqual(redact_card_event_payload("card.updated", card), redacted)
+        self.assertEqual(
+            redact_card_event_payload("card.moved", {"card": card, "movement": {"notes": "n"}}),
+            {"card": redacted, "movement": {"notes": None}},
+        )
+        # A row written before #1149 has no such key, and does not gain one.
+        self.assertEqual(redact_card_event_payload("card.updated", {"uid": "u"}), {"uid": "u"})
 
     def test_reorder_without_movement_and_malformed_values(self):
         data = {"card": {
