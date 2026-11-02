@@ -394,8 +394,8 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
                     return Response(
                         {
                             "detail": (
-                                "The events this webhook missed were removed by history "
-                                "cleanup. Re-enable with resume_from: latest."
+                                "Some events this webhook missed may have been removed by "
+                                "history cleanup. Re-enable with resume_from: latest."
                             ),
                             "code": CURSOR_EXPIRED,
                         },

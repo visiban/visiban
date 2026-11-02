@@ -375,7 +375,9 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
     # Idle fast path: nothing newer than the cursor on the board at all. One
     # indexed MAX instead of the feed, settle and tail queries. Standing and
     # the secrets were still checked above, every run (D4). A cursor at or past
-    # the newest row cannot be expired: there is nothing it could have missed.
+    # the newest row has nothing to deliver. It may still have lost rows if all
+    # of them were pruned; without a record of pruned ids that can't be seen
+    # (#2058).
     if latest_event_id(board.pk) <= sub.cursor:
         WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(last_scanned_at=now)
         return

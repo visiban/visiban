@@ -25,7 +25,7 @@ What follows from that design:
 - **Automatic turn-off.** After 20 failures in a row, or 24 hours of failing, the webhook is turned off and the board's admins are told (see [Notices](#notices)).
 - **Starting point.** A new webhook starts with the next event. Nothing that happened before it was created is sent.
 - **Latency.** Events are sent about 10 to 25 seconds after they happen. The dispatcher waits a few seconds so that events from slow transactions are not skipped.
-- **Retention.** Events stay in the feed for `BOARD_EVENT_RETENTION_DAYS` (30 by default). A webhook that falls further behind than that is turned off with the reason *fell too far behind*, rather than silently skipping what it missed.
+- **Retention.** Events stay in the feed for `BOARD_EVENT_RETENTION_DAYS` (30 by default). A webhook that may have fallen further behind than that is turned off with the reason *fell too far behind*, rather than skipping what it missed. Until [#2058](https://gitlab.com/visiban/visiban/-/issues/2058) records what was removed, this is an estimate from when the webhook was last scanned: a webhook on a board that had no events when it was created can be turned off after 23 hours without a scan even if nothing was removed, and a webhook whose missed events were all removed, with nothing newer on the board, is not reported.
 - **Deleting the board** deletes its webhooks. A `board.deleted` event is never sent.
 
 Delivery is best-effort with retry. If your integration needs every event with certainty, have it read the change feed itself; webhooks are the convenient path, not the guaranteed one.
@@ -79,7 +79,7 @@ Turning a webhook off yourself sends no notice.
 Turning a webhook back on is always confirmed, and the confirmation says what will happen:
 
 - After **repeated delivery failures** or a manual turn-off: sending resumes with the events it missed.
-- After it **fell too far behind** (its missed events were removed by history cleanup): it starts with new events, and the gap is never sent.
+- After it **fell too far behind** (its missed events may have been removed by history cleanup): it starts with new events, and the gap is never sent.
 - After **its creator lost access**: you take it over (see above).
 
 A webhook turned off because its stored address or secret can no longer be read (usually after the server's secret key changed) cannot be turned back on. Delete it and create a new one.
