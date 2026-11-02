@@ -412,8 +412,13 @@ class BoardFullMembersSchemaTests(TestCase):
         # `is_site_admin` is an additive row field (#1290). For a board admin
         # who is not a site admin it is on rows backed by a membership only,
         # and all-content users with no role on the board are not listed (#1714).
-        row_keys = ["id", "is_moderator", "is_site_admin", "joined_at", "role", "user"]
-        rowless_keys = ["id", "is_moderator", "joined_at", "role", "user"]
+        # `has_all_content_access` (#1301) is on every row for a board admin:
+        # the Members tab needs it to withhold a role picker that cannot take
+        # effect, on rowless (group-inherited, owner) rows as well.
+        row_keys = [
+            "has_all_content_access", "id", "is_moderator", "is_site_admin", "joined_at", "role", "user",
+        ]
+        rowless_keys = ["has_all_content_access", "id", "is_moderator", "joined_at", "role", "user"]
         self.assertEqual(
             {name: (row["id"] is None, row["role"], sorted(row)) for name, row in by_user.items()},
             {
@@ -430,7 +435,9 @@ class BoardFullMembersSchemaTests(TestCase):
         body = self._full(self.site_admin)
         self.assertEqual(body["current_user_role"], "site_admin")
         by_user = {m["user"]["username"]: m for m in body["members"]}
-        row_keys = ["id", "is_moderator", "is_site_admin", "joined_at", "role", "user"]
+        row_keys = [
+            "has_all_content_access", "id", "is_moderator", "is_site_admin", "joined_at", "role", "user",
+        ]
         self.assertEqual(
             {name: (row["id"] is None, row["role"], sorted(row)) for name, row in by_user.items()},
             {

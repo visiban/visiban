@@ -321,14 +321,50 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // admin or site admin) re-reads the board to get it. The actor's own add
   // re-reads once; its echo event within MEMBER_ECHO_MS does not repeat it.
   const memberReloadAtRef = useRef(0);
-  const reloadForMemberFlag = useCallback(() => {
+  // A membership frame never carries `has_all_content_access` (#1301), so an
+  // admin reader re-reads `/full/` for any subject whose value is not yet known
+  // in state, even when the frame carries `is_site_admin`. Without it the Members
+  // tab would offer a role picker on an all-content row.
+  const allContentUnknown = useCallback((userId: number) => {
+    const row = boardRef.current?.members.find((m) => m.user.id === userId);
+    return row?.has_all_content_access === undefined;
+  }, []);
+  // Subjects the latest re-read is known to cover, subjects whose frame arrived
+  // inside the window and is waiting for one trailing re-read, and that timer.
+  // A frame for a member the latest re-read already covers is an echo and is
+  // dropped (#1706). A frame for a different member may postdate that re-read,
+  // so it earns a single trailing re-read at the window's end instead of being
+  // lost, which would leave that row without its all-content flag (#1301).
+  const memberCoveredRef = useRef<Set<number>>(new Set());
+  const memberPendingRef = useRef<Set<number>>(new Set());
+  const memberTrailingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silentReloadRef = useRef(silentReload);
+  silentReloadRef.current = silentReload;
+  useEffect(() => () => {
+    if (memberTrailingRef.current !== null) clearTimeout(memberTrailingRef.current);
+  }, []);
+  const reloadForMemberFlag = useCallback((subjects: number[] = []) => {
     const role = boardRef.current?.current_user_role;
     if (role !== "admin" && role !== "site_admin") return;
     const now = Date.now();
-    if (now - memberReloadAtRef.current < MEMBER_ECHO_MS) return;
-    memberReloadAtRef.current = now;
-    silentReload();
-  }, [silentReload]);
+    const elapsed = now - memberReloadAtRef.current;
+    if (elapsed >= MEMBER_ECHO_MS) {
+      memberReloadAtRef.current = now;
+      memberCoveredRef.current = new Set(subjects);
+      silentReloadRef.current();
+      return;
+    }
+    if (subjects.length > 0 && subjects.every((id) => memberCoveredRef.current.has(id))) return;
+    subjects.forEach((id) => memberPendingRef.current.add(id));
+    if (memberTrailingRef.current !== null) return;
+    memberTrailingRef.current = setTimeout(() => {
+      memberTrailingRef.current = null;
+      memberReloadAtRef.current = Date.now();
+      memberCoveredRef.current = memberPendingRef.current;
+      memberPendingRef.current = new Set();
+      silentReloadRef.current();
+    }, MEMBER_ECHO_MS - elapsed);
+  }, []);
 
   // #1444 — bumped on invite socket events so the Members tab's pending
   // invite list (Board Settings) refetches while it is open.
@@ -526,7 +562,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       );
     } else if (event.event === "member.added") {
       onMemberAdded(d as unknown as BoardMembership);
-      if (!("is_site_admin" in d)) reloadForMemberFlag();
+      if (!("is_site_admin" in d) || allContentUnknown((d as unknown as BoardMembership).user.id)) reloadForMemberFlag([(d as unknown as BoardMembership).user.id]);
       // Joined through an invite (#1444): that invite is now used.
       if ((d as { invite?: unknown }).invite) setInviteReloadSignal((n) => n + 1);
     } else if (event.event === "invite_link.created" || event.event === "invite_link.revoked") {
@@ -536,7 +572,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "member.updated") {
       const updatedMembership = d as unknown as BoardMembership;
       onMemberUpdated(updatedMembership);
-      if (!("is_site_admin" in updatedMembership)) reloadForMemberFlag();
+      if (!("is_site_admin" in updatedMembership) || allContentUnknown(updatedMembership.user.id)) reloadForMemberFlag([updatedMembership.user.id]);
       // If the role change affects the current user, sync current_user_role
       // immediately. Without this, canEdit/isAdmin are computed from the stale
       // value set during the last /full/ fetch and the user retains the wrong
@@ -604,7 +640,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
