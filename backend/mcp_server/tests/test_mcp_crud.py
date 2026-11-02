@@ -470,6 +470,21 @@ class ListCardsPagingTests(CrudToolsTestCase):
         )
         self.assertEqual(result["total"], 3)
 
+    def test_nul_in_a_filter_is_a_field_error_not_a_500(self):
+        # #2033: PostgreSQL refuses a NUL in a text comparison. SQLite accepts
+        # it, so assert the guard's response directly, not merely "no 500".
+        for argument in ("assignee", "priority", "label"):
+            with self.subTest(argument=argument):
+                result = self._call(
+                    "list_cards", self.raw_token, board_id=self.board.id,
+                    **{argument: "a\x00b"},
+                )
+                self.assertEqual(result["error"]["code"], "validation_error")
+                self.assertEqual(
+                    result["error"]["errors"],
+                    {argument: ["Must not contain NUL (0x00) characters."]},
+                )
+
     def test_negative_limit_is_a_validation_error(self):
         result = self._call("list_cards", self.raw_token, board_id=self.board.id, limit=-1)
         self.assertEqual(result["error"]["code"], "validation_error")
@@ -567,6 +582,48 @@ class CreateCardTests(CrudToolsTestCase):
         self.assertEqual(result["error"]["code"], "validation_error")
         self.assertIn("assignee", result["error"]["errors"])
         self.assertFalse(Card.objects.filter(title="Bad assignee").exists())
+
+    def test_nul_in_assignee_or_labels_is_a_field_error(self):
+        # #2033: refused before the username/label lookup (a 500 on PostgreSQL).
+        # Asserts the response itself, since SQLite would not fail either way.
+        for argument, value in (("assignee", "a\x00b"), ("labels", ["ok", "a\x00b"])):
+            with self.subTest(argument=argument):
+                result = self._call(
+                    "create_card", self.write_token, board_id=self.board.id,
+                    column_id=self.column.id, swimlane_id=self.swimlane.id,
+                    title="Nul card", **{argument: value},
+                )
+                self.assertEqual(result["error"]["code"], "validation_error")
+                self.assertEqual(
+                    result["error"]["errors"],
+                    {argument: ["Must not contain NUL (0x00) characters."]},
+                )
+        self.assertFalse(Card.objects.filter(title="Nul card").exists())
+
+    def test_nul_in_serializer_text_fields_is_a_validation_error(self):
+        # #2033 audit: title/description/priority reach the DB through
+        # CardSerializer, which refuses NUL; lock that in over MCP.
+        for argument in ("title", "description", "priority"):
+            with self.subTest(argument=argument):
+                arguments = {"title": "Serializer nul", argument: "a\x00b"}
+                result = self._call(
+                    "create_card", self.write_token, board_id=self.board.id,
+                    column_id=self.column.id, swimlane_id=self.swimlane.id, **arguments,
+                )
+                self.assertEqual(result["error"]["code"], "validation_error")
+                self.assertIn(argument, result["error"]["errors"])
+        self.assertFalse(Card.objects.filter(title__startswith="Serializer nul").exists())
+
+    def test_nul_in_due_date_is_a_validation_error(self):
+        # #2033: a NUL fails date parsing before it can reach the database.
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id,
+            title="Nul due", due_date="2026-01-01\x00",
+        )
+        self.assertEqual(result["error"]["code"], "validation_error")
+        self.assertIn("due_date", result["error"]["errors"])
+        self.assertFalse(Card.objects.filter(title="Nul due").exists())
 
     def test_assignee_lookup_failures_return_one_uniform_error(self):
         # Every way an assignee can fail to resolve -- no such user, a user with
@@ -1045,6 +1102,37 @@ class UpdateCardTests(CrudToolsTestCase):
 
         result = self._call("update_card", self.write_token, card_id=card.id, labels=[])
         self.assertEqual(result["labels"], [])
+
+    def test_nul_in_assignee_or_labels_is_a_field_error(self):
+        # #2033: same guard on update_card; nothing changes.
+        card = _make_card(self.column, self.swimlane, title="Untouched", assignee=self.user)
+        for argument, value in (("assignee", "a\x00b"), ("labels", ["a\x00b"])):
+            with self.subTest(argument=argument):
+                result = self._call(
+                    "update_card", self.write_token, card_id=card.id,
+                    title="Changed", **{argument: value},
+                )
+                self.assertEqual(result["error"]["code"], "validation_error")
+                self.assertEqual(
+                    result["error"]["errors"],
+                    {argument: ["Must not contain NUL (0x00) characters."]},
+                )
+        card.refresh_from_db()
+        self.assertEqual(card.title, "Untouched")
+
+    def test_nul_in_serializer_text_fields_and_due_date_is_a_validation_error(self):
+        # #2033: every remaining string argument of update_card.
+        card = _make_card(self.column, self.swimlane, title="Untouched update")
+        for argument in ("title", "description", "priority", "due_date"):
+            with self.subTest(argument=argument):
+                result = self._call(
+                    "update_card", self.write_token, card_id=card.id,
+                    **{argument: "a\x00b"},
+                )
+                self.assertEqual(result["error"]["code"], "validation_error")
+                self.assertIn(argument, result["error"]["errors"])
+        card.refresh_from_db()
+        self.assertEqual(card.title, "Untouched update")
 
     def test_empty_assignee_unassigns(self):
         card = _make_card(self.column, self.swimlane, title="Assigned", assignee=self.user)
@@ -1938,6 +2026,22 @@ class BlockCardToolTests(CrudToolsTestCase):
             BoardEvent.objects.filter(board_id=self.board.id, event=event)
             .order_by("id").values_list("data", flat=True)
         )
+
+    def test_nul_in_reason_or_resolution_is_a_validation_error(self):
+        # #2033: the serializers refuse NUL; pin it through the tools.
+        card = _make_card(self.column, self.swimlane, title="Nul block")
+        result = self._call("block_card", self.write_token, card_id=card.id, reason="a\x00b")
+        self.assertEqual(result["error"]["code"], "validation_error")
+        self.assertIn("reason", result["error"]["errors"])
+        card.refresh_from_db()
+        self.assertIsNone(card.blocked_at)
+
+        self._call("block_card", self.write_token, card_id=card.id, reason="Real")
+        result = self._call("unblock_card", self.write_token, card_id=card.id, resolution="a\x00b")
+        self.assertEqual(result["error"]["code"], "validation_error")
+        self.assertIn("resolution", result["error"]["errors"])
+        card.refresh_from_db()
+        self.assertIsNotNone(card.blocked_at)
 
     def test_block_then_unblock_round_trip(self):
         from boards.models import CardBlock

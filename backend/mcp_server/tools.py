@@ -349,6 +349,27 @@ def reject_removed_arguments(arguments):
     return _error_payload(ValidationFailed(errors))
 
 
+_NUL_MESSAGE = "Must not contain NUL (0x00) characters."
+
+
+def _nul_errors(**values):
+    """Return ``{field: [message]}`` for each string (or string in a list) holding a NUL.
+
+    PostgreSQL cannot compare a NUL (0x00) in a text value: ``username__iexact``,
+    ``name__in`` and the like raise ``DataError``, an unhandled 500 (#2033; the
+    REST analogue is ``visiban.request_shape.query_text``, #1887). An argument
+    that reaches an ORM lookup is therefore checked here, BEFORE the lookup, and
+    refused in the tool's ordinary ``validation_error`` field-error shape.
+    Callers must skip the lookup for any field this returns.
+    """
+    errors = {}
+    for field, value in values.items():
+        items = value if isinstance(value, (list, tuple)) else [value]
+        if any(isinstance(item, str) and "\x00" in item for item in items):
+            errors[field] = [_NUL_MESSAGE]
+    return errors
+
+
 def _translate_card_fields(board, *, title=None, description=None, priority=None,
                             assignee=None, labels=None, due_date=None):
     """Build a CardSerializer-shaped dict from MCP-facing arguments.
@@ -371,7 +392,8 @@ def _translate_card_fields(board, *, title=None, description=None, priority=None
     resolve — never lets a bare ``DoesNotExist`` escape.
     """
     data = {}
-    errors = {}
+    # Refused before any lookup below; a field in here skips its lookup.
+    errors = _nul_errors(assignee=assignee, labels=labels)
 
     if title is not None:
         data["title"] = title
@@ -382,7 +404,7 @@ def _translate_card_fields(board, *, title=None, description=None, priority=None
     if due_date is not None:
         data["due_date"] = due_date
 
-    if assignee is not None:
+    if assignee is not None and "assignee" not in errors:
         if assignee == "":
             data["assignee_id"] = None
         else:
@@ -400,7 +422,7 @@ def _translate_card_fields(board, *, title=None, description=None, priority=None
             else:
                 errors["assignee"] = [_ASSIGNEE_NOT_FOUND]
 
-    if labels is not None:
+    if labels is not None and "labels" not in errors:
         if labels:
             label_qs = list(Label.objects.filter(board=board, name__in=labels))
             found_names = {label.name for label in label_qs}
@@ -828,6 +850,10 @@ def list_cards(*, board_id, column_id=None, swimlane_id=None, assignee=None,
     try:
         board, _role = _resolve_board(user, board_id)
         page_limit, page_offset = _parse_paging(limit, offset)
+        # Before the filters reach the ORM: a NUL is a 500 on PostgreSQL (#2033).
+        nul = _nul_errors(assignee=assignee, priority=priority, label=label)
+        if nul:
+            raise ValidationFailed(nul)
     except (CardServiceError, ValidationFailed) as exc:
         return _error_payload(exc)
     rows, total = _cards_page(
