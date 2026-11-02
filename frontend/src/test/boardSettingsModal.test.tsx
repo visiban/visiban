@@ -855,6 +855,35 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     errorSpy.mockRestore()
   })
 
+  // #2036 — Escape clears the search through the stack (priority 58), above ModalWrapper's 40.
+  it('Escape clears the member search without closing the modal; the next Escape closes it', async () => {
+    mockSearchUsers.mockResolvedValue([aliceUser])
+    const onClose = vi.fn()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    const input = screen.getByPlaceholderText(/search by name or email/i)
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+      setter?.call(input, 'ali')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => { vi.advanceTimersByTime(350) })
+    await waitFor(() => screen.getByText('Alice Wonder'))
+    input.focus()
+    await act(async () => { fireEvent.keyDown(input, { key: 'Escape' }) })
+    expect(input).toHaveValue('')
+    expect(screen.queryByText('Alice Wonder')).not.toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    await act(async () => { fireEvent.keyDown(input, { key: 'Escape' }) })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape in an empty member search still closes the modal', async () => {
+    const onClose = vi.fn()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    await act(async () => { fireEvent.keyDown(screen.getByPlaceholderText(/search by name or email/i), { key: 'Escape' }) })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   // #1457 — the suggestions are an anchored `fixed` popover of user data.
   async function showSuggestionsAt(top: number, bottom: number, height: number) {
     mockSearchUsers.mockResolvedValue([aliceUser])

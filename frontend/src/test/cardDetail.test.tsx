@@ -917,6 +917,70 @@ describe('CardDetail', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('Escape in the new-label input returns focus to the + New label trigger (#2036)', async () => {
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} />)
+    await user.click(screen.getByText('+ New label'))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: '+ New label' })).toHaveFocus()
+  })
+
+  it('the cancel button of the new-label input has an accessible name and returns focus (#2036)', async () => {
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} />)
+    await user.click(screen.getByText('+ New label'))
+    await user.click(screen.getByRole('button', { name: 'Cancel new label' }))
+    expect(screen.getByRole('button', { name: '+ New label' })).toHaveFocus()
+  })
+
+  it('a successful label create returns focus to the + New label trigger (#2036)', async () => {
+    const { createLabel } = await import('../api/boards')
+    ;(createLabel as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 99, uid: 'x', name: 'Urgent', color: '#ff0000' })
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} />)
+    await user.click(screen.getByText('+ New label'))
+    await user.type(screen.getByRole('textbox', { name: 'New label name' }), 'Urgent{Enter}')
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ New label' })).toHaveFocus())
+  })
+
+  it('Escape in the title input reverts it without closing the panel; the next Escape closes it (#2036)', async () => {
+    const props = defaultProps()
+    const user = userEvent.setup()
+    render(<CardDetail {...props} />)
+    const title = screen.getByDisplayValue('Test Card')
+    await user.click(title)
+    await user.keyboard('half typed')
+    await user.keyboard('{Escape}')
+    expect(screen.getByDisplayValue('Test Card')).not.toHaveFocus()
+    // flushSync before blur: the blur handler must not save the half-typed title.
+    expect(mockUpdateCard).not.toHaveBeenCalled()
+    expect(props.onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape in a text custom-field input reverts it without closing the panel (#2036)', async () => {
+    const props = defaultProps()
+    props.board = makeBoard({
+      custom_field_definitions: [{
+        id: 6, uid: 'cfuid006', name: 'Notes', field_type: 'text',
+        choices: [], position: 0, show_on_card: false, is_required: false,
+        help_text: '', number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+      }],
+    })
+    props.card = makeCard({ custom_field_values: [{ field_definition: 6, value: 'saved' }] })
+    const user = userEvent.setup()
+    render(<CardDetail {...props} />)
+    const input = screen.getByDisplayValue('saved')
+    await user.click(input)
+    await user.keyboard('x')
+    await user.keyboard('{Escape}')
+    expect(screen.getByDisplayValue('saved')).not.toHaveFocus()
+    expect(props.onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('Escape with no label input open still closes the panel (#1972)', async () => {
     const props = defaultProps()
     render(<CardDetail {...props} />)
@@ -2129,6 +2193,7 @@ describe('CardDetail', () => {
           const { rerender } = render(<CardDetail {...props} />)
           rerender(<CardDetail {...props} card={makeCard({ title: 'Renamed remotely', version: 5 })} />)
           const title = screen.getByDisplayValue('Test Card')
+          title.focus()
           fireEvent.change(title, { target: { value: 'half typed' } })
           fireEvent.keyDown(title, { key: 'Escape' })
           expect(screen.getByDisplayValue('Test Card')).toBeInTheDocument()

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useEscapeStack } from '../hooks/useEscapeStack'
 import MentionTextarea from '../components/Card/MentionTextarea'
 import type { BoardMembership, User } from '../types'
 
@@ -63,5 +64,32 @@ describe('MentionTextarea', () => {
   it('applies custom className', () => {
     render(<MentionTextarea value="" onChange={vi.fn()} members={members} className="custom-class" />)
     expect(screen.getByRole('textbox')).toHaveClass('custom-class')
+  })
+})
+
+describe('MentionTextarea Escape (#2036)', () => {
+  function Host({ onClose }: { onClose: () => void }) {
+    useEscapeStack(onClose, 30)
+    return <MentionTextarea value="" onChange={vi.fn()} members={members} />
+  }
+
+  it('Escape closes the suggestion popup without reaching the host; the next Escape does', async () => {
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(<Host onClose={onClose} />)
+    await user.type(screen.getByRole('textbox'), '@')
+    expect(screen.getByText('@jdoe')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText('@jdoe')).not.toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape with no popup open reaches the host', async () => {
+    const onClose = vi.fn()
+    render(<Host onClose={onClose} />)
+    await userEvent.setup().keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,3 +1,5 @@
+import { flushSync } from "react-dom";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEffect, useId, useRef, useState } from "react";
 import { formatDateStr } from "../../utils/date";
 import type { FieldDefinitionShape } from "../../types";
@@ -95,6 +97,23 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
   }, []);
 
+  // Text and URL inputs (#2036): Escape reverts the edit and blurs through the
+  // stack instead of an input-level handler, so the host panel or modal does
+  // not also close. Returns false unless one of those inputs has focus, so
+  // Escape still reaches the host when nothing is being edited. The default
+  // sits above the card panel's close handler (30); a host inside a
+  // ModalWrapper must pass `escapePriority` above 40, as for the dropdowns.
+  const focusedEditRef = useRef<HTMLInputElement | null>(null);
+  const cancelEditRef = useRef<(() => void) | null>(null);
+  useEscapeStack(() => {
+    const el = focusedEditRef.current;
+    if (!el || document.activeElement !== el) return false;
+    // flushSync: a URL input commits on blur from its render-time closure, which must see the
+    // reverted text or it would save the half-typed value.
+    flushSync(() => cancelEditRef.current?.());
+    el.blur();
+  }, escapePriority ?? 44);
+
   const debouncedCommit = (next: string) => {
     setLocal(next);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -139,6 +158,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       if (result.url !== lastCommitted) { setLastCommitted(result.url); void onCommit(result.url); }
       return true;
     };
+    cancelEditRef.current = () => { setLocal(value ?? ""); setError(null); };
     const shownError = urlError ?? (serverError && local === lastCommitted ? serverError : null);
     // The invalid state keeps a danger indicator while focused: the base
     // classes' focus:border-transparent + primary ring would otherwise hide it
@@ -171,17 +191,15 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           // separate control, not a description of this field.
           aria-describedby={shownError ? slotId : undefined}
           onChange={(e) => setLocal(e.target.value)}
-          onBlur={() => { commitUrl(); }}
+          onFocus={(e) => { focusedEditRef.current = e.currentTarget; }}
+          onBlur={() => { focusedEditRef.current = null; commitUrl(); }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               // An invalid value must not submit an enclosing form either —
               // the form would save the *previous* value without saying so.
               if (!commitUrl()) e.preventDefault();
-            } else if (e.key === "Escape") {
-              setLocal(value ?? "");
-              setError(null);
-              (e.target as HTMLInputElement).blur();
             }
+            // Escape is handled by the useEscapeStack registration above (#2036).
           }}
         />
         {/* Reserved slot (frontend/CLAUDE.md § Inline status messages):
@@ -248,6 +266,10 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
 
   switch (definition.field_type) {
     case "text":
+      cancelEditRef.current = () => {
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        setLocal(value ?? "");
+      };
       return (
         <input
           type="text"
@@ -256,13 +278,8 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           disabled={disabled}
           autoFocus={autoFocus}
           onChange={(e) => debouncedCommit(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              if (debounceTimer.current) clearTimeout(debounceTimer.current);
-              setLocal(value ?? "");
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
+          onFocus={(e) => { focusedEditRef.current = e.currentTarget; }}
+          onBlur={() => { focusedEditRef.current = null; }}
         />
       );
 
