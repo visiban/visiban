@@ -860,7 +860,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 // the server refuses to change (isLocked).
                 const allContent = m.role === "site_admin" || m.has_all_content_access === true;
                 const fullAccessDescId = `member-fullaccess-desc-${m.user.id}`;
-                const storedRoleLabel = ROLES.find((r) => r.value === m.role)?.label ?? m.role;
+                const storedRoleLabel = ROLES.find((r) => r.value === m.role)?.label;
                 const canManage = isAdmin && !isLocked;
                 const canRemove = canManage && m.id !== null;
 
@@ -871,7 +871,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <Avatar user={m.user} size="sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-fg truncate">{userDisplayName(m.user)}</p>
-                          {allContent && m.id !== null && (
+                          {allContent && m.id !== null && storedRoleLabel && (
                             <p className="text-xs text-fg-tertiary">
                               Board role: {storedRoleLabel} — not in effect while this account has all-content access.
                             </p>
@@ -879,7 +879,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           {allContent && currentUserIsSiteAdmin && (
                             <a
                               href="/admin?tab=users"
-                              className="text-xs text-info underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                              className="text-xs text-info underline hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                             >
                               Manage in Admin → Users
                             </a>
