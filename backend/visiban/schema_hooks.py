@@ -174,6 +174,10 @@ _PINNED_ENUMS = {
     ("BoardImportResponse", "export_min_role"): "ExportMinRoleEnum",
     ("BoardRequest", "export_min_role"): "ExportMinRoleEnum",
     ("PatchedBoardRequest", "export_min_role"): "ExportMinRoleEnum",
+    # Column policy mode (#1101): a bare ``mode`` would publish a generic
+    # ``ModeEnum`` that the next unrelated ``mode`` field would hash-rename.
+    ("ColumnPolicy", "mode"): "ColumnPolicyModeEnum",
+    ("ColumnPolicyRequest", "mode"): "ColumnPolicyModeEnum",
 }
 
 

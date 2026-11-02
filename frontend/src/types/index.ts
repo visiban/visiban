@@ -293,6 +293,38 @@ export interface Column {
   weight_limit: number | null;
   allow_card_creation: boolean;
   is_done: boolean;
+  /** Explicit column policy (#1101), or null for none. Advisory: the server
+   *  never refuses a move for it. */
+  policy: ColumnPolicy | null;
+}
+
+/** A column as the anonymous share link serves it (`PublicColumnSerializer`,
+ *  nested on `BoardPublic.columns`): every `Column` field except `policy`
+ *  (#1101). A dedicated interface rather than `Omit<>`, so the
+ *  serializer-ts-parity gate can compare it (the #1296 `PublicSwimlane`
+ *  precedent). */
+export interface PublicColumn {
+  id: number;
+  uid: string;
+  name: string;
+  position: number;
+  color: string;
+  wip_limit: number | null;
+  weight_limit: number | null;
+  allow_card_creation: boolean;
+  is_done: boolean;
+}
+
+/** How a column policy's entry criteria are used on a move into the column. */
+export type ColumnPolicyMode = "advisory" | "confirm";
+
+/** `Column.policy` (#1101): the versioned shape the serializer validates.
+ *  At most 8 criteria per list, each at most 200 characters. */
+export interface ColumnPolicy {
+  v: 1;
+  entry: string[];
+  done: string[];
+  mode: ColumnPolicyMode;
 }
 
 export interface Swimlane {
@@ -1274,7 +1306,7 @@ export interface BoardPublic {
   // staleness_threshold_days intentionally omitted — removed from the API response
   // to avoid leaking internal board configuration to anonymous share-link visitors.
   // is_stale is computed server-side so the client does not need the threshold value.
-  columns: Column[];
+  columns: PublicColumn[];
   swimlanes: PublicSwimlane[];
   labels: Label[];
   cards: PublicCard[];

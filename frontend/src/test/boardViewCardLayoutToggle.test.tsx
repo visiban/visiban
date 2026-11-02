@@ -163,7 +163,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [
-      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
     ],
     swimlanes: [
       { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },

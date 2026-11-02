@@ -188,6 +188,8 @@ _COLUMN_SPEC = {
     "weight_limit": _FieldSpec((int,), nullable=True),
     "allow_card_creation": _FieldSpec((bool,)),
     "is_done": _FieldSpec((bool,)),
+    # Explicit column policy (#1101): the v1 object or null.
+    "policy": _FieldSpec((dict,), nullable=True),
 }
 
 # SwimlaneAdminSerializer's shape — the requester in these tests is always an

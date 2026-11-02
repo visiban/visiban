@@ -260,7 +260,7 @@ This endpoint and board creation (`POST /api/v1/boards/`, `POST /api/v1/groups/{
 | `slug` | Stable identifier (used by integrations) — snake_case, e.g. `sales_pipeline`, `simple_kanban` |
 | `lane_label` | Label for the "first swimlane" step in board creation (e.g. "Account", "Project") |
 | `lane_placeholder` | Placeholder text shown in the swimlane name input |
-| `columns_json` | Native JSON array of column objects that will be created: `{name, color, position}`, plus `is_done: true` on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not `false`) on every other column. |
+| `columns_json` | Native JSON array of column objects that will be created: `{name, color, position}`, plus `is_done: true` on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not `false`) on every other column. Since 1.3 a column may also carry a [`policy`](#column-policy-since-13), applied to the new column; a malformed one is dropped rather than failing board creation. |
 
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Content Production**, **Hiring & Recruiting**, **Legal & Compliance**, **Infrastructure & DevOps**, **Blank Board**.
 
@@ -658,6 +658,8 @@ Since 1.3 (#1149), each card also carries its [manual blocked state](cards.md#bl
 
 Also since 1.2, each swimlane object carries `custom_field_values` (keyed by [swimlane custom field](#swimlane-custom-fields-since-12) name), and a top-level `swimlane_custom_fields` array carries that schema. These are separate keys from the card-level pair because they are independent per-board sets on different objects. Both are additive, and JSON import restores them. A definition with `is_admin_only: true`, and any value under it, is omitted for a caller below `admin`, the same gate this export applies to a swimlane's `contact_email` and `notes`.
 
+Since 1.3 (#1101), each column object also carries its [policy](#column-policy-since-13) (`null` when it has none). Additive: `schema_version` stays `2`, and JSON import restores it after checking it like the column API does.
+
 Since 1.3, each swimlane object also carries its [limits](#swimlane-limits-since-13): `wip_limit`, `weight_limit`, `limit_enforcement`, and `limit_columns`, the names of the columns that count (or `null` for the default, every column not marked done). Names, not ids, because the file keys columns by name and an import creates new ids. All four are additive (`schema_version` stays `2`), and JSON import restores them without enforcing them. A `limit_columns` name that is not one of the file's columns, an empty list, a limit below `1`, or a `limit_enforcement` other than `"block"`, `"hard"` or `null` is a `400`.
 
 ```json
@@ -781,6 +783,7 @@ The whole-import limit caps every row the import inserts. It is counted from the
 - Text values must not be `null`, a list, or an object, and must not contain NUL characters: column, swimlane, and label `color`; swimlane `contact_email` and `notes`; board and card `description`; comment `body`; checklist `text`; movement `notes`; activity `from_value` and `to_value`. A plain number or `true`/`false` is stored as its text (`5` → `"5"`, `true` → `"True"`), as in earlier releases; `NaN` and `Infinity` are refused. A key left out takes its default.
 - Text values stored in a limited column must fit it: column and swimlane `name` (255), label `name` (50), `color` (7), `contact_email` (254), card `title` (500), checklist `text` (500), movement `notes` (500), the column and swimlane names in a movement (255), the `name` form field (255), usernames in `assignee`, `moved_by`, and `actor` (150), and `imported_from_username` on movements, activities, and comments (150).
 - Column `is_done` and `allow_card_creation`, and checklist `is_checked`, must be `true` or `false`.
+- Since 1.3, a column `policy` must be `null` or follow the same rules as the [column API](#column-policy-since-13); it is stored normalized (criteria trimmed, an empty policy as `null`).
 - Dates and timestamps (`due_date`, `archived_at`, and comment, movement, and activity timestamps) must be strings that name a real date or time; a number such as `20200101`, an impossible value such as `2024-02-30` or `T25:00:00`, or a time whose UTC equivalent falls outside years 1–9999 (such as `9999-12-31T23:59:59-12:00`) is rejected.
 - A file that cannot be parsed, including one with an integer literal of more than 4,300 digits or nesting too deep to parse, returns `{"detail": "The uploaded file is not valid JSON."}`.
 
@@ -1566,6 +1569,7 @@ Column objects returned by all endpoints include the following fields:
 | `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited (binding on every API card write path except board import; see note) |
 | `allow_card_creation` | boolean | When `false`, new cards cannot be created directly in this column |
 | `is_done` | boolean | When `true`, marks this column as a "done" stage used for cycle-time and throughput metrics. Default: `false`. |
+| `policy` | object / null | Since 1.3. The column's written [policy](../features/column-policies.md): `{"v": 1, "entry": [...], "done": [...], "mode": "advisory"}` (or `"confirm"`), or `null` for none. Readable by every board member; only board admins can write it. Left out of the anonymous share-link payload (`GET /api/share/{token}/`), whose columns carry every other field listed here. See [Column policy](#column-policy-since-13). |
 
 > When `allow_card_creation` is `false`, posting a new card to that column returns `400 Bad Request` with `{"column": "Card creation is not allowed in this column."}`.
 >
@@ -1576,9 +1580,28 @@ Column objects returned by all endpoints include the following fields:
 ### `PUT /api/v1/boards/{id}/columns/{col_id}/` / `PATCH /api/v1/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.
 
-**Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean)
+**Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean), `policy` (object or `null`, since 1.3)
 
 `PUT` and `PATCH` are both accepted. `PATCH` changes only the fields you send. `PUT` requires `name`, as on create (`400` with `{"name": ["This field is required."]}` without it); any other writable field you leave out keeps its current value, it is not reset to its default. To change one field without resending the name, use `PATCH`.
+
+#### Column policy (since 1.3)
+
+`policy` holds a column's entry criteria and definition of done (#1101). It is advisory: no card move, create or restore is ever refused because of it.
+
+| Key | Type | Rules |
+|---|---|---|
+| `v` | integer | Required. Always `1`. |
+| `entry` | array of strings | Entry criteria, in display order. Up to 8, each non-blank and at most 200 characters after trimming. Default `[]`. |
+| `done` | array of strings | Definition of done, same rules. Default `[]`. |
+| `mode` | string | `"advisory"` (default) or `"confirm"`. `"confirm"` asks the web app to show the mover a checklist of the entry criteria after a drag-and-drop move into the column. The server never checks it. |
+
+A criterion containing a control character (including NUL or a line break) is refused too. Any other key, a wrong `v`, or a value breaking these rules returns `400` with a `policy` error. Criteria are stored trimmed, and a policy whose two lists are both empty is stored as `null`. Send `"policy": null` to remove it. Leaving `policy` out of a `PUT` keeps the current value.
+
+```json
+{ "policy": { "v": 1, "entry": ["Has an owner"], "done": ["Reviewed", "Docs updated"], "mode": "confirm" } }
+```
+
+The `column.updated` socket event carries the column with its `policy`, like every other field.
 
 ### `DELETE /api/v1/boards/{id}/columns/{col_id}/`
 Delete a column. Requires board admin.
@@ -2193,7 +2216,7 @@ Response fields:
 |---|---|---|
 | `uid` | string | Board stable 16-char hex UID |
 | `name` | string | Board name |
-| `columns` | array | Column objects; includes `is_done` flag (see Columns section) |
+| `columns` | array | Column objects; includes `is_done` flag (see Columns section). `policy` (since 1.3) is never included — a structural omission, as for swimlane contact details |
 | `swimlanes` | array | Swimlane objects; `contact_email`, `notes`, and `custom_field_values` (since 1.2) are never included — a structural omission, not an `is_admin_only` filter, since the visitor is unauthenticated |
 | `cards` | array | Active (non-archived) card objects |
 | `labels` | array | Label objects |

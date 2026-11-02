@@ -48,6 +48,10 @@ from .custom_field_types import (
     CHOICE_COLOR_KEYS, CHOICE_TYPES, canonical_multi_select, encode_multi_select,
     parse_multi_select,
 )
+from .column_policy import (
+    POLICY_CRITERION_MAX_LENGTH, POLICY_MAX_CRITERIA, POLICY_MODES, PolicyError,
+    normalize_policy,
+)
 
 
 class BoardTemplateSerializer(serializers.ModelSerializer):
@@ -390,10 +394,59 @@ _BOARD_ENFORCEMENT_EXTRA_KWARGS = {
 }
 
 
+class ColumnPolicySerializer(serializers.Serializer):
+    """OpenAPI shape of ``Column.policy`` (#1101). Schema only, never bound.
+
+    The live validation is ``boards.column_policy.normalize_policy``, shared
+    with board import, templates and the Django admin.
+    """
+
+    # Only ``v`` is required on a write; the server fills ``entry``/``done``
+    # with ``[]`` and ``mode`` with ``"advisory"`` and always returns all four.
+    v = serializers.IntegerField(help_text="Policy shape version. Always 1.")
+    entry = serializers.ListField(
+        child=serializers.CharField(max_length=POLICY_CRITERION_MAX_LENGTH),
+        max_length=POLICY_MAX_CRITERIA,
+        required=False,
+        help_text="Entry criteria, in display order. Default [].",
+    )
+    done = serializers.ListField(
+        child=serializers.CharField(max_length=POLICY_CRITERION_MAX_LENGTH),
+        max_length=POLICY_MAX_CRITERIA,
+        required=False,
+        help_text="Definition of done, in display order. Default [].",
+    )
+    mode = serializers.ChoiceField(choices=POLICY_MODES, required=False, help_text="Default \"advisory\".")
+
+
+@extend_schema_field(ColumnPolicySerializer)
+class ColumnPolicyField(serializers.JSONField):
+    """``Column.policy`` (#1101): validated and normalized on the way in.
+
+    A ``JSONField`` subclass rather than a nested serializer, because DRF's
+    ModelSerializer refuses writable nested serializers and the value is
+    stored as one JSON object anyway.
+    """
+
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        try:
+            return normalize_policy(value)
+        except PolicyError as exc:
+            raise serializers.ValidationError(str(exc)) from None
+
+
 class ColumnSerializer(serializers.ModelSerializer):
+    policy = ColumnPolicyField(
+        required=False, allow_null=True, help_text=field_enforcement.COLUMN_POLICY,
+    )
+
     class Meta:
         model = Column
-        fields = ["id", "uid", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation", "is_done"]
+        fields = [
+            "id", "uid", "name", "position", "color", "wip_limit", "weight_limit",
+            "allow_card_creation", "is_done", "policy",
+        ]
         read_only_fields = ["uid"]
         # Schema-only (#1077): say which write paths the limits actually bind on.
         extra_kwargs = {
@@ -439,6 +492,19 @@ class ColumnSerializer(serializers.ModelSerializer):
                     )
                 })
         return attrs
+
+
+class PublicColumnSerializer(ColumnSerializer):
+    """Column representation for anonymous share-link visitors (#1101).
+
+    Drops ``policy``: the share page never renders it, and it is team-written
+    free text (as card ``description`` is, which ``PublicCardSerializer`` also
+    omits). Structural omission, like ``PublicSwimlaneSerializer``. A
+    reversible default: adding the field back later is additive.
+    """
+
+    class Meta(ColumnSerializer.Meta):
+        fields = [f for f in ColumnSerializer.Meta.fields if f != "policy"]
 
 
 def _parent_instance(field, model):
@@ -4152,9 +4218,10 @@ class PublicBoardSerializer(serializers.ModelSerializer):
 
     Includes only the data required to render the static read-only board grid.
     Excluded: members list, share_token, swimlane contact_email/notes,
-    card comments, card movements, and any user PK/email fields.
+    card comments, card movements, column ``policy`` (#1101), and any user
+    PK/email fields.
     """
-    columns = ColumnSerializer(many=True, read_only=True)
+    columns = PublicColumnSerializer(many=True, read_only=True)  # no policy
     swimlanes = PublicSwimlaneSerializer(many=True, read_only=True)  # no contact_email/notes/custom fields
     labels = LabelSerializer(many=True, read_only=True)
     cards = serializers.SerializerMethodField()

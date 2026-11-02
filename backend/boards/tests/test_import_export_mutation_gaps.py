@@ -1760,6 +1760,7 @@ class ExportJsonShapeTests(ExportBase):
                 "weight_limit",
                 "allow_card_creation",
                 "is_done",
+                "policy",  # #1101
             ],
         )
         self.assertEqual(
@@ -1772,6 +1773,7 @@ class ExportJsonShapeTests(ExportBase):
                 "weight_limit": 9,
                 "allow_card_creation": True,
                 "is_done": False,
+                "policy": None,
             },
         )
         self.assertEqual(data["columns"][1]["is_done"], True)

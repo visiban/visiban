@@ -10,7 +10,7 @@ import { cellKey } from '../gridOverlays/types'
 import type { Card, Column, Swimlane } from '../types'
 
 function makeColumn(id: number): Column {
-  return { id, uid: `col${id}`, name: `Col ${id}`, position: id, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }
+  return { id, uid: `col${id}`, name: `Col ${id}`, position: id, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }
 }
 
 function makeSwimlane(id: number): Swimlane {

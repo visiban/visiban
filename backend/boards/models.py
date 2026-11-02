@@ -585,6 +585,11 @@ class Column(models.Model):
         default=False,
         help_text="Columns marked as done are used as completion targets for cycle-time and throughput metrics.",
     )
+    # Explicit column policy (#1101): entry criteria and definition of done,
+    # one versioned JSON object, shape and rules in boards.column_policy.
+    # Nullable with no default, so the column is catalog-only on PostgreSQL
+    # and an older pod's INSERT that omits it stores NULL (no policy).
+    policy = models.JSONField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "columns"
@@ -593,6 +598,17 @@ class Column(models.Model):
 
     def __str__(self):
         return f"{self.board.name} / {self.name}"
+
+    def clean(self):
+        # The Django admin edits ``policy`` as raw JSON; hold it to the same
+        # shape the API enforces (#1101) and store the normalized form.
+        from .column_policy import PolicyError, normalize_policy
+
+        super().clean()
+        try:
+            self.policy = normalize_policy(self.policy)
+        except PolicyError as exc:
+            raise ValidationError({"policy": str(exc)}) from None
 
 
 class Swimlane(models.Model):

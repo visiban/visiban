@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column } from "../../types";
-import EditColumnModal from "./EditColumnModal";
+import EditColumnModal, { type EditColumnTab } from "./EditColumnModal";
+import ColumnPolicyPopover from "./ColumnPolicyPopover";
+import { columnPolicy, policyCountSummary } from "../../utils/columnPolicy";
 import { updateColumn } from "../../api/boards";
 import OverflowMenu, { type OverflowItem } from "../Layout/OverflowMenu";
 
@@ -23,7 +25,19 @@ interface Props {
 }
 
 export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit }: Props) {
-  const [editing, setEditing] = useState(false);
+  // Which tab EditColumnModal opens on, or null when it is closed (#1101:
+  // "Add policy…" and the popover's "Edit policy" open the Policy tab).
+  const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
+  // Policy popover anchor (#1101), null while closed.
+  const [policyRect, setPolicyRect] = useState<DOMRect | null>(null);
+  const policyTriggerRef = useRef<HTMLButtonElement>(null);
+  const policy = columnPolicy(column);
+  const hasPolicy = policy !== null;
+  // A policy removed over the socket closes the popover for good: left set,
+  // the stale anchor would reopen it (and take focus) the moment a policy is
+  // added again. Adjusted during render, so no stale frame is committed.
+  if (!hasPolicy && policyRect !== null) setPolicyRect(null);
+  const closePolicy = useCallback(() => setPolicyRect(null), []);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -78,7 +92,10 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const kebabItems = useMemo<OverflowItem[]>(
     () => [
       { id: "rename", label: "Rename", onSelect: startRenaming },
-      { id: "edit", label: "Edit settings…", onSelect: () => setEditing(true) },
+      { id: "edit", label: "Edit settings…", onSelect: () => setEditTab("settings") },
+      // #1101: an admin with no policy gets a direct path to write one. With a
+      // policy, the always-visible Policy button's popover holds "Edit policy".
+      ...(hasPolicy ? [] : [{ id: "add-policy", label: "Add policy…", onSelect: () => setEditTab("policy") }]),
       {
         id: "delete",
         label: "Delete column",
@@ -87,8 +104,8 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         onSelect: () => onRequestDelete(column),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- startRenaming/setEditing/onRequestDelete's closures are stable; only the fields read by the memoized items are listed
-    [column.id, column.name, onRequestDelete],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startRenaming/setEditTab/onRequestDelete's closures are stable; only the fields read by the memoized items are listed
+    [column.id, column.name, onRequestDelete, hasPolicy],
   );
 
   // Hidden by view prefs — render a narrow stub matching hidden cell width
@@ -173,7 +190,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         style={{ ...style, width: width ?? 220 }}
         className={`relative shrink-0 px-3 py-2 bg-surface border-r border-line group/col transition ${accentClass}`}
         data-no-pan
-        onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
+        onDoubleClick={isAdmin ? () => setEditTab("settings") : undefined}
       >
         {/* Row 1: collapse toggle, color dot, name, edit icon */}
         <div className="flex items-center gap-2">
@@ -221,6 +238,35 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
                 {column.name}
               </span>
             )
+          )}
+          {/* Policy affordance (#1101). Visible at rest whenever the column has
+              a policy, a recorded exception to hover-reveal (frontend/CLAUDE.md
+              § Column headers): the policy is information for every reader,
+              not an action. Icon only below lg, same accessible name. */}
+          {policy && (
+            <button
+              ref={policyTriggerRef}
+              type="button"
+              aria-label={`Column policy for ${column.name}: ${policyCountSummary(policy)}`}
+              aria-haspopup="dialog"
+              aria-expanded={policyRect !== null}
+              title="Column policy"
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setPolicyRect((prev) => (prev ? null : rect));
+              }}
+              onDoubleClick={(e) => e.stopPropagation()}
+              className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                policyRect ? "text-info bg-info/10" : "text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover"
+              }`}
+            >
+              <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="2.5" width="10" height="12" rx="1.5" />
+                <path d="M6 2.5V1.75h4v.75M5.75 7h4.5M5.75 9.5h4.5M5.75 12h2.5" />
+              </svg>
+              <span className="hidden lg:inline">Policy</span>
+            </button>
           )}
           {/* Column overflow kebab — discoverable surface for Rename, Edit settings,
               and Delete. Replaces the prior `✎` icon button (per #965): the kebab is
@@ -288,14 +334,29 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         )}
       </div>
 
-      {isAdmin && editing && (
+      {policy && policyRect && (
+        <ColumnPolicyPopover
+          columnName={column.name}
+          policy={policy}
+          anchorRect={policyRect}
+          triggerRef={policyTriggerRef}
+          onDismiss={closePolicy}
+          // The popover unmounts as the modal opens, so focus moves to the
+          // Policy button first: the modal's focus trap restores to its opener
+          // on close, and a removed opener would leave focus on the body.
+          onEdit={isAdmin ? () => { policyTriggerRef.current?.focus(); setEditTab("policy"); } : undefined}
+        />
+      )}
+
+      {isAdmin && editTab && (
         <EditColumnModal
           boardId={boardId}
           column={column}
           cardCount={cardCount}
-          onUpdated={(col) => { onColumnUpdated(col); setEditing(false); }}
+          initialTab={editTab === "policy" ? "policy" : undefined}
+          onUpdated={(col) => { onColumnUpdated(col); setEditTab(null); }}
           onRequestDelete={onRequestDelete}
-          onClose={() => setEditing(false)}
+          onClose={() => setEditTab(null)}
         />
       )}
     </>

@@ -13,7 +13,7 @@ const OFF: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, en
 const SOFT: LimitFlags = { enforce_wip_limits: true, enforce_wip_hard: false, enforce_weight_limits: true }
 
 function col(id: number, name: string, overrides: Partial<Column> = {}): Column {
-  return { id, uid: `c${id}`, name, position: id, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, ...overrides }
+  return { id, uid: `c${id}`, name, position: id, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null, ...overrides }
 }
 
 function lane(id: number, name: string, overrides: Partial<Swimlane> = {}): Swimlane {

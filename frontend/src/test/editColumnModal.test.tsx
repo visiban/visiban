@@ -23,6 +23,7 @@ function makeColumn(overrides: Partial<Column> = {}): Column {
     weight_limit: null,
     allow_card_creation: false,
     is_done: false,
+    policy: null,
     ...overrides,
   }
 }

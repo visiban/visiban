@@ -35,9 +35,19 @@ from visiban import field_enforcement as fe
 
 # component -> {field: expected description}
 EXPECTED = {
-    "Column": {"wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT},
-    "ColumnRequest": {"wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT},
-    "PatchedColumnRequest": {"wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT},
+    # policy (#1101) is advisory: no card write is ever refused for it.
+    "Column": {
+        "wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT,
+        "policy": fe.COLUMN_POLICY,
+    },
+    "ColumnRequest": {
+        "wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT,
+        "policy": fe.COLUMN_POLICY,
+    },
+    "PatchedColumnRequest": {
+        "wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT,
+        "policy": fe.COLUMN_POLICY,
+    },
     "Card": {"version": fe.CARD_VERSION},
     "Group": {
         "allowed_priorities": fe.GROUP_ALLOWED_PRIORITIES,

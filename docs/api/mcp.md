@@ -417,7 +417,7 @@ Lists a board's columns, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, uid, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards; `uid` is new in 1.3 (see [Stable identifiers](#stable-identifiers-uid)). `wip_limit` is checked by both `move_card` and `create_card` (since 1.2, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)).
+**Returns:** an array of `{id, uid, name, position, color, wip_limit, policy, card_count}` — `card_count` excludes archived cards; `uid` is new in 1.3 (see [Stable identifiers](#stable-identifiers-uid)). `wip_limit` is checked by both `move_card` and `create_card` (since 1.2, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)). `policy` (since 1.3, #1101) is the column's written entry criteria and definition of done, `{"v": 1, "entry": [...], "done": [...], "mode": "advisory" | "confirm"}`, or `null`; it is [advisory](../features/column-policies.md), so `move_card` never refuses a move because of it — read it before moving a card if you want to follow the team's policy.
 
 ### `list_swimlanes`
 

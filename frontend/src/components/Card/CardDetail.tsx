@@ -1444,6 +1444,29 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 <AutosaveIndicator status={descStatus} fadingOut={descFadingOut} />
               </div>
 
+              {/* Definition of done (#1101): the current column's policy, shown
+                  for reference to every reader. Display-only — it never blocks
+                  moving the card out — so bullets, not boxes that read as
+                  checkboxes. Omitted when the column has no done criteria
+                  (board-config-gated). An h3, unlike the sibling <p> labels,
+                  so the section is named for screen readers. */}
+              {column?.policy && column.policy.done.length > 0 && (
+                <section aria-labelledby="card-dod-heading">
+                  <h3 id="card-dod-heading" className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">
+                    Definition of done · <span className="normal-case tracking-normal">{column.name}</span>
+                  </h3>
+                  <ul className="flex flex-col gap-1.5">
+                    {column.policy.done.map((text, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-fg-secondary">
+                        <span aria-hidden="true" className="mt-2 w-1 h-1 rounded-full bg-fg-tertiary shrink-0" />
+                        <span className="min-w-0 break-words">{text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-fg-tertiary mt-1.5">For reference. It never blocks moving the card on.</p>
+                </section>
+              )}
+
               <div className="border-t border-line" />
 
               {/* Assignee + Due date */}

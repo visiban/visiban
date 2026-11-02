@@ -641,6 +641,10 @@ def _columns_payload(board):
             "position": c.position,
             "color": c.color,
             "wip_limit": c.wip_limit,
+            # #1101: the column's written entry criteria / definition of done,
+            # or null. Advisory: no move is refused for it, so an agent that
+            # moves cards should read it rather than expect a 409.
+            "policy": c.policy,
             "card_count": c._card_count,
         }
         for c in columns

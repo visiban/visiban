@@ -237,8 +237,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [
-      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-      { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+      { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
     ],
     swimlanes: [
       { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
@@ -1279,6 +1279,202 @@ describe('BoardView', () => {
     })
   })
 
+  describe('column policies on a drag (#1101)', () => {
+    const card = (id: number, column: number, swimlane: number) => ({
+      id, uid: `carduid${id}`, column, swimlane, title: `Card ${id}`,
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' },
+      created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    })
+    const policyBoard = (mode: 'advisory' | 'confirm', extra: Partial<BoardFull> = {}, wipLimit: number | null = null) => makeBoard({
+      columns: [
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+        {
+          id: 11, uid: 'coluid000002', name: 'Review', position: 1, color: '#10B981', wip_limit: wipLimit, weight_limit: null, allow_card_creation: true, is_done: false,
+          policy: { v: 1, entry: ['Has an owner', 'Tests pass'], done: ['Approved'], mode },
+        },
+      ],
+      cards: [card(1, 10, 20)],
+      ...extra,
+    })
+    const hover = (cardId: number, overId: string) => {
+      act(() => {
+        capturedOnDragOver!({
+          active: { id: cardId, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+          over: { id: overId, data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+        } as unknown as DragOverEvent)
+      })
+    }
+    const drop = async (cardId: number, overId: string) => {
+      await act(async () => {
+        capturedOnDragEnd!({
+          active: { id: cardId, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+          over: { id: overId, data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+          delta: { x: 0, y: 0 },
+          activatorEvent: new MouseEvent('mousedown'),
+        } as unknown as DragEndEvent)
+      })
+    }
+
+    it('reads the entry criteria while over a policy column', () => {
+      mockBoardContextValue = defaultContext({ board: policyBoard('advisory') })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:11:20')
+      expect(screen.getByText("Over column 'Review', swimlane 'Customer A'. Entry criteria for 'Review': Has an owner; Tests pass.")).toBeInTheDocument()
+    })
+
+    it('a quick second hover onto a policy column still reads its criteria', () => {
+      mockBoardContextValue = defaultContext({ board: policyBoard('advisory', { cards: [card(1, 10, 20), card(2, 10, 20)] }) })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:10:20')
+      hover(1, 'cell:11:20') // inside the 300ms throttle window
+      expect(screen.getByText(/Entry criteria for 'Review': Has an owner; Tests pass\./)).toBeInTheDocument()
+    })
+
+    it('reads no criteria for a card already in the column', () => {
+      mockBoardContextValue = defaultContext({ board: policyBoard('advisory', { cards: [card(1, 11, 20)] }) })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:11:20')
+      expect(screen.getByText("Over column 'Review', swimlane 'Customer A'")).toBeInTheDocument()
+    })
+
+    it('a limit verdict wins over the criteria', () => {
+      const board = policyBoard('confirm', { enforce_wip_limits: true, cards: [card(1, 10, 20), card(2, 11, 20)] }, 1)
+      mockBoardContextValue = defaultContext({ board })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:11:20')
+      expect(screen.queryByText(/Entry criteria for/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Over column 'Review', swimlane 'Customer A'\. /)).toBeInTheDocument()
+    })
+
+    it('advisory mode moves at once', async () => {
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: policyBoard('advisory'), moveCard })
+      render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      expect(moveCard).toHaveBeenCalledWith(1, 11, 20, 0)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('confirm mode holds the move until every criterion is checked', async () => {
+      const user = userEvent.setup()
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      const dialog = screen.getByRole('dialog', { name: 'Move “Card 1” to Review?' })
+      expect(moveCard).not.toHaveBeenCalled()
+      const move = screen.getByRole('button', { name: 'Move to Review' })
+      expect(move).toHaveAttribute('aria-disabled', 'true')
+      await user.click(move)
+      expect(moveCard).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Tests pass' }))
+      expect(move).not.toHaveAttribute('aria-disabled')
+      await user.click(move)
+      expect(moveCard).toHaveBeenCalledWith(1, 11, 20, 0)
+      expect(dialog).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.getByText("Card 'Card 1' moved to column 'Review', swimlane 'Customer A'")).toBeInTheDocument())
+    })
+
+    it('focus returns to the moved card after Keep in and after Move', async () => {
+      // SwimlaneRow is mocked here, so stand in for the card's root element
+      // (CardItem renders `[data-card-id]` with a tabIndex).
+      const user = userEvent.setup()
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      render(<BoardView {...defaultProps()} />)
+      const cardEl = document.createElement('div')
+      cardEl.tabIndex = 0
+      cardEl.dataset.cardId = '1'
+      try {
+        document.body.appendChild(cardEl)
+        await drop(1, 'cell:11:20')
+        await user.click(screen.getByRole('button', { name: 'Keep in To Do' }))
+        await waitFor(() => expect(cardEl).toHaveFocus())
+
+        // Move: the card re-renders in its new cell, so it may be missing for
+        // a frame or two; focus return retries until it is there.
+        cardEl.remove()
+        await drop(1, 'cell:11:20')
+        await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+        await user.click(screen.getByRole('checkbox', { name: 'Tests pass' }))
+        await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+        expect(moveCard).toHaveBeenCalledTimes(1)
+        expect(cardEl).not.toHaveFocus()
+        await new Promise((r) => requestAnimationFrame(() => r(null)))
+        document.body.appendChild(cardEl)
+        await waitFor(() => expect(cardEl).toHaveFocus())
+      } finally {
+        cardEl.remove()
+      }
+    })
+
+    it('keep-in cancels the move and says so', async () => {
+      const user = userEvent.setup()
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      await user.click(screen.getByRole('button', { name: 'Keep in To Do' }))
+      expect(moveCard).not.toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByText("Move canceled, card 'Card 1' stays in column 'To Do'")).toBeInTheDocument()
+    })
+
+    it('Escape cancels the checklist', async () => {
+      const user = userEvent.setup()
+      const moveCard = vi.fn()
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(moveCard).not.toHaveBeenCalled()
+    })
+
+    it('a policy edit that adds a criterion mid-checklist resets every box', async () => {
+      const user = userEvent.setup()
+      const moveCard = vi.fn()
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      const { rerender } = render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Tests pass' }))
+      const board = policyBoard('confirm')
+      board.columns[1] = { ...board.columns[1], policy: { v: 1, entry: ['Has an owner', 'Tests pass', 'Docs'], done: [], mode: 'confirm' } }
+      mockBoardContextValue = defaultContext({ board, moveCard })
+      rerender(<BoardView {...defaultProps()} />)
+      expect(screen.getByRole('checkbox', { name: 'Has an owner' })).not.toBeChecked()
+      expect(screen.getByRole('button', { name: 'Move to Review' })).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('a column switched to advisory mid-checklist cancels the held move', async () => {
+      const moveCard = vi.fn()
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      const { rerender } = render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      mockBoardContextValue = defaultContext({ board: policyBoard('advisory'), moveCard })
+      rerender(<BoardView {...defaultProps()} />)
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(screen.getByText('Move canceled, the column or its policy changed')).toBeInTheDocument()
+      expect(moveCard).not.toHaveBeenCalled()
+    })
+
+    it('a limit block wins: no checklist opens and the move goes to the server', async () => {
+      const moveCard = vi.fn().mockResolvedValue({ ok: false })
+      const board = policyBoard('confirm', { enforce_wip_limits: true, cards: [card(1, 10, 20), card(2, 11, 20)] }, 1)
+      mockBoardContextValue = defaultContext({ board, moveCard })
+      render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(moveCard).toHaveBeenCalledWith(1, 11, 20, 1)
+    })
+  })
+
   // --- Focus mode tests (#340) ---
 
   it('clicking focus button sets ?focus= param and shows banner', async () => {
@@ -2054,8 +2250,8 @@ describe('BoardView', () => {
     const boardWithDone = (card: ReturnType<typeof cardIn>) => makeBoard({
       cards: [card],
       columns: [
-        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: true },
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: true, policy: null },
       ],
     })
 

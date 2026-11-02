@@ -452,9 +452,9 @@ describe('EditSwimlaneModal — date format (#1993)', () => {
 
 describe('EditSwimlaneModal — limits (#1150)', () => {
   const columns: Column[] = [
-    { id: 10, uid: 'c10', name: 'Backlog', position: 0, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-    { id: 11, uid: 'c11', name: 'Doing', position: 1, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-    { id: 12, uid: 'c12', name: 'Done', position: 2, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: true },
+    { id: 10, uid: 'c10', name: 'Backlog', position: 0, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+    { id: 11, uid: 'c11', name: 'Doing', position: 1, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+    { id: 12, uid: 'c12', name: 'Done', position: 2, color: '#000000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: true, policy: null },
   ]
   const card = (id: number, column: number, weight = 1): Card => ({
     id, uid: `k${id}`, column, swimlane: 1, title: 't', description: '', priority: 'medium', assignee: null,

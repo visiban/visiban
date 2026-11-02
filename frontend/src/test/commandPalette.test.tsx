@@ -53,6 +53,7 @@ const makeColumn = (id: number, name: string): Column => ({
   color: "#3b82f6",
   allow_card_creation: true,
   is_done: false,
+  policy: null,
 });
 
 const defaultProps = {

@@ -47,9 +47,11 @@ interface Props {
    * (#1150). Called only while a card drag is over this cell.
    */
   getDropVerdict?: (cardId: number, column: Column, swimlane: Swimlane) => TrippedLimit[];
+  /** Entry criteria a dragged card would meet in this column (#1101); empty for none. */
+  getEntryCriteria?: (cardId: number, column: Column) => string[];
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -60,6 +62,12 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   const blockedBy = isOver && isDraggingCard && getDropVerdict
     ? getDropVerdict(Number(active?.id), column, swimlane)[0] ?? null
     : null;
+  // Entry criteria (#1101): the drop message lists them while a card from
+  // another column is over this one. A limit block wins: a blocked cell shows
+  // only its verdict, since the move will be refused before anyone checks them.
+  const entryCriteria = isOver && isDraggingCard && !blockedBy && getEntryCriteria
+    ? getEntryCriteria(Number(active?.id), column)
+    : [];
   const [adding, setAdding] = useState(false);
   // The card currently expanded over this cell, if any (see the CardItem
   // dimming note in the render below).
@@ -161,9 +169,22 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           {blockedBy.mode === "hard" ? "⛔ " : "⚠ "}{trippedLimitLabel(blockedBy)}
         </span>
       )}
+      {/* Entry criteria drop message (#1101). aria-hidden for the same reason
+          as the blocked label above: the drag live region reads the criteria
+          aloud. Truncates to one line; the full list is in the Policy popover. */}
+      {entryCriteria.length > 0 && (
+        <span
+          aria-hidden="true"
+          data-testid="cell-drop-entry-criteria"
+          title={entryCriteria.join(" · ")}
+          className="absolute left-2 top-1 z-[6] max-w-[calc(100%-1rem)] truncate rounded bg-canvas px-1.5 py-0.5 shadow text-xs font-medium text-fg-secondary pointer-events-none"
+        >
+          Entry: {entryCriteria.join(" · ")}
+        </span>
+      )}
       {/* One scalar per corner: the built-in count stands down while an overlay owns
           the top-right slot, so the cell never shows two different numbers there. */}
-      {!overlay && !blockedBy && cards.length >= 2 && (
+      {!overlay && !blockedBy && entryCriteria.length === 0 && cards.length >= 2 && (
         // z-[5]: CardItem's root is `relative z-0`, so a z-auto badge paints under the
         // first card (#1162). Same value and reasoning as the overlay badge; see
         // frontend/CLAUDE.md (grid overlay stacking).

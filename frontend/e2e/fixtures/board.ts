@@ -60,6 +60,7 @@ export const COLUMN_TODO = {
   weight_limit: null,
   allow_card_creation: true,
   is_done: false,
+  policy: null,
 }
 
 export const COLUMN_DONE = {
@@ -72,6 +73,7 @@ export const COLUMN_DONE = {
   weight_limit: null,
   allow_card_creation: false,
   is_done: true,
+  policy: null,
 }
 
 export const SWIMLANE = {

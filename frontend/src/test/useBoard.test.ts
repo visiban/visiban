@@ -60,7 +60,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     description: '',
     group: null,
     group_name: null,
-    columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }],
+    columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
     swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null }],
     cards: [{
       id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium',
@@ -333,7 +333,7 @@ describe('useBoard', () => {
     const { result } = renderHook(() => useBoard())
     await waitFor(() => expect(result.current.board).not.toBeNull())
 
-    const newCol: Column = { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }
+    const newCol: Column = { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }
     act(() => { result.current.addColumn(newCol) })
     expect(result.current.board!.columns).toHaveLength(2)
   })
@@ -520,8 +520,8 @@ describe('useBoard', () => {
     const limitedBoard = () => makeBoard({
       enforce_wip_limits: true,
       columns: [
-        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-        { id: 11, uid: 'coluid000002', name: 'Doing', position: 1, color: '#3B82F6', wip_limit: 1, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+        { id: 11, uid: 'coluid000002', name: 'Doing', position: 1, color: '#3B82F6', wip_limit: 1, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
       ],
       swimlanes: [
         { id: 20, uid: 'laneuid00001', name: 'Lane A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
@@ -697,8 +697,8 @@ describe('useBoard', () => {
   it('reorderColumns optimistically updates and applies server response', async () => {
     const board = makeBoard({
       columns: [
-        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
       ],
     })
     mockGetBoardFull.mockResolvedValue(board)
@@ -852,8 +852,8 @@ describe('useBoard', () => {
   it('evictColumn leaves cards in other columns intact', async () => {
     const board = makeBoard({
       columns: [
-        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
       ],
       cards: [
         { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '' },
@@ -936,8 +936,8 @@ describe('useBoard', () => {
     mockGetBoardFull.mockResolvedValue(makeBoard({
       archived_card_count: 2,
       columns: [
-        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
       ],
     }))
     let resolveCount: (v: unknown) => void = () => {}
@@ -1507,8 +1507,8 @@ describe('useBoard', () => {
   it('reorderColumns rolls back to the previous order on API failure', async () => {
     const board = makeBoard({
       columns: [
-        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
       ],
     })
     mockGetBoardFull.mockResolvedValue(board)

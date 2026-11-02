@@ -14,7 +14,7 @@ Two CI checks enforce the parity rule `CLAUDE.md` states plainly, and each cover
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
 | `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **15** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282 + #1294 + #1296 + #1338, this page) | The **generated OpenAPI document** (generated with `GIT_LENS_ENABLED=True`, #1338) | **49** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership, **array item types** |
+| `serializer-ts-parity` CI job (#1079 + #1139 + #1209 + #1282 + #1294 + #1296 + #1338 + #1101, this page) | The **generated OpenAPI document** (generated with `GIT_LENS_ENABLED=True`, #1338) | **51** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership, **array item types** |
 
 Neither supersedes the other, and a green run of one says nothing about the other. Through
 #1139 the coverage gap was a structural one — #821 reached two pairs this gate could not,
@@ -89,7 +89,7 @@ A check is **skipped, never guessed**, when either side can't be classified conf
 
 ## Coverage
 
-`COMPONENT_MAP` in the script is authoritative. As of #1338 it's:
+`COMPONENT_MAP` in the script is authoritative. As of #1101 it's:
 
 > `CurrentUser` -> `User`: its instance-level flags are frozen (#1664); new ones go on `SiteConfig`. See [Frozen instance flags](../api/authentication.md#frozen-instance-flags-on-authuser).
 
@@ -114,6 +114,7 @@ A check is **skipped, never guessed**, when either side can't be classified conf
 | `CardRelation` | `CardRelation` | no |
 | `CardTimelineEntry` | `CardTimelineEntry` | no |
 | `Column` | `Column` | yes |
+| `ColumnPolicy` | `ColumnPolicy` | no |
 | `CurrentUser` | `User` | no |
 | `CustomFieldDefinition` | `CustomFieldDefinition` | no |
 | `CustomFieldValue` | `CustomFieldValue` | no |
@@ -136,6 +137,7 @@ A check is **skipped, never guessed**, when either side can't be classified conf
 | `PublicAssignee` | `PublicAssignee` | no |
 | `PublicBoard` | `BoardPublic` | no |
 | `PublicCard` | `PublicCard` | no |
+| `PublicColumn` | `PublicColumn` | no |
 | `PublicSwimlane` | `PublicSwimlane` | no |
 | `SavedFilter` | `SavedFilter` | no |
 | `ShareBoardResponse` | `ShareActionResponse` | no |
@@ -277,6 +279,13 @@ element type against, so the frontend now declares `PublicSwimlane` matching
 `PublicSwimlaneSerializer` exactly (`id`, `uid`, `name`, `position`, `color`, `is_collapsed`,
 `created_at` — no `custom_field_values`, `contact_email`, or `notes`), and the pair is mapped in
 [Coverage](#coverage).
+
+`PublicColumn` (`PublicColumnSerializer`, nested on `PublicBoardSerializer.columns`, #1101)
+follows the same precedent from the start: the share payload leaves out `Column.policy`, so the
+frontend declares a dedicated `PublicColumn` interface (every `Column` field except `policy`)
+rather than an `Omit<Column, "policy">` alias the gate cannot parse, and `BoardPublic.columns` is
+typed `PublicColumn[]`. `ColumnPolicy` (the shape of `Column.policy`, `ColumnPolicySerializer`)
+is mapped alongside it.
 
 `PublicBoard` was removed from this table by #1282: it does have a TypeScript interface —
 `BoardPublic` — and is now mapped in [Coverage](#coverage) instead. The entry above was wrong

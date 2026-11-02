@@ -335,6 +335,8 @@ COMPONENT_MAP = {
     "CardRelation": "CardRelation",
     "CardTimelineEntry": "CardTimelineEntry",
     "Column": "Column",
+    # Column.policy's shape (#1101), published by ColumnPolicySerializer.
+    "ColumnPolicy": "ColumnPolicy",
     "CurrentUser": "User",
     "CustomFieldDefinition": "CustomFieldDefinition",
     "CustomFieldValue": "CustomFieldValue",
@@ -359,6 +361,8 @@ COMPONENT_MAP = {
     "PublicAssignee": "PublicAssignee",
     "PublicBoard": "BoardPublic",
     "PublicCard": "PublicCard",
+    # PublicColumnSerializer (#1101): Column without policy, on BoardPublic.columns.
+    "PublicColumn": "PublicColumn",
     "PublicSwimlane": "PublicSwimlane",
     "SavedFilter": "SavedFilter",
     "ShareBoardResponse": "ShareActionResponse",

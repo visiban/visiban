@@ -163,11 +163,13 @@ interface Props {
    * it only for the cell under an active card drag.
    */
   getDropVerdict?: (cardId: number, column: Column, swimlane: Swimlane) => TrippedLimit[];
+  /** Entry criteria a dragged card would meet in *column* (#1101); empty for none. */
+  getEntryCriteria?: (cardId: number, column: Column) => string[];
 }
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict, showWipAtLimit = false }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -568,6 +570,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 overlayCell={overlayCells?.get(cellKey(col.id, swimlane.id))}
                 overlayLabel={overlayLabel}
                 getDropVerdict={getDropVerdict}
+                getEntryCriteria={getEntryCriteria}
               />
             </div>
           );

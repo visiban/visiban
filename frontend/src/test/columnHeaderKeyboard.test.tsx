@@ -8,7 +8,7 @@ vi.mock('../api/boards', () => ({ updateColumn: vi.fn() }))
 
 const column: Column = {
   id: 10, uid: 'coluid000001', name: 'Backlog', position: 0, color: '#3B82F6',
-  wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false,
+  wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null,
 }
 
 function renderHeader(over: Partial<React.ComponentProps<typeof ColumnHeader>> = {}) {
