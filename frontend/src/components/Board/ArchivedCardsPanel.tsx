@@ -60,16 +60,54 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const cards = loadedCards.filter((c) => columnIds.has(c.column) && swimlaneIds.has(c.swimlane));
   const pruned = loadedCards.length - cards.length;
   const total = Math.max(0, loadedTotal - pruned);
+  const prunedRef = useRef(0);
+  prunedRef.current = pruned;
+  // Bumped by every panel action that moves offset/total (Load more,
+  // unarchive). A server count read that started before the latest bump may
+  // predate that action's effect on the server's list, so applying it could
+  // leave total one low or revive a phantom remainder; discard it.
+  const totalSeq = useRef(0);
+
+  // The client cannot know how many *unloaded* archived cards went with a
+  // deleted container, so subtracting only the loaded ones leaves a phantom
+  // "Load more (N remaining)" that returns nothing (#1637). Rather than guess,
+  // re-read the authoritative count from the server whenever the set of
+  // columns or swimlanes changes. loadedTotal is kept as server count plus the
+  // pruned cards still held in loadedCards, so `total` stays server-true.
+  // Sorted so a pure reorder or a new board object with the same ids does not
+  // trigger a needless request; additions also only grow the set harmlessly,
+  // but any membership change is worth one count read.
+  const sortedIds = (xs: { id: number }[]) => xs.map((x) => x.id).sort((a, b) => a - b).join(",");
+  const containerKey = `${sortedIds(board.columns)}|${sortedIds(board.swimlanes)}`;
+  const lastContainerKey = useRef(containerKey);
+  useEffect(() => {
+    if (lastContainerKey.current === containerKey) return;
+    lastContainerKey.current = containerKey;
+    const seq = totalSeq.current;
+    getArchivedCards(board.id, 0)
+      .then((page) => {
+        if (seq !== totalSeq.current) return;
+        setTotal(page.count + prunedRef.current);
+      })
+      .catch(() => {
+        // Keep the local estimate; the next Load more re-syncs from the server.
+      });
+  }, [containerKey, board.id]);
 
   const handleLoadMore = () => {
+    totalSeq.current += 1;
     setLoadingMore(true);
     setLoadError(null);
     // Cards pruned above are gone from the server too, so the server's list
     // has shifted down by that many since they were loaded.
     getArchivedCards(board.id, Math.max(0, offset - pruned))
       .then((page) => {
+        totalSeq.current += 1;
         setCards((prev) => [...prev, ...page.results]);
         setOffset((prev) => prev + page.results.length);
+        // Re-sync with the server so an empty page can never leave a phantom
+        // remainder behind (#1637).
+        setTotal(page.count + pruned);
       })
       .catch(() => setLoadError("Could not load more archived cards. Please try again."))
       .finally(() => setLoadingMore(false));
@@ -78,10 +116,17 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const handleUnarchive = async (card: Card) => {
     setUnarchivingId(card.id);
     setRestoreError(null);
+    totalSeq.current += 1;
     try {
       const unarchived = await unarchiveCard(board.id, card.id);
+      // Bump again: a count read begun while the request was in flight may have
+      // been taken before the server applied it.
+      totalSeq.current += 1;
       setCards((prev) => prev.filter((c) => c.id !== card.id));
       setTotal((prev) => Math.max(0, prev - 1));
+      // The server's list shrank by this card too; without this the next
+      // page would be requested one row too far and skip a card (#1637).
+      setOffset((prev) => Math.max(0, prev - 1));
       onUnarchived(unarchived);
     } catch (err) {
       // Restoring into a full column is refused with the move path's limit
@@ -114,6 +159,10 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const columnName = (colId: number) => board.columns.find((c) => c.id === colId)?.name ?? "—";
   const swimlaneName = (slId: number) => board.swimlanes.find((s) => s.id === slId)?.name ?? "—";
 
+  // The server reports count 0 for an empty page, so a Load more that comes
+  // back empty can set total below the cards still listed; never show a header
+  // count smaller than what is on screen.
+  const shownTotal = Math.max(total, cards.length);
   const hasMore = cards.length < total;
 
   return (
@@ -132,7 +181,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h2 className="text-sm font-medium text-fg">
-            Archived cards{total > 0 && <span className="ml-2 text-fg-tertiary font-normal">({total})</span>}
+            Archived cards{shownTotal > 0 && <span className="ml-2 text-fg-tertiary font-normal">({shownTotal})</span>}
           </h2>
           <button
             onClick={onClose}
