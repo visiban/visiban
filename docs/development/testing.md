@@ -347,6 +347,11 @@ Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` an
 
 - Backend tests run in the `backend-test` job (8 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
   - Shards are time-balanced by `pytest-split` from the committed `backend/.test_durations` file. Shards never write it (concurrent shards would overwrite each other's slice). Refresh it occasionally, e.g. after a large batch of new tests: `cd backend && pytest --store-durations --durations-path .test_durations`, then commit the file. A stale file only degrades balance, never correctness.
+- The change-feed clients (`clients/python`, `clients/typescript`, #1178) have three CI jobs, all triggered by `clients/**`:
+    - `clients-python-unit` runs the stdlib `unittest` suite with `coverage` and fails below 80%.
+    - `clients-typescript-unit` runs `tsc`, `vitest` (80% threshold) and the build. `clients-typescript-sast` runs eslint with the security plugin.
+    - `clients-contract` boots a real backend, then runs both packages' live tests: a feed phase, a real `prune_board_events` run, then an expired-cursor phase. It also re-runs when the feed's backend code or the events docs change, so an API change that breaks the clients fails the OSS pipeline.
+    - Both unit suites also run every scenario in `clients/contract/fixtures.json`. Add a scenario there, not in one language's test file, so the two stay in step. Locally: `cd clients/python && PYTHONPATH=src python -m unittest discover -s tests -t .` and `cd clients/typescript && npm ci && npm test`.
 - `backend-benchmark` is a **manual** job (#1341) that runs `python manage.py benchmark --fail-on-budget`.
     - **Trigger:** use the pipeline page's manual-job play button on an MR or `main` pipeline. It's `allow_failure: true` so an unrun job never blocks a merge, and it never runs on schedules or tags.
     - **What it does:** the command seeds its own throw-away board (100 cards) and counts SQL queries for the card list, `full/`, and `summary/` against committed budgets. It fails on a non-2xx response, on `DEBUG` being off, or on any endpoint over budget.

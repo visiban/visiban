@@ -1,0 +1,16 @@
+# OSV-Scanner config for clients/typescript/package-lock.json (auto-discovered;
+# see scripts/osv-severity-gate.sh for the accepted-risk contract). Mirrors the
+# waiver in frontend/osv-scanner.toml: same advisory, same dev-only eslint
+# toolchain, same tracking issue.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+# minimatch < 11.0.1: globparts amplification DoS (MODERATE, published
+# 2026-10-30). The only fix is 11.0.1; neither the 3.x line (eslint,
+# @eslint/config-array, @eslint/eslintrc) nor the 10.x line
+# (@typescript-eslint/typescript-estree) has a backport. Dev-only lint tooling
+# that only matches this package's own static globs; the package has zero
+# runtime dependencies and ships none of it. Remove when the eslint toolchain
+# moves to minimatch >= 11.0.1 (tracked in #2018).
+ignoreUntil = 2027-01-31
+reason = "No minimatch fix within the 3.x/10.x ranges eslint requires; dev-only lint tooling, never sees untrusted input"

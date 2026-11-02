@@ -28,6 +28,13 @@ class ConstructorTests(unittest.TestCase):
                 Client("http://127.0.0.1:1", token)
             self.assertNotIn("vbn", str(ctx.exception))
 
+    def test_rejects_credentials_in_base_url_without_echoing_them(self):
+        with self.assertRaises(ValueError) as ctx:
+            Client("https://user:" + "hunter2" + "@example.com", "vbn_x")
+        self.assertNotIn("hunter2", str(ctx.exception))
+        with self.assertRaises(ValueError):
+            Client("https://user@example.com", "vbn_x")
+
     def test_refuses_plain_http_to_remote_host(self):
         with self.assertRaises(ValueError):
             Client("http://example.com", "vbn_x")
@@ -61,6 +68,28 @@ class TransportTests(unittest.TestCase):
             list(client.iter_events(1))
         self.assertEqual(sleeps, [0.5, 1.0])
         self.assertEqual(type(ctx.exception).__name__, "RetriesExhausted")
+
+    def test_truncated_body_is_retried(self):
+        sleeps = []
+        ok = {"status": 200, "body": {"results": [{"id": 1}], "next_cursor": None}}
+        with ScriptedServer([dict(ok, truncate=True), ok]) as s:
+            items = list(Client(s.url, "vbn_x", jitter=False, sleep=sleeps.append).iter_events(1))
+        self.assertEqual([i["id"] for i in items], [1])
+        self.assertEqual(sleeps, [0.5])
+
+    def test_truncated_error_body_is_retried_then_typed(self):
+        sleeps = []
+        bad = {"status": 500, "body": {"detail": "x"}, "truncate": True}
+        with ScriptedServer([bad, bad]) as s:
+            client = Client(s.url, "vbn_x", max_retries=1, jitter=False, sleep=sleeps.append)
+            with self.assertRaises(Exception) as ctx:
+                list(client.iter_events(1))
+        self.assertEqual(type(ctx.exception).__name__, "RetriesExhausted")
+
+    def test_invalid_json_success_body_is_a_protocol_error(self):
+        with ScriptedServer([{"status": 200, "body": "not-a-page"}]) as s:
+            with self.assertRaises(ProtocolError):
+                list(Client(s.url, "vbn_x").iter_events(1))
 
     def test_backoff_is_capped(self):
         sleeps = []

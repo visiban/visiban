@@ -51,7 +51,8 @@ export interface ClientOptions {
   backoffMaxMs?: number;
   jitter?: boolean;
   allowInsecure?: boolean;
-  sleep?: (ms: number) => Promise<void>;
+  /** Resolves after ms. Receives the iteration's AbortSignal; should resolve early when it aborts. */
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 
 export interface IterEventsOptions {
@@ -73,6 +74,9 @@ export interface IterEventsOptions {
 }
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/** Internal: the caller's AbortSignal fired. iterEvents turns it into a clean return. */
+class Aborted extends Error {}
 
 class Gone {
   constructor(readonly body: unknown) {}
@@ -119,6 +123,10 @@ export class Client {
     if (url.protocol === "http:" && !LOOPBACK.has(url.hostname) && !options.allowInsecure) {
       throw new TypeError("refusing to send a token over plain http to a non-loopback host; use https or allowInsecure");
     }
+    if (url.username !== "" || url.password !== "") {
+      // Fixed message: the credentials must not appear in any error.
+      throw new TypeError("baseUrl must not contain credentials; pass the token separately");
+    }
     this.base = options.baseUrl.replace(/\/+$/, "");
     this.origin = url.origin;
     this.token = options.token;
@@ -130,7 +138,19 @@ export class Client {
       backoffMaxMs: options.backoffMaxMs ?? 30_000,
       jitter: options.jitter ?? true,
       allowInsecure: options.allowInsecure ?? false,
-      sleep: options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+      sleep:
+        options.sleep ??
+        ((ms, signal) =>
+          new Promise<void>((resolve) => {
+            if (signal?.aborted) return resolve();
+            const done = () => {
+              clearTimeout(timer);
+              signal?.removeEventListener("abort", done);
+              resolve();
+            };
+            const timer = setTimeout(done, ms);
+            signal?.addEventListener("abort", done, { once: true });
+          })),
     };
   }
 
@@ -144,9 +164,10 @@ export class Client {
   }
 
   /** GET with retry on 429, 5xx and network errors. Throws Gone for a cursor_expired 410. */
-  private async getJson(url: string): Promise<unknown> {
+  private async getJson(url: string, signal?: AbortSignal): Promise<unknown> {
     let last: APIError | null = null;
     for (let attempt = 0; attempt <= this.opts.maxRetries; attempt++) {
+      if (signal?.aborted) throw new Aborted();
       let status: number;
       let body: unknown;
       let retryAfter: string | null = null;
@@ -155,7 +176,8 @@ export class Client {
           headers: { Authorization: `Token ${this.token}`, Accept: "application/json" },
           // Never follow: a redirect would re-send the Authorization header elsewhere.
           redirect: "manual",
-          signal: AbortSignal.timeout(this.opts.timeoutMs),
+          // Aborts on the request timeout or the caller's signal, whichever is first.
+          signal: signal ? AbortSignal.any([AbortSignal.timeout(this.opts.timeoutMs), signal]) : AbortSignal.timeout(this.opts.timeoutMs),
         });
         status = res.status;
         retryAfter = res.headers.get("Retry-After");
@@ -166,8 +188,9 @@ export class Client {
           body = null;
         }
       } catch (exc) {
+        if (signal?.aborted) throw new Aborted();
         last = new RetriesExhausted(0, `network error: ${exc instanceof Error ? exc.message : String(exc)}`);
-        if (attempt < this.opts.maxRetries) await this.opts.sleep(this.delayMs(attempt, null));
+        if (attempt < this.opts.maxRetries) await this.opts.sleep(this.delayMs(attempt, null), signal);
         continue;
       }
       if (status >= 200 && status < 300) return body;
@@ -179,7 +202,7 @@ export class Client {
           typeof rec?.code === "string" ? rec.code : null,
           body,
         );
-        if (attempt < this.opts.maxRetries) await this.opts.sleep(this.delayMs(attempt, retryAfter));
+        if (attempt < this.opts.maxRetries) await this.opts.sleep(this.delayMs(attempt, retryAfter), signal);
         continue;
       }
       throw errorFor(status, body);
@@ -213,7 +236,7 @@ export class Client {
     }
   }
 
-  private async resync(boardId: number, body: unknown): Promise<Resync> {
+  private async resync(boardId: number, body: unknown, signal?: AbortSignal): Promise<Resync> {
     const rec = asRecord(body) ?? {};
     const nextCursor = rec.next_cursor;
     const resyncUrl = rec.resync_url;
@@ -227,7 +250,7 @@ export class Client {
     if (typeof resyncUrl !== "string") throw new ProtocolError("410 cursor_expired without resync_url");
     let snapshot: unknown;
     try {
-      snapshot = await this.getJson(this.sameOriginUrl(resyncUrl));
+      snapshot = await this.getJson(this.sameOriginUrl(resyncUrl), signal);
     } catch (exc) {
       if (exc instanceof Gone) throw new ProtocolError("unexpected 410 fetching the snapshot");
       throw exc;
@@ -259,11 +282,18 @@ export class Client {
         if (options.signal?.aborted) return;
         let page: unknown;
         try {
-          page = await this.getJson(`${this.base}/api/v1/boards/${Math.trunc(boardId)}/events/?${new URLSearchParams({ after: String(after), limit: String(limit) })}`);
+          page = await this.getJson(`${this.base}/api/v1/boards/${Math.trunc(boardId)}/events/?${new URLSearchParams({ after: String(after), limit: String(limit) })}`, options.signal);
         } catch (exc) {
+          if (exc instanceof Aborted) return;
           if (!(exc instanceof Gone)) throw exc;
           if (++resyncs > MAX_CONSECUTIVE_RESYNCS) throw new ProtocolError("server keeps answering 410 after re-syncing; giving up");
-          const resync = await this.resync(boardId, exc.body);
+          let resync: Resync;
+          try {
+            resync = await this.resync(boardId, exc.body, options.signal);
+          } catch (inner) {
+            if (inner instanceof Aborted) return;
+            throw inner;
+          }
           yield resync;
           await store.set(boardId, resync.cursor);
           current = resync.cursor;
@@ -287,7 +317,8 @@ export class Client {
       }
       if (overlap) delivered = new Set([...delivered].filter((i) => i > current - overlap));
       if (options.pollIntervalMs === undefined || options.signal?.aborted) return;
-      await this.opts.sleep(options.pollIntervalMs);
+      await this.opts.sleep(options.pollIntervalMs, options.signal);
+      if (options.signal?.aborted) return;
     }
   }
 }

@@ -39,12 +39,13 @@ class ScriptedServer:
                     return
                 resp = outer.responses.pop(0)
                 body = b"" if resp.get("body") is None else json.dumps(resp["body"]).encode()
+                declared = len(body) + (10 if resp.get("truncate") else 0)
                 self.send_response(resp["status"])
                 for key, value in resp.get("headers", {}).items():
                     self.send_header(key, value)
                 if body:
                     self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Content-Length", str(declared))
                 self.end_headers()
                 self.wfile.write(body)
 

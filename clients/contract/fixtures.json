@@ -359,6 +359,65 @@
       }
     },
     {
+      "name": "resync_break_leaves_cursor_uncommitted",
+      "description": "Leaving the loop on a Resync does not commit its cursor (at-least-once applies to the resync too)",
+      "options": {
+        "board_id": 7,
+        "cursor": 10,
+        "break_after": 1
+      },
+      "responses": [
+        {
+          "status": 410,
+          "body": {
+            "detail": "cursor expired",
+            "code": "cursor_expired",
+            "resync_url": "http://internal-host:8000/api/v1/boards/7/full/",
+            "next_cursor": 50
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": 7,
+            "name": "Demo",
+            "columns": [],
+            "cards": []
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "resync",
+            50
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "10",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/full/",
+            "query": {}
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": null,
+        "resync_snapshot": {
+          "id": 7,
+          "name": "Demo",
+          "columns": [],
+          "cards": []
+        }
+      }
+    },
+    {
       "name": "resync_unsupported_without_next_cursor",
       "description": "A 1.2 server's 410 has no next_cursor: raise instead of guessing",
       "options": {

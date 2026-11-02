@@ -36,6 +36,16 @@ describe("constructor", () => {
     }
   });
 
+  it("rejects credentials in baseUrl without echoing them", () => {
+    expect(() => new Client({ baseUrl: "https://user:" + "hunter2" + "@example.com", token: "t" })).toThrow(/credentials/);
+    try {
+      new Client({ baseUrl: "https://user:" + "hunter2" + "@example.com", token: "t" });
+    } catch (e) {
+      expect((e as Error).message).not.toContain("hunter2");
+    }
+    expect(() => new Client({ baseUrl: "https://user@example.com", token: "t" })).toThrow(TypeError);
+  });
+
   it("uses global fetch by default", () => {
     expect(() => new Client({ baseUrl: "https://example.com", token: "t" })).not.toThrow();
   });
@@ -92,6 +102,75 @@ describe("transport", () => {
   it("treats non-JSON error bodies as empty", async () => {
     const { client } = make([{ status: 400, body: null }]);
     await expect(drain(client.iterEvents(1))).rejects.toMatchObject({ name: "BadRequestError", detail: "" });
+  });
+});
+
+describe("truncated bodies and abort", () => {
+  const truncated = () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"results": ['));
+        controller.error(new Error("socket closed"));
+      },
+    });
+    return new Response(stream, { status: 200 });
+  };
+
+  it("retries a body that fails mid-stream", async () => {
+    const sleeps: number[] = [];
+    let calls = 0;
+    const client = new Client({
+      baseUrl: "http://127.0.0.1:9",
+      token: "vbn_x",
+      jitter: false,
+      sleep: async (ms) => void sleeps.push(ms),
+      fetch: (async () => (++calls === 1 ? truncated() : new Response(JSON.stringify({ results: [{ id: 1 }], next_cursor: null })))) as typeof fetch,
+    });
+    expect(await drain(client.iterEvents(1))).toHaveLength(1);
+    expect(sleeps).toEqual([500]);
+  });
+
+  it("a 200 body that is not a page is a ProtocolError", async () => {
+    const { client } = make([{ status: 200, body: "not-a-page" }]);
+    await expect(drain(client.iterEvents(1))).rejects.toBeInstanceOf(ProtocolError);
+  });
+
+  it("aborts an in-flight request without retrying", async () => {
+    const ac = new AbortController();
+    let calls = 0;
+    const client = new Client({
+      baseUrl: "http://127.0.0.1:9",
+      token: "vbn_x",
+      fetch: ((_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          calls++;
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        })) as typeof fetch,
+    });
+    const run = drain(client.iterEvents(1, { signal: ac.signal }));
+    await new Promise((r) => setTimeout(r, 10));
+    ac.abort();
+    expect(await run).toEqual([]);
+    expect(calls).toBe(1);
+  });
+
+  it("the default sleep wakes immediately on abort", async () => {
+    const ac = new AbortController();
+    const { fn } = scriptedFetch([ok([]), ok([])]);
+    const client = new Client({ baseUrl: "http://127.0.0.1:9", token: "vbn_x", fetch: fn });
+    const started = Date.now();
+    const run = drain(client.iterEvents(1, { pollIntervalMs: 60_000, signal: ac.signal }));
+    setTimeout(() => ac.abort(), 20);
+    expect(await run).toEqual([]);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  it("passes the signal to a custom sleep", async () => {
+    const ac = new AbortController();
+    let received: AbortSignal | undefined;
+    const { client } = make([ok([])], { sleep: async (_ms: number, s?: AbortSignal) => { received = s; ac.abort(); } });
+    await drain(client.iterEvents(1, { pollIntervalMs: 10, signal: ac.signal }));
+    expect(received).toBe(ac.signal);
   });
 });
 

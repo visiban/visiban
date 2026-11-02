@@ -105,7 +105,7 @@ curl -s -H "Authorization: Token vbn_..." \
   "http://localhost:8000/api/v1/boards/42/events/?after=0&limit=200"
 ```
 
-Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`, the commit order. Never re-sort by `created_at`: two events can share a timestamp.
+Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`, which follows insertion order and is usually, but not always, commit order (see [Event coverage](#event-coverage) and [#2053](https://gitlab.com/visiban/visiban/-/issues/2053)). Never re-sort by `created_at`: two events can share a timestamp.
 
 ### Pagination shapes
 

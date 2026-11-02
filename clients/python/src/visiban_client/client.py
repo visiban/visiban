@@ -9,6 +9,7 @@ Handlers must be idempotent; exactly-once is not offered.
 
 from __future__ import annotations
 
+import http.client
 import json
 import random
 import time
@@ -92,6 +93,9 @@ class Client:
         parts = urlsplit(base_url)
         if parts.scheme not in ("http", "https") or not parts.hostname:
             raise ValueError("base_url must be an http(s) URL")
+        if parts.username is not None or parts.password is not None:
+            # Fixed message: the credentials must not appear in any error.
+            raise ValueError("base_url must not contain credentials; pass the token separately")
         if parts.scheme == "http" and parts.hostname not in _LOOPBACK and not allow_insecure:
             raise ValueError("refusing to send a token over plain http to a non-loopback host; use https or allow_insecure=True")
         self._base = base_url.rstrip("/")
@@ -137,9 +141,17 @@ class Client:
                     status = resp.status
             except urllib.error.HTTPError as exc:
                 status = exc.code
-                raw = exc.read()
                 retry_after = exc.headers.get("Retry-After") if exc.headers else None
-            except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as exc:
+                try:
+                    raw = exc.read()
+                except (http.client.HTTPException, OSError) as read_exc:
+                    last = RetriesExhausted(status, f"error reading response: {type(read_exc).__name__}")
+                    if attempt < self._max_retries:
+                        self._sleep(self._delay(attempt, retry_after))
+                    continue
+            # HTTPException covers IncompleteRead and BadStatusLine (a truncated
+            # or garbled response): retriable like any other network failure.
+            except (urllib.error.URLError, http.client.HTTPException, OSError) as exc:
                 last = RetriesExhausted(0, f"network error: {exc}")
                 if attempt < self._max_retries:
                     self._sleep(self._delay(attempt, None))

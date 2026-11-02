@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=20.3" },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

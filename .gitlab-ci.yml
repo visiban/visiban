@@ -1466,6 +1466,11 @@ clients-contract:
         - backend/boards/serializers.py
         - backend/boards/broadcast.py
         - backend/boards/services/feed.py
+        - backend/boards/models.py
+        - backend/boards/urls.py
+        - backend/boards/management/commands/prune_board_events.py
+        - backend/accounts/**/*
+        - backend/visiban/settings.py
         - backend/webhooks/**/*
         - docs/api/events.md
         - docs/api/webhooks.md
