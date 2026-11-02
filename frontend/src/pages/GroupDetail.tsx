@@ -476,6 +476,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }
   };
 
+  // The server refuses owner / last-admin changes with a 400 whose `detail`
+  // says why; show that instead of a generic message. Network errors and 5xx
+  // carry no usable detail, so they fall back to the generic text.
+  const memberErrorMessage = (err: unknown, fallback: string): string => {
+    const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+    return typeof detail === "string" && detail.trim() !== "" ? detail : fallback;
+  };
+
   const handleRemoveMember = async (userId: number) => {
     setConfirmRemoveMemberId(null);
     setMemberError(null);
@@ -484,8 +492,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       // Local state only changes after the server confirms, so a failure leaves
       // the member listed and there is nothing to roll back.
       setMembers((prev) => prev.filter((m) => m.user.id !== userId));
-    } catch {
-      setMemberError("Failed to remove member. Please try again.");
+    } catch (err: unknown) {
+      setMemberError(memberErrorMessage(err, "Failed to remove member. Please try again."));
     }
   };
 
@@ -494,10 +502,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     try {
       const updated = await updateGroupMemberRole(groupId, userId, role);
       setMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, role: updated.role } : m));
-    } catch {
+    } catch (err: unknown) {
       // The role selector is driven by the stored role, so it snaps back to the
       // previous value on its own; only the error needs surfacing.
-      setMemberError("Failed to change member role. Please try again.");
+      setMemberError(memberErrorMessage(err, "Failed to change member role. Please try again."));
     }
   };
 
@@ -1004,7 +1012,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ↑ {m.inherited_from}
                         </span>
                       </div>
-                    ) : isAdmin && m.user.id !== user.id ? (
+                    ) : isAdmin && m.user.id !== user.id && m.user.id !== group?.owner.id ? (
                       <div className="flex items-center gap-2 shrink-0">
                         <SelectDropdown
                           value={m.role}
