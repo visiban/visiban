@@ -32,7 +32,7 @@ Apply the guiding principle and check against known category examples:
 - Labels, priorities, due dates, assignees, checklists
 - Comments and card activity history
 - Real-time updates (WebSocket)
-- Basic analytics visible to all members
+- Analytics visible to all members: heatmap, stalled cards, per-swimlane velocity, bottleneck detection and the #448 flow charts (see `docs/architecture/open-core-boundary.md#analytics-split`)
 - OAuth login (Google, GitHub, GitLab)
 - RBAC (admin/member/viewer roles on boards)
 - Groups and subgroups with inherited RBAC
@@ -43,7 +43,7 @@ Apply the guiding principle and check against known category examples:
 **Enterprise (`visiban/visiban-enterprise` only):**
 - SSO / SAML
 - Audit logs
-- Advanced analytics (velocity, dwell time, bottleneck reports beyond basic)
+- Cross-period comparison, scheduled analytics reports, `ANALYTICS_EXTENSIONS` panels (the heatmap, bottleneck detection and the #448 flow charts are OSS; see `docs/architecture/open-core-boundary.md#analytics-split`)
 - Automation rules (trigger-based card movement, notifications)
 - Integrations with external services (Slack, Jira, webhooks)
 - Multi-tenancy / white-labeling
@@ -52,7 +52,7 @@ Apply the guiding principle and check against known category examples:
 
 ### 2. Check for grey areas
 
-If the feature has both an OSS and enterprise tier (e.g. basic analytics in OSS, advanced in enterprise):
+If the feature has both an OSS and enterprise tier (e.g. analytics in OSS, cross-period comparison and scheduled reports in enterprise):
 - Define the OSS boundary explicitly — what is included, what is not
 - Ensure the OSS implementation is genuinely useful on its own, not artificially crippled
 - Document the distinction in the feature's docs page

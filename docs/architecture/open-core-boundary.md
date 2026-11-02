@@ -165,9 +165,9 @@ Enterprise keeps three things: cross-period comparison, scheduled analytics repo
 
 **Supersedes.** This replaces the 2026-10-20 note on #1750, which ruled the CFD, velocity trends, cross-period comparison, scheduled reports and `ANALYTICS_EXTENSIONS` panels Enterprise. It also replaces the earlier table rows "Advanced analytics (velocity trends, CFD, exports)" (#341 note) and "Advanced analytics (cycle time dists, CFD)" (enterprise #12), and the earlier wording of this section, which placed velocity trends, bottleneck detection, historical period comparisons and exportable reports in Enterprise.
 
-**Cost accepted.** Under the project's backward compatibility rules, a shipped OSS feature cannot practically move back to Enterprise. Enterprise #12 needs rescoping to the three items above.
+**Cost accepted.** Under the project's backward compatibility rules, a shipped OSS feature cannot practically move back to Enterprise. Enterprise #12 is the open tracking issue for rescoping the enterprise side to the three items above; a note was posted there on 2026-11-02.
 
-**Not decided here.** Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. The #448 charts are planned, not shipped; the [flow metric definitions](decisions.md) apply wherever they ship.
+**Not decided here.** Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. Neither are MCP analytics tools. The #448 charts are planned, not shipped; the [flow metric definitions](decisions.md) apply wherever they ship.
 
 The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (`boards/hooks.py`) so enterprise can add panels without modifying OSS view files. The summary returns the panels in `extension_panels`, and the Summary tab renders `stats` and `table` panels below the swimlane table (see the [payload contract](../api/boards.md#extension-panel-payload)).
 

@@ -379,7 +379,7 @@ Visiban exposes a Model Context Protocol server (`/mcp`) so an MCP-compatible AI
 - Analytics export (CSV) — admin only
 - Board summary endpoint
 
-*Cross-board portfolio analytics (cumulative flow diagrams, cross-board cycle-time reporting) are not part of OSS core — see the enterprise repo's roadmap.*
+*The flow charts planned in #448 (cycle time, throughput, cumulative flow, WIP age) are OSS. Enterprise keeps cross-period comparison, scheduled reports and extension panels. Cross-board portfolio analytics is not decided here. See [Analytics (split)](docs/architecture/open-core-boundary.md#analytics-split).*
 
 ---
 
