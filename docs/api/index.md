@@ -124,6 +124,8 @@ Branch on `code`, not on which parameter key is present.
 
 Some parameters are clamped or ignored rather than refused; each endpoint's page says which.
 
+**Request bodies.** Write endpoints accept `application/json`, `application/x-www-form-urlencoded` and `multipart/form-data` unless their page says otherwise (the board imports take `multipart/form-data` only). A body that cannot be parsed answers `400 Bad Request` with `{"detail": "..."}` and no `code`. *(Changed in 1.3, #2072)* That includes a form body over one of the server's upload limits: more than 100 file parts, more than 1000 fields, or more than 2.5 MB of non-file form data (Django's `DATA_UPLOAD_MAX_NUMBER_FILES`, `DATA_UPLOAD_MAX_NUMBER_FIELDS` and `DATA_UPLOAD_MAX_MEMORY_SIZE` defaults). The `detail` names the limit, for example `"Multipart form parse error - The number of files exceeded settings.DATA_UPLOAD_MAX_NUMBER_FILES."`. Before 1.3 these answered an HTML error page. A JSON or urlencoded body over 2.5 MB in total still answers an HTML `400`, and a body over the reverse proxy's limit (35 MB in the bundled Compose nginx; the Helm chart derives it from the upload and import size caps) is refused by the proxy, which answers its own `413`, before it reaches the API.
+
 ### Rate limits
 
 Requests are throttled per client with DRF throttles. A request over its limit answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header (seconds); wait that long before retrying.
