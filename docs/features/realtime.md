@@ -204,7 +204,7 @@ The SPA handles a dropped connection by refetching the full board on reconnect, 
 
 - Every event the board channel broadcasts is durably persisted in the same transaction as the mutation it describes, and each WebSocket frame carries the matching `event_id`.
 - `GET /api/v1/boards/{id}/events/?after=<event_id>` returns the missed events in order, so a consumer can catch up without re-fetching the whole board.
-- Events are retained for `BOARD_EVENT_RETENTION_DAYS` days (default 30); a cursor older than that gets `410 Gone` with a re-sync hint instead of silently skipping events.
+- Events are retained for `BOARD_EVENT_RETENTION_DAYS` days (default 30); a cursor with a pruned event after it gets `410 Gone` with a re-sync hint instead of silently skipping events. A consumer idle on a quiet board whose own cursor event was pruned, but nothing after it, keeps reading (1.3+, #2058).
 
 See [Board Change Feed API](../api/events.md) for the full reference.
 

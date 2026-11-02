@@ -125,7 +125,7 @@ Board change feed: committed board mutations in ascending `id` order, so a consu
 
 ```json
 {
-  "detail": "Event cursor is no longer available — it fell outside the retention window. Re-sync the board state and resume from the newest event id you see after that.",
+  "detail": "This cursor can no longer be resumed — events after it may have been pruned by the retention window. Re-sync the board state and resume from the newest event id you see after that.",
   "code": "cursor_expired",
   "resync_url": "https://your-instance.example.com/api/v1/boards/1/full/"
 }

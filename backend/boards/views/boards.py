@@ -913,9 +913,12 @@ class BoardViewSet(
             return Response(
                 {
                     "detail": (
-                        "Event cursor is no longer available — it fell outside the "
-                        "retention window. Re-sync the board state and resume from the "
-                        "newest event id you see after that."
+                        # Worded for every 410 branch: the cursor's own row may
+                        # still exist when a later event was pruned (#2058).
+                        "This cursor can no longer be resumed — events after it "
+                        "may have been pruned by the retention window. Re-sync the "
+                        "board state and resume from the newest event id you see "
+                        "after that."
                     ),
                     "code": "cursor_expired",
                     "resync_url": request.build_absolute_uri(

@@ -131,6 +131,8 @@ New cursor-paginated endpoints should name the response key `next_cursor` but do
     - **`after` omitted or `0`.** Never `410`: it means "start at the oldest retained event", not a position you held.
     - **A cursor that was never one of this board's event ids** (for example, one taken from another board's feed). `410` once the board has newer events.
 
+    **The record is per board, not per reader.** If the only events pruned after your cursor were ones you would never have been shown (another user's per-user events such as stars and saved filters, or `share_link.updated` when you are below admin), you still get `410`, even on an otherwise empty page. That costs one re-sync you did not strictly need, and it never skips an event you could have read.
+
     **Boards not pruned since the upgrade to 1.3.** An install that pruned with 1.2 recorded nothing, so for a board whose events have not been pruned since the upgrade the feed keeps the 1.2 rule: a missing cursor returns `410` when newer events exist and an empty page when none do. The board switches to the exact rule the first time the pruner deletes one of its events.
 
 ---
@@ -272,7 +274,7 @@ Pick a retention window longer than the longest outage a consumer should survive
 
 The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
 
-- **The endpoint, its `after` and `limit` parameters, and the response envelope** (`results`, `next_cursor`, and the deprecated `next`) are never removed or renamed in a minor or patch release. The cursor semantics (`after` is exclusive, ordering is by `id`, `next_cursor` is `null` once a page comes back short) and the `400`, `404`, and `410` error behavior described on this page do not change.
+- **The endpoint, its `after` and `limit` parameters, and the response envelope** (`results`, `next_cursor`, and the deprecated `next`) are never removed or renamed in a minor or patch release. The cursor semantics (`after` is exclusive, ordering is by `id`, `next_cursor` is `null` once a page comes back short) and the `400`, `404`, and `410` error behavior described on this page do not change, with one stated exception: the condition for `410` was corrected in 1.3 (see the bullet on it below). The `410` status, body shape and `code` did not change.
 - **Row fields** (`id`, `event`, `data`, `actor_id`, `actor`, `created_at`, and since 1.3 `redacted_at`) only gain fields; an existing field keeps its name and type and is never removed.
 - **Redacted rows are the exception to "verbatim".** A row an operator's purge redacted keeps every payload key but carries `null` content values (see [Redacted card events](#redacted-card-events)). Clients must accept `null` for those fields on a row whose `redacted_at` is set.
 - **Event types and payloads** carry the same `{event, data}` payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in [Retiring an event](../development/websocket-event-contract.md#retiring-an-event).

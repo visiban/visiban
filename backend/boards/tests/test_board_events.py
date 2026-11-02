@@ -1165,3 +1165,19 @@ class PruneMarkTests(BoardEventTestBase):
         cursor = self._record()
         self._record()
         self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (200, 1, 2))
+
+    def test_mark_write_failure_rolls_back_the_batch_delete(self):
+        """The delete and the mark share one transaction (#2058).
+
+        If the rows could go without the mark covering them, a reader in
+        between would see a cursor skip pruned events with no 410.
+        """
+        old = self._record(aged_days=45)
+        with patch(
+            "boards.management.commands.prune_board_events.record_pruned",
+            side_effect=RuntimeError("mark write failed"),
+        ):
+            with self.assertRaises(RuntimeError):
+                call_command("prune_board_events")
+        self.assertTrue(BoardEvent.objects.filter(pk=old).exists())
+        self.assertFalse(BoardEventPruneMark.objects.exists())
