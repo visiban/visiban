@@ -1,3 +1,4 @@
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEffect, useRef, useState } from "react";
 import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
@@ -73,6 +74,13 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     });
   };
 
+  // Escape closes the open suggestion popup (priority 43, above the card panel's 30) rather than
+  // also closing the panel; returns false with no popup so Escape still reaches the panel (#2036).
+  useEscapeStack(() => {
+    if (!mention.active || suggestions.length === 0) return false;
+    setMention({ active: false, query: "", startIndex: -1 });
+  }, 43);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter without Shift submits the comment (when mention dropdown is not active)
     if (e.key === "Enter" && !e.shiftKey && (!mention.active || suggestions.length === 0)) {
@@ -92,9 +100,8 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     } else if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       insertMention(suggestions[selectedIndex].username);
-    } else if (e.key === "Escape") {
-      setMention({ active: false, query: "", startIndex: -1 });
     }
+    // Escape is handled by the useEscapeStack registration above (#2036).
   };
 
   return (

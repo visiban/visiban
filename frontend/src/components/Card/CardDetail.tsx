@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, classifyTransition, findBoardCardElement, isBoardTreePointerEvent, useCardSheetPlacement } from "../../hooks/useCardSheetPlacement";
@@ -378,6 +379,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // Set when a failed override leaves no override link: the popover's Move
   // button takes focus once moveForcing clears and it is enabled again.
   const focusMoveSubmitRef = useRef(false);
+  // Cancelling the inline new-label input (Escape or the x button) returns focus to the "+ New
+  // label" trigger it replaced (#2036); a successful create does not steal focus.
+  const newLabelTriggerRef = useRef<HTMLButtonElement>(null);
+  const focusNewLabelTriggerRef = useRef(false);
   const moveErrorId = useId();
   // Shown in the panel header (always-mounted status line) when a refresh
   // replaced the card out from under a failed move, because the popover that
@@ -616,9 +621,25 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // closing the whole panel and discarding other unsaved edits (#1972).
   useEscapeStack(() => {
     if (!addingLabel) return false;
+    focusNewLabelTriggerRef.current = true;
     setAddingLabel(false);
     setLabelError(null);
   }, 34);
+  useEffect(() => {
+    if (addingLabel || !focusNewLabelTriggerRef.current) return;
+    focusNewLabelTriggerRef.current = false;
+    newLabelTriggerRef.current?.focus();
+  }, [addingLabel]);
+  // The title input: Escape reverts an in-progress edit and blurs (priority 43, above the panel's
+  // 30) instead of also closing the panel. Returns false unless the input has focus, so Escape
+  // still closes the panel when no title edit is in progress (#2036).
+  useEscapeStack(() => {
+    const input = titleInputRef.current;
+    if (!input || document.activeElement !== input) return false;
+    // flushSync: the blur handler must see the reverted title, or it saves the half-typed one.
+    flushSync(() => setLocalCard((c) => ({ ...c, title: titleBaselineRef.current })));
+    input.blur();
+  }, 43);
   useEscapeStack(onClose, 30);
 
   // The title the field was last in sync with: seeded from the card, then the
@@ -626,6 +647,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // against this, not the live card prop, so another session's rename cannot
   // turn a plain focus+blur into a PATCH that writes the old title back.
   const titleBaselineRef = useRef(card.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   // Takes the server's copy after one of this component's own saves and
   // remembers its version as ours, so the reset effect does not read the bump
   // as a remote change (#1773).
@@ -798,10 +820,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       e.preventDefault();
       (e.target as HTMLInputElement).blur(); // blur triggers save
       if (closeEditorOnEnter) onClose();
-    } else if (e.key === "Escape") {
-      setLocalCard((c) => ({ ...c, title: titleBaselineRef.current }));
-      (e.target as HTMLInputElement).blur();
     }
+    // Escape is handled by the useEscapeStack registration (priority 43), not here (#2036).
   };
 
   const handleTitleBlur = async () => {
@@ -1267,6 +1287,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <div className="flex-1 min-w-0">
             <input
               id="card-detail-title"
+              ref={titleInputRef}
               value={localCard.title}
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}
@@ -1601,7 +1622,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <button
                         key={label.id}
                         onClick={() => toggleLabel(label)}
-                        className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${
+                        className={`text-xs px-2.5 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                           active ? "text-on-primary border-transparent shadow-sm" : "bg-transparent border-line-strong hover:border-line-emphasis"
                         }`}
                         style={active
@@ -1638,7 +1659,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         {!newLabelName.trim() && (
                           <span className="text-xs text-fg-muted">type a name first</span>
                         )}
-                        <button onClick={() => { setAddingLabel(false); setLabelError(null); }} className="text-xs text-fg-muted hover:text-fg-secondary transition">✕</button>
+                        <button
+                          type="button"
+                          aria-label="Cancel new label"
+                          onClick={() => { focusNewLabelTriggerRef.current = true; setAddingLabel(false); setLabelError(null); }}
+                          className="text-xs text-fg-muted hover:text-fg-secondary transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        >✕</button>
                       </div>
                       <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 mt-0.5">
                         {labelError && <span className="text-danger">{labelError}</span>}
@@ -1646,8 +1672,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </div>
                   ) : canManageLabels ? (
                     <button
+                      ref={newLabelTriggerRef}
                       onClick={() => setAddingLabel(true)}
-                      className="text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded-full px-2.5 py-1 transition"
+                      className="text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded-full px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       + New label
                     </button>

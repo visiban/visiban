@@ -31,12 +31,15 @@ function dispatch(e: KeyboardEvent): void {
  * handler to run. Any other return value (including void) consumes the event.
  *
  * Priority conventions (the authoritative, fuller list is in frontend/CLAUDE.md):
+ *   58 — Board Settings member search (BoardSettingsModal, #2036)
  *   57 — inline confirm removing an all-content member's board role (BoardSettingsModal, #1301)
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   42 — card-detail block/unblock reason form (CardBlockSection, #1149)
  *   40 — modals and overlays
  *   35-39 — card-detail overlays: 35 archive/delete and comment-delete confirms, 36 move popover,
  *           37 relation picker (and bulk-add overlay), 38 MR/PR link editor, 39 multi-select value menu
+ *   44 — default for text/URL custom-field inputs (CustomFieldValueInput, #2036)
+ *   43 — card title input (CardDetail) and @-mention popup (MentionTextarea), #2036
  *   34 — card-detail inline new-label input (CardDetail, #1972)
  *   33 — RichTextEditor color picker
  *   32 — card-face custom-field quick-edit popover (CustomFieldQuickEditPopover, #1856)

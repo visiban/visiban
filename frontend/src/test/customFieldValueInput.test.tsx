@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { render, screen, fireEvent, act, cleanup, waitFor } from '@testing-library/react'
 import CustomFieldValueInput from '../components/Card/CustomFieldValueInput'
 import type { FieldDefinitionShape } from '../types'
+import { useEscapeStack } from '../hooks/useEscapeStack'
 import { stallEventLoopAfterWaitFor } from './eventLoopStall'
 
 /**
@@ -412,6 +413,7 @@ describe('CustomFieldValueInput — url (#1390)', () => {
     fireEvent.change(input, { target: { value: 'ftp://nope' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(screen.getByText('Enter a web address starting with http:// or https://')).toBeInTheDocument()
+    input.focus()
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(input).toHaveValue('https://saved.example')
     expect(screen.queryByText('Enter a web address starting with http:// or https://')).not.toBeInTheDocument()
@@ -467,6 +469,7 @@ describe('CustomFieldValueInput — url (#1390)', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Enter a web address starting with http:// or https://')
     expect(input).toHaveAttribute('aria-describedby', alert.id)
+    input.focus()
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(input).not.toHaveAttribute('aria-describedby')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -498,5 +501,49 @@ describe('CustomFieldValueInput — url (#1390)', () => {
     rerender(<CustomFieldValueInput definition={urlDef()} value="javascript:alert(1)" onCommit={onCommit} serverError="Enter a valid web address" />)
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a valid web address')
     expect(input).toHaveValue('https://example.com')
+  })
+})
+
+describe('CustomFieldValueInput — Escape through the stack (#2036)', () => {
+  function Host({ def, onClose, escapePriority }: { def: FieldDefinitionShape; onClose: () => void; escapePriority?: number }) {
+    useEscapeStack(onClose, 30)
+    return <CustomFieldValueInput definition={def} value="saved" onCommit={vi.fn()} escapePriority={escapePriority} />
+  }
+
+  it.each([
+    ['text', textDef()],
+    ['url', { name: 'Link', field_type: 'url', choices: [], help_text: '' } as FieldDefinitionShape],
+  ])('Escape in a focused %s input reverts it and leaves the host open; the next Escape closes it', (_n, def) => {
+    const onClose = vi.fn()
+    render(<Host def={def} onClose={onClose} />)
+    const input = screen.getByRole('textbox')
+    input.focus()
+    fireEvent.change(input, { target: { value: 'edited' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input).toHaveValue('saved')
+    expect(input).not.toHaveFocus()
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape with the input unfocused reaches the host', () => {
+    const onClose = vi.fn()
+    render(<Host def={textDef()} onClose={onClose} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('honors an escapePriority above a modal close handler', () => {
+    const onClose = vi.fn()
+    function ModalHost() {
+      useEscapeStack(onClose, 40)
+      return <CustomFieldValueInput definition={textDef()} value="saved" onCommit={vi.fn()} escapePriority={45} />
+    }
+    render(<ModalHost />)
+    const input = screen.getByRole('textbox')
+    input.focus()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

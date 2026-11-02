@@ -654,6 +654,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setPendingRemove(null);
   }, 57);
 
+  // Escape 58 (frontend/CLAUDE.md): clears the Add member search (query and suggestion list) above
+  // ModalWrapper's 40, and returns false with nothing to clear so Escape still closes the modal (#2036).
+  useEscapeStack(() => {
+    if (inviteQuery === "" && suggestions.length === 0) return false;
+    setSuggestions([]);
+    setDropdownAnchor(null);
+    setInviteQuery("");
+  }, 58);
+
   useEffect(() => {
     if (chipFocusUser === null) return;
     fullAccessChips.current.get(chipFocusUser)?.focus();
@@ -1095,7 +1104,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         ref={searchInputRef}
                         value={inviteQuery}
                         onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
-                        onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setDropdownAnchor(null); setInviteQuery(""); } }}
                         placeholder="Search by name or email…"
                         className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                       />
