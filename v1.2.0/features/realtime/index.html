@@ -4452,7 +4452,7 @@
 <ul>
 <li>Every event the board channel broadcasts is durably persisted in the same transaction as the mutation it describes, and each WebSocket frame carries the matching <code>event_id</code>.</li>
 <li><code>GET /api/v1/boards/{id}/events/?after=&lt;event_id&gt;</code> returns the missed events in order, so a consumer can catch up without re-fetching the whole board.</li>
-<li>Events are retained for <code>BOARD_EVENT_RETENTION_DAYS</code> days (default 30); a cursor older than that gets <code>410 Gone</code> with a re-sync hint instead of silently skipping events.</li>
+<li>Events are retained for <code>BOARD_EVENT_RETENTION_DAYS</code> days (default 30); a cursor with a pruned event after it gets <code>410 Gone</code> with a re-sync hint and a cursor to resume from afterward, instead of silently skipping events. A consumer idle on a quiet board whose own cursor event was pruned, but nothing after it, keeps reading (1.3+, #2058).</li>
 </ul>
 <p>See <a href="../../api/events/">Board Change Feed API</a> for the full reference.</p>
 <h2 id="optimistic-concurrency-control">Optimistic concurrency control<a class="headerlink" href="#optimistic-concurrency-control" title="Permanent link">&para;</a></h2>

@@ -4277,9 +4277,12 @@ cursor instead of holding a WebSocket open and hoping it never drops.</p>
 <li>When the socket drops and reconnects, call
    <code>GET /api/v1/boards/{id}/events/?after=&lt;last event_id&gt;</code> and replay the
    results through the same handler. No <code>/full/</code> re-fetch, no diffing.</li>
-<li>If that call returns <code>410 Gone</code>, your cursor has aged out of the retention
-   window. Re-fetch <code>GET /api/v1/boards/{id}/full/</code>, then resume from the newest
-   <code>event_id</code> you see after that.</li>
+<li>If that call returns <code>410 Gone</code>, events after your cursor have aged out of
+   the retention window. Keep the <code>next_cursor</code> from the <code>410</code> body, re-fetch
+   <code>GET /api/v1/boards/{id}/full/</code>, then resume with
+   <code>GET /api/v1/boards/{id}/events/?after=&lt;that next_cursor&gt;</code> (1.3+). An event
+   written between the <code>410</code> and your re-fetch can arrive both in <code>/full/</code> and
+   on the resumed feed, so apply events idempotently; none is skipped.</li>
 </ol>
 <p>A consumer with no socket can poll the feed on its own schedule; the cursor makes repeat reads exact.</p>
 <p><em>(1.3+)</em> A consumer that would rather be called than poll can register a <a href="../webhooks/">webhook</a>: each delivery is one row of this feed, as a <code>viewer</code> reads it, signed and sent in <code>id</code> order.</p>
@@ -4450,14 +4453,22 @@ which match what the WebSocket sends that reader.</p>
 </tr>
 <tr>
 <td><code>410 Gone</code></td>
-<td><code>{"detail": "...", "code": "cursor_expired", "resync_url": "http://.../api/v1/boards/42/full/"}</code></td>
-<td>The cursor has been pruned and newer events exist, so continuity cannot be proven. Re-sync via <code>resync_url</code> and resume from the newest <code>event_id</code> seen after that.</td>
+<td><code>{"detail": "...", "code": "cursor_expired", "resync_url": "http://.../api/v1/boards/42/full/", "next_cursor": 84213}</code></td>
+<td>An event after the cursor has been pruned, so the consumer has missed events it can no longer read. Re-sync via <code>resync_url</code>, then resume with <code>next_cursor</code> as <code>after</code>. <code>next_cursor</code> <em>(1.3+, #2058)</em> is the board's newest event id or its highest pruned id, whichever is greater, taken when the <code>410</code> is sent. Resuming from it does not return <code>410</code> again unless a later prune removes events after it.</td>
 </tr>
 </tbody>
 </table>
 <div class="admonition note">
-<p class="admonition-title">410 is deliberately narrow</p>
-<p>A pruned cursor returns <code>410</code> only when newer events exist that the consumer might have skipped. A cursor pruned with <em>nothing newer behind it</em> returns an ordinary empty page: a consumer idle longer than the retention window has missed nothing and need not re-sync.</p>
+<p class="admonition-title">When a cursor expires</p>
+<p><em>(1.3+, #2058)</em> The pruner records, per board, the highest event id it deleted, and a cursor is expired exactly when that id is greater than the cursor:</p>
+<ul>
+<li><strong>Your cursor's own event was pruned, but nothing after it was.</strong> Not expired. A consumer idle on a quiet board for longer than the retention window has missed nothing: it gets an empty page, or the new events once they arrive.</li>
+<li><strong>An event after your cursor was pruned.</strong> <code>410</code>, even when the page would otherwise be empty. The events you missed are gone, whether or not anything newer has been written since.</li>
+<li><strong><code>after</code> omitted or <code>0</code>.</strong> Never <code>410</code>: it means "start at the oldest retained event", not a position you held.</li>
+<li><strong>A cursor that was never one of this board's event ids</strong> (for example, one taken from another board's feed). <code>410</code> once the board has newer events.</li>
+</ul>
+<p><strong>The record is per board, not per reader.</strong> If the only events pruned after your cursor were ones you would never have been shown (another user's per-user events such as stars and saved filters, or <code>share_link.updated</code> when you are below admin), you still get <code>410</code>, even on an otherwise empty page. That costs one re-sync you did not strictly need, after which you resume from the <code>410</code>'s <code>next_cursor</code>; it never skips an event you could have read.</p>
+<p><strong>Boards not pruned since the upgrade to 1.3.</strong> An install that pruned with 1.2 recorded nothing, so for a board whose events have not been pruned since the upgrade the feed keeps the 1.2 rule: a missing cursor returns <code>410</code> when newer events exist and an empty page when none do. The board switches to the exact rule the first time the pruner deletes one of its events.</p>
 </div>
 <hr />
 <h2 id="event-coverage">Event coverage<a class="headerlink" href="#event-coverage" title="Permanent link">&para;</a></h2>
@@ -4576,13 +4587,13 @@ for both surfaces.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>0 3 * * * docker compose run --rm backend python manage.py prune_board_events
 </code></pre></div>
 <p>See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
-<p>Deletion runs in batches (<code>--batch-size</code>, default <code>5000</code>), so a large cleanup does not hold locks against concurrent writers for the whole run.</p>
+<p>Deletion runs in batches (<code>--batch-size</code>, default <code>5000</code>), so a large cleanup does not hold locks against concurrent writers for the whole run. Each batch also records, per board, the highest event id it deleted, in the same transaction; that record is what decides <a href="#errors">when a cursor expires</a>. <code>--dry-run</code> records nothing.</p>
 <p>See <a href="../../administration/configuration/">Configuration</a> for
 <code>BOARD_EVENT_RETENTION_DAYS</code>.</p>
 <p>A <a href="../webhooks/">webhook</a> that falls further behind than the window is turned off with <code>disabled_reason: "cursor_expired"</code> instead of skipping what was pruned, the webhook counterpart of <code>410</code>.</p>
 <hr />
 <h2 id="sizing-the-window">Sizing the window<a class="headerlink" href="#sizing-the-window" title="Permanent link">&para;</a></h2>
-<p>Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: it gets a <code>410</code> and re-syncs. But every re-sync is a full <code>/full/</code> fetch, so a too-short window makes routine restarts expensive.</p>
+<p>Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: if events it had not read were pruned, it gets a <code>410</code> and re-syncs; if the board was quiet and nothing it missed was pruned, it keeps reading. But every re-sync is a full <code>/full/</code> fetch, so a too-short window makes routine restarts expensive.</p>
 <hr />
 <h2 id="stability-and-versioning">Stability and versioning<a class="headerlink" href="#stability-and-versioning" title="Permanent link">&para;</a></h2>
 <blockquote>
@@ -4590,12 +4601,13 @@ for both surfaces.</p>
 </blockquote>
 <p>The change feed is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
 <ul>
-<li><strong>The endpoint, its <code>after</code> and <code>limit</code> parameters, and the response envelope</strong> (<code>results</code>, <code>next_cursor</code>, and the deprecated <code>next</code>) are never removed or renamed in a minor or patch release. The cursor semantics (<code>after</code> is exclusive, ordering is by <code>id</code>, <code>next_cursor</code> is <code>null</code> once a page comes back short) and the <code>400</code>, <code>404</code>, and <code>410</code> error behavior described on this page do not change.</li>
+<li><strong>The endpoint, its <code>after</code> and <code>limit</code> parameters, and the response envelope</strong> (<code>results</code>, <code>next_cursor</code>, and the deprecated <code>next</code>) are never removed or renamed in a minor or patch release. The cursor semantics (<code>after</code> is exclusive, ordering is by <code>id</code>, <code>next_cursor</code> is <code>null</code> once a page comes back short) and the <code>400</code>, <code>404</code>, and <code>410</code> error behavior described on this page do not change, with one stated exception: the condition for <code>410</code> was corrected in 1.3 (see the bullet on it below). The <code>410</code> status, <code>code</code>, <code>detail</code> and <code>resync_url</code> did not change; the body only gained <code>next_cursor</code>.</li>
 <li><strong>Row fields</strong> (<code>id</code>, <code>event</code>, <code>data</code>, <code>actor_id</code>, <code>actor</code>, <code>created_at</code>, and since 1.3 <code>redacted_at</code>) only gain fields; an existing field keeps its name and type and is never removed.</li>
 <li><strong>Redacted rows are the exception to "verbatim".</strong> A row an operator's purge redacted keeps every payload key but carries <code>null</code> content values (see <a href="#redacted-card-events">Redacted card events</a>). Clients must accept <code>null</code> for those fields on a row whose <code>redacted_at</code> is set.</li>
 <li><strong>Event types and payloads</strong> carry the same <code>{event, data}</code> payloads as the WebSocket, so the same rules apply: an event type is never removed, a payload field is never removed, and new event types and payload fields can appear in any minor release. Clients should ignore event types and fields they do not recognize. Retiring an event follows the process in <a href="../../development/websocket-event-contract/#retiring-an-event">Retiring an event</a>.</li>
 <li><strong>Per-reader fields are the exception.</strong> The fields documented under <a href="#fields-that-depend-on-who-is-reading">Fields that depend on who is reading</a> are per-reader and may be withheld from recipients who lack access, including when the rule is tightened for security reasons (as in 1.2). Clients must treat them as optional.</li>
 <li><strong><code>next_cursor</code> is the cursor; <code>next</code> is deprecated.</strong> <code>next_cursor</code> is the documented cursor field. <code>next</code> was the name in 1.2.0-beta.1 and is still emitted with an identical value in every response, so clients written against the beta keep working. New clients should read <code>next_cursor</code>. <code>next</code> is removed only at a major version bump. See <a href="#pagination-shapes">Pagination shapes</a>.</li>
+<li><strong>When <code>410</code> fires was corrected in 1.3</strong> (#2058). It now fires exactly when an event after the cursor was pruned: an idle consumer whose own cursor event was pruned no longer gets it, and a consumer whose missed events were all pruned now does, rather than an empty page. The status, <code>code</code> and <code>resync_url</code> are unchanged, and the body gained <code>next_cursor</code>, the cursor to resume from after re-syncing. A client that handles <code>410</code> by re-syncing keeps working; reading <code>next_cursor</code> lets it resume the feed without a socket <code>event_id</code>. See <a href="#errors">When a cursor expires</a>.</li>
 <li>A part of the feed that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
 <li><strong>Not covered:</strong> how long history is kept. The retention window is an operator setting (<code>BOARD_EVENT_RETENTION_DAYS</code>), so a consumer must handle <code>410 Gone</code> rather than assume any particular depth of history. See <a href="#retention">Retention</a>.</li>
 </ul>
