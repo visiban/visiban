@@ -1230,7 +1230,7 @@ describe('useBoard', () => {
     const { result } = renderHook(() => useBoard())
     await waitFor(() => expect(result.current.board).not.toBeNull())
     const existing = result.current.board!.swimlanes[0]
-    if (!existing) return
+    expect(existing).toBeDefined()
     act(() => {
       result.current.updateSwimlane((b) => ({ ...b.swimlanes.find((s) => s.id === existing.id)!, name: 'Resolved' }))
     })

@@ -575,10 +575,11 @@ export function useBoard() {
   }, []);
 
   // Custom fields (#371) — one wholesale-replace setter rather than granular
-  // add/update/remove mutators like labels above. Every caller (the Fields
-  // tab's local mutations, and each `custom_field.*` WS event handled in
-  // BoardView) already computes the full resulting array before calling
-  // this, so there's no delta-application logic to duplicate per call site.
+  // add/update/remove mutators like labels above. Callers pass either the full
+  // resulting array (the Fields tab's local mutations, `custom_field.reordered`)
+  // or an updater `(prev) => next` (the `custom_field.created/updated/deleted`
+  // WS events in BoardView, #1970). The updater runs inside `setBoard`, so it
+  // sees the latest state even when frames arrive before a re-render.
   const applyCustomFieldDefinitions = useCallback((definitions: CustomFieldDefinition[] | ((prev: CustomFieldDefinition[]) => CustomFieldDefinition[])) => {
     // Updater form (#1970): socket frames can land before React re-renders, so
     // a caller building the next array from render-captured state would
