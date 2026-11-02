@@ -5117,7 +5117,7 @@
 </tr>
 <tr>
 <td><code>validation_error</code></td>
-<td>A field failed validation — includes an <code>errors</code> object keyed by field name, e.g. an <code>assignee</code> username or label name that does not resolve to an assignable board member/label. Every unresolved <code>assignee</code> returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a <code>viewer</code> (who cannot be assigned).</td>
+<td>A field failed validation — includes an <code>errors</code> object keyed by field name, e.g. an <code>assignee</code> username or label name that does not resolve to an assignable board member/label, or an <code>assignee</code>, <code>labels</code>, <code>label</code> or <code>priority</code> argument that contains a NUL (0x00) character (refused before any lookup, #2033). Every unresolved <code>assignee</code> returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a <code>viewer</code> (who cannot be assigned).</td>
 </tr>
 <tr>
 <td><code>wip_limit_exceeded</code> / <code>wip_hard_blocked</code></td>
