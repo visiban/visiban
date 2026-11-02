@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useRef, memo } from "react";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
@@ -103,7 +103,11 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   const startAdding = () => setAdding(true);
 
   // Escape cancels the add-card input through the stack so it does not also clear the selection (#1860).
-  useInlineEditEscape(() => adding, () => setAdding(false));
+  // Several cells can have the input open at once (it has no onBlur close), so the predicate is
+  // scoped to focus inside this cell's editor; otherwise the first-registered cell would close.
+  const addEditorRef = useRef<HTMLDivElement>(null);
+  const cancelAdd = () => { setAdding(false); setAddError(null); };
+  useInlineEditEscape(() => adding && !!addEditorRef.current?.contains(document.activeElement), cancelAdd);
 
   // Grid overlay (#1147). Suppressed on the cell being dragged over: drop feedback
   // already owns the cell's background channel (`bg-surface-hover/40` here, `bg-info/20`
@@ -243,7 +247,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       </SortableContext>
 
       {column.allow_card_creation && canEdit && adding && (
-        <div className="relative mt-1.5">
+        <div ref={addEditorRef} className="relative mt-1.5">
           <input
             autoFocus
             value={title}
@@ -259,7 +263,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           />
           <div className="flex gap-1.5 mt-1.5">
             <button onClick={handleAdd} className="text-xs bg-button-primary text-on-primary px-2.5 py-1 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
-            <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-fg-tertiary hover:text-fg-secondary transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+            <button onClick={cancelAdd} className="text-xs text-fg-tertiary hover:text-fg-secondary transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           </div>
           <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{addError}</span></p>
         </div>

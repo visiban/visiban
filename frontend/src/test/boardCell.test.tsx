@@ -423,6 +423,17 @@ describe('BoardCell — Escape in the add-card input (#1860)', () => {
     expect(onLower).not.toHaveBeenCalled()
   })
 
+  it('closes only the focused cell when two add-card inputs are open, and resets the error', async () => {
+    const user = userEvent.setup()
+    render(<><BoardCell {...defaultProps()} /><BoardCell {...defaultProps()} /></>)
+    const adds = screen.getAllByText('+ Add card')
+    await user.click(adds[0])
+    await user.click(screen.getAllByText('+ Add card')[0])
+    expect(screen.getAllByPlaceholderText('Card title…')).toHaveLength(2)
+    await user.keyboard('{Escape}')
+    expect(screen.getAllByPlaceholderText('Card title…')).toHaveLength(1)
+  })
+
   it('lets Escape fall through when no input is open', async () => {
     const user = userEvent.setup()
     const onLower = vi.fn()
