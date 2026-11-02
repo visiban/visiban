@@ -423,7 +423,7 @@ describe('BoardCell — Escape in the add-card input (#1860)', () => {
     expect(onLower).not.toHaveBeenCalled()
   })
 
-  it('closes only the focused cell when two add-card inputs are open, and resets the error', async () => {
+  it('closes only the focused cell when two add-card inputs are open', async () => {
     const user = userEvent.setup()
     render(<><BoardCell {...defaultProps()} /><BoardCell {...defaultProps()} /></>)
     const adds = screen.getAllByText('+ Add card')
