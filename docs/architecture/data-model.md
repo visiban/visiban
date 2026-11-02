@@ -338,6 +338,7 @@ An append-only, cursor-resumable feed of every committed board mutation (#1114),
 - A row is written in the same transaction as its mutation, so a rolled-back write produces no event.
 - `data` is the WebSocket broadcast payload verbatim, so a consumer can switch between polling and holding a socket open without reconciling two representations.
 - `board_id` and `actor_id` are plain columns, not foreign keys, so deleting a board or user cannot rewrite history a consumer is mid-read of. `board.deleted` is itself an event this table must persist.
+- The only rewrite of a stored row is `purge_card_history`'s redaction (since 1.3, #1816). It sets the card content values in a card event's `data` to `null`, keeping every key, and stamps the nullable `redacted_at` column. A redaction keeps the row so it leaves no gap in the id cursor.
 
 This is the delivery source for OSS webhooks — see [Open-core boundary § Outgoing webhooks](open-core-boundary.md#outgoing-webhooks-oss-vs-webhook-operations-enterprise).
 
@@ -425,7 +426,7 @@ Since 1.2 (#1469) `CardMovement.save()` refuses to rewrite an existing row, `del
 A movement leaves in two ways:
 
 - Deleting the whole board, the explicit destructive act, removes every movement on it through `board`.
-- The superuser-run `purge_card_history` management command (#1797) deletes matching rows (by default only deleted cards') with a queryset delete and writes a `card_history.purged` `AdminActionLog` entry in the same transaction.
+- The superuser-run `purge_card_history` management command (#1797) deletes matching rows (by default only deleted cards') with a queryset delete and writes a `card_history.purged` `AdminActionLog` entry in the same transaction. Since 1.3 (#1816) the same run and transaction also redact the matching cards' `BoardEvent` rows (see below).
 
 See [Card History Retention](../administration/card-history-retention.md).
 

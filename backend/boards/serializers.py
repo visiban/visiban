@@ -221,6 +221,11 @@ class BoardEventSerializer(serializers.ModelSerializer):
     since been deleted (``actor_id`` keeps the stale integer — the column is not
     a FK), or when no ``actors`` map was supplied: a missing map must mean "show
     less", never a per-row fetch.
+
+    ``redacted_at`` (#1816) is additive: null on every row except one whose
+    card content ``purge_card_history`` replaced with nulls. It is a row field
+    rather than a key inside ``data`` so that a redacted payload keeps exactly
+    the key set it was broadcast with.
     """
 
     actor = serializers.SerializerMethodField(
@@ -232,7 +237,7 @@ class BoardEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BoardEvent
-        fields = ["id", "event", "data", "actor_id", "actor", "created_at"]
+        fields = ["id", "event", "data", "actor_id", "actor", "created_at", "redacted_at"]
         read_only_fields = fields
 
     @staticmethod
