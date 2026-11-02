@@ -4263,6 +4263,7 @@ scheduler for Docker Compose and native CronJobs for Kubernetes.</p>
 </tbody>
 </table>
 <p><strong>Yes, but:</strong> the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. The two prune jobs delete data, so each one stays off until you enable it on its own.</p>
+<p><strong>Email at exit:</strong> notification email is sent on a background thread. <code>notify_due_soon</code> and <code>notify_stale_cards</code> wait up to 30 seconds for it before they exit, so a cron run does not drop mail it just queued. If the mail relay is still busy after that, the command prints a warning to stderr and the unsent mail may be lost. The scheduler does the same when it is stopped.</p>
 <p><strong>Watch out:</strong> all four commands are idempotent, so running one twice in a day does no harm. <strong>Running two copies at the same moment is different.</strong> If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.</p>
 <div class="admonition note">
 <p class="admonition-title">The webhook dispatcher is not a scheduled job</p>
