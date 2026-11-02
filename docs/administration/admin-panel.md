@@ -150,7 +150,7 @@ Controls the `can_access_all_content` flag independently of admin status (for ac
 **The big picture:** `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) are independent for accounts that are not superusers. A superuser always has both. See [Site Admins](site-admins.md) for a detailed explanation of the two-flag model and examples of common configurations.
 
 !!! tip
-    The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel toggles described here, or edit the user directly in the [Django admin](django-admin.md) at `/admin/accounts/user/`.
+    The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel actions described here. The user form in the [Django admin](django-admin.md) doesn't carry either flag; it only sets **Superuser status**, which implies both.
 
 #### Force reset
 

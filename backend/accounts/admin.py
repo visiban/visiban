@@ -37,7 +37,7 @@ from .credentials import finalize_password_change, require_password_change_after
 
 
 #: Fields only a superuser may edit in the Django admin user form (#1577).
-#: Fields only a superuser changes on another staff, superuser or site-admin account.
+#: Fields only a superuser changes on another account that ``_is_protected_other_account`` covers.
 _PROTECTED_IDENTITY_FIELDS = ("email", "username", "first_name", "last_name", "is_active")
 
 _SUPERUSER_ONLY_FIELDS = ("is_staff", "is_superuser", "groups", "user_permissions")
@@ -109,18 +109,24 @@ class VisibanUserChangeForm(RowVersionFormMixin, UserChangeForm):
 
 
 def _is_protected_other_account(actor, target):
-    """True for a staff, superuser or site-admin account other than *actor*'s own.
+    """True for a staff, superuser, site-admin or all-content account other than *actor*'s own.
 
     The Django admin's account-changing and delete routes are superuser-only
     for these accounts: a staff account's Django permissions (groups, user
     permissions) are not comparable between actor and target, so no
     "broader than the actor" test is attempted and the whole class stays with
-    superusers.
+    superusers. An all-content account is in the class because only a superuser
+    grants that flag (#1830), so the account is administered at the same level.
     """
     return (
         target is not None
         and target.pk != actor.pk
-        and (target.is_staff or target.is_superuser or target.is_site_admin)
+        and (
+            target.is_staff
+            or target.is_superuser
+            or target.is_site_admin
+            or target.can_access_all_content
+        )
     )
 
 
@@ -165,7 +171,7 @@ def user_deletion_refusals(targets, actor):
     Deleting a user also cascades to the groups they own (``Group.owner`` is
     CASCADE), so ownership of every owned group is transferred first, and a
     non-superuser actor may delete only accounts that are not another staff,
-    superuser or site-admin account (``_is_protected_other_account``).
+    superuser, site-admin or all-content account (``_is_protected_other_account``).
 
     The delete also removes the targets' group memberships
     (``GroupMembership.user`` is CASCADE), so it keeps the group rule that
@@ -305,7 +311,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         return form
 
     def _refuse_privileged_password_target(self, request, id):
-        """Only a superuser sets the password of a staff, superuser or site-admin account.
+        """Only a superuser sets the password of an account ``_is_protected_other_account`` covers.
 
         The lookup bypasses ``get_queryset`` so a superuser target is refused
         explicitly rather than reported as missing. An account's own password
@@ -317,7 +323,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             target = (
                 admin.ModelAdmin.get_queryset(self, request)
                 .filter(pk=unquote(id))
-                .only("pk", "is_staff", "is_superuser", "is_site_admin")
+                .only("pk", "is_staff", "is_superuser", "is_site_admin", "can_access_all_content")
                 .first()
             )
         except (ValueError, ValidationError):
@@ -351,7 +357,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
         with transaction.atomic():
             before = _stored_password_hash(target.pk, lock=True)
             # Protection is judged again with the hash row locked: the target
-            # may have become a staff, superuser or site-admin account, or the
+            # may have become a staff, superuser, site-admin or all-content account, or the
             # actor lost superuser status, since the request started.
             actor_now = User.objects.filter(pk=request.user.pk).first()
             target_now = User.objects.filter(pk=target.pk).first()
@@ -485,7 +491,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             if stored is not None and not request.user.pk == stored.pk:
                 # Protection is judged again on the locked target and the
                 # actor's current row: the target may have become a staff,
-                # superuser or site-admin account, or the actor lost
+                # superuser, site-admin or all-content account, or the actor lost
                 # superuser status, since the form was built (the read-only
                 # fields were chosen from the row loaded at request start).
                 actor_now = User.objects.filter(pk=request.user.pk).first()

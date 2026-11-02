@@ -126,7 +126,10 @@ class AdminCanAccessAllContentPatchTests(TestCase):
         self.target = User.objects.create_user(username="target_user", password="pass")
 
     def test_patch_can_access_all_content_true(self):
-        self.client.force_authenticate(self.site_admin)
+        # Granting takes a superuser (#1830); a site admin can only revoke.
+        self.client.force_authenticate(
+            User.objects.create_superuser(username="root_patch", password="pass")
+        )
         resp = self.client.patch(
             f"/api/v1/admin/users/{self.target.pk}/",
             {"can_access_all_content": True},

@@ -369,9 +369,11 @@ Read the notes for every version between your current release and the target bef
 ### Upgrading to 1.3.x
 
 !!! warning "Only a superuser can grant all-content access"
-    `can_access_all_content` reads and writes every board and group, and until 1.3 any site admin could set it, including on their own account. Since 1.3 only a superuser can grant it (#1830). **Grant all-content** is hidden from other site admins, and `PATCH /api/v1/admin/users/{id}/` with `can_access_all_content: true` returns `400` for them. Setting `true` on an account that already has the flag still succeeds and changes nothing. Scripts that grant the flag need a superuser's token. Revoking is unchanged: any site admin can still revoke the flag from an account that is not a superuser.
+    `can_access_all_content` reads and writes every board and group, and until 1.3 any site admin could set it, including on their own account. Since 1.3 only a superuser can grant it (#1830). **Grant all-content** is hidden from other site admins, and `PATCH /api/v1/admin/users/{id}/` with `can_access_all_content: true` returns `400` for them. Setting `true` on an account that already has the flag still succeeds and changes nothing, except on a superuser account, where a site admin who isn't a superuser still gets `400`, as in 1.2. Scripts that grant the flag need a superuser's token. Revoking is unchanged: any site admin can still revoke the flag from an account that is not a superuser.
 
-    Every grant and revoke of `can_access_all_content` and `is_site_admin` is now recorded in the [admin action log](../api/admin.md#action-log) with the actor. Deactivations and invite links are still not recorded. There's no migration, and nothing is backfilled.
+    Every grant and revoke of `can_access_all_content` and `is_site_admin` is now recorded in the [admin action log](../api/admin.md#action-log), with the actor. Changes made by a management command have `source` `cli` and no actor. Deactivations and invite links are still not recorded. There's no migration, and nothing is backfilled.
+
+    **The Django admin treats all-content accounts like other privileged accounts.** For staff who aren't superusers, another account with all-content access now has the same limits as a staff, superuser or site-admin account: its identity fields and **Active** are read-only, and its **Password** form and deletion are left to superusers. See [Django Admin](django-admin.md).
 
     **Accounts that hold the flag keep it.** Earlier grants, including any a site admin gave themselves, left no record. To review them, look for the **All content** tag in **Site Admin → Users**, and use **Revoke all-content** on any account that shouldn't have it.
 

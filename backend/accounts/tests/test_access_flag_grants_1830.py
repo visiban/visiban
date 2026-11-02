@@ -56,6 +56,18 @@ def _superuser(name):
     )
 
 
+def _failing_access_log_write():
+    """Patch ``record`` to fail on access-flag rows only, leaving other rows alone."""
+    real_record = AdminActionLog.record
+
+    def record(*, action, **kwargs):
+        if action in ACCESS_ACTIONS:
+            raise RuntimeError("log down")
+        return real_record(action=action, **kwargs)
+
+    return mock.patch.object(AdminActionLog, "record", side_effect=record)
+
+
 def _access_rows():
     """The access-flag log rows, oldest first."""
     return list(AdminActionLog.objects.filter(action__in=ACCESS_ACTIONS).order_by("id"))
@@ -337,6 +349,23 @@ class DjangoAdminAccessFlagTests(AccessFlagTestCase):
         self.assertEqual(self._post(first_name="Renamed").status_code, 302)
         self.assertEqual(_access_rows(), [])
 
+    def test_failed_log_write_rolls_the_promotion_back(self):
+        with _failing_access_log_write(), self.assertRaises(RuntimeError):
+            self._post(is_superuser="on")
+        self.target.refresh_from_db()
+        self.assertFalse(self.target.is_superuser)
+        self.assertFalse(self.target.is_site_admin)
+        self.assertFalse(self.target.can_access_all_content)
+
+    def test_failed_log_write_rolls_the_demotion_back(self):
+        self._post(is_superuser="on")
+        self.target.refresh_from_db()
+        with _failing_access_log_write(), self.assertRaises(RuntimeError):
+            self._post(is_superuser="")
+        self.target.refresh_from_db()
+        self.assertTrue(self.target.is_superuser)
+        self.assertTrue(self.target.can_access_all_content)
+
     def test_promotion_by_an_actor_who_lost_superuser_status_is_refused(self):
         # The form was built for a superuser; the status is gone by the time the
         # target row is locked, the point the save re-checks it.
@@ -365,6 +394,38 @@ class DjangoAdminFormFieldTests(TestCase):
                 fields = flatten_fieldsets(model_admin.get_fieldsets(request, obj))
                 self.assertNotIn("can_access_all_content", fields)
                 self.assertNotIn("is_site_admin", fields)
+
+
+class CurrentUserApiIgnoresFlagsTests(AccessFlagTestCase):
+    URLS = ("/api/v1/auth/me/", "/api/v1/auth/user/")
+
+    def _assert_unchanged(self, user, *, expected):
+        client = APIClient()
+        client.force_authenticate(user)
+        for url in self.URLS:
+            with self.subTest(url=url, expected=expected):
+                r = client.patch(
+                    url,
+                    {"can_access_all_content": not expected, "is_site_admin": not expected},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+                self.assertEqual(r.json()["can_access_all_content"], expected)
+                self.assertEqual(r.json()["is_site_admin"], expected)
+                user.refresh_from_db()
+                self.assertEqual(user.can_access_all_content, expected)
+                self.assertEqual(user.is_site_admin, expected)
+        self.assertEqual(_access_rows(), [])
+
+    def test_a_user_cannot_set_either_flag_on_their_own_account(self):
+        self._assert_unchanged(
+            User.objects.create_user(username="plain_me_1830", password=PW), expected=False
+        )
+
+    def test_a_holder_cannot_clear_either_flag_here(self):
+        holder = User.objects.create_user(username="holder_me_1830", password=PW)
+        User.objects.filter(pk=holder.pk).update(is_site_admin=True, can_access_all_content=True)
+        self._assert_unchanged(User.objects.get(pk=holder.pk), expected=True)
 
 
 class SignalWritesNoLogRowTests(AccessFlagTestCase):
@@ -426,6 +487,43 @@ class ManagementCommandAccessFlagTests(AccessFlagTestCase):
     def test_set_site_admin_revoke_on_a_plain_account_writes_nothing(self):
         call_command("set_site_admin", self.user.username, "--revoke", stdout=StringIO())
         self.assertEqual(_access_rows(), [])
+
+    def test_failed_log_write_rolls_the_set_site_admin_grant_back(self):
+        with _failing_access_log_write(), self.assertRaises(RuntimeError):
+            call_command("set_site_admin", self.user.username, stdout=StringIO())
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_site_admin)
+        self.assertFalse(self.user.can_access_all_content)
+
+    def test_failed_log_write_rolls_the_set_site_admin_revoke_back(self):
+        User.objects.filter(pk=self.user.pk).update(
+            is_site_admin=True, can_access_all_content=True
+        )
+        with _failing_access_log_write(), self.assertRaises(RuntimeError):
+            call_command("set_site_admin", self.user.username, "--revoke", stdout=StringIO())
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_site_admin)
+        self.assertTrue(self.user.can_access_all_content)
+
+    def test_failed_log_write_rolls_ensure_site_admin_back(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "accounts.management.commands.ensure_site_admin._PASSWORD_FILE",
+            os.path.join(tmp, "pw_fail_1830"),
+        ), mock.patch.dict(
+            os.environ, {"DJANGO_SUPERUSER_USERNAME": "boot_fail_1830"}
+        ), _failing_access_log_write(), self.assertRaises(RuntimeError):
+            call_command("ensure_site_admin", stdout=StringIO())
+        self.assertFalse(User.objects.filter(username="boot_fail_1830").exists())
+
+    def test_failed_log_write_leaves_no_createsuperuser_account(self):
+        with mock.patch.dict(
+            os.environ, {"DJANGO_SUPERUSER_PASSWORD": PW}
+        ), _failing_access_log_write(), self.assertRaises(RuntimeError):
+            call_command(
+                "createsuperuser", "--noinput", username="fail_1830",
+                email="fail_1830@example.com", stdout=StringIO(),
+            )
+        self.assertFalse(User.objects.filter(username="fail_1830").exists())
 
     def test_ensure_site_admin_records_both_grants(self):
         with tempfile.TemporaryDirectory() as tmp, mock.patch(

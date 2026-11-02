@@ -86,7 +86,7 @@ docker compose run --rm backend python manage.py set_site_admin <username>
 
 **Django admin panel**
 
-Navigate to `/admin/accounts/user/`, find the user, and toggle the `is_site_admin` checkbox.
+The user form at `/admin/accounts/user/` has no site admin checkbox. A superuser can turn on **Superuser status** there, which also gives the account site admin and all-content access.
 
 !!! note "Two separate flags"
     The `set_site_admin` command sets both `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) together. To manage them independently for accounts that are not superusers — for example, granting admin panel access without board omniscience — use the admin panel instead; *(1.3+)* only a superuser can grant all-content access there. See [Site Admins](../../administration/site-admins.md) for details.

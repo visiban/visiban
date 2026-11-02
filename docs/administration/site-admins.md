@@ -39,7 +39,7 @@ To let a user (e.g. a support engineer) see all boards **without** admin panel a
 
 > **Changed in 1.3** (#1830)
 
-**Who can grant all-content access.** Only a superuser, because the flag reads and writes every board and group. A site admin who is not a superuser doesn't see **Grant all-content**, and the API refuses the grant with `400`, on their own account and on any other. They can still revoke the flag from an account that is not a superuser. Every grant and revoke of either flag is recorded with the actor in the [admin action log](../api/admin.md#action-log).
+**Who can grant all-content access.** Only a superuser, because the flag reads and writes every board and group. A site admin who is not a superuser doesn't see **Grant all-content**, and the API refuses the grant with `400`, on their own account and on any other. They can still revoke the flag from an account that is not a superuser. Every grant and revoke of either flag is recorded in the [admin action log](../api/admin.md#action-log), with the actor. Changes made by a management command have `source` `cli` and no actor.
 
 **If your instance has no superuser.** Anyone who can run `manage.py` still has a route:
 
