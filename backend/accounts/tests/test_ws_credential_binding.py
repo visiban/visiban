@@ -21,6 +21,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from accounts.models import PersonalAccessToken, User
+from accounts.tests.ws_cache_engine import OWN_CACHE
 from accounts.tests.ws_helpers import bound_scope, login_session, session_ticket
 from accounts.ws_auth import (
     CREDENTIAL_PAT,
@@ -258,6 +259,82 @@ class CredentialLivenessTests(TestCase):
         scope = {"user": self.user, **bound_scope(self.user)}
         User.objects.filter(pk=self.user.pk).update(is_active=False)
         self.assertIsNone(load_live_ws_user(scope))
+
+
+CACHE_ENGINE = "django.contrib.sessions.backends.cache"
+CACHED_DB_ENGINE = "django.contrib.sessions.backends.cached_db"
+OWN_CACHE_ENGINE = "accounts.tests.ws_cache_engine"
+
+
+class CacheSessionOutageTests(TestCase):
+    """A cache-only session backend outage raises, it does not read as revoked (#2014).
+
+    Django's cache SessionStore.load() swallows cache errors and returns {},
+    which would close the socket with the final 4003. The liveness check reads
+    the cache directly so the error reaches the consumer (which maps it to
+    1011); an absent session must still fail closed.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="cache_sess_user", password="pass")
+
+    def _fresh(self):
+        return User.objects.get(pk=self.user.pk)
+
+    @override_settings(SESSION_ENGINE=CACHE_ENGINE)
+    def test_live_cache_session(self):
+        cred = _bind(session_credential(login_session(self.user)), self.user)
+        self.assertTrue(ws_credential_is_live(cred, self._fresh()))
+
+    @override_settings(SESSION_ENGINE=CACHE_ENGINE)
+    def test_absent_cache_session_is_a_denial(self):
+        key = login_session(self.user)
+        cred = _bind(session_credential(key), self.user)
+        import_module(CACHE_ENGINE).SessionStore(session_key=key).delete()
+        self.assertFalse(ws_credential_is_live(cred, self._fresh()))
+
+    @override_settings(SESSION_ENGINE=CACHE_ENGINE)
+    def test_cache_outage_raises_instead_of_reading_as_revoked(self):
+        key = login_session(self.user)
+        cred = _bind(session_credential(key), self.user)
+        with patch("django.core.cache.backends.locmem.LocMemCache.get", side_effect=ConnectionError("cache down")):
+            with self.assertRaises(ConnectionError):
+                ws_credential_is_live(cred, self._fresh())
+
+    @override_settings(SESSION_ENGINE=CACHE_ENGINE)
+    def test_load_live_ws_user_propagates_a_cache_outage(self):
+        """The consumers' entry point raises (they map any raise to 1011), it
+        does not return None (which they map to the final 4003)."""
+        scope = {"user": self.user, **bound_scope(self.user)}
+        self.assertEqual(load_live_ws_user(scope), self.user)
+        with patch("django.core.cache.backends.locmem.LocMemCache.get", side_effect=ConnectionError("cache down")):
+            with self.assertRaises(ConnectionError):
+                load_live_ws_user(scope)
+
+    @override_settings(SESSION_ENGINE=OWN_CACHE_ENGINE)
+    def test_reads_the_cache_the_store_uses_not_the_settings_alias(self):
+        """A cache-engine subclass with its own cache: a live session must be
+        found there (reading SESSION_CACHE_ALIAS instead would find nothing and
+        close every socket with 4003), and an outage of *that* cache raises."""
+        key = login_session(self.user)
+        cred = _bind(session_credential(key), self.user)
+        self.assertTrue(ws_credential_is_live(cred, self._fresh()))
+        with patch.object(OWN_CACHE, "get", side_effect=ConnectionError("cache down")):
+            with self.assertRaises(ConnectionError):
+                ws_credential_is_live(cred, self._fresh())
+
+    @override_settings(SESSION_ENGINE=CACHED_DB_ENGINE)
+    def test_cached_db_does_not_misreport_a_cache_failure_as_revoked(self):
+        """cached_db's load() reads the DB row when the cache get fails, so an
+        outage is not read as a revoked session (it can still raise elsewhere)."""
+        key = login_session(self.user)
+        cred = _bind(session_credential(key), self.user)
+        cache_get = "django.core.cache.backends.locmem.LocMemCache.get"
+        with patch(cache_get, side_effect=ConnectionError("cache down")):
+            self.assertTrue(ws_credential_is_live(cred, self._fresh()))
+        Session.objects.filter(session_key=key).delete()
+        with patch(cache_get, side_effect=ConnectionError("cache down")):
+            self.assertFalse(ws_credential_is_live(cred, self._fresh()))
 
 
 class _CapturingApp:

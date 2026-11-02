@@ -356,7 +356,10 @@ def _session_is_live(session_key: str, user) -> bool:
     be unexpired, name this user, and carry a session hash that matches the
     current password (or a SECRET_KEY_FALLBACKS hash, which ``get_user`` also
     accepts). ``load()`` reads without writing — a missing or expired session
-    comes back empty rather than being recreated.
+    comes back empty rather than being recreated. The cache engine is read
+    directly instead, from the store's own cache (#2014, see the inline
+    comment), so a cache outage raises;
+    a custom subclass of that engine that overrides ``load()`` is bypassed.
 
     Limitation: with the ``signed_cookies`` session engine there is no server
     side session to delete, so a logout cannot be observed here (Django itself
@@ -366,8 +369,24 @@ def _session_is_live(session_key: str, user) -> bool:
     """
     from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY
 
+    from django.contrib.sessions.backends.cache import SessionStore as CacheSessionStore
+
     store = import_module(settings.SESSION_ENGINE).SessionStore(session_key=session_key)
-    data = store.load()
+    if isinstance(store, CacheSessionStore):
+        # Why not store.load() (#2014): the cache engine's load() swallows
+        # every cache exception and returns {}, so a cache outage would read as
+        # "session revoked" and close the socket with the final 4003. Read the
+        # cache directly so an outage raises and the consumer closes with the
+        # reconnectable 1011 (#2003). A genuine miss still returns None, which
+        # fails closed below. cached_db is not matched here (it subclasses the
+        # db store) and keeps using load().
+        if not store.session_key:
+            return False
+        # store._cache is the exact cache load() would read (a subclass may
+        # point it elsewhere than SESSION_CACHE_ALIAS).
+        data = store._cache.get(store.cache_key) or {}
+    else:
+        data = store.load()
     if str(data.get(SESSION_KEY)) != user._meta.pk.value_to_string(user):
         return False
     return _matches_session_auth_hash(data.get(HASH_SESSION_KEY), user)
