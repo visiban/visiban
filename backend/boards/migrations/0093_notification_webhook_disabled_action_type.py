@@ -14,7 +14,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0091_swimlane_limits"),
+        ("boards", "0092_column_policy"),
     ]
 
     operations = [
