@@ -3,7 +3,7 @@
 import logging
 
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, Max, OuterRef
 from django.urls import reverse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -27,7 +27,7 @@ from visiban.request_shape import coerce_int_id, optional_text, require_json_obj
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardEvent, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
+    Board, BoardEvent, BoardEventPruneMark, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
     Swimlane,
 )
 from ..permissions import (
@@ -132,6 +132,67 @@ def _parse_events_limit(raw):
     if not 1 <= limit <= _EVENTS_MAX_LIMIT:
         raise CodedValidationError(INVALID_QUERY_PARAM, f"limit must be between 1 and {_EVENTS_MAX_LIMIT}.")
     return limit
+
+
+def _events_cursor_expired(board_id, after, page_has_rows):
+    """Whether a nonzero ``after`` cursor skips past events retention pruned (#2058).
+
+    A cursor is expired iff an event of this board *after* it was pruned, and
+    ``BoardEventPruneMark`` records the highest pruned id, so for a cursor at
+    or below the mark the answer is exact: below it, something after the
+    cursor is gone (410 even on an empty page, because the events it missed
+    may have been the newest ones); equal to it, the cursor row is the last
+    pruned row and nothing after it was lost (an idle consumer on a quiet
+    board keeps reading).
+
+    Everywhere else the previous inference stands — a missing cursor row with
+    newer rows behind it is 410 — for two reasons:
+
+    * A board with no mark may still have been pruned: installs that pruned
+      before #2058 recorded nothing. Treating "no record" as "nothing lost"
+      would turn a known-unknown into a silent skip, so such a board keeps
+      the old behavior until its next prune writes a mark.
+    * A cursor above the mark was never pruned from this board, so if its row
+      is missing it is not this board's cursor (another board's id, or a
+      made-up number). That stays a loud 410 rather than a page that starts
+      somewhere the consumer never was.
+
+    The mark is board-wide, not per reader, so a reader can get a 410 for a
+    pruned row it would not have been shown (another user's per-user event,
+    or an admin-only one). That errs toward a re-sync, never toward a skip.
+    """
+    pruned_through = (
+        BoardEventPruneMark.objects.filter(board_id=board_id)
+        .values_list("max_pruned_id", flat=True)
+        .first()
+    )
+    if pruned_through is not None and after <= pruned_through:
+        return after < pruned_through
+    return page_has_rows and not BoardEvent.objects.filter(board_id=board_id, pk=after).exists()
+
+
+def _events_resume_cursor(board_id):
+    """The ``next_cursor`` a 410 hands back: where to resume after re-syncing (#2058).
+
+    ``/full/`` carries no event id, so without this a consumer told to re-sync
+    has no position to resume from, and its old cursor 410s on every poll.
+
+    It is ``max(newest event id, prune mark)``, not just the newest id: when
+    every event after the cursor was pruned and nothing newer exists, the
+    newest surviving id can sit *below* the mark (or there is none), and
+    resuming there would 410 again. Resuming at the mark is never expired
+    (``after == mark``), and resuming at the newest row is never expired
+    either (its row exists). It is computed now, before the consumer fetches
+    ``/full/``, so an event written in between is replayed after the
+    snapshot rather than lost: at-least-once, never a gap.
+    """
+    newest = BoardEvent.objects.filter(board_id=board_id).aggregate(newest=Max("id"))["newest"]
+    pruned_through = (
+        BoardEventPruneMark.objects.filter(board_id=board_id)
+        .values_list("max_pruned_id", flat=True)
+        .first()
+    )
+    return max(newest or 0, pruned_through or 0)
 
 
 
@@ -774,9 +835,9 @@ class BoardViewSet(
             "`event_id` straight to this endpoint. `next_cursor` is the cursor for the "
             "following page, or `null` when the caller is caught up. `next` carries "
             "the identical value and is deprecated; use `next_cursor`.\n\n"
-            "Events outside the retention window are pruned. A cursor that no longer "
-            "exists while newer events do returns `410 Gone` — re-sync via `/full/` "
-            "and resume from the newest `event_id` seen after that."
+            "Events outside the retention window are pruned. A cursor with pruned "
+            "events after it returns `410 Gone` — re-sync via `/full/`, then resume "
+            "with the 410 body's `next_cursor` as `after`."
         ),
         parameters=[
             OpenApiParameter(
@@ -816,13 +877,24 @@ class BoardViewSet(
                 response=INVALID_QUERY_PARAM_SCHEMA,
             ),
             410: OpenApiResponse(
-                description="The cursor has been pruned; the caller must re-sync via /full/.",
+                description=(
+                    "Events after the cursor have been pruned; the caller must re-sync "
+                    "via /full/, then resume the feed from `next_cursor`."
+                ),
                 response=inline_serializer(
                     name="BoardEventCursorExpired",
                     fields={
                         "detail": serializers.CharField(),
                         "code": serializers.CharField(),
                         "resync_url": serializers.CharField(),
+                        "next_cursor": serializers.IntegerField(
+                            help_text=(
+                                "Added in 1.3. After re-syncing via `resync_url`, "
+                                "resume the feed with this value as `after`. An event "
+                                "written between this response and the re-sync may be "
+                                "delivered twice, never skipped."
+                            ),
+                        ),
                     },
                 ),
             ),
@@ -860,28 +932,32 @@ class BoardViewSet(
             qs = qs.filter(pk__gt=after)
         rows = list(qs.order_by("id")[:limit])
 
-        # Retention check, deliberately ordered after the page fetch.
+        # Retention check: a cursor is expired iff an event after it was
+        # pruned. See _events_cursor_expired for the per-board prune mark it
+        # reads (#2058) and the boards that fall back to the older inference.
         #
-        # A cursor is "expired" only when we cannot prove the caller missed
-        # nothing: their row is gone AND there are newer rows they might have
-        # skipped past. If the page came back empty the caller is caught up with
-        # everything retained, so nothing can have been missed beyond the cursor
-        # and a 410 would send an idle consumer to re-sync for no reason.
-        #
-        # Doing it this way needs no pruning watermark to be stored anywhere —
-        # it costs one extra indexed EXISTS, and only on a non-empty page.
-        if after and rows and not BoardEvent.objects.filter(board_id=board.id, pk=after).exists():
+        # Deliberately ordered AFTER the page fetch. Read the mark first and a
+        # prune committing in between could delete events this page then
+        # skips, with the stale mark saying nothing was lost: a silent gap.
+        # Read it after, and a prune landing in between can only make the mark
+        # newer than the page, which errs toward a 410, never toward a skip.
+        if after and _events_cursor_expired(board.id, after, bool(rows)):
             return Response(
                 {
                     "detail": (
-                        "Event cursor is no longer available — it fell outside the "
-                        "retention window. Re-sync the board state and resume from the "
-                        "newest event id you see after that."
+                        # Worded for every 410 branch: the cursor's own row may
+                        # still exist when a later event was pruned (#2058).
+                        "This cursor can no longer be resumed — events after it "
+                        "may have been pruned by the retention window. Re-sync the "
+                        "board state and resume from the newest event id you see "
+                        "after that."
                     ),
                     "code": "cursor_expired",
                     "resync_url": request.build_absolute_uri(
                         reverse("board-full", kwargs={"pk": board.pk})
                     ),
+                    # Added in 1.3 (#2058): resume `after=` this once re-synced.
+                    "next_cursor": _events_resume_cursor(board.id),
                 },
                 status=status.HTTP_410_GONE,
             )

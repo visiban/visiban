@@ -537,8 +537,10 @@ USE_X_ACCEL_REDIRECT = env.bool("USE_X_ACCEL_REDIRECT", default=not DEBUG)
 # Board change feed (#1114) — how long an event stays readable by
 # GET /api/v1/boards/<id>/events/. Enforced by `manage.py prune_board_events`,
 # which an operator schedules; nothing expires on its own, so raising this only
-# takes effect for events the pruner has not already removed. A consumer whose
-# cursor falls outside the window gets 410 and re-syncs via /full/.
+# takes effect for events the pruner has not already removed. A consumer gets
+# 410 and re-syncs via /full/ only when an event after its cursor was pruned
+# (#2058); a cursor whose own row aged out with nothing after it pruned keeps
+# reading.
 BOARD_EVENT_RETENTION_DAYS = env.int("BOARD_EVENT_RETENTION_DAYS", default=30)
 
 # Outbound webhooks (#863) — docs/administration/configuration.md#webhooks.
