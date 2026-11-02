@@ -846,6 +846,8 @@
       
         
       
+        
+      
     
     
     
@@ -1111,6 +1113,34 @@
     
   
     Blocked Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/column-policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Policies
   
 
     
@@ -1604,7 +1634,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1626,14 +1656,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_26">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_27">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4018,9 +4048,9 @@
 <td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
-<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209 + #1282 + #1294 + #1296 + #1338, this page)</td>
+<td><code>serializer-ts-parity</code> CI job (#1079 + #1139 + #1209 + #1282 + #1294 + #1296 + #1338 + #1101, this page)</td>
 <td>The <strong>generated OpenAPI document</strong> (generated with <code>GIT_LENS_ENABLED=True</code>, #1338)</td>
-<td><strong>49</strong> pairs — every pair that has a schema component</td>
+<td><strong>51</strong> pairs — every pair that has a schema component</td>
 <td>Names, <strong>types</strong>, nullability, enum membership, <strong>array item types</strong></td>
 </tr>
 </tbody>
@@ -4131,7 +4161,7 @@ gate's own TypeScript alias parser).</p>
   is skipped the same way an unmapped schema item is.</li>
 </ul>
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
-<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1338 it's:</p>
+<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1101 it's:</p>
 <blockquote>
 <p><code>CurrentUser</code> -&gt; <code>User</code>: its instance-level flags are frozen (#1664); new ones go on <code>SiteConfig</code>. See <a href="../../api/authentication/#frozen-instance-flags-on-authuser">Frozen instance flags</a>.</p>
 </blockquote>
@@ -4238,6 +4268,11 @@ gate's own TypeScript alias parser).</p>
 <td><code>Column</code></td>
 <td><code>Column</code></td>
 <td>yes</td>
+</tr>
+<tr>
+<td><code>ColumnPolicy</code></td>
+<td><code>ColumnPolicy</code></td>
+<td>no</td>
 </tr>
 <tr>
 <td><code>CurrentUser</code></td>
@@ -4347,6 +4382,11 @@ gate's own TypeScript alias parser).</p>
 <tr>
 <td><code>PublicCard</code></td>
 <td><code>PublicCard</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>PublicColumn</code></td>
+<td><code>PublicColumn</code></td>
 <td>no</td>
 </tr>
 <tr>
@@ -4528,6 +4568,12 @@ element type against, so the frontend now declares <code>PublicSwimlane</code> m
 <code>PublicSwimlaneSerializer</code> exactly (<code>id</code>, <code>uid</code>, <code>name</code>, <code>position</code>, <code>color</code>, <code>is_collapsed</code>,
 <code>created_at</code> — no <code>custom_field_values</code>, <code>contact_email</code>, or <code>notes</code>), and the pair is mapped in
 <a href="#coverage">Coverage</a>.</p>
+<p><code>PublicColumn</code> (<code>PublicColumnSerializer</code>, nested on <code>PublicBoardSerializer.columns</code>, #1101)
+follows the same precedent from the start: the share payload leaves out <code>Column.policy</code>, so the
+frontend declares a dedicated <code>PublicColumn</code> interface (every <code>Column</code> field except <code>policy</code>)
+rather than an <code>Omit&lt;Column, "policy"&gt;</code> alias the gate cannot parse, and <code>BoardPublic.columns</code> is
+typed <code>PublicColumn[]</code>. <code>ColumnPolicy</code> (the shape of <code>Column.policy</code>, <code>ColumnPolicySerializer</code>)
+is mapped alongside it.</p>
 <p><code>PublicBoard</code> was removed from this table by #1282: it does have a TypeScript interface —
 <code>BoardPublic</code> — and is now mapped in <a href="#coverage">Coverage</a> instead. The entry above was wrong
 from the day it was written, not something that went stale later; see the note under

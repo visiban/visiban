@@ -848,6 +848,8 @@
       
         
       
+        
+      
     
     
     
@@ -1873,6 +1875,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../column-policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../card-links/" class="md-nav__link">
         
   
@@ -2349,7 +2379,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2371,14 +2401,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_26">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_27">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4892,11 +4922,12 @@
 <li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows <code>Weight weight/limit</code> and the header gains a 2 px amber top accent strip. If the board has <strong>Enforce weight limits</strong> enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a <code>409</code> error; board admins can override with <code>?force=true</code>. Lowering a card's weight is never blocked. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
 <li><strong>Allow card creation</strong> — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected</li>
 <li><strong>Done column</strong> — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")</li>
+<li><strong>Policy</strong> (since 1.3) — the column's entry criteria and definition of done, shown from a <strong>Policy</strong> button in its header. See <a href="../column-policies/">Column Policies</a>.</li>
 </ul>
 <p><strong>Managing a column:</strong></p>
 <ul>
 <li>Drag a column header left or right to reorder it.</li>
-<li>Use the <strong><code>⋮</code> kebab</strong> on its header (hover or keyboard focus): <strong>Rename</strong>, <strong>Edit settings…</strong>, <strong>Delete column</strong>. Double-click the column name to rename directly.</li>
+<li>Use the <strong><code>⋮</code> kebab</strong> on its header (hover or keyboard focus): <strong>Rename</strong>, <strong>Edit settings…</strong>, <strong>Add policy…</strong> (only on a column without a policy), <strong>Delete column</strong>. Double-click the column name to rename directly.</li>
 <li>The kebab is the keyboard-accessible path; mouse users can also drag a column onto the trash zone (see <em>Column trash zone</em> below) for the same delete confirmation.</li>
 </ul>
 <h3 id="adding-columns-and-swimlanes">Adding columns and swimlanes<a class="headerlink" href="#adding-columns-and-swimlanes" title="Permanent link">&para;</a></h3>

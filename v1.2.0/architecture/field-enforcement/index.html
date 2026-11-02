@@ -846,6 +846,8 @@
       
         
       
+        
+      
     
     
     
@@ -1111,6 +1113,34 @@
     
   
     Blocked Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/column-policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Policies
   
 
     
@@ -1604,7 +1634,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1626,14 +1656,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_26">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_27">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4143,6 +4173,13 @@
 <td>Column weight stays within budget</td>
 <td>Same paths as <code>wip_limit</code>, plus raising a card's <code>weight</code> with PATCH (or in the Django admin). Lowering a weight, or editing any other field, is never blocked, even in a column already over its limits. Board import is not checked</td>
 <td>— (by design, #1428)</td>
+</tr>
+<tr>
+<td><code>Column.policy</code></td>
+<td>Advisory (by design)</td>
+<td>Entry criteria and a definition of done for the column</td>
+<td>Stored, validated (shape only) and shown, never enforced. <code>mode: "confirm"</code> makes the web client ask the mover to tick the entry criteria after a drag-and-drop move into the column; it is a client-side acknowledgment, and API, MCP, the card-detail Move popover, bulk moves, an admin's forced move after a limit block, and import never see it. The anonymous share-link payload leaves it out. The definition of done is display-only in card detail and never blocks a move out. Server-enforced entry gates are a separate field (#1923)</td>
+<td>— (by design, #1101)</td>
 </tr>
 <tr>
 <td><code>Swimlane.wip_limit</code></td>

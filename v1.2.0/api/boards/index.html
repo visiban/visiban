@@ -846,6 +846,8 @@
       
         
       
+        
+      
     
     
     
@@ -1111,6 +1113,34 @@
     
   
     Blocked Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/column-policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Policies
   
 
     
@@ -1604,7 +1634,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_26" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1626,14 +1656,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_26" id="__nav_3_26_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_26_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_26">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_27">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2644,6 +2674,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="PUT /api/v1/boards/{id}/columns/{col_id}/ / PATCH /api/v1/boards/{id}/columns/{col_id}/">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#column-policy-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column policy (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5621,7 +5668,7 @@
 </tr>
 <tr>
 <td><code>columns_json</code></td>
-<td>Native JSON array of column objects that will be created: <code>{name, color, position}</code>, plus <code>is_done: true</code> on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not <code>false</code>) on every other column.</td>
+<td>Native JSON array of column objects that will be created: <code>{name, color, position}</code>, plus <code>is_done: true</code> on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not <code>false</code>) on every other column. Since 1.3 a column may also carry a <a href="#column-policy-since-13"><code>policy</code></a>, applied to the new column; a malformed one is dropped rather than failing board creation.</td>
 </tr>
 </tbody>
 </table>
@@ -6356,6 +6403,7 @@
 <p>Also since 1.2, each card carries <code>external_ref</code> (<code>{ provider, ref, url }</code>, or <code>null</code> when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.</p>
 <p>Since 1.3 (#1149), each card also carries its <a href="../cards/#block-and-unblock-since-13">manual blocked state</a>: <code>blocked_at</code> (ISO 8601 or <code>null</code>), <code>blocked_reason</code> (<code>""</code> when not blocked), and <code>blocks</code>, the full block history oldest first (<code>{blocked_at, blocked_by, reason, unblocked_at, unblocked_by, resolution, column, imported_from_username}</code>; <code>blocked_by</code>/<code>unblocked_by</code> are usernames, <code>column</code> the name of the column the block started in). Additive: <code>schema_version</code> stays <code>2</code>, and an importer that predates these keys ignores them. The <code>blocked</code> and <code>unblocked</code> activity entries ride in <code>activities</code> as usual. On import, the card's current block (<code>blocked_at</code>/<code>blocked_reason</code>) is restored whatever the <code>history</code> option, as card state like <code>archived_at</code>; the closed entries of <code>blocks</code> are restored only with <code>history</code> on, attributed to the importing user with the file's <code>blocked_by</code> kept in <code>imported_from_username</code>, keeping their times and resolution. An open entry in <code>blocks</code> is not restored as such: the card's own <code>blocked_at</code> decides whether it is blocked, so the card and its open block cannot disagree. An entry without a valid <code>blocked_at</code>, or that ends before it starts, is dropped. A reason is required, as on the <a href="../cards/#block-and-unblock-since-13">block endpoint</a>: a card with <code>blocked_at</code> but a missing or blank <code>blocked_reason</code>, or a <code>blocks</code> entry with a <code>blocked_at</code> but no reason, makes the import fail with <code>400</code> naming the card and entry, rather than importing a block with no reason; reasons and resolutions are trimmed. <code>blocks</code> is capped at 1000 entries per card and its text values at 500 characters; CSV export and import do not carry it.</p>
 <p>Also since 1.2, each swimlane object carries <code>custom_field_values</code> (keyed by <a href="#swimlane-custom-fields-since-12">swimlane custom field</a> name), and a top-level <code>swimlane_custom_fields</code> array carries that schema. These are separate keys from the card-level pair because they are independent per-board sets on different objects. Both are additive, and JSON import restores them. A definition with <code>is_admin_only: true</code>, and any value under it, is omitted for a caller below <code>admin</code>, the same gate this export applies to a swimlane's <code>contact_email</code> and <code>notes</code>.</p>
+<p>Since 1.3 (#1101), each column object also carries its <a href="#column-policy-since-13">policy</a> (<code>null</code> when it has none). Additive: <code>schema_version</code> stays <code>2</code>, and JSON import restores it after checking it like the column API does.</p>
 <p>Since 1.3, each swimlane object also carries its <a href="#swimlane-limits-since-13">limits</a>: <code>wip_limit</code>, <code>weight_limit</code>, <code>limit_enforcement</code>, and <code>limit_columns</code>, the names of the columns that count (or <code>null</code> for the default, every column not marked done). Names, not ids, because the file keys columns by name and an import creates new ids. All four are additive (<code>schema_version</code> stays <code>2</code>), and JSON import restores them without enforcing them. A <code>limit_columns</code> name that is not one of the file's columns, an empty list, a limit below <code>1</code>, or a <code>limit_enforcement</code> other than <code>"block"</code>, <code>"hard"</code> or <code>null</code> is a <code>400</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"schema_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
@@ -6518,6 +6566,7 @@
 <li>Text values must not be <code>null</code>, a list, or an object, and must not contain NUL characters: column, swimlane, and label <code>color</code>; swimlane <code>contact_email</code> and <code>notes</code>; board and card <code>description</code>; comment <code>body</code>; checklist <code>text</code>; movement <code>notes</code>; activity <code>from_value</code> and <code>to_value</code>. A plain number or <code>true</code>/<code>false</code> is stored as its text (<code>5</code> → <code>"5"</code>, <code>true</code> → <code>"True"</code>), as in earlier releases; <code>NaN</code> and <code>Infinity</code> are refused. A key left out takes its default.</li>
 <li>Text values stored in a limited column must fit it: column and swimlane <code>name</code> (255), label <code>name</code> (50), <code>color</code> (7), <code>contact_email</code> (254), card <code>title</code> (500), checklist <code>text</code> (500), movement <code>notes</code> (500), the column and swimlane names in a movement (255), the <code>name</code> form field (255), usernames in <code>assignee</code>, <code>moved_by</code>, and <code>actor</code> (150), and <code>imported_from_username</code> on movements, activities, and comments (150).</li>
 <li>Column <code>is_done</code> and <code>allow_card_creation</code>, and checklist <code>is_checked</code>, must be <code>true</code> or <code>false</code>.</li>
+<li>Since 1.3, a column <code>policy</code> must be <code>null</code> or follow the same rules as the <a href="#column-policy-since-13">column API</a>; it is stored normalized (criteria trimmed, an empty policy as <code>null</code>).</li>
 <li>Dates and timestamps (<code>due_date</code>, <code>archived_at</code>, and comment, movement, and activity timestamps) must be strings that name a real date or time; a number such as <code>20200101</code>, an impossible value such as <code>2024-02-30</code> or <code>T25:00:00</code>, or a time whose UTC equivalent falls outside years 1–9999 (such as <code>9999-12-31T23:59:59-12:00</code>) is rejected.</li>
 <li>A file that cannot be parsed, including one with an integer literal of more than 4,300 digits or nesting too deep to parse, returns <code>{"detail": "The uploaded file is not valid JSON."}</code>.</li>
 </ul>
@@ -7860,6 +7909,11 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <td>boolean</td>
 <td>When <code>true</code>, marks this column as a "done" stage used for cycle-time and throughput metrics. Default: <code>false</code>.</td>
 </tr>
+<tr>
+<td><code>policy</code></td>
+<td>object / null</td>
+<td>Since 1.3. The column's written <a href="../../features/column-policies/">policy</a>: <code>{"v": 1, "entry": [...], "done": [...], "mode": "advisory"}</code> (or <code>"confirm"</code>), or <code>null</code> for none. Readable by every board member; only board admins can write it. Left out of the anonymous share-link payload (<code>GET /api/share/{token}/</code>), whose columns carry every other field listed here. See <a href="#column-policy-since-13">Column policy</a>.</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
@@ -7869,8 +7923,45 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 </blockquote>
 <h3 id="put-apiv1boardsidcolumnscol_id-patch-apiv1boardsidcolumnscol_id"><code>PUT /api/v1/boards/{id}/columns/{col_id}/</code> / <code>PATCH /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#put-apiv1boardsidcolumnscol_id-patch-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
 <p>Update a column. Requires board admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>wip_limit</code> (integer or <code>null</code>), <code>weight_limit</code> (integer or <code>null</code>), <code>allow_card_creation</code> (boolean), <code>is_done</code> (boolean)</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>wip_limit</code> (integer or <code>null</code>), <code>weight_limit</code> (integer or <code>null</code>), <code>allow_card_creation</code> (boolean), <code>is_done</code> (boolean), <code>policy</code> (object or <code>null</code>, since 1.3)</p>
 <p><code>PUT</code> and <code>PATCH</code> are both accepted. <code>PATCH</code> changes only the fields you send. <code>PUT</code> requires <code>name</code>, as on create (<code>400</code> with <code>{"name": ["This field is required."]}</code> without it); any other writable field you leave out keeps its current value, it is not reset to its default. To change one field without resending the name, use <code>PATCH</code>.</p>
+<h4 id="column-policy-since-13">Column policy (since 1.3)<a class="headerlink" href="#column-policy-since-13" title="Permanent link">&para;</a></h4>
+<p><code>policy</code> holds a column's entry criteria and definition of done (#1101). It is advisory: no card move, create or restore is ever refused because of it.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>v</code></td>
+<td>integer</td>
+<td>Required. Always <code>1</code>.</td>
+</tr>
+<tr>
+<td><code>entry</code></td>
+<td>array of strings</td>
+<td>Entry criteria, in display order. Up to 8, each non-blank and at most 200 characters after trimming. Default <code>[]</code>.</td>
+</tr>
+<tr>
+<td><code>done</code></td>
+<td>array of strings</td>
+<td>Definition of done, same rules. Default <code>[]</code>.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>string</td>
+<td><code>"advisory"</code> (default) or <code>"confirm"</code>. <code>"confirm"</code> asks the web app to show the mover a checklist of the entry criteria after a drag-and-drop move into the column. The server never checks it.</td>
+</tr>
+</tbody>
+</table>
+<p>A criterion containing a control character (including NUL or a line break) is refused too. Any other key, a wrong <code>v</code>, or a value breaking these rules returns <code>400</code> with a <code>policy</code> error. Criteria are stored trimmed, and a policy whose two lists are both empty is stored as <code>null</code>. Send <code>"policy": null</code> to remove it. Leaving <code>policy</code> out of a <code>PUT</code> keeps the current value.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"policy"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"v"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"entry"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Has an owner"</span><span class="p">],</span><span class="w"> </span><span class="nt">"done"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Reviewed"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Docs updated"</span><span class="p">],</span><span class="w"> </span><span class="nt">"mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"confirm"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>The <code>column.updated</code> socket event carries the column with its <code>policy</code>, like every other field.</p>
 <h3 id="delete-apiv1boardsidcolumnscol_id"><code>DELETE /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#delete-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
 <p>Delete a column. Requires board admin.</p>
 <p>Since 1.2, if cards keep being created in, or moved into, the column during the delete, it gives up after a bounded number of internal retries and returns <code>409 Conflict</code> with <code>{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}</code>. Nothing is deleted; retry (#1602). A create or move targeting the column mid-delete waits for the delete, then returns <code>404</code>.</p>
@@ -8011,7 +8102,7 @@ See <a href="../websockets/#swimlane-field-events-since-12">WebSockets</a> for t
 <p>This sets the board-wide default for all users: a board structure preference, not a per-user setting.</p>
 <p><strong>Minimum role:</strong> admin or site admin</p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <p><strong>Response</strong> — updated swimlane object (same shape as <code>GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code>)</p>
 <p><strong>Errors</strong></p>
@@ -8197,7 +8288,7 @@ errors below.</p>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>A <code>"multi_select"</code> field holds any number of the definition's <code>choices</code>, on card and swimlane custom fields alike. It is text-backed like every type: <strong>the <code>value</code> on the wire is still a string</strong>, a JSON array encoded as a string, never a JSON array.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"[\"web\",\"ios\"]"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"field_definition"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"[\"web\",\"ios\"]"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><strong>Canonical form.</strong> The stored (and returned) string is compact JSON (<code>["web","ios"]</code>, no
@@ -8247,7 +8338,7 @@ errors below.</p>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>Three optional, <strong>display-only</strong> settings on a <code>"number"</code> definition, on card and swimlane custom fields alike. They change how a client renders a value, never the value: on the wire, in exports, and in filters it stays the plain number string the user entered.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Budget"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"number"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" USD"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_decimals"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Budget"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"number"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_suffix"</span><span class="p">:</span><span class="w"> </span><span class="s2">" USD"</span><span class="p">,</span><span class="w"> </span><span class="nt">"number_decimals"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -8315,7 +8406,7 @@ errors below.</p>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>An optional, <strong>display-only</strong> color per choice on a <code>"dropdown"</code> or <code>"multi_select"</code> definition, on card and swimlane custom fields alike. <code>choices</code> stays a plain list of strings; the colors live in a separate map keyed by choice text. Values are never touched.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Severity"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Low"</span><span class="p">,</span><span class="w"> </span><span class="s2">"High"</span><span class="p">],</span><span class="w"> </span><span class="nt">"choice_colors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"High"</span><span class="p">:</span><span class="w"> </span><span class="s2">"red"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Severity"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Low"</span><span class="p">,</span><span class="w"> </span><span class="s2">"High"</span><span class="p">],</span><span class="w"> </span><span class="nt">"choice_colors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"High"</span><span class="p">:</span><span class="w"> </span><span class="s2">"red"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><strong>Shape.</strong> An object mapping a choice (its text, exactly as in <code>choices</code>) to a palette
@@ -8623,48 +8714,48 @@ deleted with it.</strong></p>
 - <code>404 Not Found</code> if the token is invalid, has been revoked, or does not exist. <em>(1.2+, #1865)</em> Also when the admin who enabled the link is no longer active or no longer an admin of the board; the link is cleared on that read and does not come back if the account regains admin. This is checked before the expiry, so such a link answers <code>404</code> even after its expiry has passed. <em>(1.2+, #1939)</em> Also when the link has no recorded enabler (enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier)), with the same response; the link is cleared on that read.
 - <code>410 Gone</code> if the token's TTL has elapsed (an admin set an expiry at enable time and it has passed). The token is <em>not</em> auto-rotated: an admin must disable and re-enable sharing for a fresh link. Body: <code>{"detail": "This share link has expired."}</code>. Added in 1.1 (#804).</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60001"</span><span class="p">,</span>
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="w">  </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c0l0abc123456701"</span><span class="p">,</span>
-<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
-<a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#64748B"</span><span class="p">,</span>
-<a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a><span class="w">      </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a><span class="w">      </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-28-13" name="__codelineno-28-13" href="#__codelineno-28-13"></a><span class="w">      </span><span class="nt">"allow_card_creation"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-28-14" name="__codelineno-28-14" href="#__codelineno-28-14"></a><span class="w">      </span><span class="nt">"is_done"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
-<a id="__codelineno-28-15" name="__codelineno-28-15" href="#__codelineno-28-15"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-28-16" name="__codelineno-28-16" href="#__codelineno-28-16"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-28-17" name="__codelineno-28-17" href="#__codelineno-28-17"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-28-18" name="__codelineno-28-18" href="#__codelineno-28-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sw1mabcdef123401"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-28-19" name="__codelineno-28-19" href="#__codelineno-28-19"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-28-20" name="__codelineno-28-20" href="#__codelineno-28-20"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-28-21" name="__codelineno-28-21" href="#__codelineno-28-21"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-28-22" name="__codelineno-28-22" href="#__codelineno-28-22"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"crd0abc123456701"</span><span class="p">,</span>
-<a id="__codelineno-28-23" name="__codelineno-28-23" href="#__codelineno-28-23"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-28-24" name="__codelineno-28-24" href="#__codelineno-28-24"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-28-25" name="__codelineno-28-25" href="#__codelineno-28-25"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
-<a id="__codelineno-28-26" name="__codelineno-28-26" href="#__codelineno-28-26"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
-<a id="__codelineno-28-27" name="__codelineno-28-27" href="#__codelineno-28-27"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-28-28" name="__codelineno-28-28" href="#__codelineno-28-28"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-28-29" name="__codelineno-28-29" href="#__codelineno-28-29"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
-<a id="__codelineno-28-30" name="__codelineno-28-30" href="#__codelineno-28-30"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-28-31" name="__codelineno-28-31" href="#__codelineno-28-31"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-28-32" name="__codelineno-28-32" href="#__codelineno-28-32"></a><span class="w">      </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-25T14:30:00Z"</span><span class="p">,</span>
-<a id="__codelineno-28-33" name="__codelineno-28-33" href="#__codelineno-28-33"></a><span class="w">      </span><span class="nt">"checklist_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-28-34" name="__codelineno-28-34" href="#__codelineno-28-34"></a><span class="w">      </span><span class="nt">"checklist_done"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-28-35" name="__codelineno-28-35" href="#__codelineno-28-35"></a><span class="w">      </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-28-36" name="__codelineno-28-36" href="#__codelineno-28-36"></a><span class="w">      </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<a id="__codelineno-28-37" name="__codelineno-28-37" href="#__codelineno-28-37"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-28-38" name="__codelineno-28-38" href="#__codelineno-28-38"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-28-39" name="__codelineno-28-39" href="#__codelineno-28-39"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-28-40" name="__codelineno-28-40" href="#__codelineno-28-40"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-28-41" name="__codelineno-28-41" href="#__codelineno-28-41"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-28-42" name="__codelineno-28-42" href="#__codelineno-28-42"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="p">{</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4e5f60001"</span><span class="p">,</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="w">  </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"c0l0abc123456701"</span><span class="p">,</span>
+<a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
+<a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#64748B"</span><span class="p">,</span>
+<a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a><span class="w">      </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a><span class="w">      </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a><span class="w">      </span><span class="nt">"allow_card_creation"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a><span class="w">      </span><span class="nt">"is_done"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-29-16" name="__codelineno-29-16" href="#__codelineno-29-16"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-29-17" name="__codelineno-29-17" href="#__codelineno-29-17"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-29-18" name="__codelineno-29-18" href="#__codelineno-29-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sw1mabcdef123401"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_collapsed"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-29-19" name="__codelineno-29-19" href="#__codelineno-29-19"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-29-20" name="__codelineno-29-20" href="#__codelineno-29-20"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-29-21" name="__codelineno-29-21" href="#__codelineno-29-21"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-29-22" name="__codelineno-29-22" href="#__codelineno-29-22"></a><span class="w">      </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"crd0abc123456701"</span><span class="p">,</span>
+<a id="__codelineno-29-23" name="__codelineno-29-23" href="#__codelineno-29-23"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-29-24" name="__codelineno-29-24" href="#__codelineno-29-24"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-29-25" name="__codelineno-29-25" href="#__codelineno-29-25"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
+<a id="__codelineno-29-26" name="__codelineno-29-26" href="#__codelineno-29-26"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
+<a id="__codelineno-29-27" name="__codelineno-29-27" href="#__codelineno-29-27"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-29-28" name="__codelineno-29-28" href="#__codelineno-29-28"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-29-29" name="__codelineno-29-29" href="#__codelineno-29-29"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
+<a id="__codelineno-29-30" name="__codelineno-29-30" href="#__codelineno-29-30"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-29-31" name="__codelineno-29-31" href="#__codelineno-29-31"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-29-32" name="__codelineno-29-32" href="#__codelineno-29-32"></a><span class="w">      </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-25T14:30:00Z"</span><span class="p">,</span>
+<a id="__codelineno-29-33" name="__codelineno-29-33" href="#__codelineno-29-33"></a><span class="w">      </span><span class="nt">"checklist_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-29-34" name="__codelineno-29-34" href="#__codelineno-29-34"></a><span class="w">      </span><span class="nt">"checklist_done"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-29-35" name="__codelineno-29-35" href="#__codelineno-29-35"></a><span class="w">      </span><span class="nt">"is_stale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-29-36" name="__codelineno-29-36" href="#__codelineno-29-36"></a><span class="w">      </span><span class="nt">"blocker_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-29-37" name="__codelineno-29-37" href="#__codelineno-29-37"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-29-38" name="__codelineno-29-38" href="#__codelineno-29-38"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-29-39" name="__codelineno-29-39" href="#__codelineno-29-39"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-29-40" name="__codelineno-29-40" href="#__codelineno-29-40"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-29-41" name="__codelineno-29-41" href="#__codelineno-29-41"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-29-42" name="__codelineno-29-42" href="#__codelineno-29-42"></a><span class="p">}</span>
 </code></pre></div></p>
 <p>Response fields:</p>
 <table>
@@ -8689,7 +8780,7 @@ deleted with it.</strong></p>
 <tr>
 <td><code>columns</code></td>
 <td>array</td>
-<td>Column objects; includes <code>is_done</code> flag (see Columns section)</td>
+<td>Column objects; includes <code>is_done</code> flag (see Columns section). <code>policy</code> (since 1.3) is never included — a structural omission, as for swimlane contact details</td>
 </tr>
 <tr>
 <td><code>swimlanes</code></td>
