@@ -28,12 +28,12 @@ from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ParseError
-from rest_framework.parsers import MultiPartParser
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiResponse, OpenApiTypes
+from visiban.parsers import LimitedMultiPartParser
 
 
 from ..models import (
@@ -1323,7 +1323,7 @@ class BoardImportExportMixin:
             404: OpenApiTypes.OBJECT, 429: OpenApiTypes.OBJECT,
         },
     )
-    @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser],
+    @action(detail=False, methods=["post"], url_path="import", parser_classes=[LimitedMultiPartParser],
             throttle_classes=[BoardImportThrottle])
     def import_board(self, request):
         """Import a board from a Visiban JSON or CSV export file."""
@@ -2229,7 +2229,7 @@ class BoardImportExportMixin:
                    401: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT,
                    413: OpenApiTypes.OBJECT, 429: OpenApiTypes.OBJECT},
     )
-    @action(detail=False, methods=["post"], url_path="import/trello", parser_classes=[MultiPartParser],
+    @action(detail=False, methods=["post"], url_path="import/trello", parser_classes=[LimitedMultiPartParser],
             throttle_classes=[TrelloImportThrottle])
     def import_trello(self, request):
         """Import a Trello JSON export into a new board (#456).

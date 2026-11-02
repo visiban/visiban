@@ -748,8 +748,9 @@ class SwimlaneSerializer(serializers.ModelSerializer):
         # a max_length is published as maxItems, and the schema fuzzer's
         # negative test then sends maxItems + 1 items as one multipart part each,
         # which with the other parts crosses Django's
-        # DATA_UPLOAD_MAX_NUMBER_FILES (100) and answers an HTML 400
-        # (TooManyFilesSent) the schema does not document.
+        # DATA_UPLOAD_MAX_NUMBER_FILES (100). That was an undocumented HTML 400
+        # (TooManyFilesSent) until #2072; it is now a JSON ParseError
+        # (visiban.parsers), but still not this field's validation error.
         allow_null=True, allow_empty=False, required=False,
         help_text=field_enforcement.SWIMLANE_LIMIT_COLUMN_IDS,
     )
