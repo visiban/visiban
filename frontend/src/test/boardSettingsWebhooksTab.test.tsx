@@ -515,6 +515,10 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Delete webhook' }))
     expect(screen.getByText(/its secret is destroyed\. This can't be undone/)).toBeInTheDocument()
+    // The confirm is a live region: it says "this address", never the host.
+    const liveText = Array.from(document.querySelectorAll('[role="status"], [aria-live], [role="alert"]')).map((el) => el.textContent ?? '').join(' | ')
+    expect(liveText).toMatch(/Visiban stops sending to this address/)
+    expect(liveText).not.toMatch(/hooks\.zapier\.com/)
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByText(/its secret is destroyed/)).not.toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Delete webhook' }))

@@ -1,9 +1,11 @@
 """``/api/v1/boards/{id}/webhooks/`` access, validation and lifecycle (#863)."""
 
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import PersonalAccessToken
@@ -405,6 +407,21 @@ class RotateReenableTestActionTests(WebhookApiBase):
         self.assertEqual((r.status_code, r.data["code"]), (409, "cursor_expired"))
         r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {"resume_from": "latest"}, format="json")
         self.assertEqual(r.status_code, 200)
+
+    def test_reenable_on_an_enabled_webhook_keeps_the_scan_gap(self):
+        e1 = BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk)
+        stale = timezone.now() - timedelta(days=2)
+        WebhookSubscription.objects.filter(pk=sub.pk).update(last_scanned_at=stale)
+        BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
+        e1.delete()  # pruned
+        sub.refresh_from_db()
+        self.assertTrue(dispatch.cursor_expired(sub))
+        r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {}, format="json")
+        self.assertEqual(r.status_code, 200)
+        sub.refresh_from_db()
+        self.assertEqual(sub.last_scanned_at, stale)
+        self.assertTrue(dispatch.cursor_expired(sub))
 
     def test_reenable_restamps_owner(self):
         sub = make_subscription(self.board, self.admin)

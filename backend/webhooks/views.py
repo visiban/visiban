@@ -401,6 +401,11 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
                         },
                         status=status.HTTP_409_CONFLICT,
                     )
+                # The cursor was just re-validated, so it counts as scanned.
+                # Only here: on a webhook that is already on nothing was
+                # validated, and stamping would erase a gap cursor_expired
+                # still has to report.
+                sub.last_scanned_at = now
             sub.enabled = True
             sub.disabled_reason = ""
             sub.disabled_at = None
@@ -410,8 +415,6 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
             sub.last_error_code = ""
             sub.configured_by = request.user
             sub.configured_at = now
-            # A cursor that is re-validated now was scanned now.
-            sub.last_scanned_at = now
             sub.save(update_fields=[
                 "cursor", "enabled", "disabled_reason", "disabled_at", "consecutive_failures",
                 "failing_since", "next_attempt_at", "last_error_code", "configured_by",

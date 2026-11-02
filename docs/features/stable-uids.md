@@ -78,12 +78,15 @@ This lookup works even if the column was renamed after the move, because `to_col
 Use `uid`, not the numeric `id`, to update records from [webhook](webhooks.md) events. To drop a repeated delivery, use the `X-Visiban-Event-Id` header:
 
 ```python
-def handle_card_event(event_id, payload):
-    if db.seen(event_id):  # X-Visiban-Event-Id: delivery is at-least-once
+def handle_webhook(headers, payload):
+    if db.seen(headers["X-Visiban-Event-Id"]):  # delivery is at-least-once
         return
-    card = payload["data"]
-    record = db.upsert("cards", uid=card["uid"], title=card["title"])
+    if headers["X-Visiban-Event"] in ("card.created", "card.updated"):
+        card = payload["data"]
+        db.upsert("cards", uid=card["uid"], title=card["title"])
 ```
+
+The shape of `data` depends on the event: `card.moved` carries the card under `data.card`, and `card.deleted` and `card.archived` carry only `data.card_uid`. See [WebSocket events](../api/websockets.md).
 
 Numeric `id` values are local to each installation. UIDs are the right key for storing Visiban objects in an external system.
 
