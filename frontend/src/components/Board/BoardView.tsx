@@ -721,14 +721,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     silentReload,
     activeCard !== null || activeColumn !== null || activeSwimlane !== null,
   );
-  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync });
-  // The server closes the socket with 4001/4003 when access to this board is
-  // gone, and the socket then stops (status "failed"). Re-read the board over
-  // REST so a revoked or deleted board swaps in the "isn't available" page
-  // (#2041) instead of sitting on a dead, stale board; a 200 means the failure
-  // was something else (the session probe owns sign-out) and changes nothing.
+  // The server closes with a plain 1000 when this user is removed from the
+  // board; re-read so the REST 404 swaps in the unavailable page (#2041). Not
+  // while this session is itself deleting the board.
+  const onServerClose = useCallback(() => {
+    if (!selfDeletingRef.current) silentReload();
+  }, [silentReload]);
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync, onServerClose });
+  // Access loss reaches the client as a 4001/4003 close (status "failed") or,
+  // for a direct member removal, a server-sent 1000 (onServerClose above).
+  // Re-read the board over REST so a revoked or deleted board swaps in the
+  // "isn't available" page (#2041) instead of sitting on a dead, stale board;
+  // a 200 means the failure was something else (the session probe owns
+  // sign-out) and changes nothing. Skipped while this session is deleting the
+  // board itself, whose own flow navigates away.
   useEffect(() => {
-    if (socketStatus === "failed") silentReload();
+    if (socketStatus === "failed" && !selfDeletingRef.current) silentReload();
   }, [socketStatus, silentReload]);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);

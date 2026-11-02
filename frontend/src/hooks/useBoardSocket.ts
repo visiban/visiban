@@ -67,7 +67,7 @@ const PING_TIMEOUT_MS = 45_000;
 export function useBoardSocket(
   boardId: number | null,
   onEvent: (event: BoardEvent) => void,
-  options?: { onReconnected?: () => void },
+  options?: { onReconnected?: () => void; onServerClose?: () => void },
 ): { connected: boolean; status: SocketStatus; lastEventAt: number | null; reconnectAttempt: number } {
   const [status, setStatus] = useState<SocketStatus>("connecting");
   // `lastEventAt` ticks once per incoming message (including pings). It's used
@@ -86,6 +86,12 @@ export function useBoardSocket(
   // (#1463). Bypasses the visibility throttle: a reconnect is a real gap signal.
   const onReconnectedRef = useRef(options?.onReconnected);
   onReconnectedRef.current = options?.onReconnected;
+  // Fires when the server closes the socket with a normal 1000 the client did
+  // not ask for (#2041): the server does this when this user was just removed
+  // from the board or group. The caller re-reads over REST to find out whether
+  // access is really gone.
+  const onServerCloseRef = useRef(options?.onServerClose);
+  onServerCloseRef.current = options?.onServerClose;
 
   useEffect(() => {
     if (!boardId) return;
@@ -107,6 +113,10 @@ export function useBoardSocket(
     // Per-effect (so per-board): navigating to another board opens a new
     // socket whose first open is an initial connect, not a reconnect.
     let everConnected = false;
+    // Server-initiated 1000 closes since the last real frame. One reconnect is
+    // allowed; a socket that is closed again before delivering anything stops
+    // as failed rather than looping.
+    let serverCloses = 0;
 
     function resetPingTimeout() {
       clearTimeout(pingTimer);
@@ -133,6 +143,7 @@ export function useBoardSocket(
 
       ws.onmessage = (e) => {
         resetPingTimeout();
+        serverCloses = 0;
         setLastEventAt(Date.now());
         try {
           const data = JSON.parse(e.data) as BoardEvent;
@@ -171,8 +182,17 @@ export function useBoardSocket(
           }
           return;
         }
-        // Normal unmount close — status stays as-is; component is gone
-        if (e.code === 1000) return;
+        // Our own close (unmount or board change) sets `canceled` first and so
+        // returned above. A 1000 that reaches here was sent by the server: this
+        // user was removed from the board (#2041). Re-read to find out; if
+        // access is intact the socket must not stay silently dead, so it
+        // reconnects like any unexpected close. No session probe or
+        // auth:sessionExpired: nothing says the session itself ended.
+        if (e.code === 1000) {
+          serverCloses += 1;
+          onServerCloseRef.current?.();
+          if (serverCloses > 1) { setStatus("failed"); return; }
+        }
         // Unexpected close (including ping timeout 4002 and the server's
         // transient re-check failure 1011, #2003) — schedule reconnect
         setStatus("reconnecting");

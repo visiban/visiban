@@ -159,14 +159,68 @@ describe('useBoardSocket', () => {
     expect(instances).toHaveLength(2)
   })
 
-  it('does not reconnect on intentional close (code 1000)', () => {
-    const onEvent = vi.fn()
-    renderHook(() => useBoardSocket(1, onEvent))
-
-    act(() => { latestWS().onclose?.({ code: 1000 }) })
+  it('does not reconnect or re-read when its own unmount closes the socket (code 1000)', () => {
+    const onServerClose = vi.fn()
+    const { unmount } = renderHook(() => useBoardSocket(1, vi.fn(), { onServerClose }))
+    const ws = latestWS()
+    unmount()
+    expect(ws.close).toHaveBeenCalledWith(1000)
+    // The browser delivers the close event after the hook has been torn down.
+    act(() => { ws.onclose?.({ code: 1000 }) })
     act(() => { vi.advanceTimersByTime(5000) })
 
     expect(instances).toHaveLength(1)
+    expect(onServerClose).not.toHaveBeenCalled()
+  })
+
+  it('does not treat a board change as a server close', () => {
+    const onServerClose = vi.fn()
+    const { rerender } = renderHook(({ id }) => useBoardSocket(id, vi.fn(), { onServerClose }), { initialProps: { id: 1 } })
+    const first = latestWS()
+    rerender({ id: 2 })
+    act(() => { first.onclose?.({ code: 1000 }) })
+    expect(onServerClose).not.toHaveBeenCalled()
+    expect(instances).toHaveLength(2)
+  })
+
+  it('a server-sent 1000 (member removed) calls onServerClose and reconnects once, with no session probe (#2041)', async () => {
+    const { probeSession } = await import('../utils/sessionProbe')
+    const expired = vi.fn()
+    window.addEventListener('auth:sessionExpired', expired)
+    const onServerClose = vi.fn()
+    const { result } = renderHook(() => useBoardSocket(1, vi.fn(), { onServerClose }))
+    act(() => { latestWS().onopen?.() })
+
+    act(() => { latestWS().onclose?.({ code: 1000 }) })
+    expect(onServerClose).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('reconnecting')
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(instances).toHaveLength(2)
+    expect(probeSession).not.toHaveBeenCalled()
+    expect(expired).not.toHaveBeenCalled()
+    window.removeEventListener('auth:sessionExpired', expired)
+  })
+
+  it('a second server 1000 before any frame stops as failed instead of looping (#2041)', () => {
+    const onServerClose = vi.fn()
+    const { result } = renderHook(() => useBoardSocket(1, vi.fn(), { onServerClose }))
+    act(() => { latestWS().onclose?.({ code: 1000 }) })
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(instances).toHaveLength(2)
+    act(() => { latestWS().onclose?.({ code: 1000 }) })
+    act(() => { vi.advanceTimersByTime(10000) })
+    expect(instances).toHaveLength(2)
+    expect(result.current.status).toBe('failed')
+  })
+
+  it('a frame between server closes resets the one-reconnect allowance', () => {
+    const { result } = renderHook(() => useBoardSocket(1, vi.fn(), { onServerClose: vi.fn() }))
+    act(() => { latestWS().onclose?.({ code: 1000 }) })
+    act(() => { vi.advanceTimersByTime(3000) })
+    act(() => { latestWS().onopen?.() })
+    act(() => { latestWS().onmessage?.({ data: JSON.stringify({ event: 'ping', data: {} }) }) })
+    act(() => { latestWS().onclose?.({ code: 1000 }) })
+    expect(result.current.status).toBe('reconnecting')
   })
 
   it('does not reconnect on auth rejection (code 4001)', () => {

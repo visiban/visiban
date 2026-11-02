@@ -152,18 +152,23 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setLoading(true);
     setUnavailable(false);
     setError(null);
+    // Set by cleanup when the route moves to another group: a late answer for
+    // the previous group must not write into, or mark unavailable, the new one.
+    let stale = false;
     Promise.all([
       getGroup(groupId),
       getSubgroups(groupId),
       getGroupBoards(groupId),
       getGroupMembers(groupId),
     ]).then(([g, sg, b, m]) => {
+      if (stale) return;
       setGroup(g);
       setIsStarred(g.is_starred);
       setSubgroups(sg);
       setBoards(b);
       setMembers(m);
     }).catch((err: unknown) => {
+        if (stale) return;
         const status = (err as { response?: { status?: number } })?.response?.status;
         if (status === 404 || status === 403) {
           // Deleted or no access: the API answers both alike, so one page (#2041).
@@ -172,7 +177,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           setError("Failed to load group");
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!stale) setLoading(false); });
+    return () => { stale = true; };
   }, [groupId]);
 
   const flagAnimate = useCallback((id: number) => {
@@ -227,12 +233,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Set while this session is deleting the group, so its own socket echo of
   // group.deleted does not flash the unavailable page before it navigates away.
   const selfDeletingRef = useRef(false);
+  // Latest route group, so late responses for a previous group can be dropped.
+  const groupIdRef = useRef(groupId);
+  groupIdRef.current = groupId;
 
   // Re-read the group to find out whether it is still reachable (#2041): used
   // when the socket reports lost access or the group was deleted elsewhere. A
   // 404/403 swaps in the unavailable page; any other outcome changes nothing.
   const refetchForAccess = useCallback(() => {
     getGroup(groupId).catch((err: unknown) => {
+      // A late answer for a group we have since left must not mark this one.
+      if (groupIdRef.current !== groupId) return;
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 404 || status === 403) setUnavailable(true);
     });
@@ -346,16 +357,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     getGroupBoards(groupId).then(setBoards).catch(() => { /* stay with current list */ });
   }, [groupId]);
 
+  const onServerClose = useCallback(() => {
+    if (!selfDeletingRef.current) refetchForAccess();
+  }, [refetchForAccess]);
+
   const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useGroupSocket(
     Number.isFinite(groupId) ? groupId : null,
     handleGroupEvent,
-    { onReconnected: handleReconnected },
+    { onReconnected: handleReconnected, onServerClose },
   );
 
-  // A failed group socket means access was revoked (4001/4003); find out
-  // whether the group is still reachable (#2041).
+  // Access loss reaches the client as a 4001/4003 close (status "failed") or,
+  // for a direct member removal, a server-sent 1000 (onServerClose). Find out
+  // whether the group is still reachable (#2041), unless this session is
+  // deleting the group itself.
   useEffect(() => {
-    if (socketStatus === "failed") refetchForAccess();
+    if (socketStatus === "failed" && !selfDeletingRef.current) refetchForAccess();
   }, [socketStatus, refetchForAccess]);
 
   // After a list mutation, if the previously focused board still exists, restore
