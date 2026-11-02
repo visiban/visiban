@@ -93,7 +93,7 @@ Every publish is best-effort (#1462). A lost *data* frame is recoverable, becaus
 - `BoardConsumer` and `GroupConsumer` also re-check access before they forward any frame (`_access_close_code`, cached per socket for `ACCESS_RECHECK_SECONDS` plus up to `ACCESS_RECHECK_JITTER_SECONDS` of jitter, so about 7 s at most).
 - They use the same predicate as `connect()`, and they close with `4003` when access is gone (#1477).
 - A check that raises fails closed too: the frame is dropped and the socket closes with `1011`, which clients reconnect on. With database-backed sessions (the default), `4003` therefore means a definitive denial (#2003).
-- **Yes, but:** cache-only session backends are a known exception. A cache outage reads as a revoked session and closes with `4003` (#2014).
+- **Cache-only sessions** (since 1.3, #2014): the re-check reads the session straight from the cache, so a cache outage on an open socket also closes with `1011`, not `4003`. The handshake is not covered; see #2086.
 
 See [Access re-check and eviction](../api/websockets.md#access-re-check-and-eviction).
 

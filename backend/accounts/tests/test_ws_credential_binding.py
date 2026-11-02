@@ -300,9 +300,21 @@ class CacheSessionOutageTests(TestCase):
             with self.assertRaises(ConnectionError):
                 ws_credential_is_live(cred, self._fresh())
 
+    @override_settings(SESSION_ENGINE=CACHE_ENGINE)
+    def test_load_live_ws_user_propagates_a_cache_outage(self):
+        """The consumers' entry point raises (they map any raise to 1011), it
+        does not return None (which they map to the final 4003)."""
+        scope = {"user": self.user, **bound_scope(self.user)}
+        self.assertEqual(load_live_ws_user(scope), self.user)
+        with patch("accounts.ws_auth.caches") as caches_mock:
+            caches_mock.__getitem__.return_value.get.side_effect = ConnectionError("cache down")
+            with self.assertRaises(ConnectionError):
+                load_live_ws_user(scope)
+
     @override_settings(SESSION_ENGINE=CACHED_DB_ENGINE)
-    def test_cached_db_falls_back_to_the_database_on_cache_failure(self):
-        """cached_db has no conflation: a cache error reads through to the DB row."""
+    def test_cached_db_does_not_misreport_a_cache_failure_as_revoked(self):
+        """cached_db's load() reads the DB row when the cache get fails, so an
+        outage is not read as a revoked session (it can still raise elsewhere)."""
         key = login_session(self.user)
         cred = _bind(session_credential(key), self.user)
         cache_get = "django.core.cache.backends.locmem.LocMemCache.get"
