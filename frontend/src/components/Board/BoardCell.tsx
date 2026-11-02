@@ -1,4 +1,5 @@
 import { useState, useCallback, memo } from "react";
+import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
@@ -100,6 +101,9 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   // unobtrusive bottom-aligned button.
   const isEmptyAddable = cards.length === 0 && !adding && column.allow_card_creation && canEdit;
   const startAdding = () => setAdding(true);
+
+  // Escape cancels the add-card input through the stack so it does not also clear the selection (#1860).
+  useInlineEditEscape(() => adding, () => setAdding(false));
 
   // Grid overlay (#1147). Suppressed on the cell being dragged over: drop feedback
   // already owns the cell's background channel (`bg-surface-hover/40` here, `bg-info/20`
@@ -249,7 +253,6 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
                 if (closeEditorOnEnter) { e.preventDefault(); void handleAdd(); } // handleAdd manages its own error state (addError) and never rejects
                 // else: fall through so the browser inserts a newline (default textarea behavior)
               }
-              if (e.key === "Escape") setAdding(false);
             }}
             placeholder="Card title…"
             className="w-full text-xs border border-primary-emphasis rounded px-2 py-1.5 outline-none bg-surface text-fg placeholder-fg-muted"

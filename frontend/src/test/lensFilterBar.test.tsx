@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { render, screen, fireEvent, act, cleanup, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LensFilterBar from '../components/Board/Lens/LensFilterBar'
+import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import { stallEventLoopAfterWaitFor } from './eventLoopStall'
 
 function setup(overrides: Partial<React.ComponentProps<typeof LensFilterBar>> = {}) {
@@ -261,5 +262,18 @@ describe('LensFilterBar', () => {
     expect(mountEffectsRan).toBe(false)
     fireEvent.change(input, { target: { value: typed } })
     expect(screen.getByLabelText(label)).toHaveValue(typed)
+  })
+})
+
+describe('LensFilterBar — Escape in the text inputs (#1860)', () => {
+  it('clears the title filter without reaching the lens focus-exit handler', async () => {
+    const user = userEvent.setup()
+    const onLower = vi.fn()
+    const onQChange = vi.fn()
+    render(<><EscapeLowerHandlers onLower={onLower} /><LensFilterBar state="all" milestone="" labels={[]} assignee="" q="x" availableMilestones={[]} availableLabels={[]} availableAssignees={[]} activeCount={0} onStateChange={vi.fn()} onMilestoneChange={vi.fn()} onLabelsChange={vi.fn()} onAssigneeChange={vi.fn()} onQChange={onQChange} onClear={vi.fn()} /></>)
+    await user.click(screen.getByLabelText('Filter issues by title or number'))
+    await user.keyboard('{Escape}')
+    expect(onQChange).toHaveBeenCalledWith('')
+    expect(onLower).not.toHaveBeenCalled()
   })
 })

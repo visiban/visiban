@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useInlineEditEscape } from "../../../hooks/useInlineEditEscape";
 import CheckboxDropdown from "../../Common/CheckboxDropdown";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import { LENS_NONE, MAX_LENS_LABELS } from "./lensDims";
@@ -129,11 +130,16 @@ export default function LensFilterBar({
 
   /** Escape clears a free-text filter and drops focus — parity across all three
    *  text inputs in this row, which a keyboard user reasonably expects. */
-  const clearOnEscape = (reset: () => void) => (e: React.KeyboardEvent) => {
-    if (e.key !== "Escape") return;
-    reset();
-    (e.target as HTMLInputElement).blur();
-  };
+  // Routed through the Escape stack (not an onKeyDown) so it does not also exit lens focus mode (#1860).
+  useInlineEditEscape(
+    () => document.activeElement instanceof HTMLInputElement && document.activeElement.dataset.lensTextFilter !== undefined,
+    () => {
+      const el = document.activeElement as HTMLInputElement;
+      const reset = { milestone: () => setMInput(""), assignee: () => setAInput(""), q: () => onQChange("") }[el.dataset.lensTextFilter ?? ""];
+      reset?.();
+      el.blur();
+    },
+  );
 
   return (
     <div
@@ -153,7 +159,7 @@ export default function LensFilterBar({
         type="text"
         value={mInput}
         onChange={(e) => setMInput(e.target.value)}
-        onKeyDown={clearOnEscape(() => setMInput(""))}
+        data-lens-text-filter="milestone"
         placeholder="Milestone…"
         aria-label="Filter by milestone"
         className={`bg-surface border rounded px-2 py-1 text-sm w-40 placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${
@@ -188,7 +194,7 @@ export default function LensFilterBar({
         type="text"
         value={aInput}
         onChange={(e) => setAInput(e.target.value)}
-        onKeyDown={clearOnEscape(() => setAInput(""))}
+        data-lens-text-filter="assignee"
         placeholder="Assignee…"
         aria-label="Filter by assignee"
         className={`bg-surface border rounded px-2 py-1 text-sm w-36 placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${
@@ -205,12 +211,7 @@ export default function LensFilterBar({
         type="text"
         value={q}
         onChange={(e) => onQChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            onQChange("");
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
+        data-lens-text-filter="q"
         placeholder="Filter by title or #number…"
         aria-label="Filter issues by title or number"
         className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted w-44 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"

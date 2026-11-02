@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ColumnHeader from '../components/Board/ColumnHeader'
+import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import type { Column } from '../types'
 
 vi.mock('../api/boards', () => ({ updateColumn: vi.fn() }))
@@ -81,5 +82,20 @@ describe('ColumnHeader — focus return from the kebab (#1775)', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(kebab).toHaveFocus()
+  })
+})
+
+describe('ColumnHeader — Escape in the rename input (#1860)', () => {
+  it('cancels the rename without reaching the selection-clear handler', async () => {
+    const user = userEvent.setup()
+    const onLower = vi.fn()
+    render(<><EscapeLowerHandlers onLower={onLower} /><ColumnHeader column={column} cards={[]} boardId={1} isAdmin onColumnUpdated={vi.fn()} onRequestDelete={vi.fn()} collapsed={false} onToggleCollapse={vi.fn()} /></>)
+    await user.click(screen.getByRole('button', { name: 'Backlog' }))
+    await user.type(screen.getByDisplayValue('Backlog'), 'x{Escape}')
+    expect(screen.queryByDisplayValue('Backlogx')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Backlog' })).toBeInTheDocument()
+    expect(onLower).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onLower).toHaveBeenCalled()
   })
 })
