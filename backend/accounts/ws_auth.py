@@ -356,7 +356,9 @@ def _session_is_live(session_key: str, user) -> bool:
     be unexpired, name this user, and carry a session hash that matches the
     current password (or a SECRET_KEY_FALLBACKS hash, which ``get_user`` also
     accepts). ``load()`` reads without writing — a missing or expired session
-    comes back empty rather than being recreated.
+    comes back empty rather than being recreated. The cache engine is read
+    directly instead (#2014, see the inline comment), so a cache outage raises;
+    a custom subclass of that engine that overrides ``load()`` is bypassed.
 
     Limitation: with the ``signed_cookies`` session engine there is no server
     side session to delete, so a logout cannot be observed here (Django itself
