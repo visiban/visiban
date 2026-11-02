@@ -679,8 +679,11 @@ class SwimlaneSerializer(serializers.ModelSerializer):
     limit_column_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         # More ids than any board has columns is never valid; the bound keeps
-        # the validation query's IN list small.
-        allow_null=True, allow_empty=False, required=False, max_length=200,
+        # the validation query's IN list small. It must also stay under
+        # Django's DATA_UPLOAD_MAX_NUMBER_FILES (100): a multipart client sends
+        # each array item as its own part, and a longer list answers an HTML 400
+        # (TooManyFilesSent) the schema does not document.
+        allow_null=True, allow_empty=False, required=False, max_length=90,
         help_text=field_enforcement.SWIMLANE_LIMIT_COLUMN_IDS,
     )
 

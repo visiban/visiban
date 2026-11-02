@@ -462,6 +462,21 @@ class SwimlaneSettingsApiTests(_RowFixture):
         self.alpha.refresh_from_db()
         self.assertIsNone(self.alpha.wip_limit)
 
+    def test_limit_column_ids_cap_stays_under_multipart_file_limit(self):
+        # Each array item is its own multipart part; >= DATA_UPLOAD_MAX_NUMBER_FILES
+        # would 400 as HTML before the serializer ran (schema-fuzz, #1150).
+        from django.conf import settings
+        field = SwimlaneSettingsApiTests._limit_ids_field()
+        self.assertLess(field.max_length, settings.DATA_UPLOAD_MAX_NUMBER_FILES)
+        r = self._patch(self.admin, {"limit_column_ids": [self.doing.pk] * (field.max_length + 1)})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("limit_column_ids", r.json())
+
+    @staticmethod
+    def _limit_ids_field():
+        from boards.serializers import SwimlaneSerializer
+        return SwimlaneSerializer().fields["limit_column_ids"]
+
     def test_invalid_values_are_400(self):
         other_board = _make_board(self.admin, name="Other")
         foreign = Column.objects.create(board=other_board, name="Elsewhere", position=0)
