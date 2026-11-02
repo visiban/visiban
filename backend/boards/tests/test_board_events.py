@@ -1159,7 +1159,8 @@ class PruneMarkTests(BoardEventTestBase):
         call_command("prune_board_events")
         self._record()
         self.assertEqual(self._retention_queries(f"{self.url}?after={missed}"), (200, 1, 1))
-        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 1, 1))
+        # The 410 adds its resume point: one more mark read, one Max(id).
+        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 2, 2))
 
     def test_board_with_no_mark_adds_the_old_exists_check(self):
         cursor = self._record()
@@ -1181,3 +1182,72 @@ class PruneMarkTests(BoardEventTestBase):
                 call_command("prune_board_events")
         self.assertTrue(BoardEvent.objects.filter(pk=old).exists())
         self.assertFalse(BoardEventPruneMark.objects.exists())
+
+    # -- the 410's resume point ---------------------------------------------
+
+    def _resume_loop(self, cursor, expected_next_cursor):
+        """410 -> next_cursor -> resume: no second 410, and new events arrive."""
+        c = self.client_for(self.owner)
+        gone = c.get(f"{self.url}?after={cursor}")
+        self.assertEqual(gone.status_code, 410)
+        self.assertEqual(gone.data["code"], "cursor_expired")
+        self.assertIn("resync_url", gone.data)
+        self.assertEqual(gone.data["next_cursor"], expected_next_cursor)
+
+        # (The consumer re-syncs via /full/ here.)
+        resumed = c.get(f"{self.url}?after={gone.data['next_cursor']}")
+        self.assertEqual(resumed.status_code, 200)
+        self.assertEqual(resumed.data["results"], [])
+
+        new = self._record()
+        polled = c.get(f"{self.url}?after={gone.data['next_cursor']}")
+        self.assertEqual(polled.status_code, 200)
+        self.assertEqual([e["id"] for e in polled.data["results"]], [new])
+
+    def test_410_on_an_empty_page_resumes_from_the_mark(self):
+        """Nothing newer than the pruned events: the newest row is gone, the mark is not."""
+        cursor = self._record(aged_days=45)
+        missed = self._record(aged_days=44)
+        call_command("prune_board_events")
+        self._resume_loop(cursor, expected_next_cursor=missed)
+
+    def test_410_with_newer_events_resumes_from_the_newest(self):
+        cursor = self._record(aged_days=45)
+        self._record(aged_days=44)
+        self._record()
+        newest = self._record()
+        call_command("prune_board_events")
+        self._resume_loop(cursor, expected_next_cursor=newest)
+
+    def test_410_on_a_board_with_no_mark_resumes_from_the_newest(self):
+        cursor = self._record()
+        newest = self._record()
+        BoardEvent.objects.filter(pk=cursor).delete()  # pruned by a pre-#2058 run
+        self._resume_loop(cursor, expected_next_cursor=newest)
+
+    def test_the_mark_is_read_after_the_page_fetch(self):
+        """A prune landing between page fetch and mark read must 410, not skip.
+
+        The prune is run just before the page query executes. Read in the
+        current order (page, then mark) the mark already covers the deleted
+        event, so the request 410s. Were the mark read first, it would predate
+        the prune and the page would come back 200 without the pruned event.
+        """
+        cursor = self._record()  # retained
+        missed = self._record(aged_days=45)  # later id, old timestamp: pruned
+        newer = self._record()
+        fired = []
+
+        def prune_before_page_fetch(execute, sql, params, many, context):
+            if not fired and "board_events" in sql and "board_event_prune_marks" not in sql:
+                fired.append(sql)
+                call_command("prune_board_events")
+            return execute(sql, params, many, context)
+
+        with connection.execute_wrapper(prune_before_page_fetch):
+            resp = self.client_for(self.owner).get(f"{self.url}?after={cursor}")
+
+        self.assertTrue(fired)
+        self.assertFalse(BoardEvent.objects.filter(pk=missed).exists())
+        self.assertEqual(resp.status_code, 410)
+        self.assertEqual(resp.data["next_cursor"], newer)

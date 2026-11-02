@@ -121,13 +121,14 @@ Board change feed: committed board mutations in ascending `id` order, so a consu
 
 **Permissions:** any board role, the same gate as `/full/` and the WebSocket handshake — the feed replays events the caller could already have streamed. `is_moderator` is stripped from `member.*` payloads for roles below `admin`, exactly as the WebSocket consumer strips it — except on the row belonging to the reader themselves, which always carries the field (#1191).
 
-**`410 Gone`:** an event after the cursor has aged out of the retention window (`BOARD_EVENT_RETENTION_DAYS`, default 30 days) and been pruned. Re-sync via `/full/` and resume from the newest `event_id` seen after that. A cursor whose own event was pruned, with nothing after it pruned, is not expired (1.3+, #2058); see [When a cursor expires](events.md#errors) for the exact rule and for boards not pruned since the upgrade.
+**`410 Gone`:** an event after the cursor has aged out of the retention window (`BOARD_EVENT_RETENTION_DAYS`, default 30 days) and been pruned. Re-sync via `/full/`, then resume with the body's `next_cursor` as `after` (1.3+; `/full/` carries no event id). A cursor whose own event was pruned, with nothing after it pruned, is not expired (1.3+, #2058); see [When a cursor expires](events.md#errors) for the exact rule and for boards not pruned since the upgrade.
 
 ```json
 {
   "detail": "This cursor can no longer be resumed — events after it may have been pruned by the retention window. Re-sync the board state and resume from the newest event id you see after that.",
   "code": "cursor_expired",
-  "resync_url": "https://your-instance.example.com/api/v1/boards/1/full/"
+  "resync_url": "https://your-instance.example.com/api/v1/boards/1/full/",
+  "next_cursor": 84213
 }
 ```
 
