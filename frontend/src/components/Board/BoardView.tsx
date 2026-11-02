@@ -270,7 +270,10 @@ const MEMBER_ECHO_MS = 2000;
 // (a slow handshake, or a first connect that failed and retried), the board
 // re-reads once. Below it the gap is the normal mount-to-handshake time, and
 // re-reading on every board open would double the cost of the heaviest read.
-// A frame inside a shorter gap is still missed until the next resync.
+// The real gap starts when the server read the snapshot, so it also includes
+// the time spent serving `/full/`; anchoring at request start would count
+// that, but would re-read every slow (large) board on every open. A frame
+// inside a gap below the threshold is still missed until the next resync.
 const FIRST_OPEN_RESYNC_MS = 1000;
 
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
