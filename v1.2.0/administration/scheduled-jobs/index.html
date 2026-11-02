@@ -848,6 +848,8 @@
       
         
       
+        
+      
     
     
     
@@ -1608,6 +1610,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../features/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1634,7 +1664,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_28" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1656,14 +1686,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_28" id="__nav_3_28_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_27">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_28_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_28">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1785,6 +1815,8 @@
       
         
           
+        
+      
         
       
         
@@ -2134,6 +2166,34 @@
     
   
     Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
   
 
     
@@ -4174,6 +4234,16 @@ scheduler for Docker Compose and native CronJobs for Kubernetes.</p>
 </table>
 <p><strong>Yes, but:</strong> the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. The two prune jobs delete data, so each one stays off until you enable it on its own.</p>
 <p><strong>Watch out:</strong> all four commands are idempotent, so running one twice in a day does no harm. <strong>Running two copies at the same moment is different.</strong> If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.</p>
+<div class="admonition note">
+<p class="admonition-title">The webhook dispatcher is not a scheduled job</p>
+<p><a href="../../features/webhooks/">Outbound webhooks</a> <em>(1.3+)</em> need delivery within seconds, so
+their dispatcher is its own long-running service rather than one of these daily jobs:
+the Compose <code>webhooks</code> profile (<code>webhook-dispatcher</code> service) or the Helm
+<code>webhooks.dispatcher.enabled</code> Deployment. On a host-cron install, run
+<code>python manage.py dispatch_webhooks</code> every minute; overlapping runs are safe.
+<code>prune_board_events</code> interacts with it: a webhook that falls further behind than
+<code>BOARD_EVENT_RETENTION_DAYS</code> is turned off rather than skipping events.</p>
+</div>
 <h2 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h2>
 <p><code>docker-compose.prod.yml</code> includes a <code>scheduler</code> service behind the <code>scheduler</code> <a href="https://docs.docker.com/compose/how-tos/profiles/">Compose profile</a>. It runs <code>python manage.py run_scheduler</code> in the backend image, with the backend's <code>.env</code>.</p>
 <p>To turn it on, add the profile to <code>.env</code>, keeping <code>letsencrypt</code> if you use it:</p>

@@ -129,6 +129,10 @@
          <lastmod>2026-11-02</lastmod>
     </url>
     <url>
+         <loc>https://docs.visiban.com/v1.2.0/api/webhooks/</loc>
+         <lastmod>2026-11-02</lastmod>
+    </url>
+    <url>
          <loc>https://docs.visiban.com/v1.2.0/api/websockets/</loc>
          <lastmod>2026-11-02</lastmod>
     </url>
@@ -346,6 +350,10 @@
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0/features/trello-import/</loc>
+         <lastmod>2026-11-02</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.visiban.com/v1.2.0/features/webhooks/</loc>
          <lastmod>2026-11-02</lastmod>
     </url>
     <url>

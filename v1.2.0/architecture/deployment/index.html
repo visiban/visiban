@@ -848,6 +848,8 @@
       
         
       
+        
+      
     
     
     
@@ -1608,6 +1610,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../features/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1634,7 +1664,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_28" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1656,14 +1686,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_28" id="__nav_3_28_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_27">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_28_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_28">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1785,6 +1815,8 @@
       
         
           
+        
+      
         
       
         
@@ -2134,6 +2166,34 @@
     
   
     Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
   
 
     
@@ -4526,6 +4586,31 @@
 <td><code>backend.settings.gitLensEnabled</code></td>
 <td><code>false</code></td>
 <td>Renders <code>GIT_LENS_ENABLED=true</code>, enabling the <a href="../../features/issue-board-lens/">Issue Board Lens</a> (adds the <code>git_lens</code> tables; added in 1.3)</td>
+</tr>
+<tr>
+<td><code>backend.settings.webhooksEnabled</code></td>
+<td><code>false</code></td>
+<td>Renders <code>WEBHOOKS_ENABLED=true</code>, enabling <a href="../../features/webhooks/">outbound webhooks</a>. Also enable <code>webhooks.dispatcher.enabled</code>, or nothing is delivered. Refused together with <code>demo.enabled</code> (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>backend.settings.webhookAllowedPrivateTargets</code></td>
+<td><code>""</code></td>
+<td><code>WEBHOOK_ALLOWED_PRIVATE_TARGETS</code>: comma-separated private hostnames, IPs or CIDRs webhooks may target (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>webhooks.dispatcher.enabled</code></td>
+<td><code>false</code></td>
+<td>Runs the single-replica dispatcher Deployment, <code>manage.py dispatch_webhooks --loop</code> (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>webhooks.dispatcher.interval</code></td>
+<td><code>15</code></td>
+<td>Seconds between dispatcher runs</td>
+</tr>
+<tr>
+<td><code>webhooks.dispatcher.resources</code></td>
+<td>see <code>values.yaml</code></td>
+<td>CPU and memory requests and limits for the dispatcher pod</td>
 </tr>
 <tr>
 <td><code>backend.settings.numProxies</code></td>

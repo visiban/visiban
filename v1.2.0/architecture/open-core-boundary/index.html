@@ -848,6 +848,8 @@
       
         
       
+        
+      
     
     
     
@@ -1608,6 +1610,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../features/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1634,7 +1664,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_28" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1656,14 +1686,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_28" id="__nav_3_28_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_27">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_28_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_28">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1785,6 +1815,8 @@
       
         
           
+        
+      
         
       
         
@@ -2134,6 +2166,34 @@
     
   
     Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
   
 
     
@@ -4345,7 +4405,7 @@
 </tr>
 <tr>
 <td>Outgoing webhooks (per-board, signed, best-effort)</td>
-<td>OSS (planned, not yet implemented; open in #863, milestone 1.3)</td>
+<td>OSS (implemented in #863, 1.3; off by default behind <code>WEBHOOKS_ENABLED</code>)</td>
 <td>Minimum integration surface for a team tool; delivered from the change feed with no task queue. Reversed from Enterprise on 2026-04-15</td>
 <td>#863</td>
 </tr>
@@ -4703,14 +4763,14 @@
 <hr />
 <h3 id="outgoing-webhooks-oss-vs-webhook-operations-enterprise">Outgoing webhooks (OSS) vs webhook operations (Enterprise)<a class="headerlink" href="#outgoing-webhooks-oss-vs-webhook-operations-enterprise" title="Permanent link">&para;</a></h3>
 <blockquote>
-<p><strong>Status.</strong> The OSS ruling is decided, but the feature is <strong>planned and not yet implemented</strong>: #863 is open on the 1.3 milestone and no webhook model, view, or dispatch command exists in the codebase.</p>
+<p><strong>Status.</strong> Implemented in 1.3 (#863): the <code>webhooks</code> app, <code>manage.py dispatch_webhooks</code>, and the board settings <strong>Webhooks</strong> tab. See <a href="../../features/webhooks/">Features — Webhooks</a> and <a href="../../api/webhooks/">API — Webhooks</a>.</p>
 </blockquote>
 <p>Basic outgoing webhooks are OSS: per-board subscriptions, HMAC-signed, delivered in order from the <a href="../../api/events/">board change feed</a> by a scheduled command, with best-effort retry. This reverses the original Enterprise ruling: on 2026-04-15 enterprise #39 was closed in favor of an OSS implementation (#740, consolidated into #863 on 2026-09-14). Webhooks are the minimum integration surface a team tool is evaluated on, and self-hosted alternatives commonly ship them free.</p>
 <p>The operations layer is Enterprise: guaranteed delivery on a durable queue, a delivery log with replay, account-wide subscriptions, and a delivery audit trail. They make webhooks supportable at hosted or large-operator scale. A small team works without them, and consumers needing exact delivery can poll the change feed directly.</p>
 <p><strong>OSS extension points:</strong></p>
 <ul>
 <li><strong>The change feed</strong> (#1114, shipped in 1.2) is the delivery source. It is durable, ordered, and replayable by cursor, and it covers every board event type. The Enterprise dispatcher reads it exactly as the OSS one does.</li>
-<li><strong><code>BOARD_EVENT_HOOKS</code></strong> (<code>boards/hooks.py</code>; <strong>planned, not yet implemented</strong>, tracked in #863) will be a list-append hook called on commit from <code>record_board_event()</code> with <code>(board_id, event_type, event_id)</code>. It is a nudge only ("check the feed now"), so a missed call self-heals from the cursor.</li>
+<li><strong><code>BOARD_EVENT_HOOKS</code></strong> (<code>boards/hooks.py</code>, #863) is a list-append hook called with <code>(board_id, event_type, event_id)</code> once per persisted feed row, on commit, from <code>persist_board_event()</code>, so it covers <code>record_board_event()</code> and every direct writer, bulk import included. It is a nudge only ("check the feed now"): it carries no payload, and a missed call self-heals from the cursor. It runs synchronously on the committing thread (no blocking I/O), gives no cross-row ordering guarantee (#2053), and a handler that raises is logged and swallowed. A handler that reads events must go through <code>boards.services.feed.feed_queryset</code> and <code>serialize_feed_rows</code> with an explicit role and reader, never <code>BoardEvent.data</code> directly. OSS registers nothing on it; the OSS dispatcher polls.</li>
 </ul>
 <p>The earlier design, <code>post_card_created/moved/closed/updated</code> signals plus a <code>VISIBAN_WEBHOOK_BACKEND</code> setting, is <strong>superseded and will not be built</strong>. The change feed covers far more than four card events. For in-process card lifecycle reactions (such as automation), use <code>CARD_MUTATION_HOOKS</code>.</p>
 <p><strong>Issue:</strong> OSS webhooks in #863. Enterprise operations layer in enterprise #44. Slack/Teams channel apps are separate — see <a href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise">Transactional email notifications vs channel integrations</a>.</p>
@@ -4822,7 +4882,17 @@
 <tr>
 <td><code>BOARD_EVENT_HOOKS</code> list (<code>boards/hooks.py</code>)</td>
 <td>Enterprise webhook operations (enterprise #44) — wake signal for a queue-backed dispatcher</td>
-<td>Not yet implemented — planned in #863</td>
+<td>✅ Implemented — #863. <strong>Stable for 1.x, append-only.</strong> Signature <code>(board_id: int, event_type: str, event_id: int) -&gt; None</code>; fired once per persisted change-feed row from <code>boards.broadcast.persist_board_event</code> via <code>transaction.on_commit(..., robust=True)</code>, never on rollback; handler exceptions are logged (name, ids, exception class) and swallowed; synchronous, so no blocking I/O; no ordering guarantee across rows (#2053). Readers use <code>boards.services.feed.feed_queryset</code> / <code>serialize_feed_rows</code>, never raw <code>BoardEvent.data</code>. OSS registers nothing. Pinned by <code>boards/tests/test_board_event_hooks.py</code></td>
+</tr>
+<tr>
+<td><code>boards.services.feed.feed_queryset</code> / <code>serialize_feed_rows</code></td>
+<td>Any reader of the change feed outside the REST view: the OSS webhook dispatcher, enterprise #44</td>
+<td>✅ Implemented — #863. The change feed's two redaction layers (row exclusions, then per-reader field stripping) as one call each, shared with <code>GET /boards/{id}/events/</code>. Pass the reader's role and id; an external receiver reads as <code>role="viewer", reader_id=None</code></td>
+</tr>
+<tr>
+<td><code>webhooks.E001</code>–<code>E002</code> system checks (<code>webhooks/checks.py</code>)</td>
+<td>Startup guard rails for outbound webhooks</td>
+<td>✅ Implemented — #863. <strong>Stable IDs.</strong> <code>E001</code> <code>WEBHOOKS_ENABLED</code> with <code>DEMO_MODE</code>; <code>E002</code> an unusable <code>WEBHOOK_ALLOWED_PRIVATE_TARGETS</code> entry (a <code>/0</code>, a public range, or a never-admitted address)</td>
 </tr>
 <tr>
 <td><code>VISIBAN_AUTOMATION_BACKEND</code> setting</td>

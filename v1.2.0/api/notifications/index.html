@@ -848,6 +848,8 @@
       
         
       
+        
+      
     
     
     
@@ -1608,6 +1610,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../features/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1634,7 +1664,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_28" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1656,14 +1686,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_28" id="__nav_3_28_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_27">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_28_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_28">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1787,6 +1817,8 @@
       
         
           
+        
+      
         
       
         
@@ -2236,6 +2268,34 @@
     
   
     Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
   
 
     
@@ -4125,6 +4185,7 @@
 <li>A card they own has not moved within the configured staleness window (<code>notif_stale</code>) — <em>added in 1.2; previously gated on <code>notif_due_soon</code></em></li>
 <li>They are invited to a board (<code>notif_board_invite</code>)</li>
 <li>Someone else comments on a card they created or are assigned to (<code>notif_comment_added</code>) — <em>added in 1.2</em>; suppressed when the same comment @mentions them</li>
+<li>A <a href="../webhooks/">webhook</a> on a board they administer was turned off automatically (<code>webhook_disabled</code>) — <em>added in 1.3</em>. Sent to each active account that administers the board (its owner, an admin member, or an admin through a group), and to the webhook's owner (the account that last set it up) while that account still administers the board. Other site admins who only have instance-wide access are not notified. There is no preference to turn it off. The <code>verb</code> is <code>A webhook on "&lt;board&gt;" was turned off (webhook #&lt;id&gt;, &lt;reason&gt;)</code>, where the reason code is <code>failures</code>, <code>cursor_expired</code>, <code>creator_lost_access</code> or <code>secret_unavailable</code>; it never contains the webhook's URL. <code>card_id</code> is <code>null</code>.</li>
 </ul>
 <p>Each notification preference can be toggled individually via <code>PATCH /api/v1/auth/me/</code>. See <a href="../authentication/">Authentication</a>.</p>
 <p>Assignment, @mention, due-soon, card-moved, and comment-on-a-watched-card notifications
@@ -4134,6 +4195,10 @@ endpoint — <code>email_notif_card_assigned</code>, <code>email_notif_mentioned
 An email is a copy of the in-app notification, so an <code>email_notif_*</code> field has no effect
 while its <code>notif_*</code> counterpart is <code>false</code>. See
 <a href="../../features/notifications/#email-notifications">Email notifications</a>.</p>
+<p><code>webhook_disabled</code> is the exception <em>(1.3+)</em>: it is always emailed, whatever these
+fields say, but only to an active recipient with a <strong>verified</strong> address who still
+administers the board. Its link opens the board's Webhooks settings
+(<code>/boards/{id}?settings=webhooks</code>).</p>
 <hr />
 <h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1notifications"><code>GET /api/v1/notifications/</code><a class="headerlink" href="#get-apiv1notifications" title="Permanent link">&para;</a></h3>
@@ -4207,7 +4272,7 @@ while its <code>notif_*</code> counterpart is <code>false</code>. See
 <tr>
 <td><code>action_type</code></td>
 <td>string</td>
-<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code> (<code>due_soon</code> and <code>comment_added</code> added in 1.2). Use this for programmatic filtering or i18n instead of parsing <code>verb</code>. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render <code>verb</code> as-is) rather than erroring.</td>
+<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code>, <code>webhook_disabled</code> (<code>due_soon</code> and <code>comment_added</code> added in 1.2, <code>webhook_disabled</code> in 1.3). Use this for programmatic filtering or i18n instead of parsing <code>verb</code>. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render <code>verb</code> as-is) rather than erroring.</td>
 </tr>
 <tr>
 <td><code>read</code></td>

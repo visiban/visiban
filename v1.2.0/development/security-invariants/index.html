@@ -848,6 +848,8 @@
       
         
       
+        
+      
     
     
     
@@ -1608,6 +1610,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../features/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1634,7 +1664,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_27" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_28" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1656,14 +1686,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_27" id="__nav_3_27_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_28" id="__nav_3_28_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_27_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_27">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_28_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_28">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1785,6 +1815,8 @@
       
         
           
+        
+      
         
       
         
@@ -2134,6 +2166,34 @@
     
   
     Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
   
 
     
@@ -3093,6 +3153,17 @@
     <span class="md-ellipsis">
       
         Rule 14: A card placement respects its column's and its swimlane's limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-15-outbound-requests-to-user-supplied-destinations-go-through-visibanegresspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 15: Outbound requests to user-supplied destinations go through visiban/egress.py
       
     </span>
   </a>
@@ -4284,7 +4355,7 @@ audit code.</p>
 <p><strong>What it doesn't enumerate.</strong></p>
 <ul>
 <li>Rule 3: the revocation table is a review checklist.</li>
-<li>Rule 5, Rule 9, Rule 10, Rule 13 and Rule 14: review checklists, pinned by the tests named under each.</li>
+<li>Rule 5, Rule 9, Rule 10, Rule 13, Rule 14 and Rule 15: review checklists, pinned by the tests named under each.</li>
 <li>Locking: the concurrent tests for each consume-once path cover it.</li>
 <li>Rules 11 and 12 are enumerated by their own tests instead: <code>groups/tests/test_group_member_guards.py</code> <code>GroupMembershipEntryPointTests</code> (Rule 11) and <code>boards/tests/test_analytics_panel_min_role_1826.py</code> <code>AnalyticsExtensionsEntryPointTests</code> (Rule 12). Both rules also keep their shared function outside <code>visiban/authorization.py</code> (<code>groups/services.py</code> <code>lock_membership_for_removal_or_demotion</code> and <code>boards/permissions.py</code> <code>analytics_extensions_for_role</code>), an accepted deviation from step 5 of <a href="#how-to-add-a-rule">How to add a rule</a>.</li>
 </ul>
@@ -4389,6 +4460,11 @@ write the same data over MCP, a socket, an invite link or an import.</p>
 <td>Admin API</td>
 <td><code>accounts/admin_views.py</code> <code>AdminUserDetailView</code>, <code>AdminUserDeactivateView</code></td>
 <td><code>_ADMIN_PERMISSIONS</code></td>
+</tr>
+<tr>
+<td>Outbound webhooks (API and dispatcher)</td>
+<td><code>webhooks/views.py</code> <code>WebhookSubscriptionViewSet</code>; <code>webhooks/dispatch.py</code> <code>_deliver</code></td>
+<td>The viewset enumerates the default chain (<code>IsAuthenticated</code>, both pending-change gates, <code>TokenHasScope</code>). Delivery runs with no request, so the account state that matters is the owner's: <code>configurer_has_standing</code> calls <code>visiban.authorization.authorize_account</code> (inactive, or a forced password or username change pending) and refuses a NULL <code>configured_by</code>, disabling the subscription with <code>creator_lost_access</code> before anything is sent. Standing is checked once per run; a run also stops before its next delivery when the row was disabled, re-pointed, rotated or taken over since it was read (<code>_still_configured_as_read</code>) (#863)</td>
 </tr>
 </tbody>
 </table>
@@ -4539,6 +4615,11 @@ re-checks.</p>
 <td><code>visiban/admin_row_version.py</code> <code>RowVersionFormMixin</code>, <code>RowVersionAdminMixin</code>; <code>accounts/admin.py</code> <code>SuperuserOnlyGroupAdmin</code> (<code>GroupAdminForm</code>), <code>SiteSettingAdmin</code> (<code>SiteSettingAdminForm</code>), <code>VisibanUserAdmin</code>; <code>accounts/admin.py</code> <code>LockedRowVersionAdminMixin</code> (the admins for email addresses, social accounts, social apps, social tokens, API tokens and sites, whose digest is computed from stored values because those models carry no version column); <code>boards/admin.py</code> <code>BoardAdmin</code> (<code>BoardAdminForm</code>), <code>BoardMembershipAdmin</code> (<code>BoardMembershipAdminForm</code>)</td>
 <td>A save writes only the fields the administrator changed (a record deleted after the form rendered is refused, not re-created): every other concrete field is taken from the row read under the row lock (<code>keep_unchanged_fields</code>), and <code>save_related</code> writes only the many-to-many fields that changed (a group's <code>permissions</code>). Each change form renders a hidden <code>row_version</code>, a keyed digest of the stored values of the fields it writes (many-to-many included), and a submission made against an older state is refused: the form's <code>clean</code> compares it with the row read when the submission arrives (form error), <code>save_model</code> compares it again with the row read under the lock (<code>check_row_version</code>), and <code>save_related</code> re-reads the many-to-many values before writing them. A refusal under the lock rolls the save back, together with any board event and <code>transaction.on_commit</code> broadcast it queued, and redirects to the change page with an error message. <code>SiteSettingAdmin</code> takes the merged values and the audit snapshot from the same locked row, so the audit diff and the save describe the same transition. A submission without <code>row_version</code> skips the comparisons and still keeps the stored value of every field left alone. Extension point: a subclass that writes further fields extends the form's <code>row_version_fields</code> (#1622, #1642, <code>accounts/tests/test_admin_group_sitesetting_concurrent_edits.py</code>, <code>accounts/tests/test_admin_third_party_concurrent_edits.py</code>, <code>boards/tests/test_admin_board_concurrent_edits.py</code>, whose interleaving cases run on PostgreSQL)</td>
 </tr>
+<tr>
+<td>Outbound webhook subscriptions</td>
+<td><code>webhooks/dispatch.py</code> <code>_deliver</code>, <code>configurer_has_standing</code></td>
+<td>Standing is re-derived from current state on every dispatch run, never cached: <code>configured_by</code> must be active and <code>get_board_role</code> must be <code>admin</code> or <code>site_admin</code>. Demotion, removal (explicit or group-inherited), deactivation and account deletion (<code>SET_NULL</code>, which fails closed) each disable the subscription with <code>creator_lost_access</code> at its next run, and the board's admins are notified. The API is board-admin only on every action (<code>WebhookSubscriptionViewSet._board</code>) (#863)</td>
+</tr>
 </tbody>
 </table>
 <h2 id="rule-3-anything-that-grants-access-declares-what-revokes-it">Rule 3: Anything that grants access declares what revokes it<a class="headerlink" href="#rule-3-anything-that-grants-access-declares-what-revokes-it" title="Permanent link">&para;</a></h2>
@@ -4677,6 +4758,11 @@ access described in Rule 2.</p>
 <td>Grants edited in the Django admin (group permissions, board membership <code>role</code> and <code>is_moderator</code>, board <code>owner</code> and <code>group</code>, workspace group <code>owner</code>, site settings)</td>
 <td><code>accounts/admin.py</code> <code>SuperuserOnlyGroupAdmin</code>, <code>SiteSettingAdmin</code>; <code>boards/admin.py</code> <code>BoardMembershipAdmin</code>, <code>BoardAdmin</code>; <code>groups/admin.py</code> <code>GroupAdmin</code></td>
 <td><code>groups.admin.GroupAdmin</code> is superuser-only and read-only (no change form, so the row-version text below doesn't apply to it); its one write, the "Transfer ownership" action, runs <code>groups.services.transfer_group_ownership</code> (shared with the REST endpoint) under row locks, guarded by <code>expected_owner_id</code> (the owner recorded in the rendered confirm form, so a stale page is refused and moves nothing), and is recorded in the admin log. A revocation committed by any route (the REST API, another admin form) isn't undone by a later save of a form rendered before it: the save writes only the fields the administrator changed, and a form whose <code>row_version</code> no longer matches the stored record is refused (<code>visiban/admin_row_version.py</code>)</td>
+</tr>
+<tr>
+<td>Outbound webhook subscription (board events delivered to a URL its owner chose)</td>
+<td><code>webhooks/views.py</code> <code>WebhookSubscriptionViewSet.create</code>, <code>partial_update</code> (<code>url</code>), <code>reenable</code>, <code>rotate</code> (each re-stamps <code>configured_by</code>; session only, D4; taking over after <code>creator_lost_access</code> also re-verifies the caller with the current password or a recent provider sign-in)</td>
+<td>The owner losing board-admin standing (checked every dispatch run, Rule 2); <code>disable</code> (<code>manual</code>); <code>destroy</code>; automatic disable after repeated failures, cursor expiry or an undecryptable secret; board deletion (CASCADE). <code>rotate</code> invalidates the old signing secret at once. Not exported with the board, not registered in the Django admin (#863)</td>
 </tr>
 </tbody>
 </table>
@@ -5087,6 +5173,11 @@ one surface only leaves the same field readable through another.</p>
 <td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin.export</code></td>
 <td>Admin-only swimlane definitions and their values are included for admin exporters only</td>
 </tr>
+<tr>
+<td>Outbound webhooks</td>
+<td><code>webhooks/dispatch.py</code> <code>_deliver</code></td>
+<td>Reads through <code>boards/services/feed.py</code> <code>feed_queryset</code> (row exclusions) and <code>serialize_feed_rows</code> (<code>BoardEventSerializer</code>, per-field stripping), the same two functions as the change feed, at the fixed reader <code>role="viewer", reader_id=None</code>, never the owner's role: no per-user row, no admin-only row, and every per-recipient field stripped. <code>event_types</code> cannot name a per-user or admin-only type (<code>webhooks/models.py</code> <code>SUBSCRIBABLE_EVENT_TYPES</code>). Pinned by <code>webhooks/tests/test_dispatch.py</code> <code>RedactionParityTests</code> (#863)</td>
+</tr>
 </tbody>
 </table>
 <p>Coverage: <code>boards/tests/test_event_payload_scoping.py</code> (per-user events on both
@@ -5298,6 +5389,11 @@ fails closed.</p>
 <td>Change feed and board export</td>
 <td><code>boards/serializers.py</code> <code>BoardEventSerializer.to_representation</code>; <code>boards/views/import_export.py</code> <code>BoardImportExportMixin.export</code></td>
 <td>Rule 8 rows: per-reader field gating with the reader's role</td>
+</tr>
+<tr>
+<td>Outbound webhooks</td>
+<td><code>webhooks/dispatch.py</code> <code>_deliver</code>, <code>send_test</code></td>
+<td>A delivery is one change-feed row as <code>GET /boards/{id}/events/</code> returns it to a viewer, so it is no broader than REST for the lowest board role; the test event carries ids only. Configuration is board-admin only and is not readable over any other transport; the URL is returned once, on create (#863)</td>
 </tr>
 </tbody>
 </table>
@@ -5634,6 +5730,58 @@ a move instead of deadlocking), <code>boards/tests/test_card_error_bodies.py</co
 exact <code>409</code> bodies), <code>mcp_server/tests/test_mcp_crud.py</code> and
 <code>mcp_server/tests/test_error_codes.py</code> (MCP), and, for the column limits,
 <code>boards/tests/test_limit_enforcement_paths.py</code>.</p>
+<h2 id="rule-15-outbound-requests-to-user-supplied-destinations-go-through-visibanegresspy">Rule 15: Outbound requests to user-supplied destinations go through <code>visiban/egress.py</code><a class="headerlink" href="#rule-15-outbound-requests-to-user-supplied-destinations-go-through-visibanegresspy" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> Any request the server makes to a host or URL that a user (not the
+operator) supplied is validated and sent by <code>visiban/egress.py</code>: every resolved
+address is classified and must be admitted, the connection is pinned to the
+address that was checked, TLS is verified against the hostname, redirects are
+not followed, and the caller sees only a fixed error code. Private and local
+destinations are admitted only through the operator's
+<code>WEBHOOK_ALLOWED_PRIVATE_TARGETS</code>, and loopback, link-local and metadata
+addresses only by an exact single-address entry.</p>
+<p><strong>Why.</strong> A user-supplied destination makes the server a client on the user's
+behalf, from inside the deployment's network. A check done only when the URL is
+saved can be bypassed by a name that resolves differently later, a check of one
+DNS record by a name with several, and a followed redirect by a public URL that
+points elsewhere. Error text derived from the connection would also tell the
+user which internal names exist. One module keeps those properties in one
+place.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Webhook create and URL change (REST)</td>
+<td><code>webhooks/views.py</code> <code>WebhookSubscriptionViewSet.create</code>, <code>partial_update</code>; <code>webhooks/serializers.py</code> <code>validate_destination</code></td>
+<td><code>egress.resolve_destination</code>: syntax, then every A/AAAA record classified (IPv4-mapped, 6to4, Teredo and NAT64 unwrapped); one neutral <code>url_not_allowed</code> for every address refusal, with the same status, body and timing (<code>webhooks/serializers.py</code> <code>validate_destination</code> holds each refusal until <code>refusal_floor_seconds()</code>)</td>
+</tr>
+<tr>
+<td>Webhook test send (REST)</td>
+<td><code>webhooks/views.py</code> <code>WebhookSubscriptionViewSet.test</code>; <code>webhooks/dispatch.py</code> <code>send_test</code></td>
+<td><code>egress.guarded_post</code>: re-resolves and re-checks, then pins the connection; returns a status or a fixed code</td>
+</tr>
+<tr>
+<td>Webhook delivery (dispatcher)</td>
+<td><code>webhooks/dispatch.py</code> <code>post</code></td>
+<td><code>egress.guarded_post</code>, on every delivery</td>
+</tr>
+<tr>
+<td>Git Lens provider fetches</td>
+<td><code>git_lens/providers.py</code> <code>_provider_get</code></td>
+<td>Not a user-supplied destination today: the provider hosts are fixed in code, and <code>_provider_get</code> already refuses redirects</td>
+</tr>
+</tbody>
+</table>
+<p>Coverage: <code>webhooks/tests/test_egress.py</code> (classifier table, allowlist rules,
+every-record check, DNS rebinding, redirects not followed, a real TLS handshake
+proving the pin and hostname verification, and <code>NoOtherOutboundCallTests</code>,
+which fails on any other network call in the <code>webhooks</code> app),
+<code>webhooks/tests/test_api.py</code> (<code>url_not_allowed</code> is one code with one message).</p>
 <h2 id="how-to-add-a-rule">How to add a rule<a class="headerlink" href="#how-to-add-a-rule" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Write the rule as a statement of behavior, not an implementation: what must
