@@ -40,6 +40,16 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
     first store an SMTP password. See
     [Configuration → Email](configuration.md#email-smtp).
 
+!!! warning "Rotating this key also invalidates every stored webhook *(1.3+)*"
+
+    [Outbound webhooks](../features/webhooks.md) store their URL and signing secret
+    encrypted under a key derived from `SECRET_KEY` (unless
+    `VISIBAN_SECRET_ENCRYPTION_KEY` is set). After a rotation, each webhook turns off at
+    its next delivery with the reason *stored secret could not be decrypted*, the board's
+    admins are notified, and nothing is sent unsigned. A webhook in that state cannot be
+    re-enabled: board admins delete it and create a new one, then update the receiver's
+    secret. Set `VISIBAN_SECRET_ENCRYPTION_KEY` before webhooks are in use to avoid this.
+
 ### When to rotate
 
 - Suspected or confirmed compromise of the key
@@ -88,7 +98,7 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
 
 > **Added in 1.2** (#306)
 
-Optional. When set, this key (rather than one derived from `SECRET_KEY`) encrypts secrets Visiban stores at rest (today: the SMTP password set in **Admin → Settings → Email**). It lets you rotate `SECRET_KEY` on its own schedule without invalidating stored secrets.
+Optional. When set, this key (rather than one derived from `SECRET_KEY`) encrypts secrets Visiban stores at rest: the SMTP password set in **Admin → Settings → Email** and, from 1.3, the URL and signing secret of every [outbound webhook](../features/webhooks.md). It lets you rotate `SECRET_KEY` on its own schedule without invalidating stored secrets.
 
 ### Steps
 
@@ -102,7 +112,8 @@ Optional. When set, this key (rather than one derived from `SECRET_KEY`) encrypt
    backend refuses to start if the value is not 32 bytes of URL-safe base64.
 
 3. Re-enter any stored SMTP password in **Admin → Settings → Email** — existing secrets
-   were encrypted under the old key and are not migrated automatically.
+   were encrypted under the old key and are not migrated automatically. Webhooks must
+   be recreated by their boards' admins (they turn off on their own, see above).
 
 !!! note "Set it before storing secrets, not after"
 

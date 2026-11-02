@@ -217,6 +217,15 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: GIT_LENS_ENABLED
   value: "true"
 {{- end }}
+{{- /* Outbound webhooks (#863). Rendered only when set, like the flags above. */}}
+{{- if $ctx.Values.backend.settings.webhooksEnabled }}
+- name: WEBHOOKS_ENABLED
+  value: "true"
+{{- end }}
+{{- if $ctx.Values.backend.settings.webhookAllowedPrivateTargets }}
+- name: WEBHOOK_ALLOWED_PRIVATE_TARGETS
+  value: {{ $ctx.Values.backend.settings.webhookAllowedPrivateTargets | quote }}
+{{- end }}
 {{- /*
   NUM_PROXIES (#1180, #1951). An explicit operator value always wins. When it
   is unset, the chart's Ingress is enabled and the frontend Service is

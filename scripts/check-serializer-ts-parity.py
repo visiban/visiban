@@ -371,6 +371,11 @@ COMPONENT_MAP = {
     "SiteSetting": "SiteSettings",
     "Swimlane": "Swimlane",
     "SwimlaneCustomFieldDefinition": "SwimlaneCustomFieldDefinition",
+    "WebhookCreated": "WebhookCreateResponse",
+    "WebhookRotated": "WebhookRotateResponse",
+    "WebhookStatus": "WebhookStatus",
+    "WebhookSubscription": "WebhookSubscription",
+    "WebhookTestResult": "WebhookTestResult",
 }
 
 

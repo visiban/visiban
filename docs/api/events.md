@@ -41,6 +41,8 @@ The feed completes the [WebSocket API](websockets.md) rather than replacing it. 
 
 A consumer with no socket can poll the feed on its own schedule; the cursor makes repeat reads exact.
 
+*(1.3+)* A consumer that would rather be called than poll can register a [webhook](webhooks.md): each delivery is one row of this feed, as a `viewer` reads it, signed and sent in `id` order.
+
 ---
 
 ## `GET /api/v1/boards/{id}/events/`
@@ -164,6 +166,17 @@ Two consequences worth knowing:
   so a consumer holding a cursor learns the board is gone rather than simply
   losing access mid-stream. Its own board is of course no longer readable, so
   fetch it from the cursor you already hold, not from a fresh call.
+- **Ids follow insertion, not commit.** A row's `id` is assigned when the
+  transaction that writes it inserts the row, and that transaction may commit
+  after a later transaction with a higher `id`. A reader that pages with
+  `after=` at exactly that moment can move its cursor past the lower `id`
+  before it becomes visible, and never see it. The window is the length of the
+  slower transaction, normally milliseconds. Until
+  [#2053](https://gitlab.com/visiban/visiban/-/issues/2053) adds a
+  commit-ordered cursor, a consumer that needs every row should re-read a short
+  overlap (for example, the last few seconds of rows) and deduplicate on `id`.
+  The webhook dispatcher does the equivalent by reading only rows older than
+  `WEBHOOK_SETTLE_SECONDS`.
 - **A container delete is one delete event.** Deleting a column, swimlane, or
   board deletes its cards too, and the feed records only the `column.deleted`,
   `swimlane.deleted`, or `board.deleted` row, with no `card.deleted` row per
@@ -262,6 +275,8 @@ Deletion runs in batches (`--batch-size`, default `5000`), so a large cleanup do
 
 See [Configuration](../administration/configuration.md) for
 `BOARD_EVENT_RETENTION_DAYS`.
+
+A [webhook](webhooks.md) that falls further behind than the window is turned off with `disabled_reason: "cursor_expired"` instead of skipping what was pruned, the webhook counterpart of `410`.
 
 ---
 

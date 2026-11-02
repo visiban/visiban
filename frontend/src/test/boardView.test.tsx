@@ -148,11 +148,11 @@ vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
 }))
 // Captures the props BoardView hands the settings modal (#1290).
 let capturedSettingsProps: {
-  currentUserIsSiteAdmin?: boolean; initialTab?: string
+  currentUserIsSiteAdmin?: boolean; initialTab?: string; focusFirstStoppedWebhook?: boolean
   onShareChanged?: (patch: { share_link_active: boolean | null; share_token_expires_at: string | null }) => void
 } = {}
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: (props: { currentUserIsSiteAdmin?: boolean; initialTab?: string; onClose?: () => void; onManageLens?: () => void }) => {
+  default: (props: { currentUserIsSiteAdmin?: boolean; initialTab?: string; focusFirstStoppedWebhook?: boolean; onClose?: () => void; onManageLens?: () => void }) => {
     capturedSettingsProps = props
     return (
       <div data-testid="settings-modal">
@@ -1019,6 +1019,34 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
     expect(lane).toHaveAttribute('data-current-card-id', '')
     expect(capturedSensors?.length).toBeGreaterThan(0)
+  })
+
+  it('?settings=webhooks opens Board settings on Webhooks for an admin and strips the param (#863)', async () => {
+    mockSearchParams = new URLSearchParams('settings=webhooks')
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'admin' }) })
+    render(<BoardView {...defaultProps()} />)
+    expect(await screen.findByTestId('settings-modal')).toBeInTheDocument()
+    expect(capturedSettingsProps.initialTab).toBe('webhooks')
+    expect(capturedSettingsProps.focusFirstStoppedWebhook).toBe(true)
+    const call = mockSetSearchParams.mock.calls.find((c) => typeof c[0] === 'function')
+    expect(call?.[1]).toEqual({ replace: true })
+    expect((call?.[0] as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams('settings=webhooks')).has('settings')).toBe(false)
+    // Closing resets the deep-link flag so a later open lands on Members.
+    await userEvent.setup().click(screen.getByText('MockSettingsClose'))
+    expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+  })
+
+  it('?settings=webhooks is ignored quietly for a non-admin and in the demo (#863)', () => {
+    mockSearchParams = new URLSearchParams('settings=webhooks')
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'member' }) })
+    const { unmount } = render(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+    expect(mockSetSearchParams).toHaveBeenCalled()
+    unmount()
+    mockSearchParams = new URLSearchParams('settings=webhooks')
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'admin' }) })
+    render(<BoardView {...defaultProps()} />, { wrapper: flagsWrapper({ demo_mode: true }) })
+    expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
   })
 
   it('?card= param opens CardDetail for a matching card', () => {

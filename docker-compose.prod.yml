@@ -169,6 +169,36 @@ services:
       backend-init:
         condition: service_completed_successfully
 
+  # Delivers outbound webhooks (#863): `dispatch_webhooks --loop`, one run every
+  # 15 seconds. Opt-in via the `webhooks` profile, and it does nothing unless
+  # WEBHOOKS_ENABLED=true is also set in .env. Enable both, then `up -d` again:
+  #   COMPOSE_PROFILES=webhooks   (comma-separate with scheduler/letsencrypt)
+  # Running two copies is safe (each subscription is leased) but pointless.
+  # See docs/features/webhooks.md.
+  webhook-dispatcher:
+    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
+    command: ["python", "manage.py", "dispatch_webhooks", "--loop", "--interval", "15"]
+    restart: unless-stopped
+    profiles: ["webhooks"]
+    # One delivery attempt is bounded by WEBHOOK_TIMEOUT_SECONDS; the loop exits
+    # on SIGTERM between runs.
+    stop_grace_period: 1m
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://visiban:${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}@db:5432/visiban
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/0
+      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/1
+      DEBUG: "false"
+    depends_on:
+      backend-init:
+        condition: service_completed_successfully
+
   # Copies the pre-built frontend assets from the release image into the shared
   # volume so nginx can serve them. Exits immediately after the copy completes.
   # nginx waits for this service to complete before starting.

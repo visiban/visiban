@@ -39,7 +39,7 @@ Entry points use file and function names, not line numbers, so the table survive
 **What it doesn't enumerate.**
 
 - Rule 3: the revocation table is a review checklist.
-- Rule 5, Rule 9, Rule 10, Rule 13 and Rule 14: review checklists, pinned by the tests named under each.
+- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14 and Rule 15: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
 
@@ -74,6 +74,7 @@ write the same data over MCP, a socket, an invite link or an import.
 | Django admin (email, login identity and API token models) | `accounts/admin.py` `SuperuserOnlyAdminMixin`; admins for allauth `EmailAddress`, `SocialAccount`, `SocialToken`, `SocialApp` and DRF `TokenProxy` | Each stock admin is re-registered with the mixin, so view, add, change, delete and the module entry are limited to active superusers regardless of the model permissions a staff account holds (`accounts/tests/test_admin_third_party_restrictions.py`) |
 | Django admin (Sites) | `accounts/admin.py` `SuperuserOnlyAdminMixin`; admin for `django.contrib.sites` `Site` | The Sites admin is re-registered with the mixin, so view, add, change, delete and the module entry are limited to active superusers regardless of the model permissions a staff account holds (#1621; `accounts/tests/test_admin_sites_restrictions.py`) |
 | Admin API | `accounts/admin_views.py` `AdminUserDetailView`, `AdminUserDeactivateView` | `_ADMIN_PERMISSIONS` |
+| Outbound webhooks (API and dispatcher) | `webhooks/views.py` `WebhookSubscriptionViewSet`; `webhooks/dispatch.py` `_deliver` | The viewset enumerates the default chain (`IsAuthenticated`, both pending-change gates, `TokenHasScope`). Delivery runs with no request, so the account state that matters is the owner's: `configurer_has_standing` calls `visiban.authorization.authorize_account` (inactive, or a forced password or username change pending) and refuses a NULL `configured_by`, disabling the subscription with `creator_lost_access` before anything is sent. Standing is checked once per run; a run also stops before its next delivery when the row was disabled, re-pointed, rotated or taken over since it was read (`_still_configured_as_read`) (#863) |
 
 ## Rule 2: A deactivated, removed or demoted principal loses access
 
@@ -114,6 +115,7 @@ re-checks.
 | Django admin (user password form) | `accounts/admin.py` `VisibanUserAdmin.user_change_password` | The per-user password form is refused for a non-superuser when the target is a staff, superuser or site-admin account other than the actor's own. These limits apply to non-superuser staff only; superusers edit these fields and set these passwords |
 | Writes to the user row from a request-start copy | `accounts/serializers.py` `UserSerializer.update` (`/auth/me/`, `/auth/user/`); `accounts/views.py` `ChangePasswordView`, `TokenRevokingPasswordChangeView`; `VisibanPasswordResetConfirmSerializer.save`; `accounts/adapter.py` `RegistrationAdapter.set_password`, `SocialRegistrationAdapter.pre_social_login` (social-account connect); `accounts/admin.py` `VisibanUserAdmin.save_model`, `VisibanUserAdmin.save_related`, `VisibanUserChangeForm.clean` | Account state isn't overwritten from a request-start copy: profile updates save only the validated fields (`update_fields`); the two REST password-change routes re-read the row under `accounts/credentials.py` `lock_user_row` and save only `password`; reset-confirm and allauth's password hook save only `password`; a social-account connect judges account state on a separate fresh read and hands allauth a fresh row with only `last_login` loaded (`_connect_target`), so allauth's save writes only that column (#1624); the Django admin change form takes the concrete fields that are unchanged at submit time from the row read under the lock, and `VisibanUserAdmin.save_related` writes only the many-to-many fields (`groups`, `user_permissions`) the administrator changed; the form renders a hidden `row_version` (a keyed digest of the stored values of the fields it writes, groups and permissions included), and a submission made against an older state of the account is refused: `VisibanUserChangeForm.clean` compares it with the row read when the submission arrives (form error), `save_model` compares it again with the row and its groups and permissions read under the lock, and `save_related` re-reads the groups and permissions before writing them (a refusal at either step rolls the save back and redirects to the change page with an error message); a submission without `row_version` skips the comparisons and still keeps the stored value of every field left alone (#1619, #1622, `accounts/tests/test_stale_user_row_writes.py`, `accounts/tests/test_admin_user_form_concurrent_edits.py`) |
 | Django admin change forms for privilege-bearing records | `visiban/admin_row_version.py` `RowVersionFormMixin`, `RowVersionAdminMixin`; `accounts/admin.py` `SuperuserOnlyGroupAdmin` (`GroupAdminForm`), `SiteSettingAdmin` (`SiteSettingAdminForm`), `VisibanUserAdmin`; `accounts/admin.py` `LockedRowVersionAdminMixin` (the admins for email addresses, social accounts, social apps, social tokens, API tokens and sites, whose digest is computed from stored values because those models carry no version column); `boards/admin.py` `BoardAdmin` (`BoardAdminForm`), `BoardMembershipAdmin` (`BoardMembershipAdminForm`) | A save writes only the fields the administrator changed (a record deleted after the form rendered is refused, not re-created): every other concrete field is taken from the row read under the row lock (`keep_unchanged_fields`), and `save_related` writes only the many-to-many fields that changed (a group's `permissions`). Each change form renders a hidden `row_version`, a keyed digest of the stored values of the fields it writes (many-to-many included), and a submission made against an older state is refused: the form's `clean` compares it with the row read when the submission arrives (form error), `save_model` compares it again with the row read under the lock (`check_row_version`), and `save_related` re-reads the many-to-many values before writing them. A refusal under the lock rolls the save back, together with any board event and `transaction.on_commit` broadcast it queued, and redirects to the change page with an error message. `SiteSettingAdmin` takes the merged values and the audit snapshot from the same locked row, so the audit diff and the save describe the same transition. A submission without `row_version` skips the comparisons and still keeps the stored value of every field left alone. Extension point: a subclass that writes further fields extends the form's `row_version_fields` (#1622, #1642, `accounts/tests/test_admin_group_sitesetting_concurrent_edits.py`, `accounts/tests/test_admin_third_party_concurrent_edits.py`, `boards/tests/test_admin_board_concurrent_edits.py`, whose interleaving cases run on PostgreSQL) |
+| Outbound webhook subscriptions | `webhooks/dispatch.py` `_deliver`, `configurer_has_standing` | Standing is re-derived from current state on every dispatch run, never cached: `configured_by` must be active and `get_board_role` must be `admin` or `site_admin`. Demotion, removal (explicit or group-inherited), deactivation and account deletion (`SET_NULL`, which fails closed) each disable the subscription with `creator_lost_access` at its next run, and the board's admins are notified. The API is board-admin only on every action (`WebhookSubscriptionViewSet._board`) (#863) |
 
 ## Rule 3: Anything that grants access declares what revokes it
 
@@ -152,6 +154,7 @@ access described in Rule 2.
 | Group invite link | `groups/views.py` `JoinGroupView`; `groups/invite_registration.py` `redeem_reserved_group_invites` (grant at email confirmation, #1704); `groups/models.py` `GroupInviteLink` | `is_active`, `expires_at`, `used_at`; sender standing re-evaluated by `_sender_still_admits` and `sender_is_group_admin`; at confirmation `group_link_registration_refusal` re-checks revocation, expiry, use, role and sender standing on the locked row and releases the reservation on a refusal |
 | OAuth pending invite | `accounts/adapter.py` `SocialRegistrationAdapter.is_open_for_signup` | Invalid or expired token clears `PENDING_INVITE_SESSION_KEY` |
 | Grants edited in the Django admin (group permissions, board membership `role` and `is_moderator`, board `owner` and `group`, workspace group `owner`, site settings) | `accounts/admin.py` `SuperuserOnlyGroupAdmin`, `SiteSettingAdmin`; `boards/admin.py` `BoardMembershipAdmin`, `BoardAdmin`; `groups/admin.py` `GroupAdmin` | `groups.admin.GroupAdmin` is superuser-only and read-only (no change form, so the row-version text below doesn't apply to it); its one write, the "Transfer ownership" action, runs `groups.services.transfer_group_ownership` (shared with the REST endpoint) under row locks, guarded by `expected_owner_id` (the owner recorded in the rendered confirm form, so a stale page is refused and moves nothing), and is recorded in the admin log. A revocation committed by any route (the REST API, another admin form) isn't undone by a later save of a form rendered before it: the save writes only the fields the administrator changed, and a form whose `row_version` no longer matches the stored record is refused (`visiban/admin_row_version.py`) |
+| Outbound webhook subscription (board events delivered to a URL its owner chose) | `webhooks/views.py` `WebhookSubscriptionViewSet.create`, `partial_update` (`url`), `reenable`, `rotate` (each re-stamps `configured_by`; session only, D4; taking over after `creator_lost_access` also re-verifies the caller with the current password or a recent provider sign-in) | The owner losing board-admin standing (checked every dispatch run, Rule 2); `disable` (`manual`); `destroy`; automatic disable after repeated failures, cursor expiry or an undecryptable secret; board deletion (CASCADE). `rotate` invalidates the old signing secret at once. Not exported with the board, not registered in the Django admin (#863) |
 
 ## Rule 4: Consume-once tokens are consumed at the gate, under a lock
 
@@ -378,6 +381,7 @@ one surface only leaves the same field readable through another.
 | Broadcast and persist (write time) | `boards/broadcast.py` `broadcast_board_event`, `record_board_event`, `persist_board_event`; `groups/broadcast.py` `broadcast_group_event` | `without_admin_only_board_fields`; `without_viewer_specific_group_fields` on every group event (drops `can_place_boards`, #1692); swimlane payloads built from the public `SwimlaneSerializer`; `actor_id` carried on the channel-layer message for the consumers' `without_actor_scoped_fields` |
 | REST board and members | `boards/serializers.py` `BoardFullSerializer.get_members`, `get_swimlanes`; `BoardMembershipSerializer.to_representation` | `moderator_field_visible`, `site_admin_field_visible` (on `/full/`, also `site_admin_roster_visible`, Rule 5); `SwimlaneAdminSerializer` for admin and site_admin only |
 | Board export | `boards/views/import_export.py` `BoardImportExportMixin.export` | Admin-only swimlane definitions and their values are included for admin exporters only |
+| Outbound webhooks | `webhooks/dispatch.py` `_deliver` | Reads through `boards/services/feed.py` `feed_queryset` (row exclusions) and `serialize_feed_rows` (`BoardEventSerializer`, per-field stripping), the same two functions as the change feed, at the fixed reader `role="viewer", reader_id=None`, never the owner's role: no per-user row, no admin-only row, and every per-recipient field stripped. `event_types` cannot name a per-user or admin-only type (`webhooks/models.py` `SUBSCRIBABLE_EVENT_TYPES`). Pinned by `webhooks/tests/test_dispatch.py` `RedactionParityTests` (#863) |
 
 Coverage: `boards/tests/test_event_payload_scoping.py` (per-user events on both
 channels and the feed, `invite`, swimlane re-filtering, and a check that every
@@ -475,6 +479,7 @@ fails closed.
 | MCP (access) | `mcp_server/tools.py` `_resolve_board`, `list_boards` | `_resolve_board` takes the role from `get_board_role`, and a missing board and an inaccessible board are answered alike (Rule 7). `list_boards` starts from `boards/views/_helpers.py` `get_accessible_boards_queryset`, the queryset `BoardViewSet.get_queryset` uses; the role comes from the shared `get_board_roles`, and a board with no resolved role is omitted. `mcp_server/tests/test_mcp.py` covers the listing |
 | MCP (output) | `mcp_server/tools.py` `board_snapshot`, `_serialize_user`, `_swimlanes_payload`, `_serialize_card` | Explicit allow-list shapes, not `BoardFullSerializer`; web-session-only fields (share token, share-link expiry and `share_link_active`, capabilities, members, current role) are absent (`test_mcp.py` `test_web_only_fields_are_never_exposed`); users carry only the REST user fields and no email; admin-only swimlane fields are included for admin roles only |
 | Change feed and board export | `boards/serializers.py` `BoardEventSerializer.to_representation`; `boards/views/import_export.py` `BoardImportExportMixin.export` | Rule 8 rows: per-reader field gating with the reader's role |
+| Outbound webhooks | `webhooks/dispatch.py` `_deliver`, `send_test` | A delivery is one change-feed row as `GET /boards/{id}/events/` returns it to a viewer, so it is no broader than REST for the lowest board role; the test event carries ids only. Configuration is board-admin only and is not readable over any other transport; the URL is returned once, on create (#863) |
 
 Coverage: `mcp_server/tests/test_mcp.py` (`UserFieldParityTests`, which pins
 user-bearing keys and card keys to the REST serializers for the lowest role, and
@@ -692,6 +697,38 @@ a move instead of deadlocking), `boards/tests/test_card_error_bodies.py` (the
 exact `409` bodies), `mcp_server/tests/test_mcp_crud.py` and
 `mcp_server/tests/test_error_codes.py` (MCP), and, for the column limits,
 `boards/tests/test_limit_enforcement_paths.py`.
+
+## Rule 15: Outbound requests to user-supplied destinations go through `visiban/egress.py`
+
+**Rule.** Any request the server makes to a host or URL that a user (not the
+operator) supplied is validated and sent by `visiban/egress.py`: every resolved
+address is classified and must be admitted, the connection is pinned to the
+address that was checked, TLS is verified against the hostname, redirects are
+not followed, and the caller sees only a fixed error code. Private and local
+destinations are admitted only through the operator's
+`WEBHOOK_ALLOWED_PRIVATE_TARGETS`, and loopback, link-local and metadata
+addresses only by an exact single-address entry.
+
+**Why.** A user-supplied destination makes the server a client on the user's
+behalf, from inside the deployment's network. A check done only when the URL is
+saved can be bypassed by a name that resolves differently later, a check of one
+DNS record by a name with several, and a followed redirect by a public URL that
+points elsewhere. Error text derived from the connection would also tell the
+user which internal names exist. One module keeps those properties in one
+place.
+
+| Surface | Entry point | Enforced via |
+|---|---|---|
+| Webhook create and URL change (REST) | `webhooks/views.py` `WebhookSubscriptionViewSet.create`, `partial_update`; `webhooks/serializers.py` `validate_destination` | `egress.resolve_destination`: syntax, then every A/AAAA record classified (IPv4-mapped, 6to4, Teredo and NAT64 unwrapped); one neutral `url_not_allowed` for every address refusal, with the same status, body and timing (`webhooks/serializers.py` `validate_destination` holds each refusal until `refusal_floor_seconds()`) |
+| Webhook test send (REST) | `webhooks/views.py` `WebhookSubscriptionViewSet.test`; `webhooks/dispatch.py` `send_test` | `egress.guarded_post`: re-resolves and re-checks, then pins the connection; returns a status or a fixed code |
+| Webhook delivery (dispatcher) | `webhooks/dispatch.py` `post` | `egress.guarded_post`, on every delivery |
+| Git Lens provider fetches | `git_lens/providers.py` `_provider_get` | Not a user-supplied destination today: the provider hosts are fixed in code, and `_provider_get` already refuses redirects |
+
+Coverage: `webhooks/tests/test_egress.py` (classifier table, allowlist rules,
+every-record check, DNS rebinding, redirects not followed, a real TLS handshake
+proving the pin and hostname verification, and `NoOtherOutboundCallTests`,
+which fails on any other network call in the `webhooks` app),
+`webhooks/tests/test_api.py` (`url_not_allowed` is one code with one message).
 
 ## How to add a rule
 

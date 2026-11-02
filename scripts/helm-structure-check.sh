@@ -74,6 +74,10 @@ RENDER_ARGS=(
   --set scheduledJobs.enabled=true
   --set scheduledJobs.pruneBoardEvents.enabled=true
   --set scheduledJobs.pruneNotifications.enabled=true
+  # The webhook dispatcher Deployment (#863) is off by default and opens a
+  # database connection: section 7 must see its pod, section 8 its command.
+  --set webhooks.dispatcher.enabled=true
+  --set backend.settings.webhooksEnabled=true
 )
 
 # Public demo mode (#1180) renders a second shape of the chart: the shipped

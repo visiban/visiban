@@ -76,7 +76,11 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
     }
     setShowBell(false);
     if (n.board_id) {
-      const url = n.card_id ? `/boards/${n.board_id}?card=${n.card_id}` : `/boards/${n.board_id}`;
+      // #863: a webhook_disabled notice opens the board's Webhooks settings.
+      // The link names no subscription; the tab focuses the first Stopped row.
+      const url = n.action_type === "webhook_disabled"
+        ? `/boards/${n.board_id}?settings=webhooks`
+        : n.card_id ? `/boards/${n.board_id}?card=${n.card_id}` : `/boards/${n.board_id}`;
       // Fire-and-forget: the declarative router resolves navigate() synchronously,
       // and any failure is handled by its own error boundary.
       void navigate(url);
@@ -241,7 +245,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                       <p className="text-xs text-fg leading-snug">{n.verb}</p>
                       <p className="text-xs text-fg-tertiary mt-0.5">{relativeTime(n.created_at)}</p>
                       {n.board_id && !n.card_id && (
-                        <p className="text-xs text-info mt-0.5">View board →</p>
+                        <p className="text-xs text-info mt-0.5">
+                          {n.action_type === "webhook_disabled" ? "Open board settings →" : "View board →"}
+                        </p>
                       )}
                     </button>
                   ))}

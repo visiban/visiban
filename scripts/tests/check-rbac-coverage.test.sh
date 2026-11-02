@@ -54,7 +54,7 @@ copy_tree() {
   mkdir -p "$1"
   ( cd "$REPO_ROOT" && tar cf - \
       backend/boards/views backend/boards/models.py \
-      backend/groups/views.py backend/git_lens/views.py \
+      backend/groups/views.py backend/git_lens/views.py backend/webhooks/views.py \
   ) | ( cd "$1" && tar xf - )
 }
 

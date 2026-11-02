@@ -3,7 +3,7 @@
 import logging
 
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, Max, OuterRef, Q
+from django.db.models import Exists, Max, OuterRef
 from django.urls import reverse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -31,13 +31,14 @@ from ..models import (
     Swimlane,
 )
 from ..permissions import (
-    ADMIN_ONLY_EVENTS, GROUP_ANCESTOR_SELECT_RELATED, PER_USER_EVENTS, SITE_ADMIN,
-    admin_only_event_visible, get_board_role,
+    GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN,
+    get_board_role,
 )
 from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
 )
+from ..services.feed import feed_queryset, serialize_feed_rows
 from ..services.notifications import create_notifications
 from ..utils import create_template_columns, resolve_board_template
 from ._helpers import (
@@ -923,20 +924,10 @@ class BoardViewSet(
         after = _parse_events_cursor(request.query_params.get("after"))
         limit = _parse_events_limit(request.query_params.get("limit"))
 
-        # Per-user rows (PER_USER_EVENTS: stars, saved filters) are returned
-        # only to the user they belong to (#1677), matching the socket, which
-        # forwards them only to that user's own sessions. Filtered in the
-        # query, not after it, so a page stays `limit` rows long. A row with no
-        # actor matches no reader.
-        # Per-user events must be persisted with actor_id = the owning user.
-        qs = BoardEvent.objects.filter(board_id=board.id).exclude(
-            Q(event__in=PER_USER_EVENTS) & ~Q(actor_id=request.user.id)
-        )
-        # Admin-only rows (ADMIN_ONLY_EVENTS: share_link.updated, #1967) are
-        # returned to admin / site_admin readers only, matching the socket.
-        # Also filtered in the query so a page stays `limit` rows long.
-        if not admin_only_event_visible(role):
-            qs = qs.exclude(event__in=ADMIN_ONLY_EVENTS)
+        # Both redaction layers live in boards.services.feed (#863) so the
+        # webhook dispatcher and enterprise readers apply exactly the same
+        # rules: whole-row exclusions here, per-field stripping on serialize.
+        qs = feed_queryset(board.id, role=role, reader_id=request.user.id)
         if after:
             qs = qs.filter(pk__gt=after)
         rows = list(qs.order_by("id")[:limit])
@@ -976,17 +967,9 @@ class BoardViewSet(
         next_cursor = rows[-1].pk if len(rows) == limit else None
         # One bulk user fetch for the whole page (#1663), never one per row.
         return Response({
-            "results": BoardEventSerializer(
-                rows, many=True, context={
-                    "role": role,
-                    "reader_id": request.user.id,
-                    "actors": BoardEventSerializer.actor_map(rows),
-                    # One query, only when the page holds swimlane rows (#1677).
-                    "shareable_swimlane_field_ids": (
-                        BoardEventSerializer.shareable_swimlane_field_ids(board.id, rows)
-                    ),
-                },
-            ).data,
+            "results": serialize_feed_rows(
+                board.id, rows, role=role, reader_id=request.user.id,
+            ),
             "next_cursor": next_cursor,
             # Deprecated alias: 1.2.0-beta.1 shipped `next` as a documented public
             # key, so it stays, with an identical value, until a major bump (#1869).

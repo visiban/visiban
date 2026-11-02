@@ -35,8 +35,9 @@ either lands in :data:`AGENT_REVIEWED` with the reason the agent gave, or it
 fails the pipeline asking for that review. Silently passing an unclassifiable
 view is the one outcome this script must never produce.
 
-Scope: ``backend/boards/views/``, ``backend/groups/views.py`` and
-``backend/git_lens/views.py`` — the board- and group-scoped API surface the role
+Scope: ``backend/boards/views/``, ``backend/groups/views.py``,
+``backend/git_lens/views.py`` and ``backend/webhooks/views.py`` (#863) — the
+board- and group-scoped API surface the role
 hierarchy governs. ``backend/accounts/views.py`` is deliberately **out of
 scope**: it is the authentication/session surface (login throttles, password
 reset, email confirmation, PAT management), governed by per-view rules rather
@@ -81,7 +82,7 @@ EXIT_DEFER_TO_AGENT = 3
 
 # Directories scanned wholesale, and single files. Both are relative to --root.
 SCOPE_DIRS = ("backend/boards/views",)
-SCOPE_FILES = ("backend/groups/views.py", "backend/git_lens/views.py")
+SCOPE_FILES = ("backend/groups/views.py", "backend/git_lens/views.py", "backend/webhooks/views.py")
 
 # Model modules the board/card-scoping map is derived from (see _scoped_models).
 MODEL_MODULES = ("backend/boards/models.py",)
@@ -1075,6 +1076,8 @@ _FIXTURE = {
     ),
     "backend/groups/views.py": _FIXTURE_GROUPS,
     "backend/git_lens/views.py": _FIXTURE_LENS,
+    # A scope file must exist; the fixture's webhooks module declares no views.
+    "backend/webhooks/views.py": "",
 }
 
 # The fixture tree stands in for the real one, so the recorded-exception tables

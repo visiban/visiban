@@ -47,7 +47,7 @@ run_gate() {
 copy_tree() {
   mkdir -p "$1"
   ( cd "$REPO_ROOT" && tar cf - \
-      backend/boards backend/groups backend/git_lens \
+      backend/boards backend/groups backend/git_lens backend/webhooks \
   ) | ( cd "$1" && tar xf - )
 }
 

@@ -77,6 +77,14 @@
               "description": "GIT_LENS_ENABLED (#1835). true enables the Issue Board Lens (adds the git_lens app and its tables); false (default) leaves the variable unset.",
               "type": "boolean"
             },
+            "webhooksEnabled": {
+              "description": "WEBHOOKS_ENABLED (#863). true lets board admins register outbound webhooks; false (default) leaves the variable unset. Refused together with demo.enabled.",
+              "type": "boolean"
+            },
+            "webhookAllowedPrivateTargets": {
+              "description": "WEBHOOK_ALLOWED_PRIVATE_TARGETS (#863). Comma-separated exact hostnames, private IPs or private CIDRs webhooks may target. Empty (default) means public destinations only.",
+              "type": "string"
+            },
             "adminAllowedIPs": { "type": "string" },
             "silencedSystemChecks": {
               "description": "SILENCED_SYSTEM_CHECKS. Comma-separated Django system-check IDs the operator accepts, e.g. accounts.W002 (#1698).",
@@ -411,6 +419,22 @@
         "enabled": {
           "description": "Requires a CNI that ENFORCES NetworkPolicy (Calico, Cilium). kind's default kindnetd admits the objects and ignores them.",
           "type": "boolean"
+        }
+      }
+    },
+    "webhooks": {
+      "description": "Outbound webhook dispatcher Deployment (templates/webhook-dispatcher.yaml, #863). Off by default.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dispatcher": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "interval": { "type": "integer", "minimum": 1 },
+            "resources": { "type": "object" }
+          }
         }
       }
     },

@@ -1,0 +1,81 @@
+{{- /*
+Outbound webhook dispatcher (#863).
+
+One Deployment running `python manage.py dispatch_webhooks --loop`. Off unless
+`webhooks.dispatcher.enabled` is true, so `helm upgrade` on an existing release
+starts nothing. It delivers only while backend.settings.webhooksEnabled is also
+true (WEBHOOKS_ENABLED, rendered by visiban.backendEnv); otherwise each run
+exits without writing.
+
+A Deployment rather than a CronJob: deliveries should leave within seconds of
+an event, and a per-minute CronJob would create 1440 pods a day. Replicas are
+fixed at 1. A second replica is safe, because each subscription is leased with
+a conditional UPDATE, but it adds nothing.
+
+The pod carries `app.kubernetes.io/component: webhook-dispatcher`, which
+networkpolicy.yaml lists as a datastore client (visiban.datastoreClients);
+scripts/helm-structure-check.sh section 7 asserts the pairing. The chart adds
+no egress policy for it outside demo mode (where webhooks are refused): webhooks
+POST to destinations outside the cluster.
+*/ -}}
+{{- $wh := (.Values.webhooks | default dict) }}
+{{- $dispatcher := ($wh.dispatcher | default dict) }}
+{{- if $dispatcher.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "visiban.fullname" . }}-webhook-dispatcher
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webhook-dispatcher
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "visiban.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: webhook-dispatcher
+  template:
+    metadata:
+      {{- if not .Values.secret.existingSecret }}
+      annotations:
+        # Same reason as the backend's: a rotated Secret value must replace the pod.
+        checksum/secret: {{ include "visiban.secretData" . | sha256sum }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "visiban.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: webhook-dispatcher
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        # The backend image's `visiban` user (backend/Dockerfile).
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      containers:
+        - name: webhook-dispatcher
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["python", "manage.py", "dispatch_webhooks", "--loop", "--interval", {{ $dispatcher.interval | default 15 | int | toString | quote }}]
+          env:
+            {{- include "visiban.backendEnv" . | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml ($dispatcher.resources | default dict) | nindent 12 }}
+{{- end }}

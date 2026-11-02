@@ -92,6 +92,7 @@ nav:
     - Board Permissions: features/permissions.md
     - Feature Toggles: features/feature-toggles.md
     - Issue Board Lens: features/issue-board-lens.md
+    - Webhooks: features/webhooks.md
     - Roles & Permissions:
       - features/rbac/index.md
       - Overview: features/rbac/roles.md
@@ -109,6 +110,7 @@ nav:
     - MCP Server: api/mcp.md
     - WebSockets: api/websockets.md
     - Change Feed: api/events.md
+    - Webhooks: api/webhooks.md
     - Health Checks: api/health.md
     - Version: api/version.md
     - OpenAPI Spec: api/openapi.md

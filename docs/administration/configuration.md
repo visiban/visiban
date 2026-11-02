@@ -161,10 +161,10 @@ The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visi
 
 ## Optional features (off by default)
 
-Two features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`).
+Three features are dormant until an operator opts in. Set these in your `.env` file, then run `docker compose up -d` to recreate the backend with them (`docker compose restart` does not re-read `.env`).
 
 - **Migration:** turning `GIT_LENS_ENABLED` on adds the `git_lens` app and its tables, so a migration must run. In the production stack the `backend-init` service does that on `up -d`.
-- **Helm:** the chart exposes only the two enable flags, `backend.settings.mcpServerEnabled` and `backend.settings.gitLensEnabled` (both default `false`; see [Kubernetes deployment](../architecture/deployment.md)). The other variables in the table below (`GIT_LENS_OUTBOUND_LOG_LEVEL`, `MCP_ALLOWED_HOSTS`, `MCP_THROTTLE_*_RATE`) are Compose/env-only; the chart has no values for them.
+- **Helm:** the chart exposes the enable flags `backend.settings.mcpServerEnabled`, `backend.settings.gitLensEnabled` and `backend.settings.webhooksEnabled` (all default `false`), plus `backend.settings.webhookAllowedPrivateTargets` and `webhooks.dispatcher.*` for webhooks (see [Kubernetes deployment](../architecture/deployment.md)). The other variables in the table below (`GIT_LENS_OUTBOUND_LOG_LEVEL`, `MCP_ALLOWED_HOSTS`, `MCP_THROTTLE_*_RATE`) and the webhook tuning variables are Compose/env-only; the chart has no values for them.
 - **Names are stable:** a rename keeps the old name as a deprecated alias for at least one minor release.
 
 | Variable | Default | Description |
@@ -176,6 +176,7 @@ Two features are dormant until an operator opts in. Set these in your `.env` fil
 | `MCP_THROTTLE_READ_RATE` | `300/min` | Baseline per-token limit applied to every MCP tool call and resource read. |
 | `MCP_THROTTLE_COMPUTE_RATE` | `30/min` | Additional, tighter per-token limit for expensive reads (`list_cards` and `board://{board_id}`), spent on top of the baseline. |
 | `MCP_THROTTLE_PREAUTH_RATE` | `30/min` | Per-client-IP limit on failed MCP authentication attempts. Once an IP is over budget, all of its requests (valid ones too) are refused until the window slides. See [Failed authentication limit](../api/mcp.md#failed-authentication-limit-per-ip). |
+| `WEBHOOKS_ENABLED` | `false` | Lets board admins register [outbound webhooks](../features/webhooks.md). The dispatcher must also run. Tuning is in [Webhooks](#webhooks) below. *(new in 1.3)* |
 
 Rates use the DRF form `<count>/<period>` with `sec`, `min`, `hour` or `day`. See [MCP Server API: Rate limiting](../api/mcp.md#rate-limiting) for how the buckets stack.
 
@@ -198,6 +199,34 @@ By default each HTTP request opens and closes its own PostgreSQL connection. Set
 **Health checks:** with the pool on, Visiban also enables Django's `CONN_HEALTH_CHECKS`, so a connection that died (PostgreSQL restart or failover) is replaced instead of being handed to a request.
 
 **Sizing:** the pool is per process, so the worst case is `DATABASE_POOL_MAX_SIZE` x processes per replica x replicas. Keep that below PostgreSQL's `max_connections` (default 100), leaving headroom for migrations and admin sessions, or put pgBouncer in front. The migrate init container, the CronJobs and the scheduler inherit the same environment, so each of them also opens up to `DATABASE_POOL_MIN_SIZE` connections while it runs; count them too. The migration lock connection deliberately bypasses the pool. See [Scaling](../architecture/scaling.md).
+
+## Webhooks
+
+> **Added in 1.3** (#863).
+
+[Outbound webhooks](../features/webhooks.md) are off until `WEBHOOKS_ENABLED=true`, and nothing is delivered until the dispatcher runs: the Compose `webhooks` profile, the Helm `webhooks.dispatcher.enabled` Deployment, or `manage.py dispatch_webhooks` from host cron. `WEBHOOKS_ENABLED` together with `DEMO_MODE` is a startup error (`webhooks.E001`).
+
+| Variable | Default | Description |
+|---|---|---|
+| `WEBHOOKS_ENABLED` | `false` | Turns the feature on. Helm: `backend.settings.webhooksEnabled`. |
+| `WEBHOOK_ALLOWED_PRIVATE_TARGETS` | empty | Comma-separated exact hostnames, IPs or CIDRs of private destinations webhooks may reach. Hostname and CIDR entries admit RFC 1918, CGNAT and IPv6 unique-local addresses; loopback, link-local and cloud-metadata addresses need an exact single-address entry (`127.0.0.1`, `::1/128`). `http://` and ports below 1024 other than 443 are allowed only for these destinations. A `/0`, a public range or a reserved address is a startup error (`webhooks.E002`). Helm: `backend.settings.webhookAllowedPrivateTargets`. See [Private and LAN destinations](../features/webhooks.md#private-and-lan-destinations). |
+| `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | `3` | Connect timeout per delivery. |
+| `WEBHOOK_TIMEOUT_SECONDS` | `10` | Overall timeout per delivery, connect included. |
+| `WEBHOOK_MAX_PER_BOARD` | `10` | Webhooks per board. |
+| `WEBHOOK_MAX_PER_USER` | `25` | Webhooks owned by one account, across boards. |
+| `WEBHOOK_MAX_TOTAL` | `1000` | Webhooks on the server. |
+| `WEBHOOK_MAX_EVENTS_PER_RUN` | `100` | Events read for one webhook in one dispatcher run. |
+| `WEBHOOK_RUN_BUDGET_SECONDS` | `50` | Wall-clock budget of one dispatcher run; keep it below the run interval for cron. |
+| `WEBHOOK_BACKOFF_BASE_SECONDS` | `30` | First retry delay after a failure; doubles per consecutive failure. |
+| `WEBHOOK_BACKOFF_MAX_SECONDS` | `3600` | Longest retry delay. Keep it under 23 hours, or a backed-off webhook can be wrongly treated as fallen behind retention. |
+| `WEBHOOK_DISABLE_AFTER_FAILURES` | `20` | Consecutive failures that turn a webhook off. |
+| `WEBHOOK_DISABLE_AFTER_HOURS` | `24` | Hours of continuous failure that turn a webhook off. |
+| `WEBHOOK_REFUSAL_FLOOR_SECONDS` | `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | Every "can't send to this address" refusal at save time takes at least this long, so its timing does not reveal which address rule matched. Lowering it trades that for a faster answer. |
+| `WEBHOOK_SETTLE_SECONDS` | `10` | Events younger than this wait for the next run, so an event from a transaction that committed late is not skipped. |
+| `WEBHOOK_DISPATCHER_STALE_SECONDS` | `300` | After this long without a dispatcher run, the board's Webhooks tab warns its admins. |
+| `WEBHOOK_LOG_LEVEL` | `INFO` | Level of the `webhooks` logger (dispatcher runs and delivery failures). It logs ids and fixed codes only, never an address or secret. |
+
+Two API throttle scopes bound the endpoints that resolve or contact a destination, per user: `webhook_config` (create, URL change, rotate) at 30/hour and `webhook_test` at 10/hour.
 
 ## Import limits
 
