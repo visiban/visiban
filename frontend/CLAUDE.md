@@ -614,6 +614,8 @@ Option text: `text-sm text-fg font-medium` for the label, `text-xs text-fg-muted
 
 **Focus on closing a non-modal anchored popover (#1133).** Return focus to the trigger on Cancel, Escape and a successful save. On an outside mousedown or focus leaving the panel, close without moving focus: the user has already moved. On window resize and outside scroll, return focus to the trigger only if it is still inside the panel. No close path may drop focus to `<body>`. An admin trigger that opens such a popover shows `cursor-pointer` and a `hover:ring-1 hover:ring-line-strong` ring (never a stronger fill behind on-tint text); a demo-mode trigger that never opens drops `aria-haspopup` / `aria-expanded`.
 
+**Inline add/edit rows (#2036).** Every exit of an inline input (Cancel button, Escape, successful commit) returns focus to the control that opened it; set a `focusTriggerRef` flag and focus in an effect keyed on the editing state, and test all three exits. When fixing focus rings or focus return on one control, audit its siblings in the same row (pills, tabs, ✕ buttons) in the same commit.
+
 Group the options in a `<fieldset>` with a `<legend>` (`sr-only` when there is no visible heading for it) — never put `role="radiogroup"` on a `<fieldset>`, which already carries group semantics.
 
 The action button following a radio group uses the primary variant (`bg-button-primary hover:bg-button-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
