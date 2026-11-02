@@ -391,5 +391,5 @@ class CardQueryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         qs = _card_queryset(qs)
         search = query_text(self.request, "search").strip()
         if search:
-            qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
+            qs = qs.filter(Q(title__ci_contains=search) | Q(description__ci_contains=search))
         return qs

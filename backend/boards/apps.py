@@ -10,6 +10,7 @@ class BoardsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
+        import boards.lookups  # noqa: F401  (registers ci_contains, #1809)
         import boards.signals  # noqa: F401
 
         # Process-wide DB plumbing, hooked here because the project package has

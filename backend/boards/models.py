@@ -767,10 +767,19 @@ class Card(models.Model):
                 name="card_board_updated_idx",
                 condition=models.Q(archived_at__isnull=True),
             ),
-            # Trigram indexes intended for server-side card search. They serve
-            # ILIKE on the bare columns, but card search filters with icontains,
-            # which PostgreSQL receives as UPPER(col) LIKE. No card query can use
-            # them today, so search still scans. Tracked in #1809.
+            # Trigram indexes for server-side card search. They serve ILIKE on
+            # the bare columns, not Django's icontains (which PostgreSQL gets as
+            # UPPER(col) LIKE). Card search therefore filters with the
+            # ``ci_contains`` lookup (boards/lookups.py), which renders ILIKE on
+            # PostgreSQL (#1809). Verified once on PostgreSQL 17 (60k cards, 20
+            # boards) against the real GET /api/v1/cards/ query (board_id IN,
+            # ORDER BY updated_at DESC, id DESC, LIMIT 51): a selective term
+            # plans a BitmapOr over both trigram indexes, not card_board_updated_idx.
+            # Broad terms (e.g. "the") and 1-2 character terms still seq-scan and
+            # may be slower than before (ILIKE folds case per row; icontains
+            # evaluated UPPER on the constant once). Board search-as-you-type has
+            # no minimum term length, so short terms always take that path.
+            # Re-measurement is tracked in #2063.
             # Requires: CREATE EXTENSION IF NOT EXISTS pg_trgm (migration 0030).
             GinIndex(fields=["title"], name="card_title_trgm_idx", opclasses=["gin_trgm_ops"]),
             GinIndex(fields=["description"], name="card_desc_trgm_idx", opclasses=["gin_trgm_ops"]),
