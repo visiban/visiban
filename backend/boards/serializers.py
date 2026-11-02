@@ -678,14 +678,17 @@ class SwimlaneSerializer(serializers.ModelSerializer):
     # member sees a column's wip_limit. Writes are admin-gated in the viewset.
     limit_column_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
-        # More ids than any board has columns is never valid; the bound keeps
-        # the validation query's IN list small. It must also stay under
-        # Django's DATA_UPLOAD_MAX_NUMBER_FILES (100): a multipart client sends
-        # each array item as its own part, and a longer list answers an HTML 400
+        # The bound is enforced in validate_limit_column_ids, not as max_length:
+        # a max_length is published as maxItems, and the schema fuzzer's
+        # negative test then sends maxItems + 1 items as one multipart part each,
+        # which with the other parts crosses Django's
+        # DATA_UPLOAD_MAX_NUMBER_FILES (100) and answers an HTML 400
         # (TooManyFilesSent) the schema does not document.
-        allow_null=True, allow_empty=False, required=False, max_length=90,
+        allow_null=True, allow_empty=False, required=False,
         help_text=field_enforcement.SWIMLANE_LIMIT_COLUMN_IDS,
     )
+
+    MAX_LIMIT_COLUMN_IDS = 90
 
     class Meta:
         model = Swimlane
@@ -723,6 +726,12 @@ class SwimlaneSerializer(serializers.ModelSerializer):
         """
         if value is None:
             return None
+        # More ids than any board has columns is never valid; the bound keeps
+        # the IN list below small and stays under the multipart file limit.
+        if len(value) > self.MAX_LIMIT_COLUMN_IDS:
+            raise serializers.ValidationError(
+                f"Ensure this field has no more than {self.MAX_LIMIT_COLUMN_IDS} elements."
+            )
         board = self.context.get("board") or (self.instance.board if self.instance else None)
         wanted = sorted(set(value))
         if board is None:
