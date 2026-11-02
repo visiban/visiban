@@ -27,7 +27,7 @@ from visiban.request_shape import coerce_int_id, optional_text, require_json_obj
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardEvent, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
+    Board, BoardEvent, BoardEventPruneMark, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
     Swimlane,
 )
 from ..permissions import (
@@ -131,6 +131,43 @@ def _parse_events_limit(raw):
     if not 1 <= limit <= _EVENTS_MAX_LIMIT:
         raise CodedValidationError(INVALID_QUERY_PARAM, f"limit must be between 1 and {_EVENTS_MAX_LIMIT}.")
     return limit
+
+
+def _events_cursor_expired(board_id, after, page_has_rows):
+    """Whether a nonzero ``after`` cursor skips past events retention pruned (#2058).
+
+    A cursor is expired iff an event of this board *after* it was pruned, and
+    ``BoardEventPruneMark`` records the highest pruned id, so for a cursor at
+    or below the mark the answer is exact: below it, something after the
+    cursor is gone (410 even on an empty page, because the events it missed
+    may have been the newest ones); equal to it, the cursor row is the last
+    pruned row and nothing after it was lost (an idle consumer on a quiet
+    board keeps reading).
+
+    Everywhere else the previous inference stands — a missing cursor row with
+    newer rows behind it is 410 — for two reasons:
+
+    * A board with no mark may still have been pruned: installs that pruned
+      before #2058 recorded nothing. Treating "no record" as "nothing lost"
+      would turn a known-unknown into a silent skip, so such a board keeps
+      the old behavior until its next prune writes a mark.
+    * A cursor above the mark was never pruned from this board, so if its row
+      is missing it is not this board's cursor (another board's id, or a
+      made-up number). That stays a loud 410 rather than a page that starts
+      somewhere the consumer never was.
+
+    The mark is board-wide, not per reader, so a reader can get a 410 for a
+    pruned row it would not have been shown (another user's per-user event,
+    or an admin-only one). That errs toward a re-sync, never toward a skip.
+    """
+    pruned_through = (
+        BoardEventPruneMark.objects.filter(board_id=board_id)
+        .values_list("max_pruned_id", flat=True)
+        .first()
+    )
+    if pruned_through is not None and after <= pruned_through:
+        return after < pruned_through
+    return page_has_rows and not BoardEvent.objects.filter(board_id=board_id, pk=after).exists()
 
 
 
@@ -773,9 +810,9 @@ class BoardViewSet(
             "`event_id` straight to this endpoint. `next_cursor` is the cursor for the "
             "following page, or `null` when the caller is caught up. `next` carries "
             "the identical value and is deprecated; use `next_cursor`.\n\n"
-            "Events outside the retention window are pruned. A cursor that no longer "
-            "exists while newer events do returns `410 Gone` — re-sync via `/full/` "
-            "and resume from the newest `event_id` seen after that."
+            "Events outside the retention window are pruned. A cursor with pruned "
+            "events after it returns `410 Gone` — re-sync via `/full/` and resume "
+            "from the newest `event_id` seen after that."
         ),
         parameters=[
             OpenApiParameter(
@@ -815,7 +852,7 @@ class BoardViewSet(
                 response=INVALID_QUERY_PARAM_SCHEMA,
             ),
             410: OpenApiResponse(
-                description="The cursor has been pruned; the caller must re-sync via /full/.",
+                description="Events after the cursor have been pruned; the caller must re-sync via /full/.",
                 response=inline_serializer(
                     name="BoardEventCursorExpired",
                     fields={
@@ -869,17 +906,10 @@ class BoardViewSet(
             qs = qs.filter(pk__gt=after)
         rows = list(qs.order_by("id")[:limit])
 
-        # Retention check, deliberately ordered after the page fetch.
-        #
-        # A cursor is "expired" only when we cannot prove the caller missed
-        # nothing: their row is gone AND there are newer rows they might have
-        # skipped past. If the page came back empty the caller is caught up with
-        # everything retained, so nothing can have been missed beyond the cursor
-        # and a 410 would send an idle consumer to re-sync for no reason.
-        #
-        # Doing it this way needs no pruning watermark to be stored anywhere —
-        # it costs one extra indexed EXISTS, and only on a non-empty page.
-        if after and rows and not BoardEvent.objects.filter(board_id=board.id, pk=after).exists():
+        # Retention check: a cursor is expired iff an event after it was
+        # pruned. See _events_cursor_expired for the per-board prune mark it
+        # reads (#2058) and the boards that fall back to the older inference.
+        if after and _events_cursor_expired(board.id, after, bool(rows)):
             return Response(
                 {
                     "detail": (

@@ -1644,6 +1644,59 @@ class BoardEvent(models.Model):
         return f"{self.pk} / board {self.board_id} / {self.event}"
 
 
+class BoardEventPruneMark(models.Model):
+    """The highest change-feed event id that retention pruning removed from one board (#2058).
+
+    Why this exists
+    ---------------
+    A feed cursor is expired only if an event *after* it was pruned. Without a
+    record of what was pruned, the feed had to guess from what survived: a
+    missing cursor row plus newer rows meant 410. That guess is wrong both
+    ways. A consumer idle on a quiet board for longer than retention lost its
+    cursor row, missed nothing, and still got 410 when the next event arrived;
+    and a consumer whose missed events were all pruned, with nothing newer yet,
+    got an empty 200 and never learned it had lost events.
+
+    With this mark the check is exact: a cursor is expired iff
+    ``max_pruned_id > cursor``. A cursor equal to the mark is the last pruned
+    row itself, so nothing after it was lost.
+
+    Invariants
+    ----------
+    * Written only by ``manage.py prune_board_events``, in the same transaction
+      as the batch delete it describes, so a reader never sees a pruned row
+      gone without the mark covering it.
+    * Monotonic: the write takes ``GREATEST(stored, new)``, so a repeated or
+      concurrent prune run can never move it backwards.
+    * It is only correct while that command is the sole thing that deletes
+      ``BoardEvent`` rows. ``purge_card_history`` redacts rather than deletes
+      for exactly this reason (see ``BoardEvent``).
+
+    No row means "never pruned since this table existed", not "never pruned":
+    an install that pruned before #2058 has no mark, and the feed keeps its
+    previous inference for such a board rather than reading the absence as
+    "nothing lost".
+
+    ``board_id`` is a plain integer primary key, not a ForeignKey, for the same
+    reason ``BoardEvent.board_id`` is: events outlive their board, and so must
+    the record of which of them were pruned. This model is never serialized.
+    """
+
+    board_id = models.BigIntegerField(
+        primary_key=True,
+        help_text="Board whose change feed was pruned. Deliberately not a ForeignKey — see the model docstring.",
+    )
+    max_pruned_id = models.BigIntegerField(
+        help_text="Highest BoardEvent id that prune_board_events deleted for this board. Never decreases.",
+    )
+
+    class Meta:
+        db_table = "board_event_prune_marks"
+
+    def __str__(self):
+        return f"board {self.board_id} pruned through {self.max_pruned_id}"
+
+
 class CustomFieldDefinition(models.Model):
     """A typed metadata field that every card on one board may carry (#371).
 

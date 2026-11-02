@@ -14,7 +14,8 @@ bearing parts, and each gets its own class below:
   (``ReadSideStrippingTests``) — otherwise the feed is a way to read back what
   the socket refuses to send;
 * pruning bounds the table, and a cursor it removed fails loudly rather than
-  returning a page that silently skips events (``RetentionAndGoneTests``).
+  returning a page that silently skips events (``RetentionAndGoneTests``, and
+  ``PruneMarkTests`` for the per-board prune mark that makes the check exact).
 """
 
 import contextlib
@@ -30,7 +31,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from boards.broadcast import record_board_event
-from boards.models import BoardEvent, BoardMembership, Card
+from boards.management.commands.prune_board_events import record_pruned
+from boards.models import BoardEvent, BoardEventPruneMark, BoardMembership, Card
 from boards.services import cards as svc
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -947,3 +949,181 @@ class RetentionAndGoneTests(BoardEventTestBase):
 
         resp = self.client_for(self.owner).get(f"{self.url}?after={foreign_id}")
         self.assertEqual(resp.status_code, 410)
+
+
+class PruneMarkTests(BoardEventTestBase):
+    """A cursor is expired iff an event after it was pruned (#2058).
+
+    ``prune_board_events`` records each board's highest pruned id
+    (``BoardEventPruneMark``) and the feed compares the cursor against it, so an
+    idle consumer whose cursor row aged out keeps reading, while one that really
+    missed a pruned event gets a 410 even when nothing newer exists yet. A board
+    with no mark (pruned before the upgrade) keeps the older inference, which
+    ``RetentionAndGoneTests`` covers.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.url = f"/api/v1/boards/{self.board.pk}/events/"
+
+    def _record(self, board=None, aged_days=None):
+        pk = record_board_event((board or self.board).id, "card.created", {"n": 1})
+        if aged_days is not None:
+            BoardEvent.objects.filter(pk=pk).update(
+                created_at=timezone.now() - datetime.timedelta(days=aged_days)
+            )
+        return pk
+
+    def _mark(self, board=None):
+        return (
+            BoardEventPruneMark.objects.filter(board_id=(board or self.board).id)
+            .values_list("max_pruned_id", flat=True)
+            .first()
+        )
+
+    def test_cursor_row_pruned_with_nothing_missed_reads_the_new_event(self):
+        """The reported bug: quiet board, cursor aged out, then a new event."""
+        cursor = self._record(aged_days=45)
+        call_command("prune_board_events")
+        self.assertEqual(self._mark(), cursor)
+        new = self._record()
+
+        resp = self.client_for(self.owner).get(f"{self.url}?after={cursor}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual([e["id"] for e in resp.data["results"]], [new])
+
+    def test_cursor_row_pruned_and_a_later_event_pruned_returns_410(self):
+        cursor = self._record(aged_days=45)
+        self._record(aged_days=44)  # missed by the consumer, then pruned
+        self._record()
+
+        call_command("prune_board_events")
+        resp = self.client_for(self.owner).get(f"{self.url}?after={cursor}")
+        self.assertEqual(resp.status_code, 410)
+        self.assertEqual(resp.data["code"], "cursor_expired")
+        self.assertIn(f"/api/v1/boards/{self.board.pk}/full/", resp.data["resync_url"])
+
+    def test_retained_cursor_before_a_pruned_event_returns_410(self):
+        """The cursor row itself need not be gone: a missed event being gone is enough."""
+        # ids follow insert order, created_at follows the clock; a row can carry
+        # a later id and an earlier timestamp, so prune can take it and spare
+        # the cursor before it.
+        cursor = self._record()
+        missed = self._record(aged_days=45)
+        self.assertLess(cursor, missed)
+        call_command("prune_board_events")
+        self.assertTrue(BoardEvent.objects.filter(pk=cursor).exists())
+        self.assertEqual(self._mark(), missed)
+
+        resp = self.client_for(self.owner).get(f"{self.url}?after={cursor}")
+        self.assertEqual(resp.status_code, 410)
+
+    def test_missed_events_all_pruned_and_nothing_newer_returns_410(self):
+        """The old inference's false negative: an empty page hid the loss."""
+        cursor = self._record(aged_days=45)
+        self._record(aged_days=44)
+        call_command("prune_board_events")
+        self.assertFalse(BoardEvent.objects.filter(board_id=self.board.id).exists())
+
+        resp = self.client_for(self.owner).get(f"{self.url}?after={cursor}")
+        self.assertEqual(resp.status_code, 410)
+        self.assertEqual(resp.data["code"], "cursor_expired")
+
+    def test_cursor_equal_to_the_mark_with_nothing_newer_is_an_empty_page(self):
+        cursor = self._record(aged_days=45)
+        call_command("prune_board_events")
+
+        resp = self.client_for(self.owner).get(f"{self.url}?after={cursor}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["results"], [])
+        self.assertIsNone(resp.data["next_cursor"])
+
+    def test_after_zero_starts_at_the_oldest_retained_event_even_after_a_prune(self):
+        """`after=0` / omitted means "from the oldest retained event" (public contract).
+
+        It is not a cursor the consumer holds, so it never 410s: answering a
+        fresh consumer with 410 would loop it through /full/ forever.
+        """
+        self._record(aged_days=45)
+        kept = self._record()
+        call_command("prune_board_events")
+        self.assertIsNotNone(self._mark())
+
+        c = self.client_for(self.owner)
+        for url in (f"{self.url}?after=0", self.url):
+            resp = c.get(url)
+            self.assertEqual(resp.status_code, 200, url)
+            self.assertEqual([e["id"] for e in resp.data["results"]], [kept], url)
+
+    def test_cursor_above_the_mark_that_is_not_this_boards_still_410s(self):
+        """A missing row above the mark was never pruned here: it is a foreign cursor."""
+        self._record(aged_days=45)
+        call_command("prune_board_events")
+        other = _make_board(_make_user("evt_mark_other"), name="Other")
+        foreign = self._record(board=other)
+        self._record()
+
+        resp = self.client_for(self.owner).get(f"{self.url}?after={foreign}")
+        self.assertEqual(resp.status_code, 410)
+
+    def test_retained_cursor_above_the_mark_pages_normally(self):
+        self._record(aged_days=45)
+        call_command("prune_board_events")
+        cursor = self._record()
+        new = self._record()
+
+        resp = self.client_for(self.owner).get(f"{self.url}?after={cursor}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual([e["id"] for e in resp.data["results"]], [new])
+
+    def test_board_with_no_mark_keeps_the_previous_inference(self):
+        """Upgrade safety: a board pruned before #2058 has no mark, and no mark is not "nothing lost"."""
+        cursor = self._record()
+        BoardEvent.objects.filter(pk=cursor).delete()  # pruned by a pre-#2058 run
+        self.assertIsNone(self._mark())
+        c = self.client_for(self.owner)
+
+        empty = c.get(f"{self.url}?after={cursor}")
+        self.assertEqual(empty.status_code, 200)
+        self.assertEqual(empty.data["results"], [])
+
+        self._record()
+        resp = c.get(f"{self.url}?after={cursor}")
+        self.assertEqual(resp.status_code, 410)
+        self.assertEqual(resp.data["code"], "cursor_expired")
+
+    def test_prune_mark_is_monotonic_across_runs(self):
+        first = self._record(aged_days=45)
+        second = self._record(aged_days=10)
+        call_command("prune_board_events")
+        self.assertEqual(self._mark(), first)
+
+        # A run that deletes nothing for the board leaves the mark alone.
+        call_command("prune_board_events")
+        self.assertEqual(self._mark(), first)
+
+        call_command("prune_board_events", "--days", "5")
+        self.assertEqual(self._mark(), second)
+
+        # An overlapping run that commits a lower id never moves it back.
+        record_pruned({self.board.id: first})
+        self.assertEqual(self._mark(), second)
+
+    def test_dry_run_writes_no_mark(self):
+        self._record(aged_days=45)
+        call_command("prune_board_events", "--dry-run")
+        self.assertFalse(BoardEventPruneMark.objects.exists())
+
+    def test_marks_are_per_board_across_batches(self):
+        other = _make_board(self.owner, name="Other Mark Board")
+        a1 = self._record(aged_days=45)
+        b1 = self._record(board=other, aged_days=45)
+        a2 = self._record(aged_days=45)
+        untouched = _make_board(self.owner, name="Untouched")
+        self._record(board=untouched)
+
+        call_command("prune_board_events", "--batch-size", "1")
+        self.assertEqual(self._mark(), a2)
+        self.assertEqual(self._mark(other), b1)
+        self.assertIsNone(self._mark(untouched))
+        self.assertLess(a1, a2)
