@@ -546,7 +546,12 @@ export const GROUP_MEMBERS: GroupMembership[] = TEAM.map((user, i) => ({
 export const PUBLIC_BOARD: BoardPublic = {
   uid: BOARD_UID,
   name: BOARD_FULL.name,
-  columns: COLUMNS,
+  // The share payload omits column `policy` (#1101, PublicColumnSerializer).
+  columns: COLUMNS.map((c) => ({
+    id: c.id, uid: c.uid, name: c.name, position: c.position, color: c.color,
+    wip_limit: c.wip_limit, weight_limit: c.weight_limit,
+    allow_card_creation: c.allow_card_creation, is_done: c.is_done,
+  })),
   swimlanes: SWIMLANES.map(
     (s): PublicSwimlane => ({
       id: s.id,

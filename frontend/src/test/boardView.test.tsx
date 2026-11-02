@@ -1379,6 +1379,39 @@ describe('BoardView', () => {
       await waitFor(() => expect(screen.getByText("Card 'Card 1' moved to column 'Review', swimlane 'Customer A'")).toBeInTheDocument())
     })
 
+    it('focus returns to the moved card after Keep in and after Move', async () => {
+      // SwimlaneRow is mocked here, so stand in for the card's root element
+      // (CardItem renders `[data-card-id]` with a tabIndex).
+      const user = userEvent.setup()
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      render(<BoardView {...defaultProps()} />)
+      const cardEl = document.createElement('div')
+      cardEl.tabIndex = 0
+      cardEl.dataset.cardId = '1'
+      try {
+        document.body.appendChild(cardEl)
+        await drop(1, 'cell:11:20')
+        await user.click(screen.getByRole('button', { name: 'Keep in To Do' }))
+        await waitFor(() => expect(cardEl).toHaveFocus())
+
+        // Move: the card re-renders in its new cell, so it may be missing for
+        // a frame or two; focus return retries until it is there.
+        cardEl.remove()
+        await drop(1, 'cell:11:20')
+        await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+        await user.click(screen.getByRole('checkbox', { name: 'Tests pass' }))
+        await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+        expect(moveCard).toHaveBeenCalledTimes(1)
+        expect(cardEl).not.toHaveFocus()
+        await new Promise((r) => requestAnimationFrame(() => r(null)))
+        document.body.appendChild(cardEl)
+        await waitFor(() => expect(cardEl).toHaveFocus())
+      } finally {
+        cardEl.remove()
+      }
+    })
+
     it('keep-in cancels the move and says so', async () => {
       const user = userEvent.setup()
       const moveCard = vi.fn().mockResolvedValue({ ok: true })

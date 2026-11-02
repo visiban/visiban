@@ -15,8 +15,8 @@ const fakeBoard: BoardPublic = {
   uid: 'shareuid01',
   name: 'My Shared Board',
   columns: [
-    { id: 1, uid: 'col1', name: 'Todo', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: false, policy: null },
-    { id: 2, uid: 'col2', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: false, policy: null },
+    { id: 1, uid: 'col1', name: 'Todo', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: false },
+    { id: 2, uid: 'col2', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: false },
   ],
   swimlanes: [
     { id: 10, uid: 'lane1', name: 'Customer A', position: 0, color: '#3B82F6', is_collapsed: false, created_at: '' },

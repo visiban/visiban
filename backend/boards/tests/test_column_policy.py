@@ -225,17 +225,25 @@ class ColumnPolicyApiTests(_BoardMixin, TestCase):
         self.assertEqual(event, "column.created")
         self.assertEqual(payload["policy"], POLICY)
 
-    def test_public_share_link_shows_policy(self):
-        # Deliberate (#1101): process text with the column names' audience;
-        # docs/features/column-policies.md tells admins a share link shows it.
+    def test_public_share_link_omits_policy(self):
+        # #1101 orchestrator decision: the anonymous share payload leaves the
+        # policy out (the share page never shows it). /full/ keeps it.
         self.review.policy = POLICY
         self.review.save(update_fields=["policy"])
         token = self.client.post(f"/api/v1/boards/{self.board.pk}/share/").data["share_token"]
         anon = APIClient()
         r = anon.get(f"/api/share/{token}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        by_name = {c["name"]: c for c in r.data["columns"]}
-        self.assertEqual(by_name["Review"]["policy"], POLICY)
+        for col in r.data["columns"]:
+            self.assertNotIn("policy", col)
+        self.assertIn("name", r.data["columns"][0])
+
+    def test_optional_policy_keys_are_optional_in_the_schema(self):
+        from drf_spectacular.generators import SchemaGenerator
+        schemas = SchemaGenerator().get_schema(request=None, public=True)["components"]["schemas"]
+        self.assertEqual(schemas["ColumnPolicyRequest"].get("required"), ["v"])
+        self.assertNotIn("policy", schemas["PublicColumn"]["properties"])
+        self.assertIn("policy", schemas["Column"]["properties"])
 
     def test_every_member_reads_policy_on_the_board(self):
         self.review.policy = POLICY

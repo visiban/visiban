@@ -202,7 +202,7 @@ export default function ColumnPolicyEditor({
           describedBy={doneHelpId}
         />
         <p id={doneHelpId} className="text-xs text-fg-tertiary">
-          Definition of done shows as a checklist in card detail. It never blocks moving out.
+          Definition of done shows as a read-only list in card detail. It never blocks moving out.
         </p>
       </div>
       <fieldset>
@@ -229,9 +229,6 @@ export default function ColumnPolicyEditor({
           ))}
         </div>
       </fieldset>
-      <p className="text-xs text-fg-tertiary">
-        Everyone who can see the board reads the policy, including anyone with its public share link.
-      </p>
       <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
     </div>
   );

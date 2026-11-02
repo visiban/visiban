@@ -188,7 +188,7 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     await user.keyboard('{ArrowRight}')
     expect(screen.getByRole('tab', { name: 'Policy' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Policy' })).toHaveFocus()
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('Definition of done shows as a checklist in card detail. It never blocks moving out.')
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('Definition of done shows as a read-only list in card detail. It never blocks moving out.')
     await user.keyboard('{ArrowLeft}')
     expect(settings).toHaveAttribute('aria-selected', 'true')
     await user.keyboard('{End}')
@@ -290,12 +290,11 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     expect(save).toHaveAccessibleDescription('Name is required.')
   })
 
-  it('ties the definition-of-done helper to its list and warns about share links', () => {
+  it('ties the definition-of-done helper to its list', () => {
     renderModal(makeColumn(), 'policy')
     expect(screen.getByRole('group', { name: 'Definition of done' })).toHaveAccessibleDescription(
-      'Definition of done shows as a checklist in card detail. It never blocks moving out.',
+      'Definition of done shows as a read-only list in card detail. It never blocks moving out.',
     )
-    expect(screen.getByText(/including anyone with its public share link/)).toBeInTheDocument()
   })
 
   it('shows the save error in the footer status region', async () => {

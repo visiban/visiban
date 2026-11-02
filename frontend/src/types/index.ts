@@ -298,6 +298,10 @@ export interface Column {
   policy: ColumnPolicy | null;
 }
 
+/** A column as the anonymous share link serves it (`PublicColumnSerializer`):
+ *  `policy` is left out (#1101). */
+export type PublicColumn = Omit<Column, "policy">;
+
 /** How a column policy's entry criteria are used on a move into the column. */
 export type ColumnPolicyMode = "advisory" | "confirm";
 
@@ -1289,7 +1293,7 @@ export interface BoardPublic {
   // staleness_threshold_days intentionally omitted — removed from the API response
   // to avoid leaking internal board configuration to anonymous share-link visitors.
   // is_stale is computed server-side so the client does not need the threshold value.
-  columns: Column[];
+  columns: PublicColumn[];
   swimlanes: PublicSwimlane[];
   labels: Label[];
   cards: PublicCard[];

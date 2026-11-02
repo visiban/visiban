@@ -1569,7 +1569,7 @@ Column objects returned by all endpoints include the following fields:
 | `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited (binding on every API card write path except board import; see note) |
 | `allow_card_creation` | boolean | When `false`, new cards cannot be created directly in this column |
 | `is_done` | boolean | When `true`, marks this column as a "done" stage used for cycle-time and throughput metrics. Default: `false`. |
-| `policy` | object / null | Since 1.3. The column's written [policy](../features/column-policies.md): `{"v": 1, "entry": [...], "done": [...], "mode": "advisory"}` (or `"confirm"`), or `null` for none. Readable by every board member, and included in the anonymous share-link payload (`GET /api/share/{token}/`); only board admins can write it. See [Column policy](#column-policy-since-13). |
+| `policy` | object / null | Since 1.3. The column's written [policy](../features/column-policies.md): `{"v": 1, "entry": [...], "done": [...], "mode": "advisory"}` (or `"confirm"`), or `null` for none. Readable by every board member; only board admins can write it. Left out of the anonymous share-link payload (`GET /api/share/{token}/`), whose columns carry every other field listed here. See [Column policy](#column-policy-since-13). |
 
 > When `allow_card_creation` is `false`, posting a new card to that column returns `400 Bad Request` with `{"column": "Card creation is not allowed in this column."}`.
 >
@@ -2216,7 +2216,7 @@ Response fields:
 |---|---|---|
 | `uid` | string | Board stable 16-char hex UID |
 | `name` | string | Board name |
-| `columns` | array | Column objects; includes `is_done` flag (see Columns section) |
+| `columns` | array | Column objects; includes `is_done` flag (see Columns section). `policy` (since 1.3) is never included — a structural omission, as for swimlane contact details |
 | `swimlanes` | array | Swimlane objects; `contact_email`, `notes`, and `custom_field_values` (since 1.2) are never included — a structural omission, not an `is_admin_only` filter, since the visitor is unauthenticated |
 | `cards` | array | Active (non-archived) card objects |
 | `labels` | array | Label objects |

@@ -10,7 +10,7 @@ A board admin can give each column a short **policy**: its **entry criteria** (w
 
 **How it works:** the policy is text the board shows at the moments it matters: in the column header, while you drag a card over the column, and in card detail. In **Ask the mover to confirm** mode, a card dropped into the column opens a checklist of its entry criteria first.
 
-**Yes, but:** a policy is guidance, not enforcement. The server never refuses a move because of it. The confirm checklist is a prompt in the web app only; the API, the [MCP server](mcp-server.md), bulk moves, the card detail **Move** button and board import never show it. Use [WIP limits](board.md) when you need a hard rule.
+**Yes, but:** a policy is guidance, not enforcement. The server never refuses a move because of it. The confirm checklist is a prompt in the web app only; the API, the [MCP server](mcp-server.md), bulk moves, the card detail **Move** button, an admin's **Move anyway (admin override)** after a limit block, and board import never show it. Use [WIP limits](board.md) when you need a hard rule.
 
 ---
 
@@ -29,7 +29,7 @@ You need to be a board admin.
 
 Each list holds up to 8 criteria of up to 200 characters each, one line each. A list can be empty. Remove every criterion from both lists to remove the policy.
 
-Everyone on the board sees a saved policy at once, without reloading. If the board has a public [share link](board.md#board-sharing), its policies are part of what the link shares, so keep customer names and other private details out of them.
+Everyone on the board sees a saved policy at once, without reloading. A public [share link](board.md#board-sharing) does not show policies.
 
 ## Read a policy
 
@@ -43,7 +43,7 @@ While you drag a card over a column with entry criteria, the drop target lists t
 
 In **Ask the mover to confirm** mode, dropping the card opens **Move "…" to Review?** with the entry criteria as a checklist. **Move to Review** stays unavailable until every item is checked. **Keep in In progress** (named after the card's current column), Escape, or clicking outside cancels the move. Either way, focus returns to the card.
 
-A [WIP or weight limit](board.md) comes first: if the drop would be blocked by a limit, no checklist opens, and the move is refused as usual. Moving a card within the same column never asks.
+A [WIP or weight limit](board.md) comes first: if the drop would be blocked by a limit, no checklist opens, and the move is refused as usual. If a board admin then uses **Move anyway (admin override)** on the blocked-move notice, the card moves in without the checklist. Moving a card within the same column never asks.
 
 ## Export, import and templates
 

@@ -401,18 +401,22 @@ class ColumnPolicySerializer(serializers.Serializer):
     with board import, templates and the Django admin.
     """
 
+    # Only ``v`` is required on a write; the server fills ``entry``/``done``
+    # with ``[]`` and ``mode`` with ``"advisory"`` and always returns all four.
     v = serializers.IntegerField(help_text="Policy shape version. Always 1.")
     entry = serializers.ListField(
         child=serializers.CharField(max_length=POLICY_CRITERION_MAX_LENGTH),
         max_length=POLICY_MAX_CRITERIA,
-        help_text="Entry criteria, in display order.",
+        required=False,
+        help_text="Entry criteria, in display order. Default [].",
     )
     done = serializers.ListField(
         child=serializers.CharField(max_length=POLICY_CRITERION_MAX_LENGTH),
         max_length=POLICY_MAX_CRITERIA,
-        help_text="Definition of done, in display order.",
+        required=False,
+        help_text="Definition of done, in display order. Default [].",
     )
-    mode = serializers.ChoiceField(choices=POLICY_MODES)
+    mode = serializers.ChoiceField(choices=POLICY_MODES, required=False, help_text="Default \"advisory\".")
 
 
 @extend_schema_field(ColumnPolicySerializer)
@@ -488,6 +492,19 @@ class ColumnSerializer(serializers.ModelSerializer):
                     )
                 })
         return attrs
+
+
+class PublicColumnSerializer(ColumnSerializer):
+    """Column representation for anonymous share-link visitors (#1101).
+
+    Drops ``policy``: the share page never renders it, and it is team-written
+    free text (as card ``description`` is, which ``PublicCardSerializer`` also
+    omits). Structural omission, like ``PublicSwimlaneSerializer``. A
+    reversible default: adding the field back later is additive.
+    """
+
+    class Meta(ColumnSerializer.Meta):
+        fields = [f for f in ColumnSerializer.Meta.fields if f != "policy"]
 
 
 def _parent_instance(field, model):
@@ -4201,13 +4218,10 @@ class PublicBoardSerializer(serializers.ModelSerializer):
 
     Includes only the data required to render the static read-only board grid.
     Excluded: members list, share_token, swimlane contact_email/notes,
-    card comments, card movements, and any user PK/email fields.
-
-    Column ``policy`` (#1101) is included on purpose: it is process text with
-    the same audience as the column names, not customer data like a
-    swimlane's contact details, and the docs tell admins a share link shows it.
+    card comments, card movements, column ``policy`` (#1101), and any user
+    PK/email fields.
     """
-    columns = ColumnSerializer(many=True, read_only=True)
+    columns = PublicColumnSerializer(many=True, read_only=True)  # no policy
     swimlanes = PublicSwimlaneSerializer(many=True, read_only=True)  # no contact_email/notes/custom fields
     labels = LabelSerializer(many=True, read_only=True)
     cards = serializers.SerializerMethodField()
