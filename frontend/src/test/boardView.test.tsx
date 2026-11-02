@@ -4,6 +4,7 @@ import { render, screen, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import CustomFieldQuickEditPopover from '../components/Card/CustomFieldQuickEditPopover'
+import InlineBoardName from '../components/Board/InlineBoardName'
 import type { BoardFull, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
 import type { CollisionDetection, DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
@@ -1783,6 +1784,36 @@ describe('BoardView', () => {
 
       // With the popover gone, the next Escape clears the selection as before.
       rerender(ui(false))
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByTestId('bulk-toolbar')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('inline field Escape (#1860)', () => {
+    it('Escape cancels the board-name rename and leaves the real BoardView card selection intact', async () => {
+      const card = {
+        id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Rename Card',
+        description: '', priority: 'medium' as const, assignee: null,
+        labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' },
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+        last_moved_at: null, attachment_count: 0, checklist_total: 0,
+        checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+        custom_field_values: [],
+        blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+      }
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      const user = userEvent.setup()
+      render(<><InlineBoardName name="Board" canEdit onSave={vi.fn()} /><BoardView {...defaultProps()} /></>)
+      await user.click(screen.getByTestId('select-card-1-20'))
+      expect(screen.getByTestId('bulk-toolbar')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: /rename board/i }))
+      expect(screen.getByRole('textbox', { name: /board name/i })).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByRole('textbox', { name: /board name/i })).not.toBeInTheDocument()
+      expect(screen.getByTestId('bulk-toolbar')).toBeInTheDocument()
+
+      // With the field gone, the next Escape clears the selection as before.
       fireEvent.keyDown(document, { key: 'Escape' })
       expect(screen.queryByTestId('bulk-toolbar')).not.toBeInTheDocument()
     })
