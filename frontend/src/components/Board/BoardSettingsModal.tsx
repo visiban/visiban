@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
@@ -21,6 +22,10 @@ import { EMAIL_RE } from "../../constants/inviteEmail";
 import type { EmailInviteFormHandle } from "../Common/EmailInviteForm";
 import { DEMO_SETTINGS_REASON } from "../../constants/demoCopy";
 import { formatExportFormatLabel, formatExportRowCount } from "../../utils/exportHistory";
+
+// Chip tooltip and accessible description for a member whose all-content access
+// overrides their board role (#1301).
+const FULL_ACCESS_DESCRIPTION = "Full access to all boards. This account's board role doesn't apply.";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -198,6 +203,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const removeTriggerRef = useConfirmFocusReturn(pendingRemove);
+  // The "Full access" chip of each all-content row, by user id. Removing the
+  // explicit board role unmounts the row's trigger, so focus lands on the chip
+  // instead of falling to the page (#1301).
+  const fullAccessChips = useRef(new Map<number, HTMLElement>());
+  const [chipFocusUser, setChipFocusUser] = useState<number | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
   // #1373 — role/moderator/remove mutations used to have no catch at all (not
   // just an unsurfaced error — a genuine unhandled promise rejection). Shared
@@ -602,6 +612,21 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     }
   };
 
+  // Escape 57 (frontend/CLAUDE.md): dismisses only the all-content row's
+  // "Remove this board role?" prompt, above ModalWrapper's 40, and returns false
+  // otherwise so Escape still closes the modal or reaches other handlers.
+  useEscapeStack(() => {
+    const target = pendingRemove === null ? undefined : members.find((m) => m.user.id === pendingRemove);
+    if (!target || !(target.role === "site_admin" || target.has_all_content_access === true)) return false;
+    setPendingRemove(null);
+  }, 57);
+
+  useEffect(() => {
+    if (chipFocusUser === null) return;
+    fullAccessChips.current.get(chipFocusUser)?.focus();
+    setChipFocusUser(null);
+  }, [chipFocusUser, members]);
+
   const handleRemoveConfirm = async (userId: number) => {
     setSaving(userId);
     setMemberActionError(null);
@@ -619,6 +644,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           return [];
         }),
       );
+      if (members.some((m) => m.user.id === userId && m.has_all_content_access)) setChipFocusUser(userId);
     } catch {
       setMemberActionError("Failed to remove member. Please try again.");
     } finally {
@@ -828,11 +854,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   m.id !== null && (m.is_site_admin ?? m.role === "site_admin") && !currentUserIsSiteAdmin;
                 // All-content access resolves to full access before any
                 // membership is consulted, so such a row shows the resolved
-                // role, not the stored one, and offers no role picker (#1301).
-                // A stored membership can still be removed, unless the member
-                // is also a site admin the server refuses to change (isLocked).
+                // access (the "Full access" chip) instead of the stored role,
+                // and says what the stored role is (#1301). A stored membership
+                // can still be removed, unless the member is also a site admin
+                // the server refuses to change (isLocked).
                 const allContent = m.role === "site_admin" || m.has_all_content_access === true;
-                const allContentNoteId = `member-allcontent-note-${m.user.id}`;
+                const fullAccessDescId = `member-fullaccess-desc-${m.user.id}`;
+                const storedRoleLabel = ROLES.find((r) => r.value === m.role)?.label ?? m.role;
                 const canManage = isAdmin && !isLocked;
                 const canRemove = canManage && m.id !== null;
 
@@ -843,18 +871,44 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <Avatar user={m.user} size="sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-fg truncate">{userDisplayName(m.user)}</p>
+                          {allContent && m.id !== null && (
+                            <p className="text-xs text-fg-tertiary">
+                              Board role: {storedRoleLabel} — not in effect while this account has all-content access.
+                            </p>
+                          )}
+                          {allContent && currentUserIsSiteAdmin && (
+                            <a
+                              href="/admin?tab=users"
+                              className="text-xs text-info underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            >
+                              Manage in Admin → Users
+                            </a>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
                         {allContent ? (
-                          <span
-                            aria-describedby={allContentNoteId}
-                            title={isLocked ? "Site administrator — role managed at the instance level" : undefined}
-                            className="text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded"
-                          >
-                            Site admin
-                          </span>
+                          <>
+                            <span
+                              ref={(el) => {
+                                if (el) fullAccessChips.current.set(m.user.id, el);
+                                else fullAccessChips.current.delete(m.user.id);
+                              }}
+                              tabIndex={0}
+                              aria-disabled="true"
+                              aria-describedby={fullAccessDescId}
+                              title={FULL_ACCESS_DESCRIPTION}
+                              className="inline-flex items-center gap-1 text-xs text-fg-secondary px-2 py-1 bg-surface-hover rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            >
+                              <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="5" cy="8" r="2.5" />
+                                <path d="M7.5 8H14M12 8v2.5M10 8v1.5" />
+                              </svg>
+                              Full access
+                            </span>
+                            <span id={fullAccessDescId} className="sr-only">{FULL_ACCESS_DESCRIPTION}</span>
+                          </>
                         ) : isLocked ? (
                           <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title="Site administrator — role managed at the instance level">
                             {m.role}
@@ -875,7 +929,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             {m.role}
                           </span>
                         )}
-                        {canRemove && !isRemoving && (
+                        {canRemove && !isRemoving && allContent && (
+                          <button
+                            ref={removeTriggerRef(m.user.id)}
+                            onClick={() => setPendingRemove(m.user.id)}
+                            disabled={isDisabled}
+                            aria-label={`Remove board role for ${userDisplayName(m.user)}`}
+                            className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          >
+                            Remove board role
+                          </button>
+                        )}
+                        {canRemove && !isRemoving && !allContent && (
                           <button
                             ref={removeTriggerRef(m.user.id)}
                             onClick={() => setPendingRemove(m.user.id)}
@@ -886,17 +951,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             ✕
                           </button>
                         )}
-                        {(!canRemove || isRemoving) && <span className="w-5" />}
+                        {(allContent ? !canRemove && !isRemoving : !canRemove || isRemoving) && <span className="w-5" />}
                       </div>
                     </div>
-
-                    {allContent && (
-                      <p id={allContentNoteId} className="mt-1 pl-9 text-xs text-fg-muted">
-                        All-content access overrides board roles, so this member has full access to the board.
-                        {m.id !== null && ` Board role on record: ${ROLES.find((r) => r.value === m.role)?.label ?? m.role}.`}
-                        {isLocked && " This membership is managed at the instance level and cannot be removed here."}
-                      </p>
-                    )}
 
                     {canManage && !allContent && (
                       <div className="mt-1 pl-9 flex items-center gap-2">
@@ -951,7 +1008,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <span className="text-fg-tertiary">
                           {allContent ? (
                             <>
-                              Remove the board role of <span className="text-fg font-medium">{userDisplayName(m.user)}</span>? They keep full access through all-content access.
+                              Remove this board role? Full access is not affected.
                             </>
                           ) : (
                             <>

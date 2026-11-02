@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
@@ -1460,7 +1460,12 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>("settings");
+  // `?tab=users` deep-links a tab (the board Members panel links to Users, #1301).
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const requested = TABS.find((t) => t.id === searchParams.get("tab"));
+    return requested ? requested.id : "settings";
+  });
 
   useEscapeStack(() => {
     const tag = (document.activeElement as HTMLElement)?.tagName;

@@ -93,3 +93,45 @@ class HasAllContentAccessTests(TestCase):
         BoardMembership.objects.create(board=self.board, user=siteadmin, role="viewer")
         rows = self._members(siteadmin)
         self.assertIs(rows[self.inherited.pk]["has_all_content_access"], True)
+
+
+class StoredRoleSurvivesRevocationTests(TestCase):
+    """A stored board role is dormant, not discarded, while all-content access holds (#1301).
+
+    The Members panel says "Board role: Viewer, not in effect while this
+    account has all-content access". That clause is only true if the stored
+    membership takes effect once the access is revoked.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner1301b", password="pass")
+        self.user = User.objects.create_user(
+            username="dormant1301", password="pass", can_access_all_content=True
+        )
+        self.board = Board.objects.create(name="B1301b", owner=self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role="admin")
+        BoardMembership.objects.create(board=self.board, user=self.user, role="viewer")
+
+    def _row(self):
+        client = APIClient()
+        client.force_authenticate(self.owner)
+        resp = client.get(f"/api/v1/boards/{self.board.pk}/full/")
+        self.assertEqual(resp.status_code, 200)
+        return next(m for m in resp.json()["members"] if m["user"]["id"] == self.user.pk)
+
+    def test_stored_role_is_listed_then_takes_effect_after_revocation(self):
+        from boards.permissions import get_board_role
+
+        row = self._row()
+        self.assertEqual(row["role"], "viewer")  # the stored role, not "site_admin"
+        self.assertIsNotNone(row["id"])
+        self.assertIs(row["has_all_content_access"], True)
+        self.assertEqual(get_board_role(self.user, self.board), "site_admin")
+
+        self.user.can_access_all_content = False
+        self.user.save(update_fields=["can_access_all_content"])
+        self.board = Board.objects.get(pk=self.board.pk)  # drop the role cached on the instance
+        self.assertEqual(get_board_role(self.user, self.board), "viewer")
+        row = self._row()
+        self.assertEqual(row["role"], "viewer")
+        self.assertIs(row["has_all_content_access"], False)
