@@ -26,6 +26,7 @@ curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/boards/
 | [MCP Server](mcp.md) | Model Context Protocol tools for AI agents to read and write boards |
 | [WebSockets](websockets.md) | Full event reference and the ticket-authentication flow for the [WebSocket API](#websocket-api) below |
 | [Change Feed](events.md) | Durable, resumable feed of board mutations — replay what you missed with a cursor instead of re-fetching (since 1.2) |
+| [Webhooks](webhooks.md) | Board-admin-configured outbound webhooks: signed `POST` of each change-feed event, with signature verification examples (since 1.3) |
 | [Health Checks](health.md) | Liveness and readiness probes for K8s / uptime monitoring |
 | [Version API](version.md) | Running server version string |
 | [OpenAPI Spec](openapi.md) | Machine-readable OpenAPI 3.0 spec, Swagger UI, and ReDoc |

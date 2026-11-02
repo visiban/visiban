@@ -333,14 +333,46 @@ def persist_board_event(
     ``consumers.py`` and the admin both reach for early — drag the model graph in
     with it.
     """
+    from . import hooks
     from .models import BoardEvent
 
-    return BoardEvent.objects.create(
+    event_id = BoardEvent.objects.create(
         board_id=board_id,
         event=event_type,
         data=_json_safe(without_admin_only_board_fields(payload)),
         actor_id=actor_id,
     ).pk
+    # Enterprise nudge (#863): ids only, after commit, never on rollback. The
+    # guard keeps OSS (which registers nothing) from queueing a callback per row.
+    if hooks.BOARD_EVENT_HOOKS:
+        transaction.on_commit(
+            lambda: run_board_event_hooks(board_id, event_type, event_id), robust=True
+        )
+    return event_id
+
+
+def run_board_event_hooks(board_id: int, event_type: str, event_id: int) -> None:
+    """Call every ``boards.hooks.BOARD_EVENT_HOOKS`` handler, swallowing failures.
+
+    The row is already committed when this runs, so a handler that raises must
+    not turn the request into a 500 or stop the handlers after it. The log line
+    carries the handler's name, the ids and the exception class, never the
+    payload or the exception text.
+    """
+    from . import hooks
+
+    for handler in list(hooks.BOARD_EVENT_HOOKS):
+        try:
+            handler(board_id, event_type, event_id)
+        except Exception as exc:  # noqa: BLE001 — see docstring
+            logger.warning(
+                "board event hook failed: hook=%s board_id=%s event=%s event_id=%s error=%s",
+                getattr(handler, "__qualname__", repr(handler)),
+                board_id,
+                event_type,
+                event_id,
+                type(exc).__name__,
+            )
 
 
 def record_board_event(

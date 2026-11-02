@@ -731,9 +731,86 @@ export interface Notification {
   board_id: number | null;
   board_name: string | null;
   // Backend enforces blank=False with ActionType choices — '' is not a valid value post-migration 0041.
-  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon' | 'comment_added';
+  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon' | 'comment_added' | 'webhook_disabled';
   read: boolean;
   created_at: string;
+}
+
+// ─── Outbound webhooks (#863) ───────────────────────────────────────────────
+// Mirrors webhooks/serializers.py. The full URL and the signing secret are
+// never on this shape: they appear once, on WebhookCreateResponse /
+// WebhookRotateResponse, and the UI must drop them from state on Done.
+
+/** Why a subscription is off. The field is null while it is enabled. */
+export type WebhookDisabledReason =
+  | 'manual'
+  | 'failures'
+  | 'cursor_expired'
+  | 'creator_lost_access'
+  | 'secret_unavailable';
+
+export interface WebhookSubscription {
+  id: number;
+  board: number;
+  name: string;
+  /** `host/…/last4` — never the rest of the URL. */
+  url_display: string;
+  url_host: string;
+  /** Empty = every subscribable type, including types added later. */
+  event_types: string[];
+  enabled: boolean;
+  disabled_reason: WebhookDisabledReason | null;
+  disabled_at: string | null;
+  last_delivered_event_id: number;
+  consecutive_failures: number;
+  failing_since: string | null;
+  next_attempt_at: string | null;
+  last_attempt_at: string | null;
+  last_success_at: string | null;
+  /** '' or one of connection_failed | tls_error | timeout | http_error. */
+  last_error_code: string;
+  last_status_code: number | null;
+  created_by: BoardUser | null;
+  /** The owner whose board-admin standing keeps the webhook delivering. */
+  configured_by: BoardUser | null;
+  created_at: string;
+  updated_at: string;
+  configured_at: string | null;
+  secret_rotated_at: string | null;
+}
+
+/** `POST /boards/{id}/webhooks/` — the only response carrying `url` and `secret`. */
+export interface WebhookCreateResponse extends WebhookSubscription {
+  url: string;
+  secret: string;
+}
+
+/** `POST /boards/{id}/webhooks/{id}/rotate/` — the new secret, once. */
+export interface WebhookRotateResponse extends WebhookSubscription {
+  secret: string;
+}
+
+/** `GET /boards/{id}/webhooks/status/`. */
+export interface WebhookStatus {
+  enabled: boolean;
+  dispatcher_last_run_at: string | null;
+  dispatcher_stale: boolean;
+  /** The event-type picker's only source of options. */
+  subscribable_event_types: string[];
+  /** Consecutive failures that turn a webhook off. */
+  disable_after_failures: number;
+  /** How long a delivery or test event waits for an answer. */
+  test_timeout_seconds: number;
+}
+
+/** `POST /boards/{id}/webhooks/{id}/test/`. */
+export interface WebhookTestResult {
+  ok: boolean;
+  /** null on success. */
+  code: string | null;
+  status_code: number | null;
+  /** Time to the receiver's status line; null when nothing answered. */
+  latency_ms: number | null;
 }
 
 export interface CardMovement {

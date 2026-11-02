@@ -53,6 +53,14 @@ backend:
     # container applies them on rollout.
     mcpServerEnabled: false
     gitLensEnabled: false
+    # Outbound webhooks (#863). true renders WEBHOOKS_ENABLED=true on every
+    # backend container; also enable webhooks.dispatcher below, or nothing is
+    # delivered. Refused together with demo.enabled. docs/features/webhooks.md.
+    webhooksEnabled: false
+    # WEBHOOK_ALLOWED_PRIVATE_TARGETS: comma-separated exact hostnames, private
+    # IPs or private CIDRs that webhooks may target (in-cluster n8n, a LAN
+    # host). Empty = public destinations only. With --set, escape commas (a\,b).
+    webhookAllowedPrivateTargets: ""
     # Comma-separated list of CIDRs / single IPs that may reach /admin/.
     # Empty (default) restricts /admin/ to loopback only — use kubectl
     # port-forward to access. Example: "10.0.0.0/8,192.168.1.42".
@@ -509,6 +517,27 @@ scheduledJobs:
     enabled: false
     schedule: "30 3 * * *"
     args: []
+
+# -- Outbound webhook dispatcher (#863): a single-replica Deployment running
+# `manage.py dispatch_webhooks --loop`. Off by default, so an upgrade starts
+# nothing. It only delivers while backend.settings.webhooksEnabled is also true.
+# One replica is enough; a second is safe (each subscription is leased) but
+# only adds load. Its pods carry `app.kubernetes.io/component: webhook-dispatcher`,
+# which networkpolicy.yaml lists as a datastore client. Webhooks POST to
+# destinations outside the cluster, so an egress NetworkPolicy of your own must
+# allow them.
+webhooks:
+  dispatcher:
+    enabled: false
+    # Seconds between runs.
+    interval: 15
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 384Mi
 
 # -- Public demo mode (#1180): the chart side of a hosted, internet-facing demo
 # such as try.visiban.com. OFF by default, and nothing below renders unless

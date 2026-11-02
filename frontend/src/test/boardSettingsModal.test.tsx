@@ -25,6 +25,16 @@ vi.mock('../api/boards', () => ({
   createBoardInviteLink: vi.fn(),
 }))
 
+// #863 — the Webhooks tab loads its own status/list when it mounts.
+vi.mock('../api/webhooks', () => ({
+  getWebhookStatus: vi.fn().mockResolvedValue({
+    enabled: true, dispatcher_last_run_at: null, dispatcher_stale: true, subscribable_event_types: ['card.moved'],
+    disable_after_failures: 20, test_timeout_seconds: 10,
+  }),
+  listWebhooks: vi.fn().mockResolvedValue([]),
+  createWebhook: vi.fn(),
+}))
+
 vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
   getSiteConfig: vi.fn().mockResolvedValue({
@@ -2722,5 +2732,69 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1))
     rerender(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={1} />)
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe('BoardSettingsModal — Webhooks tab (#863)', () => {
+  const tabNames = () => screen.getAllByRole('button').map((b) => b.textContent ?? '')
+
+  it('board admins get a Webhooks tab between Sharing and Data', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const names = tabNames()
+    const sharing = names.indexOf('Sharing')
+    const webhooks = names.indexOf('Webhooks')
+    expect(webhooks).toBeGreaterThan(sharing)
+    expect(names.indexOf('Data')).toBeGreaterThan(webhooks)
+  })
+
+  it('non-admins and the hosted demo get no Webhooks tab at all', () => {
+    const { unmount } = render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
+    unmount()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode={true} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
+  })
+
+  it('initialTab="webhooks" opens the tab and loads it', async () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" focusFirstStoppedWebhook />)
+    expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
+    expect(await screen.findByText('No webhooks yet')).toBeInTheDocument()
+    expect(screen.getByText(/has never run on this server/)).toBeInTheDocument()
+  })
+
+  it('an unacknowledged secret keeps Close, the backdrop and tab switches from losing it', async () => {
+    const { createWebhook } = await import('../api/webhooks')
+    ;(createWebhook as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 9, board: 1, name: '', url_display: 'hooks.example.com/…/abcd', url_host: 'hooks.example.com',
+      event_types: [], enabled: true, disabled_reason: null, disabled_at: null, last_delivered_event_id: 0,
+      consecutive_failures: 0, failing_since: null, next_attempt_at: null, last_attempt_at: null,
+      last_success_at: null, last_error_code: '', last_status_code: null, created_by: null, configured_by: null,
+      created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', configured_at: null,
+      secret_rotated_at: null, url: 'https://hooks.example.com/abcd', secret: 'whsec_modal',
+    })
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
+    await user.click(await screen.findByRole('button', { name: 'Add webhook' }))
+    await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+    await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+    await screen.findByTestId('webhook-secret-reveal')
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByText(/Close without storing the secret\?/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Cancel closing/ }))
+
+    await user.click(screen.getByRole('button', { name: 'Data' }))
+    expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByTestId('webhook-secret-reveal')).toBeInTheDocument()
+    // Confirm runs what was asked for: the tab switch.
+    await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
+    expect(screen.getByRole('button', { name: 'Data' })).toHaveAttribute('aria-current', 'true')
+    expect(onClose).not.toHaveBeenCalled()
+
+    // With no secret on screen, Close closes.
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

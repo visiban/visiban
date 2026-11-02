@@ -72,6 +72,12 @@ SECRET_FORMAT_VERSION = "v1"
 # gets its OWN label — never reuse this one.
 _SMTP_INFO = b"visiban.smtp-password.v1"
 
+# Outbound webhooks (#863). The URL is encrypted as well as the signing secret:
+# a Slack or Zapier incoming-webhook URL carries its credential in the path.
+# Separate labels so a leak of one key never decrypts the other column.
+WEBHOOK_URL_INFO = b"visiban.webhook-url.v1"
+WEBHOOK_SECRET_INFO = b"visiban.webhook-secret.v1"
+
 # A fixed, non-secret salt. HKDF's security does not rest on salt secrecy, and a
 # stored random salt would have to live beside the ciphertext and be managed
 # through the same rotation path it exists to protect.

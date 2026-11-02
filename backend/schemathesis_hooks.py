@@ -579,6 +579,11 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{id}/": {"id": "board_pk"},
     "/api/v1/boards/{id}/analytics/": {"id": "board_pk"},
     "/api/v1/boards/{id}/events/": {"id": "board_pk"},
+    # Webhooks (#863). Only the board is seeded: the fuzz user is a board
+    # MEMBER, so every webhook route answers its declared 403 (admin required)
+    # before any subscription lookup; there is no subscription id to map.
+    "/api/v1/boards/{board_pk}/webhooks/": {"board_pk": "board_pk"},
+    "/api/v1/boards/{board_pk}/webhooks/status/": {"board_pk": "board_pk"},
     "/api/v1/boards/{id}/export/": {"id": "board_pk"},
     "/api/v1/boards/{id}/export-history/": {"id": "board_pk"},
     "/api/v1/boards/{id}/full/": {"id": "board_pk"},

@@ -8,6 +8,7 @@ import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
+import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSettingsWebhooksTab";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
 import type { BoardExportLogEntry, BoardExportMinRole } from "../../types";
@@ -46,7 +47,11 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
+  initialTab?: "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "webhooks" | "data";
+  /** #863 — opened from a `webhook_disabled` notification: the Webhooks tab focuses the first webhook that was turned off automatically. */
+  focusFirstStoppedWebhook?: boolean;
+  /** #863 — false for an SSO-only account: a webhook take-over then needs a recent provider sign-in, not a password. */
+  currentUserHasPassword?: boolean;
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -115,7 +120,7 @@ function isLaterShareIssue(a: string, b: string): boolean {
   return ta > tb;
 }
 
-type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
+type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "webhooks" | "data";
 
 interface StagedInvite {
   user: User;
@@ -144,9 +149,31 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
+  // #863: the Webhooks tab can hold a one-time secret that is lost if Board
+  // settings closes or switches tabs before the admin acknowledges it. The tab
+  // registers a guard; Close, the backdrop and every tab button ask it first.
+  const webhookCloseGuardRef = useRef<WebhookCloseGuard | null>(null);
+  const registerWebhookCloseGuard = useCallback((guard: WebhookCloseGuard | null) => {
+    webhookCloseGuardRef.current = guard;
+  }, []);
+  const guardedClose = useCallback(() => {
+    if (webhookCloseGuardRef.current?.(onClose)) return;
+    onClose();
+  }, [onClose]);
+  const selectTab = (next: Tab) => {
+    if (next === tab) return;
+    const go = () => {
+      setTab(next);
+      // The notification deep link is one-shot: leaving the tab spends it.
+      if (tab === "webhooks") setWebhookDeepLinkLive(false);
+    };
+    if (tab === "webhooks" && webhookCloseGuardRef.current?.(go)) return;
+    go();
+  };
+  const [webhookDeepLinkLive, setWebhookDeepLinkLive] = useState(focusFirstStoppedWebhook);
   // Focus the selected tab button only when a caller deep-linked a tab (#1458);
   // the default Members open keeps its existing focus behavior.
   const activeTabRef = useRef<HTMLButtonElement>(null);
@@ -756,7 +783,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   return (
     <ModalWrapper
       open={true}
-      onClose={onClose}
+      onClose={guardedClose}
       title="Board Settings"
       maxWidth="max-w-2xl"
       noPadding
@@ -767,7 +794,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-line px-6 gap-1 overflow-x-auto">
-          {(["members", "display", "rules", "fields", "swimlane-fields", ...(isAdmin ? ["sharing"] : []), "data"] as Tab[]).map((t) => {
+          {/* #863: Webhooks is omitted from the DOM in demo mode and for non-admins, never DemoInert. */}
+          {(["members", "display", "rules", "fields", "swimlane-fields", ...(isAdmin ? ["sharing"] : []), ...(isAdmin && !demoMode ? ["webhooks"] : []), "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
               : t === "display" ? "Display"
@@ -775,13 +803,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               : t === "fields" ? "Card fields"
               : t === "swimlane-fields" ? "Swimlane fields"
               : t === "sharing" ? "Sharing"
+              : t === "webhooks" ? "Webhooks"
               : "Data";
             return (
               <button
                 key={t}
                 ref={tab === t ? activeTabRef : undefined}
                 aria-current={tab === t ? "true" : undefined}
-                onClick={() => setTab(t)}
+                onClick={() => selectTab(t)}
                 className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px rounded shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   tab === t ? "border-primary-emphasis text-fg" : "border-transparent text-fg-tertiary hover:text-fg"
                 }`}
@@ -1505,6 +1534,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               </section>
             </div>
             </DemoInert>
+          )}
+
+          {/* ── Webhooks tab (#863) ── */}
+          {tab === "webhooks" && isAdmin && !demoMode && (
+            <BoardSettingsWebhooksTab
+              boardId={board.id}
+              focusFirstStopped={webhookDeepLinkLive}
+              currentUserHasPassword={currentUserHasPassword}
+              registerCloseGuard={registerWebhookCloseGuard}
+              onRequestClose={onClose}
+            />
           )}
 
           {/* ── Data tab ── */}

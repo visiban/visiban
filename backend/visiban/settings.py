@@ -316,6 +316,9 @@ INSTALLED_APPS = [
     "accounts",
     "boards",
     "groups",
+    # Outbound webhooks (#863). Always installed (tables exist on every
+    # install); WEBHOOKS_ENABLED gates it at runtime.
+    "webhooks",
     # Issue Board Lens — only registered when the experiment flag is on, mirroring
     # the OIDC conditional-app pattern above so dormant code loads no tables/routes.
     *(["git_lens"] if GIT_LENS_ENABLED else []),
@@ -538,6 +541,38 @@ USE_X_ACCEL_REDIRECT = env.bool("USE_X_ACCEL_REDIRECT", default=not DEBUG)
 # cursor falls outside the window gets 410 and re-syncs via /full/.
 BOARD_EVENT_RETENTION_DAYS = env.int("BOARD_EVENT_RETENTION_DAYS", default=30)
 
+# Outbound webhooks (#863) — docs/administration/configuration.md#webhooks.
+# Off by default. When on, board admins can register signed outbound POSTs for
+# their board's change feed; `manage.py dispatch_webhooks` delivers them.
+# Refused while DEMO_MODE is on (system check webhooks.E001).
+WEBHOOKS_ENABLED = env.bool("WEBHOOKS_ENABLED", default=False)
+# Private/LAN destinations a webhook may target, comma-separated exact
+# hostnames, IPs or CIDRs. Empty (default) admits public addresses only.
+# Hostname and CIDR entries admit RFC 1918 / CGNAT / ULA addresses; loopback,
+# link-local and cloud-metadata addresses need an exact single-address entry.
+# A /0 or a public range is a startup error (webhooks.E002). See visiban/egress.py.
+WEBHOOK_ALLOWED_PRIVATE_TARGETS = env("WEBHOOK_ALLOWED_PRIVATE_TARGETS", default="")
+WEBHOOK_CONNECT_TIMEOUT_SECONDS = env.float("WEBHOOK_CONNECT_TIMEOUT_SECONDS", default=3.0)
+WEBHOOK_TIMEOUT_SECONDS = env.float("WEBHOOK_TIMEOUT_SECONDS", default=10.0)
+WEBHOOK_MAX_PER_BOARD = env.int("WEBHOOK_MAX_PER_BOARD", default=10)
+WEBHOOK_MAX_PER_USER = env.int("WEBHOOK_MAX_PER_USER", default=25)
+WEBHOOK_MAX_TOTAL = env.int("WEBHOOK_MAX_TOTAL", default=1000)
+WEBHOOK_MAX_EVENTS_PER_RUN = env.int("WEBHOOK_MAX_EVENTS_PER_RUN", default=100)
+WEBHOOK_RUN_BUDGET_SECONDS = env.float("WEBHOOK_RUN_BUDGET_SECONDS", default=50.0)
+WEBHOOK_BACKOFF_BASE_SECONDS = env.int("WEBHOOK_BACKOFF_BASE_SECONDS", default=30)
+WEBHOOK_BACKOFF_MAX_SECONDS = env.int("WEBHOOK_BACKOFF_MAX_SECONDS", default=3600)
+WEBHOOK_DISABLE_AFTER_FAILURES = env.int("WEBHOOK_DISABLE_AFTER_FAILURES", default=20)
+WEBHOOK_DISABLE_AFTER_HOURS = env.float("WEBHOOK_DISABLE_AFTER_HOURS", default=24.0)
+# Rows newer than this are left for the next run, so a row whose transaction
+# committed after a later-numbered row is still picked up (best-effort until
+# #2053 gives the feed a commit-ordered cursor).
+WEBHOOK_SETTLE_SECONDS = env.int("WEBHOOK_SETTLE_SECONDS", default=10)
+# Every url_not_allowed refusal takes at least this long, so its timing does not
+# reveal which address rule matched. Unset = WEBHOOK_CONNECT_TIMEOUT_SECONDS
+# (the DNS deadline), which makes every refusal take the same time.
+WEBHOOK_REFUSAL_FLOOR_SECONDS = env.float("WEBHOOK_REFUSAL_FLOOR_SECONDS", default=None)
+WEBHOOK_DISPATCHER_STALE_SECONDS = env.int("WEBHOOK_DISPATCHER_STALE_SECONDS", default=300)
+
 # In-app notifications (#1158) — how long a row in `notifications` is kept,
 # read or unread. Enforced by `manage.py prune_notifications`, which only runs
 # when an operator schedules it (host cron, the Compose `scheduler` profile, or
@@ -722,6 +757,12 @@ REST_FRAMEWORK = {
         # attempts / 5 min per account, shared with login) is the tight
         # control, and this 10/hour scope is the backstop on request volume.
         "password_change": "9999/hour" if DEBUG else "10/hour",
+        # Outbound webhooks (#863). Creating or re-pointing a webhook resolves
+        # a user-supplied hostname, and a test send opens an outbound
+        # connection, so both are bounded per user to keep the endpoints from
+        # serving as a network probe.
+        "webhook_config": "9999/hour" if DEBUG else "30/hour",
+        "webhook_test": "9999/hour" if DEBUG else "10/hour",
     },
 }
 
@@ -1368,6 +1409,24 @@ LOGGING = {
         "git_lens.outbound": {
             "handlers": ["console"],
             "level": env("GIT_LENS_OUTBOUND_LOG_LEVEL", default="INFO"),
+            "propagate": False,
+        },
+        # Outbound webhooks (#863): the configuration audit trail (one line per
+        # create, URL change, rotate, re-enable, disable, delete, test) and
+        # delivery failures. Ids and fixed codes only, never a URL or secret.
+        # Configured explicitly for the same reason as git_lens.outbound.
+        "webhooks": {
+            "handlers": ["console"],
+            "level": env("WEBHOOK_LOG_LEVEL", default="INFO"),
+            "propagate": False,
+        },
+        # urllib3's connection logs print the request URL, at DEBUG and at
+        # WARNING, and for a Slack or Zapier webhook the URL is the credential.
+        # Pinned above both so no receiver response or root-level override can
+        # expose it. Delivery failures are logged by "webhooks", with codes.
+        "urllib3": {
+            "handlers": ["console"],
+            "level": "ERROR",
             "propagate": False,
         },
     },

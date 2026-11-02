@@ -20,6 +20,7 @@ curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/notifications
 - A card they own has not moved within the configured staleness window (`notif_stale`) — *added in 1.2; previously gated on `notif_due_soon`*
 - They are invited to a board (`notif_board_invite`)
 - Someone else comments on a card they created or are assigned to (`notif_comment_added`) — *added in 1.2*; suppressed when the same comment @mentions them
+- A [webhook](webhooks.md) on a board they administer was turned off automatically (`webhook_disabled`) — *added in 1.3*. Sent to each active account that administers the board (its owner, an admin member, or an admin through a group), and to the webhook's owner (the account that last set it up) while that account still administers the board. Other site admins who only have instance-wide access are not notified. There is no preference to turn it off. The `verb` is `A webhook on "<board>" was turned off (webhook #<id>, <reason>)`, where the reason code is `failures`, `cursor_expired`, `creator_lost_access` or `secret_unavailable`; it never contains the webhook's URL. `card_id` is `null`.
 
 Each notification preference can be toggled individually via `PATCH /api/v1/auth/me/`. See [Authentication](authentication.md).
 
@@ -30,6 +31,11 @@ endpoint — `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_
 An email is a copy of the in-app notification, so an `email_notif_*` field has no effect
 while its `notif_*` counterpart is `false`. See
 [Email notifications](../features/notifications.md#email-notifications).
+
+`webhook_disabled` is the exception *(1.3+)*: it is always emailed, whatever these
+fields say, but only to an active recipient with a **verified** address who still
+administers the board. Its link opens the board's Webhooks settings
+(`/boards/{id}?settings=webhooks`).
 
 ---
 
@@ -72,7 +78,7 @@ Notifications referencing a board the requesting user no longer has access to ar
 | `card_title` | string / null | Card title at notification time (null if card deleted) |
 | `board_id` | integer / null | ID of the related board |
 | `board_name` | string / null | Board name (null if board deleted) |
-| `action_type` | string | Machine-readable event type. One of: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon`, `comment_added` (`due_soon` and `comment_added` added in 1.2). Use this for programmatic filtering or i18n instead of parsing `verb`. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render `verb` as-is) rather than erroring. |
+| `action_type` | string | Machine-readable event type. One of: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon`, `comment_added`, `webhook_disabled` (`due_soon` and `comment_added` added in 1.2, `webhook_disabled` in 1.3). Use this for programmatic filtering or i18n instead of parsing `verb`. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render `verb` as-is) rather than erroring. |
 | `read` | boolean | Always `false` — this endpoint only returns unread notifications |
 | `created_at` | string | ISO 8601 timestamp |
 

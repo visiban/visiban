@@ -27,6 +27,15 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
 
 **Watch out:** all four commands are idempotent, so running one twice in a day does no harm. **Running two copies at the same moment is different.** If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.
 
+!!! note "The webhook dispatcher is not a scheduled job"
+    [Outbound webhooks](../features/webhooks.md) *(1.3+)* need delivery within seconds, so
+    their dispatcher is its own long-running service rather than one of these daily jobs:
+    the Compose `webhooks` profile (`webhook-dispatcher` service) or the Helm
+    `webhooks.dispatcher.enabled` Deployment. On a host-cron install, run
+    `python manage.py dispatch_webhooks` every minute; overlapping runs are safe.
+    `prune_board_events` interacts with it: a webhook that falls further behind than
+    `BOARD_EVENT_RETENTION_DAYS` is turned off rather than skipping events.
+
 ## Docker Compose
 
 `docker-compose.prod.yml` includes a `scheduler` service behind the `scheduler` [Compose profile](https://docs.docker.com/compose/how-tos/profiles/). It runs `python manage.py run_scheduler` in the backend image, with the backend's `.env`.

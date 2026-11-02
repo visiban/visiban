@@ -24,6 +24,11 @@ them. Adding `migrate` back would select nothing.
 #1157): they run management commands that read and write PostgreSQL. Listed
 even when scheduledJobs is off — a label that selects no pod widens nothing.
 
+`webhook-dispatcher` (#863) is the pod of the webhook dispatcher Deployment
+(templates/webhook-dispatcher.yaml): it reads the change feed and writes
+delivery state in PostgreSQL. Listed even when the dispatcher is off, like
+`scheduler`.
+
 `demo-seed` (#1180) is the demo seed hook and the reset CronJob; it is on the
 list only while demo mode is on. The list itself lives in _helpers.tpl
 (visiban.datastoreClients) because the demo EGRESS policy at the bottom of this

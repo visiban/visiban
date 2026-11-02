@@ -107,7 +107,7 @@ CheckerError = _shared.CheckerError
 # Every backend app that may emit on a board or group channel. The call graph is
 # built over all of these so a view handler that delegates to the services layer
 # is resolved rather than guessed at.
-SOURCE_ROOTS = ("backend/boards", "backend/groups", "backend/git_lens")
+SOURCE_ROOTS = ("backend/boards", "backend/groups", "backend/git_lens", "backend/webhooks")
 
 # Directories under a source root that are never emit sites.
 SKIP_DIR_PARTS = ("tests", "migrations", "__pycache__", "seed_data", "management")
@@ -115,7 +115,7 @@ SKIP_DIR_PARTS = ("tests", "migrations", "__pycache__", "seed_data", "management
 # View modules whose write handlers must broadcast. Same set as the RBAC gate's
 # scope, for the same reason: these are the board/group-scoped API surface.
 VIEW_DIRS = ("backend/boards/views",)
-VIEW_FILES = ("backend/groups/views.py", "backend/git_lens/views.py")
+VIEW_FILES = ("backend/groups/views.py", "backend/git_lens/views.py", "backend/webhooks/views.py")
 
 # ─── The broadcast primitives ────────────────────────────────────────────────
 
@@ -181,6 +181,15 @@ ORM_NAMES = frozenset({
 
 # Write actions on a board/group-scoped view that deliberately broadcast
 # nothing. The reason must say why no other connected client needs to know.
+_WEBHOOK_CONFIG_REASON = (
+        "Webhook configuration (#863, D11) broadcasts nothing by design. It is "
+        "admin-only state whose rows hold an encrypted URL and signing secret, "
+        "and a board-channel frame fans out to every member regardless of role. "
+        "Its only reader is the admin's own settings tab, which refetches after "
+        "each change. The audit trail is configured_by / *_at plus one ids-only "
+        "log line per change (webhooks.dispatch.log_config_event)."
+    )
+
 NO_BROADCAST_BY_DESIGN: dict[str, str] = {
     "backend/groups/views.py::GroupViewSet::@action invite_links [post]": (
         "There is no invite_link.created event, deliberately. A group-channel "
@@ -191,6 +200,11 @@ NO_BROADCAST_BY_DESIGN: dict[str, str] = {
         "and nothing else (see docs/api/websockets.md). The asymmetry is the "
         "leak boundary, not an oversight."
     ),
+    "backend/webhooks/views.py::WebhookSubscriptionViewSet::create": _WEBHOOK_CONFIG_REASON,
+    "backend/webhooks/views.py::WebhookSubscriptionViewSet::update": _WEBHOOK_CONFIG_REASON,
+    "backend/webhooks/views.py::WebhookSubscriptionViewSet::destroy": _WEBHOOK_CONFIG_REASON,
+    "backend/webhooks/views.py::WebhookSubscriptionViewSet::@action reenable [post]": _WEBHOOK_CONFIG_REASON,
+    "backend/webhooks/views.py::WebhookSubscriptionViewSet::@action rotate [post]": _WEBHOOK_CONFIG_REASON,
 }
 
 # Fan-outs that legitimately call an emit function inside a loop, because the
@@ -898,6 +912,8 @@ _FIXTURE = {
     "backend/groups/broadcast.py": _FIX_GROUP_BROADCAST,
     "backend/groups/views.py": _FIX_GROUP_VIEWS,
     "backend/git_lens/views.py": _FIX_LENS_VIEWS,
+    # A source root must exist; the webhooks views write nothing in the fixture.
+    "backend/webhooks/views.py": "",
 }
 
 _FIXTURE_TABLES = {"no_broadcast": {}, "loop": {}, "reviewed": {}}

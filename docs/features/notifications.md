@@ -195,6 +195,8 @@ Two things have to be true before any email is sent:
 1. **An administrator has configured outgoing email** — either the `EMAIL_*` environment variables or **Admin → Settings → Email**. See [Configuration](../administration/configuration.md#email-smtp). Nothing is sent, and nothing is queued, if email is unconfigured.
 2. **You turned the event's email toggle on** in **Settings → Notifications**.
 
+One notice ignores the toggles *(1.3+)*: when a [webhook](webhooks.md) on a board you administer is turned off automatically, you get it in the bell and by email, as long as your address is verified. It names the board, the webhook's number and why it stopped.
+
 !!! warning "Email is off by default, deliberately"
     Every email preference defaults to **off**, for every user, including on an
     instance that already has working SMTP. Upgrading to 1.2 does not start

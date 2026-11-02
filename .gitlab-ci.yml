@@ -1187,6 +1187,8 @@ backend-schema-fuzz:
         - backend/boards/management/commands/_seed_history.py
         # The hook maps a real sample slug from the manifest (#1570).
         - backend/boards/sample_boards/manifest.json
+        # Webhook views live outside backend/**/views/ (#863).
+        - backend/webhooks/views.py
   # "Missing valid test data" accounting (#1570). Before it, 43 operations
   # repeatedly 404ed: the fuzz user (demo2) was not a GROUP member, so
   # GroupViewSet.get_queryset() hid every /groups/{id}/... route whatever id the
@@ -1266,6 +1268,13 @@ backend-schema-fuzz:
     # login_failed gate for this job only; settings.py refuses the variable
     # unless DEBUG=True and production defaults are untouched.
     VISIBAN_DISABLE_THROTTLING: "True"
+    # Outbound webhooks (#863): on, so the routes exist in the fuzzed schema.
+    # The fuzz user is a board member, not an admin, so they answer the role
+    # 403 before any webhook logic: 2xx webhook schemas are not fuzzed here
+    # (#2078). A PAT could not reach create, url PATCH, reenable, rotate
+    # or test in any case (403 session_required): the job opens no
+    # outbound connection.
+    WEBHOOKS_ENABLED: "True"
     # CI-only file; provision_fuzz_token writes the raw PAT here (mode 0600),
     # never to job output — see the command's docstring.
     VISIBAN_FUZZ_TOKEN_FILE: "/tmp/visiban_fuzz_token"

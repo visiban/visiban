@@ -257,6 +257,36 @@ describe('Notification dropdown', () => {
     expect(screen.getByText('View board →')).toBeInTheDocument()
   })
 
+  it('webhook_disabled opens the board Webhooks settings and says so (#863)', async () => {
+    const user = userEvent.setup({ delay: null })
+    const webhookNotice: Notification = {
+      id: 5,
+      verb: 'A webhook on "Sprint 1" was turned off (webhook #12, failures)',
+      actor: null,
+      card_id: null,
+      card_title: null,
+      board_id: 1,
+      board_name: 'Sprint 1',
+      action_type: 'webhook_disabled',
+      read: false,
+      created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
+    }
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([webhookNotice])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle(/Notifications/))
+    await waitFor(() => screen.getByText(webhookNotice.verb))
+    expect(screen.getByText('Open board settings →')).toBeInTheDocument()
+    expect(screen.queryByText('View board →')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText(webhookNotice.verb))
+    // The link names no subscription id (resolution (b) on #863).
+    expect(mockNavigate).toHaveBeenCalledWith('/boards/1?settings=webhooks')
+  })
+
   it('renders system-generated notifications with null actor (#1007)', async () => {
     // Stale-card alerts are emitted by the management command with no actor
     // — the API returns actor: null and the dropdown must render the verb
