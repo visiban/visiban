@@ -4805,6 +4805,16 @@ membership on this board: the rows the refusal above applies to, which the
 Members tab locks. Group-inherited and owner rows carry no flag for them, since
 a change to such a row is an ordinary add. A site-admin reader gets the full
 roster and the flag on every row. <code>site_admin_roster_visible</code> holds this rule.</p>
+<p><code>has_all_content_access</code> (#1301) is the exception to that line. It says whether
+a member has <code>can_access_all_content</code>, which resolves to full access ahead of
+any membership, so the Members tab can show effective access and withhold a role
+picker that would change nothing. A board admin who is not a site admin needs
+it on group-inherited and owner rows and on the all-content-but-not-<code>is_site_admin</code>
+case too, so <code>get_members</code> sends it on every row to board admins and site
+admins (<code>site_admin_field_visible</code>) and to <code>site_admin_roster_visible</code> readers
+(an instance site admin on a lower board role). This discloses to a board admin which of the board's own members hold
+all-content access; it does not list anyone who is not already a member, and a
+reader below admin gets no key.</p>
 <p><code>site_admin_roster_visible(role, viewer_is_site_admin)</code> returns true when the
 reader's board role is <code>site_admin</code> (which is what <code>can_access_all_content</code>
 resolves to) or the reader has <code>User.is_site_admin</code>, so a reader with
@@ -4897,7 +4907,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>Board member list</td>
 <td><code>boards/serializers.py</code> <code>BoardFullSerializer.get_members</code></td>
-<td><code>site_admin_roster_visible</code> (all-content rows, and <code>is_site_admin</code> on rows with no membership, for site-admin readers only), then <code>site_admin_field_visible</code>. The other member-row surfaces (members POST response, <code>member.*</code> events, change feed) only ever carry a real membership row</td>
+<td><code>site_admin_roster_visible</code> (all-content rows, and <code>is_site_admin</code> on rows with no membership, for site-admin readers only), then <code>site_admin_field_visible</code> (which also gates <code>is_site_admin</code>); <code>has_all_content_access</code> (#1301) goes on every row when <code>site_admin_field_visible</code> or <code>site_admin_roster_visible</code> holds. The other member-row surfaces (members POST response, <code>member.*</code> events, change feed) only ever carry a real membership row</td>
 </tr>
 </tbody>
 </table>
