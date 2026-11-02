@@ -189,6 +189,14 @@ export function useBoard() {
   // unsafe under-count direction #1289 guards against. Discard such responses.
   const archivedCountGen = useRef(0);
 
+  // When the latest `/full/` response was applied (Date.now()), or null before
+  // the first one. BoardView compares it with the socket's first open (#1968):
+  // the socket joins the board's broadcast group only after `/full/` returned,
+  // so a frame committed in between is never delivered and the snapshot does
+  // not contain it either. A ref (not state) because only that open reads it.
+  const lastFullAtRef = useRef<number | null>(null);
+  const getLastFullFetchAt = useCallback(() => lastFullAtRef.current, []);
+
   const load = useCallback(() => {
     setLoading(true);
     const seq = ++fetchSeqRef.current;
@@ -199,6 +207,7 @@ export function useBoard() {
         if (seq !== fetchSeqRef.current) return;
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
+        lastFullAtRef.current = Date.now();
         setUnavailable(false);
         setBoard(b);
       })
@@ -240,6 +249,7 @@ export function useBoard() {
         if (seq !== fetchSeqRef.current) return;
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
+        lastFullAtRef.current = Date.now();
         setUnavailable(false);
         setBoard(b);
       })
@@ -773,5 +783,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }

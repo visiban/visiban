@@ -435,3 +435,60 @@ describe('useBoardSocket onReconnected (#1463)', () => {
     expect(onReconnected).not.toHaveBeenCalled()
   })
 })
+
+describe('useBoardSocket onFirstConnected (#1968)', () => {
+  it('fires once on the initial open, and not on later reconnects', () => {
+    const onFirstConnected = vi.fn()
+    const onReconnected = vi.fn()
+    renderHook(() => useBoardSocket(1, vi.fn(), { onFirstConnected, onReconnected }))
+    expect(onFirstConnected).not.toHaveBeenCalled()
+    act(() => { latestWS().onopen?.() })
+    expect(onFirstConnected).toHaveBeenCalledTimes(1)
+    expect(onReconnected).not.toHaveBeenCalled()
+    act(() => { latestWS().onclose?.({ code: 1006 }) })
+    act(() => { vi.advanceTimersByTime(3000) })
+    act(() => { latestWS().onopen?.() })
+    expect(onFirstConnected).toHaveBeenCalledTimes(1)
+    expect(onReconnected).toHaveBeenCalledTimes(1)
+  })
+
+  it('fires on a first open that only succeeds after failed attempts', () => {
+    // A connect that never opened is not a reconnect, so onReconnected stays
+    // silent; this first open is the caller's only chance to cover the gap.
+    const onFirstConnected = vi.fn()
+    const onReconnected = vi.fn()
+    renderHook(() => useBoardSocket(1, vi.fn(), { onFirstConnected, onReconnected }))
+    act(() => { latestWS().onclose?.({ code: 1006 }) })
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(instances).toHaveLength(2)
+    act(() => { latestWS().onopen?.() })
+    expect(onFirstConnected).toHaveBeenCalledTimes(1)
+    expect(onReconnected).not.toHaveBeenCalled()
+  })
+
+  it('fires again for the first open of another board', () => {
+    const onFirstConnected = vi.fn()
+    const { rerender } = renderHook(
+      ({ id }) => useBoardSocket(id, vi.fn(), { onFirstConnected }),
+      { initialProps: { id: 1 } },
+    )
+    act(() => { latestWS().onopen?.() })
+    rerender({ id: 2 })
+    act(() => { latestWS().onopen?.() })
+    expect(onFirstConnected).toHaveBeenCalledTimes(2)
+  })
+
+  it('calls the latest callback without reopening the socket', () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    const { rerender } = renderHook(
+      ({ cb }) => useBoardSocket(1, vi.fn(), { onFirstConnected: cb }),
+      { initialProps: { cb: first } },
+    )
+    rerender({ cb: second })
+    act(() => { latestWS().onopen?.() })
+    expect(instances).toHaveLength(1)
+    expect(first).not.toHaveBeenCalled()
+    expect(second).toHaveBeenCalledTimes(1)
+  })
+})

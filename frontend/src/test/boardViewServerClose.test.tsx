@@ -1,7 +1,8 @@
 /**
  * BoardView drives the REAL useBoardSocket here (a fake WebSocket), to prove a
  * server-sent normal close (member removed, #2041) re-reads the board, and that
- * BoardView's own unmount close does not.
+ * BoardView's own unmount close does not. Also covers the first-open resync
+ * (#1968): a socket that opens long after `/full/` returned re-reads once.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
@@ -14,8 +15,17 @@ import type { BoardContextType } from '../contexts/BoardContext'
 // Standard test infrastructure mocks (same as boardView.test.tsx)
 // ---------------------------------------------------------------------------
 
+// The DndContext mock records its drag handlers so the first-open resync test
+// (#1968) can start and end a column drag directly.
+const { dndHandlers } = vi.hoisted(() => ({
+  dndHandlers: {} as { start?: (e: unknown) => void; end?: (e: unknown) => void },
+}))
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DndContext: ({ children, onDragStart, onDragEnd }: { children: React.ReactNode; onDragStart?: (e: unknown) => void; onDragEnd?: (e: unknown) => void }) => {
+    dndHandlers.start = onDragStart
+    dndHandlers.end = onDragEnd
+    return <div>{children}</div>
+  },
   DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   MouseSensor: class { static activators = [] },
   TouchSensor: class {},
@@ -260,5 +270,81 @@ describe('BoardView with the real board socket (#2041)', () => {
     expect(sockets[0].close).toHaveBeenCalledWith(1000)
     act(() => { sockets[0].onclose?.({ code: 1000 }) })
     expect(ctx.silentReload).not.toHaveBeenCalled()
+  })
+})
+
+describe('BoardView first-open resync (#1968)', () => {
+  const FETCHED_AT = 100_000
+  let now: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    sockets = []
+    vi.stubGlobal('WebSocket', FakeWebSocket)
+    now = vi.spyOn(Date, 'now').mockReturnValue(FETCHED_AT)
+  })
+  afterEach(() => {
+    now.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  async function openAfter(ms: number, overrides: Partial<BoardContextType> = {}) {
+    const ctx = makeContext({ getLastFullFetchAt: () => FETCHED_AT, ...overrides })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    now.mockReturnValue(FETCHED_AT + ms)
+    act(() => { sockets[0].onopen?.() })
+    return ctx
+  }
+
+  it('re-reads once when the socket first opens more than 1s after /full/', async () => {
+    const ctx = await openAfter(1500)
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not re-read when the socket opens promptly after /full/', async () => {
+    const ctx = await openAfter(200)
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+  })
+
+  it('does not re-read at exactly the threshold', async () => {
+    const ctx = await openAfter(1000)
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+  })
+
+  it('re-reads when no /full/ time is known', async () => {
+    const ctx = await openAfter(0, { getLastFullFetchAt: () => null })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-reads when the context does not provide the fetch time', async () => {
+    const ctx = await openAfter(0, { getLastFullFetchAt: undefined })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for an in-flight drag to end, then re-reads once', async () => {
+    const ctx = makeContext({ getLastFullFetchAt: () => FETCHED_AT })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { dndHandlers.start?.({ active: { id: 'col:10' } }) })
+    now.mockReturnValue(FETCHED_AT + 1500)
+    act(() => { sockets[0].onopen?.() })
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+    act(() => { dndHandlers.end?.({ active: { id: 'col:10' }, over: null }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves later reconnects to the reconnect resync, which always re-reads', async () => {
+    const ctx = await openAfter(200)
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      act(() => { sockets[0].onclose?.({ code: 1006 }) })
+      act(() => { vi.advanceTimersByTime(3000) })
+      act(() => { sockets[1].onopen?.() })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

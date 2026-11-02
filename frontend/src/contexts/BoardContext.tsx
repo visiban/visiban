@@ -12,6 +12,14 @@ export interface BoardContextType {
   unavailable?: boolean;
   reload: () => void;
   silentReload: () => void;
+  /**
+   * When the latest `/full/` response was applied (Date.now()), or null before
+   * the first. BoardView reads it on the socket's first open to decide whether
+   * the load-to-connect gap was long enough to need a resync (#1968). Optional
+   * so test fixtures need not provide it; BoardView treats a missing value as
+   * unknown and resyncs.
+   */
+  getLastFullFetchAt?: () => number | null;
   moveCard: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
   forceMoveCard: () => Promise<void>;
   forceMoveCardTo: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;

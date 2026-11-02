@@ -11,7 +11,8 @@ export type BoardEvent = {
    * Optional because it is additive and absent on any frame broadcast without a
    * feed row — the group channel's frames, for instance. Nothing in the SPA
    * reads it yet; on reconnect the SPA re-fetches `/full/` via the
-   * `onReconnected` option (#1463). It is declared here so the type keeps matching what the server
+   * `onReconnected` option (#1463), and on a late first open via
+   * `onFirstConnected` (#1968). It is declared here so the type keeps matching what the server
    * sends, and so a future resume-from-cursor client does not have to widen the
    * type first.
    */
@@ -61,13 +62,21 @@ const PING_TIMEOUT_MS = 45_000;
  * callers can resync state missed during the gap (#1463). It does not fire on
  * the initial connect.
  *
+ * `options.onFirstConnected` fires on the first successful open for a board
+ * (#1968), including one that only succeeds after failed attempts. The caller
+ * loaded the board over REST before this socket existed, and the server adds
+ * the socket to the board's broadcast group only during the handshake, so a
+ * frame committed between the caller's snapshot and that join is lost. The
+ * caller decides whether the gap was long enough to resync. Exactly one of the
+ * two callbacks fires per open.
+ *
  * `onEvent` is stored in a ref so callers can pass an inline arrow function
  * without causing the effect to re-run on every render.
  */
 export function useBoardSocket(
   boardId: number | null,
   onEvent: (event: BoardEvent) => void,
-  options?: { onReconnected?: () => void; onServerClose?: () => void },
+  options?: { onReconnected?: () => void; onFirstConnected?: () => void; onServerClose?: () => void },
 ): { connected: boolean; status: SocketStatus; lastEventAt: number | null; reconnectAttempt: number } {
   const [status, setStatus] = useState<SocketStatus>("connecting");
   // `lastEventAt` ticks once per incoming message (including pings). It's used
@@ -86,6 +95,9 @@ export function useBoardSocket(
   // (#1463). Bypasses the visibility throttle: a reconnect is a real gap signal.
   const onReconnectedRef = useRef(options?.onReconnected);
   onReconnectedRef.current = options?.onReconnected;
+  // Called on the first open for a given board (#1968); see the docstring.
+  const onFirstConnectedRef = useRef(options?.onFirstConnected);
+  onFirstConnectedRef.current = options?.onFirstConnected;
   // Fires when the server closes the socket with a normal 1000 the client did
   // not ask for (#2041): the server does this when this user was just removed
   // from the board or group. The caller re-reads over REST to find out whether
@@ -138,6 +150,7 @@ export function useBoardSocket(
           setReconnectAttempt(0);
           resetPingTimeout();
           if (wasReconnect) onReconnectedRef.current?.();
+          else onFirstConnectedRef.current?.();
         }
       };
 

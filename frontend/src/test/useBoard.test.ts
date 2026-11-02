@@ -152,6 +152,34 @@ describe('useBoard', () => {
     expect(result.current.loading).toBe(false)
   })
 
+  it('records when each /full/ response was applied, for the first-open resync (#1968)', async () => {
+    const now = vi.spyOn(Date, 'now')
+    try {
+      let resolveLoad!: (b: BoardFull) => void
+      mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((r) => { resolveLoad = r }))
+      const { result } = renderHook(() => useBoard())
+      const getAt = result.current.getLastFullFetchAt
+      expect(getAt()).toBeNull()
+      now.mockReturnValue(5_000)
+      await act(async () => { resolveLoad(makeBoard()) })
+      expect(getAt()).toBe(5_000)
+
+      // A silent reload refreshes it; a failed one leaves the last good value.
+      now.mockReturnValue(9_000)
+      mockGetBoardFull.mockResolvedValueOnce(makeBoard({ name: 'Again' }))
+      await act(async () => { result.current.silentReload() })
+      expect(getAt()).toBe(9_000)
+      now.mockReturnValue(12_000)
+      mockGetBoardFull.mockRejectedValueOnce(new Error('net'))
+      await act(async () => { result.current.silentReload() })
+      expect(getAt()).toBe(9_000)
+      // Stable identity: BoardView reads it through a ref on the socket's open.
+      expect(result.current.getLastFullFetchAt).toBe(getAt)
+    } finally {
+      now.mockRestore()
+    }
+  })
+
   it('a failed silentReload with no load pending stays silent (#1463)', async () => {
     mockGetBoardFull.mockResolvedValueOnce(makeBoard())
     const { result } = renderHook(() => useBoard())
