@@ -186,7 +186,7 @@ The CI pipeline is a gate, not a suggestion: every failing job blocks the merge,
 
 **Why it matters:** the same card must give the same number on every chart, in every API response, and in every agent answer. The definitions also say what each number leaves out, so nobody has to reverse-engineer it from a chart.
 
-**Not decided here:** whether these metrics, or the charts built on them, are OSS or Enterprise. [The open-core boundary](open-core-boundary.md) lists "Advanced analytics (cycle time dists, CFD)" as Enterprise. That classification belongs to #448 (open) and its enterprise-check ruling. This record only fixes what the numbers mean, wherever they ship.
+**Not decided here:** whether these metrics, or the charts built on them, are OSS or Enterprise. That was ruled separately on 2026-11-02 (#1750): the #448 charts are OSS, as recorded in [Analytics (split)](open-core-boundary.md#analytics-split). This record only fixes what the numbers mean, wherever they ship.
 
 ### Terms
 
@@ -316,7 +316,7 @@ Durations are computed in seconds and reported in days (seconds ÷ 86,400). Perc
 
 **Decision:** each card is counted at the end of each UTC day in the column of its latest transition up to that moment, or of its creation movement, by column key. A card without a creation movement is placed from `Card.created_at` in the source column of its earliest movement, or in its current column if it has none. A card archived in a column that is not done leaves the diagram from the day of the archive (its `archived` event, or `Card.archived_at` if it has none). A card in a done column stays counted after it is archived, because finished work is cumulative and archiving it must not shrink the done band. Columns that have since been deleted share one `column_uid: null` band. Hard-deleted cards are left out.
 
-**Decision:** the **bottleneck** that #448's design hatches in the diagram is the current column that is not done whose count grew the most from the first day of the window to the last. When two columns grew by the same amount, the one earlier in position order wins. When no such column grew, there is no bottleneck and nothing is hatched. The service returns it, so the dashboard and an agent name the same column. *Rejected:* letting the browser pick it from the bands, which would be a second implementation. This fixes only what the bottleneck means. [The open-core boundary](open-core-boundary.md) lists "bottleneck detection" as Enterprise, and that ruling belongs to #448, as noted at the top of this record.
+**Decision:** the **bottleneck** that #448's design hatches in the diagram is the current column that is not done whose count grew the most from the first day of the window to the last. When two columns grew by the same amount, the one earlier in position order wins. When no such column grew, there is no bottleneck and nothing is hatched. The service returns it, so the dashboard and an agent name the same column. *Rejected:* letting the browser pick it from the bands, which would be a second implementation. This fixes only what the bottleneck means. The CFD bottleneck highlight is OSS, per [Analytics (split)](open-core-boundary.md#analytics-split) (#1750, 2026-11-02).
 
 ### Response shapes (for #448, #458, #1100 and #1151)
 
@@ -396,5 +396,5 @@ These bind #448 and #1774 alike. They are requirements, not a component design: 
 
 ### Not decided here
 
-- **Whether the cumulative flow diagram and the CFD bottleneck highlight are OSS or Enterprise.** The question sits between #1750 (the owner's note there says the CFD is Enterprise) and #448 (its 2026-11-01 note recommends OSS), and this record rules on neither. It holds either way: the primitive is the same code whichever edition ships a given chart. Extension panels render in the Summary tab (see `docs/api/boards.md`), not in #448's Analytics grid, so an enterprise chart delivered through #1774's series panel would appear there unless #1774 or the #1750/#448 question changes that. This record does not change [the open-core boundary](open-core-boundary.md).
+- **Edition of the flow charts (resolved).** The owner ruled on 2026-11-02 (#1750) that the cumulative flow diagram, the CFD bottleneck highlight and the other #448 charts are OSS; see [Analytics (split)](open-core-boundary.md#analytics-split). Extension panels still render in the Summary tab (see `docs/api/boards.md`), not in #448's Analytics grid. This record does not change the open-core boundary.
 - **The chart components' layout and interaction.** That is #448's `ux-design` pass, bound by the requirements above.

@@ -35,7 +35,9 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | Movement history search + filter view | OSS | Teams need to query their own audit trail | #342 |
 | Movement history delivery report export (CSV/PDF) | Enterprise | Formatted compliance/client reporting artifact | #342 note |
 | Per-swimlane analytics (basic) | OSS | Teams managing work per client/swimlane need row-level visibility | #341 |
-| Advanced analytics (velocity trends, CFD, exports) | Enterprise | Beyond basic visibility; serves analytics/compliance buyers | #341 note |
+| Analytics: heatmap, stalled cards, per-swimlane velocity, heatmap CSV export | OSS | Shipped. Seeing where work piles up passes the small-team test. See [Analytics (split)](#analytics-split) | #1750, #341 |
+| Flow charts (cycle time, throughput and weekly run chart, cumulative flow diagram, WIP age, CFD bottleneck highlight) | OSS | Same reasoning; ruled 2026-11-02. Planned in #448, not yet shipped. See [Analytics (split)](#analytics-split) | #1750, #448 |
+| Cross-period comparison, scheduled analytics reports, `ANALYTICS_EXTENSIONS` panels | Enterprise | Reporting and extension layer beyond what a team needs to see its own flow. See [Analytics (split)](#analytics-split) | #1750 |
 | Single-swimlane focus mode | OSS | Core navigation for boards with many swimlanes | #340 |
 | Read-only board share / guest link (basic) | OSS | Sharing status with external stakeholders is a basic collaboration need | #348 |
 | Branded client portal / custom-domain share | Enterprise | White-label extension of base share link | #348 note |
@@ -59,8 +61,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | Custom RBAC roles | Enterprise | Granular permissions beyond admin/member/viewer | enterprise #6 |
 | SLA tracking and aging alerts | Enterprise | Advanced time-tracking; small teams use cycle time data in OSS | enterprise #10 |
 | Recurring cards | Enterprise | Automation concern | enterprise #11 |
-| Advanced analytics (cycle time dists, CFD) | Enterprise | Beyond OSS basic analytics | enterprise #12 |
-| Scheduled report emails | Enterprise | Automated digest delivery | enterprise #13 |
+| Scheduled report emails | Enterprise | Automated digest delivery. Includes scheduled analytics reports (see [Analytics (split)](#analytics-split)) | enterprise #13 |
 | Custom dashboards (multi-board widgets) | Enterprise | Advanced cross-board visibility | enterprise #14 |
 | Slack/Teams notifications | Enterprise | Third-party integrations | enterprise #16 |
 | Board template visual editor | Enterprise | Basic template creation via API/admin, or installed-package registration (see `TEMPLATE_PROVIDERS`, #1115), is sufficient for OSS | enterprise #3 |
@@ -154,15 +155,25 @@ Structured delivery report export (CSV/PDF, formatted for client or QBR presenta
 
 ---
 
-### Per-swimlane analytics: basic (OSS) vs advanced (Enterprise)
+### Analytics (split)
 
-Basic per-swimlane analytics (cards in flight, average cycle time, cards moved to Done in the last 30 days) are OSS, since teams managing work per client/swimlane need row-level visibility. Advanced analytics (velocity trends over time, bottleneck detection, historical period comparisons, exportable reports) are enterprise.
+**Decision (#1750, 2026-11-02).** All four flow charts planned in #448 are OSS: cycle time, throughput (including the weekly run chart), the cumulative flow diagram (CFD) and WIP age, along with the CFD bottleneck highlight. The analytics OSS already ships stays OSS: the dwell-time heatmap with outlier and bottleneck coloring, Age and Throughput modes, stalled-card detection, the per-swimlane velocity column, the 7, 30 and 90-day windows, and the admin heatmap CSV export. Basic per-swimlane analytics (cards in flight, average cycle time, cards moved to Done in the last 30 days) are OSS too.
+
+Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through `ANALYTICS_EXTENSIONS`.
+
+**Why.** Seeing where work piles up passes the small-team test, and OSS already ships bottleneck detection. The earlier split would have left most of #448 disputed: "velocity trends over time" covers the throughput run chart, and enterprise #12 also claims cycle time, lead time and throughput.
+
+**Supersedes.** This replaces the 2026-10-20 note on #1750, which ruled the CFD, velocity trends, cross-period comparison, scheduled reports and `ANALYTICS_EXTENSIONS` panels Enterprise. It also replaces the earlier table rows "Advanced analytics (velocity trends, CFD, exports)" (#341 note) and "Advanced analytics (cycle time dists, CFD)" (enterprise #12), and the earlier wording of this section, which placed velocity trends, bottleneck detection, historical period comparisons and exportable reports in Enterprise.
+
+**Cost accepted.** Under the project's backward compatibility rules, a shipped OSS feature cannot practically move back to Enterprise. Enterprise #12 is the open tracking issue for rescoping the enterprise side to the three items above; a note was posted there on 2026-11-02.
+
+**Not decided here.** Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. Neither are MCP analytics tools. The #448 charts are planned, not shipped; the [flow metric definitions](decisions.md) apply wherever they ship.
 
 The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (`boards/hooks.py`) so enterprise can add panels without modifying OSS view files. The summary returns the panels in `extension_panels`, and the Summary tab renders `stats` and `table` panels below the swimlane table (see the [payload contract](../api/boards.md#extension-panel-payload)).
 
 **Authorization is OSS's job, not each panel's (#1826).** A panel declares the lowest board role that may see it with a `min_role` attribute on the callable. The summary drops every panel above the caller's role before calling any panel, so a panel that forgets a role check cannot leak to viewers. **Behavior change for extension authors in 1.2:** a panel with no `min_role`, or an invalid one, is admin-only (fail closed). Enterprise panels registered before 1.2 must set `min_role` to stay visible to non-admin members. See [panel visibility by role](../api/boards.md#panel-visibility-by-role) and [Security Invariants](../development/security-invariants.md) Rule 12.
 
-**Issue:** #341
+**Issue:** #1750 (ruling), #341 (basic analytics), #448 (flow charts). Enterprise side: enterprise #12.
 
 ---
 
@@ -266,7 +277,7 @@ The feature doc's ["Upgrade path to enterprise"](../features/mcp-server.md#upgra
 | `webhooks.E001`–`E002` system checks (`webhooks/checks.py`) | Startup guard rails for outbound webhooks | ✅ Implemented — #863. **Stable IDs.** `E001` `WEBHOOKS_ENABLED` with `DEMO_MODE`; `E002` an unusable `WEBHOOK_ALLOWED_PRIVATE_TARGETS` entry (a `/0`, a public range, or a never-admitted address) |
 | `VISIBAN_AUTOMATION_BACKEND` setting | Enterprise automation (enterprise #69) | Not yet implemented |
 | `MOVEMENT_EXPORT_BACKENDS` list (`boards/hooks.py`) | Enterprise delivery report export (#342 enterprise) | ✅ Implemented — `boards/hooks.py`. The queryset handed to a backend holds movements of live cards only (`card` is never `None`): the retained history of hard-deleted cards (#1469) is filtered out until the contract is widened to say rows may have `card=None` (#1796) |
-| `ANALYTICS_EXTENSIONS` list (`boards/hooks.py`) | Enterprise advanced analytics (#341 enterprise) | ✅ Implemented — `boards/hooks.py`, consumed by `boards/views/analytics.py` into the summary's `extension_panels`, rendered by the Summary tab (`SummaryView` / `ExtensionPanels`, #1770). Payload contract (additive-only): [`docs/api/boards.md`](../api/boards.md#extension-panel-payload). Each callable declares `min_role` (`viewer` / `collaborator` / `member` / `admin` / `site_admin`); OSS filters on the caller's board role through `boards.permissions.analytics_extensions_for_role` before calling any panel, and an unset or invalid `min_role` means `admin` (fail closed, changed in 1.2, #1826). The callable signature `(board, request) -> dict` is unchanged |
+| `ANALYTICS_EXTENSIONS` list (`boards/hooks.py`) | Enterprise analytics panels (#1750) | ✅ Implemented — `boards/hooks.py`, consumed by `boards/views/analytics.py` into the summary's `extension_panels`, rendered by the Summary tab (`SummaryView` / `ExtensionPanels`, #1770). Payload contract (additive-only): [`docs/api/boards.md`](../api/boards.md#extension-panel-payload). Each callable declares `min_role` (`viewer` / `collaborator` / `member` / `admin` / `site_admin`); OSS filters on the caller's board role through `boards.permissions.analytics_extensions_for_role` before calling any panel, and an unset or invalid `min_role` means `admin` (fail closed, changed in 1.2, #1826). The callable signature `(board, request) -> dict` is unchanged |
 | `TEMPLATE_PROVIDERS` list (`boards/hooks.py`) | External board-template registration by installed packages (#1115; tracked further in #504) | ✅ Implemented — `boards/hooks.py` + `boards/template_sync.py`, synced via `post_migrate` in `BoardsConfig.ready()` |
 | `CUSTOM_FIELD_VALIDATORS` list (`boards/hooks.py`) | Enterprise per-type custom field validators, **card** values (#371) | ✅ Implemented — `boards/hooks.py`, applied at the serializer boundary |
 | `SWIMLANE_CUSTOM_FIELD_VALIDATORS` list (`boards/hooks.py`) | Enterprise per-type custom field validators, **swimlane row** values (#1140) | ✅ Implemented — `boards/hooks.py`, applied at the serializer boundary. A separate list from the card one, not a widening of it: a validator registered against the card signature may read card-only attributes, so feeding it a swimlane definition could raise. A validator that is generic across both levels registers in both lists. |
