@@ -354,11 +354,23 @@ class Command(BaseCommand):
 
         if not options["yes"]:
             count = rows.count()
+            # One UNION query each, over movements and blocks together: a
+            # selection can hold only block rows, and a card with both counts
+            # once. The ordering is cleared because a UNION arm cannot have one.
             cards = (
                 rows.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
-                .values("_uid").distinct().count()
+                .order_by().values("_uid")
+                .union(
+                    blocks.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
+                    .order_by().values("_uid")
+                )
+                .count()
             )
-            boards = rows.values("board_id").distinct().count()
+            boards = (
+                rows.order_by().values("board_id")
+                .union(blocks.order_by().values("board_id"))
+                .count()
+            )
             event_count = events.count()
             self.stdout.write(
                 f"Dry run: would delete {count} {scope} and {blocks.count()} block row(s) "

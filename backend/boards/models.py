@@ -1593,8 +1593,8 @@ class BoardEvent(models.Model):
     ``manage.py purge_card_history`` is an operator's erase-on-request, and a
     card's stored payloads (``card.created``, ``card.updated``,
     ``card.unarchived`` and the ``card``/``movement`` objects of
-    ``card.moved``) hold its title, description, notes, custom field values
-    and external reference. Deleting those rows would put gaps in a cursor
+    ``card.moved``) hold its title, description, block reason, notes, custom
+    field values and external reference. Deleting those rows would put gaps in a cursor
     stream that consumers page through, so the purge **redacts** them instead:
     the content values become ``null``, every key stays, and ``redacted_at``
     records when. Nothing else updates a stored row.

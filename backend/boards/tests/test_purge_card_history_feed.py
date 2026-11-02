@@ -37,7 +37,8 @@ from boards.management.commands.purge_card_history import (
     redact_card_event_payload,
 )
 from boards.models import (
-    BoardEvent, BoardMembership, Card, CardBlock, CardMovement, CustomFieldDefinition,
+    BoardEvent, BoardMembership, Card, CardActivity, CardBlock, CardMovement,
+    CustomFieldDefinition,
 )
 from boards.serializers import CardMovementSerializer, CardSerializer, ExternalRefSerializer
 from boards.tests.conftest import (
@@ -503,6 +504,72 @@ class SelectorTests(FeedRedactionBase):
         self.assertEqual(entry.metadata["deleted_count"], 0)
         self.assertEqual(entry.metadata["redacted_event_count"], 4)
 
+    def _card_moved_between_boards(self, source, target):
+        """A deleted card with events on both boards and its movements on *target*.
+
+        Moved in the Django admin, so its movements go with it (admin.py) and
+        its earlier events keep *source*'s id; the edit afterward writes an
+        event on *target*. Returns the uid.
+        """
+        uid = self._card_lifecycle(source, delete=False)
+        card = Card.objects.get(uid=uid)
+        Card.objects.filter(pk=card.pk).update(
+            board=target, column=self._cols(target)[0], swimlane=target.swimlanes.get(),
+        )
+        CardMovement.objects.filter(card=card).update(board_id=target.pk)
+        resp = self.client.patch(
+            f"{self._base(target)}{card.pk}/", {"title": SECRET_TITLE}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        Card.objects.get(pk=card.pk).delete()
+        return uid
+
+    def _content_rows_on(self, uid, board):
+        rows = [r for r in self._rows(uid) if r.event in CONTENT_EVENTS and r.board_id == board.pk]
+        self.assertTrue(rows)
+        return rows
+
+    def test_card_with_board_stays_on_the_board_when_its_history_is_elsewhere(self):
+        uid = self._card_moved_between_boards(self.board, self.other_board)
+        movements = CardMovement.objects.filter(card_uid=uid, board_id=self.other_board.pk).count()
+        self.assertGreater(movements, 0)
+        beta = self._snapshot(self._content_rows_on(uid, self.other_board))
+
+        self._run("--card", uid, "--board", str(self.board.pk), "--yes")
+
+        self.assertTrue(all(
+            r.redacted_at is not None for r in self._content_rows_on(uid, self.board)
+        ))
+        self.assertEqual(self._snapshot(self._content_rows_on(uid, self.other_board)), beta)
+        self.assertEqual(CardMovement.objects.filter(card_uid=uid).count(), movements)
+
+    def test_card_with_board_follows_the_card_when_its_history_is_on_the_board(self):
+        uid = self._card_moved_between_boards(self.other_board, self.board)
+
+        self._run("--card", uid, "--board", str(self.board.pk), "--yes")
+
+        for board in (self.board, self.other_board):
+            self.assertTrue(all(
+                r.redacted_at is not None for r in self._content_rows_on(uid, board)
+            ))
+        self.assertFalse(CardMovement.objects.filter(card_uid=uid).exists())
+
+    def test_card_with_board_does_not_follow_records_outside_the_date_bound(self):
+        uid = self._card_moved_between_boards(self.other_board, self.board)
+        CardMovement.objects.filter(card_uid=uid).update(moved_at=_utc(2026, 3, 5))
+        BoardEvent.objects.filter(pk__in=[r.pk for r in self._rows(uid)]).update(
+            created_at=_utc(2026, 1, 5),
+        )
+        beta = self._snapshot(self._content_rows_on(uid, self.other_board))
+
+        self._run("--card", uid, "--board", str(self.board.pk), "--before", "2026-02-01", "--yes")
+
+        self.assertTrue(all(
+            r.redacted_at is not None for r in self._content_rows_on(uid, self.board)
+        ))
+        self.assertEqual(self._snapshot(self._content_rows_on(uid, self.other_board)), beta)
+        self.assertTrue(CardMovement.objects.filter(card_uid=uid).exists())
+
     def test_rerun_skips_redacted_rows_and_records_nothing(self):
         uid = self._card_lifecycle(self.board)
         self._run("--card", uid, "--yes")
@@ -728,6 +795,64 @@ class BlockedStateTests(FeedRedactionBase):
         self.assertEqual(self._snapshot(self._rows(uid)), before)
         self.assertEqual(CardBlock.objects.filter(card_uid=uid).count(), 1)
         self.assertFalse(AdminActionLog.objects.exists())
+
+    def _deleted_block_row(self, board, uid):
+        """A block row of a deleted card, with no movement row selected beside it."""
+        return CardBlock.objects.create(
+            card=None, board=board, card_uid=uid, reason=SECRET_REASON,
+            blocked_at=_utc(2026, 1, 5),
+        )
+
+    def test_dry_run_counts_the_cards_and_boards_of_a_block_only_selection(self):
+        self._deleted_block_row(self.board, "a" * 16)
+        self._deleted_block_row(self.other_board, "b" * 16)
+        # Two blocks of one card count it once.
+        self._deleted_block_row(self.other_board, "b" * 16)
+
+        board_out = self._run("--board", str(self.board.pk))
+        dated_out = self._run("--before", "2026-02-01")
+
+        self.assertIn("0 movement row(s) of deleted cards and 1 block row(s)", board_out)
+        self.assertIn("(1 card(s), 1 board(s))", board_out)
+        self.assertIn("0 movement row(s) of deleted cards and 3 block row(s)", dated_out)
+        self.assertIn("(2 card(s), 2 board(s))", dated_out)
+
+    def test_dry_run_counts_movements_and_blocks_together(self):
+        card_id, uid = self._blocked_card(self.board)
+        self._unblock_and_delete(self.board, card_id)
+        # The same card through both tables, plus a card that only has a block.
+        self.assertIn("(1 card(s), 1 board(s))", self._run("--card", uid))
+        self._deleted_block_row(self.other_board, "c" * 16)
+        self.assertIn("(2 card(s), 2 board(s))", self._run("--since", "2026-01-01"))
+
+    def test_dry_run_query_count_does_not_grow_with_block_rows(self):
+        self._deleted_block_row(self.board, "a" * 16)
+        for uid in ("b" * 16, "c" * 16, "d" * 16):
+            self._deleted_block_row(self.other_board, uid)
+        with CaptureQueriesContext(connection) as small:
+            self._run("--board", str(self.board.pk))
+        with CaptureQueriesContext(connection) as large:
+            out = self._run("--board", str(self.other_board.pk))
+        self.assertIn("(3 card(s), 1 board(s))", out)
+        self.assertEqual(len(large.captured_queries), len(small.captured_queries))
+
+    def test_activity_trail_stays_on_a_live_card_and_goes_with_a_deleted_one(self):
+        # The docs state this limit: the command never touches CardActivity.
+        card_id, _uid = self._blocked_card(self.board)
+        url = f"{self._base(self.board)}{card_id}/"
+        resp = self.client.post(f"{url}unblock/", {"resolution": SECRET_RESOLUTION}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+        self._run("--board", str(self.board.pk), "--include-live-cards", "--yes")
+
+        self.assertFalse(CardBlock.objects.filter(card_id=card_id).exists())
+        timeline = self.client.get(f"{url}timeline/")
+        self.assertEqual(timeline.status_code, 200, timeline.content)
+        self.assertIn(SECRET_REASON, timeline.content.decode())
+        self.assertIn(SECRET_RESOLUTION, timeline.content.decode())
+
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertFalse(CardActivity.objects.filter(card_id=card_id).exists())
 
     def test_failed_log_write_rolls_back_movements_blocks_and_events(self):
         card_id, uid = self._blocked_card(self.board)

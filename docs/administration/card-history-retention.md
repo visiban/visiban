@@ -82,7 +82,9 @@ How the command behaves:
 Finding the card UID: a deleted card's UID is shown in the Django admin's **Card movements** list (`/admin/boards/cardmovement/`), which can be searched by the recorded title.
 
 !!! warning "This breaks the append-only history on purpose"
-    Movement records are otherwise never edited or deleted outside a board delete, and change-feed events are never otherwise rewritten. A purge removes the records and the redacted values for good, and Board History, the card's audit trail, the change feed and any later review cannot recover them. The action-log entry is the only record that the purge happened.
+    Movement records are otherwise never edited or deleted outside a board delete, and change-feed events are never otherwise rewritten. A purge removes the records and the redacted values for good: Board History, the change feed and any later review cannot recover them. The action-log entry is the only record that the purge happened.
+
+    The exception is the card's activity trail (`CardActivity`), which the command does not touch. A deleted card's trail was already removed with the card. With `--include-live-cards` the card still exists, so its trail stays: [`GET /api/v1/boards/{board_id}/cards/{id}/timeline/`](../api/cards.md#timeline) still returns its block reasons and resolutions, earlier titles and checklist item text.
 
 !!! note "`--actor` is accountability, not authentication"
     Anyone who can run `manage.py` already has database access and can name any account. Shell access is the real control; `--actor` records which superuser authorized the purge, so the action log can answer "who erased this?".
@@ -104,9 +106,9 @@ The selector that picks movement and block records also picks the card's [change
 
 How the selector applies to events:
 
-- **`--card`** matches the card UID recorded in the event, on every board. With `--board`, it matches that card's events on that board, and on other boards only if it has movement or block records on that board (see `--board` below).
+- **`--card`** matches the card UID recorded in the event, on every board. With `--board`, it matches that card's events on that board, and on other boards only if it has movement or block records on that board (see `--board` below). Date bounds narrow which records count: a record outside `--since` or `--before` does not extend the match to other boards.
 - **`--board`** matches the board the event was recorded on. It also matches, on any board, the events of every card whose movement or block records it selects. A card moved to another board in the Django admin keeps its earlier events on the old board, and these are redacted with it. A card whose movement and block records an earlier purge already deleted is not followed this way; use `--card` for it.
-- **`--since` and `--before`** match the time the event was recorded, not the time of a movement or block. An event is recorded a moment after the record it describes, so a `--before` that falls in that gap deletes the record and leaves its event, with the same text, unredacted. Keep `--before` at least a minute clear of anything you need erased. Re-running with a later `--before` redacts an event that was missed.
+- **`--since` and `--before`** match the time the event was recorded, not the time of a movement or block. A date-bounded run leaves every event recorded outside the range untouched, and those events can still hold the text. A card event repeats the title, description and block reason for as long as the card has them, so `--card X --before 2026-02-01` deletes a January block but leaves its reason in a March `card.moved` event. **To erase a card on request, use `--card` with no dates.** The bound can also fall between a record and its event: an event is recorded a moment after the movement or block it describes, so a `--before` in that gap deletes the record and leaves the event unredacted. Re-running with a later `--before` redacts it.
 - **Deleted cards only, by default.** Without `--include-live-cards`, an event matches only when no card with its UID (or, for the events described below, its ID) exists.
 - **Events match on their own.** A card whose movement records an earlier run already deleted, for example a purge made with 1.2, still has its events redacted when you run the command for it again. An event already redacted is skipped, so re-running a purge changes nothing and records nothing.
 
