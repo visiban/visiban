@@ -3590,10 +3590,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#force-password-reset" class="md-nav__link">
+  <a href="#force-reset" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Force password reset
+        Force reset
       
     </span>
   </a>
@@ -4544,11 +4544,12 @@
 <p>The lower-frequency actions live behind the <strong>More actions</strong> (<code>⋮</code>) button at the end of the row, when each applies to that user:</p>
 <ul>
 <li><strong>Grant all-content</strong>/<strong>Revoke all-content</strong></li>
-<li><strong>Force password reset</strong></li>
+<li><strong>Force reset</strong></li>
 <li><strong>Clear lockout</strong></li>
 <li><strong>Restart onboarding tour</strong></li>
 </ul>
 <p>Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is keyboard-navigable and screen-reader-labeled.</p>
+<p><em>(1.3+)</em> <strong>On a superuser account</strong>, a site admin who is not a superuser does not see <strong>Deactivate</strong>, <strong>Reactivate</strong>, <strong>Grant all-content</strong>, <strong>Revoke all-content</strong>, <strong>Force reset</strong>, or <strong>Clear lockout</strong>, because the API refuses them. The row says "Only a superuser can change this account's access or sign-in." instead. <strong>Make admin</strong> and <strong>Restart onboarding tour</strong> stay where they apply.</p>
 <h4 id="add-user">Add user<a class="headerlink" href="#add-user" title="Permanent link">&para;</a></h4>
 <p>Creates a local account directly.</p>
 <table>
@@ -4585,7 +4586,7 @@
 <p>Deactivated accounts cannot log in. No data is deleted. Click <strong>Reactivate</strong> to reverse it at any time.</p>
 <ul>
 <li>You cannot deactivate your own account from this panel.</li>
-<li>On a superuser account, <strong>Deactivate</strong> and <strong>Reactivate</strong> are available to superusers only.</li>
+<li>On a superuser account, <strong>Deactivate</strong> and <strong>Reactivate</strong> are available to, and shown to, superusers only.</li>
 </ul>
 <p><strong>If the user owns any boards</strong>, deactivation first opens a <strong>Transfer boards &amp; deactivate</strong> dialog, because you cannot deactivate a board owner without reassigning ownership. Search for a new owner per board (any existing member counts, direct or through group membership) and confirm. Deactivation and the transfers happen together, atomically.</p>
 <p><strong>What else deactivation does:</strong> it revokes any invite links the departing user created:</p>
@@ -4611,7 +4612,7 @@
 <p>Controls the <code>can_access_all_content</code> flag independently of admin status (for accounts that are not superusers). When enabled, the user can read and write every board and group on the instance regardless of membership.</p>
 <ul>
 <li><strong>Grant all-content</strong> gives a user omniscient access without making them a site admin. This is useful for support engineers who need visibility into all boards but should not manage instance settings.</li>
-<li><strong>Grant all-content</strong> and <strong>Revoke all-content</strong> on a superuser account are available to superusers only.</li>
+<li><strong>Grant all-content</strong> on a superuser account is available to, and shown to, superusers only.</li>
 <li><strong>Revoke all-content</strong> removes that access. The user will only see boards and groups they are explicitly a member of. It is not shown for a superuser account, because superuser status implies all-content access (the API refuses it); remove superuser status in the Django admin first.</li>
 </ul>
 <p><strong>The big picture:</strong> <code>is_site_admin</code> (admin panel access) and <code>can_access_all_content</code> (board/group omniscience) are independent for accounts that are not superusers. A superuser always has both. See <a href="../site-admins/">Site Admins</a> for a detailed explanation of the two-flag model and examples of common configurations.</p>
@@ -4619,15 +4620,15 @@
 <p class="admonition-title">Tip</p>
 <p>The <code>set_site_admin</code> management command sets <strong>both</strong> flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel toggles described here, or edit the user directly in the <a href="../django-admin/">Django admin</a> at <code>/admin/accounts/user/</code>.</p>
 </div>
-<h4 id="force-password-reset">Force password reset<a class="headerlink" href="#force-password-reset" title="Permanent link">&para;</a></h4>
-<p>Sets <code>must_change_password = true</code> on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to superusers only.</p>
+<h4 id="force-reset">Force reset<a class="headerlink" href="#force-reset" title="Permanent link">&para;</a></h4>
+<p>Sets <code>must_change_password = true</code> on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to, and shown to, superusers only.</p>
 <h4 id="restart-onboarding-tour">Restart onboarding tour<a class="headerlink" href="#restart-onboarding-tour" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
 <p>Clears <code>has_completed_tour</code> for a user, so they see the <a href="../../getting-started/onboarding-tour/">onboarding tour</a> again the next time they open a board. It is the admin-initiated equivalent of the self-service <strong>Restart onboarding tour</strong> button in Settings → Behavior.</p>
 <p>It is shown only when the user has already completed the tour, since there is nothing to reset otherwise. No data is changed beyond the flag.</p>
 <h4 id="clear-lockout">Clear lockout<a class="headerlink" href="#clear-lockout" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
-<p>Clears the per-account login lockout immediately, so the user can log in again without waiting out the rest of the 5-minute window. The lockout is 5 failed login or password-change attempts within 5 minutes; see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>. On a superuser account this is available to superusers only.</p>
+<p>Clears the per-account login lockout immediately, so the user can log in again without waiting out the rest of the 5-minute window. The lockout is 5 failed login or password-change attempts within 5 minutes; see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>. On a superuser account this is available to, and shown to, superusers only.</p>
 <p><strong>Yes, but:</strong> a successful password reset already clears the lockout. Use <strong>Clear lockout</strong> when that isn't an option, for example the user contacts support instead of using the reset flow, or reset emails aren't arriving. It is safe at any time: if the account isn't locked out, nothing happens.</p>
 <h2 id="invite-links-tab">Invite Links tab<a class="headerlink" href="#invite-links-tab" title="Permanent link">&para;</a></h2>
 <blockquote>

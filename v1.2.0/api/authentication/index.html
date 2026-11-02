@@ -5667,7 +5667,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <code>CurrentUserSerializer</code>. This section documents the fields once, under <code>/auth/me/</code>.</p>
 </div>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>email_notif_comment_added</code>, <code>default_board_id</code>, <code>theme</code>, <code>pending_email</code>, <code>pending_connect_provider</code>, <code>pending_connect_identity</code>.</p>
+<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>is_superuser</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>email_notif_comment_added</code>, <code>default_board_id</code>, <code>theme</code>, <code>pending_email</code>, <code>pending_connect_provider</code>, <code>pending_connect_identity</code>.</p>
 <table>
 <thead>
 <tr>
@@ -5686,6 +5686,11 @@ actually bootstraps from) returns the identical shape — both are served by
 <td><code>can_access_all_content</code></td>
 <td>boolean</td>
 <td>Whether the user has read/write access to every board and group regardless of membership. Independent of <code>is_site_admin</code> for non-superusers; a superuser always has it — see <a href="../../administration/site-admins/">Site Admins</a>.</td>
+</tr>
+<tr>
+<td><code>is_superuser</code></td>
+<td>boolean</td>
+<td>Whether this account is a Django superuser. Sent only for your own account, on <code>/auth/me/</code> and <code>/auth/user/</code>, never on a user embedded in a board, card, or member payload. Changed only in the <a href="../../administration/django-admin/">Django admin</a>. Read-only. Added in 1.3.</td>
 </tr>
 <tr>
 <td><code>uploads_enabled</code></td>
@@ -5927,7 +5932,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <ul>
 <li><code>PATCH</code> changes only the fields you send; none is required.</li>
 <li><code>PUT</code> requires <code>username</code> (<code>400</code> with <code>{"username": ["This field is required."]}</code> without it). Any other writable field you leave out keeps its current value; it is not reset.</li>
-<li>Read-only, ignored if sent: <code>id</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>pending_email</code>, <code>pending_connect_provider</code> and <code>pending_connect_identity</code>.</li>
+<li>Read-only, ignored if sent: <code>id</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>is_superuser</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>uploads_enabled</code>, <code>git_lens_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>pending_email</code>, <code>pending_connect_provider</code> and <code>pending_connect_identity</code>.</li>
 <li>A request that changes <code>username</code> or <code>email</code> draws on the <code>choose_username</code> budget (10/minute per user), shared with <code>POST /api/v1/auth/choose-username/</code> and <code>PATCH /api/v1/auth/me/</code>; over it the answer is <code>429</code>. A request that re-sends the stored values is not counted. The interactive-session-only <code>403</code>s and the <code>email</code> rules in the <code>PATCH /auth/me/</code> error table apply here too.</li>
 </ul>
 <h3 id="delete-apiv1authmepending-email"><code>DELETE /api/v1/auth/me/pending-email/</code><a class="headerlink" href="#delete-apiv1authmepending-email" title="Permanent link">&para;</a></h3>

@@ -5088,7 +5088,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 <tr>
 <td><code>is_superuser</code></td>
 <td>boolean</td>
-<td><em>(1.2+)</em> Read-only. Whether this user is a Django superuser. Superuser status implies <code>is_site_admin</code> and <code>can_access_all_content</code>, and neither can be cleared through <code>PATCH</code> while it is set, so the admin panel does not offer <strong>Demote admin</strong> or <strong>Revoke all-content</strong> on these rows. It can be changed only in the <a href="../../administration/django-admin/">Django admin</a>; a <code>PATCH</code> that sends it is ignored.</td>
+<td><em>(1.2+)</em> Read-only. Whether this user is a Django superuser. Superuser status implies <code>is_site_admin</code> and <code>can_access_all_content</code>, and neither can be cleared through <code>PATCH</code> while it is set, so the admin panel does not offer <strong>Demote admin</strong> or <strong>Revoke all-content</strong> on these rows. For a caller who is not a superuser (<code>is_superuser</code> on <a href="../authentication/#get-apiv1authme"><code>GET /api/v1/auth/me/</code></a>), the panel also leaves out the other changes the API refuses them on these rows. It can be changed only in the <a href="../../administration/django-admin/">Django admin</a>; a <code>PATCH</code> that sends it is ignored.</td>
 </tr>
 <tr>
 <td><code>has_completed_tour</code></td>

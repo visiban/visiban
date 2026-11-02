@@ -4437,7 +4437,7 @@
 </tr>
 <tr>
 <td><code>User.is_superuser</code>, <code>User.is_staff</code></td>
-<td>Django built-ins, not exposed by any API serializer</td>
+<td>Django built-ins. <code>is_staff</code> is not exposed by any API serializer; <code>is_superuser</code> is read-only on the admin users API (<code>AdminUserSerializer</code>) and on the caller's own <code>/auth/me/</code> and <code>/auth/user/</code> (<code>CurrentUserSerializer</code>)</td>
 <td><code>is_staff</code> gates only the Django admin site. <code>is_superuser</code>, <code>is_site_admin</code> and <code>can_access_all_content</code> are kept consistent when superuser status changes: granting superuser sets both derived flags, and removing it clears both (<code>accounts/signals.py</code>)</td>
 </tr>
 <tr>
