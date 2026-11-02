@@ -59,6 +59,13 @@ export interface User {
   display_name: string;
   is_site_admin: boolean;
   can_access_all_content?: boolean;
+  /**
+   * Whether this account is a superuser. Sent only for the signed-in account
+   * (GET /auth/user/, CurrentUserSerializer), never on an embedded user. The
+   * admin users page reads it to leave out what the API refuses a site admin
+   * on a superuser account (#1644). Read-only.
+   */
+  is_superuser?: boolean;
   must_change_password: boolean;
   must_change_username: boolean;
   has_usable_password?: boolean;
@@ -1251,7 +1258,8 @@ export interface AdminUser {
   can_access_all_content: boolean;
   // Read-only. Superuser status implies is_site_admin and
   // can_access_all_content, so the admin API refuses to clear either flag
-  // while it is set; the users page leaves those actions out for such rows.
+  // while it is set, and refuses a non-superuser actor more on such a row
+  // (#1644); the users page leaves those actions out.
   is_superuser: boolean;
   must_change_password: boolean;
   date_joined: string;

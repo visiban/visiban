@@ -487,6 +487,61 @@ class CurrentUserSerializerWritableFieldsTests(TestCase):
         )
 
 
+class CurrentUserIsSuperuserTests(TestCase):
+    """``is_superuser`` reaches the caller about themselves, and nobody else (#1644).
+
+    The admin users page reads it to leave out what the API refuses a site admin
+    on a superuser account. Whether *another* account is a superuser stays off
+    every payload a board member can read.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="plain1644", password="pw-1644-Abcdef!")
+        self.client.force_authenticate(self.user)
+
+    def test_own_status_on_both_identity_endpoints(self):
+        for url in ("/api/v1/auth/user/", "/api/v1/auth/me/"):
+            with self.subTest(url=url, superuser=False):
+                self.assertIs(self.client.get(url).json()["is_superuser"], False)
+        User.objects.filter(pk=self.user.pk).update(is_superuser=True)
+        self.user.refresh_from_db()
+        for url in ("/api/v1/auth/user/", "/api/v1/auth/me/"):
+            with self.subTest(url=url, superuser=True):
+                self.assertIs(self.client.get(url).json()["is_superuser"], True)
+
+    def test_a_site_admin_reads_false(self):
+        """The case the page turns on: site admin alone is not superuser."""
+        User.objects.filter(pk=self.user.pk).update(is_site_admin=True)
+        self.user.refresh_from_db()
+        body = self.client.get("/api/v1/auth/user/").json()
+        self.assertIs(body["is_site_admin"], True)
+        self.assertIs(body["is_superuser"], False)
+
+    def test_read_only_on_both_identity_endpoints(self):
+        """Sending it on the caller's own PATCH can never grant it."""
+        for url in ("/api/v1/auth/user/", "/api/v1/auth/me/"):
+            with self.subTest(url=url):
+                r = self.client.patch(url, {"is_superuser": True}, format="json")
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+                self.assertIs(r.json()["is_superuser"], False)
+                self.user.refresh_from_db()
+                self.assertFalse(self.user.is_superuser)
+
+    def test_not_on_the_embedded_user_serializer(self):
+        from accounts.serializers import PublicUserSerializer, UserSerializer
+
+        self.assertNotIn("is_superuser", UserSerializer().fields)
+        self.assertNotIn("is_superuser", PublicUserSerializer().fields)
+
+    def test_not_on_the_user_search(self):
+        User.objects.create_superuser(username="root1644", password="pw-1644-Abcdef!")
+        r = self.client.get("/api/v1/users/", {"search": "root1644"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual([row["username"] for row in r.json()], ["root1644"])
+        self.assertNotIn("is_superuser", r.json()[0])
+
+
 class UserSearchMatchingTests(TestCase):
     """Search matches active users, on returned fields only (#1670)."""
 

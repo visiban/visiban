@@ -611,6 +611,7 @@ _USER_SPEC = {
     "display_name": _FieldSpec((str,)),
     "is_site_admin": _FieldSpec((bool,)),
     "can_access_all_content": _FieldSpec((bool,)),
+    "is_superuser": _FieldSpec((bool,)),
     "must_change_password": _FieldSpec((bool,)),
     "must_change_username": _FieldSpec((bool,)),
     "has_usable_password": _FieldSpec((bool,)),

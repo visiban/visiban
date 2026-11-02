@@ -1161,6 +1161,19 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     }
   };
 
+  // A superuser account's activation, all-content access, forced password
+  // change and lockout stay with superusers: the API answers 400 to anyone else
+  // (admin_views.superuser_target_refusal, #1620). This only spares the admin
+  // the round trip, and the deactivate path's transfer dialog before it; the
+  // server check is what enforces the rule. Permission-gated, so the actions are
+  // omitted rather than disabled (frontend/CLAUDE.md § "Permission-gated and
+  // context-gated"), and the row says why in plain text (#1644). Tests for false,
+  // not falsy: an actor whose status is unknown keeps the actions and gets the
+  // server's answer, because hiding one the server permits is the worse mistake.
+  // Make admin and Restart onboarding tour are not on the refused list and stay.
+  const isSuperuserOnlyRow = (u: AdminUser) =>
+    u.is_superuser && currentUser.is_superuser === false;
+
   // Low-frequency support actions live in the row's OverflowMenu (#1291) —
   // only Deactivate/Reactivate and Make/Demote admin stay inline. Built per
   // row rather than memoized: the row set already re-renders on every users
@@ -1168,37 +1181,39 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   const buildOverflowItems = (u: AdminUser): OverflowItem[] => {
     const items: OverflowItem[] = [];
 
-    // Superuser status implies all-content access and the API refuses to
-    // clear it on a superuser, so Revoke is omitted (not disabled) for those
-    // rows: a context-gated action is left out of the DOM (frontend/CLAUDE.md
-    // § "Permission-gated and context-gated"). Grant stays available.
-    if (!u.can_access_all_content) {
+    if (!isSuperuserOnlyRow(u)) {
+      // Superuser status implies all-content access and the API refuses to
+      // clear it on a superuser, so Revoke is omitted (not disabled) for those
+      // rows: a context-gated action is left out of the DOM (frontend/CLAUDE.md
+      // § "Permission-gated and context-gated"). A superuser can still Grant.
+      if (!u.can_access_all_content) {
+        items.push({
+          id: "grant-all-content",
+          label: "Grant all-content",
+          onSelect: () => handleGrantContentAccess(u),
+        });
+      } else if (!u.is_superuser) {
+        items.push({
+          id: "revoke-all-content",
+          label: "Revoke all-content",
+          onSelect: () => handleRevokeContentAccess(u),
+        });
+      }
+
+      if (!u.must_change_password) {
+        items.push({
+          id: "force-reset",
+          label: "Force reset",
+          onSelect: () => applyPatch(u.id, { must_change_password: true }),
+        });
+      }
+
       items.push({
-        id: "grant-all-content",
-        label: "Grant all-content",
-        onSelect: () => handleGrantContentAccess(u),
-      });
-    } else if (!u.is_superuser) {
-      items.push({
-        id: "revoke-all-content",
-        label: "Revoke all-content",
-        onSelect: () => handleRevokeContentAccess(u),
+        id: "clear-lockout",
+        label: "Clear lockout",
+        onSelect: () => handleClearLockout(u),
       });
     }
-
-    if (!u.must_change_password) {
-      items.push({
-        id: "force-reset",
-        label: "Force reset",
-        onSelect: () => applyPatch(u.id, { must_change_password: true }),
-      });
-    }
-
-    items.push({
-      id: "clear-lockout",
-      label: "Clear lockout",
-      onSelect: () => handleClearLockout(u),
-    });
 
     // Restart onboarding tour (#1280) — hidden once the user is already in
     // the target state (tour not completed), since there's nothing left to
@@ -1310,7 +1325,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                       <div className="flex items-center gap-2">
                         {/* Deactivate / Reactivate — kept inline as the
                             highest-frequency row action (#1291). */}
-                        {u.id !== currentUser.id && (
+                        {u.id !== currentUser.id && !isSuperuserOnlyRow(u) && (
                           u.is_active ? (
                             <button
                               onClick={() => handleDeactivate(u)}
@@ -1361,10 +1376,14 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                             #1280's tour-restart action added, up to six
                             conditional buttons no longer fit a no-wrap row on
                             narrow viewports. OverflowMenu itself renders
-                            nothing when a row has no applicable actions
-                            (buildOverflowItems always includes Clear lockout,
-                            so that never happens today, but the component
-                            stays correct if that changes). */}
+                            nothing when a row has no applicable actions, which
+                            is a superuser row seen by a site admin once the
+                            tour has nothing to restart (#1644). */}
+                        {isSuperuserOnlyRow(u) && (
+                          <span className="text-xs text-fg-tertiary max-w-xs">
+                            Only a superuser can change this account's access or sign-in.
+                          </span>
+                        )}
                         <OverflowMenu
                           items={buildOverflowItems(u)}
                           ariaLabel={`More actions for ${u.display_name || u.username}`}
