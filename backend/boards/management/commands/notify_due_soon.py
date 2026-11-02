@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from boards.models import Card, Notification
+from boards.notifications_email import drain_email_on_exit
 from boards.services.notifications import create_notifications, quoted_card_verb
 from boards.utils import _get_effective_member_ids
 
@@ -41,6 +42,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # The email for what this creates is sent on a daemon thread; without
+        # the drain, exiting here (cron runs this one-shot) can drop it (#2077).
+        with drain_email_on_exit(self.stderr):
+            self._handle(*args, **options)
+
+    def _handle(self, *args, **options):
         horizon = max(options["days"], 0)
         # The de-dup below looks back `horizon` days for an earlier DUE_SOON
         # row. If prune_notifications' retention window is not wider than that

@@ -42,6 +42,8 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
 
+from boards.notifications_email import drain_email_on_exit
+
 logger = logging.getLogger(__name__)
 
 OFF_VALUES = {"", "off", "false", "disabled", "none"}
@@ -155,10 +157,16 @@ class Command(BaseCommand):
             self._log(f"scheduled {job.command} daily at {job.at:%H:%M} UTC")
 
         scheduler = Scheduler(jobs, self._now(), self._run_job)
-        while True:
-            scheduler.tick(self._now())
-            if stop.wait(poll):
-                break
+        # The email jobs (notify_due_soon) go through call_command and drain
+        # themselves before returning, so today nothing is left in flight when
+        # the loop stops. This drain guards only a future in-process job that
+        # queues mail and does not drain. Cost: a job now blocks the loop for up
+        # to EMAIL_DRAIN_SECONDS (30s) while its mail sends (#2077).
+        with drain_email_on_exit(self.stderr):
+            while True:
+                scheduler.tick(self._now())
+                if stop.wait(poll):
+                    break
         self._log("scheduler stopped")
 
     @staticmethod

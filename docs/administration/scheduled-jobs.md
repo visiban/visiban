@@ -25,6 +25,8 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
 
 **Yes, but:** the scheduler is off by default on both deployment paths, so upgrading changes nothing until you turn it on. Once it is on, the two notification scans run, and they only act for users who switched the matching preference on. The two prune jobs delete data, so each one stays off until you enable it on its own.
 
+**Email at exit:** notification email is sent on a background thread. `notify_due_soon` and `notify_stale_cards` wait up to 30 seconds for it before they exit, so a cron run does not drop mail it just queued. If the mail relay is still busy after that, the command prints a warning to stderr and the unsent mail may be lost. The scheduler does the same when it is stopped.
+
 **Watch out:** all four commands are idempotent, so running one twice in a day does no harm. **Running two copies at the same moment is different.** If you already run any of these from host cron, remove that cron line before you enable the shipped scheduler. Two notification scans that start in the same minute can both pass the "already notified" check and notify the same user twice.
 
 !!! note "The webhook dispatcher is not a scheduled job"

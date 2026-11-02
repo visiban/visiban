@@ -241,7 +241,7 @@ A delivery failure never breaks the action that caused it. Notifications are cre
 - the in-app notification is still created;
 - the failure is logged with a sanitized error code. Logs never contain a recipient address.
 
-The send runs on a thread rather than inline because the timeout is applied per socket operation, not as a wall-clock total. A tarpitting relay can spend it again at every step of the conversation, which inline would mean a card assignment or drag-and-drop appearing to hang. The trade-off is that delivery is explicitly **best-effort**: restarting or recycling a worker mid-send drops that batch. Set `NOTIFICATION_EMAIL_ASYNC=false` to send inline instead.
+The send runs on a thread rather than inline because the timeout is applied per socket operation, not as a wall-clock total. A tarpitting relay can spend it again at every step of the conversation, which inline would mean a card assignment or drag-and-drop appearing to hang. The trade-off is that delivery is explicitly **best-effort**: restarting or recycling a worker mid-send drops that batch. Set `NOTIFICATION_EMAIL_ASYNC=false` to send inline instead. Scheduled commands such as `notify_due_soon` do not need that: they wait up to 30 seconds for mail still being sent before they exit.
 
 There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — **Admin → Settings → Email** has a **Send test email** button.
 

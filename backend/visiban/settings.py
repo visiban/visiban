@@ -1338,8 +1338,9 @@ NOTIFICATION_EMAIL_TIMEOUT = env.int("NOTIFICATION_EMAIL_TIMEOUT", default=10)
 # makes — a notification email is only useful promptly, and the OSS core does not
 # take a dependency on a task queue to get one out.
 #
-# Set False to send inline: management commands, where blocking is harmless, and
-# tests that assert on mail.outbox deterministically.
+# Set False to send inline: tests that assert on mail.outbox deterministically.
+# One-shot management commands do not need it: notify_due_soon, notify_stale_cards
+# and dispatch_webhooks wait up to 30 seconds for in-flight mail before exiting.
 NOTIFICATION_EMAIL_ASYNC = env.bool("NOTIFICATION_EMAIL_ASYNC", default=True)
 
 # Optional dedicated key for secrets encrypted at rest (#306). When unset, the
