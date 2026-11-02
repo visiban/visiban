@@ -1099,7 +1099,14 @@ class CurrentUserSerializer(UserSerializer):
         return self._pending_connect(obj)[1]
 
     class Meta(UserSerializer.Meta):
+        # ``is_superuser`` is here and never on UserSerializer, which is embedded
+        # as the assignee, author and member of board and card payloads: whether
+        # another account is a superuser is not for other members to read. This
+        # is the caller's own state, so the admin users page can tell a superuser
+        # from a site admin and leave out what the API refuses the latter (#1644).
+        # It is changed only through the Django admin.
         fields = UserSerializer.Meta.fields + [
+            "is_superuser",
             "uploads_enabled",
             "git_lens_enabled",
             "maintenance_mode",
@@ -1111,6 +1118,7 @@ class CurrentUserSerializer(UserSerializer):
             "pending_connect_identity",
         ]
         read_only_fields = UserSerializer.Meta.read_only_fields + [
+            "is_superuser",
             "uploads_enabled",
             "git_lens_enabled",
             "maintenance_mode",

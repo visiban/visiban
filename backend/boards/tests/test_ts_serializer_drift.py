@@ -120,7 +120,7 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     # UserSerializer (/full/ nested contexts and profile forms) and
     # CurrentUserSerializer (GET /auth/user/, a strict superset — see its
     # docstring) both map onto the one `User` TS interface, which already
-    # marks every CurrentUser-only field (uploads_enabled, git_lens_enabled,
+    # marks every CurrentUser-only field (is_superuser, uploads_enabled, git_lens_enabled,
     # maintenance_mode, maintenance_message, demo_mode, demo_next_reset_at,
     # pending_email, pending_connect_provider, pending_connect_identity)
     # optional for exactly this reason.

@@ -98,9 +98,12 @@ const adminUser: User = {
   display_name: 'Admin User',
   is_site_admin: true,
   can_access_all_content: false,
+  is_superuser: false,
   must_change_password: false,
   must_change_username: false,
 }
+
+const superuserActor: User = { ...adminUser, is_superuser: true }
 
 const regularUser: User = {
   ...adminUser,
@@ -645,7 +648,7 @@ describe('AdminPage — Users tab', () => {
     mockGetAdminUsers.mockResolvedValue({
       count: 3, offset: 0, page_size: 50, results: [fakeAdminUsers[0], superuser, holder],
     })
-    await renderAdminPageSettled()
+    await renderAdminPageSettled(superuserActor)
     fireEvent.click(screen.getByText('Users'))
     await waitFor(() => screen.getByText('@alice'))
 
@@ -670,11 +673,120 @@ describe('AdminPage — Users tab', () => {
     mockGetAdminUsers.mockResolvedValue({
       count: 2, offset: 0, page_size: 50, results: [fakeAdminUsers[0], superuser],
     })
-    await renderAdminPageSettled()
+    await renderAdminPageSettled(superuserActor)
     fireEvent.click(screen.getByText('Users'))
     await waitFor(() => screen.getByText('@alice'))
     await openRowMenu('Alice')
     expect(screen.getByRole('menuitem', { name: 'Grant all-content' })).toBeInTheDocument()
+  })
+
+  describe('a superuser row seen by a site admin who is not a superuser (#1644)', () => {
+    const EXPLANATION = "Only a superuser can change this account's access or sign-in."
+    // The four actions the API answers 400 to: activation, all-content access,
+    // forced password change, and the lockout.
+    const REFUSED_MENU_ITEMS = ['Grant all-content', 'Revoke all-content', 'Force reset', 'Clear lockout']
+
+    const superuserRow = (overrides: Partial<AdminUser> = {}): AdminUser => ({
+      ...fakeAdminUsers[1],
+      is_site_admin: true,
+      can_access_all_content: true,
+      is_superuser: true,
+      has_completed_tour: true,
+      ...overrides,
+    })
+
+    async function openUsersTab(actor: User, row: AdminUser) {
+      mockGetAdminUsers.mockResolvedValue({
+        count: 2, offset: 0, page_size: 50, results: [fakeAdminUsers[0], row],
+      })
+      await renderAdminPageSettled(actor)
+      fireEvent.click(screen.getByText('Users'))
+      await waitFor(() => screen.getByText('@alice'))
+      return screen.getByText('@alice').closest('tr') as HTMLElement
+    }
+
+    it('leaves out every refused action and says why in text a screen reader reaches', async () => {
+      const row = await openUsersTab(adminUser, superuserRow({ can_access_all_content: false }))
+      expect(within(row).queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
+      expect(within(row).queryByRole('button', { name: 'Demote admin' })).not.toBeInTheDocument()
+      // In the row's text, not a tooltip or title: no hover or focus needed.
+      expect(within(row).getByText(EXPLANATION)).toBeVisible()
+
+      await openRowMenu('Alice')
+      for (const name of REFUSED_MENU_ITEMS) {
+        expect(screen.queryByRole('menuitem', { name })).not.toBeInTheDocument()
+      }
+    })
+
+    it('leaves out Reactivate on an inactive superuser', async () => {
+      const row = await openUsersTab(adminUser, superuserRow({ is_active: false }))
+      expect(within(row).queryByRole('button', { name: 'Reactivate' })).not.toBeInTheDocument()
+      expect(within(row).getByText(EXPLANATION)).toBeVisible()
+    })
+
+    it('does not start the transfer dialog for a superuser who owns boards', async () => {
+      const row = await openUsersTab(
+        adminUser,
+        superuserRow({ owned_boards: [{ id: 9, uid: 'owned', name: 'Owned' }] }),
+      )
+      expect(within(row).queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('keeps the actions the server still permits', async () => {
+      mockPatchAdminUser.mockResolvedValue(superuserRow({ has_completed_tour: false }))
+      const row = await openUsersTab(adminUser, superuserRow({ is_site_admin: false }))
+      expect(within(row).getByRole('button', { name: 'Make admin' })).toBeInTheDocument()
+
+      await openRowMenu('Alice')
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Restart onboarding tour' }))
+      await waitFor(() => {
+        expect(mockPatchAdminUser).toHaveBeenCalledWith(3, { has_completed_tour: false })
+      })
+    })
+
+    it('still explains a row with nothing left to offer, and renders no empty menu', async () => {
+      const row = await openUsersTab(adminUser, superuserRow({ has_completed_tour: false }))
+      expect(within(row).getByText(EXPLANATION)).toBeVisible()
+      expect(within(row).queryByRole('button')).not.toBeInTheDocument()
+    })
+
+    it('leaves an ordinary row untouched', async () => {
+      const row = await openUsersTab(adminUser, { ...fakeAdminUsers[1] })
+      expect(within(row).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+      expect(within(row).queryByText(EXPLANATION)).not.toBeInTheDocument()
+
+      await openRowMenu('Alice')
+      for (const name of ['Grant all-content', 'Force reset', 'Clear lockout']) {
+        expect(screen.getByRole('menuitem', { name })).toBeInTheDocument()
+      }
+    })
+
+    it('offers a superuser actor every action the API allows them', async () => {
+      const row = await openUsersTab(superuserActor, superuserRow({ can_access_all_content: false }))
+      expect(within(row).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+      expect(within(row).queryByText(EXPLANATION)).not.toBeInTheDocument()
+
+      await openRowMenu('Alice')
+      for (const name of ['Grant all-content', 'Force reset', 'Clear lockout']) {
+        expect(screen.getByRole('menuitem', { name })).toBeInTheDocument()
+      }
+    })
+
+    it('offers Reactivate on an inactive superuser to a superuser actor', async () => {
+      const row = await openUsersTab(superuserActor, superuserRow({ is_active: false }))
+      expect(within(row).getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
+    })
+
+    it('hides nothing when the actor\'s status is unknown and leaves the answer to the server', async () => {
+      // A User object without the field, for example one built by a test or a
+      // stale client: hiding a permitted action is worse than a server refusal.
+      const unknownActor: User = { ...adminUser }
+      delete unknownActor.is_superuser
+      const row = await openUsersTab(unknownActor, superuserRow())
+      expect(within(row).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+      expect(within(row).queryByText(EXPLANATION)).not.toBeInTheDocument()
+    })
   })
 
   it('falls back to a generic error message when clearAdminUserLockout fails without detail (#1203)', async () => {

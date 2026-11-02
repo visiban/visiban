@@ -40,7 +40,12 @@ FROZEN_INSTANCE_FLAGS = {
 }
 
 # Per-user additions on CurrentUserSerializer (state of this account, not the instance).
-PER_USER_EXTRAS = {"pending_email", "pending_connect_provider", "pending_connect_identity"}
+PER_USER_EXTRAS = {
+    "is_superuser",
+    "pending_email",
+    "pending_connect_provider",
+    "pending_connect_identity",
+}
 
 PINNED_FIELDS = {
     "id", "username", "email", "first_name", "last_name", "avatar_url", "display_name",

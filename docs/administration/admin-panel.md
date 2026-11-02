@@ -85,11 +85,13 @@ Each row shows **Deactivate**/**Reactivate** and **Make admin**/**Demote admin**
 The lower-frequency actions live behind the **More actions** (`⋮`) button at the end of the row, when each applies to that user:
 
 - **Grant all-content**/**Revoke all-content**
-- **Force password reset**
+- **Force reset**
 - **Clear lockout**
 - **Restart onboarding tour**
 
 Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is keyboard-navigable and screen-reader-labeled.
+
+*(1.3+)* **On a superuser account**, a site admin who is not a superuser does not see **Deactivate**, **Reactivate**, **Grant all-content**, **Revoke all-content**, **Force reset**, or **Clear lockout**, because the API refuses them. The row says "Only a superuser can change this account's access or sign-in." instead. **Make admin** and **Restart onboarding tour** stay where they apply.
 
 #### Add user
 
@@ -110,7 +112,7 @@ Creates a local account directly.
 Deactivated accounts cannot log in. No data is deleted. Click **Reactivate** to reverse it at any time.
 
 - You cannot deactivate your own account from this panel.
-- On a superuser account, **Deactivate** and **Reactivate** are available to superusers only.
+- On a superuser account, **Deactivate** and **Reactivate** are available to, and shown to, superusers only.
 
 **If the user owns any boards**, deactivation first opens a **Transfer boards & deactivate** dialog, because you cannot deactivate a board owner without reassigning ownership. Search for a new owner per board (any existing member counts, direct or through group membership) and confirm. Deactivation and the transfers happen together, atomically.
 
@@ -140,7 +142,7 @@ Grants or revokes site admin status.
 Controls the `can_access_all_content` flag independently of admin status (for accounts that are not superusers). When enabled, the user can read and write every board and group on the instance regardless of membership.
 
 - **Grant all-content** gives a user omniscient access without making them a site admin. This is useful for support engineers who need visibility into all boards but should not manage instance settings.
-- **Grant all-content** and **Revoke all-content** on a superuser account are available to superusers only.
+- **Grant all-content** on a superuser account is available to, and shown to, superusers only.
 - **Revoke all-content** removes that access. The user will only see boards and groups they are explicitly a member of. It is not shown for a superuser account, because superuser status implies all-content access (the API refuses it); remove superuser status in the Django admin first.
 
 **The big picture:** `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) are independent for accounts that are not superusers. A superuser always has both. See [Site Admins](site-admins.md) for a detailed explanation of the two-flag model and examples of common configurations.
@@ -148,9 +150,9 @@ Controls the `can_access_all_content` flag independently of admin status (for ac
 !!! tip
     The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel toggles described here, or edit the user directly in the [Django admin](django-admin.md) at `/admin/accounts/user/`.
 
-#### Force password reset
+#### Force reset
 
-Sets `must_change_password = true` on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to superusers only.
+Sets `must_change_password = true` on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to, and shown to, superusers only.
 
 #### Restart onboarding tour
 
@@ -164,7 +166,7 @@ It is shown only when the user has already completed the tour, since there is no
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Clears the per-account login lockout immediately, so the user can log in again without waiting out the rest of the 5-minute window. The lockout is 5 failed login or password-change attempts within 5 minutes; see [Rate limiting](../architecture/deployment.md#rate-limiting). On a superuser account this is available to superusers only.
+Clears the per-account login lockout immediately, so the user can log in again without waiting out the rest of the 5-minute window. The lockout is 5 failed login or password-change attempts within 5 minutes; see [Rate limiting](../architecture/deployment.md#rate-limiting). On a superuser account this is available to, and shown to, superusers only.
 
 **Yes, but:** a successful password reset already clears the lockout. Use **Clear lockout** when that isn't an option, for example the user contacts support instead of using the reset flow, or reset emails aren't arriving. It is safe at any time: if the account isn't locked out, nothing happens.
 
