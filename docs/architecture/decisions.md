@@ -186,7 +186,7 @@ The CI pipeline is a gate, not a suggestion: every failing job blocks the merge,
 
 **Why it matters:** the same card must give the same number on every chart, in every API response, and in every agent answer. The definitions also say what each number leaves out, so nobody has to reverse-engineer it from a chart.
 
-**Not decided here:** whether these metrics, or the charts built on them, are OSS or Enterprise. [The open-core boundary](open-core-boundary.md) lists "Advanced analytics (cycle time dists, CFD)" as Enterprise. That classification belongs to #448 (open) and its enterprise-check ruling. This record only fixes what the numbers mean, wherever they ship.
+**Not decided here:** whether these metrics, or the charts built on them, are OSS or Enterprise. That was ruled separately on 2026-11-02 (#1750): the #448 charts are OSS, as recorded in [Analytics (split)](open-core-boundary.md#analytics-split). This record only fixes what the numbers mean, wherever they ship.
 
 ### Terms
 
@@ -396,5 +396,5 @@ These bind #448 and #1774 alike. They are requirements, not a component design: 
 
 ### Not decided here
 
-- **Whether the cumulative flow diagram and the CFD bottleneck highlight are OSS or Enterprise.** The question sits between #1750 (the owner's note there says the CFD is Enterprise) and #448 (its 2026-11-01 note recommends OSS), and this record rules on neither. It holds either way: the primitive is the same code whichever edition ships a given chart. Extension panels render in the Summary tab (see `docs/api/boards.md`), not in #448's Analytics grid, so an enterprise chart delivered through #1774's series panel would appear there unless #1774 or the #1750/#448 question changes that. This record does not change [the open-core boundary](open-core-boundary.md).
+- **Edition of the flow charts (resolved).** The owner ruled on 2026-11-02 (#1750) that the cumulative flow diagram, the CFD bottleneck highlight and the other #448 charts are OSS; see [Analytics (split)](open-core-boundary.md#analytics-split). Extension panels still render in the Summary tab (see `docs/api/boards.md`), not in #448's Analytics grid. This record does not change the open-core boundary.
 - **The chart components' layout and interaction.** That is #448's `ux-design` pass, bound by the requirements above.
