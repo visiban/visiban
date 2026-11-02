@@ -868,6 +868,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     })
     await act(async () => { vi.advanceTimersByTime(350) })
     await waitFor(() => screen.getByText('Alice Wonder'))
+    input.focus()
     await act(async () => { fireEvent.keyDown(input, { key: 'Escape' }) })
     expect(input).toHaveValue('')
     expect(screen.queryByText('Alice Wonder')).not.toBeInTheDocument()

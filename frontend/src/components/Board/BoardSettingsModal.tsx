@@ -657,6 +657,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // Escape 58 (frontend/CLAUDE.md): clears the Add member search (query and suggestion list) above
   // ModalWrapper's 40, and returns false with nothing to clear so Escape still closes the modal (#2036).
   useEscapeStack(() => {
+    // Focus-gated so a lingering query never outranks the 57 remove-role prompt (focus is on it).
+    if (document.activeElement !== searchInputRef.current) return false;
     if (inviteQuery === "" && suggestions.length === 0) return false;
     setSuggestions([]);
     setDropdownAnchor(null);

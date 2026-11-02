@@ -871,6 +871,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       adoptSaved(updated);
       onUpdated(updated);
       setNewLabelName("");
+      focusNewLabelTriggerRef.current = true;
       setAddingLabel(false);
     } catch {
       setLabelError("Failed to create label. Only board admins can create labels.");
@@ -1599,7 +1600,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <button
                       key={opt.value}
                       onClick={() => { setLocalCard((c) => ({ ...c, priority: opt.value })); save({ priority: opt.value }).catch(() => {}); }}
-                      className={`text-xs px-3 py-1 rounded-full border font-medium transition ${
+                      className={`text-xs px-3 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                         localCard.priority === opt.value
                           ? "text-on-primary border-transparent shadow-sm"
                           : "text-fg-tertiary border-line-strong hover:border-line-emphasis bg-transparent"
@@ -1643,6 +1644,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           onChange={(e) => { setNewLabelName(e.target.value); setLabelError(null); }}
                           // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
                           onKeyDown={(e) => { if (e.key === "Enter") void handleCreateLabel(); }}
+                          aria-label="New label name"
                           placeholder="Label name"
                           className="text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
                         />

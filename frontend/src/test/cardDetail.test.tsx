@@ -933,6 +933,16 @@ describe('CardDetail', () => {
     expect(screen.getByRole('button', { name: '+ New label' })).toHaveFocus()
   })
 
+  it('a successful label create returns focus to the + New label trigger (#2036)', async () => {
+    const { createLabel } = await import('../api/boards')
+    ;(createLabel as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 99, uid: 'x', name: 'Urgent', color: '#ff0000' })
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} />)
+    await user.click(screen.getByText('+ New label'))
+    await user.type(screen.getByRole('textbox', { name: 'New label name' }), 'Urgent{Enter}')
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ New label' })).toHaveFocus())
+  })
+
   it('Escape in the title input reverts it without closing the panel; the next Escape closes it (#2036)', async () => {
     const props = defaultProps()
     const user = userEvent.setup()
