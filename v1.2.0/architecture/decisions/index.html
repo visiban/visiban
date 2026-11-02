@@ -3047,6 +3047,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#charting-approach-for-the-flow-metrics-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Charting approach for the flow-metrics dashboard
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Charting approach for the flow-metrics dashboard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requirements-on-the-shared-primitive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements on the shared primitive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-1774-series-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The #1774 series panel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-decided-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not decided here
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5017,6 +5067,29 @@
 <li>Quote the record's definition strings verbatim on each metric's docs page.</li>
 </ol>
 <p><strong>Yes, but:</strong> the first-pull cycle start and the UTC buckets are the two choices most likely to be revisited. Both have filed follow-ups, a commitment-point column flag (#2050) and a board time zone (#2051), that would add an option without changing what the existing numbers mean.</p>
+<hr />
+<h2 id="charting-approach-for-the-flow-metrics-dashboard">Charting approach for the flow-metrics dashboard<a class="headerlink" href="#charting-approach-for-the-flow-metrics-dashboard" title="Permanent link">&para;</a></h2>
+<p><strong>Status:</strong> Accepted (2026-11-02, #2028). Follows the #448 architect review of 2026-11-01. Consumers: #448 (flow-metrics dashboard) and #1774 (a <code>series</code> panel type for <code>extension_panels</code>). A later change of mind is recorded as a dated note below the record, never as a silent rewrite.</p>
+<p><strong>Decision:</strong> charts are <strong>hand-rolled SVG React components built on one shared chart primitive</strong>, with no chart library. The frontend has none today (<code>frontend/package.json</code> lists no charting dependency, and the analytics heatmap is a table). #448 needs four charts: a cycle-time scatter with p50/p85/p95 lines, a weekly throughput run chart, a cumulative flow diagram and an aging-WIP chart. They are axes, marks, lines and areas over data the server has already computed, which is small enough to own. The primitive supplies the scales, axes, direct labels, hit targets and the data-table fallback once, so each chart supplies only its marks.</p>
+<p><strong>Why it matters:</strong> the charts must follow the color tokens in <code>frontend/CLAUDE.md</code> in light and dark themes and read without color alone. Owning the SVG makes those two requirements ordinary code in our own components. With a library they are overrides of its styling and its accessibility output.</p>
+<p><strong>Rejected:</strong> a small charting dependency, which would be faster to build. It adds a runtime dependency and its bundle weight as a new charting dependency, needs the <code>dependency</code> review (license, CVEs, transitive packages and bundle size), and would have to be themed from CSS custom properties to match the slate tokens in both themes. No <code>dependency</code> review was run, because no dependency is added. <em>What would change this:</em> a chart type the primitive cannot reasonably draw, for example zoom or brushing, or interactive behavior that costs more to own than a dependency costs to carry. That is a new record, with the <code>dependency</code> review attached.</p>
+<h3 id="requirements-on-the-shared-primitive">Requirements on the shared primitive<a class="headerlink" href="#requirements-on-the-shared-primitive" title="Permanent link">&para;</a></h3>
+<p>These bind #448 and #1774 alike. They are requirements, not a component design: layout and interaction belong to #448's <code>ux-design</code> pass.</p>
+<ul>
+<li><strong>Color is never the only carrier of meaning.</strong> Each series or band is also identified by a direct label at the line or area, not only a legend. Adjacent bands, as in the cumulative flow diagram's one-hue alpha steps, are told apart by 1px separators plus those direct labels, and that counts as the non-color carrier for bands. Where series overlap and cannot be told apart that way (lines, points), add a second encoding: line dash, a fill pattern or a mark shape. The CFD bottleneck column keeps the hatched fill in #448's design. A reader who cannot tell the colors apart can still tell the series apart.</li>
+<li><strong>Every chart has a text alternative.</strong> The <code>&lt;svg&gt;</code> is <code>role="img"</code> with an <code>aria-label</code> that states the headline reading, and the same data is available as a table (<code>&lt;table&gt;</code> with real headers) that the user can toggle into view, so sighted keyboard users get it too, not only screen reader users. Interactive drill-down marks (a card, a day's cards) are real buttons or links with an accessible name and are not nested inside a <code>role="img"</code> element, because <code>img</code> has presentational children and assistive technology may not reach them. How they are laid out alongside the image is left to #448's <code>ux-design</code>.</li>
+<li><strong>Theming uses the existing tokens.</strong> Strokes, fills, axes and text come from the <code>frontend/CLAUDE.md</code> tokens (<code>text-fg*</code>, <code>border-line*</code>, <code>bg-surface</code>, <code>bg-canvas</code>, <code>primary-emphasis</code>, the status tokens) through <code>currentColor</code> or the CSS custom properties. Those properties hold bare color triples, so they are used as <code>rgb(var(--…))</code>, as existing code does (for example <code>ActivityTabPanel.tsx</code>). No hex values and no <code>gray</code>. Both themes are checked against the contrast notes in <code>frontend/CLAUDE.md</code>, including its warning that <code>fg-muted</code> and <code>fg-faint</code> fall below AA as text, so axis ticks and labels use a token that passes. Lines, points and separators need at least 3:1 against <code>bg-surface</code> in both themes. Alpha band fills are exempt from that figure, and their exact values are left to #448's <code>ux-design</code>.</li>
+<li><strong>Motion respects the reduced-motion rule.</strong> Any transition on a chart carries <code>motion-reduce:</code> fallbacks, as the other decorative animation does.</li>
+<li><strong>Percentiles come from the server.</strong> In percentile responses the primitive draws what the API returns and never recomputes a percentile. A <code>null</code> percentile is drawn as an absent line with a visible note that there are too few cards, not as zero, and the note names no number. <code>sample_size</code> is shown on the chart where the response has one. This applies to the percentile responses defined in <a href="#percentiles-and-sample-size">Percentiles and sample size</a>; the other charts' data handling is left to #448. This section changes no text of that record.</li>
+<li><strong>Cycle time is a scatter with p50/p85/p95 lines.</strong> One point is one completed card. A bucket histogram hides the tail that p85 and p95 exist to show. A histogram can be added later over the same endpoint without a new decision.</li>
+</ul>
+<h3 id="the-1774-series-panel">The #1774 series panel<a class="headerlink" href="#the-1774-series-panel" title="Permanent link">&para;</a></h3>
+<p><strong>In scope.</strong> The shared primitive is built so that #1774's <code>series</code> panel type renders through it, next to the existing <code>stats</code> and <code>table</code> types in <code>frontend/src/components/Board/parseExtensionPanels.ts</code> and <code>ExtensionPanels.tsx</code>. #1774 adds the panel type and its parser validation. This record fixes only that the renderer is the shared primitive, so an extension's chart gets the same labels, text alternative, tokens and theme behavior as the dashboard. Payloads stay data-only, as <code>ExtensionPanels.tsx</code> already requires (no class, color, style or link comes from the payload), so the OSS renderer owns patterns, labels and drill-down. #1774 decides the panel's payload shape. Extension payloads are untrusted input, so that parser validates them the way it does for <code>table</code>.</p>
+<h3 id="not-decided-here">Not decided here<a class="headerlink" href="#not-decided-here" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Whether the cumulative flow diagram and the CFD bottleneck highlight are OSS or Enterprise.</strong> The question sits between #1750 (the owner's note there says the CFD is Enterprise) and #448 (its 2026-11-01 note recommends OSS), and this record rules on neither. It holds either way: the primitive is the same code whichever edition ships a given chart. Extension panels render in the Summary tab (see <code>docs/api/boards.md</code>), not in #448's Analytics grid, so an enterprise chart delivered through #1774's series panel would appear there unless #1774 or the #1750/#448 question changes that. This record does not change <a href="../open-core-boundary/">the open-core boundary</a>.</li>
+<li><strong>The chart components' layout and interaction.</strong> That is #448's <code>ux-design</code> pass, bound by the requirements above.</li>
+</ul>
 
 
 
