@@ -10,7 +10,8 @@ interface Props {
   /** `undefined` = no value row for this field on this card or swimlane. */
   value: string | undefined;
   /**
-   * `chip` — the bordered card-face pill (#371 Direction A). `detail` — plain
+   * `chip` — legacy bordered pill (#371 Direction A); test-only, no production
+   * call site (the card face renders its own inline chip in CardItem). `detail` — plain
    * text inside the card-detail read-only section. `row-chip` — the swimlane
    * label-panel chip (#1140). Peek-popover text does *not* go through this
    * component — it's a single joined line of plain strings, formatted
@@ -37,8 +38,8 @@ interface Props {
 }
 
 /**
- * Read-only renderer for one custom field value, shared by the card-face
- * chip and the card-detail read-only section — the defensive-rendering
+ * Read-only renderer for one custom field value, shared by the card-detail
+ * read-only section, the swimlane row chip, and (test-only) the legacy chip — the defensive-rendering
  * contract (#371 ux-design spec §5) lives here once rather than being
  * reimplemented per call site:
  *
@@ -100,9 +101,11 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
     // is a ~220px *vertical* column, so chips stack and each owns a full
     // line (max-w-full, not max-w-[10rem]) and can afford 20 characters
     // rather than 16.
+    // overflow-hidden is a backstop, not the truncation mechanism: every child
+    // keeps min-w-0 + truncate, and py-0.5 must stay >= the 2px focus ring.
     return (
       <span
-        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line max-w-full min-w-0 ${className ?? ""}`}
+        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line max-w-full min-w-0 overflow-hidden ${className ?? ""}`}
         title={
           adminOnly
             ? `${definition.name}: ${displayText} · Only board admins can see this`
@@ -115,7 +118,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           // Not aria-label: ARIA 1.2 prohibits naming a generic <span>.
           <span className="sr-only">{definition.name}: </span>
         ) : (
-          <span className="text-fg-tertiary truncate">{definition.name}:</span>
+          <span className={`text-fg-tertiary truncate min-w-0 ${multiEntries ? "shrink-[3]" : ""}`}>{definition.name}:</span>
         )}
         {isUrl ? (
           // stopPropagation: the row label panel is a double-click-to-edit
@@ -127,7 +130,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
         ) : colorKey ? (
           <ChoiceBadge colorKey={colorKey}>{chipValueText(definition, displayText, 20)}</ChoiceBadge>
         ) : (
-          <span className="text-fg-secondary truncate">
+          <span className="text-fg-secondary truncate min-w-0">
             {chipValueText(definition, displayText, 20)}
           </span>
         )}
@@ -137,11 +140,11 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line ${multiEntries ? "max-w-[14rem] min-w-0" : "shrink-0 max-w-[10rem]"} ${className ?? ""}`}
+      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden ${multiEntries ? "max-w-[14rem] min-w-[4rem]" : "min-w-[3.5rem] max-w-[10rem]"} ${className ?? ""}`}
       title={`${definition.name}: ${displayText}`}
     >
       {dot}
-      <span className={`text-fg-tertiary truncate ${multiEntries ? "min-w-0 shrink-[3]" : ""}`}>{definition.name}:</span>
+      <span className={`text-fg-tertiary truncate min-w-0 ${multiEntries ? "shrink-[3]" : ""}`}>{definition.name}:</span>
       {isUrl ? (
         <CustomFieldLink value={value} variant="host" maxHostChars={16} stopPropagation />
       ) : multiEntries ? (
@@ -149,7 +152,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
       ) : colorKey ? (
         <ChoiceBadge colorKey={colorKey}>{chipValueText(definition, displayText, 16)}</ChoiceBadge>
       ) : (
-        <span className="text-fg-secondary truncate">
+        <span className="text-fg-secondary truncate min-w-0">
           {chipValueText(definition, displayText, 16)}
         </span>
       )}
