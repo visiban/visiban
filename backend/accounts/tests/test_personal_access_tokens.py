@@ -186,6 +186,30 @@ class PATAuthenticationTests(APITestCase):
         # not rejected by PATAuthentication itself, so the default 401 applies).
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_second_request_in_window_issues_no_usage_update(self):
+        """#1964: through the real REST stack, a repeat request with the same
+        scope inside the window must not UPDATE the token's usage columns."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        pat, raw = PersonalAccessToken.generate(self.user, "ci")
+        self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
+        pat.refresh_from_db()
+        first = pat.last_used_at
+        self.assertIsNotNone(first)
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        updates = [
+            q["sql"]
+            for q in ctx.captured_queries
+            if q["sql"].lstrip().upper().startswith("UPDATE")
+            and "last_used" in q["sql"]
+        ]
+        self.assertEqual(updates, [])
+        pat.refresh_from_db()
+        self.assertEqual(pat.last_used_at, first)
+
     def test_successful_auth_updates_last_used_at(self):
         pat, raw = PersonalAccessToken.generate(self.user, "ci")
         self.assertIsNone(pat.last_used_at)

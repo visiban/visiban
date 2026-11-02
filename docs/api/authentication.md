@@ -215,7 +215,7 @@ The response never includes the raw token value, only the first 8 characters (`p
 | `name` | string | Human-readable label given at creation (max 64 chars). |
 | `prefix` | string | First 8 characters of the raw token — safe to display. |
 | `created_at` | datetime | ISO 8601 UTC timestamp of when the token was created. |
-| `last_used_at` | datetime \| null | ISO 8601 UTC timestamp of the most recent authenticated request, or `null` if never used. |
+| `last_used_at` | datetime \| null | ISO 8601 UTC timestamp of the most recent authenticated request, or `null` if never used. Refreshed at most about once a minute, so accurate to roughly 60 seconds. |
 | `expires_at` | datetime \| null | ISO 8601 UTC expiry, or `null` if the token does not expire. |
 | `scopes` | string[] \| null | The scopes this token carries. `null` for a token created before 1.2 — see [Scopes](#scopes) below. Added in 1.2. |
 

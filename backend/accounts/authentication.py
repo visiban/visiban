@@ -1,6 +1,7 @@
 import hashlib
+from datetime import timedelta
 
-from django.db import DatabaseError
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
@@ -17,6 +18,12 @@ from .models import (
     SCOPE_WRITE,
     PersonalAccessToken,
 )
+
+# How stale last_used_at may get before record_token_usage writes again (#1964).
+# Short enough that "last used" stays meaningful for an audit or a stale-token
+# review, long enough that a client polling every second causes ~1 write a
+# minute instead of one per request on a single hot row.
+LAST_USED_WRITE_INTERVAL = timedelta(seconds=60)
 
 # Every site-administration endpoint lives under this prefix (accounts/urls.py).
 ADMIN_API_PREFIX = "/api/v1/admin/"
@@ -139,24 +146,63 @@ def resolve_personal_access_token(raw_token):
 def record_token_usage(pat, presented_scope: str) -> None:
     """Stamp last_used_at and the scope actually satisfied, in one UPDATE.
 
-    A single write, not two: the PAT hot path already pays for one UPDATE per
-    authenticated request and must not gain another. ``presented_scope`` is the
-    requirement this request actually met — never a constant, so the audit trail
-    distinguishes a read from a write from an admin call.
+    A single write, not two: the PAT hot path must not gain more than one
+    UPDATE. ``presented_scope`` is the requirement this request actually met —
+    never a constant, so the audit trail distinguishes a read from a write from
+    an admin call.
+
+    The write is throttled (#1964): polling agent/MCP clients would otherwise
+    turn one token row into a hot-row write on every read. The UPDATE happens
+    only when ``last_used_at`` is unset or older than
+    ``LAST_USED_WRITE_INTERVAL``, or when the scope differs from the one on
+    record. ``last_used_at`` is therefore accurate to about 60 seconds.
+
+    The staleness test is repeated inside the UPDATE's WHERE clause rather than
+    done read-then-save alone: concurrent requests that all saw a stale row
+    collapse into one write, and a racer cannot clobber a newer stamp.
 
     Raises :class:`InvalidPersonalAccessToken` if the row has disappeared since
     it was resolved. That is a real race, not a theoretical one: a concurrent
-    ``DELETE /auth/tokens/{id}/``, a password change (which revokes every token),
-    or an admin deactivation can land between the SELECT and this UPDATE. Django
-    raises ``DatabaseError`` when ``update_fields`` matches no rows, which would
-    surface as a 500 on what is really a revoked credential — so it is
-    translated into the same generic failure every other revocation path uses.
+    ``DELETE /auth/tokens/{id}/`` or a password change (which revokes every
+    token by deleting the rows) can land between the SELECT and this UPDATE. It is
+    translated into the same generic failure every other revocation path uses
+    instead of surfacing as a 500 on what is really a revoked credential.
+
+    Because of the throttle, that revocation re-check now runs only when the
+    stamp is stale or the scope changed; a fresh-stamp request relies on the
+    resolver's SELECT alone (the same few-millisecond window every request has).
+    A client alternating scopes (read then write) changes the scope each time
+    and so still writes every time; that is the price of an accurate audit trail.
     """
-    pat.last_used_at = timezone.now()
-    pat.last_used_scope = (presented_scope or "")[:64]
-    try:
-        pat.save(update_fields=["last_used_at", "last_used_scope"])
-    except DatabaseError:
+    scope = (presented_scope or "")[:64]
+    now = timezone.now()
+    cutoff = now - LAST_USED_WRITE_INTERVAL
+
+    # Fast path: the row was loaded moments ago by the resolver, so its values
+    # are current enough to skip the write without touching the database.
+    if (
+        pat.last_used_at is not None
+        and pat.last_used_at >= cutoff
+        and pat.last_used_scope == scope
+    ):
+        return
+
+    stale = (
+        Q(last_used_at__isnull=True)
+        | Q(last_used_at__lt=cutoff)
+        | Q(last_used_scope__isnull=True)
+        | ~Q(last_used_scope=scope)
+    )
+    qs = PersonalAccessToken.objects.filter(pk=pat.pk)
+    updated = qs.filter(stale).update(last_used_at=now, last_used_scope=scope)
+    if updated:
+        pat.last_used_at = now
+        pat.last_used_scope = scope
+        return
+    # Zero rows: either another request just stamped it (fine) or the token was
+    # revoked since resolution (must be rejected). Only a stale-looking row
+    # reaches here, so this extra read is off the steady-state path.
+    if not qs.exists():
         raise InvalidPersonalAccessToken("Invalid or revoked token.")
 
 

@@ -44,7 +44,7 @@ Tokens are prefixed with `vbn_` so they're easy to spot in logs and configuratio
 
 Since the full value is shown only once, the Access Tokens list identifies each token by its **prefix** (the first 8 characters, for example `vbn_a3f1...`). Together with the token's name and its **last used** timestamp, that usually tells tokens apart.
 
-**Last used** shows when the token last authenticated a request; tokens never used show "Never".
+**Last used** shows when the token last authenticated a request; tokens never used show "Never". To avoid a database write on every request, the timestamp is refreshed at most about once a minute, so it is accurate to roughly 60 seconds.
 
 ---
 
