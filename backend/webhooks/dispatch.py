@@ -96,7 +96,7 @@ def user_agent() -> str:
 def build_request(subscription_id: int, board_id: int, row: dict, secret: str, *, now=None):
     """Return ``(body, headers)`` for one delivery of the feed *row*.
 
-    *row* is one serialized feed row ``{id, event, data, actor_id, actor,
+    *row* is one serialized feed row ``{id, event, data, actor_id, actor, redacted_at,
     created_at}``. The body is exactly that row as JSON; the signature covers
     ``f"{timestamp}.{body}"``.
     """
@@ -162,6 +162,7 @@ def send_test(subscription: WebhookSubscription):
         "actor_id": None,
         "actor": None,
         "created_at": now.isoformat().replace("+00:00", "Z"),
+        "redacted_at": None,
     }
     body, headers = build_request(subscription.pk, subscription.board_id, row, secret, now=now)
     started = time.monotonic()

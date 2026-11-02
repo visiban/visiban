@@ -94,7 +94,7 @@ class DeliveryTests(DispatcherBase):
         rec, _ = self.run_with()
         call = rec.calls[0]
         self.assertEqual(call["url"], HOOK_URL)
-        self.assertEqual(set(call["row"]), {"id", "event", "data", "actor_id", "actor", "created_at"})
+        self.assertEqual(set(call["row"]), {"id", "event", "data", "actor_id", "actor", "created_at", "redacted_at"})
         self.assertEqual(call["row"]["actor"]["id"], self.admin.pk)
         h = call["headers"]
         self.assertEqual(h["Content-Type"], "application/json")

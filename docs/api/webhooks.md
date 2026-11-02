@@ -161,7 +161,7 @@ The request itself answers `200` whatever happened at the receiver. `code` is `n
 Sends the event below, synchronously, with the same headers and signature as a real delivery. It does not move the cursor or count as a failure. A disabled webhook can be tested.
 
 ```json
-{"id": 0, "event": "webhook.test", "data": {"subscription_id": 12, "board_id": 3}, "actor_id": null, "actor": null, "created_at": "2026-11-01T09:20:00.000000Z"}
+{"id": 0, "event": "webhook.test", "data": {"subscription_id": 12, "board_id": 3}, "actor_id": null, "actor": null, "created_at": "2026-11-01T09:20:00.000000Z", "redacted_at": null}
 ```
 
 ### Validation errors
@@ -191,7 +191,7 @@ X-Visiban-Subscription-Id: 12
 X-Visiban-Timestamp: 1793524471
 X-Visiban-Signature: v1=5e0c…
 
-{"id":4182,"event":"card.moved","data":{...},"actor_id":7,"actor":{...},"created_at":"2026-11-01T09:14:03.118000Z"}
+{"id":4182,"event":"card.moved","data":{...},"actor_id":7,"actor":{...},"created_at":"2026-11-01T09:14:03.118000Z","redacted_at":null}
 ```
 
 The body is one row of the [change feed](events.md), exactly as `GET /boards/{id}/events/` returns it to a **viewer** with no per-user rows: member-private events, admin-only events and viewer-hidden fields are never included, whoever owns the webhook. See [Fields that depend on who is reading](events.md#fields-that-depend-on-who-is-reading).
