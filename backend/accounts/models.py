@@ -932,8 +932,8 @@ class AdminActionLog(models.Model):
     ---------
     There is deliberately no pruner. ``BoardEvent`` has one because it records
     every board mutation; this table records deliberate admin actions (instance
-    settings, administrator-set account passwords and operator card-history
-    purges, ``card_history.purged``) and grows slowly, so a retention job would be machinery with
+    settings, administrator-set account passwords, operator card-history
+    purges, ``card_history.purged``, and access-flag changes) and grows slowly, so a retention job would be machinery with
     nothing to do. Retention *policy* tooling is an enterprise concern per the
     open-core boundary — if volume ever justifies pruning (e.g. once #785 adds
     impersonation events), that is the point to revisit, not before.
@@ -995,6 +995,12 @@ class AdminActionLog(models.Model):
         # selector and the deleted count; the purged titles and notes are never
         # recorded, since erasing them is the point.
         CARD_HISTORY_PURGED = "card_history.purged", "Card movement history purged"
+        # The two instance-wide access flags changed on an account (#1830), by
+        # record_access_flag_changes. The metadata names the target account.
+        USER_SITE_ADMIN_GRANTED = "user.site_admin_granted", "Site admin granted"
+        USER_SITE_ADMIN_REVOKED = "user.site_admin_revoked", "Site admin revoked"
+        USER_ALL_CONTENT_GRANTED = "user.all_content_granted", "All-content access granted"
+        USER_ALL_CONTENT_REVOKED = "user.all_content_revoked", "All-content access revoked"
 
     class Source(models.TextChoices):
         """Which operator path performed the action."""
@@ -1080,6 +1086,44 @@ class AdminActionLog(models.Model):
             source=source,
             metadata=metadata or {},
         )
+
+
+def record_access_flag_changes(*, prior, target, actor=None, source) -> list:
+    """Append a row for each instance-wide access flag that changed on *target* (#1830).
+
+    ``prior`` holds the stored ``is_site_admin`` and ``can_access_all_content``
+    values read before the change (``admin_views.access_state``, under the row
+    lock); *target* holds the saved values. The two are diffed rather than taken
+    from the submitted fields so that a resubmitted value writes nothing, and so
+    that a flag derived from superuser status (``accounts/signals.py``) is
+    recorded once, by the route that changed the status and knows who did it. The
+    signal itself has no actor and deliberately records nothing.
+
+    Callers invoke this in the transaction that saves the change, so a
+    rolled-back change leaves no row claiming it happened. Only the target's id
+    and username are stored.
+    """
+    Action = AdminActionLog.Action
+    rows = []
+    for flag, granted, revoked in (
+        ("is_site_admin", Action.USER_SITE_ADMIN_GRANTED, Action.USER_SITE_ADMIN_REVOKED),
+        (
+            "can_access_all_content",
+            Action.USER_ALL_CONTENT_GRANTED,
+            Action.USER_ALL_CONTENT_REVOKED,
+        ),
+    ):
+        now = getattr(target, flag)
+        if prior[flag] != now:
+            rows.append(
+                AdminActionLog.record(
+                    action=granted if now else revoked,
+                    source=source,
+                    actor=actor,
+                    metadata={"target_id": target.pk, "target_username": target.username},
+                )
+            )
+    return rows
 
 
 def record_site_setting_changes(*, before: dict, after, actor, source) -> list:

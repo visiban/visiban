@@ -143,7 +143,8 @@ Grants or revokes site admin status.
 Controls the `can_access_all_content` flag independently of admin status (for accounts that are not superusers). When enabled, the user can read and write every board and group on the instance regardless of membership.
 
 - **Grant all-content** gives a user omniscient access without making them a site admin. This is useful for support engineers who need visibility into all boards but should not manage instance settings.
-- **Grant all-content** on a superuser account is available to, and shown to, superusers only.
+- *(1.3+)* **Grant all-content** is available to, and shown to, superusers only, on every account (#1830). A site admin who is not a superuser can still **Revoke all-content** from an account that is not a superuser. See [Site Admins](site-admins.md#granting-and-revoking-content-access-separately).
+- *(1.3+)* Each grant and revoke, and each **Make admin** and **Demote admin**, is recorded with who did it in the [admin action log](../api/admin.md#action-log).
 - **Revoke all-content** removes that access. The user will only see boards and groups they are explicitly a member of. It is not shown for a superuser account, because superuser status implies all-content access (the API refuses it); remove superuser status in the Django admin first.
 
 **The big picture:** `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) are independent for accounts that are not superusers. A superuser always has both. See [Site Admins](site-admins.md) for a detailed explanation of the two-flag model and examples of common configurations.

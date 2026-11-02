@@ -52,6 +52,7 @@ from .models import (
     SiteEmailSetting,
     SiteSetting,
     get_registration_mode,
+    record_access_flag_changes,
     record_email_settings_changes,
     record_email_test,
     record_site_setting_changes,
@@ -638,6 +639,9 @@ SUPERUSER_SITE_ADMIN_MESSAGE = (
 SUPERUSER_ALL_CONTENT_MESSAGE = (
     "Cannot remove all-content access from a superuser; remove superuser status first."
 )
+
+
+ALL_CONTENT_GRANT_MESSAGE = "Only a superuser can grant all-content access."
 
 
 class AdminPatchUserSerializer(drf_serializers.Serializer):
@@ -1304,8 +1308,43 @@ class AdminUserDetailView(APIView):
                     refusal = superuser_target_refusal(locked, request.user)
                     if refusal is not None:
                         return Response(refusal.body, status=refusal.status)
+                # All-content access reads and writes every board and group,
+                # which is far more than the admin panel gives. A site admin
+                # who could set it would hold that access at will, on their own
+                # account or on any account they create, so only a superuser
+                # grants it (#1830). A site admin can still revoke it. Judged
+                # on the locked row, so a value that is already set stays the
+                # no-op every other unchanged field is here, and on a fresh
+                # read of the actor: request.user may have lost superuser
+                # status or been deactivated since it was loaded.
+                if (
+                    validated.get("can_access_all_content") is True
+                    and not locked.can_access_all_content
+                    and not User.objects.filter(
+                        pk=request.user.pk, is_superuser=True, is_active=True
+                    ).exists()
+                ):
+                    return Response(
+                        {
+                            "can_access_all_content": [ALL_CONTENT_GRANT_MESSAGE],
+                            "detail": ALL_CONTENT_GRANT_MESSAGE,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 prior = access_state(locked)
+                # A flag this request does not change takes its value from the
+                # locked row: target was read before the lock, and a stale value
+                # here would read as a change that nobody made.
+                for flag in ("is_site_admin", "can_access_all_content"):
+                    if flag not in validated:
+                        setattr(target, flag, getattr(locked, flag))
                 target.save(update_fields=update_fields)
+                record_access_flag_changes(
+                    prior=prior,
+                    target=target,
+                    actor=request.user,
+                    source=AdminActionLog.Source.ADMIN_API,
+                )
                 # Deactivating through PATCH must revoke the user's invite links
                 # exactly like the dedicated deactivate endpoint (#1510): they
                 # were refused at preview/join already, but stayed

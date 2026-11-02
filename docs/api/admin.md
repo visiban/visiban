@@ -138,6 +138,10 @@ and an audit log an admin can edit is not evidence of anything.
 | `user.password_set` | `{"target_id": 42, "target_username": "jordan"}` (password set on an existing account, or a user added with a password, in the Django admin; also written with `source` `cli` and no actor by `createsuperuser`, `ensure_site_admin`, `provision_fuzz_token --set-random-password` and `changepassword`; written with `source` `admin_api` and the acting admin when an account is created through `POST /api/v1/admin/users/`) |
 | `user.password_disabled` | `{"target_id": 42, "target_username": "jordan"}` |
 | `card_history.purged` | `{"selector": {"card_uid": "3f9a0c1d2e4b5a69", "board_id": 42, "board_uid": "a1b2c3d4e5f60718", "since": null, "before": "2026-01-01T00:00:00+00:00", "include_live_cards": false}, "deleted_count": 12, "deleted_block_count": 2, "redacted_event_count": 30}` (written with `source` `cli` by the `purge_card_history` command; `deleted_count` counts movement records, `deleted_block_count`, added in 1.3 (#1149), block records, and `redacted_event_count`, added in 1.3 (#1816), the change-feed events redacted; the two newer keys are absent from entries written by 1.2; with the superuser named by its `--actor` option as the actor, unlike the commands above; selector keys not given are `null`; purged titles and notes are never recorded) |
+| `user.site_admin_granted` | `{"target_id": 42, "target_username": "jordan"}` *(1.3+)* |
+| `user.site_admin_revoked` | `{"target_id": 42, "target_username": "jordan"}` *(1.3+)* |
+| `user.all_content_granted` | `{"target_id": 42, "target_username": "jordan"}` *(1.3+)* |
+| `user.all_content_revoked` | `{"target_id": 42, "target_username": "jordan"}` *(1.3+)* |
 
 New action types may be added in any minor release; treat an unrecognized `action` as an
 opaque string rather than failing on it.
@@ -168,12 +172,27 @@ opaque string rather than failing on it.
     writes no entries: it runs only with `DEMO_MODE=true`, and the demo's hourly reset empties
     the log.
 
+!!! note "Site admin and all-content access changes *(1.3+)*"
+    The four `user.site_admin_*` and `user.all_content_*` actions record each actual change of
+    `is_site_admin` or `can_access_all_content`, in the same transaction as the change. `metadata`
+    names the account concerned. A request that sets a flag to the value it already holds writes
+    no entry. Entries by route:
+
+    | Route | `source` | Actor |
+    |---|---|---|
+    | [`PATCH /api/v1/admin/users/{id}/`](#patch-apiv1adminusersid) | `admin_api` | The acting admin |
+    | Changing **Superuser status** in the [Django admin](../administration/django-admin.md), which sets or clears both flags | `django_admin` | The acting superuser |
+    | `set_site_admin`, `ensure_site_admin`, `createsuperuser` | `cli` | None (`actor_id` is null) |
+
+    The demo seed (`seed_demo_data --demo-site`) writes no entries, for the reason given for
+    passwords above. Changes made before 1.3 were not recorded, and no entries are backfilled.
+    Superuser status has no entry of its own: turning it on for an account that already holds
+    both flags writes nothing.
+
 !!! warning "What this log does *not* record yet"
-    The instance-wide settings, the password events and the card-history purges listed above
-    are covered. Granting or
-    revoking site admin, changing `can_access_all_content`, deactivating a user, and creating or
-    revoking invite links are **not** recorded — so this is not yet a complete record of
-    privileged activity.
+    The instance-wide settings, the password events, the card-history purges and the access-flag
+    changes listed above are covered. Deactivating a user, and creating or revoking invite links,
+    are **not** recorded — so this is not yet a complete record of privileged activity.
     Do not read an absence of entries as evidence that no admin action took place.
 
 !!! warning "The acting admin's username is retained indefinitely"
@@ -185,9 +204,10 @@ opaque string rather than failing on it.
 !!! note "Direct database writes are not captured"
     Rows are written by the admin API, the `maintenance_mode` management command, the
     password management commands (`ensure_site_admin`, `createsuperuser`, `changepassword`,
-    `provision_fuzz_token`), the `purge_card_history` management command, and the Django admin. A change made straight through the ORM (`manage.py shell`) has no actor to
+    `provision_fuzz_token`), the `set_site_admin` and `purge_card_history` management commands, and the Django admin. A change made straight through the ORM (`manage.py shell`) has no actor to
     record and leaves no row, so an empty log means "no audited path made this change" — not
-    "nothing happened".
+    "nothing happened". That includes a superuser regaining a flag someone cleared in the database:
+    the next save of the account restores it (for example at sign-in), and unless that save came through a route above it writes no entry.
 
 ---
 
@@ -453,8 +473,8 @@ Update a user's account flags. Site admin only.
 | Field | Type | Notes |
 |---|---|---|
 | `is_active` | boolean | `false` deactivates the account (blocks login without deleting data). Cannot deactivate your own account. Only a superuser can change `is_active` on a superuser account. |
-| `is_site_admin` | boolean | Grant or revoke admin panel access. Cannot demote yourself. Cannot demote the last active admin. |
-| `can_access_all_content` | boolean | Grant or revoke omniscient read/write access to all boards and groups. Only a superuser can change this on a superuser account. Independent of `is_site_admin` for non-superusers — see [Site Admins](../administration/site-admins.md). Setting `false` on a superuser returns `400` with `can_access_all_content` and `detail` set to `Cannot remove all-content access from a superuser; remove superuser status first.` Superuser status implies this flag. |
+| `is_site_admin` | boolean | Grant or revoke admin panel access. Cannot demote yourself. Cannot demote the last active admin. *(1.3+)* An actual change is recorded in the [admin action log](#action-log). |
+| `can_access_all_content` | boolean | Grant or revoke omniscient read/write access to all boards and groups. *(1.3+)* Only a superuser can grant it, on any account including their own; any site admin can revoke it from an account that is not a superuser. A grant by anyone else returns `400`. Setting `true` on an account that already has it changes nothing and is not refused. An actual change is recorded in the [admin action log](#action-log). Only a superuser can change this on a superuser account. Independent of `is_site_admin` for non-superusers — see [Site Admins](../administration/site-admins.md). Setting `false` on a superuser returns `400` with `can_access_all_content` and `detail` set to `Cannot remove all-content access from a superuser; remove superuser status first.` Superuser status implies this flag. |
 | `has_completed_tour` | boolean | Reset (`false`) to re-show the onboarding tour to this user on next login |
 | `must_change_password` | boolean | `true` forces a password reset on next login. Only a superuser can change this on a superuser account (`400` otherwise). |
 
@@ -476,6 +496,7 @@ Clearing `is_site_admin` revokes the user's unused site invite links. Site invit
 | Status | Body | When |
 |---|---|---|
 | `400 Bad Request` | `{"detail": "..."}` | Invalid field value, or attempting to demote yourself / the last active site admin, or to set `is_site_admin: false` on a superuser (remove superuser status first; the body carries both `detail` and an `is_site_admin` field error). |
+| `400 Bad Request` | `{"can_access_all_content": ["Only a superuser can grant all-content access."], "detail": "Only a superuser can grant all-content access."}` | *(1.3+)* Caller is not an active superuser and set `can_access_all_content: true` on an account that does not have it. Nothing in the request is applied. |
 | `403 Forbidden` | `{"detail": "..."}` | Caller is not a site admin. |
 | `409 Conflict` | `{"code": "owned_boards", "detail": "...", "owned_boards": [{"id", "uid", "name"}, ...]}` | Caller attempted to set `is_active: false` on a user who owns one or more boards. Use [`POST /api/v1/admin/users/{id}/deactivate/`](#post-apiv1adminusersiddeactivate) instead and supply a `transfers` list. The `owned_boards` array identifies which boards block the deactivation. |
 

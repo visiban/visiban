@@ -39,7 +39,7 @@ Entry points use file and function names, not line numbers, so the table survive
 **What it doesn't enumerate.**
 
 - Rule 3: the revocation table is a review checklist.
-- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14 and Rule 15: review checklists, pinned by the tests named under each.
+- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15 and Rule 16: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
 
@@ -741,6 +741,41 @@ every-record check, DNS rebinding, redirects not followed, a real TLS handshake
 proving the pin and hostname verification, and `NoOtherOutboundCallTests`,
 which fails on any other network call in the `webhooks` app),
 `webhooks/tests/test_api.py` (`url_not_allowed` is one code with one message).
+
+## Rule 16: Only a superuser grants all-content access, and access-flag changes are recorded
+
+**Rule.** `can_access_all_content` is granted only by an active superuser, judged
+on a fresh read of the actor when the target row is locked. A site admin who isn't
+a superuser can revoke it from an account that isn't a superuser. Every actual
+change of `can_access_all_content` or `is_site_admin` writes an `AdminActionLog`
+row in the transaction that makes the change, through
+`accounts/models.py` `record_access_flag_changes`. A resubmitted value is neither
+a grant nor a log row.
+
+**Why.** The flag reads and writes every board and group, which is far more than
+`is_site_admin` gives. If a site admin could set it, the two flags would not be
+independent at all. Banning only a self-grant doesn't help, because a site admin
+can create another account and grant it there. A log alone doesn't help either,
+because it shows the access only after it was taken. The actor is read again
+because `request.user` was loaded when the request began, and it may have lost
+superuser status since. On the Admin API that read takes no lock on the actor's
+row: a demotion that commits between the read and the grant's commit orders after
+the grant, the same result as a grant made a moment earlier, and the log names the
+actor. Locking the actor after the target could deadlock against
+`VisibanUserAdmin.save_model`'s pk-ordered lock set.
+
+| Surface | Entry point | Enforced via |
+|---|---|---|
+| Admin API | `accounts/admin_views.py` `AdminUserDetailView.patch` | The refusal runs on the row from `lock_user_row` against a fresh actor read: `400` with `can_access_all_content` and `detail`. `record_access_flag_changes` with source `admin_api` and the acting admin. No other admin API route writes either flag: `AdminPatchUserSerializer` is the only serializer that carries them, and `AdminCreateUserSerializer` carries neither |
+| Django admin (user form) | `accounts/admin.py` `VisibanUserAdmin.save_model`, `get_readonly_fields` | The form carries neither flag. `is_superuser`, which implies both, is read-only for a non-superuser (`_SUPERUSER_ONLY_FIELDS`), and `save_model` refuses a promotion under the row lock when a fresh read of the actor isn't an active superuser. `record_access_flag_changes` with source `django_admin` and the acting superuser |
+| Superuser status change (model save) | `accounts/signals.py` `capture_prior_superuser_state`, `ensure_superuser_is_site_admin` | Keeps both flags in step with `is_superuser`. Writes no log row: it has no actor, and the route that changed the status records the flags, so each change is recorded once. A superuser's flag cleared by a raw database write and restored by the next save is recorded only if that save came through a route in this table |
+| Current-user API | `accounts/serializers.py` `CurrentUserSerializer` (`/auth/me/`, `/auth/user/`) | Both flags are in `read_only_fields`, so a user can't set them on their own account |
+| Management commands | `accounts/management/commands/set_site_admin.py`; `accounts/management/commands/ensure_site_admin.py`; `operator_commands/management/commands/createsuperuser.py` | Outside the rule's threat model: anyone who can run them has shell access, which is the real control. Each records `record_access_flag_changes` with source `cli` and no actor, in the transaction that makes the change |
+| Demo-site seed (action log exception) | `boards/management/commands/seed_demo_data.py` | Explicit exception, as for its password sets under Rule 3: `--demo-site` requires `DEMO_MODE=true`, and the hourly `--reset-database` empties the action log |
+| Admin panel | `frontend/src/pages/AdminPage.tsx` `buildOverflowItems` | **Grant all-content** is left out for an actor whose `is_superuser` is `false`. Convenience only: the Admin API row above is what enforces the rule |
+| MCP, OAuth signup and invite redemption | `mcp_server/tools.py`; `accounts/adapter.py` `SocialRegistrationAdapter`; `accounts/invite_utils.py` | Don't write either flag |
+
+Coverage: `accounts/tests/test_access_flag_grants_1830.py`.
 
 ## How to add a rule
 

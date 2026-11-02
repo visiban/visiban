@@ -25,6 +25,7 @@ from .models import (
     AdminActionLog,
     SiteSetting,
     User,
+    record_access_flag_changes,
     record_site_setting_changes,
     snapshot_site_setting,
 )
@@ -498,6 +499,19 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
                     )
                 ):
                     raise PermissionDenied
+            if (
+                stored is not None
+                and obj.is_superuser
+                and not stored.is_superuser
+                and not User.objects.filter(
+                    pk=request.user.pk, is_superuser=True, is_active=True
+                ).exists()
+            ):
+                # Superuser status brings all-content access with it, and only
+                # a superuser grants that (#1830). The field is read-only for
+                # anyone else, but that was chosen from the actor as loaded at
+                # request start.
+                raise PermissionDenied
             if stored is not None:
                 # The form's checks ran before this lock was taken; repeat them
                 # against the locked rows. They run after the values above are
@@ -512,7 +526,16 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
                     raise PermissionDenied
             super().save_model(request, obj, form, change)
             if stored is not None:
-                apply_access_loss_revocations(obj, request.user, access_state(stored))
+                prior = access_state(stored)
+                apply_access_loss_revocations(obj, request.user, prior)
+                # This form does not carry either flag; they move with superuser
+                # status (accounts/signals.py), which has updated obj by now.
+                record_access_flag_changes(
+                    prior=prior,
+                    target=obj,
+                    actor=request.user,
+                    source=AdminActionLog.Source.DJANGO_ADMIN,
+                )
 
     def get_actions(self, request):
         actions = super().get_actions(request)

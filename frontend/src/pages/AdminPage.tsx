@@ -1171,8 +1171,9 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   // not falsy: an actor whose status is unknown keeps the actions and gets the
   // server's answer, because hiding one the server permits is the worse mistake.
   // Make admin and Restart onboarding tour are not on the refused list and stay.
+  const actorIsKnownNonSuperuser = currentUser.is_superuser === false;
   const isSuperuserOnlyRow = (u: AdminUser) =>
-    u.is_superuser && currentUser.is_superuser === false;
+    u.is_superuser && actorIsKnownNonSuperuser;
 
   // Low-frequency support actions live in the row's OverflowMenu (#1291) —
   // only Deactivate/Reactivate and Make/Demote admin stay inline. Built per
@@ -1186,12 +1187,18 @@ function UsersTab({ currentUser }: { currentUser: User }) {
       // clear it on a superuser, so Revoke is omitted (not disabled) for those
       // rows: a context-gated action is left out of the DOM (frontend/CLAUDE.md
       // § "Permission-gated and context-gated"). A superuser can still Grant.
+      //
+      // Only a superuser grants all-content, on any row, while a site admin can
+      // still revoke it (#1830). The API refuses anyone else; this hides only on
+      // a known false, for the reason given above isSuperuserOnlyRow.
       if (!u.can_access_all_content) {
-        items.push({
-          id: "grant-all-content",
-          label: "Grant all-content",
-          onSelect: () => handleGrantContentAccess(u),
-        });
+        if (!actorIsKnownNonSuperuser) {
+          items.push({
+            id: "grant-all-content",
+            label: "Grant all-content",
+            onSelect: () => handleGrantContentAccess(u),
+          });
+        }
       } else if (!u.is_superuser) {
         items.push({
           id: "revoke-all-content",

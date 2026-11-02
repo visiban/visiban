@@ -368,6 +368,20 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! warning "Only a superuser can grant all-content access"
+    `can_access_all_content` reads and writes every board and group, and until 1.3 any site admin could set it, including on their own account. Since 1.3 only a superuser can grant it (#1830). **Grant all-content** is hidden from other site admins, and `PATCH /api/v1/admin/users/{id}/` with `can_access_all_content: true` returns `400` for them. Setting `true` on an account that already has the flag still succeeds and changes nothing. Scripts that grant the flag need a superuser's token. Revoking is unchanged: any site admin can still revoke the flag from an account that is not a superuser.
+
+    Every grant and revoke of `can_access_all_content` and `is_site_admin` is now recorded in the [admin action log](../api/admin.md#action-log) with the actor. Deactivations and invite links are still not recorded. There's no migration, and nothing is backfilled.
+
+    **Accounts that hold the flag keep it.** Earlier grants, including any a site admin gave themselves, left no record. To review them, look for the **All content** tag in **Site Admin → Users**, and use **Revoke all-content** on any account that shouldn't have it.
+
+    **If none of your admins is a superuser**, the admin panel can no longer grant the flag on your instance. The first-boot `ensure_site_admin` account is a superuser, but one made with **Make admin** or `set_site_admin` isn't. To restore the grant, run one of these wherever you run `manage.py`:
+
+    - `python manage.py createsuperuser` creates a superuser, who can then grant the flag from the admin panel.
+    - `python manage.py set_site_admin <username>` sets both `is_site_admin` and `can_access_all_content` on that account.
+
+    `ensure_site_admin` doesn't restore it: it does nothing once any site admin exists. See [Site Admins](site-admins.md#granting-and-revoking-content-access-separately).
+
 !!! note "Referrer-Policy is now `same-origin`"
     The bundled nginx templates, the Helm chart's frontend nginx, the frontend image's default nginx config and Django now all send `Referrer-Policy: same-origin` (#1531). Django previously sent `strict-origin-when-cross-origin`. Share and invite tokens travel in URLs, so no `Referer` header may reach another origin. As a result, outbound links from Visiban pages no longer send a `Referer` to other sites. Requests within your own origin still carry the full `Referer`, which Django's CSRF check relies on over HTTPS. nginx only adds `same-origin` when the response has no `Referrer-Policy` of its own, so a stricter view-level policy (the password-reset link redirect's `no-referrer`) is preserved. The one exception is attachment downloads on the bundled Compose nginx: the view hands the file to nginx with `X-Accel-Redirect`, and nginx drops Django's headers there, so those responses carry no `Referrer-Policy`, as before. Only JPEG, PNG, GIF and WebP render inline; every other type is a forced download.
 

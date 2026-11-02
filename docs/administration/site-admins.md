@@ -13,7 +13,7 @@ Two flags control what a "site admin" can do on your instance: who can manage it
 | Flag | What it controls |
 |---|---|
 | `is_site_admin` | Access to the `/admin` admin panel and admin API (`/api/v1/admin/*`). Required to manage users, settings, and instance configuration. |
-| `can_access_all_content` | Read/write access to **every board and group** on the instance, regardless of membership. This is the "omniscient" content access. |
+| `can_access_all_content` | Read/write access to **every board and group** on the instance, regardless of membership. This is the "omniscient" content access. *(1.3+)* Only a superuser can grant it from the admin panel or API. |
 
 **Yes, but:** before Visiban 1.0.0 these two were coupled, and `is_site_admin` implied content access. They are now independent for accounts that are not superusers (see the note below), so operators can grant admin panel access without also granting board/group omniscience, and vice versa.
 
@@ -30,10 +30,23 @@ To let a user manage the admin panel **without** seeing all boards and groups, g
 # Grant admin panel access only — board/group access unchanged
 python manage.py set_site_admin <username>
 # Then immediately revoke content access if the user should not have it:
-# (use the admin panel toggle, or Django admin to uncheck can_access_all_content)
+# (Site Admin → Users → Revoke all-content in the admin panel)
 ```
 
-To let a user (e.g. a support engineer) see all boards **without** admin panel access, enable `can_access_all_content` in the admin panel (**Site Admin → Users → Grant all-content**) and leave `is_site_admin` off.
+Or use **Make admin** in the admin panel, which sets `is_site_admin` alone.
+
+To let a user (e.g. a support engineer) see all boards **without** admin panel access, a superuser enables `can_access_all_content` in the admin panel (**Site Admin → Users → Grant all-content**) and leaves `is_site_admin` off.
+
+> **Changed in 1.3** (#1830)
+
+**Who can grant all-content access.** Only a superuser, because the flag reads and writes every board and group. A site admin who is not a superuser doesn't see **Grant all-content**, and the API refuses the grant with `400`, on their own account and on any other. They can still revoke the flag from an account that is not a superuser. Every grant and revoke of either flag is recorded with the actor in the [admin action log](../api/admin.md#action-log).
+
+**If your instance has no superuser.** Anyone who can run `manage.py` still has a route:
+
+- `python manage.py createsuperuser` creates a superuser, who can then grant the flag from the admin panel.
+- `python manage.py set_site_admin <username>` sets both flags on that account directly. A site admin can then **Demote admin** to leave all-content access on its own.
+
+`ensure_site_admin` won't help here: it does nothing once any site admin exists.
 
 The `set_site_admin` management command always sets **both** flags together for convenience:
 
@@ -45,7 +58,7 @@ python manage.py set_site_admin <username>
 python manage.py set_site_admin <username> --revoke
 ```
 
-To manage the flags independently for accounts that are not superusers, use **Site Admin → Users** in the admin panel.
+To manage the flags independently for accounts that are not superusers, use **Site Admin → Users** in the admin panel. Granting all-content access there takes a superuser.
 
 !!! note
     Superuser status implies both flags. The admin API refuses to clear either flag on an account that is still a superuser, and a save that would leave `can_access_all_content` off on a superuser sets both flags again. Remove superuser status first (which also clears both flags). **Site Admin → Users** therefore does not show **Demote admin** or **Revoke all-content** on a superuser's row.
@@ -72,7 +85,7 @@ docker compose run --rm backend python manage.py set_site_admin <username>
 
 **Django admin panel (advanced)**
 
-Go to `/admin/accounts/user/` (the Django admin — see [Django Admin](django-admin.md) for why this differs from the `/admin` site-admin panel above), open the user, and enable the `Is site admin` checkbox.
+The user form at `/admin/accounts/user/` (the Django admin — see [Django Admin](django-admin.md) for why this differs from the `/admin` site-admin panel above) has no site admin checkbox. A superuser can turn on **Superuser status** there, which also gives the account site admin and all-content access.
 
 ## Revoking site admin
 
