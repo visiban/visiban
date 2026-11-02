@@ -460,7 +460,7 @@ describe('EditSwimlaneModal — limits (#1150)', () => {
     id, uid: `k${id}`, column, swimlane: 1, title: 't', description: '', priority: 'medium', assignee: null,
     labels: [], due_date: null, weight, position: 0, created_by: { id: 1, username: 'u', display_name: '', avatar_url: '' },
     created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
-    is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
+    is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
   })
   const laneCards = [card(1, 10, 2), card(2, 11, 3), card(3, 12, 5)]
 
