@@ -109,7 +109,7 @@ Board
  ├── show_row_chip_field_names (bool, default true — label pinned swimlane row chips with their field name)
  ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
  ├── BoardFavorite → User  (unique per user+board)
- ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done)
+ ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done, policy)
  ├── Swimlane  (uid, position, color, is_collapsed)
  ├── Label  (uid, name, color)
  ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required — max 30/board)

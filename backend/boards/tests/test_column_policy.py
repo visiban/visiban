@@ -12,7 +12,9 @@ import io
 import json
 from unittest.mock import patch
 
+from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
+from django.test import RequestFactory
 from django.test import SimpleTestCase, TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -25,6 +27,7 @@ from boards.column_policy import (
     normalize_policy,
     policy_or_none,
 )
+from boards.admin import ColumnAdmin
 from boards.models import Board, BoardMembership, BoardTemplate, Card, Column, Swimlane
 from boards.utils import create_template_columns
 
@@ -66,6 +69,10 @@ class NormalizePolicyTests(SimpleTestCase):
             "too long": {"v": 1, "done": [too_long]},
             "blank": {"v": 1, "done": ["   "]},
             "non-string item": {"v": 1, "done": [3]},
+            # PostgreSQL jsonb refuses \u0000: must be a 400, never a 500.
+            "NUL": {"v": 1, "entry": ["a\x00b"]},
+            "newline": {"v": 1, "entry": ["a\nb"]},
+            "DEL": {"v": 1, "done": ["a\x7fb"]},
         }
         for label, value in cases.items():
             with self.subTest(label):
@@ -83,6 +90,7 @@ class NormalizePolicyTests(SimpleTestCase):
 
     def test_policy_or_none_swallows_errors(self):
         self.assertIsNone(policy_or_none({"v": 9}))
+        self.assertIsNone(policy_or_none({"v": 1, "entry": ["a\x00"]}))
         self.assertEqual(policy_or_none(POLICY), POLICY)
 
 
@@ -159,6 +167,75 @@ class ColumnPolicyApiTests(_BoardMixin, TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.review.refresh_from_db()
         self.assertIsNone(self.review.policy)
+
+    def test_nul_in_a_criterion_is_a_400(self):
+        r = self.client.patch(
+            self.col_url(self.review), {"policy": {"v": 1, "entry": ["a\u0000b"]}}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("policy", r.data)
+
+    def test_no_role_below_admin_can_write_policy(self):
+        for role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER):
+            with self.subTest(role=role):
+                user = User.objects.create_user(username=f"policy-role-{role}", password="pass")
+                BoardMembership.objects.create(board=self.board, user=user, role=role)
+                self.client.force_authenticate(user)
+                patch_r = self.client.patch(self.col_url(self.review), {"policy": POLICY}, format="json")
+                put_r = self.client.put(
+                    self.col_url(self.review), {"name": "Review", "policy": POLICY}, format="json",
+                )
+                post_r = self.client.post(
+                    f"/api/v1/boards/{self.board.pk}/columns/",
+                    {"name": f"New {role}", "policy": POLICY}, format="json",
+                )
+                self.assertEqual(
+                    (patch_r.status_code, put_r.status_code, post_r.status_code),
+                    (status.HTTP_403_FORBIDDEN,) * 3,
+                )
+                self.assertFalse(Column.objects.filter(name=f"New {role}").exists())
+        self.review.refresh_from_db()
+        self.assertIsNone(self.review.policy)
+
+    def test_non_member_gets_404(self):
+        stranger = User.objects.create_user(username="policy-stranger", password="pass")
+        self.client.force_authenticate(stranger)
+        r = self.client.patch(self.col_url(self.review), {"policy": POLICY}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_site_admin_with_all_content_access_can_write_policy(self):
+        site_admin = User.objects.create_user(username="policy-site-admin", password="pass")
+        site_admin.is_site_admin = True
+        site_admin.can_access_all_content = True
+        site_admin.save()
+        self.client.force_authenticate(site_admin)
+        r = self.client.patch(self.col_url(self.review), {"policy": POLICY}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.review.refresh_from_db()
+        self.assertEqual(self.review.policy, POLICY)
+
+    def test_create_broadcast_carries_policy(self):
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self.client.post(
+                    f"/api/v1/boards/{self.board.pk}/columns/", {"name": "QA", "policy": POLICY}, format="json",
+                )
+            self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+        _board_id, event, payload = mock_broadcast.call_args[0][:3]
+        self.assertEqual(event, "column.created")
+        self.assertEqual(payload["policy"], POLICY)
+
+    def test_public_share_link_shows_policy(self):
+        # Deliberate (#1101): process text with the column names' audience;
+        # docs/features/column-policies.md tells admins a share link shows it.
+        self.review.policy = POLICY
+        self.review.save(update_fields=["policy"])
+        token = self.client.post(f"/api/v1/boards/{self.board.pk}/share/").data["share_token"]
+        anon = APIClient()
+        r = anon.get(f"/api/share/{token}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        by_name = {c["name"]: c for c in r.data["columns"]}
+        self.assertEqual(by_name["Review"]["policy"], POLICY)
 
     def test_every_member_reads_policy_on_the_board(self):
         self.review.policy = POLICY
@@ -250,6 +327,11 @@ class ColumnPolicyImportExportTests(_BoardMixin, TestCase):
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
         self.assertIsNone(Column.objects.get(board_id=r.data["id"], name="Only").policy)
 
+    def test_import_rejects_nul_in_a_criterion(self):
+        r = self._import(self._data({"v": 1, "entry": ["a\u0000b"]}))
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("control characters", r.data["detail"])
+
     def test_import_rejects_invalid_policy_before_writing(self):
         boards_before = Board.objects.count()
         r = self._import(self._data({"v": 1, "entry": ["a"], "mode": "block"}))
@@ -293,3 +375,15 @@ class ColumnPolicyModelCleanTests(_BoardMixin, TestCase):
         self.review.policy = {"v": 1, "done": [" Shipped "]}
         self.review.clean()
         self.assertEqual(self.review.policy, {"v": 1, "entry": [], "done": ["Shipped"], "mode": "advisory"})
+
+    def test_admin_save_broadcasts_policy(self):
+        admin_user = User.objects.create_superuser(username="policy-staff", password="p", email="s@x")
+        request = RequestFactory().post("/admin/")
+        request.user = admin_user
+        self.review.policy = POLICY
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                ColumnAdmin(Column, AdminSite()).save_model(request, self.review, None, change=True)
+        _board_id, event, payload = mock_broadcast.call_args[0][:3]
+        self.assertEqual(event, "column.updated")
+        self.assertEqual(payload["policy"], POLICY)

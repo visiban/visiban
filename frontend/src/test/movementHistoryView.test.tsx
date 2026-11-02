@@ -21,8 +21,8 @@ const fakeBoard = {
   uid: 'board1',
   name: 'Test Board',
   columns: [
-    { id: 10, uid: 'c1', name: 'Todo', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-    { id: 11, uid: 'c2', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: true },
+    { id: 10, uid: 'c1', name: 'Todo', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+    { id: 11, uid: 'c2', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: false, is_done: true, policy: null },
   ],
   swimlanes: [
     { id: 20, uid: 's1', name: 'Acme', position: 0, color: '#6366F1', is_collapsed: false, created_at: '' },

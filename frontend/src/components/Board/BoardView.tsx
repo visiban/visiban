@@ -1681,9 +1681,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Focus returns to the moved card after the checklist closes either way
   // (#1101). After the modal's own focus restore, which only acts when focus
   // would otherwise be lost.
-  const focusCardSoon = (cardId: number) => {
+  // A confirmed move re-renders the card in its new cell, so the element may
+  // not exist on the first frame: retry for a few frames before giving up.
+  const focusCardSoon = (cardId: number, framesLeft = 10) => {
     requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`)?.focus();
+      const el = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
+      if (el) el.focus();
+      else if (framesLeft > 0) focusCardSoon(cardId, framesLeft - 1);
     });
   };
 
@@ -1833,6 +1837,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
     commitCardMove(card, targetColumnId, targetSwimlaneId, siblings.length);
   };
+
+  // A held drop goes stale when, over the socket, its card or target column
+  // disappears or the column stops asking for confirmation (#1101). Cancel it
+  // rather than leave a checklist for a move that no longer applies.
+  useEffect(() => {
+    if (!pendingPolicyMove) return;
+    const card = board.cards.find((c) => c.id === pendingPolicyMove.cardId);
+    const target = board.columns.find((c) => c.id === pendingPolicyMove.columnId);
+    if (card && target && needsEntryConfirm(card, target)) return;
+    setPendingPolicyMove(null);
+    setDndAnnouncement("Move canceled, the column or its policy changed");
+    focusCardSoon(pendingPolicyMove.cardId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focusCardSoon is a plain helper with no state; re-run only when the inputs to the check change
+  }, [pendingPolicyMove, board.cards, board.columns]);
 
   const activeCount = countActiveFilters(effectiveFilters);
 
@@ -2875,12 +2893,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         const card = board.cards.find((c) => c.id === cardId);
         const target = board.columns.find((c) => c.id === columnId);
         const source = card ? board.columns.find((c) => c.id === card.column) : undefined;
-        // The card or column went away (another user, over the socket) while
-        // the checklist was open: nothing left to confirm.
+        // The card or a column went away over the socket: the effect above
+        // cancels the held move on this same commit.
         if (!card || !target || !source) return null;
         return (
           <PolicyConfirmModal
-            key={`${cardId}:${columnId}`}
+            // The criteria text is in the key: an admin editing the policy
+            // over the socket while this is open remounts it with every box
+            // unchecked, so a new criterion can never be skipped.
+            key={`${cardId}:${columnId}:${entryCriteriaFor(card, target).join("\u0001")}`}
             cardTitle={card.title}
             targetColumnName={target.name}
             sourceColumnName={source.name}

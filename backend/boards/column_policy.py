@@ -21,11 +21,14 @@ import, board templates and the Django admin (``Column.clean``) -- so the rules
 cannot drift between them.
 """
 
+import re
+
 POLICY_VERSION = 1
 POLICY_MODES = ("advisory", "confirm")
 POLICY_MAX_CRITERIA = 8
 POLICY_CRITERION_MAX_LENGTH = 200
 POLICY_KEYS = frozenset({"v", "entry", "done", "mode"})
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class PolicyError(ValueError):
@@ -43,6 +46,12 @@ def _criteria(value, key):
     for i, item in enumerate(value):
         if not isinstance(item, str):
             raise PolicyError(f"'{key}' item {i} must be a string.")
+        # One-line criteria: no C0 control characters or DEL. NUL in
+        # particular is refused by PostgreSQL jsonb ("unsupported Unicode
+        # escape sequence"), which would surface as a 500 after validation
+        # passed (same class as #1184).
+        if _CONTROL_CHARS.search(item):
+            raise PolicyError(f"'{key}' item {i} must not contain control characters.")
         text = item.strip()
         if not text:
             raise PolicyError(f"'{key}' item {i} must not be blank.")

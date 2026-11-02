@@ -1402,6 +1402,35 @@ describe('BoardView', () => {
       expect(moveCard).not.toHaveBeenCalled()
     })
 
+    it('a policy edit that adds a criterion mid-checklist resets every box', async () => {
+      const user = userEvent.setup()
+      const moveCard = vi.fn()
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      const { rerender } = render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Tests pass' }))
+      const board = policyBoard('confirm')
+      board.columns[1] = { ...board.columns[1], policy: { v: 1, entry: ['Has an owner', 'Tests pass', 'Docs'], done: [], mode: 'confirm' } }
+      mockBoardContextValue = defaultContext({ board, moveCard })
+      rerender(<BoardView {...defaultProps()} />)
+      expect(screen.getByRole('checkbox', { name: 'Has an owner' })).not.toBeChecked()
+      expect(screen.getByRole('button', { name: 'Move to Review' })).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('a column switched to advisory mid-checklist cancels the held move', async () => {
+      const moveCard = vi.fn()
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      const { rerender } = render(<BoardView {...defaultProps()} />)
+      await drop(1, 'cell:11:20')
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      mockBoardContextValue = defaultContext({ board: policyBoard('advisory'), moveCard })
+      rerender(<BoardView {...defaultProps()} />)
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(screen.getByText('Move canceled, the column or its policy changed')).toBeInTheDocument()
+      expect(moveCard).not.toHaveBeenCalled()
+    })
+
     it('a limit block wins: no checklist opens and the move goes to the server', async () => {
       const moveCard = vi.fn().mockResolvedValue({ ok: false })
       const board = policyBoard('confirm', { enforce_wip_limits: true, cards: [card(1, 10, 20), card(2, 11, 20)] }, 1)

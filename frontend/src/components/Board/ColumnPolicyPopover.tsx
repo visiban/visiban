@@ -64,8 +64,21 @@ export default function ColumnPolicyPopover({ columnName, policy, anchorRect, on
       if (triggerRef.current?.contains(target)) return;
       onDismiss();
     };
+    // Non-modal and untrapped: it also closes when keyboard focus leaves the
+    // panel and its trigger (Tab past "Edit policy", Shift+Tab off the panel),
+    // so it never floats over the board without focus in it.
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (triggerRef.current?.contains(target)) return;
+      onDismiss();
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("focusin", onFocusIn);
+    };
   }, [onDismiss, triggerRef]);
 
   // Focus after placement, never on the hidden measuring pass (#1455).

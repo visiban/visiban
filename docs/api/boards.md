@@ -1569,7 +1569,7 @@ Column objects returned by all endpoints include the following fields:
 | `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited (binding on every API card write path except board import; see note) |
 | `allow_card_creation` | boolean | When `false`, new cards cannot be created directly in this column |
 | `is_done` | boolean | When `true`, marks this column as a "done" stage used for cycle-time and throughput metrics. Default: `false`. |
-| `policy` | object / null | Since 1.3. The column's written [policy](../features/column-policies.md): `{"v": 1, "entry": [...], "done": [...], "mode": "advisory"}` (or `"confirm"`), or `null` for none. Readable by every board member; only board admins can write it. See [Column policy](#column-policy-since-13). |
+| `policy` | object / null | Since 1.3. The column's written [policy](../features/column-policies.md): `{"v": 1, "entry": [...], "done": [...], "mode": "advisory"}` (or `"confirm"`), or `null` for none. Readable by every board member, and included in the anonymous share-link payload (`GET /api/share/{token}/`); only board admins can write it. See [Column policy](#column-policy-since-13). |
 
 > When `allow_card_creation` is `false`, posting a new card to that column returns `400 Bad Request` with `{"column": "Card creation is not allowed in this column."}`.
 >
@@ -1595,7 +1595,7 @@ Update a column. Requires board admin.
 | `done` | array of strings | Definition of done, same rules. Default `[]`. |
 | `mode` | string | `"advisory"` (default) or `"confirm"`. `"confirm"` asks the web app to show the mover a checklist of the entry criteria after a drag-and-drop move into the column. The server never checks it. |
 
-Any other key, a wrong `v`, or a value breaking these rules returns `400` with a `policy` error. Criteria are stored trimmed, and a policy whose two lists are both empty is stored as `null`. Send `"policy": null` to remove it. Leaving `policy` out of a `PUT` keeps the current value.
+A criterion containing a control character (including NUL or a line break) is refused too. Any other key, a wrong `v`, or a value breaking these rules returns `400` with a `policy` error. Criteria are stored trimmed, and a policy whose two lists are both empty is stored as `null`. Send `"policy": null` to remove it. Leaving `policy` out of a `PUT` keeps the current value.
 
 ```json
 { "policy": { "v": 1, "entry": ["Has an owner"], "done": ["Reviewed", "Docs updated"], "mode": "confirm" } }

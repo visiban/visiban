@@ -4202,6 +4202,10 @@ class PublicBoardSerializer(serializers.ModelSerializer):
     Includes only the data required to render the static read-only board grid.
     Excluded: members list, share_token, swimlane contact_email/notes,
     card comments, card movements, and any user PK/email fields.
+
+    Column ``policy`` (#1101) is included on purpose: it is process text with
+    the same audience as the column names, not customer data like a
+    swimlane's contact details, and the docs tell admins a share link shows it.
     """
     columns = ColumnSerializer(many=True, read_only=True)
     swimlanes = PublicSwimlaneSerializer(many=True, read_only=True)  # no contact_email/notes/custom fields

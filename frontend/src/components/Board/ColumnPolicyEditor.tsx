@@ -16,6 +16,8 @@ interface ListProps {
   onChange: (items: CriterionDraft[]) => void;
   nextKey: () => number;
   onAnnounce: (message: string) => void;
+  /** Id of helper text that belongs to this list, if any. */
+  describedBy?: string;
 }
 
 const ICON_BASE =
@@ -32,7 +34,7 @@ const ICON_BUTTON_DANGER = `${ICON_BASE} hover:text-danger focus:ring-danger-emp
  * rather than `disabled`: a moved row's button keeps focus when it reaches
  * the top or bottom instead of dropping focus to the body.
  */
-function CriteriaList({ kind, legend, items, onChange, nextKey, onAnnounce }: ListProps) {
+function CriteriaList({ kind, legend, items, onChange, nextKey, onAnnounce, describedBy }: ListProps) {
   const listId = useId();
   const capId = `${listId}-cap`;
   const inputRefs = useRef(new Map<number, HTMLInputElement>());
@@ -72,7 +74,7 @@ function CriteriaList({ kind, legend, items, onChange, nextKey, onAnnounce }: Li
   };
 
   return (
-    <fieldset className="flex flex-col gap-1.5">
+    <fieldset className="flex flex-col gap-1.5" aria-describedby={describedBy}>
       <legend className="text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">{legend}</legend>
       {items.length === 0 ? (
         <p className="text-xs text-fg-tertiary italic">No criteria yet.</p>
@@ -134,7 +136,9 @@ function CriteriaList({ kind, legend, items, onChange, nextKey, onAnnounce }: Li
           onClick={atCap ? undefined : add}
           aria-disabled={atCap || undefined}
           aria-describedby={atCap ? capId : undefined}
-          aria-label={`Add ${kind === "entry" ? "entry" : "done"} criterion`}
+          // Begins with the visible text (WCAG 2.5.3 label in name) and
+          // names the list, since both lists have this button.
+          aria-label={`Add criterion to ${legend}`}
           className="self-start text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
         >
           + Add criterion
@@ -176,6 +180,7 @@ export default function ColumnPolicyEditor({
 }: Props) {
   const [announcement, setAnnouncement] = useState("");
   const radioName = useId();
+  const doneHelpId = useId();
   return (
     <div className="flex flex-col gap-5">
       <CriteriaList
@@ -194,8 +199,9 @@ export default function ColumnPolicyEditor({
           onChange={onDoneChange}
           nextKey={nextKey}
           onAnnounce={setAnnouncement}
+          describedBy={doneHelpId}
         />
-        <p className="text-xs text-fg-tertiary">
+        <p id={doneHelpId} className="text-xs text-fg-tertiary">
           Definition of done shows as a checklist in card detail. It never blocks moving out.
         </p>
       </div>
@@ -223,6 +229,9 @@ export default function ColumnPolicyEditor({
           ))}
         </div>
       </fieldset>
+      <p className="text-xs text-fg-tertiary">
+        Everyone who can see the board reads the policy, including anyone with its public share link.
+      </p>
       <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
     </div>
   );

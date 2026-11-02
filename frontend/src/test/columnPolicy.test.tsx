@@ -122,6 +122,21 @@ describe('ColumnHeader Policy button (#1101)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('closes when keyboard focus leaves the popover and its button', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <ColumnHeader column={makeColumn({ policy: POLICY })} cards={[]} boardId={1} isAdmin={false}
+          onColumnUpdated={vi.fn()} onRequestDelete={vi.fn()} collapsed={false} onToggleCollapse={vi.fn()} />
+        <button type="button">Elsewhere</button>
+      </>,
+    )
+    await user.click(screen.getByRole('button', { name: /Column policy for Review/ }))
+    expect(screen.getByRole('dialog', { name: 'Column policy for Review' })).toBeInTheDocument()
+    screen.getByRole('button', { name: 'Elsewhere' }).focus()
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
   it('Edit policy opens the editor on the Policy tab, and closing returns focus to the Policy button', async () => {
     const user = userEvent.setup()
     renderHeader()
@@ -186,10 +201,10 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     const user = userEvent.setup()
     mockUpdateColumn.mockResolvedValue(makeColumn())
     const props = renderModal(makeColumn(), 'policy')
-    await user.click(screen.getByRole('button', { name: 'Add entry criterion' }))
+    await user.click(screen.getByRole('button', { name: 'Add criterion to Entry criteria' }))
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Entry criterion 1' })).toHaveFocus())
     await user.keyboard('First')
-    await user.click(screen.getByRole('button', { name: 'Add entry criterion' }))
+    await user.click(screen.getByRole('button', { name: 'Add criterion to Entry criteria' }))
     await user.type(screen.getByRole('textbox', { name: 'Entry criterion 2' }), '  Second  ')
     // The last row's "down" is aria-disabled and does nothing.
     const down2 = screen.getByRole('button', { name: 'Move entry criterion 2 down' })
@@ -198,9 +213,9 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     await user.click(screen.getByRole('button', { name: 'Move entry criterion 2 up' }))
     expect(screen.getByRole('textbox', { name: 'Entry criterion 1' })).toHaveValue('  Second  ')
     expect(screen.getByText('Entry criterion moved to position 1 of 2.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Add done criterion' }))
+    await user.click(screen.getByRole('button', { name: 'Add criterion to Definition of done' }))
     await user.type(screen.getByRole('textbox', { name: 'Done criterion 1' }), 'Approved')
-    await user.click(screen.getByRole('button', { name: 'Add done criterion' }))
+    await user.click(screen.getByRole('button', { name: 'Add criterion to Definition of done' }))
     // A blank row is dropped on save.
     await user.click(screen.getByRole('button', { name: 'Remove done criterion 2' }))
     expect(screen.getByText('Done criterion 2 removed.')).toBeInTheDocument()
@@ -219,7 +234,7 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     renderModal(makeColumn({ policy: { v: 1, entry: ['Only'], done: [], mode: 'advisory' } }), 'policy')
     await user.click(screen.getByRole('button', { name: 'Remove entry criterion 1' }))
     // Focus falls back to the list's Add button when the list empties.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add entry criterion' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add criterion to Entry criteria' })).toHaveFocus())
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(mockUpdateColumn).toHaveBeenCalled())
     expect(mockUpdateColumn.mock.calls[0][2]).toMatchObject({ policy: null })
@@ -228,7 +243,7 @@ describe('EditColumnModal Policy tab (#1101)', () => {
   it('stops at eight criteria with a reason on the Add button', async () => {
     const user = userEvent.setup()
     renderModal(makeColumn({ policy: { v: 1, entry: Array.from({ length: 8 }, (_, i) => `c${i}`), done: [], mode: 'advisory' } }), 'policy')
-    const add = screen.getByRole('button', { name: 'Add entry criterion' })
+    const add = screen.getByRole('button', { name: 'Add criterion to Entry criteria' })
     expect(add).toHaveAttribute('aria-disabled', 'true')
     expect(add).toHaveAccessibleDescription('Up to 8 criteria per list.')
     await user.click(add)
@@ -251,6 +266,36 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     await user.click(screen.getByRole('tab', { name: 'Policy' }))
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
     expect(mockUpdateColumn).not.toHaveBeenCalled()
+  })
+
+  it('a save that never touched the policy does not send it', async () => {
+    // Another admin may have changed it since this modal opened (#1101).
+    const user = userEvent.setup()
+    mockUpdateColumn.mockResolvedValue(makeColumn())
+    renderModal(makeColumn({ policy: POLICY }))
+    await user.type(screen.getByLabelText('Name *'), ' 2')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(mockUpdateColumn).toHaveBeenCalled())
+    expect(mockUpdateColumn.mock.calls[0][2]).not.toHaveProperty('policy')
+    expect(mockUpdateColumn.mock.calls[0][2]).toMatchObject({ name: 'Review 2' })
+  })
+
+  it('says why Save is off when the name is blank, even from the Policy tab', async () => {
+    const user = userEvent.setup()
+    renderModal(makeColumn())
+    await user.clear(screen.getByLabelText('Name *'))
+    await user.click(screen.getByRole('tab', { name: 'Policy' }))
+    const save = screen.getByRole('button', { name: 'Save' })
+    expect(save).toBeDisabled()
+    expect(save).toHaveAccessibleDescription('Name is required.')
+  })
+
+  it('ties the definition-of-done helper to its list and warns about share links', () => {
+    renderModal(makeColumn(), 'policy')
+    expect(screen.getByRole('group', { name: 'Definition of done' })).toHaveAccessibleDescription(
+      'Definition of done shows as a checklist in card detail. It never blocks moving out.',
+    )
+    expect(screen.getByText(/including anyone with its public share link/)).toBeInTheDocument()
   })
 
   it('shows the save error in the footer status region', async () => {

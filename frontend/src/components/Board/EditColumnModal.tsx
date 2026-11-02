@@ -42,6 +42,10 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const [entry, setEntry] = useState<CriterionDraft[]>(() => (column.policy?.entry ?? []).map((text) => ({ key: nextKey(), text })));
   const [done, setDone] = useState<CriterionDraft[]>(() => (column.policy?.done ?? []).map((text) => ({ key: nextKey(), text })));
   const [mode, setMode] = useState<ColumnPolicyMode>(column.policy?.mode ?? "advisory");
+  // The policy as the modal opened with it. Save sends `policy` only when the
+  // drafts differ from it, so a rename never overwrites a policy another
+  // admin changed while this modal was open.
+  const [seededPolicy] = useState(() => JSON.stringify(policyFromDraft(column.policy?.entry ?? [], column.policy?.done ?? [], column.policy?.mode ?? "advisory")));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +94,8 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
     if (!name.trim()) return;
     setSaving(true);
     setError(null);
+    const policy = policyFromDraft(entry.map((c) => c.text), done.map((c) => c.text), mode);
+    const policyChanged = JSON.stringify(policy) !== seededPolicy;
     try {
       const updated = await updateColumn(boardId, column.id, {
         name: name.trim(),
@@ -98,7 +104,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         weight_limit: weightLimit ? parseInt(weightLimit) : null,
         allow_card_creation: allowCardCreation,
         is_done: isDone,
-        policy: policyFromDraft(entry.map((c) => c.text), done.map((c) => c.text), mode),
+        ...(policyChanged ? { policy } : {}),
       });
       onUpdated(updated);
       onClose();
@@ -262,11 +268,16 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
       </div>
 
       <div className="flex gap-3 px-6 py-4 border-t border-line items-center justify-end shrink-0">
-        <p className="text-xs h-4 flex-1" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{error}</span></p>
+        {/* Also says why Save is off, which matters on the Policy tab where
+            the Name field is out of sight. */}
+        <p id={`${tabsId}-status`} className="text-xs h-4 flex-1" role="status" aria-live="polite" aria-atomic="true">
+          <span className="text-danger">{error ?? (name.trim() ? "" : "Name is required.")}</span>
+        </p>
         <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
+          aria-describedby={name.trim() ? undefined : `${tabsId}-status`}
           className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
         >
           {saving ? "Saving…" : "Save"}

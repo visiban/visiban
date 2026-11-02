@@ -148,7 +148,7 @@ Board and group `board.*` event payloads never carry the share-link fields (`sha
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `column.created` | New column created | Full `ColumnSerializer` object |
-| `column.updated` | Column renamed, recolored, or settings changed | Full `ColumnSerializer` object |
+| `column.updated` | Column renamed, recolored, or settings or [policy](../features/column-policies.md) (since 1.3) changed | Full `ColumnSerializer` object |
 | `column.deleted` | Column deleted, with every card in it (archived cards included). No `card.deleted` frames are sent for those cards; see [Deleting a container deletes its cards](#deleting-a-container-deletes-its-cards) | `{ "column_uid": <string> }` |
 | `column.reordered` | Column order changed (since 1.1) | `{ "columns": [<ColumnSerializer>, ...] }` — all columns in new order |
 

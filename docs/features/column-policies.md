@@ -27,7 +27,9 @@ You need to be a board admin.
     - **Ask the mover to confirm**: after a drop, the mover checks off every entry criterion before the card moves in.
 6. Click **Save**.
 
-Each list holds up to 8 criteria of up to 200 characters each. A list can be empty. Remove every criterion from both lists to remove the policy.
+Each list holds up to 8 criteria of up to 200 characters each, one line each. A list can be empty. Remove every criterion from both lists to remove the policy.
+
+Everyone on the board sees a saved policy at once, without reloading. If the board has a public [share link](board.md#board-sharing), its policies are part of what the link shares, so keep customer names and other private details out of them.
 
 ## Read a policy
 
