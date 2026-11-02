@@ -4603,7 +4603,7 @@ and an audit log an admin can edit is not evidence of anything.</p>
 </tr>
 <tr>
 <td><code>card_history.purged</code></td>
-<td><code>{"selector": {"card_uid": "3f9a0c1d2e4b5a69", "board_id": 42, "board_uid": "a1b2c3d4e5f60718", "since": null, "before": "2026-01-01T00:00:00+00:00", "include_live_cards": false}, "deleted_count": 12, "deleted_block_count": 2}</code> (written with <code>source</code> <code>cli</code> by the <code>purge_card_history</code> command; <code>deleted_count</code> counts movement records and <code>deleted_block_count</code>, added in 1.3 (#1149), block records; with the superuser named by its <code>--actor</code> option as the actor, unlike the commands above; selector keys not given are <code>null</code>; purged titles and notes are never recorded)</td>
+<td><code>{"selector": {"card_uid": "3f9a0c1d2e4b5a69", "board_id": 42, "board_uid": "a1b2c3d4e5f60718", "since": null, "before": "2026-01-01T00:00:00+00:00", "include_live_cards": false}, "deleted_count": 12, "deleted_block_count": 2, "redacted_event_count": 30}</code> (written with <code>source</code> <code>cli</code> by the <code>purge_card_history</code> command; <code>deleted_count</code> counts movement records, <code>deleted_block_count</code>, added in 1.3 (#1149), block records, and <code>redacted_event_count</code>, added in 1.3 (#1816), the change-feed events redacted; the two newer keys are absent from entries written by 1.2; with the superuser named by its <code>--actor</code> option as the actor, unlike the commands above; selector keys not given are <code>null</code>; purged titles and notes are never recorded)</td>
 </tr>
 </tbody>
 </table>

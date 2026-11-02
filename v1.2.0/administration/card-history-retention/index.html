@@ -3553,6 +3553,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Purging retained history">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-purge-redacts-in-the-change-feed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the purge redacts in the change feed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4102,7 +4119,7 @@
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1797)</p>
 </blockquote>
-<p>Since 1.2, deleting a card keeps its movement history (#1469). A superuser erases it on request with the <code>purge_card_history</code> management command.</p>
+<p>Since 1.2, deleting a card keeps its movement history (#1469). A superuser erases it on request with the <code>purge_card_history</code> management command. Since 1.3, the same command also redacts the card's content in the board change feed (#1816).</p>
 <p><strong>Why it matters:</strong> a deleted card's title and moves persist. Know what remains, who can see it, and what the command does and does not erase.</p>
 <p><strong>The big picture:</strong> this page covers what that history keeps, who can see it, how long it lasts, and how to purge it.</p>
 <h2 id="what-a-deleted-card-leaves-behind">What a deleted card leaves behind<a class="headerlink" href="#what-a-deleted-card-leaves-behind" title="Permanent link">&para;</a></h2>
@@ -4122,9 +4139,9 @@
 <p><strong>How long it lasts:</strong> until the board is deleted, or until a superuser purges it with the command below. Nothing expires it on a schedule.</p>
 <p>See <a href="../../features/card-history/#deleted-cards-keep-their-history">Card History</a> for how deleted-card history appears to board members and how it affects metrics and exports.</p>
 <h3 id="other-places-a-deleted-cards-title-can-remain">Other places a deleted card's title can remain<a class="headerlink" href="#other-places-a-deleted-cards-title-can-remain" title="Permanent link">&para;</a></h3>
-<p><strong>Watch out:</strong> <code>purge_card_history</code> erases movement records and, since 1.3, block records only. A deleted card's title can also remain in the places below, and the command does not touch any of them.</p>
+<p><strong>Watch out:</strong> <code>purge_card_history</code> erases movement records and, since 1.3, block records, and redacts the card's change-feed events (see <a href="#what-the-purge-redacts-in-the-change-feed">What the purge redacts in the change feed</a>). A deleted card's title can also remain in the places below.</p>
 <ul>
-<li><strong>The board <a href="../../api/events/">change feed</a></strong> (<code>GET /api/v1/boards/{id}/events/</code>). Each event stores its broadcast payload verbatim. <code>card.created</code> and <code>card.updated</code> events, and the <code>card</code> object inside <code>card.moved</code>, hold the full card as it was at that moment: title, description, custom field values and external reference; <code>card.moved</code> also holds the movement's notes. Events are not tied to the board by a foreign key, so they remain even after the board is deleted. The command does not remove change-feed events; covering them is tracked in #1816. The current mitigation is the <a href="../scheduled-jobs/"><code>prune_board_events</code></a> job, which deletes events older than its retention window (30 days by default). The job is <strong>off</strong> by default (<code>SCHEDULE_PRUNE_BOARD_EVENTS</code>), so unless you have enabled it or run the command yourself, change-feed events are never removed.</li>
+<li><strong>The board <a href="../../api/events/">change feed</a></strong> (<code>GET /api/v1/boards/{id}/events/</code>), when you have not purged the card. Each event stores its broadcast payload verbatim. <code>card.created</code>, <code>card.updated</code> and <code>card.unarchived</code> events, and the <code>card</code> object inside <code>card.moved</code>, hold the full card as it was at that moment: title, description, block reason, custom field values and external reference; <code>card.moved</code> also holds the movement's notes. Deleting a card does not remove or redact these events. They are not tied to the board by a foreign key either, so deleting the board does not remove them. Only a <code>purge_card_history</code> run or the <a href="../scheduled-jobs/"><code>prune_board_events</code></a> job changes them. The job deletes events older than its retention window (30 days by default) and is <strong>off</strong> by default (<code>SCHEDULE_PRUNE_BOARD_EVENTS</code>). Unless you enable it or run the command yourself, events are kept forever.</li>
 <li><strong>The Django admin log</strong> (<code>django_admin_log</code>). Any change made to a card in the Django admin, including deleting it there, records the card's title (<code>object_repr</code>) in the admin's own history. Visiban does not prune this table.</li>
 <li><strong>Attachment files</strong> in media storage. Since 1.2, deleting a card, its column, its swimlane or its board, or deleting it in the Django admin, removes its attachment files after the delete commits. Files from deletes made before upgrading, or whose removal failed (for example, storage was down at the time), stay until you run <a href="../media-security/#removing-orphaned-attachment-files"><code>purge_orphaned_attachments</code></a>. Deleting a user does not remove their uploads: the file stays with its card.</li>
 <li><strong>Copies outside the instance:</strong> notification emails already sent, deliveries to installed extensions, board exports downloaded before the card was deleted, and any copies made of them.</li>
@@ -4157,50 +4174,76 @@
 </tr>
 <tr>
 <td><code>--card CARD_UID</code></td>
-<td>Only the history of the card with this UID.</td>
+<td>Only the history and change-feed events of the card with this UID.</td>
 </tr>
 <tr>
 <td><code>--board BOARD</code></td>
-<td>Only history on this board, given as its numeric ID or its UID.</td>
+<td>Only history and change-feed events on this board, given as its numeric ID or its UID.</td>
 </tr>
 <tr>
 <td><code>--since DATE</code></td>
-<td>Only movements at or after this moment (blocks by their start).</td>
+<td>Only movements (blocks by their start), and change-feed events, at or after this moment.</td>
 </tr>
 <tr>
 <td><code>--before DATE</code></td>
-<td>Only movements strictly before this moment (blocks by their start).</td>
+<td>Only movements (blocks by their start), and change-feed events, strictly before this moment.</td>
 </tr>
 <tr>
 <td><code>--include-live-cards</code></td>
-<td>Also delete matching history of cards that still exist. Needs <code>--card</code> or <code>--board</code>.</td>
+<td>Also delete matching history, and redact matching change-feed events, of cards that still exist. Needs <code>--card</code> or <code>--board</code>.</td>
 </tr>
 <tr>
 <td><code>--yes</code></td>
-<td>Delete. Without it the command only reports what would be deleted.</td>
+<td>Delete and redact. Without it the command only reports what would be deleted and redacted.</td>
 </tr>
 </tbody>
 </table>
-<p>Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (<code>deleted_count</code> is movements, <code>deleted_block_count</code> blocks, since 1.3).</p>
+<p>Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (<code>deleted_count</code> is movements, <code>deleted_block_count</code> blocks and <code>redacted_event_count</code> change-feed events, both since 1.3).</p>
 <p>Dates are <code>YYYY-MM-DD</code> (midnight UTC at the start of that day) or an ISO 8601 datetime (UTC when it has no offset). <code>--since 2026-03-01 --before 2026-04-01</code> covers exactly March.</p>
 <p>How the command behaves:</p>
 <ul>
 <li><strong>Selectors combine.</strong> <code>--card</code>, <code>--board</code>, <code>--since</code> and <code>--before</code> apply together. At least one is required; no form purges everything. A date range alone covers deleted cards on every board.</li>
 <li><strong><code>--board</code> matches the board recorded on each movement.</strong> A movement written by the previous release while an upgrade was rolling out may not have its board recorded yet, and <code>--board</code> does not match it. If you upgraded to 1.2 while the old release was still serving, run <code>python manage.py backfill_card_movement_snapshots</code> once before purging by board, so those movements carry their board (see <a href="../upgrade/">Upgrading</a>).</li>
 <li><strong>Deleted cards only, by default.</strong> Without <code>--include-live-cards</code>, only history of cards that no longer exist is matched, and naming a card that still exists with <code>--card</code> is refused. A live card's history feeds its timeline and the board's metrics, so erasing it is a separate, explicit choice, narrowed with <code>--card</code> or <code>--board</code>: a date range alone is refused with <code>--include-live-cards</code>.</li>
-<li><strong>Dry run by default.</strong> The dry run prints counts of records, cards and boards, never titles. Re-run with <code>--yes</code> to delete.</li>
-<li><strong>Recorded.</strong> A purge that deletes anything writes one <code>card_history.purged</code> entry to the <a href="../../api/admin/#action-log">admin action log</a> with source <code>cli</code>, the <code>--actor</code> account, the selector used and the number of records deleted. The entry never contains a purged title or note. A run that matches nothing writes no entry.</li>
-<li><strong>All or nothing.</strong> The records are deleted in the same transaction that writes the log entry. If the entry cannot be written, nothing is deleted.</li>
+<li><strong>Dry run by default.</strong> The dry run prints counts of records, cards and boards, and the number of change-feed events it would redact, never titles. Re-run with <code>--yes</code> to delete.</li>
+<li><strong>Recorded.</strong> A purge that deletes or redacts anything writes one <code>card_history.purged</code> entry to the <a href="../../api/admin/#action-log">admin action log</a> with source <code>cli</code>, the <code>--actor</code> account, the selector used, the number of records deleted and (since 1.3) the number of change-feed events redacted. The entry never contains a purged title or note. A run that matches nothing writes no entry.</li>
+<li><strong>All or nothing.</strong> The records are deleted, and the events redacted, in the same transaction that writes the log entry. If the entry cannot be written, nothing is deleted or redacted.</li>
 </ul>
 <p>Finding the card UID: a deleted card's UID is shown in the Django admin's <strong>Card movements</strong> list (<code>/admin/boards/cardmovement/</code>), which can be searched by the recorded title.</p>
 <div class="admonition warning">
 <p class="admonition-title">This breaks the append-only history on purpose</p>
-<p>Movement records are otherwise never edited or deleted outside a board delete. A purge removes them for good, and Board History, the card's audit trail and any later review cannot recover them. The action-log entry is the only record that the purge happened.</p>
+<p>Movement records are otherwise never edited or deleted outside a board delete, and change-feed events are never otherwise rewritten. A purge removes the records and the redacted values for good: Board History, the change feed and any later review cannot recover them. The action-log entry is the only record that the purge happened.</p>
+<p>The exception is the card's activity trail (<code>CardActivity</code>), which the command does not touch. A deleted card's trail was already removed with the card. With <code>--include-live-cards</code> the card still exists, so its trail stays: <a href="../../api/cards/#timeline"><code>GET /api/v1/boards/{board_id}/cards/{id}/timeline/</code></a> still returns its block reasons and resolutions, earlier titles and checklist item text.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title"><code>--actor</code> is accountability, not authentication</p>
 <p>Anyone who can run <code>manage.py</code> already has database access and can name any account. Shell access is the real control; <code>--actor</code> records which superuser authorized the purge, so the action log can answer "who erased this?".</p>
 </div>
+<h3 id="what-the-purge-redacts-in-the-change-feed">What the purge redacts in the change feed<a class="headerlink" href="#what-the-purge-redacts-in-the-change-feed" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1816)</p>
+</blockquote>
+<p>The selector that picks movement and block records also picks the card's <a href="../../api/events/">change-feed</a> events. The command <strong>redacts</strong> these events rather than deleting them: a feed consumer reads by an ID cursor, and a removed event would leave a gap it cannot explain.</p>
+<p><strong>What changes:</strong> in each matching <code>card.created</code>, <code>card.updated</code>, <code>card.unarchived</code> and <code>card.moved</code> event, the card's content values become <code>null</code>:</p>
+<ul>
+<li>the card's <code>title</code>, <code>description</code> and <code>blocked_reason</code> (the free-text reason of a manual block, since 1.3);</li>
+<li>the <code>value</code> of each <code>custom_field_values</code> entry (the entry and its <code>field_definition</code> stay);</li>
+<li>the <code>ref</code> and <code>url</code> of <code>external_ref</code> (<code>provider</code> stays);</li>
+<li>in <code>card.moved</code>, the movement's <code>card_title</code> and <code>notes</code>, and the same card fields inside <code>card</code>.</li>
+</ul>
+<p><strong>What stays:</strong> every key; the card's <code>uid</code> and <code>id</code>, column, swimlane, position, labels, priority, due date and weight; its <code>is_blocked</code> and <code>blocked_at</code>; its assignee and creator; in <code>card.moved</code>, the movement's columns, swimlanes, mover and time; and the event's ID, type, actor and time. The event's <code>redacted_at</code> field shows when it was redacted. <code>card.deleted</code> and <code>card.archived</code> events carry only the card UID and are not changed. A block's <code>resolution</code> is never in an event; it is only in the block record, which the purge deletes.</p>
+<p>How the selector applies to events:</p>
+<ul>
+<li><strong><code>--card</code></strong> matches the card UID recorded in the event, on every board. With <code>--board</code>, it matches that card's events on that board, and on other boards only if it has movement or block records on that board (see <code>--board</code> below). Date bounds narrow which records count: a record outside <code>--since</code> or <code>--before</code> does not extend the match to other boards.</li>
+<li><strong><code>--board</code></strong> matches the board the event was recorded on. It also matches, on any board, the events of every card whose movement or block records it selects. A card moved to another board in the Django admin keeps its earlier events on the old board, and these are redacted with it. A card whose movement and block records an earlier purge already deleted is not followed this way; use <code>--card</code> for it.</li>
+<li><strong><code>--since</code> and <code>--before</code></strong> match the time the event was recorded, not the time of a movement or block. A date-bounded run leaves every event recorded outside the range untouched, and those events can still hold the text. A card event repeats the title, description and block reason for as long as the card has them, so <code>--card X --before 2026-02-01</code> deletes a January block but leaves its reason in a March <code>card.moved</code> event. <strong>To erase a card on request, use <code>--card</code> with no dates.</strong> The bound can also fall between a record and its event: an event is recorded a moment after the movement or block it describes, so a <code>--before</code> in that gap deletes the record and leaves the event unredacted. Re-running with a later <code>--before</code> redacts it.</li>
+<li><strong>Deleted cards only, by default.</strong> Without <code>--include-live-cards</code>, an event matches only when no card with its UID (or, for the events described below, its ID) exists.</li>
+<li><strong>Events match on their own.</strong> A card whose movement records an earlier run already deleted, for example a purge made with 1.2, still has its events redacted when you run the command for it again. An event already redacted is skipped, so re-running a purge changes nothing and records nothing.</li>
+</ul>
+<p><strong>Events without a card UID.</strong> The MCP write tools recorded card events without a UID in 1.2 pre-releases (fixed by #1926). Those events carry the card's numeric ID instead, and the command matches them on it: a live card's ID, or a deleted card's ID as recorded in its other change-feed events. Visiban does not reuse card IDs, so an ID that no existing card has belongs to a deleted card. A database restored with its ID sequence reset can reuse them; an ID resolved for a deleted card that an existing card now has is therefore skipped. An event the command cannot attribute is left as it is, and the dry run and the purge both print how many such events the selected board and date range hold. An event cannot be attributed when its payload has no usable ID, or when <code>--card</code> names a deleted card that has no other change-feed event giving its ID.</p>
+<p><strong>Deleted boards.</strong> <code>--board</code> needs a board that still exists. To redact the events of cards that went with a deleted board, use <code>--card</code>, or a date range without <code>--board</code>, which matches deleted cards' events on every board. Feed retention after a card or board is deleted without a purge is not covered by this command.</p>
+<p><strong>Yes, but:</strong> the event payload is not indexed. A purge with <code>--card</code> and no <code>--board</code> reads every card event in the feed, and so does a purge with <code>--board</code>, to follow its cards onto other boards. These are plain reads and do not block the feed's other writes, but on a large feed they take time.</p>
+<p>Redaction changes stored events only. Copies already delivered are not changed: frames sent over the WebSocket, and events that consumers already read from the feed.</p>
 
 
 

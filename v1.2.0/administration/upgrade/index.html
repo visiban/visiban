@@ -4805,6 +4805,10 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 </ol>
 </div>
 <div class="admonition note">
+<p class="admonition-title"><code>purge_card_history</code> also redacts the change feed</p>
+<p>Since 1.3, a <code>purge_card_history</code> run also redacts the purged cards' content in the board change feed: in <code>card.created</code>, <code>card.updated</code>, <code>card.unarchived</code> and <code>card.moved</code> events the content values become <code>null</code>, every key stays, and the event's new <code>redacted_at</code> field is set (#1816). Migration <code>boards/0093</code> adds that column to <code>board_events</code>. It is nullable with no default or index, so on PostgreSQL it changes the catalog only and does not rewrite or scan the table. To redact the feed for cards you purged with 1.2, run the same <code>purge_card_history</code> command again: their events are matched even though their movement records are gone. See <a href="../card-history-retention/#what-the-purge-redacts-in-the-change-feed">Card History Retention</a>.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Deprecated: Board.allowed_priorities and Group.allowed_priorities</p>
 <p>Both fields were never enforced: card create and update accept any priority, and no client filters by them (#1429). They are still accepted and returned unchanged through 1.x, and the OpenAPI schema marks them <code>deprecated</code>. They will be removed only at a major version, so do not rely on them to restrict priorities.</p>
 </div>

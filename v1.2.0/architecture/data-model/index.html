@@ -4632,6 +4632,7 @@ previously valid card writes fail, so it needs a release note, not a quiet chang
 <li>A row is written in the same transaction as its mutation, so a rolled-back write produces no event.</li>
 <li><code>data</code> is the WebSocket broadcast payload verbatim, so a consumer can switch between polling and holding a socket open without reconciling two representations.</li>
 <li><code>board_id</code> and <code>actor_id</code> are plain columns, not foreign keys, so deleting a board or user cannot rewrite history a consumer is mid-read of. <code>board.deleted</code> is itself an event this table must persist.</li>
+<li>The only rewrite of a stored row is <code>purge_card_history</code>'s redaction (since 1.3, #1816). It sets the card content values in a card event's <code>data</code> to <code>null</code>, keeping every key, and stamps the nullable <code>redacted_at</code> column. A redaction keeps the row so it leaves no gap in the id cursor.</li>
 </ul>
 <p>This is the delivery source for OSS webhooks — see <a href="../open-core-boundary/#outgoing-webhooks-oss-vs-webhook-operations-enterprise">Open-core boundary § Outgoing webhooks</a>.</p>
 <h3 id="boardexportlog">BoardExportLog<a class="headerlink" href="#boardexportlog" title="Permanent link">&para;</a></h3>
@@ -4693,7 +4694,7 @@ previously valid card writes fail, so it needs a release note, not a quiet chang
 <p>A movement leaves in two ways:</p>
 <ul>
 <li>Deleting the whole board, the explicit destructive act, removes every movement on it through <code>board</code>.</li>
-<li>The superuser-run <code>purge_card_history</code> management command (#1797) deletes matching rows (by default only deleted cards') with a queryset delete and writes a <code>card_history.purged</code> <code>AdminActionLog</code> entry in the same transaction.</li>
+<li>The superuser-run <code>purge_card_history</code> management command (#1797) deletes matching rows (by default only deleted cards') with a queryset delete and writes a <code>card_history.purged</code> <code>AdminActionLog</code> entry in the same transaction. Since 1.3 (#1816) the same run and transaction also redact the matching cards' <code>BoardEvent</code> rows (see below).</li>
 </ul>
 <p>See <a href="../../administration/card-history-retention/">Card History Retention</a>.</p>
 <p><strong>BoardMembership is explicit per board.</strong> A user can have different roles on different boards. Group membership is inherited automatically (see <a href="../../features/rbac/inheritance/">Group Inheritance</a>), but an explicit <code>BoardMembership</code> row overrides it.</p>
