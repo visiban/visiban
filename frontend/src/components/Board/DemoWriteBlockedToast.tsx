@@ -45,7 +45,7 @@ export default function DemoWriteBlockedToast() {
       data-testid="demo-write-blocked-toast"
       // A click here never closes an open card detail sheet (#1914).
       data-keeps-card-sheet-open
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 bg-surface border border-warning text-fg text-sm rounded-lg px-4 py-3 shadow-xl max-w-sm"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 bg-surface border border-warning text-fg text-sm rounded-lg px-4 py-3 shadow-xl w-max max-w-[min(24rem,calc(100%-2rem))]"
     >
       <span aria-hidden="true" className="text-warning shrink-0 mt-0.5">⚠</span>
       <p className="flex-1 min-w-0">

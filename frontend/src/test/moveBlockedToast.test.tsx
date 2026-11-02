@@ -22,6 +22,14 @@ const weightError: MoveBlockedError = {
 }
 
 describe('MoveBlockedToast', () => {
+  it('has an explicit width so it does not shrink-wrap at narrow viewports (#1439)', () => {
+    render(<MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />)
+    const toast = screen.getByRole('alert')
+    expect(toast.className).toContain('w-max')
+    expect(toast.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
+    expect(toast.className).not.toContain('max-w-sm')
+  })
+
   it('words the version-conflict body for both drag and detail-panel moves (#1773)', () => {
     render(
       <MoveBlockedToast error={{ code: 'version_conflict', detail: 'x', current_version: 2 }} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
