@@ -19,12 +19,14 @@ import CreateGroupModal from "../components/Group/CreateGroupModal";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
 import JoinedNotice from "../components/Common/JoinedNotice";
 import BoardGroupPath from "../components/Group/BoardGroupPath";
+import HealthStatusControl from "../components/Common/HealthStatusControl";
+import { HealthListingPill } from "../components/Common/HealthStatusPill";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import { importBoard } from "../api/boards";
-import type { Board, BoardEventPayload, Group, GroupMembership, ImportOptions, Priority, User } from "../types";
+import type { Board, BoardEventPayload, Group, GroupMembership, HealthStatus, ImportOptions, Priority, User } from "../types";
 import { hasImportSkips } from "../utils/importSummary";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import Spinner from "../components/Common/Spinner";
@@ -204,6 +206,21 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     if (raw) pendingRefocusRef.current = Number(raw);
   }, []);
 
+  // Refetch every list on this page whose rows carry an inherited health
+  // status (#1133): subgroups, direct boards, and subgroup boards when shown.
+  // A ref, so the socket handler does not re-subscribe when the toggle flips.
+  const showSubgroupBoardsRef = useRef(false);
+  const directBoardIdsRef = useRef<Set<number>>(new Set());
+  const refreshHealthListings = useCallback(() => {
+    getSubgroups(groupId).then(setSubgroups).catch(() => { /* stay with current list */ });
+    getGroupBoards(groupId).then(setBoards).catch(() => { /* stay with current list */ });
+    if (showSubgroupBoardsRef.current) {
+      getGroupDescendantBoards(groupId)
+        .then((bs) => setSubgroupBoards(bs.filter((b) => !directBoardIdsRef.current.has(b.id))))
+        .catch(() => { /* stay with current list */ });
+    }
+  }, [groupId]);
+
   const handleGroupEvent = useCallback((evt: BoardEvent) => {
     const data = evt.data as { id?: number; board_id?: number; board_uid?: string } & Record<string, unknown>;
     if (evt.event === "board.created") {
@@ -241,6 +258,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     } else if (evt.event === "group.updated") {
       // Ownership transfer — refetch the group to get the updated owner object.
       getGroup(groupId).then(setGroup).catch(() => { /* stay with current state */ });
+      // A health status change (#1133) also changes what the subgroups and
+      // boards listed here inherit; their effective values come from the server.
+      refreshHealthListings();
     } else if (evt.event === "group.created") {
       // A subgroup was created under this group (the parent channel also
       // receives this event). Refetch the subgroup list so it appears live.
@@ -296,7 +316,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setIsStarred(!!payload.is_starred);
       }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId, user.id]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings]);
 
   // Events fired while the socket was disconnected are not replayed. Refetch
   // the boards list after a reconnect so the UI converges with server state.
@@ -334,6 +354,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       }
     }
   }, [boards]);
+
+  useEffect(() => { showSubgroupBoardsRef.current = showSubgroupBoards; }, [showSubgroupBoards]);
+  useEffect(() => { directBoardIdsRef.current = new Set(boards.map((b) => b.id)); }, [boards]);
 
   useEffect(() => {
     // A single request for all boards in the group subtree avoids the previous N+1
@@ -610,6 +633,23 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }
   };
 
+  // Health status (#1133). Not optimistic: the response carries the effective
+  // value and its source, which only the server resolves. Children inherit
+  // the new value, so their lists are refetched too.
+  const handleHealthSave = useCallback(async (next: HealthStatus | null) => {
+    const updated = await updateGroup(groupId, { health_status: next });
+    setGroup((prev) => prev ? {
+      ...prev,
+      health_status: updated.health_status,
+      effective_health_status: updated.effective_health_status,
+      health_status_source: updated.health_status_source,
+    } : prev);
+    // Also refetched by this save's own group.updated event; done here as
+    // well so the actor's page converges even when the socket is down.
+    refreshHealthListings();
+    return updated;
+  }, [groupId, refreshHealthListings]);
+
   const adminMembers = members.filter(
     (m) => m.role === "admin" && m.user.id !== user.id
   );
@@ -782,14 +822,27 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               </p>
             </div>
 
-            {/* Counts are withheld (0) for a navigation-only group (#1681). */}
+            {/* Counts and health are withheld for a navigation-only group (#1681, #1133). */}
             {!group.navigation_only && (
-              <p className="text-fg-muted text-sm">
-                {group.member_count} member{group.member_count !== 1 ? "s" : ""}
-                {" · "}
-                {group.board_count} board{group.board_count !== 1 ? "s" : ""}
-                {group.subgroup_count > 0 && ` · ${group.subgroup_count} subgroup${group.subgroup_count !== 1 ? "s" : ""}`}
-              </p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
+                <HealthStatusControl
+                  entityKind="group"
+                  entityName={group.name}
+                  parentName={group.parent_name}
+                  canEdit={isAdmin}
+                  showCaption
+                  health_status={group.health_status}
+                  effective_health_status={group.effective_health_status}
+                  health_status_source={group.health_status_source}
+                  onSave={handleHealthSave}
+                />
+                <span>
+                  {group.member_count} member{group.member_count !== 1 ? "s" : ""}
+                  {" · "}
+                  {group.board_count} board{group.board_count !== 1 ? "s" : ""}
+                  {group.subgroup_count > 0 && ` · ${group.subgroup_count} subgroup${group.subgroup_count !== 1 ? "s" : ""}`}
+                </span>
+              </div>
             )}
           </div>
           <div className="flex items-center gap-3">
@@ -876,7 +929,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                         </svg>
-                        <p className="text-fg font-medium">{sg.name}</p>
+                        <p className="text-fg font-medium min-w-0 truncate">{sg.name}</p>
+                        <HealthListingPill fields={sg} className="ml-auto" />
                       </div>
                       {/* Counts are withheld (0) for a navigation-only row (#1681). */}
                       {!sg.navigation_only && (
@@ -928,7 +982,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                         </svg>
-                        <p className="font-medium">{b.name}</p>
+                        <p className="font-medium min-w-0 truncate">{b.name}</p>
+                        <HealthListingPill fields={b} />
                       </div>
                       {b.description && <p className="text-sm text-fg-tertiary mt-0.5 ml-6">{b.description}</p>}
                     </button>
@@ -975,6 +1030,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                             <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                           </svg>
                           <p className="font-medium flex-1 min-w-0 truncate">{b.name}</p>
+                          <HealthListingPill fields={b} />
                           <BoardGroupPath
                             ancestors={b.group_detail?.ancestors ?? []}
                             currentGroupId={groupId}

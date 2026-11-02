@@ -281,6 +281,9 @@ export const CARDS: Card[] = CARD_SPECS.map(buildCard)
 export const DETAIL_CARD = CARDS.find((c) => c.id === 2) as Card
 
 export const BOARD_FULL: BoardFull = {
+  health_status: null,
+  effective_health_status: null,
+  health_status_source: null,
   id: BOARD_ID,
   uid: BOARD_UID,
   name: 'Customer Onboarding Pipeline',
@@ -437,6 +440,9 @@ const boardItem = (
   description: string,
   extra: Partial<Board> = {},
 ): Board => ({
+  health_status: null,
+  effective_health_status: null,
+  health_status_source: null,
   id,
   uid: `bd${String(id).padStart(10, '0')}`,
   name,
@@ -485,6 +491,9 @@ export const BOARDS: Board[] = [
 ]
 
 const groupItem = (id: number, name: string, description: string, extra: Partial<Group> = {}): Group => ({
+  health_status: null,
+  effective_health_status: null,
+  health_status_source: null,
   id,
   name,
   description,

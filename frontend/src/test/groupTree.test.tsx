@@ -177,3 +177,24 @@ describe('GroupTree', () => {
     expect(screen.queryByTestId('create-group-modal')).not.toBeInTheDocument()
   })
 })
+
+describe('GroupTree health status (#1133)', () => {
+  it('shows a read-only pill between the name and the stats only when a status applies', () => {
+    const nodes = buildGroupTree([
+      makeGroup({ id: 1, name: 'Engineering', health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null }),
+      makeGroup({ id: 2, name: 'Design', health_status: null, effective_health_status: null, health_status_source: null }),
+      makeGroup({ id: 3, name: 'Ancestor', navigation_only: true, health_status: null, effective_health_status: null, health_status_source: null }),
+    ])
+    render(
+      <MemoryRouter>
+        <GroupTree nodes={nodes} onGroupCreated={vi.fn()} />
+      </MemoryRouter>
+    )
+    const pills = document.querySelectorAll('[data-health-status]')
+    expect(pills).toHaveLength(1)
+    const pill = pills[0] as HTMLElement
+    expect(pill.tagName).toBe('SPAN')
+    expect(pill.previousElementSibling).toHaveTextContent('Engineering')
+    expect(pill.nextElementSibling).toHaveTextContent('2 boards')
+  })
+})

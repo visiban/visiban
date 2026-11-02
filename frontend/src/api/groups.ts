@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Group, GroupLabel, GroupMembership, GroupInviteLink, InviteEmailSent, Board, Priority } from "../types";
+import type { Group, GroupLabel, GroupMembership, GroupInviteLink, InviteEmailSent, Board, HealthStatus, Priority } from "../types";
 
 export const listGroups = () =>
   client.get<{ results: Group[] }>("/api/v1/groups/").then((r) => r.data.results);
@@ -10,7 +10,8 @@ export const createGroup = (data: { name: string; description?: string; parent?:
 export const getGroup = (id: number) =>
   client.get<Group>(`/api/v1/groups/${id}/`).then((r) => r.data);
 
-export const updateGroup = (id: number, data: { name?: string; description?: string }) =>
+/** `health_status` (#1133): null clears the group's own value so it inherits again. Group admin only. */
+export const updateGroup = (id: number, data: { name?: string; description?: string; health_status?: HealthStatus | null }) =>
   client.patch<Group>(`/api/v1/groups/${id}/`, data).then((r) => r.data);
 
 export const deleteGroup = (id: number) =>

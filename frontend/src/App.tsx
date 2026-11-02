@@ -17,6 +17,7 @@ import InlineBoardName from "./components/Board/InlineBoardName";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import ImportSkippedToast from "./components/Board/ImportSkippedToast";
 import GlobalCommandPalette from "./components/Common/GlobalCommandPalette";
+import HealthStatusControl from "./components/Common/HealthStatusControl";
 import MaintenanceBanner from "./components/Common/MaintenanceBanner";
 import DemoModeBar from "./components/Common/DemoModeBar";
 import DemoWriteBlockedToast from "./components/Board/DemoWriteBlockedToast";
@@ -30,8 +31,8 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import NotFoundPage from "./pages/NotFoundPage";
-import type { ImportSummary, User } from "./types";
-import { joinBoard, starBoard, unstarBoard } from "./api/boards";
+import type { HealthStatus, ImportSummary, User } from "./types";
+import { joinBoard, patchBoard, starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
 import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
@@ -266,7 +267,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { board, loading, error, forceMoveCard, moveError, clearMoveError, updateBoardSettings } = useBoardContext();
+  const { board, loading, error, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState } = useBoardContext();
 
   // Skipped-counts notice after a selective import (#119), handed over in the
   // navigation state by the import modal's caller. Captured once on mount and
@@ -304,6 +305,21 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
     } catch { setIsStarred(prev); }
     finally { setStarLoading(false); }
   };
+
+  // Health status (#1133). Not updateBoardSettings: that one is optimistic and
+  // swallows failures, while the popover must show a failed save, and only the
+  // server can resolve the new effective value and its source.
+  const boardId = board?.id;
+  const handleHealthSave = useCallback(async (next: HealthStatus | null) => {
+    if (boardId === undefined) throw new Error("Board not loaded");
+    const updated = await patchBoard(boardId, { health_status: next });
+    mergeBoardState({
+      health_status: updated.health_status,
+      effective_health_status: updated.effective_health_status,
+      health_status_source: updated.health_status_source,
+    });
+    return updated;
+  }, [boardId, mergeBoardState]);
 
   const handleBack = () => {
     if (board?.group) {
@@ -355,7 +371,24 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           ...(board?.group ? [{ label: board.group_name ?? "Group", href: `/groups/${board.group}` }] : []),
           {
             label: board?.name ?? "…",
-            suffix: starButton,
+            // The star stays as it is; the health control follows it (#1133).
+            suffix: board ? (
+              <>
+                {starButton}
+                <HealthStatusControl
+                  className="ml-2"
+                  collapseLabel
+                  entityKind="board"
+                  entityName={board.name}
+                  parentName={board.group_name}
+                  canEdit={isAdmin}
+                  health_status={board.health_status}
+                  effective_health_status={board.effective_health_status}
+                  health_status_source={board.health_status_source}
+                  onSave={handleHealthSave}
+                />
+              </>
+            ) : null,
             render: board ? (
               <InlineBoardName
                 name={board.name}

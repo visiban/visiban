@@ -97,6 +97,11 @@ Get group details.
 | `created_at` | string | ISO 8601 timestamp |
 | `navigation_only` | boolean | *(1.2+)* `true` when the requesting user has no access to this group itself and it is returned only so navigation (tree, breadcrumbs) keeps working; its fields are withheld. See [Ancestor groups](#ancestor-groups-navigation-only). |
 | `can_place_boards` | boolean | *(1.2+)* `true` when the requesting user may place a board in this group — create one through [`POST /groups/{id}/boards/`](#post-apiv1groupsidboards), move one in with `POST /boards/{id}/move-group/`, or import one into it. See [Board placement](#board-placement-can_place_boards). |
+| `health_status` | string\|null | *(1.3+)* The group's own health status: `"on_track"`, `"at_risk"` or `"off_track"`, or `null` to inherit from the nearest ancestor group that sets one (default: `null`). Writable by a group admin; any other value returns `400 Bad Request`. See [Health Status](../features/health-status.md). |
+| `effective_health_status` | string\|null | *(1.3+)* Read-only. `health_status` when set, otherwise the `health_status` of the nearest ancestor that sets one (at most six groups up), otherwise `null`. Computed on every read: a change to a group applies at once to every subgroup and board below it that does not set its own value. |
+| `health_status_source` | object\|null | *(1.3+)* Read-only. `{ "id", "name" }` of the ancestor group that supplies `effective_health_status`; `null` when `health_status` is set on this group or nothing applies. |
+
+The three health fields are returned on every group payload (list, retrieve, `/subgroups/`, create, update, `board-defaults`, `transfer-ownership`, the invite join response and the `group.created` / `group.updated` events). Changing a group's `health_status` sends `group.updated` on that group's channel only. *(1.3, v1 limit)* It sends nothing to the channels of its subgroups or of the boards below it, even though their `effective_health_status` changes: a client showing one of them sees the new value on its next read. In the web client an open subgroup page shows it after a reload; an open board page after a reload or a reconnect, which refetches the whole board.
 
 #### Board placement (`can_place_boards`)
 
@@ -125,6 +130,7 @@ Group access is inherited downward only: membership in a subgroup grants nothing
 | `member_count`, `board_count`, `subgroup_count` | `0` |
 | `shared_labels` | `[]` |
 | `allowed_priorities` | `[]` |
+| `health_status`, `effective_health_status`, `health_status_source` | `null` *(1.3+)* |
 
 `id`, `name`, `parent`, `parent_name`, `owner`, `created_at`, `default_board_member_role`, `is_starred` and (on retrieve) `ancestors` are returned as for a member. `default_board_member_role` is returned intentionally: it is a required enum with no empty value, it is deprecated with no effect, and it is not sensitive. Ownership alone does not count as membership here, the same as for the nested routes and *(1.2+)* the list itself, which no longer returns a group only because the caller owns it (#1829). `owner` (public profile fields only, no email) is returned because clients require it; an ancestor's owner is normally also a member there, but an owner whose membership was removed is still named. Every key stays in the response with a value of its documented type, so existing clients keep parsing it; read `navigation_only` to tell withheld values from real zeros. This matches the nested routes, which already answer `403` to such a user (`/members/`, `/boards/`, `/subgroups/`, `/labels/`, `/descendant-boards/`, `/descendant-boards/paged/`, `/star/`), and the group WebSocket channel, which does not admit them. Users with access to all content always receive every field.
 
@@ -133,7 +139,7 @@ Group access is inherited downward only: membership in a subgroup grants nothing
 ### `PUT /api/v1/groups/{id}/` / `PATCH /api/v1/groups/{id}/`
 Update group fields. Both `PUT` and `PATCH` are accepted. Requires group admin.
 
-**Writable fields:** `name`, `description`, `parent`, `default_board_member_role`, `allowed_priorities` (both deprecated). The latter two duplicate what [`PATCH /groups/{id}/board-defaults/`](#board-defaults) does — either endpoint can set them.
+**Writable fields:** `name`, `description`, `parent`, `health_status` *(1.3+)*, `default_board_member_role`, `allowed_priorities` (both deprecated). The latter two duplicate what [`PATCH /groups/{id}/board-defaults/`](#board-defaults) does — either endpoint can set them.
 
 **Changing `parent`** *(1.2+)*. Sending the group's current `parent` value is not a change and needs nothing beyond group admin. A change is accepted only when, in this order:
 

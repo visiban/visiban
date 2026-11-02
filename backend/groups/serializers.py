@@ -1,3 +1,4 @@
+from django.db.models import Manager
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
@@ -10,6 +11,7 @@ from .models import (
     _GROUP_TRAVERSAL_MAX_DEPTH, user_has_group_access,
     user_is_group_admin,
 )
+from .health import HealthStatus, build_health_map, resolve_health, valid_health_status
 
 # Schema for the root-first ancestor breadcrumb returned by
 # GroupDetailSerializer.get_ancestors (#1119) — a plain list-of-``{id, name}`` dict, not
@@ -204,6 +206,101 @@ def _subtree_height(group, limit):
     return limit + 1
 
 
+HEALTH_STATUS_HELP = (
+    "This entity's own health status, or null to inherit from the nearest "
+    "group above it that sets one (#1133). Writable by the same role that "
+    "edits the entity's other settings."
+)
+_EFFECTIVE_HEALTH_STATUS_HELP = (
+    "The health status that applies: health_status when set, otherwise the "
+    "value of the nearest ancestor group that sets one (at most six groups "
+    "up), otherwise null. Computed on every read, so a group change reaches "
+    "every descendant that does not set its own value."
+)
+_HEALTH_STATUS_SOURCE_HELP = (
+    "The group that supplies effective_health_status, as {id, name}. Null "
+    "when health_status is set on this entity itself, or when no ancestor "
+    "sets one."
+)
+
+
+class HealthStatusSourceSerializer(serializers.Serializer):
+    """Schema of ``health_status_source`` (#1133): the ancestor group supplying the value."""
+
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(read_only=True)
+
+
+class HealthStatusListSerializer(serializers.ListSerializer):
+    """List serializer that resolves every row's effective health in one batch.
+
+    Before serializing, collects where each row's ancestor walk starts and
+    builds one shared ``id -> node`` map (``build_health_map``): loaded
+    ``parent`` chains cost nothing and the rest costs one query for the whole
+    list. Without this each row would walk its own chain (#1133, no N+1).
+    """
+
+    def to_representation(self, data):
+        iterable = data.all() if isinstance(data, Manager) else data
+        items = list(iterable)
+        self.child.prime_health_map(items)
+        return [self.child.to_representation(item) for item in items]
+
+
+# ``health_status``, ``effective_health_status`` and ``health_status_source``
+# (#1133), shared by the board and group serializers so the three fields, their
+# validation and their resolution are written once. A subclass supplies
+# ``_health_start(obj)``: where the ancestor walk begins when ``obj`` sets no
+# value of its own (a board's group, a group's parent), as
+# ``(loaded_group_or_None, group_id)``. Set
+# ``Meta.list_serializer_class = HealthStatusListSerializer`` so lists resolve
+# in one batch.
+#
+# No docstring on purpose: drf-spectacular publishes the first docstring in a
+# serializer's MRO as its component description, and Board/Group have none.
+class HealthStatusFieldsMixin(serializers.Serializer):
+
+    # Choices enforced here, at the boundary, not with a database constraint.
+    health_status = serializers.ChoiceField(
+        choices=HealthStatus.choices, allow_null=True, required=False,
+        help_text=HEALTH_STATUS_HELP,
+    )
+    effective_health_status = serializers.SerializerMethodField(help_text=_EFFECTIVE_HEALTH_STATUS_HELP)
+    health_status_source = serializers.SerializerMethodField(help_text=_HEALTH_STATUS_SOURCE_HELP)
+
+    def _health_start(self, obj):  # pragma: no cover - abstract
+        raise NotImplementedError
+
+    def prime_health_map(self, items):
+        """Build one ancestor map for every row of a list (see HealthStatusListSerializer)."""
+        self._health_map = build_health_map(
+            self._health_start(obj) for obj in items
+            if not valid_health_status(obj.health_status)
+        )
+
+    def _health(self, obj):
+        # Memoized per serializer for the two method fields of one row. Keyed
+        # by the inputs, not just the pk, so a row re-serialized after a write
+        # in the same request is never answered from a stale entry.
+        start = self._health_start(obj)
+        key = (obj.pk, obj.health_status, start[1])
+        cache = self.__dict__.setdefault("_health_cache", {})
+        if key not in cache:
+            health_map = self.__dict__.get("_health_map")
+            if health_map is None:
+                health_map = {} if valid_health_status(obj.health_status) else build_health_map([start])
+            cache[key] = resolve_health(obj.health_status, start[1], health_map)
+        return cache[key]
+
+    @extend_schema_field(serializers.ChoiceField(choices=HealthStatus.choices, allow_null=True))
+    def get_effective_health_status(self, obj):
+        return self._health(obj)[0]
+
+    @extend_schema_field(HealthStatusSourceSerializer(allow_null=True))
+    def get_health_status_source(self, obj):
+        return self._health(obj)[1]
+
+
 def full_group_access(group):
     """``group_access`` context value for a caller already cleared for full detail.
 
@@ -298,7 +395,7 @@ class GroupBriefSerializer(serializers.ModelSerializer):
 # deprecated: kept for API compatibility (1.0 contract forbids removing a
 # serializer field), flagged in the schema.
 @extend_schema_serializer(deprecate_fields=["default_board_member_role", "allowed_priorities"])
-class GroupSerializer(serializers.ModelSerializer):
+class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     # A SerializerMethodField, not `CharField(source="parent.name", default=None)`
     # — see _parent_name_for_group() above for why the dotted-source form
@@ -350,11 +447,13 @@ class GroupSerializer(serializers.ModelSerializer):
             "member_count", "board_count", "subgroup_count", "created_at",
             "default_board_member_role", "allowed_priorities", "shared_labels",
             "is_starred", "navigation_only", "can_place_boards",
+            "health_status", "effective_health_status", "health_status_source",
         ]
         read_only_fields = [
             "owner", "created_at", "shared_labels", "is_starred", "navigation_only",
             "can_place_boards",
         ]
+        list_serializer_class = HealthStatusListSerializer
         # Schema-only (#1077): see visiban/field_enforcement.py.
         extra_kwargs = {
             "default_board_member_role": {
@@ -364,6 +463,12 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def get_parent_name(self, obj) -> str | None:
         return _parent_name_for_group(obj)
+
+    def _health_start(self, obj):
+        # A group inherits from its parent. ``GroupViewSet`` loads the parent
+        # chain with select_related, so the walk usually reads loaded rows.
+        parent_field = Group._meta.get_field("parent")
+        return (obj.parent if obj.parent_id and parent_field.is_cached(obj) else None, obj.parent_id)
 
     # Fields withheld from a navigation-only group, with the empty value each
     # one takes. The keys stay in the response, with empty values of their
@@ -390,6 +495,11 @@ class GroupSerializer(serializers.ModelSerializer):
         "subgroup_count": 0,
         "allowed_priorities": [],
         "shared_labels": [],
+        # Health (#1133) is the group's own configuration, withheld like its
+        # description. Null is the declared empty value of all three.
+        "health_status": None,
+        "effective_health_status": None,
+        "health_status_source": None,
     }
 
     def _is_navigation_only(self, obj) -> bool:
@@ -443,7 +553,8 @@ class GroupSerializer(serializers.ModelSerializer):
         if self._is_navigation_only(instance):
             for key, empty in self._NAVIGATION_ONLY_EMPTY.items():
                 if key in data:
-                    data[key] = type(empty)(empty)
+                    # A fresh copy of a mutable empty; None is used as is.
+                    data[key] = None if empty is None else type(empty)(empty)
         return data
 
     def get_can_place_boards(self, obj) -> bool:

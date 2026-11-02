@@ -177,6 +177,10 @@ export const BOARD_LIST_ITEM = {
   archived_card_count: 0,
   my_role: 'admin' as const,
   is_starred: false,
+  // #1133: no health status set here or in a group above.
+  health_status: null,
+  effective_health_status: null,
+  health_status_source: null,
   staleness_threshold_days: 7,
   stale_warning_pct: 50,
   allowed_priorities: [],
@@ -219,6 +223,10 @@ export const BOARD_FULL = {
   custom_field_definitions: [],
   swimlane_custom_field_definitions: [],
   is_starred: false,
+  // #1133: no health status set here or in a group above.
+  health_status: null,
+  effective_health_status: null,
+  health_status_source: null,
   share_token: null,
   share_link_active: false,
   current_user_role: 'admin' as const,

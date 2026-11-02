@@ -14,6 +14,7 @@ Start with [Board & Cards](board.md); every other feature builds on the grid.
 | See who moved what, and when | [Card History](card-history.md) |
 | Spot bottlenecks and velocity | [Analytics](analytics.md) |
 | Organize boards and invite a team | [Groups](groups.md) |
+| See at a glance which workstreams are in trouble *(1.3+)* | [Health Status](health-status.md) |
 | Control who can do what | [Roles & Permissions](rbac/roles.md) |
 | Script the API or connect an AI agent | [Personal Access Tokens](personal-access-tokens.md) · [MCP Server](mcp-server.md) |
 | Send board changes to Zapier, n8n or your own script | [Webhooks](webhooks.md) |
@@ -198,7 +199,9 @@ Assigning a user **Group Admin** automatically grants them board-admin rights on
 
 The [RBAC guide](rbac/index.md) covers this in depth: [role definitions](rbac/roles.md), [how access inherits down the group hierarchy](rbac/inheritance.md), and [how to assign or revoke it](rbac/managing.md).
 
-→ [Groups](groups.md) · [Roles & Permissions](rbac/roles.md)
+A board or group admin can also mark a board or group **On track**, **At risk** or **Off track** *(1.3+)*. A group's status carries down to the boards and subgroups that don't set their own.
+
+→ [Groups](groups.md) · [Health Status](health-status.md) · [Roles & Permissions](rbac/roles.md)
 
 ---
 

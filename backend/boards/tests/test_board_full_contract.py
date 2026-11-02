@@ -33,7 +33,7 @@ from boards.models import (
     SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
-from groups.models import Group
+from groups.models import Group, HealthStatus
 
 
 class BoardFullSerializerContractTests(TestCase):
@@ -302,6 +302,7 @@ _EFFECTIVE_MEMBER_SPEC = {
 # the copy lives here rather than silently accepting any string.
 _EXPORT_MIN_ROLE_ENUM = set(Board.ExportMinRole.values)
 _CARD_DENSITY_ENUM = {"comfortable", "standard", "dense"}
+_HEALTH_STATUS_ENUM = set(HealthStatus.values)
 
 _BOARD_FULL_SPEC = {
     "id": _FieldSpec((int,)),
@@ -341,6 +342,10 @@ _BOARD_FULL_SPEC = {
     "capabilities": _FieldSpec((dict,)),
     "archived_card_count": _FieldSpec((int,)),
     "share_link_active": _FieldSpec((bool,), nullable=True),
+    # #1133: null = inherit / nothing set above; the source is {id, name}.
+    "health_status": _FieldSpec((str,), nullable=True, enum=_HEALTH_STATUS_ENUM),
+    "effective_health_status": _FieldSpec((str,), nullable=True, enum=_HEALTH_STATUS_ENUM),
+    "health_status_source": _FieldSpec((dict,), nullable=True),
 }
 
 

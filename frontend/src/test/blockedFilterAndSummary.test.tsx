@@ -50,6 +50,7 @@ const CARDS = [
 
 function makeBoard(cards: Card[] = CARDS): BoardFull {
   return {
+    health_status: null, effective_health_status: null, health_status_source: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0, columns: [], swimlanes: [], cards, labels: [],
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],

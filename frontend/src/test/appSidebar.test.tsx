@@ -11,6 +11,7 @@ const fakeUser: User = {
 }
 
 const fakeGroup: Group = {
+  health_status: null, effective_health_status: null, health_status_source: null,
   id: 10, name: 'Alpha', description: '', owner: fakeUser, parent: null, parent_name: null,
   member_count: 1, board_count: 1, subgroup_count: 0, created_at: '',
   default_board_member_role: 'member', allowed_priorities: [], shared_labels: [],
@@ -18,6 +19,7 @@ const fakeGroup: Group = {
 }
 
 const fakeBoard: Board = {
+  health_status: null, effective_health_status: null, health_status_source: null,
   id: 42, uid: 'boarduid0001', name: 'Sprint Board', description: '', owner: fakeUser,
   archived_card_count: 0,
   group: 10, group_name: 'Alpha', member_count: 1, card_count: 0,
@@ -27,6 +29,7 @@ const fakeBoard: Board = {
 }
 
 const personalBoard: Board = {
+  health_status: null, effective_health_status: null, health_status_source: null,
   id: 99, uid: 'boarduid0002', name: 'My Board', description: '', owner: fakeUser,
   archived_card_count: 0,
   group: null, group_name: null, member_count: 1, card_count: 0,

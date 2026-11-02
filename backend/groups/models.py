@@ -313,6 +313,21 @@ def get_group_ids_for_board_access(user):
     return all_ids
 
 
+class HealthStatus(models.TextChoices):
+    """Board and group health status values (#1133); see ``groups.health``.
+
+    Public API contract since 1.3: never rename or remove a value. Declared
+    here rather than in ``groups.health`` so ``Board`` and ``Group`` can name
+    them as ``choices`` (which also gives the Django admin a select) without
+    an import cycle. ``choices`` is not a database constraint; the API
+    serializers enforce the set.
+    """
+
+    ON_TRACK = "on_track", "On track"
+    AT_RISK = "at_risk", "At risk"
+    OFF_TRACK = "off_track", "Off track"
+
+
 class Group(models.Model):
     """A workspace that groups boards and members; supports nested subgroups up to 6 levels deep.
 
@@ -342,6 +357,14 @@ class Group(models.Model):
     )
     allowed_priorities = models.JSONField(
         default=list,
+    )
+    # Health status (#1133): null = inherit from the nearest ancestor group
+    # that sets one. The effective value is resolved on read (groups.health),
+    # never stored, so the cascade is live and an override is sticky. Values
+    # are limited to HealthStatus by the serializer; no index and no database
+    # constraint (nothing filters on it).
+    health_status = models.CharField(
+        max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
