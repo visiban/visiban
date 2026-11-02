@@ -4917,7 +4917,7 @@
 <tr>
 <td><code>last_used_at</code></td>
 <td>datetime | null</td>
-<td>ISO 8601 UTC timestamp of the most recent authenticated request, or <code>null</code> if never used.</td>
+<td>ISO 8601 UTC timestamp of the most recent authenticated request, or <code>null</code> if never used. Refreshed at most about once a minute, so accurate to roughly 60 seconds.</td>
 </tr>
 <tr>
 <td><code>expires_at</code></td>

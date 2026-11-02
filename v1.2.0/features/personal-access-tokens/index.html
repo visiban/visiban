@@ -4206,7 +4206,7 @@
 <hr />
 <h2 id="identifying-tokens-after-creation">Identifying tokens after creation<a class="headerlink" href="#identifying-tokens-after-creation" title="Permanent link">&para;</a></h2>
 <p>Since the full value is shown only once, the Access Tokens list identifies each token by its <strong>prefix</strong> (the first 8 characters, for example <code>vbn_a3f1...</code>). Together with the token's name and its <strong>last used</strong> timestamp, that usually tells tokens apart.</p>
-<p><strong>Last used</strong> shows when the token last authenticated a request; tokens never used show "Never".</p>
+<p><strong>Last used</strong> shows when the token last authenticated a request; tokens never used show "Never". To avoid a database write on every request, the timestamp is refreshed at most about once a minute, so it is accurate to roughly 60 seconds.</p>
 <hr />
 <h2 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h2>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
