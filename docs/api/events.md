@@ -286,6 +286,59 @@ Pick a retention window longer than the longest outage a consumer should survive
 
 ---
 
+## Using the client
+
+!!! warning "Experimental, 0.x"
+    The Python and TypeScript clients are new in 1.3 and are **not published** to PyPI or npm. Their API can change in any 0.x release, and they follow the 1.x compatibility rules only once they reach 1.0. The feed itself is the stable contract; the clients are a convenience over it.
+
+Every consumer outside the Django process ends up writing the same loop: hold a cursor, page the feed, save the cursor, and handle `410` by re-syncing. The clients in [`clients/python`](https://gitlab.com/visiban/visiban/-/tree/main/clients/python) and [`clients/typescript`](https://gitlab.com/visiban/visiban/-/tree/main/clients/typescript) implement exactly that and nothing else. They are not a general REST SDK. Both need **server 1.3 or later**, because only 1.3 returns `next_cursor` on a `410` (see [When a cursor expires](#errors)). Against a 1.2 server a `410` raises `ResyncUnsupported` rather than guessing a resume point.
+
+=== "Python"
+
+    Standard library only, Python 3.10+. Install from a checkout: `pip install ./clients/python`.
+
+    ```python
+    from visiban_client import Client, Resync
+
+    client = Client("https://visiban.example.com", token)  # a PAT with the `read` scope
+    for item in client.iter_events(board_id):               # returns once caught up
+        if isinstance(item, Resync):
+            replace_local_state(item.snapshot)               # the /full/ board state
+        else:
+            handle(item)                                     # one feed row, as a dict
+    ```
+
+=== "TypeScript"
+
+    No runtime dependencies, Node 20+ (global `fetch`). npm cannot install from a Git subdirectory, so build a tarball from a checkout: `cd clients/typescript && npm ci && npm run build && npm pack`, then `npm install ./visiban-client-0.1.0.tgz`.
+
+    ```typescript
+    import { Client, Resync } from "@visiban/client";
+
+    const client = new Client({ baseUrl: "https://visiban.example.com", token });
+    for await (const item of client.iterEvents(boardId)) {
+      if (item instanceof Resync) replaceLocalState(item.snapshot);
+      else handle(item);
+    }
+    ```
+
+**What the client does**
+
+- Pages with `after` and `limit` until `next_cursor` is `null`, and yields rows in `id` order. It never infers "caught up" from a short page, because rows a reader may not see are removed from pages ([per-reader fields](#fields-that-depend-on-who-is-reading)).
+- **Advances the cursor only after your loop body returns** for an item, through a pluggable cursor store (an in-memory store by default; pass your own `get`/`set` for durable storage). Leaving the loop early, or an exception in your handler, leaves that item uncommitted and it is delivered again. That is **at-least-once** delivery: make handlers idempotent. The clients do not offer exactly-once.
+- On `410 cursor_expired`, keeps the `410`'s `next_cursor`, fetches `/full/`, and yields a `Resync` carrying the snapshot and that cursor. The stored cursor moves to it only after your handler returns for the `Resync`, then the feed resumes from it. An event written around the re-sync can arrive both in the snapshot and on the resumed feed, so apply events idempotently.
+- Passes redacted rows, unknown event types and unknown fields through untouched; it never raises on them.
+- Backs off on `429`, `5xx` and network errors (honoring `Retry-After`, capped), and polls on a configurable interval. Without a poll interval it returns once caught up.
+- Authenticates with a [scoped personal access token](authentication.md) only, sends it only to the origin you configured (a `resync_url` is reduced to its path, and redirects are never followed), and refuses plain `http://` to a non-loopback host unless you opt in.
+
+**Late-committing rows.** Ids follow insertion, not commit (see [Event coverage](#event-coverage)), so a paging reader can step past a row that commits a moment later. The clients take an optional `overlap` (default `0`, off): each poll re-reads from `cursor - overlap` and drops ids it already delivered. This narrows the window; it does not make reads gap-free, and after a restart the overlap region is delivered again. Until [#2053](https://gitlab.com/visiban/visiban/-/issues/2053) adds a commit-ordered cursor, do not rely on any polling client for gap-free reads.
+
+**Verifying webhooks.** The same packages include `verify_signature` / `verifySignature` for [webhook deliveries](webhooks.md#verifying-signatures). It is **experimental** until the webhooks API is declared stable ([#2070](https://gitlab.com/visiban/visiban/-/issues/2070)). In TypeScript it lives in the separate `@visiban/client/webhooks` entry point, so the main entry stays free of `node:crypto` and browser-safe.
+
+**Tested against a real server.** The client suites run in this repository's CI against a live backend, so a change to the feed that breaks the clients fails the pipeline before it merges. A shared fixture file drives both languages, so they cannot drift apart.
+
+---
+
 ## Stability and versioning
 
 > **Added in 1.2**

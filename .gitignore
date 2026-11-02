@@ -97,3 +97,9 @@ values.secret.yaml
 .mutmut-cache
 mutmut-stats-*.json
 mutmut-cicd-stats.json
+
+# clients/ (#1178)
+clients/typescript/coverage/
+clients/python/htmlcov/
+clients/python/.coverage
+.coverage
