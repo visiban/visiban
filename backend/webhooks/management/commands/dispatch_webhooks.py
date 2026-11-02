@@ -21,7 +21,7 @@ import threading
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 
-from boards.notifications_email import EMAIL_DRAIN_SECONDS, wait_for_pending_email  # noqa: F401 — EMAIL_DRAIN_SECONDS stays importable from here
+from boards.notifications_email import EMAIL_DRAIN_SECONDS, drain_email_on_exit, wait_for_pending_email
 from webhooks import dispatch
 
 
@@ -40,8 +40,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.verbosity = int(options.get("verbosity", 1))
         if not options["loop"]:
-            self._report(dispatch.run_once())
-            self._drain_email()
+            # Drain in a finally: a run_once() that raises has still queued
+            # notice email on the daemon thread, and exiting would kill it.
+            with drain_email_on_exit(self.stderr, "webhook notice"):
+                self._report(dispatch.run_once())
             return
         interval = max(float(options["interval"]), 1.0)
         stop = threading.Event()

@@ -157,9 +157,11 @@ class Command(BaseCommand):
             self._log(f"scheduled {job.command} daily at {job.at:%H:%M} UTC")
 
         scheduler = Scheduler(jobs, self._now(), self._run_job)
-        # Jobs run in-process, and this process outlives their email threads, so
-        # nothing is lost between runs. Only the stop path needs the drain: a
-        # SIGTERM seconds after a job fired would otherwise kill a send (#2077).
+        # The email jobs (notify_due_soon) go through call_command and drain
+        # themselves before returning, so today nothing is left in flight when
+        # the loop stops. This drain guards only a future in-process job that
+        # queues mail and does not drain. Cost: a job now blocks the loop for up
+        # to EMAIL_DRAIN_SECONDS (30s) while its mail sends (#2077).
         with drain_email_on_exit(self.stderr):
             while True:
                 scheduler.tick(self._now())

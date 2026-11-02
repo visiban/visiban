@@ -709,6 +709,12 @@ class OneShotEmailTests(TransactionTestCase):
             # Nothing else waits: this is the moment the process would exit.
             self.assertEqual(len(sent), 1)
 
+    def test_one_shot_drains_even_when_the_run_raises(self):
+        with patch.object(dispatch, "run_once", side_effect=RuntimeError("boom")), patch("boards.notifications_email.wait_for_pending_email", return_value=True) as wait:
+            with self.assertRaises(RuntimeError):
+                call_command("dispatch_webhooks", stdout=StringIO())
+        wait.assert_called_once()
+
     def test_wait_is_bounded(self):
         release = threading.Event()
         thread = threading.Thread(target=release.wait, name=EMAIL_THREAD_NAME, daemon=True)
