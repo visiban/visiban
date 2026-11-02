@@ -54,7 +54,7 @@ export default function CustomFieldLink({ value, variant, maxHostChars, stopProp
 
   if (!href) {
     if (variant === "action") return null;
-    return <span className={`text-fg-secondary ${variant === "host" ? "truncate" : "break-all"} ${className}`}>{value}</span>;
+    return <span className={`text-fg-secondary ${variant === "host" ? "truncate min-w-0" : "break-all"} ${className}`}>{value}</span>;
   }
 
   const stopHandlers = stopPropagation
@@ -88,7 +88,7 @@ export default function CustomFieldLink({ value, variant, maxHostChars, stopProp
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Open ${host} in new tab`}
-        className={`text-info hover:underline truncate rounded-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${className}`}
+        className={`text-info hover:underline truncate min-w-0 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${className}`}
         {...stopHandlers}
       >
         {shown}

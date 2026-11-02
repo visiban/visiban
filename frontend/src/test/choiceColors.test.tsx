@@ -661,3 +661,43 @@ describe("CustomFieldValueDisplay — chip truncation classes (#1413)", () => {
     expect((container.firstElementChild as HTMLElement).className).not.toContain("shrink-0");
   });
 });
+
+describe("CustomFieldValueDisplay — chip truncation, other field types (#1413)", () => {
+  const msShape = shape({ name: "Platforms", field_type: "multi_select", choices: ["web", "ios"], choice_colors: undefined });
+
+  it("row-chip multi-select: the name span yields space first (shrink-[3]) and keeps min-w-0", () => {
+    render(<CustomFieldValueDisplay definition={msShape} value='["web","ios"]' variant="row-chip" />);
+    const name = screen.getByText("Platforms:");
+    expect(name.className).toContain("shrink-[3]");
+    expect(name.className).toContain("min-w-0");
+  });
+
+  it.each(["row-chip", "chip"] as const)("%s: a url value's host link truncates with min-w-0", (variant) => {
+    render(<CustomFieldValueDisplay definition={shape({ name: "Docs", field_type: "url", choices: [], choice_colors: undefined })} value="https://example.com/x" variant={variant} />);
+    const link = screen.getByRole("link");
+    expect(link.className).toContain("truncate");
+    expect(link.className).toContain("min-w-0");
+  });
+
+  it("a non-http url value falls back to a truncating span with min-w-0", () => {
+    render(<CustomFieldValueDisplay definition={shape({ name: "Docs", field_type: "url", choices: [], choice_colors: undefined })} value="not a url" variant="row-chip" />);
+    const el = screen.getByText("not a url");
+    expect(el.className).toContain("truncate");
+    expect(el.className).toContain("min-w-0");
+  });
+
+  it("row-chip hideName and dropdown keep the clip classes", () => {
+    const { container } = render(<CustomFieldValueDisplay definition={shape()} value="Low" variant="row-chip" hideName />);
+    expect((container.firstElementChild as HTMLElement).className).toContain("overflow-hidden");
+    const value = screen.getByText("Low");
+    expect(value.className).toContain("min-w-0");
+  });
+
+  it("chip floors match the card face (3.5rem single, 4rem multi)", () => {
+    const a = render(<CustomFieldValueDisplay definition={shape({ field_type: "text", choices: [] })} value="x" variant="chip" />);
+    expect((a.container.firstElementChild as HTMLElement).className).toContain("min-w-[3.5rem]");
+    a.unmount();
+    const b = render(<CustomFieldValueDisplay definition={msShape} value='["web"]' variant="chip" />);
+    expect((b.container.firstElementChild as HTMLElement).className).toContain("min-w-[4rem]");
+  });
+});

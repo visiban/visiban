@@ -139,7 +139,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden ${multiEntries ? "max-w-[14rem] min-w-0" : "min-w-[6rem] max-w-[10rem]"} ${className ?? ""}`}
+      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line overflow-hidden ${multiEntries ? "max-w-[14rem] min-w-[4rem]" : "min-w-[3.5rem] max-w-[10rem]"} ${className ?? ""}`}
       title={`${definition.name}: ${displayText}`}
     >
       {dot}
