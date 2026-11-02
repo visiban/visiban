@@ -852,6 +852,8 @@
       
         
       
+        
+      
     
     
     
@@ -1364,6 +1366,34 @@
   
   
     <li class="md-nav__item">
+      <a href="health-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="navigation/" class="md-nav__link">
         
   
@@ -1672,7 +1702,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_28" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_29" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1694,14 +1724,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_28" id="__nav_3_28_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_29" id="__nav_3_29_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_28_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_28">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_29_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_29">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4105,6 +4135,10 @@
 <td><a href="groups/">Groups</a></td>
 </tr>
 <tr>
+<td>See at a glance which workstreams are in trouble <em>(1.3+)</em></td>
+<td><a href="health-status/">Health Status</a></td>
+</tr>
+<tr>
 <td>Control who can do what</td>
 <td><a href="rbac/roles/">Roles &amp; Permissions</a></td>
 </tr>
@@ -4275,7 +4309,8 @@
 </table>
 <p>Assigning a user <strong>Group Admin</strong> automatically grants them board-admin rights on every board in that group — the recommended role for team leads.</p>
 <p>The <a href="rbac/">RBAC guide</a> covers this in depth: <a href="rbac/roles/">role definitions</a>, <a href="rbac/inheritance/">how access inherits down the group hierarchy</a>, and <a href="rbac/managing/">how to assign or revoke it</a>.</p>
-<p>→ <a href="groups/">Groups</a> · <a href="rbac/roles/">Roles &amp; Permissions</a></p>
+<p>A board or group admin can also mark a board or group <strong>On track</strong>, <strong>At risk</strong> or <strong>Off track</strong> <em>(1.3+)</em>. A group's status carries down to the boards and subgroups that don't set their own.</p>
+<p>→ <a href="groups/">Groups</a> · <a href="health-status/">Health Status</a> · <a href="rbac/roles/">Roles &amp; Permissions</a></p>
 <hr />
 <h2 id="personal-access-tokens">Personal Access Tokens<a class="headerlink" href="#personal-access-tokens" title="Permanent link">&para;</a></h2>
 <p>Create named, revocable tokens to authenticate scripts, CI pipelines, and integrations without sharing your password. Tokens use the <code>vbn_</code> prefix, are shown once at creation, and are automatically revoked when your password changes.</p>

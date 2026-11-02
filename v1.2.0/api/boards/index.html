@@ -850,6 +850,8 @@
       
         
       
+        
+      
     
     
     
@@ -1359,6 +1361,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../features/health-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../features/navigation/" class="md-nav__link">
         
   
@@ -1664,7 +1694,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_28" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_29" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1686,14 +1716,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_28" id="__nav_3_28_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_29" id="__nav_3_29_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_28_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_28">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_29_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_29">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5505,11 +5535,27 @@
 <td>string</td>
 <td>ISO 8601 timestamps</td>
 </tr>
+<tr>
+<td><code>health_status</code></td>
+<td>string / null</td>
+<td>The board's own health status: <code>"on_track"</code>, <code>"at_risk"</code> or <code>"off_track"</code>, or <code>null</code> to inherit from the nearest group above it that sets one (default: <code>null</code>). Admin-only when writing; any other value (including <code>""</code>) returns <code>400 Bad Request</code>. See <a href="../../features/health-status/">Health Status</a>. Added in 1.3 (#1133).</td>
+</tr>
+<tr>
+<td><code>effective_health_status</code></td>
+<td>string / null</td>
+<td>Read-only. The status that applies: <code>health_status</code> when set, otherwise the <code>health_status</code> of the nearest ancestor group that sets one, walking up from the board's group through at most six groups; <code>null</code> when none does. Computed on every read, so a group change applies to every board that does not set its own value. Added in 1.3 (#1133).</td>
+</tr>
+<tr>
+<td><code>health_status_source</code></td>
+<td>object / null</td>
+<td>Read-only. <code>{ "id", "name" }</code> of the group that supplies <code>effective_health_status</code>; <code>null</code> when <code>health_status</code> is set on the board itself or when nothing applies. Added in 1.3 (#1133).</td>
+</tr>
 </tbody>
 </table>
+<p>The three health fields are on every board payload: list, retrieve, create and update responses, <code>/full/</code>, <a href="../groups/#get-apiv1groupsidboards"><code>GET /api/v1/groups/{id}/boards/</code></a>, <code>descendant-boards/</code> and its paged form, and the <code>board.created</code> / <code>board.updated</code> <a href="../websockets/">WebSocket events</a>. A list resolves every row's inherited value from one ancestor lookup for the whole page.</p>
 <h3 id="put-apiv1boardsid-patch-apiv1boardsid"><code>PUT /api/v1/boards/{id}/</code> / <code>PATCH /api/v1/boards/{id}/</code><a class="headerlink" href="#put-apiv1boardsid-patch-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Update board fields. <code>PUT</code> and <code>PATCH</code> are both accepted, and every field is optional in either. Requires board admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>, <code>show_row_chip_field_names</code>, <code>group</code> (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field <code>description</code> PATCH from a non-admin gets <code>403 Forbidden</code>.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>, <code>show_row_chip_field_names</code>, <code>health_status</code> (1.3+), <code>group</code> (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field <code>description</code> PATCH from a non-admin gets <code>403 Forbidden</code>.</p>
 <p><strong><code>group</code> on update:</strong> <a href="#post-apiv1boardsidmove-group"><code>POST /api/v1/boards/{id}/move-group/</code></a> is the preferred way to change it. Since 1.2, setting <code>group</code> to a different group requires admin of that group or of one of its ancestor groups (or a site admin with all-content access). Otherwise, or if the group does not exist, the request returns <code>400</code> with <code>{"group": ["Unknown group, or you are not an admin of it."]}</code> and changes nothing. The check runs against the board's group when the update is applied. Sending the current <code>group</code> unchanged (for example in an echoing <code>PUT</code>) or <code>null</code> (detach to a personal board) needs only board admin. Since 1.2, a <code>group</code> change made this way sends the same <a href="../websockets/#group-channel-since-11">group-channel events</a> as move-group: <code>board.deleted</code> to the old group and <code>board.created</code> to the new one.</p>
 <h3 id="delete-apiv1boardsid"><code>DELETE /api/v1/boards/{id}/</code><a class="headerlink" href="#delete-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Delete a board. Requires the board owner or a user with <code>can_access_all_content</code> (the <code>site_admin</code> role). A board admin who is not the owner gets <code>403 Forbidden</code>; see the <a href="../../features/rbac/roles/">role matrix</a>. Deletes every card, <strong>including archived cards</strong> (see <code>archived_card_count</code> above).</p>
