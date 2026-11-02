@@ -3,6 +3,8 @@ auto-disable, cursor expiry, standing, decrypt failure, leases, no leaks."""
 
 import json
 import logging
+import threading
+import time
 from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
@@ -10,10 +12,11 @@ from unittest.mock import patch
 from allauth.account.models import EmailAddress
 from django.core import mail
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from boards.notifications_email import EMAIL_THREAD_NAME, wait_for_pending_email
 from boards.models import BoardEvent, BoardMembership, Notification, Swimlane, SwimlaneCustomFieldDefinition
 from groups.models import Group, GroupMembership
 from visiban.egress import EgressError
@@ -634,6 +637,88 @@ class StandingTests(DispatcherBase):
         rec, _ = self.run_with()
         self.assertTrue(self.sub.enabled)
         self.assertEqual(len(rec.calls), 1)
+
+
+class IsolationTests(DispatcherBase):
+    """One webhook's trouble does not cost the others their turn."""
+
+    def setUp(self):
+        super().setUp()
+        self.other = make_subscription(self.board, self.admin, secret=GOLDEN_SECRET)
+        self.event()
+
+    def test_deleted_during_a_failing_post_does_not_abort_the_run(self):
+        calls = []
+
+        def post(url, body, headers, **kwargs):
+            sid = int(headers["X-Visiban-Subscription-Id"])
+            calls.append(sid)
+            if len(calls) == 1:
+                WebhookSubscription.objects.filter(pk=sid).delete()
+                raise EgressError("connection_failed")
+            return 200
+
+        with patch("visiban.egress.guarded_post", post):
+            result = dispatch.run_once()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(result.errored, 0)
+        self.assertEqual(result.delivered, 1)
+
+    def test_an_unexpected_error_is_isolated_and_logs_no_text(self):
+        real = dispatch._deliver
+        seen = []
+
+        def flaky(sub_id, *args, **kwargs):
+            seen.append(sub_id)
+            if len(seen) == 1:
+                raise RuntimeError("https://hooks.example.com/s3cr3tpath")
+            return real(sub_id, *args, **kwargs)
+
+        with patch("visiban.egress.guarded_post", Recorder()), patch.object(dispatch, "_deliver", flaky), self.assertLogs("webhooks", level=logging.ERROR) as logs:
+            result = dispatch.run_once()
+        self.assertEqual((len(seen), result.errored, result.delivered), (2, 1, 1))
+        text = "\n".join(logs.output)
+        self.assertIn("error=RuntimeError", text)
+        self.assertNotIn("s3cr3tpath", text)
+
+
+@ENABLED
+@override_settings(NOTIFICATION_EMAIL_ASYNC=True, WEBHOOK_DISABLE_AFTER_FAILURES=1)
+class OneShotEmailTests(TransactionTestCase):
+    """The async send thread is a daemon: a command that exits at once kills it."""
+
+    def _setup_failing_webhook(self):
+        admin, board = admin_and_board()
+        EmailAddress.objects.create(user=admin, email=admin.email, verified=True, primary=True)
+        make_subscription(board, admin, secret=GOLDEN_SECRET)
+        BoardEvent.objects.create(board_id=board.pk, event="card.created", data={"id": 1})
+
+    def _slow_send(self, sent):
+        def send(messages, ids):
+            time.sleep(0.5)
+            sent.extend(messages)
+            return len(messages)
+
+        return send
+
+    def test_one_shot_waits_for_the_notice_email(self):
+        self._setup_failing_webhook()
+        sent = []
+        with patch("visiban.egress.guarded_post", Recorder(500)), patch("boards.notifications_email._send_batch", self._slow_send(sent)):
+            call_command("dispatch_webhooks", stdout=StringIO())
+            # Nothing else waits: this is the moment the process would exit.
+            self.assertEqual(len(sent), 1)
+
+    def test_wait_is_bounded(self):
+        release = threading.Event()
+        thread = threading.Thread(target=release.wait, name=EMAIL_THREAD_NAME, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(release.set)
+        self.assertFalse(wait_for_pending_email(0.05))
+        release.set()
+        thread.join()
+        self.assertTrue(wait_for_pending_email(0.05))
 
 
 class CommandTests(DispatcherBase):

@@ -1268,10 +1268,11 @@ backend-schema-fuzz:
     # login_failed gate for this job only; settings.py refuses the variable
     # unless DEBUG=True and production defaults are untouched.
     VISIBAN_DISABLE_THROTTLING: "True"
-    # Outbound webhooks (#863): on, so the webhook routes are fuzzed for real
-    # rather than answering 403 webhooks_disabled. The fuzz client is a PAT, so
-    # every action that resolves or contacts a destination (create, url PATCH,
-    # reenable, rotate, test) answers 403 session_required: the job opens no
+    # Outbound webhooks (#863): on, so the routes exist in the fuzzed schema.
+    # The fuzz user is a board member, not an admin, so they answer the role
+    # 403 before any webhook logic: 2xx webhook schemas are not fuzzed here
+    # (#2078). A PAT could not reach create, url PATCH, reenable, rotate
+    # or test in any case (403 session_required): the job opens no
     # outbound connection.
     WEBHOOKS_ENABLED: "True"
     # CI-only file; provision_fuzz_token writes the raw PAT here (mode 0600),

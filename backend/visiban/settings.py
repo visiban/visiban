@@ -1409,12 +1409,13 @@ LOGGING = {
             "level": env("WEBHOOK_LOG_LEVEL", default="INFO"),
             "propagate": False,
         },
-        # urllib3's DEBUG connection log prints the request line, which for a
-        # Slack or Zapier webhook is the credential. Pinned above DEBUG so a
-        # root-level DEBUG override cannot expose it.
+        # urllib3's connection logs print the request URL, at DEBUG and at
+        # WARNING, and for a Slack or Zapier webhook the URL is the credential.
+        # Pinned above both so no receiver response or root-level override can
+        # expose it. Delivery failures are logged by "webhooks", with codes.
         "urllib3": {
             "handlers": ["console"],
-            "level": "WARNING",
+            "level": "ERROR",
             "propagate": False,
         },
     },

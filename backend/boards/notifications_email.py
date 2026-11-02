@@ -35,6 +35,7 @@ never an address, a subject, a card title, or any other content, per the
 """
 import logging
 import threading
+import time
 from contextlib import contextmanager
 
 from django.conf import settings
@@ -42,6 +43,9 @@ from django.core.mail import EmailMessage, get_connection
 
 from visiban.mail import classify_smtp_error
 from .models import Notification
+
+#: Names the daemon threads that send email, so a command can wait for them.
+EMAIL_THREAD_NAME = "visiban-notification-email"
 
 logger = logging.getLogger(__name__)
 
@@ -408,13 +412,27 @@ def deliver_notification_emails(notifications, context=None):
         thread = threading.Thread(
             target=_send_batch_in_thread,
             args=(messages, ids),
-            name="visiban-notification-email",
+            name=EMAIL_THREAD_NAME,
             daemon=True,
         )
         thread.start()
         return len(messages)
 
     return _send_batch(messages, ids)
+
+
+def wait_for_pending_email(timeout: float) -> bool:
+    """Wait up to *timeout* seconds for in-flight sends; True if none remain.
+
+    The send thread is a daemon, so a process that exits straight after a run
+    (a one-shot management command) kills it mid-send. A long-running worker
+    never needs this; a short-lived command whose email must arrive does.
+    """
+    deadline = time.monotonic() + timeout
+    pending = [t for t in threading.enumerate() if t.name == EMAIL_THREAD_NAME]
+    for thread in pending:
+        thread.join(max(deadline - time.monotonic(), 0))
+    return not any(t.is_alive() for t in pending)
 
 
 def _send_batch_in_thread(messages, ids):

@@ -277,6 +277,7 @@ class RunResult:
     delivered: int = 0
     failed: int = 0
     disabled: int = 0
+    errored: int = 0
     lost_lease: int = 0
     notes: list = field(default_factory=list)
 
@@ -316,7 +317,13 @@ def run_once(*, budget_seconds=None, clock=time.monotonic) -> RunResult:
         if clock() >= deadline:
             break
         result.subscriptions += 1
-        _process(sub_id, deadline, clock, result)
+        # One webhook's bug must not cost the others their turn. The exception
+        # class only: its text could carry an address.
+        try:
+            _process(sub_id, deadline, clock, result)
+        except Exception as exc:  # noqa: BLE001
+            result.errored += 1
+            logger.error("webhook run error: subscription_id=%s error=%s", sub_id, type(exc).__name__)
     _heartbeat(last_run_finished_at=timezone.now())
     return result
 
@@ -493,7 +500,9 @@ def _advance(sub_id, token, old_cursor, new_cursor, *, success_at=None, status=N
 
 
 def _record_failure(sub_id, token, code, status, attempt_at, result: RunResult):
-    sub = WebhookSubscription.objects.get(pk=sub_id)
+    sub = WebhookSubscription.objects.filter(pk=sub_id).first()
+    if sub is None:
+        return  # Deleted while the POST was in flight: nothing left to record.
     failures = sub.consecutive_failures + 1
     failing_since = sub.failing_since or attempt_at
     limit = int(_setting("WEBHOOK_DISABLE_AFTER_FAILURES", 20))

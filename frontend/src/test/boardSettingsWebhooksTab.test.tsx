@@ -497,6 +497,21 @@ describe('Webhooks tab — detail', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'hooks.zapier.com/…/k3f9' })).toHaveFocus())
   })
 
+  it('a rotate reveal left behind on its detail view does not hide Add webhook', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockResolvedValue({ ...sub({ secret_rotated_at: minsAgo(0) }), secret: 'whsec_new' })
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: /^Confirm: Rotate the secret/ }))
+    const reveal = await screen.findByTestId('webhook-secret-reveal')
+    await user.click(within(reveal).getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: '← All webhooks' }))
+    expect(screen.queryByTestId('webhook-secret-reveal')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add webhook' })).toBeInTheDocument()
+  })
+
   it('a secret_unavailable webhook offers neither Turn on nor Rotate', async () => {
     const user = setup()
     m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'secret_unavailable', disabled_at: minsAgo(3) })])

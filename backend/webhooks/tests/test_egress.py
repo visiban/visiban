@@ -59,6 +59,8 @@ class ClassifyIpTests(SimpleTestCase):
         ("fd12:3456::1", PRIVATE),
         # sensitive: loopback, link-local, metadata (including ones inside
         # private and global ranges)
+        ("fec0::1", PRIVATE),  # IPv6 site-local: Python calls it global
+        ("feff::1", PRIVATE),
         ("127.0.0.1", SENSITIVE),
         ("127.255.0.9", SENSITIVE),
         ("::1", SENSITIVE),
@@ -338,6 +340,52 @@ class DeadlineTests(SimpleTestCase):
             )
         self.assertEqual(ctx.exception.code, egress.TIMEOUT)
         self.assertLess(_time.monotonic() - started, 4)
+        # The receiver is still sending, and the thread must not outlive the
+        # deadline with it, or threads pile up per attempt.
+        give_up = _time.monotonic() + 3
+        while _time.monotonic() < give_up and any(t.name == "visiban-egress" and t.is_alive() for t in threading.enumerate()):
+            _time.sleep(0.05)
+        self.assertFalse([t for t in threading.enumerate() if t.name == "visiban-egress" and t.is_alive()])
+
+    def test_malformed_response_header_does_not_log_the_url(self):
+        # Runs the real urllib3 logging path: a mock of guarded_post can't see it.
+        import logging
+
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+
+        def respond():
+            conn, _ = srv.accept()
+            try:
+                conn.recv(4096)
+                conn.sendall(b"HTTP/1.1 200 OK\r\nthis line has no colon\r\nContent-Length: 0\r\n\r\n")
+            finally:
+                conn.close()
+
+        threading.Thread(target=respond, daemon=True).start()
+        self.addCleanup(srv.close)
+        records = []
+
+        class Capture(logging.Handler):
+            def emit(self, record):
+                records.append(self.format(record))
+
+        handler = Capture(level=logging.NOTSET)
+        logging.getLogger("urllib3").addHandler(handler)
+        self.addCleanup(logging.getLogger("urllib3").removeHandler, handler)
+        with _resolving("127.0.0.1"):
+            status = egress.guarded_post(
+                f"http://drip.test:{port}/services/s3cr3tpath?token=abc",
+                b"{}",
+                {},
+                allowlist=parse_allowlist("127.0.0.1"),
+                connect_timeout=1,
+                total_timeout=2,
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual([r for r in records if "s3cr3tpath" in r or "token=abc" in r], [])
 
 
 # ─── Live sockets: pinning, TLS, redirects, rebinding ─────────────────────────
@@ -505,6 +553,8 @@ class PinnedConnectionTests(SimpleTestCase):
         captured = {}
 
         class FakePool:
+            ConnectionCls = object
+
             def __init__(self, host, **kw):
                 captured["host"] = host
                 captured.update(kw)

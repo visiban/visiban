@@ -366,7 +366,7 @@ export default function BoardSettingsWebhooksTab({
           >
             Webhooks
           </h3>
-          {subs.length > 0 && !reveal && (
+          {subs.length > 0 && !revealShown && (
             <button
               ref={addButtonRef}
               type="button"

@@ -92,6 +92,9 @@ _PRIVATE_NETWORKS = tuple(
         "192.168.0.0/16",
         "100.64.0.0/10",  # CGNAT (RFC 6598)
         "fc00::/7",  # IPv6 unique local (RFC 4193)
+        # IPv6 site-local, deprecated by RFC 3879 but still routed internally
+        # where it survives. Python calls it global, so list it explicitly.
+        "fec0::/10",
     )
 )
 
@@ -308,15 +311,17 @@ class EgressError(Exception):
         self.reason = reason
 
 
-def _call_with_deadline(fn, timeout: float):
+def _call_with_deadline(fn, timeout: float, on_timeout=None):
     """Run *fn* on a daemon thread and give up after *timeout* seconds.
 
     Returns its result or re-raises its exception. On a timeout raises
     ``EgressError(timeout)`` and abandons the thread: neither
     ``socket.getaddrinfo`` nor a per-read socket timeout bounds the WALL clock
     (a resolver or a receiver that answers one byte at a time resets the clock
-    on every read). The abandoned thread ends on its own when its per-operation
-    timeouts fire; the caller is free at the deadline either way.
+    on every read). The caller is free at the deadline either way. A receiver
+    that keeps sending would keep the thread alive indefinitely, so *on_timeout*
+    is how a caller ends it, by closing what the thread is blocked on. Without
+    one the thread ends when its per-operation timeouts fire.
     """
     box = {}
 
@@ -330,10 +335,41 @@ def _call_with_deadline(fn, timeout: float):
     thread.start()
     thread.join(timeout)
     if thread.is_alive():
+        if on_timeout is not None:
+            on_timeout()
         raise EgressError(TIMEOUT)
     if "error" in box:
         raise box["error"]
     return box.get("value")
+
+
+def _track_connections(pool) -> list:
+    """Record the connections *pool* opens, so a deadline can abort them.
+
+    ``pool.close()`` only closes idle connections; one in use by a blocked
+    thread is checked out of the pool and out of its reach.
+    """
+    opened = []
+
+    class Tracked(pool.ConnectionCls):
+        def connect(self):
+            opened.append(self)
+            super().connect()
+
+    pool.ConnectionCls = Tracked
+    return opened
+
+
+def _abort_connections(connections) -> None:
+    """Shut the sockets down, which wakes a thread blocked reading from them."""
+    for conn in connections:
+        sock = getattr(conn, "sock", None)
+        if sock is None:
+            continue
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass  # Already closed: the thread is on its way out.
 
 
 @dataclasses.dataclass(frozen=True)
@@ -528,6 +564,8 @@ def guarded_post(
         pool = urllib3.HTTPConnectionPool(
             ip, port=dest.port, timeout=timeout, retries=False, maxsize=1,
         )
+    connections = _track_connections(pool)
+
     def exchange():
         response = pool.urlopen(
             "POST",
@@ -546,7 +584,7 @@ def guarded_post(
     try:
         # urllib3's total timeout bounds each socket operation, not the whole
         # exchange; the deadline caps it (one second of grace for the close).
-        return _call_with_deadline(exchange, total_timeout + 1)
+        return _call_with_deadline(exchange, total_timeout + 1, on_timeout=lambda: _abort_connections(connections))
     except EgressError:
         raise
     except Urllib3SSLError:

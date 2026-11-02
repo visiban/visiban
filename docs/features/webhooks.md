@@ -25,7 +25,7 @@ What follows from that design:
 - **Automatic turn-off.** After 20 failures in a row, or 24 hours of failing, the webhook is turned off and the board's admins are told (see [Notices](#notices)).
 - **Starting point.** A new webhook starts with the next event. Nothing that happened before it was created is sent.
 - **Latency.** Events are sent about 10 to 25 seconds after they happen. The dispatcher waits a few seconds so that events from slow transactions are not skipped.
-- **Retention.** Events stay in the feed for `BOARD_EVENT_RETENTION_DAYS` (30 by default). A webhook that may have fallen further behind than that is turned off with the reason *fell too far behind*, rather than skipping what it missed. Until [#2058](https://gitlab.com/visiban/visiban/-/issues/2058) records what was removed, this is an estimate from when the webhook was last scanned: a webhook on a board that had no events when it was created can be turned off after 23 hours without a scan even if nothing was removed, and a webhook whose missed events were all removed, with nothing newer on the board, is not reported.
+- **Retention.** Events stay in the feed for `BOARD_EVENT_RETENTION_DAYS` (30 by default). A webhook that may have fallen further behind than that is turned off with the reason *fell too far behind*, rather than skipping what it missed. Until [#2058](https://gitlab.com/visiban/visiban/-/issues/2058) records what was removed, this is an estimate from when the webhook was last scanned: a webhook on a board that had no events when it was created can be turned off after 23 hours without a scan even if nothing was removed, and a webhook whose missed events were all removed, with nothing newer on the board, is not reported. A failed attempt also counts as a scan, so an event that fails and is then removed, with retention set to a day or so, can be lost without a report.
 - **Deleting the board** deletes its webhooks. A `board.deleted` event is never sent.
 
 Delivery is best-effort with retry. If your integration needs every event with certainty, have it read the change feed itself; webhooks are the convenient path, not the guaranteed one.
@@ -116,7 +116,7 @@ Set `WEBHOOKS_ENABLED=true` on the backend and start the dispatcher. Webhooks ca
 
 === "Host cron"
 
-    Run one pass a minute; it exits after at most about a minute:
+    Run one pass a minute; it exits after at most about a minute, plus up to 30 seconds if a notice email is still sending:
 
     ```cron
     * * * * * cd /app && python manage.py dispatch_webhooks
@@ -136,7 +136,7 @@ To let webhooks reach a service on your own network, such as a self-hosted n8n, 
 WEBHOOK_ALLOWED_PRIVATE_TARGETS=n8n.lan,192.168.10.0/24
 ```
 
-- A **hostname** entry admits that exact host on a private address (RFC 1918, carrier-grade NAT `100.64.0.0/10`, or IPv6 unique-local).
+- A **hostname** entry admits that exact host on a private address (RFC 1918, carrier-grade NAT `100.64.0.0/10`, IPv6 unique-local, or IPv6 site-local).
 - A **CIDR or IP** entry admits private addresses inside it.
 - **Loopback, link-local and cloud metadata addresses** are admitted only by an exact single-address entry, such as `127.0.0.1` or `::1/128`. A range never admits them.
 - `http://` and ports below 1024 other than 443 are allowed only for allowlisted destinations.
