@@ -34,6 +34,7 @@ function emptyBoardContext(): BoardContextType {
     board: null,
     loading: false,
     error: null,
+    unavailable: false,
     reload: vi.fn(),
     silentReload: vi.fn(),
     moveCard: vi.fn(),
@@ -242,7 +243,7 @@ describe("GlobalCommandPalette — board mode (inside BoardProvider)", () => {
 
   it("surfaces board-scoped actions and cards when the board context is populated", async () => {
     const { useBoard } = await import("../hooks/useBoard");
-    vi.mocked(useBoard).mockReturnValue({ ...emptyBoardContext(), board: boardFixture });
+    vi.mocked(useBoard).mockReturnValue({ ...emptyBoardContext(), unavailable: false, board: boardFixture });
 
     render(
       <MemoryRouter initialEntries={["/boards/5"]}>
@@ -266,7 +267,7 @@ describe("GlobalCommandPalette — board mode (inside BoardProvider)", () => {
 
   it("dispatches visiban:open-card when a card result is activated", async () => {
     const { useBoard } = await import("../hooks/useBoard");
-    vi.mocked(useBoard).mockReturnValue({ ...emptyBoardContext(), board: boardFixture });
+    vi.mocked(useBoard).mockReturnValue({ ...emptyBoardContext(), unavailable: false, board: boardFixture });
 
     const spy = vi.fn();
     window.addEventListener("visiban:open-card", spy as EventListener);

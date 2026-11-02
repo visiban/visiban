@@ -716,6 +716,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     activeCard !== null || activeColumn !== null || activeSwimlane !== null,
   );
   const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync });
+  // The server closes the socket with 4001/4003 when access to this board is
+  // gone, and the socket then stops (status "failed"). Re-read the board over
+  // REST so a revoked or deleted board swaps in the "isn't available" page
+  // (#2041) instead of sitting on a dead, stale board; a 200 means the failure
+  // was something else (the session probe owns sign-out) and changes nothing.
+  useEffect(() => {
+    if (socketStatus === "failed") silentReload();
+  }, [socketStatus, silentReload]);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);

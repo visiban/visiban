@@ -15,6 +15,7 @@ import {
   starGroup, unstarGroup, updateGroup,
 } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
+import UnavailablePage from "./UnavailablePage";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
 import JoinedNotice from "../components/Common/JoinedNotice";
@@ -75,6 +76,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [members, setMembers] = useState<GroupMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   // Incremented on an invite_link.revoked/created socket event so InviteLinkPanel
   // (which owns its own link state) refetches in real time (#1051).
   const [inviteReloadKey, setInviteReloadKey] = useState(0);
@@ -148,6 +150,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   useEffect(() => {
     setLoading(true);
+    setUnavailable(false);
     Promise.all([
       getGroup(groupId),
       getSubgroups(groupId),
@@ -162,15 +165,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }).catch((err: unknown) => {
         const status = (err as { response?: { status?: number } })?.response?.status;
         if (status === 404 || status === 403) {
-          // void: navigate() can return a Promise in React Router v7; fire-and-forget,
-          // there is nothing to roll back if the navigation itself rejects.
-          void navigate("/", { replace: true });
+          // Deleted or no access: the API answers both alike, so one page (#2041).
+          setUnavailable(true);
         } else {
           setError("Failed to load group");
         }
       })
       .finally(() => setLoading(false));
-  }, [groupId, navigate]);
+  }, [groupId]);
 
   const flagAnimate = useCallback((id: number) => {
     setAnimateBoardIds((prev) => {
@@ -681,6 +683,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         <Spinner size="lg" />
       </div>
     );
+  }
+
+  if (unavailable) {
+    return <UnavailablePage kind="group" user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />;
   }
 
   if (error || !group) {

@@ -8,6 +8,8 @@ export interface BoardContextType {
   board: BoardFull | null;
   loading: boolean;
   error: string | null;
+  /** Board is deleted or inaccessible (404/403, #2041). */
+  unavailable?: boolean;
   reload: () => void;
   silentReload: () => void;
   moveCard: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;

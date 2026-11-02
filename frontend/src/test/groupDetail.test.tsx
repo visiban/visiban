@@ -1837,15 +1837,18 @@ describe('GroupDetail — navigation (#1374)', () => {
     }
   })
 
-  it('redirects to / when the group fails to load with 404 or 403', async () => {
-    mockGetGroup.mockRejectedValue({ response: { status: 404 } })
-    mockGetGroupMembers.mockRejectedValue({ response: { status: 404 } })
-    mockGetSubgroups.mockRejectedValue({ response: { status: 404 } })
-    mockGetGroupBoards.mockRejectedValue({ response: { status: 404 } })
+  it.each([404, 403])('shows the unavailable page instead of redirecting when the group fails to load with %i (#2041)', async (status) => {
+    mockGetGroup.mockRejectedValue({ response: { status } })
+    mockGetGroupMembers.mockRejectedValue({ response: { status } })
+    mockGetSubgroups.mockRejectedValue({ response: { status } })
+    mockGetGroupBoards.mockRejectedValue({ response: { status } })
     renderGroupDetail()
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
-    })
+    const h1 = await screen.findByRole('heading', { level: 1, name: "This group isn't available" })
+    await waitFor(() => expect(h1).toHaveFocus())
+    expect(document.title).toBe('Not available – Visiban')
+    expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute('href', '/')
+    expect(screen.queryByText('Failed to load group')).toBeNull()
+    expect(mockNavigate).not.toHaveBeenCalledWith('/', { replace: true })
   })
 
   it('navigates to the new board after creating one', async () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard, getArchivedCards } from "../api/cards";
 import { failureReason } from "../utils/moveFailure";
@@ -152,10 +152,12 @@ function rollbackMovedCard(cards: Card[], before: Card | undefined): Card[] {
 export function useBoard() {
   const { id } = useParams<{ id: string }>();
   const boardId = Number(id);
-  const navigate = useNavigate();
   const [board, setBoard] = useState<BoardFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // True once the board came back 404/403 (deleted or access lost, #2041). The
+  // page swaps in an "isn't available" state; the hook never redirects.
+  const [unavailable, setUnavailable] = useState(false);
   const [moveError, setMoveError] = useState<MoveBlockedError | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 
@@ -197,6 +199,7 @@ export function useBoard() {
         if (seq !== fetchSeqRef.current) return;
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
+        setUnavailable(false);
         setBoard(b);
       })
       .catch((err) => {
@@ -204,10 +207,9 @@ export function useBoard() {
         if (seq !== fetchSeqRef.current) return;
         loadPendingRef.current = false;
         if (err?.response?.status === 404 || err?.response?.status === 403) {
-          // Board doesn't exist or user lost access — go back to dashboard.
-          // Fire-and-forget: the declarative router resolves navigate()
-          // synchronously, and any failure is handled by its own error boundary.
-          void navigate("/", { replace: true });
+          // Board doesn't exist or user lost access. The API answers both the
+          // same way, so the page shows one "isn't available" state (#2041).
+          setUnavailable(true);
         } else {
           setError("Failed to load board");
         }
@@ -216,7 +218,7 @@ export function useBoard() {
       // and its superseder (load or silentReload) clears it when it settles, so
       // loading can never stay stuck true.
       .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
-  }, [boardId, navigate]);
+  }, [boardId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -231,13 +233,14 @@ export function useBoard() {
         if (seq !== fetchSeqRef.current) return;
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
+        setUnavailable(false);
         setBoard(b);
       })
       .catch((err) => {
         if (seq !== fetchSeqRef.current) return;
         if (err?.response?.status === 404 || err?.response?.status === 403) {
-          // See the `load` catch above re: fire-and-forget navigate().
-          void navigate("/", { replace: true });
+          // Lost mid-session: same state as the initial load (#2041).
+          setUnavailable(true);
         } else if (loadPendingRef.current) {
           // This resync superseded a `load` that never delivered state; retry
           // it rather than silently dropping the caller's refresh/rollback.
@@ -247,7 +250,7 @@ export function useBoard() {
         // worth surfacing to the user; the WS connection will recover it.
       })
       .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
-  }, [boardId, navigate, load]);
+  }, [boardId, load]);
 
   const clearMoveError = useCallback(() => {
     setMoveError(null);
@@ -310,7 +313,7 @@ export function useBoard() {
       } else if (axiosErr?.response?.status === 404) {
         // The card or board is gone, or access to the board was lost: a
         // caller with no access gets 404, not 403. Reload so the board either
-        // refreshes or, when it is no longer reachable, navigates away —
+        // refreshes or, when it is no longer reachable, shows the unavailable page -
         // rather than the card silently snapping back.
         load();
       } else if (axiosErr?.response?.status === 503) {
@@ -763,5 +766,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
+  return { board, loading, error, unavailable, reload: load, silentReload, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }

@@ -73,8 +73,9 @@ vi.mock('react-router-dom', () => ({
 }))
 
 const socketOptionsSpy = vi.fn()
+let mockSocketStatus = 'connected'
 vi.mock('../hooks/useBoardSocket', () => ({
-  useBoardSocket: (_id: unknown, _onEvent: unknown, options?: unknown) => { socketOptionsSpy(options); return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 } },
+  useBoardSocket: (_id: unknown, _onEvent: unknown, options?: unknown) => { socketOptionsSpy(options); return { connected: true, status: mockSocketStatus, lastEventAt: null, reconnectAttempt: 0 } },
 }))
 
 vi.mock('../hooks/useBoardPan', () => ({
@@ -321,6 +322,25 @@ describe('BoardView', () => {
     mockBoardContextValue = defaultContext()
     // Default: getCardStatus returns null (card deleted/unknown)
     mockedGetCardStatus.mockResolvedValue(null)
+  })
+
+  it('re-reads the board when the socket fails (access revoked, #2041)', () => {
+    const silentReload = vi.fn()
+    mockBoardContextValue = defaultContext({ silentReload })
+    mockSocketStatus = 'failed'
+    try {
+      render(<BoardView {...defaultProps()} />)
+      expect(silentReload).toHaveBeenCalledTimes(1)
+    } finally {
+      mockSocketStatus = 'connected'
+    }
+  })
+
+  it('does not re-read the board while the socket is connected', () => {
+    const silentReload = vi.fn()
+    mockBoardContextValue = defaultContext({ silentReload })
+    render(<BoardView {...defaultProps()} />)
+    expect(silentReload).not.toHaveBeenCalled()
   })
 
   it('passes an onReconnected to useBoardSocket that triggers a silent reload (#1463)', () => {
