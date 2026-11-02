@@ -172,6 +172,39 @@ class ParserWiringTests(SimpleTestCase):
             ["application/json", "application/x-www-form-urlencoded", "multipart/form-data"],
         )
 
+    def test_no_routed_view_pins_drf_s_raw_form_parsers(self):
+        # A pin of DRF's own FormParser/MultiPartParser silently brings the
+        # HTML 400 back for that view. Walks every routed DRF view and, for a
+        # viewset, every routed action (an @action may pin its own).
+        from django.urls import URLPattern, URLResolver, get_resolver
+        from rest_framework.parsers import FormParser, MultiPartParser
+
+        def walk(patterns):
+            for entry in patterns:
+                if isinstance(entry, URLResolver):
+                    yield from walk(entry.url_patterns)
+                elif isinstance(entry, URLPattern):
+                    yield entry.callback
+
+        raw = (FormParser, MultiPartParser)
+        offenders, checked = [], 0
+        for callback in walk(get_resolver().url_patterns):
+            cls = getattr(callback, "cls", None)
+            if cls is None:
+                continue
+            actions = getattr(callback, "actions", None) or {}
+            sources = {cls.__name__: cls.parser_classes}
+            for action_name in set(actions.values()):
+                handler = getattr(cls, action_name, None)
+                pinned = getattr(handler, "kwargs", {}).get("parser_classes")
+                if pinned is not None:
+                    sources[f"{cls.__name__}.{action_name}"] = pinned
+            for where, parsers in sources.items():
+                checked += 1
+                offenders += [(where, p.__name__) for p in parsers if p in raw]
+        self.assertGreater(checked, 50)  # the walk really reached the API
+        self.assertEqual(offenders, [])
+
     def test_import_actions_pin_the_limited_multipart_parser(self):
         for name in ("import_board", "import_trello"):
             with self.subTest(name):

@@ -464,7 +464,8 @@ class SwimlaneSettingsApiTests(_RowFixture):
 
     def test_limit_column_ids_cap_is_enforced_but_not_published_as_max_items(self):
         # A published maxItems makes the schema fuzzer send maxItems + 1 multipart
-        # parts, tripping Django's TooManyFilesSent HTML 400 (#1150).
+        # parts, tripping Django's TooManyFilesSent (#1150): an HTML 400 until
+        # #2072, a JSON ParseError since, never the field's own error.
         from django.conf import settings
         from boards.serializers import SwimlaneSerializer
         cap = SwimlaneSerializer.MAX_LIMIT_COLUMN_IDS
