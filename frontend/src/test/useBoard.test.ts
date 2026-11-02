@@ -210,6 +210,27 @@ describe('useBoard', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it("does not carry one board's unavailable state into the next board (#2041)", async () => {
+    mockGetBoardFull.mockRejectedValue({ response: { status: 404 } })
+    const { result, rerender } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.unavailable).toBe(true))
+
+    // /boards/:id reuses this hook instance; board 2 is slow, then fails with a 5xx.
+    let rejectB: (e: unknown) => void = () => {}
+    mockGetBoardFull.mockImplementation(() => new Promise((_, rej) => { rejectB = rej }))
+    mockParamId = '2'
+    try {
+      rerender()
+      await waitFor(() => expect(result.current.unavailable).toBe(false))
+      expect(result.current.loading).toBe(true)
+      await act(async () => { rejectB(new Error('boom')) })
+      await waitFor(() => expect(result.current.error).toBe('Failed to load board'))
+      expect(result.current.unavailable).toBe(false)
+    } finally {
+      mockParamId = '1'
+    }
+  })
+
   it('addCard adds a new card', async () => {
     mockGetBoardFull.mockResolvedValue(makeBoard())
     const { result } = renderHook(() => useBoard())

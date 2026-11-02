@@ -480,6 +480,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     onSavedFilterEvicted,
   } = useSavedFilters(board.id);
 
+  // Set while this session's own settings modal is deleting the board (#2041).
+  const selfDeletingRef = useRef(false);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
     if (event.event === "card.created") {
@@ -611,8 +613,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const issuedAt = shareLinkIssuedAtFromEvent(sharePayload);
       if (issuedAt !== null) setShareLinkIssuedAt(issuedAt);
     } else if (event.event === "board.deleted") {
-      // Board was deleted by another user — navigate away
-      onBoardDeleted?.();
+      // Deleted by someone else: re-read over REST so the 404 swaps in the
+      // "isn't available" page (#2041). The deleter's own session also gets
+      // this event, but it navigates back itself (BoardSettingsModal), so it
+      // keeps the old path; otherwise it would flash the unavailable page.
+      if (selfDeletingRef.current) onBoardDeleted?.();
+      else silentReload();
     } else if (event.event === "board.star_changed") {
       // Star is per-user state; only apply when the event belongs to the
       // current user's session (e.g. another tab for the same user).
@@ -2875,6 +2881,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onBoardDeleted={onBoardDeleted}
+          onBoardDeleting={() => { selfDeletingRef.current = true; }}
+          onBoardDeleteFailed={() => { selfDeletingRef.current = false; }}
           onUpdateBoardSettings={onUpdateBoardSettings}
           cardDensityOverride={cardDensityOverride}
           onSetCardDensityOverride={setCardDensityOverride}

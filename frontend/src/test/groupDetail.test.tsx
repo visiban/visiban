@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { useState } from 'react'
+import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import type { User, Group } from '../types'
 import type { BoardEvent } from '../hooks/useBoardSocket'
@@ -51,6 +52,7 @@ vi.mock('../components/Board/TrelloImportModal', () => ({
 // server-pushed board.created/updated/deleted events.
 let capturedOnEvent: ((evt: BoardEvent) => void) | null = null
 let capturedOnReconnected: (() => void) | null = null
+let mockGroupSocketStatus = 'connected'
 vi.mock('../hooks/useGroupSocket', () => ({
   useGroupSocket: (
     _groupId: number | null,
@@ -59,7 +61,7 @@ vi.mock('../hooks/useGroupSocket', () => ({
   ) => {
     capturedOnEvent = onEvent
     capturedOnReconnected = options?.onReconnected ?? null
-    return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }
+    return { connected: true, status: mockGroupSocketStatus, lastEventAt: null, reconnectAttempt: 0 }
   },
 }))
 
@@ -1849,6 +1851,114 @@ describe('GroupDetail — navigation (#1374)', () => {
     expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute('href', '/')
     expect(screen.queryByText('Failed to load group')).toBeNull()
     expect(mockNavigate).not.toHaveBeenCalledWith('/', { replace: true })
+  })
+
+  describe('group lost mid-session (#2041)', () => {
+    const gone = { response: { status: 404 } }
+
+    beforeEach(() => {
+      mockGroupSocketStatus = 'connected'
+    })
+
+    async function loaded() {
+      setupAdmin()
+      renderGroupDetail()
+      await screen.findByText('+ New board')
+    }
+
+    it('re-reads the group when the group socket has failed', async () => {
+      setupAdmin()
+      mockGroupSocketStatus = 'failed'
+      renderGroupDetail()
+      await screen.findByText('+ New board')
+      // Initial load + the failed-socket re-read.
+      await waitFor(() => expect(mockGetGroup.mock.calls.length).toBeGreaterThanOrEqual(2))
+    })
+
+    it('shows the unavailable page when a failed socket finds the group gone', async () => {
+      setupAdmin()
+      mockGetGroup.mockResolvedValueOnce(fakeGroup).mockRejectedValue(gone)
+      mockGroupSocketStatus = 'failed'
+      renderGroupDetail()
+      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(mockNavigate).not.toHaveBeenCalledWith('/', { replace: true })
+    })
+
+    it('keeps the group when a failed socket re-read still succeeds', async () => {
+      setupAdmin()
+      mockGroupSocketStatus = 'failed'
+      renderGroupDetail()
+      await screen.findByText('+ New board')
+      await waitFor(() => expect(mockGetGroup.mock.calls.length).toBeGreaterThanOrEqual(2))
+      expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
+    })
+
+    it('group.deleted for this group re-reads it and shows the unavailable page', async () => {
+      await loaded()
+      mockGetGroup.mockRejectedValue(gone)
+      act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent) })
+      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+    })
+
+    it("the deleter's own session ignores its group.deleted echo and navigates away", async () => {
+      await loaded()
+      mockDeleteGroup.mockImplementation(async () => {
+        // The echo lands before the DELETE response resolves.
+        mockGetGroup.mockRejectedValue(gone)
+        capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent)
+      })
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete group' }))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete group' }))
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+      await act(async () => {})
+      expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
+    })
+
+    it('a failed own delete re-arms the reload path', async () => {
+      await loaded()
+      mockDeleteGroup.mockRejectedValueOnce(new Error('boom'))
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete group' }))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete group' }))
+      await screen.findByText('Failed to delete group. Please try again.')
+      mockGetGroup.mockRejectedValue(gone)
+      act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent) })
+      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+    })
+
+    it("does not carry one group's unavailable state into the next group", async () => {
+      mockGetGroup.mockRejectedValueOnce(gone)
+      mockGetGroupMembers.mockRejectedValue(gone)
+      mockGetSubgroups.mockRejectedValue(gone)
+      mockGetGroupBoards.mockRejectedValue(gone)
+      function Harness() {
+        const [go, setGo] = useState(false)
+        return (
+          <MemoryRouter initialEntries={['/groups/1']}>
+            <Routes>
+              <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
+            </Routes>
+            {go && <Navigate to="/groups/2" />}
+            <button onClick={() => setGo(true)}>go-to-2</button>
+          </MemoryRouter>
+        )
+      }
+      render(<Harness />)
+      await screen.findByRole('heading', { name: "This group isn't available" })
+      // Group 2 loads slowly and then fails with a 5xx.
+      let rejectTwo: (e: unknown) => void = () => {}
+      mockGetGroup.mockImplementation(() => new Promise((_, rej) => { rejectTwo = rej }))
+      mockGetGroupMembers.mockImplementation(() => new Promise(() => {}))
+      mockGetSubgroups.mockImplementation(() => new Promise(() => {}))
+      mockGetGroupBoards.mockImplementation(() => new Promise(() => {}))
+      fireEvent.click(screen.getByText('go-to-2'))
+      await waitFor(() => expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull())
+      await act(async () => { rejectTwo(new Error('boom')) })
+      expect(await screen.findByText('Failed to load group')).toBeInTheDocument()
+    })
   })
 
   it('navigates to the new board after creating one', async () => {

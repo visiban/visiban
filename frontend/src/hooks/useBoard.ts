@@ -220,7 +220,14 @@ export function useBoard() {
       .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
   }, [boardId]);
 
-  useEffect(() => { load(); }, [load]);
+  // `load` changes only with boardId. /boards/:id reuses this instance across
+  // boards, so a previous board's unavailable/error state must not carry over
+  // into the next board's load (#2041).
+  useEffect(() => {
+    setUnavailable(false);
+    setError(null);
+    load();
+  }, [load]);
 
   // Silent reload — re-fetches the full board without flashing the loading
   // skeleton.  Used by tab-focus reconciliation so the resync is invisible
