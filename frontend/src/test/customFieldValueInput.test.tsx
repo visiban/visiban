@@ -505,9 +505,11 @@ describe('CustomFieldValueInput — url (#1390)', () => {
 })
 
 describe('CustomFieldValueInput — Escape through the stack (#2036)', () => {
+  afterEach(() => { vi.clearAllMocks() })
+  const onCommit = vi.fn()
   function Host({ def, onClose, escapePriority }: { def: FieldDefinitionShape; onClose: () => void; escapePriority?: number }) {
     useEscapeStack(onClose, 30)
-    return <CustomFieldValueInput definition={def} value="saved" onCommit={vi.fn()} escapePriority={escapePriority} />
+    return <CustomFieldValueInput definition={def} value="saved" onCommit={onCommit} escapePriority={escapePriority} />
   }
 
   it.each([
@@ -522,6 +524,8 @@ describe('CustomFieldValueInput — Escape through the stack (#2036)', () => {
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(input).toHaveValue('saved')
     expect(input).not.toHaveFocus()
+    // flushSync before blur: the URL blur-commit must not save the half-typed text.
+    expect(onCommit).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)

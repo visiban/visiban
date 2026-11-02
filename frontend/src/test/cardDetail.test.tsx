@@ -952,6 +952,8 @@ describe('CardDetail', () => {
     await user.keyboard('half typed')
     await user.keyboard('{Escape}')
     expect(screen.getByDisplayValue('Test Card')).not.toHaveFocus()
+    // flushSync before blur: the blur handler must not save the half-typed title.
+    expect(mockUpdateCard).not.toHaveBeenCalled()
     expect(props.onClose).not.toHaveBeenCalled()
     await user.keyboard('{Escape}')
     expect(props.onClose).toHaveBeenCalledTimes(1)
