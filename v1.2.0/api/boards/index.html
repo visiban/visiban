@@ -7359,7 +7359,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <tr>
 <td><code>is_moderator</code></td>
 <td></td>
-<td>Boolean. Grants content-moderation rights (delete/archive others' content). Only valid for <code>member</code> and <code>admin</code> roles — setting <code>true</code> on a collaborator or viewer returns <code>400 Bad Request</code>. Automatically cleared when demoting to collaborator or viewer.</td>
+<td>Boolean. Grants content-moderation rights (delete/archive others' content). Only valid for <code>member</code> and <code>admin</code> roles — setting <code>true</code> on a collaborator or viewer returns <code>400 Bad Request</code>. Automatically cleared when demoting to collaborator or viewer. Also cleared when a collaborator or viewer is promoted to member or admin without an explicit <code>is_moderator</code> in the request (an explicit value wins; role edits made in the Django admin do not clear it).</td>
 </tr>
 </tbody>
 </table>

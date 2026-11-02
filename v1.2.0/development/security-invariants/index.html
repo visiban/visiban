@@ -5134,7 +5134,7 @@ arrives by any other route, any non-API write.</p>
 <tr>
 <td>Board role resolution (all transports)</td>
 <td><code>boards/permissions.py</code> <code>get_board_role</code>, <code>get_board_roles</code></td>
-<td>A stored board membership role outside <code>BoardMembership.Role.values</code> resolves to no access; a stored group role outside <code>GroupMembership.Role.values</code> is skipped in the ancestor walk (<code>_nearest_ancestor_role</code>); the moderator flag is honored only for an in-enum role</td>
+<td>A stored board membership role outside <code>BoardMembership.Role.values</code> resolves to no access; a stored group role outside <code>GroupMembership.Role.values</code> is skipped in the ancestor walk (<code>_nearest_ancestor_role</code>); the moderator flag is honored only on a stored <code>member</code> or <code>admin</code> role (<code>boards/permissions.py</code> <code>can_modify_others_content</code>; a flag on a collaborator or viewer row is ignored, and the members endpoint (not the Django admin) clears it when that row is promoted to member or admin unless the request sets <code>is_moderator</code>, #1944)</td>
 </tr>
 <tr>
 <td>Board list and card query scoping</td>
@@ -5195,6 +5195,10 @@ arrives by any other route, any non-API write.</p>
 </table>
 <p>Coverage: <code>boards/tests/test_members_role_validation.py</code> (writer rejection,
 stored out-of-enum board and group roles, bulk resolver, moderator flag),
+<code>boards/tests/test_moderator_flag_role_gate_1944.py</code> (a flagged collaborator or
+viewer cannot delete others' comments, attachments or checklist items; the
+promote path clears a stale flag, an explicit flag on promotion and an
+unchanged moderator member are kept),
 <code>groups/tests/test_groups.py</code> (<code>test_invalid_role_returns_400</code>,
 <code>test_all_valid_roles_are_accepted</code>, <code>test_invalid_invite_link_role_returns_400</code>),
 <code>boards/tests/test_group_derived_board_access.py</code> <code>StoredRoleTests</code> (board list,
