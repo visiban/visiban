@@ -69,7 +69,7 @@ from urllib.parse import parse_qs
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import cache, caches
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
@@ -366,8 +366,22 @@ def _session_is_live(session_key: str, user) -> bool:
     """
     from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY
 
+    from django.contrib.sessions.backends.cache import SessionStore as CacheSessionStore
+
     store = import_module(settings.SESSION_ENGINE).SessionStore(session_key=session_key)
-    data = store.load()
+    if isinstance(store, CacheSessionStore):
+        # Why not store.load() (#2014): the cache engine's load() swallows
+        # every cache exception and returns {}, so a cache outage would read as
+        # "session revoked" and close the socket with the final 4003. Read the
+        # cache directly so an outage raises and the consumer closes with the
+        # reconnectable 1011 (#2003). A genuine miss still returns None, which
+        # fails closed below. cached_db is not affected: on a cache error it
+        # falls back to the database, whose own errors do propagate.
+        if not store.session_key:
+            return False
+        data = caches[settings.SESSION_CACHE_ALIAS].get(store.cache_key) or {}
+    else:
+        data = store.load()
     if str(data.get(SESSION_KEY)) != user._meta.pk.value_to_string(user):
         return False
     return _matches_session_auth_hash(data.get(HASH_SESSION_KEY), user)
