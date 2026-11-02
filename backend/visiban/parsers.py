@@ -77,7 +77,14 @@ class LimitedMultiPartParser(MultiPartParser):
 
 
 class LimitedFormParser(FormParser):
-    """``FormParser`` whose upload-limit errors are a ``ParseError``."""
+    """``FormParser`` whose upload-limit errors are a ``ParseError``.
+
+    Under DRF only ``TooManyFieldsSent`` can reach this ``except``: DRF hands a
+    ``FormParser`` ``BytesIO(request.body)``, and ``RequestDataTooBig`` for the
+    body size is raised by that ``request.body`` read, before ``parse()`` runs
+    (#2073). The full tuple is still caught for defense in depth (one tuple for
+    both parsers, and a future DRF that reads the body inside ``parse()``).
+    """
 
     def parse(self, stream, media_type=None, parser_context=None):
         try:
