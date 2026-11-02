@@ -745,12 +745,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // when the load-to-connect gap was long enough to have lost frames; see
   // FIRST_OPEN_RESYNC_MS. An unknown fetch time counts as a long gap.
   //
-  // Safe with respect to #2038 (a full fetch replacing cards with a snapshot
-  // serialized before a frame that arrived mid-fetch): the socket is already
-  // in the broadcast group when this runs, so every later commit arrives as a
-  // frame and the re-read only adds what the gap dropped. Its exposure is the
-  // same one every reconnect and tab-focus resync already has, it runs at most
-  // once per socket, and only after a gap long enough to have lost frames.
+  // No worse with respect to #2038 (a full fetch replacing cards with a
+  // snapshot serialized before a frame that arrived mid-fetch): the socket is
+  // already in the broadcast group when this runs, so every later commit
+  // arrives as a frame and the re-read's snapshot includes what the gap
+  // dropped. A frame that lands while the re-read is in flight can still be
+  // reverted by it (#2038). That exposure is the same one every reconnect and
+  // tab-focus resync already has; this re-read runs at most once per socket,
+  // and only after a gap long enough to have lost frames.
   const lastFullFetchAtRef = useRef(getLastFullFetchAt);
   lastFullFetchAtRef.current = getLastFullFetchAt;
   const onFirstConnected = useCallback(() => {
