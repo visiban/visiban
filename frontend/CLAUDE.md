@@ -577,6 +577,10 @@ The avatar-triggered user menu in `Navbar.tsx` is the single entry point for all
 - **The tab strip scrolls; it never wraps — and the panel is sized so it rarely has to.** The strip is `flex border-b border-line px-6 gap-1 overflow-x-auto` with `shrink-0 whitespace-nowrap` on every tab button, which is what actually prevents a second row of tabs appearing under the border; that guarantee holds at any panel width. The panel's `max-w-2xl` is a separate, weaker call: at `max-w-lg` the seven current labels overflow and the strip scrolls on first open, which reads as a broken tab bar rather than an affordance, and `Members (N)` grows with the member count. So the width buys breathing room, not correctness — do not justify it as a wrapping fix, and if a future change makes the label set short again, narrowing it back is safe.
 - **A board-wide boolean display setting is an admin `Toggle` row with a read-only state line for everyone else (#1418).** Use `flex items-center justify-between py-2 border-b border-line/60` with a `text-sm text-fg` label, a `text-xs text-fg-muted` helper tied to the switch via `aria-describedby`, and a `<label htmlFor>`. Non-admins, or a caller with no write callback, get `text-sm text-fg-secondary` "{Setting}: shown/hidden". Never a native checkbox for a board-level setting.
 
+## Withheld row actions and refusal reasons (#1785)
+
+When an action is withheld from a row for a policy reason (group owner, last admin), keep the reason visible on the row (for the owner, an `Owner` pill in the inherited-badge style `text-xs bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded`) rather than silently omitting the control. When the server refuses an action with a 400, show its `detail` string in the nearest `role="alert"` `text-danger text-xs` line; use a generic fallback only when `detail` is absent or not a string.
+
 ## Radio groups
 
 Never render browser-default radio circles. Use `sr-only` native `<input type="radio">` inside a `label` container — this preserves native keyboard navigation (arrow keys, Tab, Space) while hiding the visual control.

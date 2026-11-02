@@ -401,6 +401,73 @@ describe('GroupDetail', () => {
     expect(screen.getByText('Alice Smith')).toBeInTheDocument()
   })
 
+  const setupTwoMembers = async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'member', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Alice Smith')
+  }
+
+  it("shows the server's detail when a member removal is refused (#1785)", async () => {
+    mockRemoveGroupMember.mockRejectedValue({ response: { status: 400, data: { detail: 'The group owner cannot be removed.', code: 'group_owner_protected' } } })
+    await setupTwoMembers()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('The group owner cannot be removed.')
+    expect(screen.getByText('Alice Smith')).toBeInTheDocument()
+  })
+
+  it("shows the server's detail when a role change is refused (#1785)", async () => {
+    mockUpdateGroupMemberRole.mockRejectedValue({ response: { status: 400, data: { detail: 'Cannot demote the last admin.' } } })
+    await setupTwoMembers()
+    const user = userEvent.setup()
+    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    await user.click(within(aliceRow).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'Viewer' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cannot demote the last admin.')
+  })
+
+  it('falls back to the generic message when the error has no detail (#1785)', async () => {
+    mockRemoveGroupMember.mockRejectedValue({ response: { status: 500, data: {} } })
+    await setupTwoMembers()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to remove member. Please try again.')
+  })
+
+  it('offers no remove button or role dropdown on the owner row, but does on others (#1785)', async () => {
+    const ownerUser: User = { ...fakeUser, id: 3, username: 'boss', display_name: 'Big Boss' }
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: ownerUser })
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'member', joined_at: '' },
+      { id: 3, user: ownerUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await screen.findByText('Big Boss')
+    const ownerRow = screen.getByText('Big Boss').closest('div.rounded-lg') as HTMLElement
+    expect(within(ownerRow).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove Big Boss from group' })).not.toBeInTheDocument()
+    expect(within(ownerRow).getByText('admin')).toBeInTheDocument()
+    expect(within(ownerRow).getByText('Owner')).toBeInTheDocument()
+    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    expect(within(aliceRow).getByRole('combobox')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toBeInTheDocument()
+  })
+
   it('removes the member and shows no error when removal succeeds (#1386)', async () => {
     const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
     mockGetGroup.mockResolvedValue(fakeGroup)
