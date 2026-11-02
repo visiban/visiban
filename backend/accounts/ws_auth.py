@@ -69,7 +69,7 @@ from urllib.parse import parse_qs
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
 from django.conf import settings
-from django.core.cache import cache, caches
+from django.core.cache import cache
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
@@ -357,7 +357,8 @@ def _session_is_live(session_key: str, user) -> bool:
     current password (or a SECRET_KEY_FALLBACKS hash, which ``get_user`` also
     accepts). ``load()`` reads without writing — a missing or expired session
     comes back empty rather than being recreated. The cache engine is read
-    directly instead (#2014, see the inline comment), so a cache outage raises;
+    directly instead, from the store's own cache (#2014, see the inline
+    comment), so a cache outage raises;
     a custom subclass of that engine that overrides ``load()`` is bypassed.
 
     Limitation: with the ``signed_cookies`` session engine there is no server
@@ -377,11 +378,13 @@ def _session_is_live(session_key: str, user) -> bool:
         # "session revoked" and close the socket with the final 4003. Read the
         # cache directly so an outage raises and the consumer closes with the
         # reconnectable 1011 (#2003). A genuine miss still returns None, which
-        # fails closed below. cached_db is not affected: on a cache error it
-        # falls back to the database, whose own errors do propagate.
+        # fails closed below. cached_db is not matched here (it subclasses the
+        # db store) and keeps using load().
         if not store.session_key:
             return False
-        data = caches[settings.SESSION_CACHE_ALIAS].get(store.cache_key) or {}
+        # store._cache is the exact cache load() would read (a subclass may
+        # point it elsewhere than SESSION_CACHE_ALIAS).
+        data = store._cache.get(store.cache_key) or {}
     else:
         data = store.load()
     if str(data.get(SESSION_KEY)) != user._meta.pk.value_to_string(user):
