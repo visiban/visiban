@@ -9,6 +9,66 @@ import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
 import { cellKey } from "../../gridOverlays/types";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
+import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, type LaneUsage, type LimitFlags, type TrippedLimit } from "../../utils/placementLimits";
+
+/**
+ * The row's limit state line (#1150), mirroring the column header's stat row
+ * (#973): one line, worst offender first (Over WIP > Over weight > At >
+ * Under). The text carries the state; the meter is decorative.
+ */
+function SwimlaneLimitStat({ swimlane, usage, reading, hard, showAtLimit }: { swimlane: Swimlane; usage: LaneUsage; reading: LaneLimitReading; hard: boolean; showAtLimit: boolean }) {
+  const wip = swimlane.wip_limit;
+  const weight = swimlane.weight_limit;
+  // "At limit" is the board's opt-in ambient indicator (Board.show_wip_at_limit),
+  // as on the column header; off, an at-limit row reads like an under-limit
+  // one. The two over-limit states are violations and always show.
+  const state = reading.state === "at" && !showAtLimit ? "under" : reading.state;
+  // The line names the metric that decided the state (laneLimitState).
+  const showWip = reading.metric === "wip";
+  const value = showWip ? usage.count : usage.weight;
+  const limit = (showWip ? wip : weight) ?? 0;
+  const numbers = `${value}/${limit}`;
+  const label = showWip ? "WIP" : "Weight";
+  const fill = limit > 0 ? Math.min(100, Math.round((value / limit) * 100)) : 100;
+  let text: React.ReactNode;
+  let tone: string;
+  let meter: string;
+  let title: string;
+  if (state === "overWip") {
+    text = <><span aria-hidden="true">{hard ? "⛔ " : "⚠ "}</span>Over WIP · <span className="font-semibold">{numbers}</span></>;
+    tone = "text-danger font-medium";
+    meter = "bg-danger-emphasis";
+    title = hard ? "Over the swimlane's hard WIP limit — no override possible" : "Over the swimlane's WIP limit";
+  } else if (state === "overWeight") {
+    text = <>Over weight · <span className="font-semibold">{numbers}</span></>;
+    // Fixed danger tokens for both over-limit states: § System signals
+    // reserves "Lane over limit" as danger. The words, not the hue, tell
+    // WIP from weight.
+    tone = "text-danger font-medium";
+    meter = "bg-danger-emphasis";
+    title = "Over the swimlane's weight limit";
+  } else if (state === "at") {
+    text = <>{label} {numbers} · at limit</>;
+    tone = "text-fg-secondary";
+    meter = "bg-warning-emphasis";
+    title = `Swimlane is at its ${label === "WIP" ? "WIP" : "weight"} limit (${numbers})`;
+  } else {
+    text = <>{label} {numbers}</>;
+    tone = "text-fg-tertiary";
+    meter = "bg-line-strong";
+    title = `Swimlane ${label === "WIP" ? "WIP" : "weight"} limit: ${numbers} in the columns that count`;
+  }
+  return (
+    // The numbers never truncate: the text keeps its width and the meter
+    // shrinks (to nothing in a narrow panel) before it.
+    <p className={`mt-1 flex items-center gap-2 min-w-0 text-xs ${tone}`} title={title} data-testid="swimlane-limit-stat">
+      <span className="shrink-0 whitespace-nowrap">{text}</span>
+      <span aria-hidden="true" className="flex-1 min-w-0 max-w-12 lg:max-w-16 h-1 rounded-full bg-surface-active overflow-hidden">
+        <span className={`block h-full ${meter}`} style={{ width: `${fill}%` }} />
+      </span>
+    </p>
+  );
+}
 
 interface Props {
   swimlane: Swimlane;
@@ -89,9 +149,25 @@ interface Props {
   overlayCells?: Map<string, GridOverlayCellState>;
   /** The active overlay's label, for cell screen-reader text. */
   overlayLabel?: string;
+  /**
+   * The board's enforce_* flags (#1150): what a row with
+   * `limit_enforcement: null` inherits, for its header glyph and the Edit
+   * Swimlane modal's enforcement choice. Omitted, the row reads as unenforced.
+   */
+  limitFlags?: LimitFlags;
+  /** The board's `show_wip_at_limit` (#973): whether the "at limit" state shows. */
+  showWipAtLimit?: boolean;
+  /**
+   * The limits a drop of card `cardId` into a cell would trip, strictest
+   * first (#1150), for the drop ring. Forwarded to every cell; BoardCell calls
+   * it only for the cell under an active card drag.
+   */
+  getDropVerdict?: (cardId: number, column: Column, swimlane: Swimlane) => TrippedLimit[];
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel }: Props) {
+const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
+
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -119,6 +195,15 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   const triggerLabel = unpinnedRowFields.length === 0
     ? 'All fields'
     : pinnedRowFields.length > 0 ? `+${unpinnedRowFields.length}` : `+${unpinnedRowFields.length} more`;
+
+  // Row limit state (#1150), from the row's active cards in its counted columns.
+  const limitUsage = laneUsage(swimlane, columns, cards);
+  const limitReading = laneLimitState(swimlane, limitUsage);
+  const limitState = limitReading?.state ?? null;
+  const hardWip = swimlaneLimitModes(limitFlags, swimlane).wip === "hard";
+  // A collapsed row keeps only the over-limit states, so nothing over its
+  // limit is hidden behind the chevron; the calm states fold away with it.
+  const showLimitStat = limitState !== null && (!collapsed || limitState === "overWip" || limitState === "overWeight");
 
   const startRenaming = () => {
     setDraft(swimlane.name);
@@ -192,6 +277,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           data-no-pan
           onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
         >
+          {/* Over-WIP top accent (#1150), the row's version of the column
+              header's strip: an inset line, so the panel does not grow. */}
+          {limitState === "overWip" && (
+            <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-danger-emphasis" />
+          )}
           {/* Drag handle */}
           {isAdmin && (
             <span
@@ -240,6 +330,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </p>
             )}
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
+            {showLimitStat && limitReading !== null && (
+              <SwimlaneLimitStat swimlane={swimlane} usage={limitUsage} reading={limitReading} hard={hardWip} showAtLimit={showWipAtLimit} />
+            )}
             {renameError && <p className="text-xs text-danger truncate" role="alert">{renameError}</p>}
             {/* Gated on !collapsed, matching contact_email above: a collapsed
                 row is py-1 and exists to give vertical space back, so stacked
@@ -474,6 +567,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 width={cellWidth}
                 overlayCell={overlayCells?.get(cellKey(col.id, swimlane.id))}
                 overlayLabel={overlayLabel}
+                getDropVerdict={getDropVerdict}
               />
             </div>
           );
@@ -513,6 +607,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           boardId={boardId}
           swimlane={swimlane}
           cardCount={cards.length}
+          columns={columns}
+          laneCards={cards}
+          limitFlags={limitFlags}
           onUpdated={(s) => { onSwimlaneUpdated(s); setEditing(false); }}
           onDeleted={(id) => { onSwimlaneDeleted(id); setEditing(false); }}
           onClose={() => setEditing(false)}

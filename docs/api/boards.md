@@ -658,6 +658,8 @@ Since 1.3 (#1149), each card also carries its [manual blocked state](cards.md#bl
 
 Also since 1.2, each swimlane object carries `custom_field_values` (keyed by [swimlane custom field](#swimlane-custom-fields-since-12) name), and a top-level `swimlane_custom_fields` array carries that schema. These are separate keys from the card-level pair because they are independent per-board sets on different objects. Both are additive, and JSON import restores them. A definition with `is_admin_only: true`, and any value under it, is omitted for a caller below `admin`, the same gate this export applies to a swimlane's `contact_email` and `notes`.
 
+Since 1.3, each swimlane object also carries its [limits](#swimlane-limits-since-13): `wip_limit`, `weight_limit`, `limit_enforcement`, and `limit_columns`, the names of the columns that count (or `null` for the default, every column not marked done). Names, not ids, because the file keys columns by name and an import creates new ids. All four are additive (`schema_version` stays `2`), and JSON import restores them without enforcing them. A `limit_columns` name that is not one of the file's columns, an empty list, a limit below `1`, or a `limit_enforcement` other than `"block"`, `"hard"` or `null` is a `400`.
+
 ```json
 {
   "schema_version": 2,
@@ -671,7 +673,11 @@ Also since 1.2, each swimlane object carries `custom_field_values` (keyed by [sw
       "color": "#3B82F6",
       "contact_email": "",
       "notes": "",
-      "custom_field_values": { "Account Tier": "Enterprise" }
+      "custom_field_values": { "Account Tier": "Enterprise" },
+      "wip_limit": 3,
+      "weight_limit": null,
+      "limit_enforcement": null,
+      "limit_columns": null
     }
   ],
   "labels": [{ "name": "Bug", "color": "#EF4444" }],
@@ -1625,13 +1631,19 @@ Swimlane response objects include the following fields:
 | `contact_email` | string | Admin-only — contact email for this swimlane (empty string if unset) |
 | `notes` | string | Admin-only — internal notes (empty string if unset) |
 | `custom_field_values` | array | Since 1.2. `[{ "field_definition": <id>, "value": "<string>" }, ...]` — one entry per [swimlane custom field](#swimlane-custom-fields-since-12) definition that has a value **and** is visible to the requesting role (see the `custom_field_values` visibility note above). Values are always strings; numbers as written, dates as `YYYY-MM-DD`, checkboxes as `"true"`/`"false"`. |
+| `wip_limit` | integer or null | Since 1.3 (#1150). Maximum number of active cards in the swimlane's counted columns. `null` (the default) means no limit; the minimum is `1`. Every board role receives it. See [Swimlane limits](#swimlane-limits-since-13). |
+| `weight_limit` | integer or null | Since 1.3. Maximum total weight of active cards in the counted columns. `null` means no limit; minimum `1`. |
+| `limit_enforcement` | string or null | Since 1.3. `"block"` (refused with `409`; board admins can override with `?force=true`), `"hard"` (the WIP limit admits no override for any role; the weight limit stays a block), or `null` (the default) to inherit the board's `enforce_wip_limits`, `enforce_wip_hard` and `enforce_weight_limits`, exactly as a column does. A write of `""` is accepted and stored as `null`, so it is never returned. |
+| `limit_column_ids` | array of integers or null | Since 1.3. Ids of the board's columns whose cards count toward the swimlane's limits, sorted. `null` (the default) means every column whose `is_done` is `false`. An empty list is refused with `400`. Deleting a column removes its id; a list left empty becomes `null`. |
 
 `contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
 
 ### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/` / `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin.
 
-**Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2)
+**Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2), `wip_limit`, `weight_limit`, `limit_enforcement`, `limit_column_ids` (since 1.3)
+
+A `limit_column_ids` entry that is not a column of this board, whether it exists on another board or not at all, returns `400 Bad Request` with the same message either way. So does one deleted while the request was in flight.
 
 `PUT` and `PATCH` are both accepted. `PATCH` changes only the fields you send. `PUT` requires `name`; any other writable field you leave out keeps its current value, it is not reset to its default.
 
@@ -1647,6 +1659,17 @@ Update a swimlane. Requires board admin.
     the change. `contact_email`, `notes`, and any `is_admin_only` value are absent from that
     frame for everyone; an admin sees the change on their next REST fetch, not in real time.
     See [WebSockets](websockets.md#swimlane-field-events-since-12) for the full contract.
+
+### Swimlane limits (since 1.3)
+
+> **Added in 1.3** (#1150)
+
+A swimlane can carry its own `wip_limit` and `weight_limit`, enforced on the same card write paths as a column's: a move, a card create, a restore from archive, and (weight only) a `PATCH` that raises a card's `weight`. Only cards in the swimlane's counted columns (`limit_column_ids`) count, and archived cards never do.
+
+- **When a move is checked.** Only when it adds to the swimlane's counted total: the card enters a counted column of the swimlane from another swimlane, from an uncounted column of the same swimlane, or from nowhere (create, restore). A move between two counted columns of one swimlane, or a reorder, never trips the swimlane's limit, exactly as a swimlane-only move never trips a column's.
+- **Errors.** `409` with `swimlane_wip_limit_exceeded`, `swimlane_wip_hard_blocked` or `swimlane_weight_limit_exceeded`. The bodies are the column codes' bodies plus `swimlane_name`; `column_name` names the target cell's column, and `current_count` / `current_weight` / `wip_limit` / `weight_limit` are the swimlane's. See [Cards — Move](cards.md#post-apiv1boardsboard_idcardsidmove).
+- **Several limits at once.** When the column and the swimlane (or WIP and weight) both trip, the response names the strictest one: a hard limit before a soft one, and the column before the swimlane when they are equally strict. A board that never sets a swimlane limit gets exactly the bodies it got before 1.3. One `?force=true` from a board admin overrides every soft limit the move trips; it never overrides a hard one.
+- **Import and export.** The JSON export carries `wip_limit`, `weight_limit`, `limit_enforcement` and `limit_columns` (column **names**, or `null`) per swimlane, and the JSON import restores them. Import never enforces a limit, so an imported swimlane can be over its limit.
 
 ### `DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Delete a swimlane. Requires board admin.

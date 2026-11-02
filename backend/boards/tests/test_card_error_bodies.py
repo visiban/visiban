@@ -403,3 +403,95 @@ class CardErrorBodyTests(TestCase):
         self.card.save(update_fields=["created_by", "weight"])
         resp = self._move(self.member, _qs="?force=true")
         self._assert_body(resp, 403, {"detail": "Only board admins can override a weight limit."})
+
+    # ── move: swimlane (row) limits (#1150) ───────────────────────────────
+    #
+    # The column siblings' shapes plus ``swimlane_name``: soft bodies have no
+    # ``detail``, the hard one has ``detail`` first. ``column_name`` names the
+    # target cell's column; the counters are the swimlane's.
+
+    def _row_at_limit(self, *, enforcement=None, wip_limit=None, weight_limit=None, filler_weight=1):
+        other = _make_swimlane(self.board, "Row", 1)
+        other.wip_limit = wip_limit
+        other.weight_limit = weight_limit
+        other.limit_enforcement = enforcement
+        other.save()
+        _make_card(self.col_a, other, title="in row", position=0, weight=filler_weight)
+        return other
+
+    def test_move_swimlane_wip_limit_exceeded_body(self):
+        row = self._row_at_limit(enforcement="block", wip_limit=1)
+        resp = self._move(self.owner, column_id=self.col_a.pk, swimlane_id=row.pk)
+        self._assert_body(
+            resp,
+            409,
+            {
+                "code": "swimlane_wip_limit_exceeded",
+                "column_name": self.col_a.name,
+                "swimlane_name": "Row",
+                "current_count": 1,
+                "wip_limit": 1,
+            },
+        )
+
+    def test_move_swimlane_wip_hard_blocked_body(self):
+        row = self._row_at_limit(enforcement="hard", wip_limit=1)
+        resp = self._move(self.owner, column_id=self.col_a.pk, swimlane_id=row.pk, _qs="?force=true")
+        self._assert_body(
+            resp,
+            409,
+            {
+                "detail": "Swimlane WIP limit enforced — move blocked.",
+                "code": "swimlane_wip_hard_blocked",
+                "column_name": self.col_a.name,
+                "swimlane_name": "Row",
+                "current_count": 1,
+                "wip_limit": 1,
+            },
+        )
+
+    def test_move_swimlane_weight_limit_exceeded_body(self):
+        row = self._row_at_limit(enforcement="block", weight_limit=3, filler_weight=3)
+        self.card.weight = 2
+        self.card.save(update_fields=["weight"])
+        resp = self._move(self.owner, column_id=self.col_a.pk, swimlane_id=row.pk)
+        self._assert_body(
+            resp,
+            409,
+            {
+                "code": "swimlane_weight_limit_exceeded",
+                "column_name": self.col_a.name,
+                "swimlane_name": "Row",
+                "current_weight": 3,
+                "weight_limit": 3,
+                "card_weight": 2,
+            },
+        )
+
+    def test_move_swimlane_force_denied_for_non_admin_body(self):
+        # The same 403 body as the column override: one wording per limit kind.
+        row = self._row_at_limit(enforcement="block", wip_limit=1)
+        self.card.created_by = self.member
+        self.card.save(update_fields=["created_by"])
+        resp = self._move(self.member, column_id=self.col_a.pk, swimlane_id=row.pk, _qs="?force=true")
+        self._assert_body(resp, 403, {"detail": "Only board admins can override a WIP limit."})
+
+    def test_column_and_swimlane_both_tripped_reports_the_column_body_unchanged(self):
+        # Equally strict: the column's body, byte-for-byte as before #1150.
+        self.board.enforce_wip_limits = True
+        self.board.save(update_fields=["enforce_wip_limits"])
+        row = self._row_at_limit(wip_limit=1)  # inherits the board's soft mode
+        self.col_b.wip_limit = 1
+        self.col_b.save(update_fields=["wip_limit"])
+        _make_card(self.col_b, row, title="col filler", position=0)
+        resp = self._move(self.owner, column_id=self.col_b.pk, swimlane_id=row.pk)
+        self._assert_body(
+            resp,
+            409,
+            {
+                "code": "wip_limit_exceeded",
+                "column_name": self.col_b.name,
+                "current_count": 1,
+                "wip_limit": 1,
+            },
+        )

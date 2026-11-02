@@ -5,7 +5,7 @@ import uuid
 
 from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models.signals import post_delete, pre_delete
 from django.dispatch import receiver
@@ -608,6 +608,34 @@ class Swimlane(models.Model):
     is_collapsed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class LimitEnforcement(models.TextChoices):
+        """How a swimlane's own limits are enforced (#1150).
+
+        The two column modes, chosen per lane. ``NULL`` (no choice) inherits
+        the board flags exactly as a column does, so a board that never sets
+        this behaves as before. A warn-only mode was deliberately left out of
+        1.3 (#2048): adding a value later is additive, removing one is not.
+        """
+
+        BLOCK = "block", "Block (board admins can override)"
+        HARD = "hard", "Hard (no override for any role)"
+
+    # Per-row limits (#1150). All four are nullable with no default, so the
+    # columns are catalog-only on PostgreSQL and an older pod's INSERT that
+    # omits them stores NULL: no limit, which is today's behavior. The rules
+    # they feed live in ``boards.services.cards.enforce_column_limits``; the
+    # OpenAPI descriptions in ``visiban.field_enforcement``.
+    wip_limit = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    weight_limit = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    limit_enforcement = models.CharField(
+        max_length=8, null=True, blank=True, default=None, choices=LimitEnforcement.choices,
+    )
+    # Which columns' cards count toward this row's limits: a list of column
+    # ids, or NULL for "every column not marked done". Ids rather than names
+    # so a rename or reorder never changes what counts. A column delete
+    # removes its id (``boards.signals.prune_swimlane_limit_columns``).
+    limit_column_ids = models.JSONField(null=True, blank=True, default=None)
+
     class Meta:
         db_table = "swimlanes"
         ordering = ["position"]
@@ -615,6 +643,16 @@ class Swimlane(models.Model):
 
     def __str__(self):
         return self.name
+
+    def counts_column(self, column):
+        """Whether cards in ``column`` count toward this row's limits."""
+        if self.limit_column_ids is None:
+            return not column.is_done
+        if not isinstance(self.limit_column_ids, list):
+            # Only a raw ORM write can store a non-list (the API, admin and
+            # import validate it). Fail closed: every column counts.
+            return True
+        return column.pk in self.limit_column_ids
 
 
 class Label(models.Model):

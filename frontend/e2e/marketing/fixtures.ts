@@ -165,6 +165,10 @@ const lane = (id: number, name: string, position: number, color: string, contact
   is_collapsed: false,
   created_at: ago(120 * DAY),
   custom_field_values: [],
+  wip_limit: null,
+  weight_limit: null,
+  limit_enforcement: null,
+  limit_column_ids: null,
 })
 
 /** One swimlane per customer account. */

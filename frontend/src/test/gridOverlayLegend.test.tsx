@@ -11,7 +11,7 @@ function makeColumn(id: number): Column {
   return { id, uid: `col${id}`, name: `Col ${id}`, position: id, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }
 }
 function makeSwimlane(id: number): Swimlane {
-  return { id, uid: `lane${id}`, name: `Lane ${id}`, contact_email: '', notes: '', position: id, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }
+  return { id, uid: `lane${id}`, name: `Lane ${id}`, contact_email: '', notes: '', position: id, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null }
 }
 
 function fixedOverlay(values: Record<string, number>): GridOverlay {

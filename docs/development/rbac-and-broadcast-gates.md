@@ -96,7 +96,7 @@ Current entries:
 Current entries:
 
 - **`NO_BROADCAST_BY_DESIGN`:** invite-link creation, which has no event type because a group-channel frame reaches every subscriber and the payload carries the raw token.
-- **`LOOP_FANOUT_BY_DESIGN`:** five loops that iterate channels or distinct cards: admin bulk delete, the blocked-peer fan-out, relation changes, and the post-commit membership eviction.
+- **`LOOP_FANOUT_BY_DESIGN`:** loops that iterate channels or distinct rows, each frame carrying that row's own payload: admin bulk delete, the blocked-peer fan-out, relation changes, the post-commit membership eviction, the invite-link and share-link revocations, and the column-delete swimlane prune (one `swimlane.updated` per swimlane whose counted columns lost the column, #1150).
 
 ## What `rbac-coverage` checks
 

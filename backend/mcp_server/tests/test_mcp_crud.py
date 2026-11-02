@@ -132,9 +132,54 @@ class ListSwimlanesTests(CrudToolsTestCase):
         self.assertEqual(row["contact_email"], "customer@example.com")
         self.assertEqual(
             set(row),
-            {"id", "uid", "name", "position", "color", "card_count", "is_collapsed", "contact_email"},
+            {
+                "id", "uid", "name", "position", "color", "card_count", "is_collapsed",
+                "contact_email", "wip_limit", "weight_limit",
+            },
         )
         self.assertEqual(row["uid"], self.swimlane.uid)  # #1974
+
+    def test_returns_the_swimlane_limits(self):
+        # #1150: the row's own limits, as list_columns returns wip_limit.
+        self.swimlane.wip_limit = 3
+        self.swimlane.weight_limit = 8
+        self.swimlane.save(update_fields=["wip_limit", "weight_limit"])
+        result = self._call("list_swimlanes", self.raw_token, board_id=self.board.id)
+        rows = {r["id"]: r for r in result}
+        self.assertEqual((rows[self.swimlane.id]["wip_limit"], rows[self.swimlane.id]["weight_limit"]), (3, 8))
+        self.assertEqual(
+            (rows[self.other_swimlane.id]["wip_limit"], rows[self.other_swimlane.id]["weight_limit"]),
+            (None, None),
+        )
+
+    def test_move_into_a_full_swimlane_is_a_structured_swimlane_error(self):
+        # #1150: enforced exactly as over REST, with no override over MCP.
+        self.other_swimlane.wip_limit = 1
+        self.other_swimlane.limit_enforcement = "block"
+        self.other_swimlane.save(update_fields=["wip_limit", "limit_enforcement"])
+        _make_card(self.column, self.other_swimlane, title="Already there")
+        card = _make_card(self.column, self.swimlane, title="Mover")
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id, to_swimlane_id=self.other_swimlane.id,
+        )
+        self.assertEqual(result["error"], {
+            "code": "swimlane_wip_limit_exceeded", "column_name": "Backlog",
+            "swimlane_name": "Urgent", "current_count": 1, "wip_limit": 1,
+        })
+        card.refresh_from_db()
+        self.assertEqual(card.swimlane_id, self.swimlane.id)
+
+    def test_create_into_a_full_swimlane_is_a_structured_swimlane_error(self):
+        self.other_swimlane.wip_limit = 1
+        self.other_swimlane.limit_enforcement = "hard"
+        self.other_swimlane.save(update_fields=["wip_limit", "limit_enforcement"])
+        _make_card(self.other_column, self.other_swimlane, title="Already there")
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.other_swimlane.id, title="Over",
+        )
+        self.assertEqual(result["error"]["code"], "swimlane_wip_hard_blocked")
+        self.assertFalse(Card.objects.filter(title="Over").exists())
 
     def test_non_admin_roles_do_not_see_contact_email_key(self):
         self.swimlane.contact_email = "customer@example.com"

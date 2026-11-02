@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { updateSwimlane, deleteSwimlane } from "../../api/boards";
-import type { Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
+import type { Card, Column, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneLimitEnforcement } from "../../types";
+import { columnLimitModes, laneUsage, swimlaneLimitModes, type LimitFlags, type LimitMode } from "../../utils/placementLimits";
+import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { COLUMN_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
@@ -18,11 +20,73 @@ interface Props {
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
   /** The user's `date_format` preference (#1993). */
   userDateFormat?: string;
+  /** The board's columns, for "Columns that count" (#1150). */
+  columns?: Column[];
+  /** The row's cards, for the limits' "Now N" helpers (#1150). */
+  laneCards?: Card[];
+  /** The board's enforce_* flags, which "Follow board settings" inherits (#1150). */
+  limitFlags?: LimitFlags;
 }
 
-export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose, swimlaneFieldDefinitions, userDateFormat }: Props) {
+type EnforcementChoice = "inherit" | SwimlaneLimitEnforcement;
+
+const RADIO_BASE = "flex flex-col rounded-lg border px-3 py-2 cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis";
+const RADIO_ON = "border-primary-emphasis bg-primary-emphasis/10";
+const RADIO_OFF = "border-line-strong hover:bg-surface-hover/40";
+const NUMBER_INPUT = "w-20 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted";
+
+/** "" or "0" means no limit (the helper says so); anything else is the number. */
+function parseLimit(raw: string): number | null {
+  const n = raw === "" ? 0 : parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * The "Already over" note for a limit typed below the current total. Worded
+ * for the enforcement the modal currently selects (completeness-check on
+ * #1150): not enforced, a block an admin can override, or a hard stop.
+ */
+function alreadyOverNote(kind: "wip" | "weight", current: number, limit: number, mode: LimitMode | null): string {
+  const now = kind === "wip" ? `${current} card${current === 1 ? "" : "s"} count now` : `${current} weight counts now`;
+  if (mode === null) {
+    return `Already over: ${now}. This limit is not enforced here, so it only shows on the row.`;
+  }
+  const what = kind === "wip"
+    ? `a new card is refused until ${limit === 1 ? "no card counts" : `fewer than ${limit} cards count`}`
+    : `a card that would add weight past ${limit} is refused`;
+  const who = mode === "hard" ? " for everyone" : ", unless a board admin overrides";
+  return `Already over: ${now}. Nothing moves; ${what}${who}.`;
+}
+
+/** What "Follow board settings" means on this board right now. */
+function boardModeDescription(flags: LimitFlags): string {
+  const modes = columnLimitModes(flags);
+  const wip = modes.wip === "hard"
+    ? "WIP limits block everyone"
+    : modes.wip === "block"
+      ? "WIP limits block, board admins can override"
+      : "WIP limits only show on the row";
+  const weight = modes.weight ? "weight limits block, board admins can override" : "weight limits only show on the row";
+  return `Board now: ${wip}; ${weight}.`;
+}
+
+export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose, swimlaneFieldDefinitions, userDateFormat, columns = [], laneCards = [], limitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false } }: Props) {
   const [name, setName] = useState(swimlane.name);
   const [color, setColor] = useState(swimlane.color);
+  // Row limits (#1150). Seeded once from the swimlane at mount (useState
+  // initializers), never from an effect (frontend/CLAUDE.md § Local input
+  // buffers).
+  const [wipLimit, setWipLimit] = useState(swimlane.wip_limit?.toString() ?? "");
+  const [weightLimit, setWeightLimit] = useState(swimlane.weight_limit?.toString() ?? "");
+  const [enforcement, setEnforcement] = useState<EnforcementChoice>(swimlane.limit_enforcement ?? "inherit");
+  // null = the default (every column not marked done), shown as those boxes
+  // checked; the first change makes the list explicit.
+  const [countedIds, setCountedIds] = useState<number[] | null>(swimlane.limit_column_ids ?? null);
+  const [countedError, setCountedError] = useState<string | null>(null);
+  const limitsId = useId();
+  const firstCountedRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const { moreBelow, onScroll: onBodyScroll } = useOverflowFade(bodyRef, [columns.length, swimlaneFieldDefinitions?.length]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -43,8 +107,34 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
   // Server 400s mapped back onto the URL field they were about.
   const [fieldErrors, setFieldErrors] = useState<Record<number, string>>({});
 
+  const effectiveCounted = countedIds ?? columns.filter((c) => !c.is_done).map((c) => c.id);
+  // "Now N" against the selection being edited, not the saved one.
+  const usage = laneUsage({ ...swimlane, limit_column_ids: effectiveCounted }, columns, laneCards);
+  const newWip = parseLimit(wipLimit);
+  const newWeight = parseLimit(weightLimit);
+  const wipAlreadyOver = newWip !== null && usage.count > newWip;
+  const weightAlreadyOver = newWeight !== null && usage.weight > newWeight;
+  // The modes the selected enforcement gives, for the "Already over" copy.
+  const selectedModes = swimlaneLimitModes(limitFlags, {
+    ...swimlane, limit_enforcement: enforcement === "inherit" ? null : enforcement,
+  });
+
+  const toggleCounted = (columnId: number, checked: boolean) => {
+    setCountedError(null);
+    const next = checked
+      ? [...effectiveCounted, columnId]
+      : effectiveCounted.filter((id) => id !== columnId);
+    setCountedIds([...new Set(next)].sort((a, b) => a - b));
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
+    if (countedIds !== null && countedIds.length === 0) {
+      // The server refuses an empty list; say so here and keep the modal open.
+      setCountedError("Choose at least one column, or the limit would count nothing.");
+      firstCountedRef.current?.focus();
+      return;
+    }
     if (invalidFieldIds.current.size > 0) {
       // Never save without the invalid text and close as if it had been
       // saved: stay open, and put the user back on the field with its
@@ -68,6 +158,10 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       const updated = await updateSwimlane(boardId, swimlane.id, {
         name: name.trim(),
         color,
+        wip_limit: newWip,
+        weight_limit: newWeight,
+        limit_enforcement: enforcement === "inherit" ? null : enforcement,
+        limit_column_ids: countedIds,
         ...(changed.length > 0 && { custom_field_values: changed }),
       });
       onUpdated(updated);
@@ -106,9 +200,21 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
     : "Edit Swimlane";
 
   return (
-    <ModalWrapper open={true} onClose={onClose} title={title} maxWidth="max-w-md" labelId="edit-swimlane-title">
+    <ModalWrapper
+      open={true}
+      onClose={onClose}
+      title={title}
+      maxWidth="max-w-md"
+      labelId="edit-swimlane-title"
+      // The limits section (#1150) makes this modal taller than a short
+      // viewport, so the body scrolls and the footer stays put, as in
+      // ImportBoardModal.
+      panelClassName="max-h-[calc(100dvh-2rem)]"
+      noPadding
+    >
       {confirmDelete ? (
-        cardCount > 0 ? (
+        <div className="px-6 pb-6">
+        {cardCount > 0 ? (
           <>
             <p className="text-sm text-fg-tertiary mb-5">
               <span className="font-medium text-fg">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
@@ -137,9 +243,21 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               </button>
             </div>
           </>
-        )
+        )}
+        </div>
       ) : (
         <>
+          {/* One scroll region for the whole form (#1455): focusable, named,
+              with a bottom fade while more is below. */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
+          <div
+            ref={bodyRef}
+            onScroll={onBodyScroll}
+            tabIndex={0}
+            role="region"
+            aria-label="Swimlane settings"
+            className="flex-1 min-h-0 overflow-y-auto px-6 pb-2 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+          >
           <div className="flex flex-col gap-3">
             <div>
               <label className="text-xs text-fg-tertiary mb-1 block">Name *</label>
@@ -168,7 +286,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               </p>
               {/* Not collapsible: this is one of two sections in a focused
                   modal, and a collapsed section behind a Save button is a trap. */}
-              <div ref={fieldsRef} className="flex flex-col gap-4 max-h-[45vh] overflow-y-auto pr-1 -mr-1">
+              <div ref={fieldsRef} className="flex flex-col gap-4">
                 {defs.map((def) => (
                   <SwimlaneFieldEditRow
                     key={def.id}
@@ -187,6 +305,133 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
             </>
           )}
 
+          {/* Row limits (#1150), after the row fields so a field near the top
+              never needs the body scrolled to reach. Rendered whether or not a limit is set: the
+              counted columns and the enforcement choice are what an admin
+              decides before typing a number, and hiding them would make the
+              capability undiscoverable. */}
+          <div className="border-t border-line my-4" />
+          <section aria-labelledby={`${limitsId}-heading`}>
+            <h3 id={`${limitsId}-heading`} className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-2">
+              Limits
+            </h3>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor={`${limitsId}-wip`} className="text-xs text-fg-tertiary">WIP limit</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id={`${limitsId}-wip`}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={wipLimit}
+                    onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
+                    placeholder="0"
+                    aria-describedby={`${limitsId}-wip-help`}
+                    className={NUMBER_INPUT}
+                  />
+                  <span className="text-sm text-fg-tertiary">cards</span>
+                </div>
+                <p id={`${limitsId}-wip-help`} className="text-xs min-h-4">
+                  {wipAlreadyOver ? (
+                    <span className="text-warning">
+                      {alreadyOverNote("wip", usage.count, newWip ?? 0, selectedModes.wip)}
+                    </span>
+                  ) : (
+                    <span className="text-fg-muted">Now {usage.count} · 0 = no limit</span>
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor={`${limitsId}-weight`} className="text-xs text-fg-tertiary">Weight limit</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id={`${limitsId}-weight`}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={weightLimit}
+                    onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
+                    placeholder="0"
+                    aria-describedby={`${limitsId}-weight-help`}
+                    className={NUMBER_INPUT}
+                  />
+                  <span className="text-sm text-fg-tertiary">weight</span>
+                </div>
+                <p id={`${limitsId}-weight-help`} className="text-xs min-h-4">
+                  {weightAlreadyOver ? (
+                    <span className="text-warning">
+                      {alreadyOverNote("weight", usage.weight, newWeight ?? 0, selectedModes.weight)}
+                    </span>
+                  ) : (
+                    <span className="text-fg-muted">Now {usage.weight} · 0 = no limit</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {columns.length > 0 && (
+              <fieldset className="mt-3" aria-describedby={`${limitsId}-counted-help`}>
+                <legend className="text-xs text-fg-tertiary mb-1.5">Columns that count</legend>
+                <div className="flex flex-col gap-1">
+                  {columns.map((col, i) => (
+                    <label key={col.id} className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        ref={i === 0 ? firstCountedRef : undefined}
+                        type="checkbox"
+                        aria-invalid={countedError !== null ? true : undefined}
+                        checked={effectiveCounted.includes(col.id)}
+                        onChange={(e) => toggleCounted(col.id, e.target.checked)}
+                        className="w-4 h-4 rounded accent-primary"
+                      />
+                      <span className="text-sm text-fg-secondary">
+                        {col.name}{col.is_done && <span className="text-fg-tertiary"> (done)</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p id={`${limitsId}-counted-help`} className="text-xs min-h-4 mt-1">
+                  {countedError ? (
+                    <span className="text-danger">{countedError}</span>
+                  ) : (
+                    <span className="text-fg-muted">
+                      {countedIds === null ? "Default: every column not marked done." : "Only cards in the checked columns count."}
+                    </span>
+                  )}
+                </p>
+              </fieldset>
+            )}
+
+            <fieldset className="mt-3">
+              <legend className="text-xs text-fg-tertiary mb-1.5">When the row is full</legend>
+              <div className="flex flex-col gap-2">
+                {([
+                  ["inherit", "Follow board settings", boardModeDescription(limitFlags)],
+                  ["block", "Block, admins can override", "Moves and new cards are refused; a board admin can move anyway."],
+                  ["hard", "Block for everyone", "No one can add a card past the WIP limit. A weight limit can still be overridden by a board admin."],
+                ] as const).map(([value, label, description]) => (
+                  <label key={value} className={`${RADIO_BASE} ${enforcement === value ? RADIO_ON : RADIO_OFF}`}>
+                    <input
+                      type="radio"
+                      name={`${limitsId}-enforcement`}
+                      value={value}
+                      checked={enforcement === value}
+                      onChange={() => setEnforcement(value)}
+                      className="sr-only"
+                    />
+                    <span className="text-sm text-fg font-medium">{label}</span>
+                    <span className="text-xs text-fg-muted mt-0.5">{description}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </section>
+
+          </div>
+          {moreBelow && (
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-surface to-transparent" />
+          )}
+          </div>
+
+          <div className="px-6 pb-6">
           <p className="text-xs h-4 mt-2">
             {saveError && <span className="text-danger">{saveError}</span>}
           </p>
@@ -208,6 +453,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                 {saving ? "Saving…" : "Save"}
               </button>
             </div>
+          </div>
           </div>
         </>
       )}

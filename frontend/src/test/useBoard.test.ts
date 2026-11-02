@@ -58,7 +58,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     group: null,
     group_name: null,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }],
-    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01T00:00:00Z' }],
+    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01T00:00:00Z', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null }],
     cards: [{
       id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium',
       assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
@@ -362,7 +362,7 @@ describe('useBoard', () => {
     const { result } = renderHook(() => useBoard())
     await waitFor(() => expect(result.current.board).not.toBeNull())
 
-    const newSwimlane: Swimlane = { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '2026-01-01' }
+    const newSwimlane: Swimlane = { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null }
     act(() => { result.current.addSwimlane(newSwimlane) })
     expect(result.current.board!.swimlanes).toHaveLength(2)
   })
@@ -509,6 +509,74 @@ describe('useBoard', () => {
       column_name: 'In Progress',
       current_count: 3,
       wip_limit: 3,
+    })
+  })
+
+  describe('swimlane limits (#1150)', () => {
+    // Doing (11) at its column WIP limit; Lane B (21) at its own limit too.
+    const limitedBoard = () => makeBoard({
+      enforce_wip_limits: true,
+      columns: [
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 11, uid: 'coluid000002', name: 'Doing', position: 1, color: '#3B82F6', wip_limit: 1, weight_limit: null, allow_card_creation: true, is_done: false },
+      ],
+      swimlanes: [
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'hard', limit_column_ids: [10, 11] },
+      ],
+      cards: [
+        { ...makeBoard().cards[0] },
+        { ...makeBoard().cards[0], id: 101, uid: 'carduid00002', column: 11, swimlane: 21 },
+      ],
+    })
+
+    it('a hard row refusal names the column limit it also tripped, and offers no retry', async () => {
+      mockGetBoardFull.mockResolvedValue(limitedBoard())
+      mockMoveCard.mockRejectedValueOnce({ response: { status: 409, data: {
+        code: 'swimlane_wip_hard_blocked', detail: 'Swimlane WIP limit enforced — move blocked.',
+        column_name: 'Doing', swimlane_name: 'Lane B', current_count: 1, wip_limit: 1,
+      } } })
+      const { result } = renderHook(() => useBoard())
+      await waitFor(() => expect(result.current.board).not.toBeNull())
+      await act(async () => { await result.current.moveCard(100, 11, 21, 0) })
+      expect(result.current.moveError).toMatchObject({
+        code: 'swimlane_wip_hard_blocked',
+        also: ['Column "Doing" is at its WIP limit (1/1), admins can override.'],
+      })
+      expect(result.current.board!.cards[0]).toMatchObject({ column: 10, swimlane: 20 })
+      // Hard: forceMoveCard has nothing to replay.
+      await act(async () => { await result.current.forceMoveCard() })
+      expect(mockMoveCard).toHaveBeenCalledTimes(1)
+    })
+
+    it('a soft row refusal keeps the move for the admin override', async () => {
+      const board = limitedBoard()
+      mockGetBoardFull.mockResolvedValue(board)
+      mockMoveCard.mockRejectedValueOnce({ response: { status: 409, data: {
+        code: 'swimlane_wip_limit_exceeded', column_name: 'To Do', swimlane_name: 'Lane B',
+        current_count: 1, wip_limit: 1,
+      } } })
+      mockMoveCard.mockResolvedValueOnce({ card: { ...board.cards[0], swimlane: 21, version: 2 } })
+      const { result } = renderHook(() => useBoard())
+      await waitFor(() => expect(result.current.board).not.toBeNull())
+      await act(async () => { await result.current.moveCard(100, 10, 21, 0) })
+      // Only the row tripped (the card stays in To Do): no `also`.
+      expect(result.current.moveError).toEqual({
+        code: 'swimlane_wip_limit_exceeded', column_name: 'To Do', swimlane_name: 'Lane B',
+        current_count: 1, wip_limit: 1,
+      })
+      await act(async () => { await result.current.forceMoveCard() })
+      expect(mockMoveCard).toHaveBeenLastCalledWith(1, 100, { column_id: 10, swimlane_id: 21, position: 0 }, true)
+    })
+
+    it('evictColumn drops the column from every row limit, nulling an emptied list', async () => {
+      const board = limitedBoard()
+      board.swimlanes[0] = { ...board.swimlanes[0], limit_column_ids: [11] }
+      mockGetBoardFull.mockResolvedValue(board)
+      const { result } = renderHook(() => useBoard())
+      await waitFor(() => expect(result.current.board).not.toBeNull())
+      act(() => { result.current.evictColumn('coluid000002') })
+      expect(result.current.board!.swimlanes.map((s) => s.limit_column_ids)).toEqual([null, [10]])
     })
   })
 
@@ -814,8 +882,8 @@ describe('useBoard', () => {
   it('evictSwimlane leaves cards in other swimlanes intact', async () => {
     const board = makeBoard({
       swimlanes: [
-        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
-        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '' },
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
       ],
       cards: [
         { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '' },
@@ -1291,8 +1359,8 @@ describe('useBoard', () => {
   it('reorderSwimlanes optimistically updates and applies the server response', async () => {
     const board = makeBoard({
       swimlanes: [
-        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
-        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '' },
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
       ],
     })
     mockGetBoardFull.mockResolvedValue(board)

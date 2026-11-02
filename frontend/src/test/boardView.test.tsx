@@ -6,7 +6,7 @@ import BoardView from '../components/Board/BoardView'
 import CustomFieldQuickEditPopover from '../components/Card/CustomFieldQuickEditPopover'
 import type { BoardFull, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
-import type { CollisionDetection, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { CollisionDetection, DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import * as dndCore from '@dnd-kit/core'
 
 // Controllable search params — initial params can be set before render; the stateful mock
@@ -18,13 +18,15 @@ const mockSetSearchParams = vi.fn()
 // Capture DndContext props (onDragStart, onDragEnd, collisionDetection) so tests can invoke them directly.
 let capturedOnDragStart: ((e: DragStartEvent) => void) | undefined
 let capturedOnDragEnd: ((e: DragEndEvent) => void) | undefined
+let capturedOnDragOver: ((e: DragOverEvent) => void) | undefined
 let capturedCollisionDetection: ((args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection>) | undefined
 let capturedSensors: unknown[] | undefined
 
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children, onDragStart, onDragEnd, collisionDetection, sensors }: { children: React.ReactNode; onDragStart?: (e: DragStartEvent) => void; onDragEnd?: (e: DragEndEvent) => void; collisionDetection?: (args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection>; sensors?: unknown[] }) => {
+  DndContext: ({ children, onDragStart, onDragEnd, onDragOver, collisionDetection, sensors }: { children: React.ReactNode; onDragStart?: (e: DragStartEvent) => void; onDragEnd?: (e: DragEndEvent) => void; onDragOver?: (e: DragOverEvent) => void; collisionDetection?: (args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection>; sensors?: unknown[] }) => {
     capturedSensors = sensors
     capturedOnDragStart = onDragStart
+    capturedOnDragOver = onDragOver
     capturedOnDragEnd = onDragEnd
     capturedCollisionDetection = collisionDetection
     return <div>{children}</div>
@@ -239,7 +241,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
       { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
     ],
     swimlanes: [
-      { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
+      { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
     ],
     cards: [],
     labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
@@ -1219,6 +1221,61 @@ describe('BoardView', () => {
       // The role="alert" toast owns the failure announcement; the status region stays blank.
       expect(screen.queryByText(/moved to column/)).not.toBeInTheDocument()
       expect(screen.queryByText(/could not be moved/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('keyboard-move verdict in the drag live region (#1150)', () => {
+    const card = (id: number, column: number, swimlane: number) => ({
+      id, uid: `carduid${id}`, column, swimlane, title: `Card ${id}`,
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' },
+      created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [], blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    })
+    const hover = (cardId: number, overId: string) => {
+      act(() => {
+        capturedOnDragOver!({
+          active: { id: cardId, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+          over: { id: overId, data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+        } as unknown as DragOverEvent)
+      })
+    }
+
+    it('reads the cell and the limit it would trip', () => {
+      const board = makeBoard({
+        swimlanes: [
+          { id: 20, uid: 'laneuid00001', name: 'Customer A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+          { id: 21, uid: 'laneuid00002', name: 'Payouts', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'block', limit_column_ids: null },
+        ],
+        cards: [card(1, 10, 20), card(2, 11, 21)],
+      })
+      mockBoardContextValue = defaultContext({ board })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:10:21')
+      expect(screen.getByText(`Over column 'To Do', swimlane 'Payouts'. Swimlane "Payouts" is at its WIP limit (1/1), admins can override.`)).toBeInTheDocument()
+    })
+
+    it('a quick second hover onto a blocked cell still announces its verdict', () => {
+      const board = makeBoard({
+        swimlanes: [
+          { id: 20, uid: 'laneuid00001', name: 'Customer A', position: 0, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null },
+          { id: 21, uid: 'laneuid00002', name: 'Payouts', position: 1, color: '#6B7280', is_collapsed: false, created_at: '', wip_limit: 1, weight_limit: null, limit_enforcement: 'hard', limit_column_ids: null },
+        ],
+        cards: [card(1, 10, 20), card(2, 11, 21)],
+      })
+      mockBoardContextValue = defaultContext({ board })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:11:20')
+      hover(1, 'cell:10:21') // inside the 300ms throttle window
+      expect(screen.getByText(`Over column 'To Do', swimlane 'Payouts'. Swimlane "Payouts" is at its WIP limit (1/1), no one can override it.`)).toBeInTheDocument()
+    })
+
+    it('reads only the cell when nothing would trip', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card(1, 10, 20)] }) })
+      render(<BoardView {...defaultProps()} />)
+      hover(1, 'cell:11:20')
+      expect(screen.getByText("Over column 'Done', swimlane 'Customer A'")).toBeInTheDocument()
     })
   })
 

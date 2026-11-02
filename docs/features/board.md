@@ -70,7 +70,7 @@ Each swimlane has the following fields:
     The `contact_email` and `notes` fields are restricted to board admin and site admin roles. Members and viewers do not receive this data via the REST API or WebSocket events.
 
 !!! note "Contact email isn't editable after creation yet"
-    Contact email can only be set in the **Add Swimlane** dialog. The **Edit Swimlane** modal covers name and color, not contact email — to change it, delete and recreate the swimlane, or wait for that gap to close.
+    Contact email can only be set in the **Add Swimlane** dialog. The **Edit Swimlane** modal covers name, color, swimlane field values and [limits](#swimlane-limits), not contact email — to change it, delete and recreate the swimlane, or wait for that gap to close.
 
 Click the chevron on the label panel to collapse a swimlane and save vertical space. When collapsed:
 
@@ -80,6 +80,33 @@ Click the chevron on the label panel to collapse a swimlane and save vertical sp
 - Click the chevron again to expand and restore full card visibility.
 
 Admins can double-click the swimlane label to open the Edit Swimlane modal.
+
+### Swimlane limits
+
+> **Added in 1.3** (#1150)
+
+A swimlane can carry its own WIP limit and weight limit, the same way a column does. On a board whose rows are customers, projects or candidates, this is the limit you usually want: "no more than three in flight for this client."
+
+Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
+
+- **WIP limit** and **Weight limit.** Leave a field empty, or enter `0`, for no limit. The helper under each field shows the row's current count ("Now 4"). When the new limit is already below that count, a note says so and says what happens next for the enforcement you selected: nothing already in the row moves; with **Block, admins can override** new cards are refused unless a board admin overrides, with **Block for everyone** they are refused for everyone, and when the limit is not enforced (**Follow board settings** on a board that enforces nothing) it only shows on the row.
+- **Columns that count.** Only cards in the checked columns count toward the row's limits. By default every column not marked as done counts, so a finished card stops counting the moment it reaches a done column. Deleting a column removes it from every row's selection; a row left with none goes back to the default.
+- **When the row is full.** **Follow board settings** (the default) applies the board's **Enforce WIP limits**, **Enforce WIP hard** and **Enforce weight limits** rules, exactly as for columns. **Block, admins can override** refuses the move and lets a board admin move anyway. **Block for everyone** is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns.
+
+**What the row shows.** Once a row has a limit, its label panel shows one state line under the name, worst state first:
+
+| State | Line |
+|---|---|
+| Under the limit | `WIP 4/6` |
+| At the limit | `WIP 5/5 · at limit`, only when the board's **Show at-limit WIP indicator** setting is on (as for columns); otherwise the line reads `WIP 5/5` |
+| Over the WIP limit | `⚠ Over WIP · 5/4` in red, with a red line across the top of the label panel (`⛔` when the row is in hard mode) |
+| Over the weight limit | `Over weight · 18/12` in red |
+
+The small bar next to the text is decorative; the words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones.
+
+**What a move does.** A move is checked against a row only when it adds to the row's count: the card enters one of the row's counted columns from another row, from a column of this row that does not count, or by being created or restored there. Moving a card between two counted columns of the same row never trips the row's limit. While you drag a card over a cell whose column or row is full, the cell gets a red ring and names the limit (for example `⚠ WIP limit 5/5 · Payouts`). With the keyboard, the screen reader announcement for each cell includes the same verdict. If you drop anyway, the move is refused with the same toast as a column limit, naming the row; when a column limit and a row limit both trip, the toast names both. Board admins get **Move anyway (admin override)** for a soft limit, never for a hard one.
+
+Board import restores row limits as exported and does not check them, as with column limits.
 
 ### Swimlane focus mode
 
@@ -169,7 +196,7 @@ Hard enforcement is **off by default**. Enable it in **Board Settings → Rules 
 !!! tip
     Hard WIP enforcement is useful for teams that treat WIP limits as a strict policy rather than a guideline. To unblock a column, move a card out of it or ask an admin to raise the WIP limit.
 
-**Where limits are checked:** WIP and weight limits, soft or hard, are checked whenever a card is moved into a column, created in it, or restored into it from the archive, and weight limits also when a card's weight is raised. *Changed in 1.2 (#1428): before 1.2 only moves were checked.*
+**Where limits are checked:** WIP and weight limits, soft or hard, are checked whenever a card is moved into a column, created in it, or restored into it from the archive, and weight limits also when a card's weight is raised. *Changed in 1.2 (#1428): before 1.2 only moves were checked.* Since 1.3 the same paths also check a swimlane's own limits; see [Swimlane limits](#swimlane-limits).
 
 - [Board import](#import) is the one exception: it restores a board as it was exported, so an imported column can start out over its limit.
 - When a new card or a restore is refused, the add-card field or the **Archived cards** panel says which limit was reached, and the card stays where it was.

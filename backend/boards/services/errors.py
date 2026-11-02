@@ -12,7 +12,9 @@ Why the bodies live here rather than in the views
 Because they are a frozen 1.x contract, and one home for them is the only way
 to keep them frozen. The card endpoints return **five mutually incompatible**
 409/403/400 shapes: ``wip_limit_exceeded`` and ``weight_limit_exceeded`` have no
-``detail`` key at all; ``wip_hard_blocked`` has both ``detail`` and ``code``;
+``detail`` key at all; ``wip_hard_blocked`` has both ``detail`` and ``code``
+(the ``swimlane_*`` limit bodies, #1150, reuse these two shapes plus a
+``swimlane_name`` key);
 the force-override denials have only ``detail``; and the move assignee gate is
 the only 403 in the card API carrying a ``code``.
 ``frontend/src/components/Board/MoveBlockedToast.tsx`` reads ``code``,
@@ -330,6 +332,106 @@ class WeightLimitExceeded(CardServiceError):
             "weight_limit": self.weight_limit,
             "card_weight": self.card_weight,
         }
+
+
+# Swimlane (row) limits (#1150). Each body is its column sibling's body with
+# a ``swimlane_`` code and one added key, ``swimlane_name``: the soft bodies
+# have no ``detail``, the hard one has ``detail`` first. No third shape.
+# ``column_name`` stays, naming the column of the target cell, because every
+# limit 409 in the published schema carries it (required on create, restore
+# and update) and the API compatibility gate forbids a response field going
+# optional; the counts are the swimlane's. They are separate classes, not
+# subclasses of the column errors, so a caller that catches
+# ``WipLimitExceeded`` cannot be handed a row error by accident.
+#
+# One body names one constraint. When a placement trips several (a column and
+# a row, or WIP and weight), ``enforce_column_limits`` raises the strictest
+# (hard before block) and, among equally strict ones, the column before the
+# row, WIP before weight. That keeps a board's existing column bodies
+# byte-for-byte unchanged however its rows are configured, unless a row is
+# strictly stricter. Naming both would need a second set of counters neither
+# sibling has, which is the third shape. The board UI names the other tripped
+# limit from its own state.
+
+class SwimlaneWipLimitExceeded(CardServiceError):
+    """Soft swimlane WIP limit reached. A board admin may retry with ``?force=true``."""
+
+    status = 409
+
+    def __init__(self, *, swimlane_name: str, column_name: str, current_count: int, wip_limit: int):
+        self.swimlane_name = swimlane_name
+        self.column_name = column_name
+        self.current_count = current_count
+        self.wip_limit = wip_limit
+        super().__init__(swimlane_name)
+
+    def body(self) -> dict:
+        return {
+            "code": "swimlane_wip_limit_exceeded",
+            "column_name": self.column_name,
+            "swimlane_name": self.swimlane_name,
+            "current_count": self.current_count,
+            "wip_limit": self.wip_limit,
+        }
+
+
+class SwimlaneWipHardBlocked(CardServiceError):
+    """Hard swimlane WIP limit reached: no override exists for any role."""
+
+    status = 409
+    detail = "Swimlane WIP limit enforced — move blocked."
+
+    def __init__(self, *, swimlane_name: str, column_name: str, current_count: int, wip_limit: int):
+        self.swimlane_name = swimlane_name
+        self.column_name = column_name
+        self.current_count = current_count
+        self.wip_limit = wip_limit
+        super().__init__(self.detail)
+
+    def body(self) -> dict:
+        return {
+            "detail": self.detail,
+            "code": "swimlane_wip_hard_blocked",
+            "column_name": self.column_name,
+            "swimlane_name": self.swimlane_name,
+            "current_count": self.current_count,
+            "wip_limit": self.wip_limit,
+        }
+
+
+class SwimlaneWeightLimitExceeded(CardServiceError):
+    """Swimlane weight limit would be exceeded. Weight has no hard mode."""
+
+    status = 409
+
+    def __init__(
+        self, *, swimlane_name: str, column_name: str, current_weight: int, weight_limit: int,
+        card_weight: int,
+    ):
+        self.swimlane_name = swimlane_name
+        self.column_name = column_name
+        self.current_weight = current_weight
+        self.weight_limit = weight_limit
+        self.card_weight = card_weight
+        super().__init__(swimlane_name)
+
+    def body(self) -> dict:
+        return {
+            "code": "swimlane_weight_limit_exceeded",
+            "column_name": self.column_name,
+            "swimlane_name": self.swimlane_name,
+            "current_weight": self.current_weight,
+            "weight_limit": self.weight_limit,
+            "card_weight": self.card_weight,
+        }
+
+
+# Every limit refusal, column or row: what a caller that maps a refusal to its
+# own message (the Django admin form) catches.
+LIMIT_ERRORS = (
+    WipLimitExceeded, WipHardBlocked, WeightLimitExceeded,
+    SwimlaneWipLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWeightLimitExceeded,
+)
 
 
 # ---------------------------------------------------------------------------

@@ -690,6 +690,9 @@ def _swimlanes_payload(board, role):
             "color": s.color,
             "card_count": s._card_count,
             "is_collapsed": s.is_collapsed,
+            # The row's own limits (#1150), as list_columns returns wip_limit.
+            "wip_limit": s.wip_limit,
+            "weight_limit": s.weight_limit,
         }
         if can_see_contact_email:
             row["contact_email"] = s.contact_email
@@ -865,7 +868,7 @@ def create_card(*, board_id, column_id, swimlane_id, title, description=None,
     for ``move_card`` (#1428), and as there this tool never passes ``force``:
     a create into a full column comes back as the same structured
     ``wip_limit_exceeded``/``wip_hard_blocked``/``weight_limit_exceeded``
-    error, and nothing is written.
+    error (``swimlane_*`` for a full swimlane, #1150), and nothing is written.
     """
     user = get_current_user()
     try:
@@ -930,6 +933,7 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
     WIP/weight limits are enforced exactly as they are over REST, with no
     override: this tool never exposes ``force``, so a blocked move always
     comes back as a structured ``wip_limit_exceeded``/``wip_hard_blocked``
+    (or ``swimlane_*``, #1150)
     error rather than a 500.
 
     ``version`` (#1974) is the REST move endpoint's optional ``version`` body

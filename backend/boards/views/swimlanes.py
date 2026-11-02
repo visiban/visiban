@@ -27,7 +27,7 @@ from ..serializers import (
 from ..services.custom_fields import apply_swimlane_custom_field_values
 from ._helpers import (
     CONTAINER_CHANGED_409, blocked_peers_of, get_board_for_user, lock_board_and_row_or_404,
-    lock_board_row_or_404, lock_container_cascade, publish_blocked_peers,
+    lock_board_row_or_404, lock_container_cascade, missing_limit_columns, publish_blocked_peers,
     require_present_or_404,
     validate_full_reorder_order,
 )
@@ -76,6 +76,25 @@ def _require_live_swimlane_definitions(field_pairs):
                 "Unknown swimlane custom field(s) for this board: "
                 + ", ".join(str(pk) for pk in missing)
                 + "."
+            ]
+        })
+
+
+def _require_live_limit_columns(board, validated_data):
+    """Answer 400 when a column named in ``limit_column_ids`` was deleted (#1150).
+
+    The serializer resolved the ids before the transaction. Called once the
+    board row is held: a column delete holds that row from the start of its
+    cascade (``lock_container_cascade``), so a column read here stays until
+    this save commits, and one a delete removed meanwhile is reported as the
+    serializer reports an unknown id instead of being stored as a stale id the
+    delete's cleanup (``prune_swimlane_limit_columns``) already ran past.
+    """
+    missing = missing_limit_columns(board.pk, validated_data.get("limit_column_ids"))
+    if missing:
+        raise ValidationError({
+            "limit_column_ids": [
+                "Unknown column(s) for this board: " + ", ".join(str(pk) for pk in missing) + "."
             ]
         })
 
@@ -211,6 +230,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 # delete takes the board row first, so none can commit after
                 # this read.
                 _require_live_swimlane_definitions(field_pairs)
+                _require_live_limit_columns(board, serializer.validated_data)
                 _max = board.swimlanes.aggregate(m=Max("position"))["m"]
                 max_pos = 0 if _max is None else _max + 1
                 swimlane = serializer.save(board=board, position=max_pos)
@@ -250,6 +270,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 # concurrent delete removed while this request queued answers
                 # 400 and nothing is written.
                 _require_live_swimlane_definitions(field_pairs)
+                _require_live_limit_columns(board, serializer.validated_data)
                 swimlane = serializer.save()
                 if field_pairs:
                     apply_swimlane_custom_field_values(
@@ -406,7 +427,15 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             # it authorizes, and so two concurrent reorder requests can't
             # interleave their UPDATE statements into an inconsistent position
             # sequence (#1302).
-            lock_board_row_or_404(board)
+            #
+            # FOR NO KEY UPDATE, not FOR UPDATE (#1150), the column reorder's
+            # mode (#1566): a move checked against a swimlane limit holds that
+            # swimlane row (FOR NO KEY UPDATE) and then needs FOR KEY SHARE on
+            # this board row for its CardMovement insert. FOR UPDATE here
+            # would block that while this reorder waits on the swimlane row:
+            # a deadlock. FOR NO KEY UPDATE still conflicts with every other
+            # board-row writer and a second reorder.
+            lock_board_row_or_404(board, no_key=True)
             existing_ids = set(Swimlane.objects.filter(board=board).values_list("id", flat=True))
             order_ints = validate_full_reorder_order(
                 order, existing_ids, item_label="swimlane", scope_label="this board",

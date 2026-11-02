@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import { failureReason } from "../utils/moveFailure";
+import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "../utils/placementLimits";
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
 import type { BoardFull, BoardMembership, Card, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
@@ -10,10 +11,20 @@ import type { BoardFull, BoardMembership, Card, EffectiveBoardMember, Column, Sw
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
 export type MoveOutcome = { ok: true } | { ok: false; error: unknown };
 
+/**
+ * `also` (#1150) is client-side: sentences naming the other limits the move
+ * tripped, computed from board state when the refusal arrives, because the
+ * server's body names only the strictest one.
+ */
 export type MoveBlockedError =
-  | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
-  | { code: "wip_hard_blocked"; column_name: string; current_count: number; wip_limit: number }
-  | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number }
+  | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number; also?: string[] }
+  | { code: "wip_hard_blocked"; column_name: string; current_count: number; wip_limit: number; also?: string[] }
+  | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number; also?: string[] }
+  // Swimlane (row) limits (#1150): the column bodies plus `swimlane_name`;
+  // the counters are the swimlane's.
+  | { code: "swimlane_wip_limit_exceeded"; column_name: string; swimlane_name: string; current_count: number; wip_limit: number; also?: string[] }
+  | { code: "swimlane_wip_hard_blocked"; column_name: string; swimlane_name: string; current_count: number; wip_limit: number; also?: string[] }
+  | { code: "swimlane_weight_limit_exceeded"; column_name: string; swimlane_name: string; current_weight: number; weight_limit: number; card_weight: number; also?: string[] }
   | { code: "version_conflict"; detail: string; current_version: number }
   | { code: "permission_denied"; detail: string }
   | { code: "maintenance_mode"; detail: string }
@@ -25,8 +36,43 @@ export type MoveBlockedError =
 // would render as "undefined weight ... NaN", so it falls to the generic toast.
 const KNOWN_MOVE_ERROR_CODES = new Set<string>([
   "wip_limit_exceeded", "wip_hard_blocked", "weight_limit_exceeded",
+  "swimlane_wip_limit_exceeded", "swimlane_wip_hard_blocked", "swimlane_weight_limit_exceeded",
   "version_conflict", "permission_denied", "maintenance_mode", "move_failed",
 ]);
+
+// Limit refusals a board admin can override with force (#1150 adds the
+// swimlane pair); the hard codes have no retry path.
+const SOFT_LIMIT_CODES = new Set<string>([
+  "wip_limit_exceeded", "weight_limit_exceeded",
+  "swimlane_wip_limit_exceeded", "swimlane_weight_limit_exceeded",
+]);
+const HARD_LIMIT_CODES = new Set<string>(["wip_hard_blocked", "swimlane_wip_hard_blocked"]);
+
+/** The scope and kind a limit refusal's `code` reports, to drop it from `also`. */
+function reportedLimit(code: string): { scope: "column" | "swimlane"; kind: "wip" | "weight" } {
+  return {
+    scope: code.startsWith("swimlane_") ? "swimlane" : "column",
+    kind: code.includes("weight") ? "weight" : "wip",
+  };
+}
+
+/**
+ * Sentences for every limit the move tripped besides the one the server
+ * reported (#1150). Computed from the board as the request found it, with the
+ * moved card at its pre-move cell, so a column and a swimlane that both trip
+ * are both named. Empty when only one did, or when nothing can be predicted.
+ */
+function otherTrippedLimits(
+  board: BoardFull, before: Card | undefined, columnId: number, swimlaneId: number, code: string,
+): string[] {
+  const column = board.columns.find((c) => c.id === columnId);
+  const lane = board.swimlanes.find((s) => s.id === swimlaneId);
+  if (!before || !column || !lane) return [];
+  const reported = reportedLimit(code);
+  return placementVerdict({ flags: board, columns: board.columns, cards: board.cards, card: before, column, lane })
+    .filter((t) => !(t.scope === reported.scope && t.kind === reported.kind))
+    .map(trippedLimitSentence);
+}
 
 /** Generic toast for a failed move that no specific code covered (#1761). The
  * title is "Move failed", so the body is just the capitalized cause. */
@@ -263,12 +309,12 @@ export function useBoard() {
           // Another user modified this card — reload the board to get fresh state.
           surfaced = true; setMoveError(data);
           load();
-        } else if (data?.code === "wip_limit_exceeded" || data?.code === "weight_limit_exceeded") {
-          surfaced = true; setMoveError(data);
-          setPendingMove({ cardId, columnId, swimlaneId, position });
-        } else if (data?.code === "wip_hard_blocked") {
+        } else if (data?.code && (SOFT_LIMIT_CODES.has(data.code) || HARD_LIMIT_CODES.has(data.code))) {
+          const board = boardRef.current;
+          const also = board ? otherTrippedLimits(board, before, columnId, swimlaneId, data.code) : [];
+          surfaced = true; setMoveError(also.length > 0 ? { ...data, also } as MoveBlockedError : data);
           // Hard-blocked moves have no retry path — never set pendingMove.
-          surfaced = true; setMoveError(data);
+          if (SOFT_LIMIT_CODES.has(data.code)) setPendingMove({ cardId, columnId, swimlaneId, position });
         }
       }
       // Every failure gets a visible message; the branches above only cover the
@@ -420,6 +466,7 @@ export function useBoard() {
       ...b,
       columns: b.columns.filter((c) => c.id !== columnId),
       cards: b.cards.filter((c) => c.column !== columnId),
+      swimlanes: pruneLaneLimitColumn(b.swimlanes, columnId),
     } : b);
     try {
       await apiDeleteColumn(boardId, columnId);
@@ -595,6 +642,7 @@ export function useBoard() {
         ...b,
         columns: b.columns.filter((c) => c.uid !== columnUid),
         cards: col ? b.cards.filter((c) => c.column !== col.id) : b.cards,
+        swimlanes: col ? pruneLaneLimitColumn(b.swimlanes, col.id) : b.swimlanes,
       };
     });
   }, []);
