@@ -85,13 +85,13 @@ Each row shows **Deactivate**/**Reactivate** and **Make admin**/**Demote admin**
 The lower-frequency actions live behind the **More actions** (`⋮`) button at the end of the row, when each applies to that user:
 
 - **Grant all-content**/**Revoke all-content**
-- **Force password reset**
+- **Force reset**
 - **Clear lockout**
 - **Restart onboarding tour**
 
 Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is keyboard-navigable and screen-reader-labeled.
 
-*(1.3+)* **On a superuser account**, a site admin who is not a superuser does not see **Deactivate**, **Reactivate**, **Grant all-content**, **Revoke all-content**, **Force password reset**, or **Clear lockout**, because the API refuses them. The row says "Only a superuser can change this account's access or sign-in." instead. **Make admin** and **Restart onboarding tour** stay where they apply.
+*(1.3+)* **On a superuser account**, a site admin who is not a superuser does not see **Deactivate**, **Reactivate**, **Grant all-content**, **Revoke all-content**, **Force reset**, or **Clear lockout**, because the API refuses them. The row says "Only a superuser can change this account's access or sign-in." instead. **Make admin** and **Restart onboarding tour** stay where they apply.
 
 #### Add user
 
@@ -150,7 +150,7 @@ Controls the `can_access_all_content` flag independently of admin status (for ac
 !!! tip
     The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel toggles described here, or edit the user directly in the [Django admin](django-admin.md) at `/admin/accounts/user/`.
 
-#### Force password reset
+#### Force reset
 
 Sets `must_change_password = true` on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to, and shown to, superusers only.
 
