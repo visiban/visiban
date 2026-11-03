@@ -10,6 +10,15 @@ import {
 
 const SAMPLES = ["#FFFFFF", "#000000", "#FEFEFE", "#010101", "#FFFF00", "#00FFFF", "#0000FF", "#FF0000", "#808080", "#3B82F6", "#F59E0B", "#7F7F7F"];
 
+describe("contrastRatio known answers (#2094)", () => {
+  it("matches independently known WCAG values", () => {
+    expect(contrastRatio("#000000", "#FFFFFF")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#FFFFFF", "#000000")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#336699", "#336699")).toBeCloseTo(1, 5);
+    expect(contrastRatio("#777777", "#FFFFFF")).toBeCloseTo(4.48, 2);
+  });
+});
+
 describe("chipColors (#2094)", () => {
   it.each(SAMPLES)("%s reaches 6:1 as a chip in both themes", (hex) => {
     const c = chipColors(hex);

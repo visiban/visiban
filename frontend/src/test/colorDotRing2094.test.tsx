@@ -2,11 +2,11 @@
  * #2094: every dot filled from a user color carries the `color-dot` ring, and
  * every label chip carries `cf-choice-badge` plus the --cf-* variables.
  *
- * Sites that render in a cheap harness are rendered. The rest (BoardSettingsModal,
- * BulkActionToolbar, CreateBoardModal, GroupDetail, BoardView, SummaryView,
- * TrelloReviewStep) need a full board, a group or a multi-step import to mount,
- * so a source scan over the same files asserts the class instead of a hollow
- * mount; the scan also fails for any new dot added without the class.
+ * Cheap harnesses are rendered here; SummaryView, the Bulk move menu, GroupDetail
+ * labels and the Trello review chips are rendered in their own test files.
+ * BoardSettingsModal, CreateBoardModal and BoardView need a full board to mount,
+ * so the source scan below covers them. The scan only covers its listed files, so
+ * a new dot in an unlisted file is not caught.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -56,9 +56,9 @@ describe('color-dot ring on rendered dots (#2094)', () => {
     expect(dot).toBeTruthy()
   })
 
-  it('ChoiceDot', () => {
+  it('ChoiceDot (hash-colored, pre-#1391 look) gets no ring', () => {
     const { container } = render(<ChoiceDot choice="Alpha" />)
-    expect(container.firstElementChild).toHaveClass('color-dot')
+    expect(container.firstElementChild).not.toHaveClass('color-dot')
   })
 
   it('ShareBoardPage column dot and label chip', async () => {

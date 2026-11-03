@@ -1632,7 +1632,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         }`}
                         style={colorChipStyle(label.color)}
                       >
-                        {/* Always rendered so toggling never reflows the wrapped row; hidden when idle. */}
+                        {/* Always rendered so the check reserves its space (weight can still widen the chip slightly); hidden when idle. */}
                         <span aria-hidden="true" className={active ? "" : "invisible"}>✓</span>
                         {label.name}
                       </button>

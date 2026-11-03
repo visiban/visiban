@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LensIssueCard from '../components/Board/Lens/LensIssueCard'
 import type { NormalizedIssue } from '../types'
+import { chipColors } from '../utils/colorContrast'
 
 function makeIssue(overrides: Partial<NormalizedIssue> = {}): NormalizedIssue {
   return {
@@ -106,8 +107,9 @@ describe('LensIssueCard', () => {
     render(<LensIssueCard issue={makeIssue({ labels: [{ name: 'bug', color: 'ffffff' }] })} />)
     const chip = screen.getByText('bug')
     expect(chip.className).toContain('cf-choice-badge')
-    expect(chip.style.getPropertyValue('--cf-fg-light')).toMatch(/^#[0-9A-F]{6}$/)
-    expect(chip.style.getPropertyValue('--cf-fg-light')).not.toBe('#FFFFFF')
+    // Exact derived value: a dropped `#` would fall to the neutral slate pair.
+    expect(chip.style.getPropertyValue('--cf-fg-light')).toBe(chipColors('#ffffff').light.fg)
+    expect(chip.style.getPropertyValue('--cf-fg-light')).not.toBe(chipColors('nope').light.fg)
     expect(chip.style.color).toBe('')
   })
 

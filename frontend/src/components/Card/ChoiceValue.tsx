@@ -10,7 +10,7 @@ import { choiceColor } from "../../utils/customFieldValue";
  */
 export function ChoiceDot({ choice }: { choice: string }) {
   return (
-    <span className="color-dot w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: choiceColor(choice) }} aria-hidden="true" />
+    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: choiceColor(choice) }} aria-hidden="true" />
   );
 }
 
