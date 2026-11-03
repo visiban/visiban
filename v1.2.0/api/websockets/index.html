@@ -2403,6 +2403,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sibling-positions-on-cardmoved-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sibling positions on card.moved (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#deleting-a-container-deletes-its-cards" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4888,8 +4899,8 @@ written is absent from that row on every later read (#1677).</p>
 </tr>
 <tr>
 <td><code>card.moved</code></td>
-<td>Card moved to a different column or swimlane</td>
-<td><code>{ "card": &lt;CardSerializer&gt;, "movement": &lt;CardMovementSerializer&gt; }</code> — the <code>movement</code> object also carries <code>card_uid</code> and <code>card_title</code> so board-level consumers can identify the card without a second fetch. A reorder within the same column and swimlane sends <code>{ "card": &lt;CardSerializer&gt; }</code> with no <code>movement</code> key</td>
+<td>Card moved to a different column or swimlane, or reordered within its cell</td>
+<td><code>{ "card": &lt;CardSerializer&gt;, "movement": &lt;CardMovementSerializer&gt;, "sibling_positions": [{ "id", "position", "version" }, ...] }</code> — the <code>movement</code> object also carries <code>card_uid</code> and <code>card_title</code> so board-level consumers can identify the card without a second fetch. A reorder within the same column and swimlane sends no <code>movement</code> key. <code>sibling_positions</code> (since 1.3) lists the other cards the move renumbered; see <a href="#sibling-positions-on-cardmoved-since-13">the note below</a></td>
 </tr>
 <tr>
 <td><code>card.archived</code></td>
@@ -4938,6 +4949,76 @@ board does the same for the cards its deleted cards were blocking (see
 <p>A client that applies <code>card.updated</code> by replacing the card with that id
 needs no special handling for either case.</p>
 </div>
+<h3 id="sibling-positions-on-cardmoved-since-13">Sibling positions on <code>card.moved</code> (since 1.3)<a class="headerlink" href="#sibling-positions-on-cardmoved-since-13" title="Permanent link">&para;</a></h3>
+<p>A move renumbers other cards. Leaving a cell closes the gap the card left
+(the <code>position</code> of every active card after it in the source cell drops by
+one), and entering a cell, or a reorder within one, makes room (the <code>position</code>
+of every card at or after the target position rises by one). Before 1.3 the <code>card.moved</code> frame carried only the
+moved card, so other clients kept the old positions of those siblings until
+they reloaded the board (#1890).</p>
+<p>Since 1.3 the frame also carries <code>sibling_positions</code>: one entry for every
+<strong>active</strong> (not archived) card in the move's source and target cells whose
+<code>position</code> the move changed, sorted by <code>id</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">"card"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">"movement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">"sibling_positions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">98</span><span class="p">,</span><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">104</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>id</code> and <code>position</code> are the sibling's id and its position after the move.
+  The moved card is never listed; its position is in <code>card</code>.</li>
+<li><code>version</code> is the sibling's own <code>version</code>, which a position shift does not
+  increment. A client that holds a copy of that card with a <strong>higher</strong>
+  <code>version</code> has a later change to it (a move or an edit) and should skip the
+  entry, by the same rule as <a href="#delivery-guarantees">card versions</a>.</li>
+<li>Only the source and target cells are covered, so the list is bounded by the
+  size of those two cells. It is empty when the move shifted nothing (for
+  example, a card moved to the end of an empty cell). The key is always present
+  on frames from a 1.3 or later server.</li>
+<li>Apply an entry by setting that card's <code>position</code>, then sort the cell by
+  <code>position</code>. Do not renumber the cell yourself: a reorder within one cell
+  leaves a gap where the card was, and only the server's numbers match what a
+  later <code>/full/</code> read returns.</li>
+<li>If the moved <code>card</code> in a frame is older than the copy you hold, skip the
+  frame's <code>sibling_positions</code> too: a later change to that card has already
+  reached you, and if it was another move in the same cell, its frame sent
+  newer positions for the same siblings at the same sibling <code>version</code>.</li>
+<li><code>version</code> cannot order two moves of <em>different</em> cards in one cell: both
+  send the same siblings at the same <code>version</code>. Use the frame's <code>event_id</code>
+  instead. Two moves that set the same card's position are ordered by
+  <code>event_id</code> in commit order, because the later move locks that card's row
+  before it writes its change-feed row. Remember, per card, the highest
+  <code>event_id</code> whose frame set its position (as a sibling entry or as the moved
+  card), and skip a sibling entry, or the moved card's <code>position</code>, from a
+  frame with a lower <code>event_id</code>. Keep it per card: moves in unrelated cells
+  are not ordered against each other, so a frame for one cell must not block
+  another cell's entries. Keep it when you replace the board from <code>/full/</code>: a
+  frame you applied while that request was in flight can be newer than a
+  frame for the same card delivered after the response, and clearing would
+  let the late frame move the card back. <code>event_id</code> only grows and card ids
+  are not reused, so a kept entry never blocks a newer frame. A frame with no
+  <code>event_id</code> (from a server before the change feed) cannot be compared, so
+  apply it.</li>
+</ul>
+<p>The Visiban web app applies these rules (since 1.3). An HTTP response has no
+<code>event_id</code>, so a response that lands after a later frame can still put an
+older position on screen until the next frame for that card or the next full
+refresh; the same holds for a <code>card.updated</code> frame at an equal <code>version</code>.</p>
+<p>The field is additive. A client written for 1.2 ignores it and behaves as
+before, and a 1.3 client must accept a frame without it (from an older server
+during a rolling upgrade, or a <a href="../events/">change feed</a> row written before the
+upgrade) and apply the card alone. The REST response to
+<code>POST /api/v1/boards/{id}/cards/{id}/move/</code> does not carry the field; the
+mover's own client receives it on its socket like every other subscriber.
+Archived cards are left out because no client shows them in a cell; a restored
+card's <code>card.unarchived</code> frame carries its current position.</p>
 <h3 id="deleting-a-container-deletes-its-cards">Deleting a container deletes its cards<a class="headerlink" href="#deleting-a-container-deletes-its-cards" title="Permanent link">&para;</a></h3>
 <p>A card belongs to exactly one column and one swimlane. Deleting a column,
 swimlane, or board deletes every card in it, archived cards included, along with
@@ -5163,7 +5244,7 @@ sees it appear or disappear without a reload.</p>
 <h2 id="group-channel-since-11">Group channel (since 1.1)<a class="headerlink" href="#group-channel-since-11" title="Permanent link">&para;</a></h2>
 <p>Pushes board create/update/delete events for boards that currently live in the group, letting the group page keep its board list live without polling.</p>
 <h3 id="connecting_1">Connecting<a class="headerlink" href="#connecting_1" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>ws://&lt;host&gt;/ws/groups/&lt;group_id&gt;/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ws://&lt;host&gt;/ws/groups/&lt;group_id&gt;/
 </code></pre></div>
 <p>Authentication uses the same two mechanisms as the board channel — session cookie, or a <a href="#ticket-authentication-since-12">ticket</a> for token-authenticated clients. The server checks that the user is a member of the group or one of its ancestors before completing the handshake and closes with the same <code>4001</code> / <code>4003</code> codes on failure. <em>(1.2+)</em> Only a membership with one of the four roles (<code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code>) counts, as for the <a href="../groups/#get-apiv1groups">group REST routes</a>; owning the group is not enough on its own (#1829).</p>
 <p><em>(1.2+)</em> <code>board.created</code> and <code>board.updated</code> are delivered only to subscribers who can open that board, judged as for <a href="../boards/#get-apiv1boardsid"><code>GET /api/v1/boards/{id}/</code></a> and the board channel. A group member whose own membership on one board grants no access (its stored role is not one of the four roles) does not receive that board's frames; the socket stays open and every other frame is delivered (#1829). A <code>board.created</code> or <code>board.updated</code> frame whose <code>data</code> has no integer <code>id</code> is not delivered to anyone. Whether a subscriber can open a board is re-evaluated with the <a href="#access-re-check-and-eviction">access re-check</a>, so a change to their role on that board takes effect within the same window (about 7 seconds). <code>board.deleted</code> is not filtered: it carries only the board's identifiers.</p>
@@ -5360,66 +5441,67 @@ sees it appear or disappear without a reload.</p>
 <hr />
 <h2 id="client-example-javascript">Client example (JavaScript)<a class="headerlink" href="#client-example-javascript" title="Permanent link">&para;</a></h2>
 <p>Same-origin, session-cookie clients:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">boardId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">42</span><span class="p">;</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1">// Session cookie is sent automatically by the browser on the upgrade request</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">WebSocket</span><span class="p">(</span><span class="sb">`ws://localhost:8000/ws/boards/</span><span class="si">${</span><span class="nx">boardId</span><span class="si">}</span><span class="sb">/`</span><span class="p">);</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onmessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">event</span><span class="o">:</span><span class="w"> </span><span class="nx">type</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.created"</span><span class="o">:</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="c1">// add card to local state</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.updated"</span><span class="o">:</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">      </span><span class="c1">// update card in local state</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.deleted"</span><span class="o">:</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">      </span><span class="c1">// remove card from local state by data.card_uid</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"column.deleted"</span><span class="o">:</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"swimlane.deleted"</span><span class="o">:</span>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">      </span><span class="c1">// remove the column or swimlane AND every card in it (no card.deleted</span>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">      </span><span class="c1">// is sent for them; see "Deleting a container deletes its cards")</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="o">:</span>
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">      </span><span class="c1">// update card position and record movement</span>
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="w">    </span><span class="k">default</span><span class="o">:</span>
-<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="w">      </span><span class="c1">// ignore unknown event types for forward compatibility</span>
-<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="p">};</span>
-<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>
-<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a><span class="c1">// Remember the newest event_id you processed; on reconnect, replay from it via</span>
-<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a><span class="c1">// GET /api/v1/boards/&lt;id&gt;/events/?after=&lt;lastEventId&gt; instead of re-fetching /full/.</span>
-<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a><span class="c1">// See the Change Feed page for the cursor and 410 re-sync rules.</span>
-<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>
-<a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onclose</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4001</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a><span class="w">    </span><span class="c1">// not authenticated — redirect to login</span>
-<a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a><span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4003</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a><span class="w">    </span><span class="c1">// no access to this board — at the handshake, or mid-stream after access</span>
-<a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a><span class="w">    </span><span class="c1">// was lost or the credential was revoked (see "Access re-check and</span>
-<a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a><span class="w">    </span><span class="c1">// eviction"). Do not auto-retry.</span>
-<a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a><span class="w">  </span><span class="c1">// otherwise (including 1011, a failed server-side access re-check):</span>
-<a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a><span class="w">  </span><span class="c1">// reconnect logic and re-fetch full board state</span>
-<a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a><span class="p">};</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">boardId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">42</span><span class="p">;</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1">// Session cookie is sent automatically by the browser on the upgrade request</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">WebSocket</span><span class="p">(</span><span class="sb">`ws://localhost:8000/ws/boards/</span><span class="si">${</span><span class="nx">boardId</span><span class="si">}</span><span class="sb">/`</span><span class="p">);</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onmessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">event</span><span class="o">:</span><span class="w"> </span><span class="nx">type</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.created"</span><span class="o">:</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="c1">// add card to local state</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.updated"</span><span class="o">:</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">      </span><span class="c1">// update card in local state</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.deleted"</span><span class="o">:</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">      </span><span class="c1">// remove card from local state by data.card_uid</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"column.deleted"</span><span class="o">:</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"swimlane.deleted"</span><span class="o">:</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">      </span><span class="c1">// remove the column or swimlane AND every card in it (no card.deleted</span>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="w">      </span><span class="c1">// is sent for them; see "Deleting a container deletes its cards")</span>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="o">:</span>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="w">      </span><span class="c1">// update the card, record the movement, and (since 1.3) set the</span>
+<a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="w">      </span><span class="c1">// position of each card in data.sibling_positions</span>
+<a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a><span class="w">    </span><span class="k">default</span><span class="o">:</span>
+<a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a><span class="w">      </span><span class="c1">// ignore unknown event types for forward compatibility</span>
+<a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a><span class="p">};</span>
+<a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>
+<a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a><span class="c1">// Remember the newest event_id you processed; on reconnect, replay from it via</span>
+<a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a><span class="c1">// GET /api/v1/boards/&lt;id&gt;/events/?after=&lt;lastEventId&gt; instead of re-fetching /full/.</span>
+<a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a><span class="c1">// See the Change Feed page for the cursor and 410 re-sync rules.</span>
+<a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a>
+<a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onclose</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4001</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a><span class="w">    </span><span class="c1">// not authenticated — redirect to login</span>
+<a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a><span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4003</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a><span class="w">    </span><span class="c1">// no access to this board — at the handshake, or mid-stream after access</span>
+<a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a><span class="w">    </span><span class="c1">// was lost or the credential was revoked (see "Access re-check and</span>
+<a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a><span class="w">    </span><span class="c1">// eviction"). Do not auto-retry.</span>
+<a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a><span class="w">  </span><span class="c1">// otherwise (including 1011, a failed server-side access re-check):</span>
+<a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a><span class="w">  </span><span class="c1">// reconnect logic and re-fetch full board state</span>
+<a id="__codelineno-9-45" name="__codelineno-9-45" href="#__codelineno-9-45"></a><span class="p">};</span>
 </code></pre></div>
 <p>Token-authenticated clients (since 1.2) — a fresh ticket per connection, including
 every reconnect, because each one is single-use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">connect</span><span class="p">(</span><span class="nx">boardId</span><span class="p">,</span><span class="w"> </span><span class="nx">apiToken</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fetch</span><span class="p">(</span><span class="s2">"http://localhost:8000/api/v1/auth/ws-ticket/"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nx">method</span><span class="o">:</span><span class="w"> </span><span class="s2">"POST"</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Authorization</span><span class="o">:</span><span class="w"> </span><span class="sb">`Token </span><span class="si">${</span><span class="nx">apiToken</span><span class="si">}</span><span class="sb">`</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="p">});</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">res</span><span class="p">.</span><span class="nx">ok</span><span class="p">)</span><span class="w"> </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="sb">`Could not obtain a ticket: </span><span class="si">${</span><span class="nx">res</span><span class="p">.</span><span class="nx">status</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">ticket</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">res</span><span class="p">.</span><span class="nx">json</span><span class="p">();</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="c1">// Connect immediately — the ticket expires 30 seconds after it is issued.</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">WebSocket</span><span class="p">(</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="sb">`ws://localhost:8000/ws/boards/</span><span class="si">${</span><span class="nx">boardId</span><span class="si">}</span><span class="sb">/?ticket=</span><span class="si">${</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">ticket</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="p">);</span>
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">connect</span><span class="p">(</span><span class="nx">boardId</span><span class="p">,</span><span class="w"> </span><span class="nx">apiToken</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fetch</span><span class="p">(</span><span class="s2">"http://localhost:8000/api/v1/auth/ws-ticket/"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nx">method</span><span class="o">:</span><span class="w"> </span><span class="s2">"POST"</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Authorization</span><span class="o">:</span><span class="w"> </span><span class="sb">`Token </span><span class="si">${</span><span class="nx">apiToken</span><span class="si">}</span><span class="sb">`</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="p">});</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">res</span><span class="p">.</span><span class="nx">ok</span><span class="p">)</span><span class="w"> </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="sb">`Could not obtain a ticket: </span><span class="si">${</span><span class="nx">res</span><span class="p">.</span><span class="nx">status</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">ticket</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">res</span><span class="p">.</span><span class="nx">json</span><span class="p">();</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">  </span><span class="c1">// Connect immediately — the ticket expires 30 seconds after it is issued.</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">WebSocket</span><span class="p">(</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="sb">`ws://localhost:8000/ws/boards/</span><span class="si">${</span><span class="nx">boardId</span><span class="si">}</span><span class="sb">/?ticket=</span><span class="si">${</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">ticket</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">  </span><span class="p">);</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="p">}</span>
 </code></pre></div>
 
 

@@ -4609,7 +4609,7 @@ for both surfaces.</p>
 <li><code>title</code>, <code>description</code> and <code>blocked_reason</code> are <code>null</code>, in the card object (the top-level <code>data</code>, or <code>data.card</code> for <code>card.moved</code>);</li>
 <li>each <code>custom_field_values</code> entry keeps its <code>field_definition</code> and has <code>value: null</code>;</li>
 <li><code>external_ref</code>, when the card had one, keeps <code>provider</code> and has <code>ref: null</code> and <code>url: null</code>;</li>
-<li>in <code>card.moved</code>, <code>movement.card_title</code> and <code>movement.notes</code> are <code>null</code>.</li>
+<li>in <code>card.moved</code>, <code>movement.card_title</code> and <code>movement.notes</code> are <code>null</code>. <code>sibling_positions</code> (since 1.3, #1890) holds only ids, positions and versions, and is kept unchanged.</li>
 </ul>
 <p>Every key is kept, at every level, so the row has the same shape as when it was written. <code>uid</code>, <code>id</code>, <code>column</code>, <code>swimlane</code>, <code>labels</code>, <code>is_blocked</code>, <code>blocked_at</code> and the other fields are unchanged. A consumer that replays rows into local state should skip the content fields of a row whose <code>redacted_at</code> is set. Otherwise it overwrites a live card's title with <code>null</code>, which can happen after a purge that included live cards.</p>
 <hr />
