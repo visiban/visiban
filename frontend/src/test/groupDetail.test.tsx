@@ -1309,6 +1309,41 @@ describe('GroupDetail', () => {
       })
     })
 
+    it('starts the new label on the Amber preset, with the custom trigger in the row (#2095)', async () => {
+      mockCreateGroupLabel.mockResolvedValue({ id: 22, name: 'Amber', color: '#F59E0B' })
+      await loadAndSwitchToSettings()
+      await screen.findByText('Shared label library')
+
+      const group = screen.getByRole('group', { name: 'Label color' })
+      expect(within(group).getByRole('button', { name: 'Select color Amber' })).toHaveAttribute('aria-pressed', 'true')
+      expect(within(group).getByRole('button', { name: 'Choose custom color' })).toBeInTheDocument()
+
+      fireEvent.change(screen.getByPlaceholderText('Label name…'), { target: { value: 'Amber' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => {
+        expect(mockCreateGroupLabel).toHaveBeenCalledWith(1, { name: 'Amber', color: '#F59E0B' })
+      })
+    })
+
+    it('creates the label in a custom color picked in the row (#2095)', async () => {
+      mockCreateGroupLabel.mockResolvedValue({ id: 23, name: 'Plum', color: '#AA00CC' })
+      await loadAndSwitchToSettings()
+      await screen.findByText('Shared label library')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Choose custom color' }))
+      fireEvent.input(screen.getByRole('textbox', { name: 'Hex value' }), { target: { value: '#aa00cc' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+      expect(screen.getByRole('button', { name: 'Custom color, selected' })).toBeInTheDocument()
+
+      fireEvent.change(screen.getByPlaceholderText('Label name…'), { target: { value: 'Plum' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => {
+        expect(mockCreateGroupLabel).toHaveBeenCalledWith(1, { name: 'Plum', color: '#AA00CC' })
+      })
+    })
+
     it('new label appears in the list after successful creation', async () => {
       const newLabel = { id: 20, name: 'Enhancement', color: '#EAB308' }
       mockCreateGroupLabel.mockResolvedValue(newLabel)

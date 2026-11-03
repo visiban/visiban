@@ -90,6 +90,7 @@ describe('KeyboardShortcutsOverlay', () => {
     const onClose = vi.fn()
     const { container } = render(<KeyboardShortcutsOverlay onClose={onClose} />)
     const backdrop = container.firstChild as HTMLElement
+    fireEvent.mouseDown(backdrop)
     fireEvent.click(backdrop)
     expect(onClose).toHaveBeenCalledOnce()
   })

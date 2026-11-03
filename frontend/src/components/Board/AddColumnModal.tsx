@@ -75,7 +75,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
         </div>
         <div>
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-          <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} />
+          <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom />
         </div>
       </div>
 

@@ -227,6 +227,21 @@ describe('EditSwimlaneModal', () => {
     swatches.forEach(btn => expect(btn).toHaveAttribute('aria-label'))
   })
 
+  it('shows a persisted custom color on the custom trigger, with no preset selected (#2095)', () => {
+    render(
+      <EditSwimlaneModal
+        boardId={1}
+        swimlane={makeSwimlane({ color: '#123abc' })}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onDeleted={onDeleted}
+        onClose={onClose}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Custom color, selected' })).toBeInTheDocument()
+    screen.getAllByRole('button', { name: /Select color/ }).forEach(b => expect(b).toHaveAttribute('aria-pressed', 'false'))
+  })
+
   it('selected color swatch has aria-pressed=true, others false', () => {
     render(
       <EditSwimlaneModal

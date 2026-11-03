@@ -39,6 +39,11 @@ describe('AddSwimlaneModal', () => {
     expect(screen.getByRole('button', { name: 'Add Swimlane' })).toBeInTheDocument()
   })
 
+  it('offers a custom color after the presets (#2095)', () => {
+    render(<AddSwimlaneModal boardId={1} onAdded={onAdded} onClose={onClose} />)
+    expect(screen.getByRole('button', { name: 'Choose custom color' })).toBeInTheDocument()
+  })
+
   it('disables Add Swimlane while the name is empty', () => {
     render(<AddSwimlaneModal boardId={1} onAdded={onAdded} onClose={onClose} />)
     expect(screen.getByRole('button', { name: 'Add Swimlane' })).toBeDisabled()

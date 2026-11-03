@@ -33,6 +33,8 @@ import SelectDropdown from "../components/Common/SelectDropdown";
 import Spinner from "../components/Common/Spinner";
 import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
 import ModalWrapper from "../components/shared/ModalWrapper";
+import ColorSwatchPicker from "../components/Common/ColorSwatchPicker";
+import { PALETTE_COLORS } from "../constants/colors";
 
 interface Props {
   user: User;
@@ -40,6 +42,9 @@ interface Props {
   onUserUpdated: (user: User) => void;
   onStarToggled?: () => void;
 }
+
+/** The new-label row starts on a palette color, so a swatch reads selected from the start. */
+const DEFAULT_LABEL_COLOR = "#F59E0B";
 
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
@@ -122,7 +127,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   // Board defaults state
   const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState("#EAB308");
+  const [newLabelColor, setNewLabelColor] = useState(DEFAULT_LABEL_COLOR);
   const [addingLabel, setAddingLabel] = useState(false);
   const [labelError, setLabelError] = useState<string | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
@@ -620,7 +625,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       const label = await createGroupLabel(groupId, { name: newLabelName.trim(), color: newLabelColor });
       setGroup((prev) => prev ? { ...prev, shared_labels: [...prev.shared_labels, label] } : prev);
       setNewLabelName("");
-      setNewLabelColor("#EAB308");
+      setNewLabelColor(DEFAULT_LABEL_COLOR);
     } catch {
       setLabelError("Failed to add label. The name may already exist.");
     } finally {
@@ -1285,31 +1290,34 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <p className="text-fg-faint text-sm">No shared labels yet.</p>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
+                <div className="flex flex-col gap-2">
+                  <ColorSwatchPicker
+                    colors={PALETTE_COLORS}
                     value={newLabelColor}
-                    onChange={(e) => setNewLabelColor(e.target.value)}
-                    className="w-8 h-8 rounded cursor-pointer bg-transparent border border-line-strong"
-                    title="Label color"
+                    onChange={setNewLabelColor}
+                    size="md"
+                    allowCustom
+                    groupLabel="Label color"
                   />
-                  <input
-                    type="text"
-                    value={newLabelName}
-                    onChange={(e) => setNewLabelName(e.target.value)}
-                    // void: handleAddGroupLabel manages its own try/catch and
-                    // surfaces failures via labelError, nothing further to await here.
-                    onKeyDown={(e) => { if (e.key === "Enter") void handleAddGroupLabel(); }}
-                    placeholder="Label name…"
-                    className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
-                  />
-                  <button
-                    onClick={handleAddGroupLabel}
-                    disabled={addingLabel || !newLabelName.trim()}
-                    className="text-sm text-on-primary bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    Add
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newLabelName}
+                      onChange={(e) => setNewLabelName(e.target.value)}
+                      // void: handleAddGroupLabel manages its own try/catch and
+                      // surfaces failures via labelError, nothing further to await here.
+                      onKeyDown={(e) => { if (e.key === "Enter") void handleAddGroupLabel(); }}
+                      placeholder="Label name…"
+                      className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+                    />
+                    <button
+                      onClick={handleAddGroupLabel}
+                      disabled={addingLabel || !newLabelName.trim()}
+                      className="text-sm text-on-primary bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
                 {labelError && <p role="alert" className="text-danger text-xs mt-1">{labelError}</p>}
               </div>

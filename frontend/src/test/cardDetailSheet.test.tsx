@@ -408,6 +408,79 @@ describe('CardDetail sheet — click-catcher (#1914)', () => {
     expect(opened).toHaveBeenCalledOnce()
   })
 
+  describe('with the custom color picker open (#2095)', () => {
+    const openPicker = () => {
+      fireEvent.click(screen.getByRole('button', { name: '+ New label' }))
+      fireEvent.change(screen.getByRole('textbox', { name: 'New label name' }), { target: { value: 'Half typed' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Choose custom color' }))
+      expect(screen.getByRole('dialog', { name: 'Custom color' })).toBeInTheDocument()
+    }
+
+    it('the first press on board space closes only the picker, still consumed; the second closes the sheet', () => {
+      const { scroll } = mountBoard()
+      const behind = vi.fn()
+      scroll.addEventListener('click', behind)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      openPicker()
+
+      press(scroll)
+      fireEvent.mouseDown(scroll)
+      click(scroll)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(props.onClose).not.toHaveBeenCalled()
+      expect(behind).not.toHaveBeenCalled()
+      expect(screen.getByRole('textbox', { name: 'New label name' })).toHaveValue('Half typed')
+
+      press(scroll)
+      fireEvent.mouseDown(scroll)
+      click(scroll)
+      expect(props.onClose).toHaveBeenCalledOnce()
+    })
+
+    it('a press on another card still swaps the sheet, and the typed label name goes with it', () => {
+      const { cell } = mountBoard()
+      const other = document.createElement('div')
+      other.setAttribute('data-card-id', '2')
+      cell.appendChild(other)
+      const cardClick = vi.fn()
+      other.addEventListener('click', cardClick)
+      const props = defaultProps()
+      const { rerender } = render(<CardDetail key={props.card.id} {...props} />)
+      openPicker()
+
+      press(other)
+      fireEvent.mouseDown(other)
+      click(other)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(cardClick).toHaveBeenCalledOnce()
+      expect(props.onClose).not.toHaveBeenCalled()
+
+      // BoardView keys the sheet by card, so the swap is a new instance (panels replace, never stack).
+      rerender(<CardDetail key={2} {...props} card={{ ...props.card, id: 2 }} />)
+      expect(screen.queryByRole('textbox', { name: 'New label name' })).toBeNull()
+      expect(screen.getByRole('button', { name: '+ New label' })).toBeInTheDocument()
+    })
+
+    it('a control outside the sheet still works, and the sheet survives that press', () => {
+      mountBoard()
+      const filters = document.createElement('button')
+      const opened = vi.fn()
+      filters.addEventListener('click', opened)
+      document.querySelector('nav[aria-label="Board toolbar"]')!.appendChild(filters)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      openPicker()
+
+      press(filters)
+      fireEvent.mouseDown(filters)
+      click(filters)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(opened).toHaveBeenCalledOnce()
+      expect(props.onClose).not.toHaveBeenCalled()
+    })
+  })
+
   it('consumes the click on a control inside the board, such as an empty cell', () => {
     const { content } = mountBoard()
     const emptyCell = document.createElement('div')
