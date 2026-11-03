@@ -5,6 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useInstanceFlagsState } from "./hooks/useInstanceFlagsState";
 import { InstanceFlagsContext, useInstanceFlags } from "./contexts/InstanceFlagsContext";
 import { BoardProvider, useBoardContext } from "./contexts/BoardContext";
+import { ToastProvider } from "./contexts/ToastContext";
 import { ThemeServerSync } from "./context/ThemeServerSync";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
@@ -141,6 +142,8 @@ export default function App() {
 
   return (
     <InstanceFlagsContext.Provider value={flags}>
+    {/* One shared toast region for the whole app (#2060, #1438; frontend/CLAUDE.md § Toasts). */}
+    <ToastProvider>
     {user?.must_change_password && (
       <ForceChangePasswordModal user={user} onChanged={updateUser} />
     )}
@@ -199,7 +202,8 @@ export default function App() {
                   {/* Fallback for any demo refusal that still reaches the API
                       (#1179). Mounted at the shell, not beside the board-only
                       MoveBlockedToast, so a refusal on the dashboard or the
-                      settings page explains itself too. */}
+                      settings page explains itself too. It raises a toast in
+                      the shared region and renders nothing itself. */}
                   {flags.demo_mode && <DemoWriteBlockedToast />}
                   {/* Mobile navigation bar — visible below lg breakpoint only */}
                   <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sunken border-b border-line shrink-0">
@@ -226,6 +230,7 @@ export default function App() {
         <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
       )}
     </Routes>
+    </ToastProvider>
     </InstanceFlagsContext.Provider>
   );
 }
@@ -407,7 +412,9 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         ]}
       />
       <div className="flex-1 flex flex-col overflow-hidden bg-sunken relative">
-        {/* Move blocked toast — shown for WIP or weight limit violations */}
+        {/* Move refusals and the post-import notice raise toasts in the
+            shared region, which stacks them by priority (#1438): the
+            refusal sits nearest the anchor, the notice above it. */}
         {moveError && (
           <MoveBlockedToast
             error={moveError}
@@ -416,8 +423,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onDismiss={clearMoveError}
           />
         )}
-        {/* The move-blocked warning always wins the bottom-center slot. */}
-        {importSummary && board && !moveError && (
+        {importSummary && board && (
           <ImportSkippedToast summary={importSummary} onDismiss={dismissImportSummary} />
         )}
         {loading && <div className="flex items-center justify-center h-full text-fg-tertiary">Loading board…</div>}

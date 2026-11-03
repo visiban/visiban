@@ -478,17 +478,23 @@ describe('App', () => {
       expect(screen.getByTestId('import-notice').querySelector('p')).toHaveTextContent(NOTICE)
     })
 
-    it('does not show the notice while a move error is showing', async () => {
+    it('stacks the notice above a move refusal instead of hiding it (#1438)', async () => {
       mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
       mockUseBoardContext.mockReturnValue({
         ...defaultBoardHook, board: fakeBoard, loading: false, error: null,
         moveError: { code: 'version_conflict', detail: 'x' },
       })
       render(<MemoryRouter initialEntries={[entry]}><App /></MemoryRouter>)
-      expect(await screen.findByText(/Card was updated/)).toBeInTheDocument()
-      await new Promise((r) => setTimeout(r, 10))
-      expect(screen.queryByText(/Board imported\. Skipped/)).not.toBeInTheDocument()
-      expect(screen.queryByTestId('import-notice')).not.toBeInTheDocument()
+      const refusal = await screen.findByTestId('move-blocked-toast')
+      expect(refusal).toHaveTextContent(/Card was updated/)
+      const notice = await screen.findByTestId('import-notice')
+      expect(notice).toHaveTextContent(NOTICE)
+      // One shared region; the blocked refusal outranks the info notice, so it
+      // comes first in the DOM, which the region shows nearest its anchor.
+      const region = screen.getByRole('region', { name: 'Notifications' })
+      expect(region).toContainElement(refusal)
+      expect(region).toContainElement(notice)
+      expect(refusal.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
   })
 })

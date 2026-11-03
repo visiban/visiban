@@ -8,6 +8,7 @@ import { failureReason } from "../../utils/moveFailure";
 import ModalWrapper from "../shared/ModalWrapper";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
+import { usePublishedHeight } from "../../hooks/usePublishedHeight";
 
 interface Props {
   board: BoardFull;
@@ -28,6 +29,10 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [partialError, setPartialError] = useState<string | null>(null);
+
+  // The shared toast region floats above the toolbar (frontend/CLAUDE.md § Toasts).
+  const rootRef = useRef<HTMLDivElement>(null);
+  usePublishedHeight(rootRef, "--bulk-toolbar-h");
 
   const moveRef = useRef<HTMLButtonElement>(null);
   const assignRef = useRef<HTMLButtonElement>(null);
@@ -259,7 +264,9 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
   return (
     <>
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-fg rounded-lg shadow-2xl px-4 py-2.5 border border-line">
+      {/* An open menu opens upward into the space the toast region floats in,
+          so the toolbar outranks the region (z-[55]) while one is open. */}
+      <div ref={rootRef} className={`fixed bottom-4 left-1/2 -translate-x-1/2 ${dropdown !== null ? "z-[56]" : "z-40"} flex items-center gap-2 bg-surface text-fg rounded-lg shadow-2xl px-4 py-2.5 border border-line`}>
         <span className="text-sm font-medium tabular-nums">
           {count} selected
         </span>

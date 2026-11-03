@@ -66,6 +66,14 @@ interface Props {
   // remount note in BoardView — but comments/checklist/attachments are
   // fetched collections with no in-progress-edit risk, so they refetch.
   refreshSignal?: number;
+  /**
+   * Opens the block (or unblock) form with its field focused, as requested by
+   * the card context menu or the ⌘K palette (#2059). `seq` changes per
+   * request, so asking again for the card already open re-opens the form.
+   * Ignored when this user cannot block the card or the card is already in
+   * the requested state.
+   */
+  blockFormRequest?: { mode: "block" | "unblock"; seq: number } | null;
 }
 
 /**
@@ -124,7 +132,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
   );
 }
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0 }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -1153,6 +1161,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // store has it).
   const blockSource = localCard.version > card.version ? localCard : card;
   const manuallyBlocked = blockSource.blocked_at != null;
+  // Declared after the open-focus effect above, so on open the form's own
+  // focus (CardBlockSection, on formMode) lands last and wins over Close.
+  const handledBlockRequest = useRef<number | null>(null);
+  useEffect(() => {
+    if (!blockFormRequest || handledBlockRequest.current === blockFormRequest.seq) return;
+    handledBlockRequest.current = blockFormRequest.seq;
+    if (!canBlock || (blockFormRequest.mode === "unblock") !== manuallyBlocked) return;
+    setTab("details");
+    setBlockFormMode(blockFormRequest.mode);
+  }, [blockFormRequest, canBlock, manuallyBlocked]);
   useEffect(() => {
     if (!manuallyBlocked && focusBlockButtonNext.current) {
       focusBlockButtonNext.current = false;
@@ -2220,6 +2238,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         {showMovePopover && movePopoverAnchor && (
           <div
             ref={movePopoverRef}
+            // Owns the inline role="alert" for a refused move, so the shared
+            // toast mirrors it silently (MoveBlockedToast, frontend/CLAUDE.md § Toasts).
+            data-move-popover=""
             className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
             style={{ top: movePopoverAnchor.top, left: movePopoverAnchor.left }}
           >

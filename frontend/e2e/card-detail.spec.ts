@@ -142,6 +142,32 @@ test.describe('card detail', () => {
     await expect(dialog.getByText('To Do → Done')).toBeVisible({ timeout: 5_000 })
   })
 
+  test('unblocking shows the outcome as a success toast that clears itself (#2060)', async ({ page }) => {
+    const blockedAt = new Date(Date.now() - (3 * 86400 + 5 * 3600 + 60) * 1000).toISOString()
+    const blocked = { ...CARD, is_blocked: true, blocked_at: blockedAt, blocked_reason: 'Waiting on vendor' }
+    await routeBoard(page, { ...BOARD_FULL, cards: BOARD_FULL.cards.map((c) => (c.id === CARD.id ? blocked : c)) })
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(blocked) }),
+    )
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/unblock/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...CARD, version: CARD.version + 1 }) }),
+    )
+
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.getByText(CARD.title).first().click()
+    const dialog = page.locator('[role="dialog"]')
+    await expect(dialog.getByTestId('card-blocked-banner')).toBeVisible({ timeout: 5_000 })
+    await dialog.getByRole('button', { name: 'Unblock', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Unblock card' }).click()
+
+    const toast = page.getByRole('region', { name: 'Notifications' }).getByTestId('unblock-toast')
+    await expect(toast).toBeVisible()
+    await expect(toast).toContainText(`Unblocked "${CARD.title}" after 3d 5h`)
+    await expect(dialog.getByTestId('card-blocked-banner')).toHaveCount(0)
+    // success: 4 s, then it leaves on its own.
+    await expect(toast).toHaveCount(0, { timeout: 8_000 })
+  })
+
   // The Move-blocked toast is outside the panel's focus trap (#1732; there is
   // no backdrop since #1914, but the trap stands), so an admin overrides a
   // limit from the Move popover itself (#1772). Keyboard-only from the failure
@@ -181,6 +207,10 @@ test.describe('card detail', () => {
     await expect(popover.getByRole('alert')).toContainText('Limit 3 cards, 3 active.')
     const override = popover.getByRole('button', { name: 'Move anyway (admin override)' })
     await expect(override).toBeVisible()
+    // The shared toast region mirrors the refusal behind the sheet (#2060);
+    // the popover's inline alert stays the one announcement.
+    const mirror = page.getByRole('region', { name: 'Notifications' }).getByTestId('move-blocked-toast')
+    await expect(mirror).toContainText('WIP limit reached')
 
     // Nothing is auto-focused when the failure appears, and the clicked Move
     // button was disabled while its request ran, so focus has no reliable
@@ -213,6 +243,8 @@ test.describe('card detail', () => {
     expect(moveUrls[1]).toContain('force=true')
     await expect(dialog.getByTitle(COLUMN_DONE.name)).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Move card to different column or swimlane' })).toBeFocused()
+    // The forced move cleared the refusal, so its mirror left the region.
+    await expect(mirror).toHaveCount(0)
   })
 })
 
