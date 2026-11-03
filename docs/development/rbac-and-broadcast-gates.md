@@ -12,7 +12,7 @@ Run `python3 scripts/check-rbac-coverage.py` and `python3 scripts/check-broadcas
 | `rbac-coverage` | `scripts/check-rbac-coverage.py` | Every board/group-scoped endpoint has an authentication gate, resolves the caller's role through the shared resolver, and applies a minimum-role check on every write action |
 | `broadcast-deferral` | `scripts/check-broadcast-deferral.py` | Every board/group-scoped write broadcasts; every raw broadcast is deferred to `transaction.on_commit()`; no commit hook holds an ORM row; no emit call sits in a loop over rows of one channel |
 
-Both run in the `test` stage with `needs: []`, take well under a second on the whole backend, and, like every bespoke gate here, run their own `--self-test` immediately before the real invocation (see [CI gate self-tests](ci-gates.md)).
+Both run in the `test` stage with `needs: []`, and, like every bespoke gate here, run their own `--self-test` immediately before the real invocation (see [CI gate self-tests](ci-gates.md)). Each script takes well under a second on the whole backend. The `rbac-coverage` job also runs `scripts/tests/check-rbac-coverage.test.sh`, which adds a few seconds.
 
 ## Running them
 
@@ -33,7 +33,7 @@ bash scripts/tests/check-broadcast-deferral.test.sh
 
 Both agents were checking largely mechanical conditions on every relevant MR. The project already had four precedents for converting exactly that into a deterministic job: `migration-numbering-check`, `serializer-ts-parity`, `suppressions-check` and `ws-event-reachability` (#1078). All are grep/AST-based, all comfortably under 30s.
 
-The conversion does **not** buy pipeline time. The sampled pipeline's wall clock is dominated by `backend-schema-fuzz` and the `backend-test` shards, and two more sub-second jobs queue into existing slack. It buys the agent latency and tokens removed from the pre-MR gate batch in a development session, plus two things an agent round-trip can't give you:
+The conversion does **not** buy pipeline time. The sampled pipeline's wall clock is dominated by `backend-schema-fuzz` and the `backend-test` shards, and two more jobs of a few seconds queue into existing slack. It buys the agent latency and tokens removed from the pre-MR gate batch in a development session, plus two things an agent round-trip can't give you:
 
 - **It runs on every push, not when someone remembers.** An agent gate fires because a human or a harness decided the diff warranted it.
 - **Its blind spots are code.** The recorded-exception tables below are grep-able, reviewable and blame-able. A paragraph an agent didn't write leaves no trace at all.
@@ -77,13 +77,13 @@ Neither script carries a suppression comment in the source tree. Exceptions live
 |---|---|---|
 | `PUBLIC_BY_DESIGN` | Views with deliberately no authentication gate | What stands in for authentication. "Public" alone isn't a design. |
 | `VIEWER_PERMITTED_WRITES` | Write actions whose minimum role is any board member | Why the write is safe for a viewer — in practice, that the row is the caller's own per-user state |
-| `AGENT_REVIEWED` | Views the script can't classify | What the `rbac-check` agent found |
+| `AGENT_REVIEWED` | Views or handlers the script can't classify, or reports a finding on although the role ladder doesn't apply | Who reviewed it and what they found |
 
 Current entries:
 
 - **`PUBLIC_BY_DESIGN`:** the two container health probes and the public share link.
-- **`VIEWER_PERMITTED_WRITES`:** board starring and the two saved-filter actions, all per-user state.
-- **`AGENT_REVIEWED`:** the invite-link join flow, where the capability token is the authorization and no role ladder applies.
+- **`VIEWER_PERMITTED_WRITES`:** board and group starring and the two saved-filter actions, all per-user state.
+- **`AGENT_REVIEWED`:** the invite-link join flows, where the capability token is the authorization and no role ladder applies; site-admin lens usage telemetry; and board creation and the two board imports, which write only to a board they create and gate group placement on group admin.
 
 ### `check-broadcast-deferral.py`
 
@@ -100,7 +100,7 @@ Current entries:
 
 ## What `rbac-coverage` checks
 
-Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/views.py`.
+Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/views.py`, `backend/webhooks/views.py`. That includes plain mixins that contribute handlers to a viewset, such as `BoardImportExportMixin` and `BoardInviteLinksMixin`. A class counts as one if its name ends in `Mixin` or it carries an `@action`. Its authentication gate is the viewset's, so check 1 doesn't apply to it and checks 2 to 4 do.
 
 `backend/accounts/views.py` is deliberately **out of scope**. It's the authentication/session surface (login throttles, password reset, email confirmation, PAT management), governed by per-view rules rather than the admin/member/viewer ladder, with several views public by design. Auth-surface review stays with `security-review` and the agent.
 
@@ -108,7 +108,11 @@ Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/vie
     - A module-level alias (`permission_classes = _BOARD_PERMISSIONS`) is resolved; a `get_permissions()` method is read for the same name.
     - Declaring nothing at all is a finding. The convention since #989/#1050 is to enumerate the chain explicitly, so a change to `DEFAULT_PERMISSION_CLASSES` can't silently drop a gate with no diff.
 2. **Membership check.** Every write handler reaches `get_board_for_user`, `get_board_role`, `_require_group_*` or another shared resolver. The search is transitive, through same-class methods and same-module functions, and through `get_object()` for a viewset whose `get_queryset()` is access-scoped. Resolving access from a raw `BoardMembership.objects.get()` instead is its own finding, because that path skips the group-inheritance rungs of the precedence ladder.
-3. **Minimum-role check.** Every write action applies a role gate: a comparison against a role constant, a `_require_*` helper, or an explicit `role=` hand-off to the services layer that owns the ladder (`backend/boards/services/cards.py`).
+3. **Minimum-role check.** Every write action applies a role gate: a comparison against a role constant, an imported helper named in `GATE_CALL_NAMES`, or an explicit `role=` hand-off to the services layer that owns the ladder (`backend/boards/services/cards.py`).
+    - Imported helpers count by exact name, not by a `require_` prefix: `require_json_object` and `_require_session` start the same way as a role gate and check nothing about the caller's role.
+    - A same-module helper never counts on its name. It is walked, so its own comparison counts and an emptied one doesn't. An imported helper off the list defers to the agent.
+    - `_require_group_member` doesn't satisfy this check, because a group viewer passes it. A write whose minimum role really is any member belongs in `VIEWER_PERMITTED_WRITES`.
+    - `role=` is a hand-off only on a callee in `ROLE_DELEGATION_ROOTS` (`card_services`). `BoardMembership.objects.create(role=...)` and `GroupInviteLink.generate(role=...)` write a row's role and aren't.
 4. **Cross-board isolation, mechanical slice.** A `get_object_or_404(Card, pk=pk)` on a model with a direct `board` or `card` foreign key, with no scoping keyword and no pre-filtered queryset, is a cross-board IDOR: the pk space is global, the resource isn't. The scoped-model set is derived from `backend/boards/models.py` at run time, so a new board-scoped model is covered the first time the gate runs after it lands.
 
 **Watch out:** Two traps produced a *silently clean* gate while it was being written, the exact failure class this page exists to guard against:
@@ -118,7 +122,7 @@ Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/vie
 
 ## What `broadcast-deferral` checks
 
-Scope: `backend/boards`, `backend/groups`, `backend/git_lens`, excluding tests, migrations and seed data. The call graph is built over all of it, so a view handler that delegates to the services layer is resolved rather than guessed at.
+Scope: `backend/boards`, `backend/groups`, `backend/git_lens`, `backend/webhooks`, excluding tests, migrations and seed data. The call graph is built over all of it, so a view handler that delegates to the services layer is resolved rather than guessed at.
 
 1. **Every write broadcasts.** A write handler on a board/group-scoped view reaches `broadcast_board_event` / `broadcast_group_event` / `record_board_event` on some path.
 2. **Every broadcast is deferred.** A raw `broadcast_*_event()` sits inside a callable registered with `transaction.on_commit()`. The check is transitive, so `on_commit(lambda: _broadcast_star(starred=True))` defers everything `_broadcast_star` does. `record_board_event` satisfies this by construction: it persists the feed row in the caller's transaction and registers the deferred publish itself, which is why it's the preferred form.

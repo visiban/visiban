@@ -18,6 +18,7 @@
 #      either, which is the distinction this file exists to pin down
 #
 # Run: bash scripts/tests/check-rbac-coverage.test.sh
+# CI runs this in the rbac-coverage job (#2069), so a red case fails the pipeline.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -68,6 +69,9 @@ check "--self-test reports every case passing" \
 
 # --- the real repository is clean ------------------------------------------
 run_gate --root "$REPO_ROOT"
+# Name the handler when run by hand. Every later case copies this tree, so a real
+# gap also fails those cases, and their count alone says nothing about where it is.
+[ "$RC" -eq 0 ] || echo "$OUT"
 check "this checkout carries its RBAC gates (exit 0)" "$([ "$RC" -eq 0 ] && echo 0 || echo 1)"
 check "clean run says so" \
   "$(echo "$OUT" | grep -q "carry their RBAC gates" && echo 0 || echo 1)"
@@ -114,6 +118,89 @@ check "the finding names the handler" \
   "$(echo "$OUT" | grep -q "LabelViewSet::destroy" && echo 0 || echo 1)"
 check "the finding names the missing check" \
   "$(echo "$OUT" | grep -q "no minimum-role check" && echo 0 || echo 1)"
+
+# --- a non-role require_* helper is not a gate (#2069) ---------------------
+# Strip the role gate from ColumnViewSet.reorder and leave its body parse alone.
+# require_json_object is not authorization, but the old `require_` name match
+# counted it as a role gate, so this write passed with exit 0.
+copy_tree "$TMP/nonrole"
+"$PY" - "$TMP/nonrole/backend/boards/views/columns.py" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+gate = "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n            raise PermissionDenied\n"
+parse = '        order = require_json_object(request).get("order", [])'
+at = text.find(parse)
+assert at != -1, "fixture drift: ColumnViewSet.reorder no longer parses with require_json_object"
+start = text.rfind(gate, 0, at)
+assert start != -1, "fixture drift: columns.py reorder gate shape changed"
+p.write_text(text[:start] + text[start + len(gate):])
+PY
+run_gate --root "$TMP/nonrole"
+check "a write whose only require_* call is a body parse is a finding (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "that finding names the handler" \
+  "$(echo "$OUT" | grep -q "ColumnViewSet::@action reorder" && echo 0 || echo 1)"
+check "that finding names the missing check" \
+  "$(echo "$OUT" | grep -q "no minimum-role check" && echo 0 || echo 1)"
+
+# --- gates the old checker read past on real handlers (#2069) -------------
+# strip_gate <file> <anchor> <line>: drop the first copy of <line> after <anchor>.
+strip_gate() {
+  "$PY" - "$@" <<'PY'
+import pathlib, sys
+path, anchor, line = sys.argv[1:4]
+p = pathlib.Path(path)
+text = p.read_text()
+line += "\n"
+assert anchor in text, f"fixture drift: {anchor} is gone"
+at = text.find(line, text.index(anchor))
+assert at != -1, f"fixture drift: no gate after {anchor}"
+p.write_text(text[:at] + text[at + len(line):])
+PY
+}
+ADMIN_GATE="        _require_group_admin(request.user, group)"
+
+# The _require_group_member check earlier in this handler proves membership only.
+# Exit 3, not 1: the handler's GET branch also calls board_access_q, which this
+# checker cannot read. Either way it must not read as a pass.
+copy_tree "$TMP/member"
+strip_gate "$TMP/member/backend/groups/views.py" "    def boards(self, request" "$ADMIN_GATE"
+run_gate --root "$TMP/member"
+check "group membership alone does not satisfy the role check (exit 3)" \
+  "$([ "$RC" -eq 3 ] && echo 0 || echo 1)"
+check "that defer names the handler" \
+  "$(echo "$OUT" | grep -q "GroupViewSet::@action boards \[post\]: no role gate found" && echo 0 || echo 1)"
+
+# group_labels has no such call, so the same strip is a plain finding.
+copy_tree "$TMP/labels"
+strip_gate "$TMP/labels/backend/groups/views.py" "    def group_labels(self, request" "$ADMIN_GATE"
+run_gate --root "$TMP/labels"
+check "group membership alone fails group_labels too (not exit 0)" \
+  "$([ "$RC" -ne 0 ] && echo 0 || echo 1)"
+check "that result names the handler" \
+  "$(echo "$OUT" | grep -q "GroupViewSet::@action group_labels" && echo 0 || echo 1)"
+
+# GroupInviteLink.generate(role=...) stores the link's role; it checks nobody.
+copy_tree "$TMP/mint"
+strip_gate "$TMP/mint/backend/groups/views.py" "    def invite_links(self, request" "$ADMIN_GATE"
+run_gate --root "$TMP/mint"
+check "role= on an invite-link mint is not a hand-off (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "that finding names the handler" \
+  "$(echo "$OUT" | grep -q "GroupViewSet::@action invite_links \[post\]: no minimum-role check" && echo 0 || echo 1)"
+
+# An emptied helper is judged on its body, and BoardInviteLinksMixin is scanned.
+copy_tree "$TMP/mixin"
+strip_gate "$TMP/mixin/backend/boards/views/invites.py" "def _require_board_admin(pk, user):" \
+  "    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):"
+strip_gate "$TMP/mixin/backend/boards/views/invites.py" "def _require_board_admin(pk, user):" \
+  '        raise PermissionDenied("You must be a board admin to manage invites.")'
+run_gate --root "$TMP/mixin"
+check "an emptied role helper fails a mixin's write (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "that finding names the mixin" \
+  "$(echo "$OUT" | grep -q "BoardInviteLinksMixin::@action invite_links" && echo 0 || echo 1)"
 
 # --- defers exit 3, distinct from both 0 and 1 ---------------------------
 # A permission_classes value the checker cannot read must hand the view to the
