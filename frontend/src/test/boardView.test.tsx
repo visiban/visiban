@@ -2821,6 +2821,22 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     expect(status.closest('div')).not.toHaveClass('sr-only')
   })
 
+  it('shows a palette action result in the Lens view', async () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
+    // A configured lens is the landing tab with no ?view= (#1063).
+    mockSearchParams = new URLSearchParams()
+    vi.mocked(updateCard).mockResolvedValue({ ...card, priority: 'high' } as never)
+    render(<BoardView currentUser={lensUser} />)
+    expect(await screen.findByTestId('lens-view')).toBeInTheDocument()
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
+    })
+    const status = await screen.findByText('Set “Second card” to high priority.')
+    expect(status.closest('div')).not.toHaveClass('sr-only')
+    expect(screen.getByTestId('lens-view')).toBeInTheDocument()
+  })
+
   it('Block card… from the Summary view switches to the board and opens the sheet with the form', async () => {
     mockSearchParams = new URLSearchParams('view=summary')
     render(<BoardView currentUser={fakeUser} />)
