@@ -185,7 +185,11 @@ def get_accessible_group_ids(user):
     member, plus all descendant sub-groups of those groups.
     Site admins have access to all groups.
 
-    Descendant discovery is capped at _GROUP_TRAVERSAL_MAX_DEPTH iterations.
+    Ancestors are listed for navigation only, so that the chain from the
+    member's group up has at most _GROUP_TRAVERSAL_MAX_DEPTH groups, the same
+    chain ``user_has_group_access`` walks (#2080).
+    Descendants are listed up to _GROUP_TRAVERSAL_MAX_DEPTH - 1 levels below a
+    membership, the reach of ``user_has_group_access``.
     Groups nested deeper than this limit will not appear in the result set.
 
     Membership is read through ``_access_memberships``, the filter
@@ -211,44 +215,56 @@ def get_accessible_group_ids(user):
     if getattr(user, "can_access_all_content", False):
         return set(Group.objects.values_list("id", flat=True))
     direct_ids = set(_access_memberships(user).values_list("group_id", flat=True))
+    # ``all_ids`` is the result; the down-walk keeps its own ``seen`` set.
+    # Seeding it from the ancestors the up-walk adds would exclude a
+    # descendant that is also an ancestor-side sibling's child (a member of
+    # both R and L under R > M > N > L must still reach M2 under M); and an
+    # ancestor must never seed the down-walk, or its other children would
+    # become visible (#2080).
     all_ids = set(direct_ids)
     # Walk UP: include ancestor groups so the user can navigate to their
     # subgroup through the sidebar tree.  Ancestors are read-only — the user
     # won't have write permissions on them unless they have an explicit
     # membership there.
-    ancestor_frontier = set(
-        Group.objects.filter(id__in=direct_ids, parent__isnull=False)
-        .values_list("parent_id", flat=True)
-    )
-    for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
-        if not ancestor_frontier:
-            break
-        all_ids |= ancestor_frontier
-        ancestor_frontier = set(
-            Group.objects.filter(id__in=ancestor_frontier, parent__isnull=False)
-            .exclude(id__in=all_ids)
-            .values_list("parent_id", flat=True)
-        )
+    # One query whatever the depth: a fixed-width ``parent__parent...`` join
+    # reads up to _GROUP_TRAVERSAL_MAX_DEPTH - 1 ancestors of every direct
+    # group, so the chain (group plus ancestors) is capped at
+    # _GROUP_TRAVERSAL_MAX_DEPTH groups, as in ``_capped_chain_ids``.
+    # The old per-level loop stopped at the immediate parent (#2080); a fixed
+    # join width also makes a parent cycle harmless, since it cannot loop.
+    paths = ["__".join(["parent"] * d) for d in range(1, _GROUP_TRAVERSAL_MAX_DEPTH)]
+    for row in Group.objects.filter(id__in=direct_ids, parent__isnull=False).values_list(*paths):
+        for ancestor_id in row:
+            if ancestor_id is None:
+                break
+            all_ids.add(ancestor_id)
     # Walk DOWN: include descendant sub-groups.
+    seen = set(direct_ids)
     frontier = set(direct_ids)
-    for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+    # One level fewer than the cap: the access chain (group plus ancestors) is
+    # at most _GROUP_TRAVERSAL_MAX_DEPTH groups, so a member reaches
+    # descendants at most MAX_DEPTH - 1 levels down, as in
+    # ``get_group_ids_for_board_access``.
+    for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH - 1):
         if not frontier:
             break
         children = set(
             Group.objects.filter(parent__in=frontier)
-            .exclude(id__in=all_ids)
+            .exclude(id__in=seen)
             .values_list("id", flat=True)
         )
+        seen |= children
         all_ids |= children
         frontier = children
     else:
-        # The for-loop completed all iterations without the frontier emptying,
-        # meaning the group tree may extend beyond the traversal cap.
-        if frontier:
+        # The loop used every step without the frontier emptying. The frontier
+        # being non-empty only means the last level was reached; warn only when
+        # a group really exists below it and was left out.
+        if frontier and Group.objects.filter(parent__in=frontier).exists():
             logger.warning(
                 "Group descendant traversal capped at depth %d for user %s. "
                 "Groups nested deeper than this limit are not included in the accessible set.",
-                _GROUP_TRAVERSAL_MAX_DEPTH,
+                _GROUP_TRAVERSAL_MAX_DEPTH - 1,
                 getattr(user, "pk", user),
             )
     return all_ids
@@ -302,7 +318,7 @@ def get_group_ids_for_board_access(user):
         all_ids |= children
         frontier = children
     else:
-        if frontier:
+        if frontier and Group.objects.filter(parent__in=frontier).exists():
             logger.warning(
                 "Group descendant traversal capped at depth %d for user %s "
                 "(board-access scoping). Groups nested deeper than this limit "

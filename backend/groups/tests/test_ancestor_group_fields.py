@@ -204,3 +204,207 @@ class AncestorGroupFieldsTests(TestCase):
         self.assertEqual(len(rows), 4)
         self.assertTrue(all(not r["navigation_only"] for r in rows))
         self.assertEqual(queries, baseline)
+
+
+class DeepAncestorWalkTests(TestCase):
+    """``get_accessible_group_ids`` lists every ancestor, not just the parent (#2080).
+
+    Widening the id set must widen navigation only: a grandparent reached
+    through a member's subgroup renders navigation-only and its nested routes
+    stay closed, exactly like the immediate parent (#1681).
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="deepadmin", password="pass")
+        self.member = User.objects.create_user(username="deepmember", password="pass")
+        self.root = _group(self.admin, "Root", description="Root notes")
+        self.mid = _group(self.admin, "Mid", parent=self.root)
+        self.leaf = _group(self.admin, "Leaf", parent=self.mid)
+        GroupMembership.objects.create(
+            group=self.leaf, user=self.member, role=GroupMembership.Role.MEMBER,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.member)
+
+    def test_depth_three_member_gets_all_ancestors(self):
+        from groups.models import get_accessible_group_ids
+
+        self.assertEqual(
+            get_accessible_group_ids(self.member),
+            {self.root.id, self.mid.id, self.leaf.id},
+        )
+
+    def test_walk_stays_bounded_on_a_cycle(self):
+        from groups.models import get_accessible_group_ids
+
+        # Bypass validation to force root -> leaf -> mid -> root.
+        Group.objects.filter(pk=self.root.pk).update(parent=self.leaf)
+        self.assertEqual(
+            get_accessible_group_ids(self.member),
+            {self.root.id, self.mid.id, self.leaf.id},
+        )
+
+    def test_grandparent_is_navigation_only_in_list_and_retrieve(self):
+        response = self.client.get("/api/v1/groups/")
+        self.assertEqual(response.status_code, 200)
+        rows = {g["id"]: g for g in response.json()["results"]}
+        self.assertEqual(set(rows), {self.root.id, self.mid.id, self.leaf.id})
+        for group in (self.root, self.mid):
+            self.assertTrue(rows[group.id]["navigation_only"])
+            for key, empty in _WITHHELD.items():
+                self.assertEqual(rows[group.id][key], empty, key)
+        self.assertFalse(rows[self.leaf.id]["navigation_only"])
+        detail = self.client.get(f"/api/v1/groups/{self.root.id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertTrue(detail.json()["navigation_only"])
+        self.assertEqual(detail.json()["description"], "")
+
+    def test_grandparent_nested_routes_stay_closed(self):
+        for suffix in ("members", "boards", "labels", "subgroups"):
+            response = self.client.get(f"/api/v1/groups/{self.root.id}/{suffix}/")
+            self.assertEqual(response.status_code, 403, suffix)
+
+    def test_grandparent_grants_no_role_or_write(self):
+        from groups.models import user_has_group_access, user_is_group_admin
+
+        self.assertFalse(user_has_group_access(self.member, self.root))
+        self.assertFalse(user_is_group_admin(self.member, self.root))
+        patch = self.client.patch(
+            f"/api/v1/groups/{self.root.id}/", {"name": "Hijack"}, format="json",
+        )
+        self.assertEqual(patch.status_code, 403)
+        self.root.refresh_from_db()
+        self.assertEqual(self.root.name, "Root")
+
+    def test_ancestor_walk_query_count_is_flat_in_depth(self):
+        from groups.models import get_accessible_group_ids
+
+        def chain(depth, tag):
+            node = None
+            for i in range(depth):
+                node = _group(self.admin, f"{tag}{i}", parent=node)
+            GroupMembership.objects.create(
+                group=node, user=self.member, role=GroupMembership.Role.MEMBER,
+            )
+            return node
+
+        def count():
+            with CaptureQueriesContext(connection) as ctx:
+                get_accessible_group_ids(self.member)
+            return len(ctx.captured_queries)
+
+        baseline = count()
+        chain(5, "deep")
+        self.assertEqual(count(), baseline)
+
+    def test_grandparent_detail_routes_stay_closed(self):
+        base = f"/api/v1/groups/{self.root.id}"
+        for suffix in ("descendant-boards", "invite-links"):
+            response = self.client.get(f"{base}/{suffix}/")
+            self.assertEqual(response.status_code, 403, suffix)
+        # board-defaults accepts PATCH only, so a GET would answer 405 before
+        # any guard runs; PATCH reaches the admin check.
+        response = self.client.patch(
+            f"{base}/board-defaults/", {"allowed_priorities": ["high"]}, format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.client.delete(f"{base}/").status_code, 403)
+        self.assertEqual(
+            self.client.post(f"{base}/boards/", {"name": "x"}, format="json").status_code, 403,
+        )
+
+    def test_ancestor_and_descendant_membership_keeps_sibling_branch(self):
+        from groups.models import get_accessible_group_ids
+
+        # R > M > N > L plus M2 under M; member of R and L. M2 is under R, so
+        # the member can open it and the list must include it.
+        n = _group(self.admin, "N", parent=self.mid)
+        low = _group(self.admin, "Low", parent=n)
+        m2 = _group(self.admin, "M2", parent=self.mid)
+        GroupMembership.objects.create(group=self.root, user=self.member, role=GroupMembership.Role.MEMBER)
+        GroupMembership.objects.create(group=low, user=self.member, role=GroupMembership.Role.MEMBER)
+        self.assertIn(m2.id, get_accessible_group_ids(self.member))
+
+    def test_descendant_only_member_does_not_see_uncle_branch(self):
+        from groups.models import get_accessible_group_ids
+
+        # R > M > Leaf plus L2 under M; member of Leaf only. L2 is a sibling
+        # reached only through an ancestor, so it must stay hidden.
+        sibling = _group(self.admin, "Sibling", parent=self.mid)
+        uncle = _group(self.admin, "Uncle", parent=self.root)
+        ids = get_accessible_group_ids(self.member)
+        self.assertNotIn(sibling.id, ids)
+        self.assertNotIn(uncle.id, ids)
+
+    def test_ancestor_chain_matches_access_cap(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        node = None
+        chain = []
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH + 2):
+            node = _group(self.admin, f"Cap{i}", parent=node)
+            chain.append(node)
+        user = User.objects.create_user(username="capuser", password="pass")
+        GroupMembership.objects.create(group=node, user=user, role=GroupMembership.Role.MEMBER)
+        ids = get_accessible_group_ids(user)
+        # The member's group plus its ancestors: MAX_DEPTH groups, like
+        # user_has_group_access.
+        expected = {g.id for g in chain[-_GROUP_TRAVERSAL_MAX_DEPTH:]}
+        self.assertEqual(ids, expected)
+
+    def test_descendant_walk_matches_access_chain_cap(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        # Group creation caps a tree at MAX_DEPTH levels, so well-formed data
+        # cannot go deeper; force a longer chain directly in the ORM.
+        chain = [self.root]
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+            chain.append(_group(self.admin, f"Down{i}", parent=chain[-1]))
+        user = User.objects.create_user(username="downuser", password="pass")
+        GroupMembership.objects.create(
+            group=self.root, user=user, role=GroupMembership.Role.MEMBER,
+        )
+        ids = get_accessible_group_ids(user)
+        fifth = chain[_GROUP_TRAVERSAL_MAX_DEPTH - 1]  # five levels below root
+        sixth = chain[_GROUP_TRAVERSAL_MAX_DEPTH]  # six levels below root
+        self.assertIn(fifth.id, ids)
+        self.assertNotIn(sixth.id, ids)
+        from groups.models import user_has_group_access
+        self.assertTrue(user_has_group_access(user, fifth))
+        self.assertFalse(user_has_group_access(user, sixth))
+        self.client.force_authenticate(user)
+        self.assertEqual(self.client.get(f"/api/v1/groups/{fifth.id}/").status_code, 200)
+        self.assertEqual(self.client.get(f"/api/v1/groups/{fifth.id}/members/").status_code, 200)
+
+    def test_traversal_depth_constants_agree(self):
+        from boards.permissions import _GROUP_TRAVERSAL_MAX_DEPTH as board_depth
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH as group_depth
+
+        self.assertEqual(group_depth, board_depth)
+
+    def test_no_cap_warning_on_exactly_max_depth_tree(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        node = None
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+            node = _group(self.admin, f"Exact{i}", parent=node)
+            if i == 0:
+                top = node
+        user = User.objects.create_user(username="exactuser", password="pass")
+        GroupMembership.objects.create(group=top, user=user, role=GroupMembership.Role.MEMBER)
+        with self.assertNoLogs("groups.models", level="WARNING"):
+            get_accessible_group_ids(user)
+
+    def test_cap_warning_when_a_group_is_dropped(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        node = None
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH + 1):
+            node = _group(self.admin, f"Over{i}", parent=node)
+            if i == 0:
+                top = node
+        user = User.objects.create_user(username="overuser", password="pass")
+        GroupMembership.objects.create(group=top, user=user, role=GroupMembership.Role.MEMBER)
+        with self.assertLogs("groups.models", level="WARNING") as logs:
+            get_accessible_group_ids(user)
+        self.assertIn(f"depth {_GROUP_TRAVERSAL_MAX_DEPTH - 1}", logs.output[0])
