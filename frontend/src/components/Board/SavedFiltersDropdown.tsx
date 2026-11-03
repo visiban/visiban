@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import AnchoredMenuPanel from "../Common/AnchoredMenuPanel";
+import { captureMenuAnchor, type MenuAnchor } from "../../utils/menuAnchor";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { FilterState } from "./FilterBar";
@@ -43,13 +45,22 @@ export default function SavedFiltersDropdown({
   firstElementRef,
   externalTriggerRef,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  // Trigger rect captured at open: the menu is a `fixed` portal so no scroll
+  // region can clip it, and it lists user-saved filters (#1482).
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
   const [saveMode, setSaveMode] = useState(false);
   const [newName, setNewName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const setOpen = useCallback((next: boolean) => {
+    setOpenState(next);
+    if (!next) setAnchor(null);
+  }, []);
+
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,14 +78,25 @@ export default function SavedFiltersDropdown({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      // The menu is portaled out of `ref`, so it needs its own check.
+      if (panelRef.current?.contains(target)) return;
+      if (ref.current && !ref.current.contains(target)) {
         setOpen(false);
         setSaveMode(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [open, setOpen]);
+
+  // Portaled out of the trigger's DOM, so Tab from the trigger would skip the
+  // menu: move focus in once it is placed and visible (#1482).
+  const focusFirst = useCallback(() => {
+    panelRef.current?.querySelector<HTMLElement>("button:not([disabled]), input")?.focus();
+  }, []);
+
+  const dismiss = useCallback(() => { setOpen(false); setSaveMode(false); }, [setOpen]);
 
   // Focus the name input whenever save mode is entered.
   useEffect(() => {
@@ -93,6 +115,7 @@ export default function SavedFiltersDropdown({
       setSaveMode(false);
       setSaveError(null);
       setNewName("");
+      setAnchor(captureMenuAnchor(triggerRef.current));
       setOpen(true);
     }
   }
@@ -129,6 +152,7 @@ export default function SavedFiltersDropdown({
         onClick={handleToggle}
         title="Saved filters"
         aria-label="Saved filters"
+        aria-expanded={open}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           savedFilters.length > 0
             ? "border-line-strong text-fg-secondary hover:border-line-emphasis"
@@ -150,8 +174,18 @@ export default function SavedFiltersDropdown({
         </svg>
       </button>
 
-      {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 w-64">
+      {open && anchor && (
+        <AnchoredMenuPanel
+          anchor={anchor}
+          panelRef={panelRef}
+          onDismiss={dismiss}
+          minWidth={256}
+          onPlaced={focusFirst}
+          returnFocusRef={triggerRef}
+          role="group"
+          aria-label="Saved filters"
+          deps={[saveMode, saveError, loading, savedFilters.length]}
+        >
           {/* Save current filter section */}
           {saveMode ? (
             <div className="px-3 py-2">
@@ -197,7 +231,7 @@ export default function SavedFiltersDropdown({
                 disabled={!hasActiveFilters}
                 className={`w-full text-left px-3 py-1.5 text-sm transition flex items-center gap-2 ${
                   hasActiveFilters
-                    ? "text-fg-secondary hover:bg-surface-hover hover:text-fg"
+                    ? "text-fg-secondary hover:bg-surface-hover hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                     : "text-fg-faint cursor-not-allowed"
                 }`}
                 title={hasActiveFilters ? undefined : "Set at least one filter to save it"}
@@ -237,7 +271,7 @@ export default function SavedFiltersDropdown({
                   <div className="flex items-center group px-1">
                     <button
                       onClick={() => { onLoad(f); setOpen(false); setSaveMode(false); }}
-                      className="flex-1 text-left px-2 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition truncate"
+                      className="flex-1 text-left px-2 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition truncate focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                       title={f.name}
                     >
                       {f.name}
@@ -256,7 +290,7 @@ export default function SavedFiltersDropdown({
               ))}
             </>
           )}
-        </div>
+        </AnchoredMenuPanel>
       )}
     </div>
   );

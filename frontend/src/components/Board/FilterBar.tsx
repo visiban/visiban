@@ -285,8 +285,23 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     }, 0);
   };
 
+  // Tab off a portaled facet menu closes it and refocuses the facet's trigger
+  // (AnchoredMenuPanel, #1482). Collapsing the facet on that close would unmount
+  // the trigger that just took focus and drop it to <body>, so a Tab-out keeps
+  // the facet mounted. Capture phase: the panel's own handler (which triggers
+  // the close) runs before Row 1's bubble handler.
+  const tabCloseRef = useRef(false);
+  const handleRow1KeyDownCapture = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !(e.target instanceof Element) || !e.target.closest("[data-anchored-menu]")) return;
+    tabCloseRef.current = true;
+    setTimeout(() => {
+      tabCloseRef.current = false;
+    }, 0);
+  };
+
   const handleFacetOpenChange = (id: FacetId, open: boolean) => {
     if (open) return;
+    if (tabCloseRef.current) return;
     setOpenFacetIds((prev) => prev.filter((f) => f !== id));
     if (!escapeCloseRef.current) return;
     escapeCloseRef.current = false;
@@ -388,7 +403,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {/* Row 1: filter controls */}
-      <div className="flex items-center gap-2 flex-wrap" onKeyDown={handleRow1KeyDown}>
+      <div className="flex items-center gap-2 flex-wrap" onKeyDown={handleRow1KeyDown} onKeyDownCapture={handleRow1KeyDownCapture}>
         <span className="w-px h-4 bg-surface-active shrink-0" />
 
         {currentUser && (

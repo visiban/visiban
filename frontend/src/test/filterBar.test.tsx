@@ -414,10 +414,10 @@ describe('FilterBar — dropdown ARIA attributes', () => {
     return user
   }
 
-  it('"+ Filter" trigger has aria-haspopup and aria-expanded', () => {
+  it('"+ Filter" trigger has aria-expanded and no aria-haspopup (its panel is a group, #1482)', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     const trigger = screen.getByText('+ Filter').closest('button') as HTMLButtonElement
-    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).not.toHaveAttribute('aria-haspopup')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
@@ -437,12 +437,30 @@ describe('FilterBar — dropdown ARIA attributes', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('CheckboxDropdown trigger (Assignee) has aria-haspopup and aria-expanded once revealed', async () => {
+  it('CheckboxDropdown trigger (Assignee) has aria-expanded and no aria-haspopup once revealed', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     await revealFacet('Assignee')
     const trigger = screen.getByRole('button', { name: /^Assignee/ }) as HTMLButtonElement
-    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).not.toHaveAttribute('aria-haspopup')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('Tab-out of a facet menu keeps the facet mounted so its trigger takes focus (#1482)', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const user = await revealFacet('Assignee')
+    fireEvent.mouseDown(document.body) // close the "+ Filter" menu
+    const trigger = screen.getByRole('button', { name: /^Assignee/ }) as HTMLButtonElement
+    await user.click(trigger)
+    const first = screen.getAllByRole('checkbox')[0]
+    expect(first).toHaveFocus()
+    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })
+    const after = screen.getByRole('button', { name: /^Assignee/ })
+    expect(after).toHaveAttribute('aria-expanded', 'false')
+    expect(after).toHaveFocus()
+    // An outside click still collapses the facet, as before.
+    await user.click(after)
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('button', { name: /^Assignee/ })).not.toBeInTheDocument()
   })
 
   it('CheckboxDropdown trigger aria-expanded becomes true when open', async () => {

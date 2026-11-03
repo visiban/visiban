@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import AnchoredMenuPanel from "../Common/AnchoredMenuPanel";
+import { captureMenuAnchor, type MenuAnchor } from "../../utils/menuAnchor";
 
 export interface ActivityFilterOption {
   value: string;
@@ -19,7 +21,9 @@ export interface ActivityFilterDropdownProps {
 // Specialized dropdown for the card-detail Activity tab filter.
 // Differs from the shared CheckboxDropdown in three ways:
 // 1. The panel is right-aligned (right-0) so the menu grows leftward from the
-//    trigger and stays within the card drawer's overflow-hidden bounds.
+//    trigger. The panel is `fixed` (#1482) and stays in the card sheet's DOM
+//    (not a body portal) so the sheet's focus trap and click-outside
+//    dismissal still treat it as part of the sheet.
 // 2. An "All" toggle sits at the top of the panel for one-click select/clear.
 // 3. A "Reset" control returns the filter to `defaultSelected` (e.g. Column moves).
 export default function ActivityFilterDropdown({
@@ -29,13 +33,22 @@ export default function ActivityFilterDropdown({
   onChange,
   defaultSelected,
 }: ActivityFilterDropdownProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const allCheckboxRef = useRef<HTMLInputElement>(null);
 
-  useDropdownEscape(open, () => setOpen(false), triggerRef);
+  const setOpen = useCallback((next: boolean) => {
+    setOpenState(next);
+    if (!next) setAnchor(null);
+  }, []);
+
+  // Lives only inside the card detail panel, whose own close handler is at 30:
+  // the default 25 would let one Escape close the whole panel (frontend/CLAUDE.md
+  // § Escape priority inside the card detail panel). Priority 59, #1482.
+  useDropdownEscape(open, () => setOpen(false), triggerRef, 59);
 
   useEffect(() => {
     if (!open) return;
@@ -44,14 +57,13 @@ export default function ActivityFilterDropdown({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [open, setOpen]);
 
-  useEffect(() => {
-    if (open) {
-      const first = menuRef.current?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-      setTimeout(() => first?.focus(), 0);
-    }
-  }, [open]);
+  // Runs once the panel is placed and visible (browsers ignore focus() on a hidden element).
+  const focusFirst = useCallback(() => {
+    menuRef.current?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.focus();
+  }, []);
+  const dismiss = useCallback(() => setOpen(false), [setOpen]);
 
   // Reflect partial selection visually on the "All" checkbox: unchecked when
   // selected=[], indeterminate when 0 < selected < options, checked when all.
@@ -102,13 +114,15 @@ export default function ActivityFilterDropdown({
     <div ref={ref} className="relative">
       <button
         ref={triggerRef}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) setAnchor(captureMenuAnchor(triggerRef.current));
+          setOpen(!open);
+        }}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           selected.length > 0
             ? "border-info text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         }`}
-        aria-haspopup="true"
         aria-expanded={open}
       >
         <span className="truncate max-w-[10rem]">{displayLabel}</span>
@@ -127,11 +141,18 @@ export default function ActivityFilterDropdown({
         </svg>
       </button>
 
-      {open && (
-        <div
-          ref={menuRef}
-          className="absolute top-full mt-1 right-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[200px]"
-          role="menu"
+      {open && anchor && (
+        <AnchoredMenuPanel
+          anchor={anchor}
+          panelRef={menuRef}
+          onDismiss={dismiss}
+          onPlaced={focusFirst}
+          align="right"
+          mode="inline"
+          minWidth={200}
+          deps={[options.length]}
+          role="group"
+          aria-label={label}
         >
           {options.length === 0 ? (
             <p className="px-3 py-2 text-sm text-fg-muted italic">
@@ -199,7 +220,7 @@ export default function ActivityFilterDropdown({
               )}
             </>
           )}
-        </div>
+        </AnchoredMenuPanel>
       )}
     </div>
   );

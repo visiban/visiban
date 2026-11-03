@@ -945,6 +945,67 @@ describe('AdminPage — Users tab', () => {
     errorSpy.mockRestore()
   })
 
+  // #1482: the transfer-owner results sit in an `overflow-hidden` list, so the
+  // old in-flow `absolute` menu was clipped on the last board. They are now a
+  // fixed panel; selecting one fills the input and closes the panel, and a
+  // scroll outside the panel dismisses it.
+  it('renders offboarding member-search results as a fixed panel and selects one (#1482)', async () => {
+    const owner: AdminUser = {
+      ...fakeAdminUsers[1],
+      owned_boards: [{ id: 42, uid: 'boarduid00042', name: 'Owned Board' }],
+    }
+    mockGetAdminUsers.mockResolvedValue({ count: 2, offset: 0, page_size: 50, results: [fakeAdminUsers[0], owner] })
+    mockClientGet.mockResolvedValue({ data: [{ id: 7, username: 'carol', display_name: 'Carol C', avatar_url: '' }] })
+    await renderAdminPageSettled()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+    fireEvent.click(screen.getByText('Deactivate'))
+    const input = await screen.findByPlaceholderText('Search for a member…')
+    fireEvent.change(input, { target: { value: 'ca' } })
+    const result = await screen.findByText('@carol', {}, { timeout: 2000 })
+    const panel = result.closest('div[style]') as HTMLElement
+    expect(panel.style.position).toBe('fixed')
+    fireEvent.scroll(document.body)
+    await waitFor(() => expect(screen.queryByText('@carol')).not.toBeInTheDocument())
+    fireEvent.change(input, { target: { value: 'car' } })
+    fireEvent.click(await screen.findByText('@carol', {}, { timeout: 2000 }))
+    expect(screen.queryByText('@carol')).not.toBeInTheDocument()
+    expect(input).toHaveValue('Carol C')
+  })
+
+  // #1482: the panel re-measures when the debounced result count changes, so a
+  // longer list is re-placed (pinned to the viewport) instead of keeping the
+  // placement measured for the shorter one.
+  it('re-measures the offboarding results panel when the result count grows (#1482)', async () => {
+    const owner: AdminUser = {
+      ...fakeAdminUsers[1],
+      owned_boards: [{ id: 42, uid: 'boarduid00042', name: 'Owned Board' }],
+    }
+    mockGetAdminUsers.mockResolvedValue({ count: 2, offset: 0, page_size: 50, results: [fakeAdminUsers[0], owner] })
+    const users = (n: number) => Array.from({ length: n }, (_, i) => ({ id: 100 + i, username: `u${i}`, display_name: `User ${i}`, avatar_url: '' }))
+    mockClientGet.mockResolvedValueOnce({ data: users(2) }).mockResolvedValueOnce({ data: users(8) })
+    const spy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-anchored-menu') ? this.querySelectorAll('li').length * 200 : 0
+    })
+    try {
+      await renderAdminPageSettled()
+      fireEvent.click(screen.getByText('Users'))
+      await waitFor(() => screen.getByText('@alice'))
+      fireEvent.click(screen.getByText('Deactivate'))
+      const input = await screen.findByPlaceholderText('Search for a member…')
+      fireEvent.change(input, { target: { value: 'us' } })
+      const panelOf = (el: HTMLElement) => el.closest('[data-anchored-menu]') as HTMLElement
+      const few = panelOf(await screen.findByText('@u0', {}, { timeout: 2000 }))
+      const topFew = few.style.top
+      fireEvent.change(input, { target: { value: 'use' } })
+      await waitFor(() => expect(screen.getAllByText(/^@u\d$/)).toHaveLength(8), { timeout: 2000 })
+      const many = panelOf(screen.getByText('@u0'))
+      expect(many.style.top).not.toBe(topFew)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   // Regression guard (#1305): OffboardingModal's per-board member search
   // (debounceRefs, one timer per owned board) had no unmount cleanup. Closing
   // the modal mid-debounce must clear the pending timer(s), not fire

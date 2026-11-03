@@ -27,6 +27,8 @@ import ModalWrapper from "../components/shared/ModalWrapper";
 import { Toggle } from "../components/Common/Toggle";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
+import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
+import { captureMenuAnchor, type MenuAnchor } from "../utils/menuAnchor";
 
 type Tab = "settings" | "users" | "invite_links" | "board_invites";
 
@@ -490,6 +492,34 @@ interface OffboardingModalProps {
   onClose: () => void;
 }
 
+/**
+ * Member-search results for the offboarding transfer rows (#1482). A `fixed`
+ * panel under the input, in the modal's DOM (no body portal, so the modal's
+ * focus trap still contains it): the rows sit in an `overflow-hidden` list,
+ * which clipped the old in-flow `absolute` menu on the last board.
+ */
+function TransferResultsPanel({ anchor, count, onDismiss, children }: {
+  anchor: MenuAnchor | null;
+  /** Result count: the debounced search changes the list height, so re-measure on it. */
+  count: number;
+  onDismiss: () => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <AnchoredMenuPanel
+      anchor={anchor}
+      panelRef={ref}
+      onDismiss={onDismiss}
+      mode="inline"
+      deps={[count]}
+      minWidth={anchor ? anchor.right - anchor.left : 0}
+    >
+      <ul>{children}</ul>
+    </AnchoredMenuPanel>
+  );
+}
+
 function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   // ModalWrapper owns the Tab trap; this only picks the first focus target.
@@ -504,6 +534,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
   );
   const [memberSearch, setMemberSearch] = useState<Record<number, string>>({});
   const [memberResults, setMemberResults] = useState<Record<number, User[]>>({});
+  const [memberAnchors, setMemberAnchors] = useState<Record<number, MenuAnchor | null>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -518,7 +549,10 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
     };
   }, []);
 
-  const handleMemberSearch = (boardId: number, query: string) => {
+  const handleMemberSearch = (boardId: number, query: string, input: HTMLElement) => {
+    // Anchor for the fixed results panel: the list sits inside an
+    // `overflow-hidden` container, which clipped an in-flow menu (#1482).
+    setMemberAnchors((prev) => ({ ...prev, [boardId]: captureMenuAnchor(input) }));
     setMemberSearch((prev) => ({ ...prev, [boardId]: query }));
     setTransfers((prev) => ({ ...prev, [boardId]: null }));
     if (debounceRefs.current[boardId]) clearTimeout(debounceRefs.current[boardId]);
@@ -580,11 +614,15 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
                   type="text"
                   placeholder="Search for a member…"
                   value={memberSearch[board.id] ?? ""}
-                  onChange={(e) => handleMemberSearch(board.id, e.target.value)}
+                  onChange={(e) => handleMemberSearch(board.id, e.target.value, e.currentTarget)}
                   className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                 />
                 {(memberResults[board.id] ?? []).length > 0 && (
-                  <ul className="absolute z-10 w-full mt-1 bg-surface border border-line rounded shadow-lg max-h-40 overflow-y-auto">
+                  <TransferResultsPanel
+                    anchor={memberAnchors[board.id] ?? null}
+                    count={memberResults[board.id].length}
+                    onDismiss={() => setMemberResults((prev) => ({ ...prev, [board.id]: [] }))}
+                  >
                     {memberResults[board.id].map((member) => (
                       <li key={member.id}>
                         <button
@@ -597,7 +635,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
                         </button>
                       </li>
                     ))}
-                  </ul>
+                  </TransferResultsPanel>
                 )}
               </div>
               <p className="text-xs text-fg-muted">Only users who are members of this board can receive ownership.</p>
