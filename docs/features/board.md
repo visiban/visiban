@@ -305,7 +305,7 @@ Every drag that changes column or swimlane creates a `CardMovement` audit record
 
 On a tablet or phone, **press and hold** a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.
 
-To move a card without dragging, open it and tap **Move** next to the column name at the top of the panel. On touch screens this button is larger and shows its label.
+To move a card without dragging, open it and tap **Move** next to the column name at the top of the panel. On touch screens this button is larger and shows its label. Or tap the **⋯ More actions** button on a selected card, or on the card you just closed, and choose **Move to…** from its [actions menu](#card-actions-menu).
 
 A Bluetooth mouse paired with a tablet drags exactly as on a desktop.
 
@@ -348,7 +348,7 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 
 - **Mouse:** right-click a card.
 - **Keyboard:** focus a card and press the <kbd>Menu</kbd> key or <kbd>Shift+F10</kbd>.
-- **Touch screen:** select or focus a card and tap its **⋯ More actions** button. A long press still picks the card up to drag it.
+- **Touch screen:** tap the **⋯ More actions** button. It shows on a selected card, and on the card that has focus, for example the one whose detail panel you just closed. A long press still picks the card up to drag it.
 
 **Which cards it acts on:** right-click a card that is part of your current selection and the menu acts on every selected card. Right-click any other card and it acts on that one card only, without changing your selection; that card is outlined while the menu is open.
 
@@ -363,7 +363,8 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | **Archive card** | Archives the card | Same, for each card |
 | **Delete card…** | Asks first, then deletes | Same, for each card |
 
-- Items you cannot use stay in the menu, dimmed, with the reason underneath (for example *Viewers can't block cards*, *Select one card*, or the maintenance or shared-demo notice), so you know why.
+- Items you cannot use stay in the menu, dimmed, with the reason underneath (for example *Viewers can't block cards*, *Select one card*, or the maintenance or shared-demo notice), so you know why. On the shared demo, **Block card…**, **Archive card** and **Delete card…** are dimmed, as they are in the card detail panel.
+- Copy link and Delete confirm what they did in a short notice under the toolbar, because nothing else on the board shows it.
 - Use <kbd>↑</kbd> / <kbd>↓</kbd> to move, <kbd>→</kbd> to open a submenu, <kbd>←</kbd> to close it, and a letter to jump to the item that starts with it. <kbd>Esc</kbd> closes a submenu, then the menu, and returns you to the card.
 - The menu is not offered while a card detail panel is open; use the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette) to act on the open card.
 - When some cards in a multi-card action fail, a notice under the toolbar says how many failed and why, and the selection stays so you can retry, as in [bulk card operations](#bulk-card-operations).

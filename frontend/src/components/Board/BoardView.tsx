@@ -1295,18 +1295,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Outcome of a menu/palette action. Failures are shown (warning row) and
   // announced; success is announced only. Placeholder until the shared toast
   // region (#2060) exists: single-card results move there.
-  const [cardActionStatus, setCardActionStatus] = useState<{ text: string; failed: boolean } | null>(null);
+  // `shown`: a success whose effect is not visible on the board (Copy link, a
+  // delete that removes the card) is also shown, briefly. `announced`: the
+  // board itself changed in view (Move, Assign, Priority, Archive).
+  // `failed`: shown in the warning shell until dismissed or replaced.
+  const [cardActionStatus, setCardActionStatus] = useState<{ text: string; kind: "failed" | "shown" | "announced" } | null>(null);
   const cardActionStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
   }, []);
-  const reportCardAction = useCallback((text: string, failed: boolean) => {
-    setCardActionStatus({ text, failed });
+  const reportCardAction = useCallback((text: string, kind: "failed" | "shown" | "announced") => {
+    setCardActionStatus({ text, kind });
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
+    cardActionStatusTimerRef.current = null;
+    // A failure persists until dismissed or replaced (WCAG 2.2.1); only successes clear.
+    if (kind === "failed") return;
     cardActionStatusTimerRef.current = setTimeout(() => {
       setCardActionStatus(null);
       cardActionStatusTimerRef.current = null;
-    }, failed ? 10000 : 4000);
+    }, 4000);
   }, []);
 
   const isBoardModerator = board.members.some(
@@ -1346,8 +1353,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const selected = cardActionStateRef.current.selectedCardIds;
     const isWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
     const finish = (failure: string | null, success: string) => {
-      if (failure) { reportCardAction(failure, true); return; }
-      reportCardAction(success, false);
+      if (failure) { reportCardAction(failure, "failed"); return; }
+      reportCardAction(success, "announced");
       // § Bulk operations rule 1: a selection clears only on full success.
       if (isWholeSelection) clearSelection();
     };
@@ -1364,9 +1371,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       case "copy-link": {
         try {
           await navigator.clipboard.writeText(cardLink(current.id, cards[0].id));
-          reportCardAction(successMessage("copy-link", cards), false);
+          reportCardAction(successMessage("copy-link", cards), "shown");
         } catch {
-          reportCardAction("Couldn't copy the link. The browser blocked clipboard access.", true);
+          reportCardAction("Couldn't copy the link. The browser blocked clipboard access.", "failed");
         }
         return;
       }
@@ -2728,19 +2735,26 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {cardNotFoundNotice}
       {/* Outcome of a context-menu or palette card action (#2059), in the
           same in-flow notice slot and warning shell as the card-not-found
-          notice. Always mounted so the text swap is announced; success is
-          announced only, a failure is also shown, with its dismiss button
-          beside the region, never inside it (#1772). */}
-      <div className={cardActionStatus?.failed ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-warning/10 border border-warning/30 rounded-lg text-sm" : "sr-only"}>
-        <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status" className="text-warning-on-tint">
-          {cardActionStatus?.failed && <span aria-hidden="true" className="mr-1.5">⚠</span>}
+          notice. Always mounted so the text swap is announced. A failure is
+          shown in the warning shell with its dismiss button beside the region,
+          never inside it (#1772); a `shown` success uses the archive notice's
+          neutral shell; an `announced` success is screen-reader only. */}
+      <div className={
+        cardActionStatus?.kind === "failed"
+          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-warning/10 border border-warning/30 rounded-lg text-sm"
+          : cardActionStatus?.kind === "shown"
+          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-surface-hover/80 border border-line-strong rounded-lg text-sm"
+          : "sr-only"
+      }>
+        <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status" className={cardActionStatus?.kind === "failed" ? "text-warning-on-tint" : "text-fg"}>
+          {cardActionStatus?.kind === "failed" && <span aria-hidden="true" className="mr-1.5">⚠</span>}
           {cardActionStatus?.text}
         </p>
-        {cardActionStatus?.failed && (
+        {cardActionStatus?.kind === "failed" && (
           <button
             type="button"
             onClick={() => setCardActionStatus(null)}
-            aria-label="Dismiss notification"
+            aria-label="Dismiss card action message"
             className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >×</button>
         )}
@@ -3113,7 +3127,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onClose={(failure) => {
               const firstId = deleteTargetIds[0];
               setDeleteTargetIds(null);
-              if (failure) reportCardAction(failure, true);
+              if (failure) reportCardAction(failure, "failed");
+              else if (delCards.length > 0) reportCardAction(successMessage("delete", delCards), "shown");
               setTimeout(() => focusCardOrBoard(firstId), 0);
             }}
           />

@@ -112,8 +112,21 @@ describe('CardItem — context menu entry points (#2059)', () => {
   })
 
   it('outlines the card while the menu targets it alone', () => {
-    const { container } = render(<CardItem card={makeCard()} onOpenMenu={vi.fn()} contextTarget />)
+    // Created just now: no aging tint, so the fill shows.
+    const { container } = render(<CardItem card={makeCard({ created_at: new Date().toISOString() })} onOpenMenu={vi.fn()} contextTarget />)
     expect(face(container)).toHaveClass('ring-1', 'ring-info', 'bg-info/10')
+  })
+
+  it('drops the info fill under an aging tint, like the selection (#1841)', () => {
+    const idle = makeCard({ created_at: '2020-01-01T00:00:00Z', last_moved_at: null })
+    const { container } = render(<CardItem card={idle} onOpenMenu={vi.fn()} contextTarget staleness_threshold_days={7} />)
+    expect(face(container)).toHaveClass('ring-1', 'ring-info')
+    expect(face(container)).not.toHaveClass('bg-info/10')
+  })
+
+  it('keeps the title clear of the ⋯ button where it can show', () => {
+    render(<CardItem card={makeCard()} onOpenMenu={vi.fn()} />)
+    expect(screen.getByText('Fix payout rounding')).toHaveClass('[@media(pointer:coarse)]:group-focus-within:pr-14')
   })
 
   it('offers no menu path without onOpenMenu or on a read-only card', () => {

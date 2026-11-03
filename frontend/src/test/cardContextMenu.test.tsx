@@ -210,6 +210,13 @@ describe('CardContextMenu', () => {
     const { onClose } = renderMenu()
     fireEvent.pointerDown(item(/Open card/))
     expect(onClose).not.toHaveBeenCalled()
+    // The ⋯ button re-targets the menu with its own click instead.
+    const more = document.createElement('button')
+    more.setAttribute('data-testid', 'card-more-actions')
+    document.body.appendChild(more)
+    fireEvent.pointerDown(more)
+    expect(onClose).not.toHaveBeenCalled()
+    more.remove()
     const outside = document.createElement('button')
     document.body.appendChild(outside)
     fireEvent.pointerDown(outside)

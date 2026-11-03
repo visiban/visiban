@@ -103,6 +103,8 @@ export default function CardContextMenu({ anchor, label, header, entries, column
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
       if (e.target instanceof Node && rootRef.current?.contains(e.target)) return;
+      // The ⋯ button that opened it re-targets the menu with its own click.
+      if (e.target instanceof Element && e.target.closest("[data-testid='card-more-actions']")) return;
       onClose("outside");
     };
     document.addEventListener("pointerdown", onDown, true);
@@ -261,7 +263,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
                     entry.enabled ? "hover:bg-surface-hover" : "cursor-not-allowed"
                   } ${danger ? MENU_ITEM_FOCUS_RING_DANGER : MENU_ITEM_FOCUS_RING}`}
                 >
-                  <span className={`flex items-center gap-3 ${entry.enabled ? (danger ? "text-danger" : "text-fg-secondary") : "text-fg-tertiary opacity-70"}`}>
+                  <span className={`flex items-center gap-3 ${entry.enabled ? (danger ? "text-danger" : "text-fg-secondary") : "text-fg-tertiary"}`}>
                     <span className="flex-1 truncate">{entry.label}</span>
                     {entry.id === "open" && (
                       <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0">Enter</kbd>
@@ -269,7 +271,8 @@ export default function CardContextMenu({ anchor, label, header, entries, column
                     {hasSub && <span aria-hidden="true" className="text-fg-tertiary shrink-0">▸</span>}
                   </span>
                   {!entry.enabled && entry.reason && (
-                    <span id={reasonId} className="text-xs text-fg-tertiary mt-0.5">{entry.reason}</span>
+                    // aria-hidden: read once, as the item's description, not also in its name.
+                    <span id={reasonId} aria-hidden="true" className="text-xs text-fg-tertiary mt-0.5">{entry.reason}</span>
                   )}
                 </button>
               );

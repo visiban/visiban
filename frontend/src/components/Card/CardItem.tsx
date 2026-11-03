@@ -572,7 +572,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-sunken
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${current ? "border-2 -m-px border-primary-emphasis ring-2 ring-primary-emphasis ring-offset-2 ring-offset-sunken" : contextTarget ? "ring-1 ring-info bg-info/10" : highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? `ring-2 ring-primary-soft${overlayClass ? "" : " bg-info/20"}` : ""}
+        ${current ? "border-2 -m-px border-primary-emphasis ring-2 ring-primary-emphasis ring-offset-2 ring-offset-sunken" : contextTarget ? `ring-1 ring-info${overlayClass ? "" : " bg-info/10"}` : highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? `ring-2 ring-primary-soft${overlayClass ? "" : " bg-info/20"}` : ""}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -639,7 +639,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className={`absolute -top-1 right-5 z-10 w-11 h-11 items-center justify-center rounded-full text-fg-secondary hidden ${
+          className={`absolute top-0 right-5 z-10 w-11 h-11 items-center justify-center rounded-full text-fg-secondary hidden ${
             selected ? "[@media(pointer:coarse)]:flex" : "[@media(pointer:coarse)]:group-focus-within:flex"
           } focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
         >
@@ -647,7 +647,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         </button>
       )}
       <div className={`relative px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
-        <p className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : "text-sm text-fg line-clamp-2"}`}>
+        {/* While the coarse-pointer ⋯ button shows, the title keeps clear of it. */}
+        <p className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : "text-sm text-fg line-clamp-2"}${
+          menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-14" : " [@media(pointer:coarse)]:group-focus-within:pr-14") : ""
+        }`}>
           {!staleBadgeShown && <AgingCue stage={aging.stage} idleDays={aging.idleDays} />}
           {card.title}
         </p>

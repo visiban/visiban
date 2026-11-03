@@ -2685,7 +2685,9 @@ describe('BoardView card actions (#2059)', () => {
     fireEvent.click(screen.getByTestId('open-menu-2'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive card' }))
     expect(await screen.findByText('1 of 1 card could not be archived — a network error occurred.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
+    // A failure persists until dismissed (no auto-clear timer).
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss card action message' }))
     expect(screen.getByTestId('card-action-status')).toHaveTextContent('')
   })
 
@@ -2712,6 +2714,9 @@ describe('BoardView card actions (#2059)', () => {
     await waitFor(() => expect(deleteCard).toHaveBeenCalledWith(1, 2))
     await waitFor(() => expect(removeCard).toHaveBeenCalledWith(2))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this card?' })).not.toBeInTheDocument())
+    // The card is gone from view, so the success is shown as well as announced.
+    expect(screen.getByTestId('card-action-status')).toHaveTextContent('Deleted “Second card”.')
+    expect(screen.getByTestId('card-action-status').parentElement).not.toHaveClass('sr-only')
   })
 
   it('Copy link writes the card deep link and announces it', async () => {
@@ -2722,6 +2727,8 @@ describe('BoardView card actions (#2059)', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link to card' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/boards/1?card=2`))
     expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Link copied to the clipboard.')
+    // Nothing on the board changes, so it is shown, not only announced.
+    expect(screen.getByTestId('card-action-status').parentElement).not.toHaveClass('sr-only')
   })
 
   it('says so when the clipboard is blocked', async () => {
@@ -2753,6 +2760,8 @@ describe('BoardView card actions (#2059)', () => {
     })
     await waitFor(() => expect(updateCard).toHaveBeenCalledWith(1, 2, { priority: 'high' }))
     expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Set “Second card” to high priority.')
+    // The board shows the change, so the success is announced only.
+    expect(screen.getByTestId('card-action-status').parentElement).toHaveClass('sr-only')
   })
 
   it('assigns from the window event and clears a fully successful selection', async () => {

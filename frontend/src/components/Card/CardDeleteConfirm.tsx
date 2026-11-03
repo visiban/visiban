@@ -57,11 +57,11 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
       maxWidth="max-w-sm"
       labelId="card-menu-delete-title"
     >
-      <p className="text-fg-tertiary text-sm mb-5">
+      <p className={`text-fg-tertiary text-sm ${!canModifyAll && othersCards.length > 0 ? "mb-2" : "mb-5"}`}>
         This will permanently delete {count === 1 ? `“${cards[0]?.title}”` : `all ${count} cards`}. This cannot be undone.
       </p>
       {!canModifyAll && othersCards.length > 0 && (
-        <p className="text-xs text-warning-on-tint -mt-3 mb-4">
+        <p className="text-xs text-warning-on-tint mb-4">
           {othersCards.length === count
             ? `You can only delete cards you created. ${count === 1 ? "This card" : "None of these cards"} will not be deleted.`
             : `${othersCards.length} ${plural(othersCards.length)} created by others will be skipped.`}
@@ -80,7 +80,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
           type="button"
           onClick={() => void handleDelete()}
           aria-disabled={busy || undefined}
-          className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium aria-disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+          className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium transition aria-disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
         >
           {busy ? "Deleting…" : "Delete"}
         </button>

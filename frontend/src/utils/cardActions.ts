@@ -278,7 +278,7 @@ async function settleEach<T>(cards: Card[], run: (card: Card) => Promise<T>, ver
 }
 
 export function assignCards(boardId: number, cards: Card[], userId: number | null): Promise<CardActionResult<Card>> {
-  return settleEach(cards, (card) => updateCard(boardId, card.id, { assignee_id: userId }), "assigned");
+  return settleEach(cards, (card) => updateCard(boardId, card.id, { assignee_id: userId }), userId === null ? "unassigned" : "assigned");
 }
 
 export function setCardsPriority(boardId: number, cards: Card[], priority: Priority): Promise<CardActionResult<Card>> {
@@ -298,6 +298,7 @@ export function successMessage(action: CardActionId, cards: Card[], extra?: stri
     case "priority": return `Set ${what} to ${extra} priority.`;
     case "archive": return `Archived ${what}.`;
     case "copy-link": return "Link copied to the clipboard.";
+    case "delete": return `Deleted ${what}.`;
     default: return "";
   }
 }

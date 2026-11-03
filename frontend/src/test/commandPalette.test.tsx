@@ -379,6 +379,8 @@ describe("CommandPalette — card actions (#2059)", () => {
     renderPalette({ cardTarget: target(), onCardAction, members });
     fireEvent.click(screen.getByRole("option", { name: "Assign card to…" }));
     expect(input()).toHaveAttribute("placeholder", "Choose a person…");
+    // The level change is announced, not only shown in the header.
+    expect(screen.getAllByRole("status").some((s) => s.textContent === "Choose a person")).toBe(true);
     expect(options()).toEqual(["Unassign", "Alex Reed"]);
     fireEvent.click(screen.getByRole("option", { name: "Alex Reed" }));
     expect(onCardAction).toHaveBeenCalledWith({ cardIds: [1], action: "assign", value: 7 });
@@ -403,6 +405,7 @@ describe("CommandPalette — card actions (#2059)", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("option", { name: "Set priority…" })).toBeInTheDocument();
+    expect(screen.getAllByRole("status").some((s) => s.textContent === "Card actions for Fix login redirect loop · Blocked 3d")).toBe(true);
     fireEvent.click(screen.getByRole("option", { name: "Set priority…" }));
     fireEvent.keyDown(input(), { key: "ArrowLeft" });
     expect(screen.getByRole("option", { name: "Set priority…" })).toBeInTheDocument();
@@ -427,6 +430,7 @@ describe("CommandPalette — card actions (#2059)", () => {
     fireEvent.keyDown(input(), { key: "ArrowRight" });
     expect(resolveCardActions).toHaveBeenCalledWith([2]);
     expect(screen.getByTestId("palette-card-target")).toHaveTextContent("Acting on Add SSO login button");
+    expect(screen.getAllByRole("status").some((s) => s.textContent === "Card actions for Add SSO login button")).toBe(true);
     expect(input()).toHaveValue("");
     expect(options()).toEqual(["Unblock card", "Move card to…", "Assign card to…", "Set priority…", "Copy link to card", "Archive card"]);
     expect(screen.getByText("← back")).toBeInTheDocument();
@@ -435,6 +439,7 @@ describe("CommandPalette — card actions (#2059)", () => {
     fireEvent.change(input(), { target: { value: "" } });
     fireEvent.keyDown(input(), { key: "ArrowLeft" });
     expect(screen.queryByTestId("palette-card-target")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("status").some((s) => s.textContent === "All results")).toBe(true);
   });
 
   it("→ on a non-card row does nothing", () => {

@@ -279,8 +279,8 @@ export default function CommandPalette({
 
   const resetLevel = () => { setQuery(""); setActiveIndex(0); };
   const backOut = (): boolean => {
-    if (sub) { setSub(null); resetLevel(); return true; }
-    if (drill) { setDrill(null); resetLevel(); return true; }
+    if (sub) { setSub(null); resetLevel(); setAnnounce(target ? `Card actions for ${target.summary}` : ""); return true; }
+    if (drill) { setDrill(null); resetLevel(); setAnnounce("All results"); return true; }
     return false;
   };
 
@@ -320,6 +320,7 @@ export default function CommandPalette({
       }
       if (entry.id === "move" || entry.id === "assign" || entry.id === "priority") {
         setSub(entry.id);
+        setAnnounce(entry.id === "move" ? "Choose a column" : entry.id === "assign" ? "Choose a person" : "Choose a priority");
         resetLevel();
         return;
       }
@@ -357,6 +358,7 @@ export default function CommandPalette({
         if (info) {
           e.preventDefault();
           setDrill(info);
+          setAnnounce(`Card actions for ${info.summary}`);
           resetLevel();
         }
       }
@@ -532,8 +534,8 @@ export default function CommandPalette({
         {showNoTargetHint && (
           <div role="group" aria-label="Card actions" className="px-3 pb-2 shrink-0" data-testid="palette-no-card-target">
             <div className="pt-1 pb-0.5 text-xs uppercase tracking-wide text-fg-muted select-none">Card actions</div>
-            <p className="text-xs text-fg-faint italic">Select, focus or open a card to act on it.</p>
-            <p className="text-xs text-fg-faint italic">Or search for a card and press →.</p>
+            <p className="text-xs text-fg-tertiary italic">Select, focus or open a card to act on it.</p>
+            <p className="text-xs text-fg-tertiary italic">Or search for a card and press →.</p>
           </div>
         )}
 
