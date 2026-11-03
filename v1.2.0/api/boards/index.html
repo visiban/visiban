@@ -3198,6 +3198,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#color-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Color values
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -6670,7 +6681,7 @@
 <ul>
 <li>Column and swimlane <code>position</code>, card <code>weight</code> and <code>position</code>, and column <code>wip_limit</code> and <code>weight_limit</code> must be integers from 0 to 2,147,483,647. Only <code>wip_limit</code> and <code>weight_limit</code> may be <code>null</code>.</li>
 <li>Column positions must be unique. A column with no <code>position</code> takes its index in the list, so an explicit position can collide with another column's default. Swimlane positions may repeat.</li>
-<li>Text values must not be <code>null</code>, a list, or an object, and must not contain NUL characters: column, swimlane, and label <code>color</code>; swimlane <code>contact_email</code> and <code>notes</code>; board and card <code>description</code>; comment <code>body</code>; checklist <code>text</code>; movement <code>notes</code>; activity <code>from_value</code> and <code>to_value</code>. A plain number or <code>true</code>/<code>false</code> is stored as its text (<code>5</code> → <code>"5"</code>, <code>true</code> → <code>"True"</code>), as in earlier releases; <code>NaN</code> and <code>Infinity</code> are refused. A key left out takes its default.</li>
+<li>Text values must not be <code>null</code>, a list, or an object, and must not contain NUL characters: column, swimlane, and label <code>color</code>; swimlane <code>contact_email</code> and <code>notes</code>; board and card <code>description</code>; comment <code>body</code>; checklist <code>text</code>; movement <code>notes</code>; activity <code>from_value</code> and <code>to_value</code>. A plain number or <code>true</code>/<code>false</code> is stored as its text (<code>5</code> → <code>"5"</code>, <code>true</code> → <code>"True"</code>), as in earlier releases, except for <code>color</code> on columns, swimlanes, and labels, which must be hex (since 1.3): a number or boolean there is replaced by the default and counted in <code>import_summary.skipped.colors</code>; <code>NaN</code> and <code>Infinity</code> are refused. A key left out takes its default.</li>
 <li>Text values stored in a limited column must fit it: column and swimlane <code>name</code> (255), label <code>name</code> (50), <code>color</code> (7), <code>contact_email</code> (254), card <code>title</code> (500), checklist <code>text</code> (500), movement <code>notes</code> (500), the column and swimlane names in a movement (255), the <code>name</code> form field (255), usernames in <code>assignee</code>, <code>moved_by</code>, and <code>actor</code> (150), and <code>imported_from_username</code> on movements, activities, and comments (150).</li>
 <li>Column <code>is_done</code> and <code>allow_card_creation</code>, and checklist <code>is_checked</code>, must be <code>true</code> or <code>false</code>.</li>
 <li>Since 1.3, a column <code>policy</code> must be <code>null</code> or follow the same rules as the <a href="#column-policy-since-13">column API</a>; it is stored normalized (criteria trimmed, an empty policy as <code>null</code>).</li>
@@ -6972,10 +6983,11 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="w">      </span><span class="nt">"checklist_items"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="w">      </span><span class="nt">"label_refs"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
 <a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="w">      </span><span class="nt">"movements"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="w">      </span><span class="nt">"activities"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span>
-<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="p">}</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="w">      </span><span class="nt">"activities"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="w">      </span><span class="nt">"colors"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="p">}</span>
 </code></pre></div>
 <h4 id="import-summary">Import summary<a class="headerlink" href="#import-summary" title="Permanent link">&para;</a></h4>
 <blockquote>
@@ -6995,7 +7007,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 </tr>
 <tr>
 <td><code>import_summary.skipped.*</code></td>
-<td>How many items in the file the chosen options left out: <code>cards</code>, <code>comments</code>, <code>checklist_items</code>, <code>label_refs</code> (label references on cards), <code>movements</code>, and <code>activities</code>. Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are <code>0</code> when no options are sent.</td>
+<td>How many items in the file the chosen options left out: <code>cards</code>, <code>comments</code>, <code>checklist_items</code>, <code>label_refs</code> (label references on cards), <code>movements</code>, and <code>activities</code>. <code>colors</code> (since 1.3) is different: it counts column, swimlane, and label colors that were not hex and were replaced by the default (see <a href="#color-values">Color values</a>). Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are <code>0</code> when no options are sent, except <code>colors</code>, which counts replacements whatever the options.</td>
 </tr>
 </tbody>
 </table>
@@ -7996,7 +8008,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <tr>
 <td><code>color</code></td>
 <td>string</td>
-<td>Hex color code</td>
+<td>Hex color code, <code>#RRGGBB</code>. Since 1.3 a written value must be hex: <code>#RGB</code> is accepted and stored expanded (<code>#abc</code> becomes <code>#aabbcc</code>, case kept), and anything else is <code>400</code>. A value equal to the stored one is accepted as is, so rows saved before 1.3 with a non-hex color still load and can be renamed. See <a href="#color-values">Color values</a>.</td>
 </tr>
 <tr>
 <td><code>wip_limit</code></td>
@@ -8123,7 +8135,7 @@ rule as checklist-item reorder, #1292.)</em></p>
 <tr>
 <td><code>color</code></td>
 <td>string</td>
-<td>Hex color code</td>
+<td>Hex color code, <code>#RRGGBB</code>. Since 1.3 a written value must be hex: <code>#RGB</code> is accepted and stored expanded (<code>#abc</code> becomes <code>#aabbcc</code>, case kept), and anything else is <code>400</code>. A value equal to the stored one is accepted as is, so rows saved before 1.3 with a non-hex color still load and can be renamed. See <a href="#color-values">Color values</a>.</td>
 </tr>
 <tr>
 <td><code>is_collapsed</code></td>
@@ -8264,7 +8276,7 @@ same rule as checklist-item reorder, #1292.)</em></p>
 <p><strong>Request</strong> <code>{ "name": "Bug", "color": "#EF4444" }</code></p>
 <h3 id="put-apiv1boardsidlabelslabel_id-patch-apiv1boardsidlabelslabel_id"><code>PUT /api/v1/boards/{id}/labels/{label_id}/</code> / <code>PATCH /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#put-apiv1boardsidlabelslabel_id-patch-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
 <p>Update a label. Requires board admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code></p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code> (hex, see <a href="#color-values">Color values</a>)</p>
 <p><code>PUT</code> and <code>PATCH</code> are both accepted. <code>PATCH</code> changes only the fields you send. <code>PUT</code> requires <code>name</code>; a <code>color</code> you leave out keeps its current value.</p>
 <h3 id="delete-apiv1boardsidlabelslabel_id"><code>DELETE /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#delete-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
 <p>Delete a label. Requires board admin.</p>
@@ -8910,6 +8922,20 @@ deleted with it.</strong></p>
 </table>
 <p>Public card objects use <code>uid</code> as the identifier and carry no database <code>id</code>. <code>assignee</code> holds <code>display_name</code> only (email, username, and avatar are omitted), or <code>null</code> for an unassigned card. Comments and checklist item text are excluded; only the <code>checklist_total</code> and <code>checklist_done</code> counts appear. The <code>is_stale</code> field is <code>true</code> when the card has not moved within the board's <code>staleness_threshold_days</code> window. <code>is_stale</code> ignores the card's column, so a Done-column card can be <code>true</code>; clients decide display. The stale-card notification digest, by contrast, skips Done-column cards.</p>
 <p><code>blocker_count</code> (since 1.2) is the number of active cards blocking this one — see <a href="../cards/#relations-since-12">Card relations</a>. The count is included, but the relation list is not: relations are same-board only, so every blocker is a card this payload already carries, whereas the relation rows themselves carry the creating user and a timestamp that this payload deliberately excludes.</p>
+<h2 id="color-values">Color values<a class="headerlink" href="#color-values" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Changed in 1.3</strong></p>
+</blockquote>
+<p><code>color</code> on columns, swimlanes, board labels, and <a href="../groups/">group labels</a> is stored as text of up to 7 characters. Since 1.3 every write checks it:</p>
+<ul>
+<li><code>#RRGGBB</code> is accepted as sent. The server does not change its case.</li>
+<li><code>#RGB</code> is accepted and stored expanded, digit by digit: <code>#abc</code> is stored as <code>#aabbcc</code>.</li>
+<li>Anything else (<code>red</code>, <code>#12345</code>, <code>#GGGGGG</code>, an empty string) returns <code>400 Bad Request</code> with the error under <code>color</code>.</li>
+<li>A value equal to the one already stored is accepted unchanged. Rows saved before 1.3 can hold a non-hex color, and clients resend the current color when they rename a row; those edits keep working. Changing such a row to a different non-hex value is <code>400</code>.</li>
+<li>Responses are unchanged: no <code>pattern</code> is published for <code>color</code>, because existing rows may not match it.</li>
+<li><a href="#post-apiv1boardsimport">JSON board import</a> does not fail on a non-hex color. It stores the default for that field (<code>#6B7280</code> for a column, <code>#3B82F6</code> for a swimlane, <code>#EAB308</code> for a label), expands <code>#RGB</code>, and counts each replacement in <code>import_summary.skipped.colors</code>. A color longer than 7 characters is still <code>400</code>.</li>
+<li>Board templates and Trello imports apply the same rule and fall back to the default.</li>
+</ul>
 
 
 

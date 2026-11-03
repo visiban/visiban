@@ -5540,7 +5540,7 @@
 </blockquote>
 <p>A create that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719).</p>
 <h3 id="patch-apiv1groupsidlabelslabel_id"><code>PATCH /api/v1/groups/{id}/labels/{label_id}/</code><a class="headerlink" href="#patch-apiv1groupsidlabelslabel_id" title="Permanent link">&para;</a></h3>
-<p>Update a group shared label name or color. Requires group admin.</p>
+<p>Update a group shared label name or color. Requires group admin. <code>color</code> must be hex (<code>#RRGGBB</code> or <code>#RGB</code>) since 1.3; see <a href="../boards/#color-values">Color values</a>.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
