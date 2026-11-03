@@ -229,4 +229,36 @@ describe('CardDetail — manual block (#1149)', () => {
     expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTestId('card-block-form')).toBeInTheDocument()
   })
+  // #2059 — the card context menu and the ⌘K palette open the sheet with the
+  // form already open and its field focused.
+  describe('blockFormRequest (#2059)', () => {
+    it('opens the block form with Reason focused, over the open-focus on Close', () => {
+      render(<CardDetail {...props({ blockFormRequest: { mode: 'block', seq: 1 } })} />)
+      expect(screen.getByTestId('card-block-form')).toBeInTheDocument()
+      expect(screen.getByLabelText(/Reason/)).toHaveFocus()
+      // Cancel lands inside the sheet, on the header's Block…
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.getByRole('button', { name: 'Block…' })).toHaveFocus()
+    })
+
+    it('opens the unblock form for a blocked card, and a new seq re-opens it', () => {
+      const blocked = makeCard({ is_blocked: true, blocked_at: '2026-10-01T00:00:00Z', blocked_reason: 'Waiting' })
+      const { rerender } = render(<CardDetail {...props({ card: blocked, blockFormRequest: { mode: 'unblock', seq: 1 } })} />)
+      expect(screen.getByTestId('card-unblock-form')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByTestId('card-unblock-form')).not.toBeInTheDocument()
+      rerender(<CardDetail {...props({ card: blocked, blockFormRequest: { mode: 'unblock', seq: 1 } })} />)
+      expect(screen.queryByTestId('card-unblock-form')).not.toBeInTheDocument()
+      rerender(<CardDetail {...props({ card: blocked, blockFormRequest: { mode: 'unblock', seq: 2 } })} />)
+      expect(screen.getByTestId('card-unblock-form')).toBeInTheDocument()
+    })
+
+    it('ignores a request this user cannot act on, or one that no longer matches the state', () => {
+      const { unmount } = render(<CardDetail {...props({ board: makeBoard({ current_user_role: 'viewer' }), blockFormRequest: { mode: 'block', seq: 1 } })} />)
+      expect(screen.queryByTestId('card-block-form')).not.toBeInTheDocument()
+      unmount()
+      render(<CardDetail {...props({ blockFormRequest: { mode: 'unblock', seq: 1 } })} />)
+      expect(screen.queryByTestId('card-unblock-form')).not.toBeInTheDocument()
+    })
+  })
 })

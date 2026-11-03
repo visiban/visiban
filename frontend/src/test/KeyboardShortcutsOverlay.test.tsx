@@ -130,4 +130,13 @@ describe('KeyboardShortcutsOverlay', () => {
     const heading = screen.getByText('Keyboard shortcuts')
     expect(heading.tagName.toLowerCase()).toBe('h2')
   })
+  // #2059 — the card context menu keys and the palette drill-in are platform /
+  // non-letter keys; the registry lists them, and no bare letter was added.
+  it('lists Menu / Shift+F10 and the palette → / ← drill-in', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    expect(screen.getByText("Open the focused card's action menu")).toBeInTheDocument()
+    expect(screen.getByText('Menu / ⇧F10')).toBeInTheDocument()
+    expect(screen.getByText("In the command palette, show a card result's actions / go back")).toBeInTheDocument()
+    expect(screen.getByText('→ / ←')).toBeInTheDocument()
+  })
 })

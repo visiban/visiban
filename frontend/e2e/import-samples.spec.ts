@@ -139,7 +139,8 @@ test.describe('import board — sample gallery', () => {
     await openImport(page)
 
     await page.getByRole('button', { name: 'Use this sample: Sales Overlay' }).click()
-    await expect(page.getByRole('alert')).toContainText('Couldn’t load this sample.')
+    // Scoped to the dialog: the shared toast region keeps an empty sr-only alert mounted (#2060).
+    await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Couldn’t load this sample.')
     await expect(page.getByRole('button', { name: /Try again, Sales Overlay sample/ })).toBeFocused()
     await expect(page.getByRole('button', { name: /Click to select a \.json or \.csv file/ })).toBeEnabled()
   })

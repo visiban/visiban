@@ -3,7 +3,7 @@
 import logging
 
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, Max, OuterRef
+from django.db.models import Exists, OuterRef
 from django.urls import reverse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -27,7 +27,7 @@ from visiban.request_shape import coerce_int_id, optional_text, require_json_obj
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardEvent, BoardEventPruneMark, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
+    Board, BoardEvent, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
     Swimlane,
 )
 from ..permissions import (
@@ -38,7 +38,7 @@ from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
 )
-from ..services.feed import feed_queryset, serialize_feed_rows
+from ..services.feed import feed_queryset, pruned_through, resume_cursor, serialize_feed_rows
 from ..services.notifications import create_notifications
 from ..utils import create_template_columns, resolve_board_template
 from ._helpers import (
@@ -161,13 +161,9 @@ def _events_cursor_expired(board_id, after, page_has_rows):
     pruned row it would not have been shown (another user's per-user event,
     or an admin-only one). That errs toward a re-sync, never toward a skip.
     """
-    pruned_through = (
-        BoardEventPruneMark.objects.filter(board_id=board_id)
-        .values_list("max_pruned_id", flat=True)
-        .first()
-    )
-    if pruned_through is not None and after <= pruned_through:
-        return after < pruned_through
+    mark = pruned_through(board_id)
+    if mark is not None and after <= mark:
+        return after < mark
     return page_has_rows and not BoardEvent.objects.filter(board_id=board_id, pk=after).exists()
 
 
@@ -184,15 +180,10 @@ def _events_resume_cursor(board_id):
     (``after == mark``), and resuming at the newest row is never expired
     either (its row exists). It is computed now, before the consumer fetches
     ``/full/``, so an event written in between is replayed after the
-    snapshot rather than lost: at-least-once, never a gap.
+    snapshot rather than lost: at-least-once, never a gap. The webhook
+    dispatcher resumes from the same point (``resume_cursor``).
     """
-    newest = BoardEvent.objects.filter(board_id=board_id).aggregate(newest=Max("id"))["newest"]
-    pruned_through = (
-        BoardEventPruneMark.objects.filter(board_id=board_id)
-        .values_list("max_pruned_id", flat=True)
-        .first()
-    )
-    return max(newest or 0, pruned_through or 0)
+    return resume_cursor(board_id)
 
 
 

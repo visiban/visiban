@@ -23,7 +23,7 @@ from visiban.egress import EgressError
 from webhooks import dispatch, signing
 from webhooks.models import WebhookSubscription
 
-from .base import ENABLED, HOOK_URL, _make_membership, _make_user, admin_and_board, make_subscription
+from .base import ENABLED, HOOK_URL, _make_membership, _make_user, admin_and_board, make_subscription, prune
 
 GOLDEN_SECRET = "whsec_test"
 GOLDEN_BODY = b'{"a":1}'
@@ -392,7 +392,6 @@ class FailureTests(DispatcherBase):
             rnd.return_value.uniform.return_value = 0
             self.assertEqual([dispatch.backoff_seconds(n) for n in (1, 2, 3, 4)], [30, 60, 120, 240])
             self.assertEqual(dispatch.backoff_seconds(20), 3600)
-        self.assertLess(3600, dispatch.CURSOR_EXPIRY_SCAN_GAP.total_seconds())
 
     def test_redirect_is_an_http_error(self):
         self.event()
@@ -505,24 +504,94 @@ class FailureTests(DispatcherBase):
 
 
 class CursorExpiryTests(DispatcherBase):
-    def test_cursor_expired_after_prune_when_last_scan_is_old(self):
-        old = self.event()
-        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
-            cursor=old.pk, last_scanned_at=timezone.now() - timedelta(days=2)
-        )
-        self.event()
-        old.delete()
-        rec, _ = self.run_with()
+    """``cursor_expired`` reads the board's prune mark, not the scan time (#2058).
+
+    D5: a pruned event the webhook never sent is reported, never skipped. Each
+    test prunes through ``prune_board_events``, the only writer of the mark.
+    Most set ``last_scanned_at`` to the value that fooled the old 23-hour
+    scan-gap rule, to show it no longer matters.
+    """
+
+    def set_cursor(self, cursor, **fields):
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(cursor=cursor, **fields)
+        self.sub.refresh_from_db()
+
+    def assertExpired(self, rec):
         self.assertEqual(rec.calls, [])
         self.assertEqual((self.sub.enabled, self.sub.disabled_reason), (False, "cursor_expired"))
         self.assertTrue(Notification.objects.filter(action_type="webhook_disabled").exists())
 
-    def test_no_false_expiry_on_a_quiet_board_scanned_recently(self):
-        old = self.event()
-        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
-            cursor=old.pk, last_scanned_at=timezone.now() - timedelta(hours=1)
-        )
-        old.delete()
+    def test_pruned_gap_with_newer_rows_expires_even_when_scanned_recently(self):
+        e1, e2 = self.event(), self.event()
+        self.set_cursor(e1.pk, last_scanned_at=timezone.now() - timedelta(minutes=5))
+        prune(e1, e2)
+        self.event()
+        rec, _ = self.run_with()
+        self.assertExpired(rec)
+
+    def test_all_missed_events_pruned_and_nothing_newer_expires(self):
+        # The false negative: no newer row exists to reveal the gap, and the
+        # newest surviving id is below the cursor, so the old idle fast path
+        # returned early and reported nothing.
+        e1 = self.event()
+        self.run_with()
+        self.assertEqual(self.sub.cursor, e1.pk)
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(enabled=False, disabled_reason="manual")
+        e2, e3 = self.event(), self.event()
+        prune(e1, e2, e3)
+        self.assertFalse(BoardEvent.objects.filter(board_id=self.board.pk).exists())
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(enabled=True, disabled_reason="")
+        rec, result = self.run_with()
+        self.assertExpired(rec)
+        self.assertEqual(result.disabled, 1)
+
+    def test_failed_event_then_pruned_is_reported_not_skipped(self):
+        # _deliver stamps last_scanned_at before it posts, so the failed
+        # attempt counted as a fresh scan and the old rule let e3 through.
+        e1 = self.event()
+        self.run_with()
+        e2 = self.event()
+        rec, _ = self.run_with(503)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [e2.pk])
+        self.assertEqual(self.sub.cursor, e1.pk)
+        scanned = self.sub.last_scanned_at
+        self.assertGreater(scanned, timezone.now() - timedelta(minutes=1))
+        prune(e1, e2)
+        self.event()
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(next_attempt_at=None)
+        rec, _ = self.run_with()
+        self.assertExpired(rec)
+        self.assertEqual(self.sub.cursor, e1.pk)
+
+    def test_idle_cursor_whose_own_row_was_pruned_keeps_delivering(self):
+        # Quiet board: the cursor row aged out, nothing after it was pruned.
+        e1 = self.event()
+        self.run_with()
+        self.set_cursor(e1.pk, last_scanned_at=timezone.now() - timedelta(days=40))
+        prune(e1)
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_cursor_zero_unscanned_for_days_with_nothing_pruned_delivers(self):
+        # The false positive: created on an empty board, never scanned for two
+        # days (a dispatcher outage), nothing pruned.
+        self.set_cursor(0, last_scanned_at=None, created_at=timezone.now() - timedelta(days=2))
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_cursor_zero_last_scanned_days_ago_with_nothing_pruned_delivers(self):
+        self.set_cursor(0, last_scanned_at=timezone.now() - timedelta(days=2))
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_cursor_zero_never_scanned_and_new_delivers(self):
+        self.set_cursor(0, last_scanned_at=None)
         new = self.event()
         rec, _ = self.run_with()
         self.assertTrue(self.sub.enabled)
@@ -531,42 +600,61 @@ class CursorExpiryTests(DispatcherBase):
     def test_cursor_zero_expires_when_rows_were_pruned_unseen(self):
         # Subscribed on an empty board; the first events were pruned before
         # any scan. The survivors must not be delivered as if nothing was lost.
-        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
-            cursor=0, last_scanned_at=timezone.now() - timedelta(days=2)
-        )
+        self.set_cursor(0, last_scanned_at=None)
         first, second = self.event(), self.event()
         self.event()
-        first.delete()
-        second.delete()
+        prune(first, second)
         rec, _ = self.run_with()
-        self.assertEqual(rec.calls, [])
-        self.assertEqual((self.sub.enabled, self.sub.disabled_reason), (False, "cursor_expired"))
+        self.assertExpired(rec)
 
-    def test_cursor_zero_never_scanned_and_old_expires(self):
-        # The dispatcher never ran for this webhook: the gap runs from creation.
-        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
-            cursor=0, last_scanned_at=None, created_at=timezone.now() - timedelta(days=2)
-        )
+    def test_another_boards_prune_does_not_expire_this_webhook(self):
+        e1 = self.event()
+        self.run_with()
+        _, other_board = admin_and_board("Other board")
+        other = BoardEvent.objects.create(board_id=other_board.pk, event="card.created", data={})
+        self.assertLess(e1.pk, other.pk)  # ids are global: the other mark is past this cursor
+        prune(other)
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_prune_landing_just_before_the_page_read_is_reported(self):
+        # The mark is read after the page. Here the prune commits between the
+        # fast-path check and the page query: the page no longer has e2, and
+        # the expiry check must still see the gap. Read before the page (the
+        # old order), it would find no mark and deliver e3 past the gap.
+        e1 = self.event()
+        self.run_with()
+        e2 = self.event()
         self.event()
-        rec, _ = self.run_with()
-        self.assertEqual(rec.calls, [])
-        self.assertEqual(self.sub.disabled_reason, "cursor_expired")
+        real = dispatch.feed_queryset
 
-    def test_cursor_zero_never_scanned_and_new_delivers(self):
-        WebhookSubscription.objects.filter(pk=self.sub.pk).update(cursor=0, last_scanned_at=None)
-        new = self.event()
-        rec, _ = self.run_with()
-        self.assertTrue(self.sub.enabled)
-        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+        def prune_then_read(*args, **kwargs):
+            prune(e1, e2)
+            return real(*args, **kwargs)
 
-    def test_cursor_zero_scanned_recently_delivers(self):
-        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
-            cursor=0, last_scanned_at=timezone.now() - timedelta(hours=1)
-        )
-        new = self.event()
-        rec, _ = self.run_with()
-        self.assertTrue(self.sub.enabled)
-        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+        with patch("webhooks.dispatch.feed_queryset", side_effect=prune_then_read):
+            rec, _ = self.run_with()
+        self.assertExpired(rec)
+
+    def test_cursor_at_the_mark_is_not_expired(self):
+        e1, e2 = self.event(), self.event()
+        prune(e1, e2)
+        self.set_cursor(e2.pk)
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+        self.set_cursor(e1.pk)
+        self.assertTrue(dispatch.cursor_expired(self.sub))
+
+    def test_latest_event_id_counts_the_prune_mark(self):
+        self.assertEqual(dispatch.latest_event_id(self.board.pk), 0)
+        e1, e2 = self.event(), self.event()
+        self.assertEqual(dispatch.latest_event_id(self.board.pk), e2.pk)
+        prune(e1, e2)
+        # Every event pruned: the newest surviving id is gone, the mark is not.
+        self.assertEqual(dispatch.latest_event_id(self.board.pk), e2.pk)
+        e3 = self.event()
+        self.assertEqual(dispatch.latest_event_id(self.board.pk), e3.pk)
 
     def test_caught_up_cursor_moves_to_newest_row(self):
         tail = self.event("board.star_changed", data={"user_id": self.admin.pk}, actor_id=self.admin.pk)

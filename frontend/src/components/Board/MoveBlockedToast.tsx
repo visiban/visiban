@@ -1,14 +1,25 @@
+import { useEffect, useRef } from "react";
 import type { MoveBlockedError } from "../../hooks/useBoard";
+import { useToast } from "../../contexts/useToast";
+import type { ToastInput } from "../../utils/toastQueue";
 import { hardLimitContainer, isHardLimit, toastBody, toastTitle } from "./moveBlockedMessages";
 
 interface Props {
   error: MoveBlockedError;
   isAdmin: boolean;
-  onForce: () => void;
+  onForce: () => void | Promise<unknown>;
   onDismiss: () => void;
 }
 
-export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {
+/** Coalescing key: a later move replaces a stale refusal in place. */
+export const MOVE_TOAST_KEY = "move";
+
+/**
+ * The move refusal as a `blocked` toast (frontend/CLAUDE.md § Move-blocked
+ * toast for the content, § Toasts for placement and timing). Persists until
+ * dismissed or replaced, announced assertively.
+ */
+function moveBlockedToast(error: MoveBlockedError, isAdmin: boolean, onForce: () => void | Promise<unknown>): ToastInput {
   const hardBlocked = isHardLimit(error.code) || error.code === "permission_denied";
   // maintenance_mode has no override for anyone — a site admin never sees this
   // toast at all, since their own writes succeed — but it keeps the ⚠ glyph
@@ -22,49 +33,73 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
   // Other limits the same move tripped (#1150): the server names only the
   // strictest, so the second line names the rest from board state.
   const also = "also" in error ? error.also ?? [] : [];
-  return (
-    <div
-      role="alert"
-      // A click here never closes an open card detail sheet (#1914).
-      data-keeps-card-sheet-open
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 bg-surface border border-warning text-fg text-sm rounded-lg px-4 py-3 shadow-xl w-max max-w-[min(24rem,calc(100%-2rem))]"
-    >
-      <span className="text-warning shrink-0 mt-0.5">{hardBlocked ? "⛔" : "⚠"}</span>
-      <div className="flex-1 min-w-0">
-        <p>
-          <span className="font-medium">{toastTitle(error)}</span> — {toastBody(error)}
-        </p>
-        {also.length > 0 && (
-          <p className="mt-1 text-xs text-fg-tertiary">Also: {also.join(" ")}</p>
-        )}
-        {versionConflict ? null : noOverride ? (
-          // Hard mode: no override possible for any role.
-          // A hard WIP block shows a resolution hint naming the column or
-          // swimlane it is on; permission_denied has no actionable hint beyond
-          // the body text already shown.
-          hardContainer !== null && (
-            <p className="mt-1.5 text-xs text-fg-tertiary">
-              To unblock, move a card out of {hardContainer}, or ask an admin to raise the WIP limit.
-            </p>
-          )
-        ) : (
-          isAdmin && (
-            <button
-              onClick={onForce}
-              className="mt-1.5 text-xs text-warning hover:text-warning underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-            >
-              Move anyway (admin override)
-            </button>
-          )
-        )}
-      </div>
-      <button
-        onClick={onDismiss}
-        className="text-fg-muted hover:text-fg transition shrink-0 text-lg leading-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-        aria-label="Dismiss"
-      >
-        ×
-      </button>
-    </div>
-  );
+  const alsoLine = also.length > 0 ? `Also: ${also.join(" ")}` : null;
+  // A hard WIP block shows a resolution hint naming the column or swimlane it
+  // is on; permission_denied has no actionable hint beyond the body text.
+  const hint = !versionConflict && noOverride && hardContainer !== null
+    ? `To unblock, move a card out of ${hardContainer}, or ask an admin to raise the WIP limit.`
+    : null;
+  const canOverride = !versionConflict && !noOverride && isAdmin;
+  const title = toastTitle(error);
+  const body = toastBody(error);
+  return {
+    key: MOVE_TOAST_KEY,
+    variant: "blocked",
+    hardGlyph: hardBlocked,
+    title,
+    message: body,
+    details: (alsoLine || hint) ? (
+      <>
+        {alsoLine && <p className="mt-1 text-xs text-fg-tertiary">{alsoLine}</p>}
+        {hint && <p className="mt-1.5 text-xs text-fg-tertiary">{hint}</p>}
+      </>
+    ) : undefined,
+    action: canOverride
+      ? { label: "Move anyway (admin override)", pendingLabel: "Moving anyway…", onAction: onForce }
+      : undefined,
+    // Everything the old role="alert" toast read out, as one sentence group.
+    announceText: [
+      `${title}. ${body}`,
+      alsoLine,
+      hint,
+      canOverride ? "Move anyway (admin override) available." : null,
+    ].filter(Boolean).join(" "),
+    testId: "move-blocked-toast",
+  };
+}
+
+/**
+ * A move refused while the card detail sheet's Move popover is open came from
+ * that popover, which reports it inline in its own `role="alert"` first (it
+ * stays open on failure). Its toast is then the visible mirror only: one live
+ * announcement per action. Named explicitly: any other open `aria-modal`
+ * surface has no inline alert for a move, so the toast must announce.
+ */
+function reportedByMovePopover(): boolean {
+  return document.querySelector("[data-move-popover]") !== null;
+}
+
+/**
+ * Bridges the board's `moveError` into the shared toast region. Renders
+ * nothing; mount it while there is an error, and it raises, replaces and
+ * finally removes the `move` toast.
+ */
+export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {
+  const { notify, dismiss } = useToast();
+  const forceRef = useRef(onForce);
+  forceRef.current = onForce;
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+
+  useEffect(() => {
+    notify({
+      ...moveBlockedToast(error, isAdmin, () => forceRef.current()),
+      announce: !reportedByMovePopover(),
+      onDismiss: () => dismissRef.current(),
+    });
+  }, [error, isAdmin, notify]);
+
+  useEffect(() => () => dismiss(MOVE_TOAST_KEY), [dismiss]);
+
+  return null;
 }

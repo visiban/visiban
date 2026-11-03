@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { updateSwimlane } from "../../api/boards";
 import BoardCell from "./BoardCell";
+import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
@@ -87,6 +88,9 @@ interface Props {
   /** The card open in the card detail sheet, if any (#1914). */
   currentCardId?: number | null;
   onToggleCardSelection: (cardId: number) => void;
+  /** Card context menu (#2059), passed through to each BoardCell. */
+  onOpenCardMenu?: (card: Card, anchor: CardMenuAnchor) => void;
+  contextTargetCardId?: number | null;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
@@ -170,7 +174,7 @@ interface Props {
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, getDropVerdict, getEntryCriteria, showWipAtLimit = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -559,6 +563,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 highlightedCardId={highlightedCardId}
                 currentCardId={currentCardId}
                 onToggleCardSelection={onToggleCardSelection}
+                onOpenCardMenu={onOpenCardMenu}
+                contextTargetCardId={contextTargetCardId}
                 onCardClick={onCardClick}
                 onCardAdded={onCardAdded}
                 density={density}

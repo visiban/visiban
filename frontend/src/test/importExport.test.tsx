@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
 import ImportSkippedToast from '../components/Board/ImportSkippedToast'
+import { ToastProvider } from '../contexts/ToastContext'
 import { countImportWarnings, formatImportSkipped, hasImportSkips, importWarnings } from '../utils/importSummary'
 import type { ImportOptions, ImportSkippedCounts, ImportSummary } from '../types'
 
@@ -520,24 +521,30 @@ describe('formatImportSkipped (#119)', () => {
   })
 })
 
+// The notice renders in the shared toast region (#2060).
+const renderNotice = (ui: React.ReactNode) => render(<ToastProvider>{ui}</ToastProvider>)
+
 describe('ImportSkippedToast (#119)', () => {
   const summary: ImportSummary = {
     options_applied: { labels: false, cards: true, comments: true, checklist: true, history: true },
     skipped: { cards: 0, comments: 0, checklist_items: 0, label_refs: 1, movements: 0, activities: 0 },
   }
 
-  it('mounts the status region empty, fills it a tick later, and auto-dismisses after 8 seconds', () => {
+  it('fills the shared polite region a tick later, and auto-dismisses after 8 seconds', () => {
     vi.useFakeTimers()
     try {
       const onDismiss = vi.fn()
-      render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
-      const region = screen.getByRole('status')
-      const wrapper = screen.getByTestId('import-notice')
-      expect(region).toHaveTextContent('')
-      expect(wrapper.className).toContain('w-max')
-      expect(wrapper.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
+      renderNotice(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
+      const status = screen.getByRole('status')
+      const notice = screen.getByTestId('import-notice')
+      expect(status).toHaveTextContent('')
+      expect(notice).toHaveAttribute('data-variant', 'info')
+      // The shared region carries the explicit width (#1439, #2060).
+      const region = screen.getByRole('region', { name: 'Notifications' })
+      expect(region.className).toContain('w-max')
+      expect(region.className).toContain('max-w-[min(24rem,calc(100%-2rem))]')
       act(() => { vi.advanceTimersByTime(0) })
-      expect(region).toHaveTextContent('Board imported. Skipped: 1 card label.')
+      expect(status).toHaveTextContent('Board imported. Skipped: 1 card label.')
       act(() => { vi.advanceTimersByTime(7999) })
       expect(onDismiss).not.toHaveBeenCalled()
       act(() => { vi.advanceTimersByTime(1) })
@@ -551,17 +558,18 @@ describe('ImportSkippedToast (#119)', () => {
     vi.useFakeTimers()
     try {
       const onDismiss = vi.fn()
-      render(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
+      renderNotice(<ImportSkippedToast summary={summary} onDismiss={onDismiss} />)
       act(() => { vi.advanceTimersByTime(0) })
-      const region = screen.getByTestId('import-notice')
-      fireEvent.mouseEnter(region)
+      const region = screen.getByRole('region', { name: 'Notifications' })
+      fireEvent.pointerEnter(region, { pointerType: 'mouse' })
       act(() => { vi.advanceTimersByTime(20000) })
       expect(onDismiss).not.toHaveBeenCalled()
-      fireEvent.mouseLeave(region)
-      fireEvent.focus(screen.getByRole('button', { name: 'Dismiss notification' }))
+      fireEvent.pointerLeave(region, { pointerType: 'mouse' })
+      const close = within(screen.getByTestId('import-notice')).getByRole('button', { name: 'Dismiss notification' })
+      act(() => { close.focus() })
       act(() => { vi.advanceTimersByTime(20000) })
       expect(onDismiss).not.toHaveBeenCalled()
-      fireEvent.blur(screen.getByRole('button', { name: 'Dismiss notification' }))
+      act(() => { close.blur() })
       act(() => { vi.advanceTimersByTime(8000) })
       expect(onDismiss).toHaveBeenCalledTimes(1)
     } finally {
@@ -569,11 +577,12 @@ describe('ImportSkippedToast (#119)', () => {
     }
   })
 
-  it('renders nothing when nothing was skipped', () => {
-    const { container } = render(
+  it('raises nothing when nothing was skipped', () => {
+    renderNotice(
       <ImportSkippedToast summary={{ ...summary, skipped: { ...summary.skipped, label_refs: 0 } }} onDismiss={vi.fn()} />,
     )
-    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByTestId('import-notice')).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull()
   })
 })
 
@@ -601,7 +610,7 @@ describe('CSV import warnings (#1526)', () => {
     vi.useFakeTimers()
     try {
       const onDismiss = vi.fn()
-      render(<ImportSkippedToast summary={warned} onDismiss={onDismiss} />)
+      renderNotice(<ImportSkippedToast summary={warned} onDismiss={onDismiss} />)
       act(() => { vi.advanceTimersByTime(0) })
       expect(screen.getByText('Board imported, with import warnings:')).toBeInTheDocument()
       const list = screen.getByLabelText('Import warnings')
@@ -622,7 +631,7 @@ describe('CSV import warnings (#1526)', () => {
   it('announces the headline and a count, never the list', () => {
     vi.useFakeTimers()
     try {
-      render(<ImportSkippedToast summary={warned} onDismiss={vi.fn()} />)
+      renderNotice(<ImportSkippedToast summary={warned} onDismiss={vi.fn()} />)
       const status = screen.getByRole('status')
       expect(status).toHaveTextContent('')
       act(() => { vi.advanceTimersByTime(0) })
@@ -636,7 +645,7 @@ describe('CSV import warnings (#1526)', () => {
   })
 
   it('shows warnings under the skipped message when both are present', () => {
-    render(
+    renderNotice(
       <ImportSkippedToast
         summary={{ ...warned, skipped: { ...warned.skipped, label_refs: 1 } }}
         onDismiss={vi.fn()}
@@ -648,7 +657,7 @@ describe('CSV import warnings (#1526)', () => {
   })
 
   it('looks unchanged when there are no warnings', () => {
-    render(<ImportSkippedToast summary={{ ...base, skipped: { ...base.skipped, label_refs: 1 }, warnings: [] }} onDismiss={vi.fn()} />)
+    renderNotice(<ImportSkippedToast summary={{ ...base, skipped: { ...base.skipped, label_refs: 1 }, warnings: [] }} onDismiss={vi.fn()} />)
     return screen.findAllByText('Board imported. Skipped: 1 card label.').then(() => {
       expect(screen.queryByRole('list')).toBeNull()
     })
@@ -658,7 +667,7 @@ describe('CSV import warnings (#1526)', () => {
 describe('countImportWarnings (#1526)', () => {
   it('counts a single warning as 1 and announces it in the singular', () => {
     expect(countImportWarnings(['Skipped column: empty.'])).toBe(1)
-    render(
+    renderNotice(
       <ImportSkippedToast
         summary={{
           options_applied: { labels: true, cards: true, comments: true, checklist: true, history: true },

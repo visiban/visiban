@@ -9,6 +9,7 @@ import { limitBlockedMessage } from "./moveBlockedMessages";
 import GridOverlayLayer from "./GridOverlay/GridOverlayLayer";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import { trippedLimitLabel, type TrippedLimit } from "../../utils/placementLimits";
+import type { CardMenuAnchor } from "../Card/CardContextMenu";
 
 interface Props {
   column: Column;
@@ -50,9 +51,13 @@ interface Props {
   getDropVerdict?: (cardId: number, column: Column, swimlane: Swimlane) => TrippedLimit[];
   /** Entry criteria a dragged card would meet in this column (#1101); empty for none. */
   getEntryCriteria?: (cardId: number, column: Column) => string[];
+  /** Opens the card context menu (#2059); passed through to every CardItem. */
+  onOpenCardMenu?: (card: Card, anchor: CardMenuAnchor) => void;
+  /** The card the context menu targets alone (outside the selection), for its transient outline. */
+  contextTargetCardId?: number | null;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria, onOpenCardMenu, contextTargetCardId }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -144,6 +149,9 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       // the new-card input doesn't open (and the native menu doesn't show) mid-drag.
       onContextMenu={(e) => {
         if (active != null) { e.preventDefault(); return; }
+        // A right-click on a card belongs to the card's context menu (#2059);
+        // only empty cell space keeps the add-card shortcut.
+        if ((e.target as Element).closest?.("[data-card-id]")) return;
         if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); }
       }}
       style={{ width: width ?? 220 }}
@@ -236,6 +244,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               dimmed={expandedCardId !== null && expandedCardId !== card.id}
               onExpandChange={handleExpandChange}
               onCardUpdated={canEdit ? onCardUpdated : undefined}
+              onOpenMenu={onOpenCardMenu}
+              contextTarget={contextTargetCardId === card.id}
             />
           ))}
         </div>

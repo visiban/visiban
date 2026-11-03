@@ -113,6 +113,11 @@ describe('constants/webhooks (#863, Part 8)', () => {
     expect(disabledReasonCopy({ disabled_reason: 'creator_lost_access', configured_by: owner }, 20)?.body).toMatch(/^Alex Reed is no longer/)
     expect(disabledReasonCopy({ disabled_reason: 'creator_lost_access', configured_by: null }, 20)?.action).toBe('Take over and turn on…')
     expect(disabledReasonCopy({ disabled_reason: 'cursor_expired', configured_by: owner }, 20)?.action).toBe('Turn on from now')
+    // Definite since the expiry check reads the prune record (#2058), not a scan-gap estimate.
+    const expired = disabledReasonCopy({ disabled_reason: 'cursor_expired', configured_by: owner }, 20)?.body
+    expect(expired).toMatch(/^This board's history cleanup removed events it had not sent yet/)
+    expect(expired).toMatch(/were not delivered and won't be/)
+    expect(expired).not.toMatch(/can't confirm|may have/)
     expect(disabledReasonCopy({ disabled_reason: 'secret_unavailable', configured_by: owner }, 20)?.action).toBe('')
     expect(disabledReasonCopy({ disabled_reason: 'manual', configured_by: owner }, 20)).toBeNull()
     expect(reenableConfirmCopy({ disabled_reason: 'failures' })).toMatch(/resumes to this address/)

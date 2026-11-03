@@ -20,13 +20,15 @@ Open a card and click **Block…** in its header. Say what it is waiting on, the
 2. Enter a **Reason**. It is required, up to 500 characters. Pick wording your team will reuse: reasons that differ only in capitals or spacing are counted as one in Analytics.
 3. Click **Block card**. **Cancel** or Escape closes the form without blocking, and returns you to **Block…**.
 
+You can also start from the board: right-click the card (or focus it and press <kbd>Menu</kbd> / <kbd>Shift+F10</kbd>) and choose **Block card…** from its [actions menu](board.md#card-actions-menu), or press <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> and run **Block card…** from the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette). Either way the card opens with the form ready and the cursor in **Reason**. **Unblock card** works the same way for a blocked card.
+
 While the card is blocked, a red banner at the top of *Details* shows:
 
 - **Blocked for 3d 5h**, and the reason
 - who blocked it and when
 - **Total blocked time** across every block the card has had, for example *5d 10h across 2 blocks*
 
-To unblock, click **Unblock** in the banner. Optionally note how it was resolved under **Resolution**, then click **Unblock card**. A card that was blocked before, and is not now, shows its total blocked time in a single line instead of the banner.
+To unblock, click **Unblock** in the banner. Optionally note how it was resolved under **Resolution**, then click **Unblock card**. A notice at the bottom of the screen confirms it for a few seconds, for example *Unblocked "Payment flow" after 3d 5h* (see [Notifications](board.md#notifications)). A card that was blocked before, and is not now, shows its total blocked time in a single line instead of the banner.
 
 Both events appear in the card's *Activity* tab ("Blocked: Waiting on customer", "Unblocked: Customer signed off"), and that history cannot be edited.
 
