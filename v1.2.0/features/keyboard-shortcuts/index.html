@@ -1537,6 +1537,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#card-actions-in-the-command-palette" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card actions in the command palette
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#help" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4270,6 +4281,7 @@
 <ul>
 <li><strong>Command palette:</strong> the single cross-route entry point. Type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the surface: it searches cards on a board, jumps to a board on the Dashboard, and lists navigation targets on Settings / Admin.</li>
 <li><strong>Empty query:</strong> the default list starts with your starred boards (alphabetical), then your most recent visits, so a blank <code>⌘K</code> → <code>Enter</code> jumps into the workspace you care about most.</li>
+<li><strong>Card actions:</strong> on a board, the palette also lists commands for a card; see <a href="#card-actions-in-the-command-palette">Card actions in the command palette</a>.</li>
 <li><strong><code>G</code> then <code>U</code></strong> is a chord, not a combo: press and release <code>G</code>, then press <code>U</code> within one second, to open the <a href="../navigation/">user menu</a> from anywhere in the authenticated app.</li>
 </ul>
 <h2 id="board-view-switch-the-active-sub-tab">Board view: switch the active sub-tab<a class="headerlink" href="#board-view-switch-the-active-sub-tab" title="Permanent link">&para;</a></h2>
@@ -4370,6 +4382,10 @@
 <td>Open the overflow menu</td>
 </tr>
 <tr>
+<td><kbd>Menu</kbd> / <kbd>Shift+F10</kbd></td>
+<td>Open the focused card's <a href="../board/#card-actions-menu">actions menu</a></td>
+</tr>
+<tr>
 <td><kbd>Space + drag</kbd></td>
 <td>Pan the board with the mouse</td>
 </tr>
@@ -4383,6 +4399,41 @@
 <li><strong><code>E</code></strong> mirrors the toolbar's split-button primary action: if anything is expanded, it collapses everything; otherwise it expands everything. The split button's menu still offers granular "Hide all swimlanes / columns" options.</li>
 <li><strong><code>F</code> and <code>⌘⇧L</code> / <code>Ctrl+Shift+L</code></strong> also work on the <a href="../issue-board-lens/">Issue Board Lens</a> tab, since the lens shares the board's toolbar and its filter-row and card-layout shortcuts.</li>
 </ul>
+<h2 id="card-actions-in-the-command-palette">Card actions in the command palette<a class="headerlink" href="#card-actions-in-the-command-palette" title="Permanent link">&para;</a></h2>
+<p><a id="card-actions-in-the-command-palette"></a></p>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>On a board, the command palette lists commands for a card: <strong>Block card…</strong> (or <strong>Unblock card</strong>), <strong>Move card to…</strong>, <strong>Assign card to…</strong>, <strong>Set priority…</strong>, <strong>Copy link to card</strong> and <strong>Archive card</strong>. It never offers Delete, so a typed command can't delete a card one keystroke from Enter; delete from the card's <a href="../board/#card-actions-menu">actions menu</a> or the card detail panel.</p>
+<p>The palette acts on the first of these that applies, and names it at the top ("Acting on Fix payout rounding"):</p>
+<ol>
+<li>the card whose detail panel is open,</li>
+<li>the card that had keyboard focus,</li>
+<li>the selected cards.</li>
+</ol>
+<p>Hovering a card never makes it the target. With none of these, typing a card command shows how to get one. To act on any other card, search for it and press <kbd>→</kbd> on the result.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>In the palette</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><kbd>→</kbd></td>
+<td>On a card result: show that card's commands</td>
+</tr>
+<tr>
+<td><kbd>←</kbd> or <kbd>Backspace</kbd> (empty search)</td>
+<td>Go back one level</td>
+</tr>
+<tr>
+<td><kbd>Esc</kbd></td>
+<td>Go back one level; close the palette from the top level</td>
+</tr>
+</tbody>
+</table>
+<p>Commands ending in <strong>…</strong> open a second list (columns, people, priorities). <strong>Block card…</strong> closes the palette and opens the card with the block reason ready to type. A command your role can't use is listed, dimmed with the reason, only when you type its name.</p>
+<p>No new single-letter shortcut was added for card actions: block a card with <kbd>Menu</kbd> → <strong>Block card…</strong>, or <kbd>⌘K</kbd>, type "bl", <kbd>Enter</kbd>.</p>
 <h2 id="help">Help<a class="headerlink" href="#help" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

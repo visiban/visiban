@@ -1284,6 +1284,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#card-actions-menu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card actions menu
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keyboard-shortcuts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4885,7 +4896,7 @@
 <ul>
 <li>Click anywhere in the cell, or press <strong>Tab</strong> to focus it then <strong>Enter</strong>/<strong>Space</strong>, to open the inline new-card input.</li>
 <li>The dashed border disappears the moment a card lives in the cell; populated cells keep the <strong>+ Add card</strong> button anchored at the bottom for additional cards.</li>
-<li>Double-click and right-click on a cell still work for power users.</li>
+<li>Double-click and right-click on a cell still work for power users. Since 1.3 a right-click <strong>on a card</strong> opens that card's <a href="#card-actions-menu">actions menu</a> instead; right-click the empty space in the cell to add a card.</li>
 </ul>
 <p>Card creation requires the column's <em>Allow card creation</em> setting and at least the Member role.</p>
 <h2 id="swimlanes">Swimlanes<a class="headerlink" href="#swimlanes" title="Permanent link">&para;</a></h2>
@@ -5206,7 +5217,7 @@
 <p><strong>Changed in 1.2</strong></p>
 </blockquote>
 <p>On a tablet or phone, <strong>press and hold</strong> a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.</p>
-<p>To move a card without dragging, open it and tap <strong>Move</strong> next to the column name at the top of the panel. On touch screens this button is larger and shows its label.</p>
+<p>To move a card without dragging, open it and tap <strong>Move</strong> next to the column name at the top of the panel. On touch screens this button is larger and shows its label. Or tap the <strong>⋯ More actions</strong> button on a selected card, or on the card you just closed, and choose <strong>Move to…</strong> from its <a href="#card-actions-menu">actions menu</a>.</p>
 <p>A Bluetooth mouse paired with a tablet drags exactly as on a desktop.</p>
 <h3 id="board-panning">Board panning<a class="headerlink" href="#board-panning" title="Permanent link">&para;</a></h3>
 <p>Hold <strong>Space</strong> and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode.</p>
@@ -5258,7 +5269,76 @@
 <li><strong>Screen readers</strong> hear each notice once, politely, except refused moves and failures, which are announced right away. A notice raised from inside the card detail panel (for example after <strong>Unblock card</strong>) is announced by the panel itself, so it is not read twice.</li>
 </ul>
 <h2 id="right-click-to-add">Right-click to add<a class="headerlink" href="#right-click-to-add" title="Permanent link">&para;</a></h2>
-<p>Right-click any board cell to open an inline card creation input directly in that column + swimlane.</p>
+<p>Right-click the empty space in any board cell to open an inline card creation input directly in that column + swimlane. A right-click on a card opens the card's actions menu instead (see below).</p>
+<h2 id="card-actions-menu">Card actions menu<a class="headerlink" href="#card-actions-menu" title="Permanent link">&para;</a></h2>
+<p><a id="card-actions-menu"></a></p>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>Right-click a card to act on it without opening it: move it, assign it, set its priority, block it, archive it, and more.</p>
+<p><strong>How to open it:</strong></p>
+<ul>
+<li><strong>Mouse:</strong> right-click a card.</li>
+<li><strong>Keyboard:</strong> focus a card and press the <kbd>Menu</kbd> key or <kbd>Shift+F10</kbd>.</li>
+<li><strong>Touch screen:</strong> tap the <strong>⋯ More actions</strong> button. It shows on a selected card, and on the card that has focus, for example the one whose detail panel you just closed. A long press still picks the card up to drag it.</li>
+</ul>
+<p><strong>Which cards it acts on:</strong> right-click a card that is part of your current selection and the menu acts on every selected card. Right-click any other card and it acts on that one card only, without changing your selection; that card is outlined while the menu is open.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>One card</th>
+<th>Several cards</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Open card</strong></td>
+<td>Opens the card detail panel</td>
+<td>Select one card</td>
+</tr>
+<tr>
+<td><strong>Copy link to card</strong></td>
+<td>Copies a link that opens this card</td>
+<td>Select one card</td>
+</tr>
+<tr>
+<td><strong>Move to… ▸</strong></td>
+<td>Moves to a column (the card keeps its swimlane)</td>
+<td>Same, for each card</td>
+</tr>
+<tr>
+<td><strong>Assign to… ▸</strong></td>
+<td>Sets or clears the assignee</td>
+<td>Same, for each card</td>
+</tr>
+<tr>
+<td><strong>Set priority ▸</strong></td>
+<td>Sets the priority</td>
+<td>Same, for each card</td>
+</tr>
+<tr>
+<td><strong>Block card…</strong> / <strong>Unblock card</strong></td>
+<td>Opens the card with the <a href="../blocked-cards/">block form</a> ready</td>
+<td>Select one card</td>
+</tr>
+<tr>
+<td><strong>Archive card</strong></td>
+<td>Archives the card</td>
+<td>Same, for each card</td>
+</tr>
+<tr>
+<td><strong>Delete card…</strong></td>
+<td>Asks first, then deletes</td>
+<td>Same, for each card</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Items you cannot use stay in the menu, dimmed, with the reason underneath (for example <em>Viewers can't block cards</em>, <em>Select one card</em>, or the maintenance or shared-demo notice), so you know why. On the shared demo, <strong>Block card…</strong>, <strong>Archive card</strong> and <strong>Delete card…</strong> are dimmed with the demo notice; the card detail panel does not offer them there at all.</li>
+<li>Copy link and Delete confirm what they did in a short notice under the toolbar, because nothing else on the board shows it.</li>
+<li>Use <kbd>↑</kbd> / <kbd>↓</kbd> to move, <kbd>→</kbd> to open a submenu, <kbd>←</kbd> to close it, and a letter to jump to the item that starts with it. <kbd>Esc</kbd> closes a submenu, then the menu, and returns you to the card.</li>
+<li>The menu is not offered while a card detail panel is open; use the <a href="../keyboard-shortcuts/#card-actions-in-the-command-palette">command palette</a> to act on the open card.</li>
+<li>When some cards in a multi-card action fail, a notice under the toolbar says how many failed and why, and the selection stays so you can retry, as in <a href="#bulk-card-operations">bulk card operations</a>.</li>
+</ul>
 <h2 id="keyboard-shortcuts">Keyboard shortcuts<a class="headerlink" href="#keyboard-shortcuts" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -5311,6 +5391,10 @@
 <tr>
 <td><code>⌘K</code> / <code>Ctrl+K</code></td>
 <td>Open the command palette</td>
+</tr>
+<tr>
+<td><code>Menu</code> / <code>Shift+F10</code></td>
+<td>Open the focused card's <a href="#card-actions-menu">actions menu</a></td>
 </tr>
 <tr>
 <td><code>⌘\</code> / <code>Ctrl+\</code></td>
