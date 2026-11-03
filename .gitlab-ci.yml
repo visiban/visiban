@@ -2995,8 +2995,10 @@ rbac-coverage:
         - backend/boards/permissions.py
         - backend/groups/views.py
         - backend/git_lens/views.py
+        - backend/webhooks/views.py
         - scripts/check-rbac-coverage.py
         - scripts/_paths.py
+        - scripts/tests/check-rbac-coverage.test.sh
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *rbac-coverage-paths
   script:
@@ -3006,6 +3008,10 @@ rbac-coverage:
     # file sinks; its self-test covers `..` traversal and symlink escape.
     - python scripts/_paths.py --self-test
     - python scripts/check-rbac-coverage.py --self-test
+    # Exit codes, CLI surface and detectors against the real view tree (#2069).
+    # --self-test uses a synthetic tree, so only this notices when a real view's
+    # shape drifts away from what the detectors expect.
+    - bash scripts/tests/check-rbac-coverage.test.sh
     # Exit 3 is "unhandled pattern — hand it to the rbac-check agent". It is a
     # failure, deliberately: a view whose authorization this script cannot read
     # must not be reported as one it checked and approved.

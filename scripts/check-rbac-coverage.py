@@ -13,8 +13,8 @@ prompt (``.claude/agents/rbac-check.md``) asks six questions; three of them are
      (``get_board_for_user`` / ``get_board_role`` / ``_require_group_*`` / …),
      not an ad-hoc ``BoardMembership`` lookup that would skip group inheritance.
   3. **Minimum-role check per write action** — every write handler applies a
-     role gate: a comparison against a role constant, a ``_require_*`` helper,
-     or an explicit ``role=`` hand-off to the service layer that owns the gate.
+     role gate: a comparison against a role constant, a helper named in
+     ``GATE_CALL_NAMES``, or an explicit ``role=`` hand-off to the service layer that owns the gate.
 
 The other three (cross-board isolation beyond the mechanical lookup-scoping
 case, group-inheritance correctness, and "is this the *right* minimum role for
@@ -144,12 +144,27 @@ RAW_MEMBERSHIP_LOOKUPS = (
     "GroupMembership.objects",
 )
 
-# A call whose name matches one of these is a role gate: it either raises or
+# A call with one of these exact names is a role gate: it either raises or
 # returns a denial on an insufficient role.
-GATE_CALL_PREFIXES = ("_require_", "require_")
+#
+# Exact names, never a ``require_`` prefix (#2069). The prefix also matched
+# ``require_json_object`` (body shape), ``require_present_or_404`` (row still
+# there), ``_require_live_*`` (referents still there) and ``_require_session`` /
+# ``_require_enabled`` (not about the caller's board role at all), so a handler
+# that lost its real gate kept passing, exit 0, on any of them.
+#
+# A helper left off this list fails closed. A same-module one is walked, so its
+# real comparison still counts. An imported one that is handed a subject defers
+# to the agent. Add a name here only once the helper is confirmed to deny on an
+# insufficient role.
 GATE_CALL_NAMES = frozenset({
     "can_modify_others_content",
     "_can_modify_others_content",
+    "_require_admin",
+    "_require_board_admin",
+    "_require_group_admin",
+    "_require_group_member",
+    "require_mutation_role",
 })
 
 # Names that, appearing in a comparison, make that comparison a role gate.
@@ -178,6 +193,8 @@ SUBJECT_ROLE_MARKERS = ("role", "owner")
 
 # Handing a resolved role to a callee delegates the gate to it (the services
 # layer owns the ladder for cards — see backend/boards/services/cards.py).
+# ``X.objects.create(role=...)`` is not a hand-off: it writes or filters on a
+# membership row's role and decides nothing about the caller (#2069).
 ROLE_DELEGATION_KWARG = "role"
 
 # How deep the gate search follows same-class methods and same-module functions.
@@ -206,8 +223,23 @@ NOT_A_GATE_SUBSTRINGS = (
     ".objects.",  # an ORM manager call is data access, never authorization
 )
 
-# Builtins that can take a user/board argument without being authorization.
-NOT_A_GATE_NAMES = frozenset({"getattr", "hasattr", "setattr", "isinstance", "len", "list", "set", "dict", "str", "int", "bool", "sorted", "any", "all", "print", "super"})
+# Calls that can take a user/board argument without being authorization: builtins,
+# framework furniture, request parsing, and the row-lock helpers. A lock is handed a
+# board and decides nothing about who is asking; when #1602 added them to these
+# handlers, a handler with no role gate started deferring instead of failing (#2069).
+# Exact names, so a new helper defers until someone has read it.
+NOT_A_GATE_NAMES = frozenset({
+    "getattr", "hasattr", "setattr", "isinstance", "len", "list", "set", "dict", "str", "int", "bool", "sorted", "any", "all", "print", "super",
+    "Response", "Q", "ErrorDetail", "get_object_or_404", "get_list_or_404", "on_commit",
+    "require_json_object", "require_present_or_404", "optional_text", "query_text",
+    "lock_board_row_or_404",
+    "lock_board_and_row_or_404",
+    "lock_container_cascade",
+    "lock_group_row",
+    "lock_group_for_board_placement",
+    "lock_group_for_child_write",
+    "lock_membership_for_removal_or_demotion",
+})
 
 # Names an argument must mention for its call to be a possible authorization
 # check. Matched as a substring of the argument's dotted source text.
@@ -263,6 +295,18 @@ VIEWER_PERMITTED_WRITES: dict[str, str] = {
 # Each entry records that the rbac-check AGENT reviewed it and what it found —
 # this is the hand-off the exit-3 path exists to force, written down.
 AGENT_REVIEWED: dict[str, str] = {
+    "backend/boards/views/boards.py::BoardViewSet::create": (
+        "Board creation. There is no board yet, so there is no board role to "
+        "check: any authenticated user may create a personal board and becomes "
+        "its admin. The one write that crosses into existing shared state is "
+        "placing the new board in a group, which BoardSerializer.validate_group "
+        "gates on _require_group_admin (#1655). Passed until #2069 only because "
+        "the creator's BoardMembership.objects.create(role=...) read as a role "
+        "hand-off. Reviewed by hand for #2069. test_board_group_field_validation.py: "
+        "test_create_with_group_rejected_for_non_member, "
+        "test_create_with_group_rejected_for_group_viewer, "
+        "test_create_with_group_rejected_for_group_member."
+    ),
     "backend/groups/views.py::JoinGroupView": (
         "Invite-link join. Authorization is the capability token itself, "
         "resolved from the URL rather than from a group role, so there is no "
@@ -546,7 +590,7 @@ class GateEvidence:
     """What a transitive walk of one handler found."""
 
     resolver: bool = False       # reached a shared role resolver
-    role_gate: bool = False      # reached a role comparison / _require_ / role= hand-off
+    role_gate: bool = False      # reached a role comparison / GATE_CALL_NAMES / role= hand-off
     raw_membership: bool = False # reached a raw BoardMembership/GroupMembership lookup
     unresolved: list[str] = field(default_factory=list)  # calls it could not follow
 
@@ -614,10 +658,12 @@ def _scan_gates(
         if tail in ROLE_RESOLVERS:
             ev.resolver = True
             recognized = True
-        if tail in GATE_CALL_NAMES or any(tail.startswith(p) for p in GATE_CALL_PREFIXES):
+        if tail in GATE_CALL_NAMES:
             ev.role_gate = True
             recognized = True
-        if any(kw.arg == ROLE_DELEGATION_KWARG for kw in call.keywords):
+        if ".objects." not in dotted and any(
+            kw.arg == ROLE_DELEGATION_KWARG for kw in call.keywords
+        ):
             ev.role_gate = True
             recognized = True
         # Follow into same-class methods and same-module functions. Done even
@@ -1224,6 +1270,87 @@ def self_test() -> int:
             ),
             None,
             "outside this module",
+            {},
+        ),
+        (
+            # #2069: lock_board_and_row_or_404 is handed a board and is not
+            # authorization. This case failing means a missing gate reads as a
+            # DEFER, which invites an AGENT_REVIEWED entry instead of a fix.
+            "row-lock helper does not hide a missing role gate behind a defer",
+            _mutate(
+                "backend/boards/views/cards.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        lock_board_and_row_or_404(board, Card, instance.pk)\n"
+                "        instance.delete()",
+            ),
+            "no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # #2069: the `require_` prefix used to make this pass, exit 0.
+            "require_json_object is not a role gate",
+            _mutate(
+                "backend/boards/views/cards.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        require_json_object(self.request)\n"
+                "        instance.delete()",
+            ),
+            "no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # #2069: same-module and role-free, so nothing can be hiding in it.
+            "a same-module _require_ helper with no role check is not a role gate",
+            {"backend/boards/views/cards.py": _FIXTURE_HELPERS.replace(
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        self._require_session()\n"
+                "        instance.delete()",
+                1,
+            ).replace(
+                "    def perform_create(self, serializer):\n",
+                "    def _require_session(self):\n"
+                "        raise NotImplementedError\n\n"
+                "    def perform_create(self, serializer):\n",
+                1,
+            )},
+            "no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # #2069: fail closed. A helper off the GATE_CALL_NAMES list that
+            # might hold the gate goes to the agent; it is not trusted on its name.
+            "an unlisted imported _require_ helper defers instead of passing",
+            _mutate(
+                "backend/groups/views.py",
+                "        _require_group_admin(request.user, group)\n",
+                "        _require_group_owner(request.user, group)\n",
+            ),
+            None,
+            "outside this module",
+            {},
+        ),
+        (
+            # #2069: an ORM role= kwarg writes a row; it hands off no gate.
+            "role= on an ORM call is not a role hand-off",
+            _mutate(
+                "backend/boards/views/cards.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        BoardMembership.objects.create(board=board, role=role)\n"
+                "        instance.delete()",
+            ),
+            "no minimum-role check",
+            None,
             {},
         ),
         (

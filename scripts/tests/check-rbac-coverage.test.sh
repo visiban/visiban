@@ -18,6 +18,7 @@
 #      either, which is the distinction this file exists to pin down
 #
 # Run: bash scripts/tests/check-rbac-coverage.test.sh
+# CI runs this in the rbac-coverage job (#2069), so a red case fails the pipeline.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -113,6 +114,31 @@ check "a write action with no role gate is a finding (exit 1)" \
 check "the finding names the handler" \
   "$(echo "$OUT" | grep -q "LabelViewSet::destroy" && echo 0 || echo 1)"
 check "the finding names the missing check" \
+  "$(echo "$OUT" | grep -q "no minimum-role check" && echo 0 || echo 1)"
+
+# --- a non-role require_* helper is not a gate (#2069) ---------------------
+# Strip the role gate from ColumnViewSet.reorder and leave its body parse alone.
+# require_json_object is not authorization, but the old `require_` name match
+# counted it as a role gate, so this write passed with exit 0.
+copy_tree "$TMP/nonrole"
+"$PY" - "$TMP/nonrole/backend/boards/views/columns.py" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+text = p.read_text()
+gate = "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n            raise PermissionDenied\n"
+parse = '        order = require_json_object(request).get("order", [])'
+at = text.find(parse)
+assert at != -1, "fixture drift: ColumnViewSet.reorder no longer parses with require_json_object"
+start = text.rfind(gate, 0, at)
+assert start != -1, "fixture drift: columns.py reorder gate shape changed"
+p.write_text(text[:start] + text[start + len(gate):])
+PY
+run_gate --root "$TMP/nonrole"
+check "a write whose only require_* call is a body parse is a finding (exit 1)" \
+  "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+check "that finding names the handler" \
+  "$(echo "$OUT" | grep -q "ColumnViewSet::@action reorder" && echo 0 || echo 1)"
+check "that finding names the missing check" \
   "$(echo "$OUT" | grep -q "no minimum-role check" && echo 0 || echo 1)"
 
 # --- defers exit 3, distinct from both 0 and 1 ---------------------------
