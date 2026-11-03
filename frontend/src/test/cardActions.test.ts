@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
 import {
-  DEMO_BLOCK_REASON, MAINTENANCE_REASON, OWNER_ONLY_REASON, PALETTE_COMMAND_LABELS, SELECT_ONE_REASON,
+  DEMO_BLOCK_REASON, MAINTENANCE_REASON, MOVE_ASSIGNED_REASON, OWNER_ONLY_REASON, PALETTE_COMMAND_LABELS, SELECT_ONE_REASON,
   archiveCards, assignCards, cardActionEntries, cardIdFromElement, cardLink, cardTargetSummary,
   contextMenuTargetIds, focusedCardFaceId, moveCardsToColumn, paletteCardActions, resolveCardTarget, setCardsPriority, successMessage,
   type CardActionContext,
@@ -113,6 +113,14 @@ describe('cardActionEntries', () => {
     expect(e.delete.reason).toBe(OWNER_ONLY_REASON)
     expect(e.block.reason).toBe(OWNER_ONLY_REASON)
     expect(e.assign.reason).toBe(OWNER_ONLY_REASON)
+    expect(e.priority.reason).toBe(OWNER_ONLY_REASON)
+    // Move: refused only for a card assigned to someone else that the user did not create.
+    expect(e.move.enabled).toBe(true)
+    const assignedElsewhere = makeCard({ created_by: { id: 9, username: 'z', display_name: 'Z', avatar_url: '' }, assignee: { id: 8, username: 'y', display_name: 'Y', avatar_url: '' } })
+    expect(byId([assignedElsewhere], member).move.reason).toBe(MOVE_ASSIGNED_REASON)
+    expect(byId([assignedElsewhere], { ...member, currentUserId: 8 }).move.enabled).toBe(true)
+    expect(byId([assignedElsewhere], { ...member, isModerator: true }).move.enabled).toBe(true)
+    expect(byId([assignedElsewhere, makeCard({ id: 2 })], member).move.enabled).toBe(true)
     // Unknown creator: leave enabled, the server decides.
     expect(byId([makeCard({ created_by: null })], member).archive.enabled).toBe(true)
     // …except Block / Unblock, which open the sheet's form and must match
@@ -186,6 +194,9 @@ describe('writes over a target set (§ Bulk operations wording)', () => {
     vi.mocked(updateCard).mockRejectedValueOnce(httpError(403)).mockRejectedValueOnce(httpError(404))
     expect((await setCardsPriority(1, [makeCard(), makeCard({ id: 2 })], 'high')).failureMessage)
       .toBe('2 of 2 cards could not be updated — for more than one reason.')
+    vi.mocked(updateCard).mockRejectedValueOnce(httpError(403))
+    expect((await setCardsPriority(1, [makeCard()], 'high')).failureMessage)
+      .toBe('1 of 1 card could not be updated — you can only edit cards you created.')
   })
 
   it('archive uses the creator-only 403 wording', async () => {

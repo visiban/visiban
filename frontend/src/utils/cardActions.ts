@@ -130,6 +130,7 @@ export const SELECT_ONE_REASON = "Select one card";
 export const MAINTENANCE_REASON = "Maintenance mode is active — changes can't be saved right now";
 export const OWNER_ONLY_REASON = "Only the card's creator or a board admin";
 export const DEMO_BLOCK_REASON = demoReason("cards can't be blocked here");
+export const MOVE_ASSIGNED_REASON = "Assigned to someone else: only its creator, its assignee or a board admin";
 
 const VERB: Record<CardActionId, string> = {
   open: "open", "copy-link": "copy links to", move: "move", assign: "assign",
@@ -182,9 +183,17 @@ export function cardActionEntries(cards: Card[], ctx: CardActionContext): CardAc
   return [
     entry("open", "Open card", single ? undefined : SELECT_ONE_REASON),
     entry("copy-link", "Copy link to card", single ? undefined : SELECT_ONE_REASON),
-    entry("move", "Move to…", writeGate("move")),
+    // The server refuses a move only for a card assigned to someone else that
+    // the user did not create (backend move_card); disabled only when every
+    // target card is known to be such a card.
+    entry("move", "Move to…", writeGate("move") ?? (canModifyOthersInDemo || cards.some((c) =>
+      ctx.currentUserId == null || c.assignee == null || c.created_by == null
+      || c.created_by.id === ctx.currentUserId || c.assignee.id === ctx.currentUserId,
+    ) ? undefined : MOVE_ASSIGNED_REASON)),
     entry("assign", "Assign to…", writeGate("assign") ?? (ownsAny(canModifyOthersInDemo) ? undefined : OWNER_ONLY_REASON)),
-    entry("priority", "Set priority", writeGate("priority")),
+    // Any PATCH takes the server's own-content gate ("You can only edit cards
+    // you created"), so Priority follows Assign's ownership rule.
+    entry("priority", "Set priority", writeGate("priority") ?? (ownsAny(canModifyOthersInDemo) ? undefined : OWNER_ONLY_REASON)),
     entry(blockId, blocked ? "Unblock card" : "Block card…", blockReason),
     // The demo's card sheet withholds Archive and Delete (#1914 frame 7); the
     // menu follows the sheet, which is the per-card surface it stands in for.
@@ -296,11 +305,11 @@ async function settleEach<T>(cards: Card[], run: (card: Card) => Promise<T>, ver
 }
 
 export function assignCards(boardId: number, cards: Card[], userId: number | null): Promise<CardActionResult<Card>> {
-  return settleEach(cards, (card) => updateCard(boardId, card.id, { assignee_id: userId }), userId === null ? "unassigned" : "assigned");
+  return settleEach(cards, (card) => updateCard(boardId, card.id, { assignee_id: userId }), userId === null ? "unassigned" : "assigned", "assigning needs a moderator or admin");
 }
 
 export function setCardsPriority(boardId: number, cards: Card[], priority: Priority): Promise<CardActionResult<Card>> {
-  return settleEach(cards, (card) => updateCard(boardId, card.id, { priority }), "updated");
+  return settleEach(cards, (card) => updateCard(boardId, card.id, { priority }), "updated", "you can only edit cards you created");
 }
 
 export function archiveCards(boardId: number, cards: Card[]): Promise<CardActionResult<number>> {
