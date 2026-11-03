@@ -45,6 +45,12 @@ interface OverflowMenuProps {
    * stays unchanged. Per-column kebabs pass "Column actions".
    */
   ariaLabel?: string;
+  /**
+   * Optional id of an element that explains the menu (for example why it is
+   * shorter than usual). Sets `aria-describedby` on the trigger only; omitted
+   * by default so other callers render no attribute (#2083).
+   */
+  triggerDescribedBy?: string;
 }
 
 /**
@@ -67,6 +73,7 @@ export default function OverflowMenu({
   externalOpen,
   onExternalOpenChange,
   ariaLabel = "More board actions",
+  triggerDescribedBy,
 }: OverflowMenuProps) {
   const isControlled = externalOpen !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -283,6 +290,7 @@ export default function OverflowMenu({
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={ariaLabel}
+        aria-describedby={triggerDescribedBy}
         title={ariaLabel}
         className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open

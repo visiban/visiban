@@ -668,6 +668,21 @@ describe('AdminPage — Users tab', () => {
     expect(screen.getByRole('menuitem', { name: 'Revoke all-content' })).toBeInTheDocument()
   })
 
+  it('shows the Superuser chip only on superuser rows and no describedby on others (#2083)', async () => {
+    const superuser: AdminUser = { ...fakeAdminUsers[1], is_superuser: true }
+    mockGetAdminUsers.mockResolvedValue({
+      count: 2, offset: 0, page_size: 50, results: [fakeAdminUsers[0], superuser],
+    })
+    await renderAdminPageSettled(superuserActor)
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getByText('@alice'))
+    const superRow = screen.getByText('@alice').closest('tr') as HTMLElement
+    const otherRow = screen.getByText(`@${fakeAdminUsers[0].username}`).closest('tr') as HTMLElement
+    expect(within(superRow).getByText('Superuser')).toBeInTheDocument()
+    expect(within(otherRow).queryByText('Superuser')).not.toBeInTheDocument()
+    expect(within(otherRow).getByRole('button', { name: /^More actions for/ })).not.toHaveAttribute('aria-describedby')
+  })
+
   it('still offers Grant all-content on a superuser row whose flag is off', async () => {
     const superuser: AdminUser = { ...fakeAdminUsers[1], is_superuser: true }
     mockGetAdminUsers.mockResolvedValue({
@@ -704,6 +719,15 @@ describe('AdminPage — Users tab', () => {
       await waitFor(() => screen.getByText('@alice'))
       return screen.getByText('@alice').closest('tr') as HTMLElement
     }
+
+    it('ties the explanation to the More actions trigger and badges the row (#2083)', async () => {
+      const row = await openUsersTab(adminUser, superuserRow())
+      const note = within(row).getByText(EXPLANATION)
+      expect(note.id).toBeTruthy()
+      const trigger = within(row).getByRole('button', { name: 'More actions for Alice' })
+      expect(trigger).toHaveAttribute('aria-describedby', note.id)
+      expect(within(row).getByText('Superuser')).toBeInTheDocument()
+    })
 
     it('leaves out every refused action and says why in text a screen reader reaches', async () => {
       const row = await openUsersTab(adminUser, superuserRow({ can_access_all_content: false }))

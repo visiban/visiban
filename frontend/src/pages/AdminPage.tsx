@@ -1297,6 +1297,11 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                                 Admin
                               </span>
                             )}
+                            {u.is_superuser && (
+                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">
+                                Superuser
+                              </span>
+                            )}
                             {u.can_access_all_content && (
                               <span className="px-1.5 py-0.5 text-xs rounded-full bg-accent-violet/20 text-accent-violet">
                                 All content
@@ -1380,13 +1385,19 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                             is a superuser row seen by a site admin once the
                             tour has nothing to restart (#1644). */}
                         {isSuperuserOnlyRow(u) && (
-                          <span className="text-xs text-fg-tertiary max-w-xs">
+                          <span
+                            id={`superuser-row-note-${u.id}`}
+                            className="text-xs text-fg-tertiary max-w-xs"
+                          >
                             Only a superuser can change this account's access or sign-in.
                           </span>
                         )}
                         <OverflowMenu
                           items={buildOverflowItems(u)}
                           ariaLabel={`More actions for ${u.display_name || u.username}`}
+                          triggerDescribedBy={
+                            isSuperuserOnlyRow(u) ? `superuser-row-note-${u.id}` : undefined
+                          }
                         />
                       </div>
                     </td>
