@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visiban-client"
+version = "0.1.0"
+description = "Experimental change-feed consumer client for Visiban (stdlib only)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Typing :: Typed",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+visiban_client = ["py.typed"]
+
+[tool.coverage.run]
+source = ["visiban_client"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

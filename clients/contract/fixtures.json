@@ -1,0 +1,1154 @@
+{
+  "_comment": "Shared contract fixtures for clients/python and clients/typescript. Both suites run every scenario; any divergence fails one of them. Test values only.",
+  "board_id": 7,
+  "scenarios": [
+    {
+      "name": "paging_two_pages",
+      "description": "Pages until next_cursor is null, in order, committing each id",
+      "options": {
+        "board_id": 7,
+        "limit": 2
+      },
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 1,
+                "event": "card.updated",
+                "data": {
+                  "id": 101,
+                  "title": "card 1"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              },
+              {
+                "id": 2,
+                "event": "card.updated",
+                "data": {
+                  "id": 102,
+                  "title": "card 2"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": 2,
+            "next": 2
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 3,
+                "event": "card.updated",
+                "data": {
+                  "id": 103,
+                  "title": "card 3"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "event",
+            1
+          ],
+          [
+            "event",
+            2
+          ],
+          [
+            "event",
+            3
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "2"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "2",
+              "limit": "2"
+            }
+          }
+        ],
+        "commits": [
+          1,
+          2,
+          3
+        ],
+        "sleeps_s": [],
+        "error": null
+      }
+    },
+    {
+      "name": "empty_page_with_next_cursor",
+      "description": "Never infer caught-up from page size: an empty page with next_cursor is followed",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_cursor": 5,
+            "next": 5
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 6,
+                "event": "card.updated",
+                "data": {
+                  "id": 106,
+                  "title": "card 6"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "event",
+            6
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "5",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [
+          6
+        ],
+        "sleeps_s": [],
+        "error": null
+      }
+    },
+    {
+      "name": "redacted_and_unknown_rows",
+      "description": "Redacted rows, unknown event types and unknown fields pass through verbatim",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 1,
+                "event": "card.updated",
+                "data": {
+                  "id": 101,
+                  "title": "card 1"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              },
+              {
+                "id": 2,
+                "event": "card.updated",
+                "data": {
+                  "id": 102,
+                  "title": null,
+                  "description": null
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": "2026-11-01T12:00:00Z"
+              },
+              {
+                "id": 3,
+                "event": "future.thing",
+                "data": {
+                  "anything": [
+                    1,
+                    2,
+                    3
+                  ]
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null,
+                "brand_new_field": {
+                  "x": 1
+                }
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "event",
+            1
+          ],
+          [
+            "event",
+            2
+          ],
+          [
+            "event",
+            3
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [
+          1,
+          2,
+          3
+        ],
+        "sleeps_s": [],
+        "error": null
+      }
+    },
+    {
+      "name": "resync_on_410",
+      "description": "410 with next_cursor: fetch /full/ by resync_url path, yield Resync, resume from next_cursor",
+      "options": {
+        "board_id": 7,
+        "cursor": 10
+      },
+      "responses": [
+        {
+          "status": 410,
+          "body": {
+            "detail": "cursor expired",
+            "code": "cursor_expired",
+            "resync_url": "http://internal-host:8000/api/v1/boards/7/full/",
+            "next_cursor": 50
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": 7,
+            "name": "Demo",
+            "columns": [],
+            "cards": []
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 51,
+                "event": "card.updated",
+                "data": {
+                  "id": 151,
+                  "title": "card 51"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "resync",
+            50
+          ],
+          [
+            "event",
+            51
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "10",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/full/",
+            "query": {}
+          },
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "50",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [
+          50,
+          51
+        ],
+        "sleeps_s": [],
+        "error": null,
+        "resync_snapshot": {
+          "id": 7,
+          "name": "Demo",
+          "columns": [],
+          "cards": []
+        }
+      }
+    },
+    {
+      "name": "resync_snapshot_gone",
+      "description": "A 410 on the /full/ snapshot fetch is a ProtocolError in both languages, not a leaked internal exception",
+      "options": {
+        "board_id": 7,
+        "cursor": 10
+      },
+      "responses": [
+        {
+          "status": 410,
+          "body": {
+            "detail": "cursor expired",
+            "code": "cursor_expired",
+            "resync_url": "http://internal-host:8000/api/v1/boards/7/full/",
+            "next_cursor": 50
+          }
+        },
+        {
+          "status": 410,
+          "body": {
+            "detail": "x",
+            "code": "cursor_expired"
+          }
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "10",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/full/",
+            "query": {}
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "ProtocolError"
+      }
+    },
+    {
+      "name": "resync_break_leaves_cursor_uncommitted",
+      "description": "Leaving the loop on a Resync does not commit its cursor (at-least-once applies to the resync too)",
+      "options": {
+        "board_id": 7,
+        "cursor": 10,
+        "break_after": 1
+      },
+      "responses": [
+        {
+          "status": 410,
+          "body": {
+            "detail": "cursor expired",
+            "code": "cursor_expired",
+            "resync_url": "http://internal-host:8000/api/v1/boards/7/full/",
+            "next_cursor": 50
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "id": 7,
+            "name": "Demo",
+            "columns": [],
+            "cards": []
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "resync",
+            50
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "10",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/full/",
+            "query": {}
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": null,
+        "resync_snapshot": {
+          "id": 7,
+          "name": "Demo",
+          "columns": [],
+          "cards": []
+        }
+      }
+    },
+    {
+      "name": "resync_unsupported_without_next_cursor",
+      "description": "A 1.2 server's 410 has no next_cursor: raise instead of guessing",
+      "options": {
+        "board_id": 7,
+        "cursor": 10
+      },
+      "responses": [
+        {
+          "status": 410,
+          "body": {
+            "detail": "cursor expired",
+            "code": "cursor_expired",
+            "resync_url": "http://internal-host:8000/api/v1/boards/7/full/"
+          }
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "10",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "ResyncUnsupported"
+      }
+    },
+    {
+      "name": "retry_5xx_then_429_then_ok",
+      "description": "Backoff on 5xx (base 0.5s) and 429 (Retry-After wins)",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 503,
+          "body": null
+        },
+        {
+          "status": 429,
+          "headers": {
+            "Retry-After": "2"
+          },
+          "body": {
+            "detail": "throttled"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 1,
+                "event": "card.updated",
+                "data": {
+                  "id": 101,
+                  "title": "card 1"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "event",
+            1
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [
+          1
+        ],
+        "sleeps_s": [
+          0.5,
+          2
+        ],
+        "error": null
+      }
+    },
+    {
+      "name": "retries_exhausted",
+      "description": "Persistent 5xx raises RetriesExhausted after max_retries",
+      "options": {
+        "board_id": 7,
+        "max_retries": 1
+      },
+      "responses": [
+        {
+          "status": 500,
+          "body": null
+        },
+        {
+          "status": 500,
+          "body": null
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [
+          0.5
+        ],
+        "error": "RetriesExhausted"
+      }
+    },
+    {
+      "name": "error_400",
+      "description": "400 is a BadRequestError, not retried",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 400,
+          "body": {
+            "detail": "limit must be between 1 and 500.",
+            "code": "invalid_query_param"
+          }
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "BadRequestError"
+      }
+    },
+    {
+      "name": "error_401",
+      "description": "401 is an AuthenticationError, not retried",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 401,
+          "body": {
+            "detail": "Invalid token."
+          }
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "AuthenticationError"
+      }
+    },
+    {
+      "name": "error_403",
+      "description": "403 is an AuthenticationError, not retried",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 403,
+          "body": {
+            "detail": "scope"
+          }
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "AuthenticationError"
+      }
+    },
+    {
+      "name": "error_404",
+      "description": "404 is a NotFoundError, not retried",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 404,
+          "body": null
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "NotFoundError"
+      }
+    },
+    {
+      "name": "poll_interval",
+      "description": "With poll_interval the client sleeps between caught-up polls",
+      "options": {
+        "board_id": 7,
+        "poll_interval_s": 5,
+        "stop_after_sleeps": 2
+      },
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 1,
+                "event": "card.updated",
+                "data": {
+                  "id": 101,
+                  "title": "card 1"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "event",
+            1
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          },
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "1",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [
+          1
+        ],
+        "sleeps_s": [
+          5,
+          5
+        ],
+        "error": null
+      }
+    },
+    {
+      "name": "break_leaves_item_uncommitted",
+      "description": "Leaving the loop on an item does not commit it (at-least-once)",
+      "options": {
+        "board_id": 7,
+        "break_after": 2
+      },
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 1,
+                "event": "card.updated",
+                "data": {
+                  "id": 101,
+                  "title": "card 1"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              },
+              {
+                "id": 2,
+                "event": "card.updated",
+                "data": {
+                  "id": 102,
+                  "title": "card 2"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              },
+              {
+                "id": 3,
+                "event": "card.updated",
+                "data": {
+                  "id": 103,
+                  "title": "card 3"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "event",
+            1
+          ],
+          [
+            "event",
+            2
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [
+          1
+        ],
+        "sleeps_s": [],
+        "error": null
+      }
+    },
+    {
+      "name": "cursor_from_store",
+      "description": "With no explicit cursor the store's value is used",
+      "options": {
+        "board_id": 7,
+        "store_initial": 4
+      },
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 5,
+                "event": "card.updated",
+                "data": {
+                  "id": 105,
+                  "title": "card 5"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": null,
+            "next": null
+          }
+        }
+      ],
+      "expected": {
+        "items": [
+          [
+            "event",
+            5
+          ]
+        ],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "4",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [
+          5
+        ],
+        "sleeps_s": [],
+        "error": null
+      }
+    },
+    {
+      "name": "next_cursor_must_advance",
+      "description": "A next_cursor that does not move forward is a ProtocolError, not an endless loop",
+      "options": {
+        "board_id": 7
+      },
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": 1,
+                "event": "card.updated",
+                "data": {
+                  "id": 101,
+                  "title": "card 1"
+                },
+                "actor_id": 7,
+                "actor": null,
+                "created_at": "2026-11-01T10:00:00Z",
+                "redacted_at": null
+              }
+            ],
+            "next_cursor": 0,
+            "next": 0
+          }
+        }
+      ],
+      "expected": {
+        "items": [],
+        "requests": [
+          {
+            "path": "/api/v1/boards/7/events/",
+            "query": {
+              "after": "0",
+              "limit": "100"
+            }
+          }
+        ],
+        "commits": [],
+        "sleeps_s": [],
+        "error": "ProtocolError"
+      }
+    }
+  ],
+  "signature": {
+    "secret": "whsec_test",
+    "timestamp": "1700000000",
+    "body": "{\"a\":1}",
+    "signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789",
+    "tolerance_s": 300,
+    "cases": [
+      {
+        "name": "valid",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "valid_lowercase_headers",
+        "secret": "whsec_test",
+        "headers": {
+          "x-visiban-timestamp": "1700000000",
+          "x-visiban-signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "tolerance_edge_past",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000300,
+        "expected": true
+      },
+      {
+        "name": "tolerance_edge_future",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1699999700,
+        "expected": true
+      },
+      {
+        "name": "stale",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000301,
+        "expected": false
+      },
+      {
+        "name": "future",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1699999699,
+        "expected": false
+      },
+      {
+        "name": "tampered_body",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":2}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "wrong_secret",
+        "secret": "whsec_other",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "bad_signature",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "wrong_scheme",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "non_digit_timestamp",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "17000x0000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "negative_timestamp",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "-1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "missing_timestamp",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "missing_signature",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      }
+    ]
+  }
+}

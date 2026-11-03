@@ -1,0 +1,32 @@
+{
+  "name": "@visiban/client",
+  "version": "0.1.0",
+  "description": "Experimental change-feed consumer client for Visiban. Zero runtime dependencies.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20.3" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./webhooks": { "types": "./dist/webhooks.d.ts", "import": "./dist/webhooks.js" }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^4.1.12",
+    "eslint": "^9.39.1",
+    "eslint-plugin-security": "^4.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vitest": "^4.1.12"
+  }
+}

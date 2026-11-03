@@ -269,6 +269,8 @@ Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. T
 Test vector: secret `whsec_test`, timestamp `1700000000`, body `{"a":1}` gives
 `v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789`.
 
+The [Python and TypeScript clients](events.md#using-the-client) ship this check as `verify_signature` / `verifySignature` (experimental, and tested against the vector above), so a consumer that both polls and receives pushes can use one package.
+
 ## Stability
 
 These endpoints are new in 1.3. The endpoints, the subscription object, the delivery headers, the body shape and the signature scheme may change in a 1.3 pre-release, and become part of the 1.x contract at 1.3.0 GA ([#2070](https://gitlab.com/visiban/visiban/-/issues/2070)). The delivery body is a change-feed row, so it follows the [change feed's stability rules](events.md#stability-and-versioning).

@@ -10,8 +10,9 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 | `gitleaks-history` | Pinned gitleaks binary, `.gitleaks.toml` | Yes, any finding, but it runs **after merge on `main`**, so it is a post-merge tripwire, not a merge gate | `main` only | **Full history reachable from the pipeline commit** (`--log-opts="$CI_COMMIT_SHA"`); other refs in a reused runner clone are ignored |
 | `secret_detection` + `secret-detection-gate` | GitLab `secret-detection` component (pinned) | Yes, any unsuppressed finding (#1537). The component job itself only reports; the gate reads its report | MR + `main` | MR diff (shallow clone) |
 | `semgrep-sast` + `sast-severity-gate` | GitLab `sast` component (pinned) | Yes at **High/Critical** only | MR + `main` | Python and TypeScript/JavaScript |
-| `backend-sast` | bandit | Yes, medium+ | MR + `main` when `backend/**/*.py` changed | `backend/` |
+| `backend-sast` | bandit | Yes, medium+ | MR + `main` when `backend/**/*.py` or `clients/**/*.py` changed | `backend/`, `clients/python/` |
 | `frontend-sast` | eslint-plugin-security | Yes, `error` rules (object-injection and timing rules are `warn`) | MR + `main` when `frontend/src/**/*.{ts,tsx}` changed | `frontend/src` |
+| `clients-typescript-sast` | eslint-plugin-security (same rule set) | Yes, `error` rules | MR + `main` when `clients/typescript/**` changed | `clients/typescript/src` |
 | `trivy-scan` | Trivy (pinned by digest) | Yes, HIGH/CRITICAL vulnerability, misconfiguration and secret findings (#1072) | MR when its inputs change (Dockerfiles, lockfiles, Helm, the scan's own files) + the Nightly schedule (`CVE_SCAN=true`); **not** every `main` push (#1267) | Repo filesystem (lockfiles, Dockerfile IaC, secrets); not built images |
 
 `dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this policy.

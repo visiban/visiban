@@ -105,7 +105,7 @@ curl -s -H "Authorization: Token vbn_..." \
   "http://localhost:8000/api/v1/boards/42/events/?after=0&limit=200"
 ```
 
-Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`, the commit order. Never re-sort by `created_at`: two events can share a timestamp.
+Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`, which follows insertion order and is usually, but not always, commit order (see [Event coverage](#event-coverage) and [#2053](https://gitlab.com/visiban/visiban/-/issues/2053)). Never re-sort by `created_at`: two events can share a timestamp.
 
 ### Pagination shapes
 
@@ -283,6 +283,59 @@ A [webhook](webhooks.md) that falls further behind than the window is turned off
 ## Sizing the window
 
 Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: if events it had not read were pruned, it gets a `410` and re-syncs; if the board was quiet and nothing it missed was pruned, it keeps reading. But every re-sync is a full `/full/` fetch, so a too-short window makes routine restarts expensive.
+
+---
+
+## Using the client
+
+!!! warning "Experimental, 0.x"
+    The Python and TypeScript clients are new in 1.3 and are **not published** to PyPI or npm. Their API can change in any 0.x release, and they follow the 1.x compatibility rules only once they reach 1.0. The feed itself is the stable contract; the clients are a convenience over it.
+
+Every consumer outside the Django process ends up writing the same loop: hold a cursor, page the feed, save the cursor, and handle `410` by re-syncing. The clients in [`clients/python`](https://gitlab.com/visiban/visiban/-/tree/main/clients/python) and [`clients/typescript`](https://gitlab.com/visiban/visiban/-/tree/main/clients/typescript) implement exactly that and nothing else. They are not a general REST SDK. Both need **server 1.3 or later**, because only 1.3 returns `next_cursor` on a `410` (see [When a cursor expires](#errors)). Against a 1.2 server a `410` raises `ResyncUnsupported` rather than guessing a resume point.
+
+=== "Python"
+
+    Standard library only, Python 3.10+. Install from a checkout: `pip install ./clients/python`.
+
+    ```python
+    from visiban_client import Client, Resync
+
+    client = Client("https://visiban.example.com", token)  # a PAT with the `read` scope
+    for item in client.iter_events(board_id):               # returns once caught up
+        if isinstance(item, Resync):
+            replace_local_state(item.snapshot)               # the /full/ board state
+        else:
+            handle(item)                                     # one feed row, as a dict
+    ```
+
+=== "TypeScript"
+
+    No runtime dependencies, Node 20.3+ (global `fetch`, `AbortSignal.any`). npm cannot install from a Git subdirectory, so build a tarball from a checkout: `cd clients/typescript && npm ci && npm run build && npm pack`, then `npm install ./visiban-client-0.1.0.tgz`.
+
+    ```typescript
+    import { Client, Resync } from "@visiban/client";
+
+    const client = new Client({ baseUrl: "https://visiban.example.com", token });
+    for await (const item of client.iterEvents(boardId)) {
+      if (item instanceof Resync) replaceLocalState(item.snapshot);
+      else handle(item);
+    }
+    ```
+
+**What the client does**
+
+- Pages with `after` and `limit` until `next_cursor` is `null`, and yields rows in `id` order. "Caught up" is the server's `next_cursor: null`; the client never counts rows, because a full page may or may not be the last one (see [Paging](#paging)).
+- **Advances the cursor only after your loop body returns** for an item, through a pluggable cursor store (pass your own `get`/`set` for durable storage). Leaving the loop early, or an exception in your handler, leaves that item uncommitted. To redeliver it, **call `iter_events` / `iterEvents` again** for a new iterator over the same store; resuming the old generator after an exception would treat the failed item as handled and commit it. That is **at-least-once** delivery: make handlers idempotent. The clients do not offer exactly-once. The default store is an in-memory one created **per call**, so a bare `iter_events(board_id)` replays from 0 every time: keep one store across calls, or pass `cursor`, to resume.
+- On `410 cursor_expired`, keeps the `410`'s `next_cursor`, fetches `/full/`, and yields a `Resync` carrying the snapshot and that cursor. The stored cursor moves to it only after your handler returns for the `Resync`, then the feed resumes from it. An event written around the re-sync can arrive both in the snapshot and on the resumed feed, so apply events idempotently.
+- Passes redacted rows, unknown event types and unknown fields through untouched; it never raises on them.
+- Backs off on `429`, `5xx` and network errors (honoring `Retry-After`, capped), and polls on a configurable interval. Without a poll interval it returns once caught up.
+- Authenticates with a [scoped personal access token](authentication.md) only (`read` is enough: the clients issue only `GET`s). It sends requests only to the host in the base URL you configured: a `resync_url` is reduced to its path and redirects are never followed. It refuses plain `http://` to a non-loopback host unless you opt in. **Proxies:** Python's `urllib` honors the `HTTP_PROXY` / `HTTPS_PROXY` environment variables, so the token travels through that proxy (and is readable by it over plain `http`); Node's built-in `fetch` does not read them by default. Use `https` and review proxy variables in the consumer's environment.
+
+**Late-committing rows.** Ids follow insertion, not commit (see [Event coverage](#event-coverage)), so a paging reader can step past a row that commits a moment later and never see it. The clients have **no overlap option** in 0.x and their reads are **not gap-free**. A consumer that needs every row can re-read a short overlap itself and deduplicate on `id`, as described under Event coverage, until [#2053](https://gitlab.com/visiban/visiban/-/issues/2053) adds a commit-ordered cursor.
+
+**Verifying webhooks.** The same packages include `verify_signature` / `verifySignature` for [webhook deliveries](webhooks.md#verifying-signatures). It is **experimental** until the webhooks API is declared stable ([#2070](https://gitlab.com/visiban/visiban/-/issues/2070)). In TypeScript it lives in the separate `@visiban/client/webhooks` entry point, so the main entry stays free of `node:crypto` and browser-safe.
+
+**Tested against a real server.** The `clients-contract` CI job boots a backend and runs both packages' live tests, with the `VISIBAN_CONTRACT_REQUIRED` flag set so missing configuration fails the job instead of skipping. It runs on merge request and `main` pipelines (never on schedules) when `clients/**`, the boards feed code (views, serializers, models, URLs, permissions, broadcast, `services/feed.py`, the pruner), `backend/accounts/**`, `backend/visiban/` settings, URLs, permissions or exceptions, `backend/webhooks/**`, `backend/requirements.txt`, `.gitlab-ci.yml`, or the events and webhooks docs change. A shared fixture file drives both languages' unit suites, which keeps them behaving alike on the scenarios it covers; it does not prove they match elsewhere.
 
 ---
 
