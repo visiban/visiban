@@ -144,8 +144,10 @@ RAW_MEMBERSHIP_LOOKUPS = (
     "GroupMembership.objects",
 )
 
-# A call with one of these exact names is a role gate: it either raises or
-# returns a denial on an insufficient role.
+# A call with one of these exact names is a role gate: it decides on a role the
+# caller must hold, and this checker cannot read it. A name defined in the module
+# being scanned never counts on its name, because the walk reads its body: an
+# emptied helper must not keep passing on what it is called.
 #
 # Exact names, never a ``require_`` prefix (#2069). The prefix also matched
 # ``require_json_object`` (body shape), ``require_present_or_404`` (row still
@@ -156,14 +158,13 @@ RAW_MEMBERSHIP_LOOKUPS = (
 # A helper left off this list fails closed. A same-module one is walked, so its
 # real comparison still counts. An imported one that is handed a subject defers
 # to the agent. Add a name here only once the helper is confirmed to deny on an
-# insufficient role.
+# insufficient role. ``user_has_group_access`` and so ``_require_group_member``
+# are deliberately absent: a group viewer passes them, so they prove membership
+# and not a minimum role.
 GATE_CALL_NAMES = frozenset({
     "can_modify_others_content",
     "_can_modify_others_content",
-    "_require_admin",
-    "_require_board_admin",
-    "_require_group_admin",
-    "_require_group_member",
+    "user_is_group_admin",
     "require_mutation_role",
 })
 
@@ -193,9 +194,11 @@ SUBJECT_ROLE_MARKERS = ("role", "owner")
 
 # Handing a resolved role to a callee delegates the gate to it (the services
 # layer owns the ladder for cards — see backend/boards/services/cards.py).
-# ``X.objects.create(role=...)`` is not a hand-off: it writes or filters on a
-# membership row's role and decides nothing about the caller (#2069).
+# Only those callees count. ``X.objects.create(role=...)`` and
+# ``GroupInviteLink.generate(role=...)`` also take the keyword, but they write a
+# row's role and decide nothing about the caller (#2069).
 ROLE_DELEGATION_KWARG = "role"
+ROLE_DELEGATION_ROOTS = frozenset({"card_services"})
 
 # How deep the gate search follows same-class methods and same-module functions.
 _RESOLVE_MAX_DEPTH = 4
@@ -232,6 +235,8 @@ NOT_A_GATE_NAMES = frozenset({
     "getattr", "hasattr", "setattr", "isinstance", "len", "list", "set", "dict", "str", "int", "bool", "sorted", "any", "all", "print", "super",
     "Response", "Q", "ErrorDetail", "get_object_or_404", "get_list_or_404", "on_commit",
     "require_json_object", "require_present_or_404", "optional_text", "query_text",
+    "generate",  # invite-link token minting; the role it takes is the link's
+    "user_has_group_access",  # membership only: a group viewer passes it
     "lock_board_row_or_404",
     "lock_board_and_row_or_404",
     "lock_container_cascade",
@@ -285,27 +290,65 @@ VIEWER_PERMITTED_WRITES: dict[str, str] = {
         "— there are no shared presets, so a viewer saving their own filter "
         "changes nothing another user can read."
     ),
+    "backend/groups/views.py::GroupViewSet::@action star [delete,post]": (
+        "Group starring is per-user state (GroupFavorite, keyed on request.user), "
+        "not group content. The handler requires group membership and no higher "
+        "role, because the row written is the caller's own."
+    ),
     "backend/boards/views/boards.py::BoardViewSet::@action saved_filter_delete [delete]": (
         "Same per-user state as saved_filters. The queryset is scoped to "
         "request.user, so another user's preset is a 404 rather than a 403."
     ),
 }
 
-# Views or handlers whose authorization is real but not statically classifiable.
-# Each entry records that the rbac-check AGENT reviewed it and what it found —
-# this is the hand-off the exit-3 path exists to force, written down.
+# Views or handlers whose authorization is real but not something this script can
+# prove: it cannot classify them, or it reports a finding the role ladder does not
+# apply to. Each entry records who reviewed it and what they found — this is the
+# hand-off the exit-3 path exists to force, written down.
 AGENT_REVIEWED: dict[str, str] = {
+    "backend/boards/views/import_export.py::BoardImportExportMixin::@action import_board [post]": (
+        "JSON and CSV board import. Same shape as BoardViewSet::create: it writes "
+        "only to a board it creates, so there is no board role to resolve. The "
+        "handler dispatches through a local variable, which this checker cannot "
+        "follow. _import_json and _import_csv both call _resolve_import_group "
+        "before their first write, and that reaches _require_group_admin through "
+        "resolve_group_for_board_placement. Reviewed by hand for #2069, not by "
+        "the rbac-check agent. test_group_placement_roles.py: "
+        "test_import_denied_below_admin, "
+        "test_child_group_admin_cannot_use_parent_group."
+    ),
+    "backend/boards/views/import_export.py::BoardImportExportMixin::@action import_trello [post]": (
+        "Trello board import. It writes only to a board execute_plan creates, so "
+        "there is no board role to resolve. Placing it in a group goes through "
+        "_resolve_import_group in both dry-run and confirm modes, before any "
+        "write, and that reaches _require_group_admin through "
+        "resolve_group_for_board_placement in another module. Reviewed by hand "
+        "for #2069, not by the rbac-check agent. test_group_placement_roles.py: "
+        "test_trello_dry_run_denied_for_each_role_below_admin; test_trello_import.py: "
+        "test_group_viewer_cannot_import_into_group."
+    ),
     "backend/boards/views/boards.py::BoardViewSet::create": (
-        "Board creation. There is no board yet, so there is no board role to "
-        "check: any authenticated user may create a personal board and becomes "
-        "its admin. The one write that crosses into existing shared state is "
-        "placing the new board in a group, which BoardSerializer.validate_group "
-        "gates on _require_group_admin (#1655). Passed until #2069 only because "
-        "the creator's BoardMembership.objects.create(role=...) read as a role "
-        "hand-off. Reviewed by hand for #2069. test_board_group_field_validation.py: "
+        "Board creation (POST /boards/, via perform_create). No board exists "
+        "yet, so there is no board role to resolve. Gate: IsAuthenticated, both "
+        "#1110 forced-flow gates and TokenHasScope (the PAT read/write/admin "
+        "baseline runs in PATAuthentication). Any authenticated user may create "
+        "a personal board and becomes its admin; the role written is a constant, "
+        "never request input, and every other write (membership, template "
+        "columns, swimlane, board event) lands on the new board. Placing the "
+        "board in a group is the only write into existing shared state, and "
+        "BoardSerializer.validate_group gates it on _require_group_admin (admin "
+        "of the group or an ancestor, or can_access_all_content): a group "
+        "viewer, member, navigation-only ancestor or unseen group gets the same "
+        "400 as an unknown id (#1655). Board imports and "
+        "POST /groups/{id}/boards/ place boards through "
+        "resolve_group_for_board_placement and _require_group_admin, which is "
+        "the same predicate. Reviewed by the rbac-check agent for #2069. "
+        "test_board_group_field_validation.py: "
         "test_create_with_group_rejected_for_non_member, "
         "test_create_with_group_rejected_for_group_viewer, "
-        "test_create_with_group_rejected_for_group_member."
+        "test_create_with_group_rejected_for_group_member, "
+        "test_create_unknown_group_matches_inaccessible_group_response, "
+        "test_create_with_group_rejected_for_nav_only_ancestor_admin."
     ),
     "backend/groups/views.py::JoinGroupView": (
         "Invite-link join. Authorization is the capability token itself, "
@@ -532,6 +575,21 @@ def _is_view_class(cls: ast.ClassDef) -> bool:
     return False
 
 
+def _is_view_mixin(cls: ast.ClassDef) -> bool:
+    """True for a class that is not a view but contributes handlers to one (#2069).
+
+    ``BoardViewSet`` takes its import and invite actions from plain mixins, which
+    have no view base for :func:`_is_view_class` to match, so those writes used to
+    go unscanned. Detected by name or by carrying an ``@action``, rather than by
+    following a viewset's bases into another module.
+    """
+    if _is_view_class(cls):
+        return False
+    return cls.name.endswith("Mixin") or any(
+        _action_decorator(fn) is not None for fn in _methods(cls).values()
+    )
+
+
 def _methods(cls: ast.ClassDef) -> dict[str, ast.FunctionDef]:
     return {
         n.name: n
@@ -654,22 +712,9 @@ def _scan_gates(
         if any(dotted.startswith(p) or f".{p}" in dotted for p in RAW_MEMBERSHIP_LOOKUPS):
             ev.raw_membership = True
 
-        recognized = False
-        if tail in ROLE_RESOLVERS:
-            ev.resolver = True
-            recognized = True
-        if tail in GATE_CALL_NAMES:
-            ev.role_gate = True
-            recognized = True
-        if ".objects." not in dotted and any(
-            kw.arg == ROLE_DELEGATION_KWARG for kw in call.keywords
-        ):
-            ev.role_gate = True
-            recognized = True
         # Follow into same-class methods and same-module functions. Done even
-        # for a recognized call: `self._require_admin()` is a recognized gate
-        # AND the place the membership resolution lives, so stopping here would
-        # report the resolver missing.
+        # for a recognized resolver: `_require_group_admin()` is named a resolver
+        # AND holds the role check, so stopping here would report the gate missing.
         target = None
         if dotted.startswith("self.") and tail in methods:
             target = methods[tail]
@@ -681,6 +726,20 @@ def _scan_gates(
             target = methods["get_queryset"]
         elif dotted in mod.functions:
             target = mod.functions[dotted]
+
+        recognized = False
+        if tail in ROLE_RESOLVERS:
+            ev.resolver = True
+            recognized = True
+        # Only when the body cannot be read: what a readable helper does decides.
+        if tail in GATE_CALL_NAMES and target is None:
+            ev.role_gate = True
+            recognized = True
+        if dotted.split(".", 1)[0] in ROLE_DELEGATION_ROOTS and any(
+            kw.arg == ROLE_DELEGATION_KWARG for kw in call.keywords
+        ):
+            ev.role_gate = True
+            recognized = True
         if target is not None:
             key = f"{cls.name}.{target.name}"
             if key not in seen:
@@ -822,7 +881,8 @@ def run(root: Path, *, quiet: bool = False) -> Report:
     for rel in _in_scope_modules(root):
         mod = _load_module(root, rel)
         for cls in mod.classes:
-            if not _is_view_class(cls):
+            mixin = _is_view_mixin(cls)
+            if not mixin and not _is_view_class(cls):
                 continue
             key = f"{rel}::{cls.name}"
             rep.classes_checked += 1
@@ -833,7 +893,11 @@ def run(root: Path, *, quiet: bool = False) -> Report:
             )
 
             # ── 1. Authentication gate ──────────────────────────────────────
-            if key in PUBLIC_BY_DESIGN:
+            if mixin:
+                # permission_classes belongs to the viewset the mixin joins, and
+                # that viewset is checked here as a view class in its own right.
+                pass
+            elif key in PUBLIC_BY_DESIGN:
                 used_public.add(key)
                 rep.public += 1
                 if has_auth:
@@ -877,9 +941,11 @@ def run(root: Path, *, quiet: bool = False) -> Report:
                 used_reviewed.add(key)
                 rep.reviewed += 1
 
-            if not _is_scoped(cls, mod):
+            if not mixin and not _is_scoped(cls, mod):
                 # Not board/group-scoped: the role ladder has nothing to say
-                # about it, and checks 2 and 3 do not apply.
+                # about it, and checks 2 and 3 do not apply. A mixin is always
+                # checked: its handlers run on a scoped viewset, and its body may
+                # only reach the resolver through that viewset.
                 continue
 
             for label, handlers in _write_handlers(cls):
@@ -1076,7 +1142,13 @@ from rest_framework.permissions import IsAuthenticated
 
 
 def _require_group_admin(user, group):
-    raise NotImplementedError
+    if not user_is_group_admin(user, group):
+        raise PermissionDenied
+
+
+def _require_group_member(user, group):
+    if not user_has_group_access(user, group):
+        raise PermissionDenied
 
 
 class GroupViewSet(viewsets.ModelViewSet):
@@ -1098,7 +1170,8 @@ _BOARD_PERMISSIONS = [IsAuthenticated]
 
 
 def _require_board_admin(role):
-    raise NotImplementedError
+    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+        raise PermissionDenied
 
 
 class LensConnectionView(APIView):
@@ -1107,6 +1180,26 @@ class LensConnectionView(APIView):
     def delete(self, request, board_id):
         board, role = get_board_for_user(board_id, request.user)
         _require_board_admin(role)
+'''
+
+_FIXTURE_MIXIN = '''\
+from rest_framework.decorators import action
+
+from ..permissions import get_board_for_user
+
+
+def _require_board_admin(pk, user):
+    board, role = get_board_for_user(pk, user)
+    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+        raise PermissionDenied
+    return board
+
+
+class BoardInviteLinksMixin:
+    @action(detail=True, methods=["post"])
+    def invite_links(self, request, pk=None):
+        board = _require_board_admin(pk, request.user)
+        BoardInviteLink.generate(board=board, role="viewer")
 '''
 
 _FIXTURE = {
@@ -1336,6 +1429,122 @@ def self_test() -> int:
             ),
             None,
             "outside this module",
+            {},
+        ),
+        (
+            # #2069: a group viewer passes this helper, so it proves membership.
+            "_require_group_member is not a minimum-role check",
+            _mutate(
+                "backend/groups/views.py",
+                "        _require_group_admin(request.user, group)\n",
+                "        _require_group_member(request.user, group)\n",
+            ),
+            "no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # #2069: readable helpers are judged on their body, not their name.
+            "an emptied same-module board role helper is not a role gate",
+            _mutate(
+                "backend/git_lens/views.py",
+                "    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "        raise PermissionDenied\n",
+                "    return None\n",
+            ),
+            "no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            "an emptied same-module group role helper is not a role gate",
+            _mutate(
+                "backend/groups/views.py",
+                "    if not user_is_group_admin(user, group):\n"
+                "        raise PermissionDenied\n",
+                "    return None\n",
+            ),
+            "no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # #2069: a role= the link stores is not a role the caller was checked for.
+            "role= on an invite-link mint is not a role hand-off",
+            _mutate(
+                "backend/boards/views/cards.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        GroupInviteLink.generate(group=board, role=role)\n"
+                "        instance.delete()",
+            ),
+            "no minimum-role check",
+            None,
+            {},
+        ),
+        (
+            # Control for the two role= cases above: the real hand-off still counts.
+            "role= handed to the services layer is still a role gate",
+            _mutate(
+                "backend/boards/views/cards.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        card_services.delete_card(board=board, role=role, card=instance)",
+            ),
+            None,
+            None,
+            {},
+        ),
+        (
+            # Control: a services call that is not handed the role proves nothing.
+            "a services call with no role= defers",
+            _mutate(
+                "backend/boards/views/cards.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        card_services.delete_card(board=board, card=instance)",
+            ),
+            None,
+            "outside this module",
+            {},
+        ),
+        (
+            # Control: a listed predicate that cannot be read still counts.
+            "a listed gate from another module still counts",
+            _mutate(
+                "backend/boards/views/cards.py",
+                "        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "            raise PermissionDenied\n"
+                "        instance.delete()",
+                "        card_services.require_mutation_role(actor=self.request.user, board=board)\n"
+                "        instance.delete()",
+            ),
+            None,
+            None,
+            {},
+        ),
+        (
+            # #2069: BoardViewSet takes writes from plain mixins, which have no
+            # view base. The clean half also proves a mixin is not asked for
+            # permission_classes, which its viewset declares.
+            "a mixin write with a role gate passes",
+            {"backend/boards/views/invites.py": _FIXTURE_MIXIN},
+            None,
+            None,
+            {},
+        ),
+        (
+            "a mixin write with no role gate is a finding",
+            {"backend/boards/views/invites.py": _FIXTURE_MIXIN.replace(
+                "    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):\n"
+                "        raise PermissionDenied\n",
+                "",
+            )},
+            "BoardInviteLinksMixin::@action invite_links [post]: no minimum-role check",
+            None,
             {},
         ),
         (

@@ -3054,6 +3054,7 @@ broadcast-deferral:
         - backend/boards/**/*
         - backend/groups/**/*
         - backend/git_lens/**/*
+        - backend/webhooks/**/*
         - scripts/check-broadcast-deferral.py
         - scripts/check-rbac-coverage.py
         - scripts/_paths.py

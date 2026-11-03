@@ -103,6 +103,19 @@ class BoardGroupFieldTests(TestCase):
         self.assertEqual(r_denied.status_code, 400)
         self.assertEqual(r_missing.data, r_denied.data)
 
+    def test_create_with_group_rejected_for_nav_only_ancestor_admin(self):
+        # Administering a child gives navigation-only sight of its parent, which
+        # is not standing to place a board there.
+        child = Group.objects.create(name="Child", owner=self.group_owner, parent=self.group)
+        child_admin = User.objects.create_user(username="childadmin", password="x")
+        GroupMembership.objects.create(
+            group=child, user=child_admin, role=GroupMembership.Role.ADMIN
+        )
+        r = self._create(child_admin, self.group.id)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("group", r.data)
+        self.assertFalse(Board.objects.filter(group=self.group).exists())
+
     # --- update -----------------------------------------------------------
 
     def _patch(self, user, board, group_id):
