@@ -3008,10 +3008,6 @@ rbac-coverage:
     # file sinks; its self-test covers `..` traversal and symlink escape.
     - python scripts/_paths.py --self-test
     - python scripts/check-rbac-coverage.py --self-test
-    # Exit codes, CLI surface and detectors against the real view tree (#2069).
-    # --self-test uses a synthetic tree, so only this notices when a real view's
-    # shape drifts away from what the detectors expect.
-    - bash scripts/tests/check-rbac-coverage.test.sh
     # Exit 3 is "unhandled pattern — hand it to the rbac-check agent". It is a
     # failure, deliberately: a view whose authorization this script cannot read
     # must not be reported as one it checked and approved.
@@ -3027,7 +3023,13 @@ rbac-coverage:
         echo "or record its review in AGENT_REVIEWED in scripts/check-rbac-coverage.py."
         echo "See docs/development/rbac-and-broadcast-gates.md."
       fi
-      exit $rc
+      [ "$rc" -eq 0 ] || exit "$rc"
+    # Exit codes, CLI surface and detectors against the real view tree (#2069).
+    # --self-test uses a synthetic tree, so only this notices when a real view's
+    # shape drifts away from what the detectors expect. Runs after the real scan
+    # so that a real missing gate is reported by handler, not as a count of
+    # failed test cases.
+    - bash scripts/tests/check-rbac-coverage.test.sh
   allow_failure: false
 
 # ─── Broadcast deferral (#1143) ───────────────────────────────────────────────

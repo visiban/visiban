@@ -33,7 +33,7 @@ bash scripts/tests/check-broadcast-deferral.test.sh
 
 Both agents were checking largely mechanical conditions on every relevant MR. The project already had four precedents for converting exactly that into a deterministic job: `migration-numbering-check`, `serializer-ts-parity`, `suppressions-check` and `ws-event-reachability` (#1078). All are grep/AST-based, all comfortably under 30s.
 
-The conversion does **not** buy pipeline time. The sampled pipeline's wall clock is dominated by `backend-schema-fuzz` and the `backend-test` shards, and two more sub-second jobs queue into existing slack. It buys the agent latency and tokens removed from the pre-MR gate batch in a development session, plus two things an agent round-trip can't give you:
+The conversion does **not** buy pipeline time. The sampled pipeline's wall clock is dominated by `backend-schema-fuzz` and the `backend-test` shards, and two more jobs of a few seconds queue into existing slack. It buys the agent latency and tokens removed from the pre-MR gate batch in a development session, plus two things an agent round-trip can't give you:
 
 - **It runs on every push, not when someone remembers.** An agent gate fires because a human or a harness decided the diff warranted it.
 - **Its blind spots are code.** The recorded-exception tables below are grep-able, reviewable and blame-able. A paragraph an agent didn't write leaves no trace at all.
@@ -100,7 +100,7 @@ Current entries:
 
 ## What `rbac-coverage` checks
 
-Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/views.py`, `backend/webhooks/views.py`. That includes plain mixins that contribute handlers to a viewset, such as `BoardImportExportMixin` and `BoardInviteLinksMixin`. A class counts as one if its name ends in `Mixin` or it carries an `@action`. Its authentication gate is the viewset's, so only checks 2 and 3 apply to it.
+Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/views.py`, `backend/webhooks/views.py`. That includes plain mixins that contribute handlers to a viewset, such as `BoardImportExportMixin` and `BoardInviteLinksMixin`. A class counts as one if its name ends in `Mixin` or it carries an `@action`. Its authentication gate is the viewset's, so check 1 doesn't apply to it and checks 2 to 4 do.
 
 `backend/accounts/views.py` is deliberately **out of scope**. It's the authentication/session surface (login throttles, password reset, email confirmation, PAT management), governed by per-view rules rather than the admin/member/viewer ladder, with several views public by design. Auth-surface review stays with `security-review` and the agent.
 
@@ -122,7 +122,7 @@ Scope: `backend/boards/views/`, `backend/groups/views.py`, `backend/git_lens/vie
 
 ## What `broadcast-deferral` checks
 
-Scope: `backend/boards`, `backend/groups`, `backend/git_lens`, excluding tests, migrations and seed data. The call graph is built over all of it, so a view handler that delegates to the services layer is resolved rather than guessed at.
+Scope: `backend/boards`, `backend/groups`, `backend/git_lens`, `backend/webhooks`, excluding tests, migrations and seed data. The call graph is built over all of it, so a view handler that delegates to the services layer is resolved rather than guessed at.
 
 1. **Every write broadcasts.** A write handler on a board/group-scoped view reaches `broadcast_board_event` / `broadcast_group_event` / `record_board_event` on some path.
 2. **Every broadcast is deferred.** A raw `broadcast_*_event()` sits inside a callable registered with `transaction.on_commit()`. The check is transitive, so `on_commit(lambda: _broadcast_star(starred=True))` defers everything `_broadcast_star` does. `record_board_event` satisfies this by construction: it persists the feed row in the caller's transaction and registers the deferred publish itself, which is why it's the preferred form.

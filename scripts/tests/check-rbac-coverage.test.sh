@@ -69,6 +69,9 @@ check "--self-test reports every case passing" \
 
 # --- the real repository is clean ------------------------------------------
 run_gate --root "$REPO_ROOT"
+# Name the handler when run by hand. Every later case copies this tree, so a real
+# gap also fails those cases, and their count alone says nothing about where it is.
+[ "$RC" -eq 0 ] || echo "$OUT"
 check "this checkout carries its RBAC gates (exit 0)" "$([ "$RC" -eq 0 ] && echo 0 || echo 1)"
 check "clean run says so" \
   "$(echo "$OUT" | grep -q "carry their RBAC gates" && echo 0 || echo 1)"

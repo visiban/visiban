@@ -252,10 +252,11 @@ GATE_SUBJECT_MARKERS = ("role", "user", "request", "board", "group", "actor", "m
 
 # ─── Recorded exceptions ─────────────────────────────────────────────────────
 #
-# Both tables are **self-invalidating**, the same contract
-# check-serializer-ts-parity.py's SUPPRESSIONS table carries: if the condition
-# that made an entry necessary is gone, the entry itself becomes a finding and
-# asks to be deleted. An exception cannot outlive its reason.
+# Every entry becomes a finding, and asks to be deleted, once it matches nothing
+# in the tree. PUBLIC_BY_DESIGN and VIEWER_PERMITTED_WRITES go further: an entry
+# also becomes a finding once its view gains the gate it was excused from.
+# AGENT_REVIEWED does not: a recorded handler is skipped, so it is not re-checked
+# when its code changes, and a reviewed entry can outlive its reason (#2125).
 
 # Views with deliberately no authentication gate. The reason must say what
 # stands in for authentication, because "public" alone is not a design.
@@ -307,25 +308,45 @@ VIEWER_PERMITTED_WRITES: dict[str, str] = {
 # hand-off the exit-3 path exists to force, written down.
 AGENT_REVIEWED: dict[str, str] = {
     "backend/boards/views/import_export.py::BoardImportExportMixin::@action import_board [post]": (
-        "JSON and CSV board import. Same shape as BoardViewSet::create: it writes "
-        "only to a board it creates, so there is no board role to resolve. The "
-        "handler dispatches through a local variable, which this checker cannot "
-        "follow. _import_json and _import_csv both call _resolve_import_group "
-        "before their first write, and that reaches _require_group_admin through "
-        "resolve_group_for_board_placement. Reviewed by hand for #2069, not by "
-        "the rbac-check agent. test_group_placement_roles.py: "
-        "test_import_denied_below_admin, "
+        "JSON and CSV board import. Reviewed by the rbac-check agent for #2069. "
+        "Same shape as BoardViewSet::create: it writes only to a board it creates"
+        " (owner = request.user, the caller's membership role is the constant "
+        "admin), so there is no board role to resolve. The checker cannot follow "
+        "the handler's local-variable dispatch to _import_json/_import_csv. Gate:"
+        " BoardViewSet permission_classes (IsAuthenticated, both forced-flow "
+        "gates, TokenHasScope; PAT write scope is enforced in PATAuthentication) "
+        "plus BoardImportThrottle. Both importers call _resolve_import_group, "
+        "then _lock_import_group, before Board.objects.create; the only group "
+        "source is request.data['group_id'] (never the file), and it reaches "
+        "_require_group_admin through resolve_group_for_board_placement (404 "
+        "invisible, 403 below admin). Every row lands on the new board; assignees"
+        " resolve only through _resolve_import_users/visible_users, and history "
+        "and comment authors are the importer with the source name kept as text. "
+        "Tests: test_group_placement_roles.py test_import_denied_below_admin, "
         "test_child_group_admin_cannot_use_parent_group."
     ),
     "backend/boards/views/import_export.py::BoardImportExportMixin::@action import_trello [post]": (
-        "Trello board import. It writes only to a board execute_plan creates, so "
-        "there is no board role to resolve. Placing it in a group goes through "
-        "_resolve_import_group in both dry-run and confirm modes, before any "
-        "write, and that reaches _require_group_admin through "
-        "resolve_group_for_board_placement in another module. Reviewed by hand "
-        "for #2069, not by the rbac-check agent. test_group_placement_roles.py: "
-        "test_trello_dry_run_denied_for_each_role_below_admin; test_trello_import.py: "
-        "test_group_viewer_cannot_import_into_group."
+        "Trello board import. Reviewed by the rbac-check agent for #2069. It "
+        "writes only to a board execute_plan creates (owner = request.user, "
+        "caller membership role is the constant admin), so there is no board role"
+        " to resolve. Gate: BoardViewSet permission_classes (IsAuthenticated, "
+        "both forced-flow gates, TokenHasScope; PAT write scope in "
+        "PATAuthentication) plus TrelloImportThrottle (confirm shares the "
+        "board_import budget). _resolve_import_group runs in both dry-run and "
+        "confirm before any parse, plan or write, and reaches "
+        "_require_group_admin through resolve_group_for_board_placement in "
+        "another module; the group comes only from request.data['group_id'], and "
+        "the mapping options have no group, owner or role key. Every row lands on"
+        " the new board; comment authors are the importer with the Trello name "
+        "kept as text. One non-obvious write: mapping add_matched_members=true "
+        "bulk-creates BoardMembership rows at the constant role member for Trello"
+        " members matched by exact username against visible_users (the importer's"
+        " board/group co-members and the target group; all active users for a "
+        "site admin or all-content importer). The role is never read from the "
+        "file, and no add notification is sent. Tests: "
+        "test_group_placement_roles.py "
+        "test_trello_dry_run_denied_for_each_role_below_admin; "
+        "test_trello_import.py test_group_viewer_cannot_import_into_group."
     ),
     "backend/boards/views/boards.py::BoardViewSet::create": (
         "Board creation (POST /boards/, via perform_create). No board exists "
