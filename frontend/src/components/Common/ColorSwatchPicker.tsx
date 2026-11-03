@@ -32,8 +32,16 @@ const TRIGGER_HIT_AREA = {
   md: "[@media(pointer:coarse)]:before:-inset-2.5",
   sm: "[@media(pointer:coarse)]:before:-left-2.5 [@media(pointer:coarse)]:before:-right-2 [@media(pointer:coarse)]:before:-top-3 [@media(pointer:coarse)]:before:-bottom-4",
 } as const;
-/** Cancels the selected `scale-110` on the hit area, which would push it back over a neighbor. */
-const HIT_AREA_UNSCALED = "[@media(pointer:coarse)]:before:scale-[0.909]";
+/**
+ * Cancels the selected `scale-110` on the hit area, which would push it back over a neighbor.
+ * `sm`'s hit area is off-center (8px left, 6px right), so the scale also carries its left edge
+ * ~1.1px further out than 1/1.1 undoes and it would touch the swatch; it narrows to clear it,
+ * leaving the 44px height alone.
+ */
+const HIT_AREA_UNSCALED = {
+  md: "[@media(pointer:coarse)]:before:scale-[0.909]",
+  sm: "[@media(pointer:coarse)]:before:scale-x-[0.85] [@media(pointer:coarse)]:before:scale-y-[0.909]",
+} as const;
 
 interface Props {
   /** Palette to render, one swatch per entry (hex strings). */
@@ -163,7 +171,7 @@ function CustomColorControl({ colors, value, size, dim, onChange, applyLabel }: 
         aria-expanded={open}
         title="Custom color"
         className={`relative ${dim} rounded-full border-2 flex items-center justify-center [@media(pointer:coarse)]:before:absolute ${TRIGGER_HIT_AREA[size]} ${SWATCH_FOCUS} ${
-          custom ? `${SWATCH_SELECTED} ${HIT_AREA_UNSCALED}` : "border-dashed border-line-strong text-fg-tertiary hover:text-fg"
+          custom ? `${SWATCH_SELECTED} ${HIT_AREA_UNSCALED[size]}` : "border-dashed border-line-strong text-fg-tertiary hover:text-fg"
         }`}
         style={custom ? { backgroundColor: custom } : undefined}
       >
