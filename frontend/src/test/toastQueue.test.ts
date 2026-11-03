@@ -90,6 +90,18 @@ describe('toast stacking (#2060, #1438)', () => {
     expect(tr.state.queued).toEqual([late])
   })
 
+  it('a blocked or danger newcomer queues behind three blocked/danger toasts; none is evicted', () => {
+    const s0 = fill(rec({ variant: 'blocked' }), rec({ variant: 'danger' }), rec({ variant: 'blocked' }))
+    for (const variant of ['blocked', 'danger'] as const) {
+      const late = rec({ variant })
+      const tr = addToast(s0, late)
+      expect(tr.evicted).toEqual([])
+      expect(tr.entered).toEqual([])
+      expect(tr.state.visible).toEqual(s0.visible)
+      expect(tr.state.queued).toEqual([late])
+    }
+  })
+
   it('a waiting toast enters when a slot frees, highest priority first', () => {
     const s0 = fill(rec({ variant: 'blocked' }), rec({ variant: 'blocked' }), rec({ variant: 'danger' }))
     const low = rec({ variant: 'success' })

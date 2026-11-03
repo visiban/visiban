@@ -133,6 +133,19 @@ describe('ToastProvider — region and announcements (#2060)', () => {
     expect(within(region()).queryByTestId('toast-waiting')).toBeNull()
   })
 
+  it('a danger newcomer behind three protected toasts waits; none of them is evicted', () => {
+    setup()
+    act(() => {
+      api.notify({ variant: 'blocked', title: 'a' })
+      api.notify({ variant: 'danger', title: 'b' })
+      api.notify({ variant: 'blocked', title: 'c' })
+      api.notify({ variant: 'danger', title: 'late' })
+    })
+    for (const t of ['a', 'b', 'c']) expect(within(region()).getByText(t)).toBeInTheDocument()
+    expect(within(region()).queryByText('late')).toBeNull()
+    expect(within(region()).getByTestId('toast-waiting')).toHaveTextContent('+1 waiting')
+  })
+
   it('stacks the highest priority nearest the anchor (first in the DOM)', () => {
     setup()
     act(() => {
@@ -318,6 +331,21 @@ describe('ToastProvider — dismissal, Escape and the Undo guard (#2060)', () =>
     expect(cls).toContain('w-6 h-6')
     expect(cls).toContain('max-[1024px]:w-11')
     expect(cls).toContain('max-[1024px]:h-11')
+  })
+
+  it('narrow viewports: gutters at <= 820px, a 3-line clamp at <= 640px, a 44px action at <= 820px', () => {
+    setup()
+    act(() => { api.notify({ variant: 'warning', title: 'Over limit', message: 'A long sentence.', action: { label: 'Undo', onAction: () => {} } }) })
+    const cls = region().className
+    for (const c of ['max-[820px]:left-4', 'max-[820px]:right-4', 'max-[820px]:translate-x-0', 'max-[820px]:max-w-[28rem]', 'max-[820px]:pb-[env(safe-area-inset-bottom)]', 'max-[640px]:max-w-none']) {
+      expect(cls).toContain(c)
+    }
+    const message = within(region()).getByText('Over limit').closest('p') as HTMLElement
+    expect(message.className).toContain('max-[640px]:line-clamp-3')
+    expect(message).toHaveAttribute('title', 'Over limit — A long sentence.')
+    const action = within(region()).getByRole('button', { name: 'Undo' }).className
+    expect(action).toContain('max-[820px]:min-h-11')
+    expect(action).toContain('inline-flex')
   })
 
   it('Escape at 61 dismisses only the focused toast and outranks the palette (60)', () => {
