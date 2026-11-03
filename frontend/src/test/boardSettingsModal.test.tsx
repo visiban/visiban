@@ -1035,9 +1035,9 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     const bobUser: User = { ...aliceUser, id: 98, username: 'bobby', email: 'bobby@example.com', first_name: 'Bobby', last_name: 'Tables', display_name: 'Bobby Tables' }
     const membership = (u: User) => ({ id: u.id, user: u, role: 'member', is_moderator: false, joined_at: '' })
 
-    async function stageBoth() {
+    async function stageBoth(onMembersAdded?: (ids: number[]) => void) {
       mockSearchUsers.mockResolvedValue([aliceUser, bobUser])
-      render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+      render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} onMembersAdded={onMembersAdded} />)
       const input = screen.getByPlaceholderText(/search by name or email/i)
       for (const name of ['Alice Wonder', 'Bobby Tables']) {
         await act(async () => {
@@ -1071,24 +1071,34 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
         id === 99
           ? Promise.reject({ response: { data: { detail: 'You cannot add this user.' } } })
           : Promise.resolve(membership(bobUser)))
-      await stageBoth()
+      const onMembersAdded = vi.fn()
+      await stageBoth(onMembersAdded)
       await submit()
       expect(await screen.findByText('You cannot add this user.')).toBeInTheDocument()
+      expect(screen.getByText('You cannot add this user.')).toHaveAttribute('role', 'alert')
       expect(screen.getByText(/added 1 member\. 1 could not be added/i)).toBeInTheDocument()
+      // The applied member is in the Members list; only its id is reported.
+      expect(screen.getByText('Bobby Tables')).toBeInTheDocument()
+      expect(onMembersAdded).toHaveBeenCalledTimes(1)
+      expect(onMembersAdded).toHaveBeenCalledWith([98])
       // Refused row stays staged; the applied one left the staged list.
       expect(screen.getByText(/to be added/i)).toBeInTheDocument()
       expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(1)
       // Clearing the refused row removes its message.
       await act(async () => { screen.getByTitle('Remove from invite list').click() })
       expect(screen.queryByText('You cannot add this user.')).toBeNull()
+      // The failure summary goes with the last refused row.
+      expect(screen.queryByText(/could not be added/i)).toBeNull()
     })
 
     it('keeps every row and each reason when all are refused', async () => {
       mockSetBoardMember.mockImplementation((_b: number, id: number) =>
         Promise.reject({ response: { data: { detail: `Refused ${id}` } } }))
-      await stageBoth()
+      const onMembersAdded = vi.fn()
+      await stageBoth(onMembersAdded)
       await submit()
       expect(await screen.findByText('Refused 99')).toBeInTheDocument()
+      expect(onMembersAdded).not.toHaveBeenCalled()
       expect(screen.getByText('Refused 98')).toBeInTheDocument()
       expect(screen.getByText(/none of those members could be added/i)).toBeInTheDocument()
       expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)

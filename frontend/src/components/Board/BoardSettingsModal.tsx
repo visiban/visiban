@@ -812,12 +812,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     searchInputRef.current?.focus();
   };
 
-  const clearStagedError = (userId: number) =>
+  const clearStagedError = (userId: number) => {
+    // The failure summary describes the refused rows; once the last one is
+    // edited or removed it would be stale, so clear it with them.
+    if (userId in stagedErrors && Object.keys(stagedErrors).length === 1) setInviteError(null);
     setStagedErrors((prev) => {
       if (!(userId in prev)) return prev;
       const { [userId]: _dropped, ...rest } = prev;
       return rest;
     });
+  };
 
   const handleInviteSubmit = async () => {
     if (staged.length === 0) return;
@@ -1238,7 +1242,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <input
                         ref={searchInputRef}
                         value={inviteQuery}
-                        onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
+                        onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); setInviteError(null); }}
                         placeholder="Search by name or email…"
                         className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                       />
@@ -1341,9 +1345,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                   </button>
                                 </div>
                               </div>
-                            {stagedErrors[s.user.id] && (
-                              <p role="status" className="text-xs text-danger mt-1 pl-8 break-words">{stagedErrors[s.user.id]}</p>
-                            )}
+                              {stagedErrors[s.user.id] && (
+                                <p role="alert" className="text-xs text-danger mt-1 pl-8 break-words">{stagedErrors[s.user.id]}</p>
+                              )}
                             </div>
                           ))}
                         </div>
