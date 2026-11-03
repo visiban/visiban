@@ -1423,6 +1423,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#board-presets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board presets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Board presets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#choosing-a-preset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing a preset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modified-and-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modified and Reset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sharing-a-preset-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sharing a preset link
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#board-default-preset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board default preset
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#views" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5153,7 +5214,7 @@
 <p><strong>Upgrading from 1.0:</strong> existing boards are migrated to <strong>Dense</strong> so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped. The board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).</p>
 <h4 id="personal-density-override">Personal density override<a class="headerlink" href="#personal-density-override" title="Permanent link">&para;</a></h4>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
-<p>Any board member, not just admins, can flip <strong>Use my own density</strong> in <strong>Board Settings → Display</strong> and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974).</p>
+<p>Any board member, not just admins, can flip <strong>Use my own density</strong> in <strong>Board Settings → Display</strong> and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974). Since 1.3 a <a href="#board-presets">board preset</a> you apply can set this override too, and the Display tab then says which preset set it. An override you set yourself, including one from before 1.3, is never attributed to a preset, even when its value matches one. When the board has a default preset that sets a density, turning the override off returns you to that preset's density.</p>
 <p>Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.</p>
 <h3 id="card-detail-panel">Card detail panel<a class="headerlink" href="#card-detail-panel" title="Permanent link">&para;</a></h3>
 <p>Click a card to open its <strong>detail panel</strong>. Where it opens depends on the window width. <em>Changed in 1.2 (#1914): before 1.2 the panel always opened at the right edge of the window, over a dimmed board.</em></p>
@@ -5446,7 +5507,7 @@
 <p>The board toolbar (Row 2) groups controls into three zones plus a pinned trailing cluster:</p>
 <ul>
 <li><strong>Zone 1</strong> — view tabs (Board / Summary / History / Analytics)</li>
-<li><strong>Zone 2</strong> — board controls (Collapse split button, Filters, Layout toggle, Archived)</li>
+<li><strong>Zone 2</strong> — board controls (Preset, Collapse split button, Filters, Overlay, Layout toggle, Archived)</li>
 <li><strong>Zone 3</strong> (wide viewports only) — board tools (Activity drawer, Keyboard shortcuts, Export, Settings)</li>
 <li><strong>Trailing cluster</strong> — overflow kebab (<code>⋮</code>) and connection status; always visible</li>
 </ul>
@@ -5610,7 +5671,7 @@
 </tr>
 </tbody>
 </table>
-<p>The choice is remembered per board in <code>localStorage</code> under <code>board:{boardId}:grid-overlay</code>, so it survives a reload but never follows you to another board. It is a personal reading preference available to every role, including viewers: turning an overlay on changes nothing for your teammates and writes nothing to the server.</p>
+<p>The choice is remembered per board in <code>localStorage</code> under <code>board:{boardId}:grid-overlay</code>, so it survives a reload but never follows you to another board. A <a href="#board-presets">board preset</a> also sets it. It is a personal reading preference available to every role, including viewers: turning an overlay on changes nothing for your teammates and writes nothing to the server.</p>
 <h3 id="how-a-cell-is-shaded">How a cell is shaded<a class="headerlink" href="#how-a-cell-is-shaded" title="Permanent link">&para;</a></h3>
 <p>Every overlay shares one scale with four steps, measured against the largest value currently visible on the board.</p>
 <ul>
@@ -5637,6 +5698,49 @@
 <li>Collapsed columns and collapsed swimlanes render their compact count stubs rather than full cells, so they carry no shading — but they still count toward the scale, so folding a lane never silently re-shades the rest of the board</li>
 <li>The cell being dragged over is never shaded, so the drop-target highlight stays unambiguous</li>
 </ul>
+<h2 id="board-presets">Board presets<a class="headerlink" href="#board-presets" title="Permanent link">&para;</a></h2>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>A <strong>preset</strong> is a named way of reading a board: it sets the card density and the grid overlay together, so you can switch between them in one step. Applying a preset changes only how the board looks to you. It never changes cards, columns, or board settings, so it is always safe to try, and every apply can be undone.</p>
+<p>Two presets ship with Visiban:</p>
+<table>
+<thead>
+<tr>
+<th>Preset</th>
+<th>What it sets</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Classic</strong></td>
+<td>The board exactly as it looked before presets existed: the board's own <a href="#card-density">card density</a>, no overlay.</td>
+</tr>
+<tr>
+<td><strong>Default</strong></td>
+<td>Standard density, no overlay.</td>
+</tr>
+</tbody>
+</table>
+<p>Presets are built in; you cannot create or edit your own yet.</p>
+<h3 id="choosing-a-preset">Choosing a preset<a class="headerlink" href="#choosing-a-preset" title="Permanent link">&para;</a></h3>
+<p>Pick a preset from the <strong>Preset</strong> dropdown (bookmark icon) at the start of the board toolbar's controls. Each option shows a one-line summary, and the board's default preset is labeled <strong>Board default</strong>. The trigger reads <strong>Preset</strong> when no preset is active and the preset's name when one is.</p>
+<p>Choosing a preset saves its density as your <a href="#personal-density-override">personal density override</a> and its overlay as your <a href="#grid-overlays">overlay</a> choice for that board, and records which preset you chose, all in this browser. A notice confirms the change, for example <strong>Applied “Default”</strong>, with an <strong>Undo</strong> button that puts back your previous settings. The notice closes by itself after a few seconds (longer when a link applied the preset), and waits while your pointer or keyboard focus is on it. While it is showing, the <strong>Preset</strong> dropdown also offers <strong>Undo</strong>, so you can reach it from the keyboard.</p>
+<p>You can also apply a preset from the <a href="../keyboard-shortcuts/">command palette</a> (⌘K / Ctrl+K): type <strong>Apply preset: Classic</strong> or <strong>Apply preset: Default</strong>, or <strong>Reset to preset: …</strong> when the active preset is modified. These work exactly like the dropdown, including the Undo notice, in every view of the board (Board, Summary, History, Analytics and the Lens).</p>
+<p>The trigger names a preset only when one is actually in use: one you chose, or the board's default preset. A density or overlay you set yourself, including settings from before 1.3, is not shown as a preset even when its values match one.</p>
+<h3 id="modified-and-reset">Modified and Reset<a class="headerlink" href="#modified-and-reset" title="Permanent link">&para;</a></h3>
+<p>If you change the density or the overlay after choosing a preset, the trigger adds a <strong>Modified</strong> tag. Open the dropdown to see what differs from the preset, for example <code>Overlay: Card count (preset: No overlay)</code>, and choose <strong>Reset to “Default”</strong> to go back to it. Choosing the modified preset again does the same. Reset also shows a notice with <strong>Undo</strong>.</p>
+<p><strong>Board Settings → Display</strong> says when a preset set your density: the <strong>Use my own density</strong> toggle reads <code>Set by preset “Default” for your view only</code>, and turning it off returns you to the board default preset's density if the board has one that sets a density, otherwise to the board's own density; the toggle says which, and says the preset will show as Modified when that density differs. Turning the toggle on starts from the density you see now, so it never changes your view by itself. When the density comes from the board's default preset instead, the tab reads <code>Set by preset “Default”: your view shows standard density.</code></p>
+<h3 id="sharing-a-preset-link">Sharing a preset link<a class="headerlink" href="#sharing-a-preset-link" title="Permanent link">&para;</a></h3>
+<p>While a preset is applied, the board's URL carries it, for example <code>?preset=default</code>, so you can share the link. Opening such a link applies that preset for you, replacing your own density and overlay choices on that board, and shows a notice, <strong>Applied “Default” from the link</strong>, whose <strong>Undo</strong> puts your previous choices back and removes <code>?preset=</code> from the URL. Once you modify the preset, <code>?preset=</code> is removed from the URL, because the link would no longer show what you see; reloading the page then keeps your changes. Reloading a page whose link names the preset you are already using changes nothing and shows no notice. An unknown preset name in a link is ignored.</p>
+<h3 id="board-default-preset">Board default preset<a class="headerlink" href="#board-default-preset" title="Permanent link">&para;</a></h3>
+<p>Board admins can choose a default preset in <strong>Board Settings → Display → Board default preset</strong>: <strong>None</strong>, <strong>Classic</strong>, or <strong>Default</strong>. Members who have not picked a preset on that board see the board default. Everyone else sees the read-only setting.</p>
+<p>Which preset applies, highest first:</p>
+<ol>
+<li>A <code>?preset=</code> link</li>
+<li>Your own choices on this board: a preset you picked, your personal density override, or your overlay choice, each of which wins over the board default for that setting (the trigger then shows the board default as <strong>Modified</strong> where they differ)</li>
+<li>The board's default preset</li>
+<li>The board's own density setting, with no overlay</li>
+</ol>
+<p>With no board default (the setting for every board created or upgraded before 1.3) and no link, the board looks exactly as it did before presets existed. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later, in an open tab as after a reload. A preset you chose that is not the board default stays yours when the board default changes. Each board keeps its own preset: moving to another board never carries one over.</p>
 <h2 id="views">Views<a class="headerlink" href="#views" title="Permanent link">&para;</a></h2>
 <p>The toolbar provides four views for the same board data:</p>
 <table>
