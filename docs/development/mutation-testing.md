@@ -1,14 +1,14 @@
 # Which tests would notice a broken line
 <a id="mutation-testing-baseline"></a>
 
-This page records the manual mutation-testing baseline on the backend modules 1.2 changes the most. The weekly `backend-mutation` CI job runs those modules and reports the merged adjusted score against a 90% floor; until the follow-up on #1384 it is `allow_failure: true`, so it doesn't fail a pipeline yet.
+This page records the manual mutation-testing baseline on the backend modules 1.2 changes the most. The weekly `backend-mutation` CI job runs those modules and reports the merged adjusted score against a 90% floor; its report job is blocking (`allow_failure: false`, #1384), so a score under the floor, or a run that wasn't measured, turns that schedule's pipeline red.
 
 **Why it matters:** Line coverage says a line ran. Mutation testing says whether a test would notice if the line were wrong.
 
 **How it works:** A tool makes one small change at a time (flip `==` to `!=`, change a string, replace a value with `None`), runs the tests, and counts the change as **killed** if a test fails or **survived** if every test still passes. The kill rate is `killed / (killed + survived)`.
 
 !!! note "Baseline is manual; a weekly CI job also runs"
-    The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, `backend-mutation`, runs every one of these modules on the Weekly mutation testing schedule (Sundays, 06:00 ET), publishes a score artifact and gates the merged score at 90%. Until the follow-up on #1384 it's `allow_failure: true`, so it doesn't fail a pipeline yet. See [Weekly CI job](#weekly-ci-job-backend-mutation).
+    The numbers below are a **manual** baseline on the backend modules that 1.2 changes the most (movement record, RBAC, import/export). Since #1384 a CI job, `backend-mutation`, runs every one of these modules on the Weekly mutation testing schedule (Sundays, 06:00 ET), publishes a score artifact and gates the merged score at 90%. Its report job, `backend-mutation-report`, is blocking (`allow_failure: false`, #1384); the shard jobs stay `allow_failure: true` because the report judges them. See [Weekly CI job](#weekly-ci-job-backend-mutation).
 
 ## What was measured
 
@@ -423,7 +423,7 @@ For the assertion patterns that kill these mutants, with examples, see [Writing 
 
 ## Weekly CI job (`backend-mutation`)
 
-Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`. It runs on the Weekly mutation testing schedule only (`MUTATION_TEST=true`, never on an MR or a `main` push; it started on the Nightly schedule and moved to its own weekly one after a manual run measured the cost, see [Runner load](#runner-load)) and covers **every module with a manual baseline on this page**. The report job gates the **merged adjusted** score at **90%** (`MUTATION_MIN=0.90`). Until the follow-up on #1384 both jobs stay `allow_failure: true`, so a score under the floor is a yellow job, not a red pipeline; a follow-up makes `backend-mutation-report` blocking.
+Tracked in #1384, ported from TruePPM's `api:mutation` and `scheduler:mutation`. It runs on the Weekly mutation testing schedule only (`MUTATION_TEST=true`, never on an MR or a `main` push; it started on the Nightly schedule and moved to its own weekly one after a manual run measured the cost, see [Runner load](#runner-load)) and covers **every module with a manual baseline on this page**. The report job gates the **merged adjusted** score at **90%** (`MUTATION_MIN=0.90`). `backend-mutation-report` is blocking (`allow_failure: false`, #1384), so a score under the floor, or a run that wasn't measured, is a red job. The `backend-mutation` shards stay `allow_failure: true`: a failed or timed-out shard doesn't skip the report (it `needs:` the shards with `artifacts: true`), which then exits 2 for the missing stats file, so the verdict is the report's alone.
 
 The job started as a one-module pilot on `boards/permissions.py` (!1176) and was widened to all baselined modules by #1384.
 
@@ -587,15 +587,33 @@ Re-run result on the final code (local, SQLite): `cards` 369 of 369 mutants kill
 
 `MUTATION_MIN=0.90`, set on `backend-mutation-report`, applied to the merged adjusted score over all four targets.
 
-- The maintainer chose 90% up front. That overrides the earlier plan on #1384 of reading the floor off a week of observed nightly scores. The week of observation now decides when the job becomes blocking, not what the floor is.
+- The maintainer chose 90% up front. That overrides the earlier plan on #1384 of reading the floor off a week of observed nightly scores. The observation period decided when the job became blocking, not what the floor is.
 - The baseline arithmetic above puts the expected score several points above it.
 - The floor is a fraction (`0.90`, never `90`) and is never set to `0` as a placeholder.
+
+### Observed scores (#1384)
+
+The four scheduled runs of the Weekly mutation testing schedule (4485984) before the report became blocking, read from the `backend-mutation-report` job logs:
+
+| Date | Pipeline / report job | Main | Result | Merged adjusted (raw) | Survived |
+|---|---|---|---|---|---|
+| 2026-10-21 | 2973506543 / 17360636794 | `1346046b8` | exit 2, not measured | 91.5% (89.7%), over the 28 of 29 `import_export` shards that arrived | 197 |
+| 2026-10-25 | 2986276266 / 17447016918 | `fd859446e` | exit 1, FAIL under the 90.0% floor | 89.8% (88.1%) | 248 |
+| 2026-10-28 | 3000496377 / 17549849301 | `8edd683df` | OK | 95.7% (93.8%) | 108 |
+| 2026-11-01 | 3014353120 / 17643226088 | `f2450ab9f` | OK | 95.7% (93.8%) | 108 |
+
+- **2026-10-21 was infrastructure.** `backend-mutation` shard 35 of 50 failed with `runner_interrupted` after about 31 minutes, so the report found 28 of the 29 expected `import_export` shard files and exited 2 rather than summing a smaller run. The merged number it printed is not a score.
+- **2026-10-25 was a real miss.** The merged adjusted score was under the floor, and `permissions` (72.1%), `cards` (87.2%) and `card_movement` (77.1%) were each under 90% on their own. The cause and the fix are in [2026-10-25 run below the floor (#1930)](#2026-10-25-run-below-the-floor-1930).
+- **Why it moved from 89.8% to 95.7% by 2026-10-28.** #1930 and #1931 merged on 2026-10-25, after that run started (09:59 and 12:37 EDT, against a pipeline created at 10:07 UTC), and they added killing tests. The per-target lines show survivors becoming kills, not mutants leaving the count: `permissions` went from 124 killed of 172 scored (48 survivors) to 172 of 172, the same denominator. `cards` went from 48 survivors to 2, and `import_export` from 136 to 106. `cards` scored 374 then 395 mutants and `import_export` 1826 then 1857, which is code merged in between (the cause is not itemized here) and new pragma exclusions (`excluded` 47 to 50, the three `flat=True` pragmas in `cards.py` from #1931), so `skipped` (other shards' lines) also grew, from 57152 to 58335. `card_movement` was unchanged in count and went from 54 to 70 killed, again with no change in its 41 excluded. Nothing indicates a dropped shard or target: the report checks every expected shard and target and exits 2 otherwise.
+- **This is not a clean observation week.** The plan on #1384 was a week of clean runs. Only 2026-10-28 and 2026-11-01 are clean, and they span four days; the run before them was under the floor and the one before that was not measured. The report was made blocking on that evidence, not on a clean week, and the 90% floor is the maintainer's choice rather than a value derived from these runs.
+- **What a red means now.** On the Weekly mutation testing schedule, a red `backend-mutation-report` is either exit 1 (the merged adjusted score is under 90%: read the per-target lines, find the module that moved and triage its survivors) or exit 2 (not measured: a shard died or timed out, as on 2026-10-21, or a stats file is missing). Exit 2 is not a score. Re-run the schedule once; if it repeats, the shard that died is in the failed-jobs list. A runner interruption on one of the 50 shards now makes the weekly pipeline red where it used to be yellow.
+- **The two clean runs scored 95.7%**, 5.7 points above the floor, with 108 survivors: 106 in `import_export` and 2 in `cards`. The `import_export` ones were not triaged one by one: 34 of the head survivors are triaged as equivalent or redundant (above), and the mutants of code added later are tracked in #1546, with #1544 and #1545 open. Survivor triage on #1384 plan item 5 is therefore done for `permissions`, `cards` and `card_movement` (#1503, #1930, #1931) and open for `import_export`.
 
 ### Maintainer steps and what comes next
 
 1. Done: the **Weekly mutation testing** schedule (4485984, Sundays 06:00 ET) carries `MUTATION_TEST=true`, and `MUTATION_TEST` is no longer on the Nightly schedule (4176726) nor in `SCHEDULE_AUDIT_ACCEPTED_GAPS` (the list is empty). It was first proven by a manual play of the schedule on 2026-10-10: all 44 shards and the report passed, merged adjusted score 96.1%. The Nightly run at 05:06 UTC that day, before the nightly-targets MR had merged, ran `main`'s old 4-shard `permissions.py` pilot, whose report exits 2 (not measured) on the mutmut phantom row described above; that was expected and ended when the MR merged.
-2. Observation: read each scheduled run's `backend-mutation-report` log (per-target lines and the merged score) and the shard durations. Resize shards in `TARGETS` (and `parallel:`) if any shard runs near the timeout. The slowest shard in the manual run was 39.5 min.
-3. Follow-up MR on #1384, the only remaining step: set `allow_failure: false` on `backend-mutation-report` (keep it on the shard jobs, whose verdict the report already judges) and record the observed scores here. #1384 stays open until then.
+2. Observation (done, see [Observed scores](#observed-scores-1384)): read each scheduled run's `backend-mutation-report` log (per-target lines and the merged score) and the shard durations. Resize shards in `TARGETS` (and `parallel:`) if any shard runs near the timeout. The slowest shard in the manual run was 39.5 min.
+3. Done: `backend-mutation-report` is `allow_failure: false` (#1384); the shard jobs keep `allow_failure: true`, since the report already judges them. The observed scores are recorded in the next section.
 4. Triage survivors as described in [How to read the results](#how-to-read-the-results).
 
 ## Limits of this baseline

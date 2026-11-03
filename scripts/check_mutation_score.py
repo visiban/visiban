@@ -82,7 +82,7 @@ error raised before any stats are read, so it writes no merged file.
 A floor is a fraction (``0.90``, not ``90``) and is never set to 0 as a
 placeholder: unset or empty means "report-only", and the job says so. ``0`` or
 anything outside (0, 1] exits 2. The nightly job sets ``MUTATION_MIN=0.90``
-(#1384; the job stays ``allow_failure`` for an observation week first).
+(#1384; the report job is blocking, the shard jobs stay ``allow_failure``).
 """
 
 from __future__ import annotations
@@ -588,7 +588,7 @@ def _self_test() -> int:
         "empty run at a real floor": ([shard(skipped=5)], "0.9", 2),
         "unfinished run at a real floor": ([shard(killed=9, survived=1, untested=3)], "0.5", 2),
         # Report-only still fails closed on "never measured": the pilot's whole value
-        # is the number, so a dead run must be loud (yellow, allow_failure) rather
+        # is the number, so a dead run must be loud (a red report job) rather
         # than a green that means nothing (the TruePPM #3172 shape).
         "empty run, report-only": ([shard(skipped=5)], None, 2),
         "terrible score, report-only": ([shard(killed=1, survived=99)], None, 0),
