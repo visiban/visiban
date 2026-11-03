@@ -4490,7 +4490,7 @@ reference on a non-comment line, and fails if any of them:</p>
 <tr>
 <td><code>scripts/check-rbac-coverage.py</code></td>
 <td><code>rbac-coverage</code></td>
-<td>12-case self-test over a synthetic view tree: a dropped auth gate, a missing role gate, a write that never resolves a role, an unscoped board-child lookup, a raw membership lookup, and a stale entry in each recorded-exception table. See <a href="../rbac-and-broadcast-gates/">RBAC and broadcast gates</a>.</td>
+<td>27-case self-test over a synthetic view tree: a dropped auth gate, a missing role gate, a write that never resolves a role, an unscoped board-child lookup, a raw membership lookup, a non-role helper or <code>role=</code> keyword standing in for a role gate, an emptied role helper, a mixin write with no gate, and a stale entry in each recorded-exception table. <code>scripts/tests/check-rbac-coverage.test.sh</code> then runs the exit codes against the real view tree in the same job. See <a href="../rbac-and-broadcast-gates/">RBAC and broadcast gates</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/check-api-compat.py</code></td>
