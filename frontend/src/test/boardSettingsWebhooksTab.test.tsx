@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from '../components/Board/BoardSettingsWebhooksTab'
-import { SESSION_REQUIRED_COPY } from '../constants/webhooks'
+import { ROTATE_UNCONFIRMED_COPY, SESSION_REQUIRED_COPY } from '../constants/webhooks'
 import type { WebhookStatus, WebhookSubscription } from '../types'
 
 vi.mock('../api/webhooks', () => ({
@@ -613,10 +613,203 @@ describe('Webhooks tab — detail', () => {
     await openDetail(user)
     await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
     await user.click(screen.getByRole('button', { name: REVOKE_OLD }))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't rotate the secret. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(ROTATE_UNCONFIRMED_COPY)
     expect(screen.getByRole('button', { name: REVOKE_OLD })).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByText("Couldn't rotate the secret. Try again.")).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(ROTATE_UNCONFIRMED_COPY)).not.toBeInTheDocument())
+  })
+
+  it('a rotate the server refused says to try again', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockRejectedValue(axiosError(429))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't rotate the secret. Try again.")
+  })
+
+  it('a rotate with no response refetches, so the until line shows a rotation that landed', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockRejectedValue(new Error('Network Error'))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    m.list.mockResolvedValue([sub({ previous_secret_expires_at: new Date(NOW + 86400_000).toISOString() })])
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/may have gone through/)
+    expect(screen.getByText(/Old secret still signed until/)).toBeInTheDocument()
+    // Retrying now retires the secret the receiver holds: the confirm says so.
+    expect(screen.getByText(/older secret from your last rotation stops being signed either way, so update your receiver/)).toBeInTheDocument()
+  })
+
+  it('a refetch that also fails leaves the message and the view alone', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockRejectedValue(axiosError(502))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    m.list.mockRejectedValue(axiosError(502))
+    await user.click(screen.getByRole('button', { name: REVOKE_OLD }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/may have gone through/)
+    expect(screen.getByRole('heading', { name: 'hooks.zapier.com/…/k3f9' })).toBeInTheDocument()
+  })
+
+  it('a feature-off answer to rotate swaps to the off note and refetches nothing', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockRejectedValue(axiosError(403, 'webhooks_disabled'))
+    await renderTab()
+    await openDetail(user)
+    m.list.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    expect(await screen.findByRole('note')).toHaveTextContent('turned off on this Visiban server')
+    expect(m.list).not.toHaveBeenCalled()
+  })
+
+  describe('while a one-time secret is on its way', () => {
+    const PENDING = /Wait for the new secret/
+
+    it('rotate: every way out refuses, says why, and the response still ends in a reveal', async () => {
+      const user = setup()
+      let guard: WebhookCloseGuard | null = null
+      let finish: (value: unknown) => void = () => {}
+      m.list.mockResolvedValue([sub()])
+      m.rotate.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+      await renderTab({ registerCloseGuard: (g) => { guard = g } })
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+      await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+
+      // Close, the backdrop and a tab switch all ask this.
+      const proceed = vi.fn()
+      act(() => { expect(guard!(proceed)).toBe(true) })
+      expect(proceed).not.toHaveBeenCalled()
+      expect(await screen.findByText(PENDING)).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: '← All webhooks' }))
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'hooks.zapier.com/…/k3f9' })).toBeInTheDocument()
+
+      finish({ ...sub(), secret: 'whsec_seen' })
+      const reveal = await screen.findByTestId('webhook-secret-reveal')
+      expect(within(reveal).getByRole('textbox')).toHaveValue('whsec_seen')
+      expect(screen.queryByText(PENDING)).not.toBeInTheDocument()
+      // The reveal's own guard takes over from here.
+      act(() => { expect(guard!(proceed)).toBe(true) })
+      expect(await screen.findByText(/Close without storing the secret\?/)).toBeInTheDocument()
+      expect(proceed).not.toHaveBeenCalled()
+    })
+
+    it('rotate: the guard lets go once a failure is in', async () => {
+      const user = setup()
+      let guard: WebhookCloseGuard | null = null
+      m.list.mockResolvedValue([sub()])
+      m.rotate.mockRejectedValue(axiosError(500))
+      await renderTab({ registerCloseGuard: (g) => { guard = g } })
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+      await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+      await screen.findByRole('alert')
+      expect(guard!(vi.fn())).toBe(false)
+    })
+
+    it('rotate: another confirm cannot replace the one whose request runs', async () => {
+      const user = setup()
+      m.list.mockResolvedValue([sub()])
+      m.rotate.mockReturnValue(new Promise(() => {}))
+      await renderTab()
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+      await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+      await user.click(screen.getByRole('button', { name: 'Delete webhook' }))
+      await user.click(screen.getByRole('button', { name: 'Turn off' }))
+      expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Confirm:/ })).not.toBeInTheDocument()
+    })
+
+    it('create: every way out refuses, and the response still ends in a reveal', async () => {
+      const user = setup()
+      let guard: WebhookCloseGuard | null = null
+      let finish: (value: unknown) => void = () => {}
+      m.list.mockResolvedValue([sub()])
+      m.create.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+      await renderTab({ registerCloseGuard: (g) => { guard = g } })
+      await user.click(screen.getByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+
+      const proceed = vi.fn()
+      act(() => { expect(guard!(proceed)).toBe(true) })
+      expect(proceed).not.toHaveBeenCalled()
+      expect(await screen.findByText(PENDING)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: '← All webhooks' }))
+      expect(screen.getByRole('heading', { name: 'Add webhook' })).toBeInTheDocument()
+
+      finish({ ...sub({ id: 2 }), url: 'https://hooks.example.com/abcd', secret: 'whsec_created' })
+      const reveal = await screen.findByTestId('webhook-secret-reveal')
+      expect(within(reveal).getByRole('textbox')).toHaveValue('whsec_created')
+    })
+
+    it('create: the form back button works again once a failure is in', async () => {
+      const user = setup()
+      m.list.mockResolvedValue([sub()])
+      m.create.mockRejectedValue(axiosError(500))
+      await renderTab()
+      await user.click(screen.getByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+      await screen.findByRole('button', { name: 'Create webhook' })
+      await user.click(screen.getByRole('button', { name: '← All webhooks' }))
+      expect(await screen.findByRole('heading', { name: 'Webhooks' })).toBeInTheDocument()
+    })
+  })
+
+  describe('Escape while a confirm runs its request', () => {
+    it.each([
+      ['Turn off', /^Confirm: Turn off/, 'disable'],
+      ['Delete webhook', /^Confirm: Delete this webhook/, 'del'],
+    ] as const)('%s stays open', async (trigger, confirmName, mock) => {
+      const user = setup()
+      m.list.mockResolvedValue([sub()])
+      m[mock].mockReturnValue(new Promise(() => {}))
+      await renderTab()
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: trigger }))
+      await user.click(screen.getByRole('button', { name: confirmName }))
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.getByRole('button', { name: confirmName })).toBeInTheDocument()
+    })
+
+    it('turn on stays open', async () => {
+      const user = setup()
+      m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'failures' })])
+      m.reenable.mockReturnValue(new Promise(() => {}))
+      await renderTab()
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: 'Turn on again' }))
+      await user.click(screen.getByRole('button', { name: 'Turn on' }))
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.getByRole('button', { name: 'Turn on' })).toBeInTheDocument()
+    })
+
+    it('Escape cancels again after the request fails', async () => {
+      const user = setup()
+      m.list.mockResolvedValue([sub()])
+      m.disable.mockRejectedValue(axiosError(500))
+      await renderTab()
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: 'Turn off' }))
+      await user.click(screen.getByRole('button', { name: /^Confirm: Turn off/ }))
+      await screen.findByText("Couldn't turn the webhook off. Try again.")
+      fireEvent.keyDown(document, { key: 'Escape' })
+      await waitFor(() => expect(screen.queryByRole('button', { name: /^Confirm: Turn off/ })).not.toBeInTheDocument())
+    })
   })
 
   it('a token on rotate is told it needs a session, inside the confirm', async () => {
@@ -703,7 +896,7 @@ describe('Webhooks tab — detail', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()
     fail(axiosError(500))
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't rotate the secret. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(ROTATE_UNCONFIRMED_COPY)
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('button', { name: KEEP_OLD })).not.toBeInTheDocument())
   })

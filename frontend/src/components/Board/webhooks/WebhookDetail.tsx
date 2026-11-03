@@ -5,6 +5,7 @@ import { useConfirmFocusReturn } from "../../../hooks/useConfirmFocusReturn";
 import { relativeTime } from "../../../utils/relativeTime";
 import {
   ROTATE_OVERLAP_SECONDS,
+  ROTATE_UNCONFIRMED_COPY,
   SAMPLE_PAYLOAD,
   SESSION_REQUIRED_COPY,
   URL_ERROR_COPY,
@@ -220,7 +221,12 @@ export default function WebhookDetail(props: Props) {
     void handle(
       "rotate",
       () => props.onRotate(choice === "keep" ? ROTATE_OVERLAP_SECONDS : 0),
-      () => setConfirmError("Couldn't rotate the secret. Try again."),
+      (err) => {
+        // A 4xx is the server refusing, so nothing changed. Anything else may
+        // have committed with only the response lost.
+        const httpStatus = axiosResponse(err)?.status;
+        setConfirmError(httpStatus !== undefined && httpStatus < 500 ? "Couldn't rotate the secret. Try again." : ROTATE_UNCONFIRMED_COPY);
+      },
     );
   };
 
@@ -435,7 +441,7 @@ export default function WebhookDetail(props: Props) {
                 </p>
                 <p id={`${uid}-rotate-keep`} className="text-xs text-fg-secondary">
                   <span className="font-medium text-fg">Keep old secret for 24 hours:</span> Visiban signs each delivery with both secrets, so your receiver keeps working while you update it. Your receiver's check must accept any signature the header lists; see Verify the signature below.
-                  {oldSecretUntil !== null && " The older secret from your last rotation stops being signed either way."}
+                  {oldSecretUntil !== null && " The older secret from your last rotation stops being signed either way, so update your receiver right away."}
                 </p>
                 <p id={`${uid}-rotate-revoke`} className="text-xs text-fg-secondary">
                   <span className="font-medium text-fg">Revoke old secret now:</span> only the new secret signs from now on, and your receiver rejects deliveries until you update it.

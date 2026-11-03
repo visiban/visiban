@@ -75,7 +75,9 @@ Open the webhook with **Manage**, choose **Rotate secret…**, then one of:
 - **Keep old secret for 24 hours.** Visiban signs each delivery with both secrets for 24 hours, so your receiver keeps working while you give it the new one. The webhook shows **Old secret still signed until…** while this lasts. Your receiver's check must accept any signature the header lists ([how to verify](../api/webhooks.md#verifying-signatures)); one that compares the whole header rejects every delivery during those 24 hours. The API allows up to seven days.
 - **Revoke old secret now.** Only the new secret signs from now on, and your receiver rejects deliveries until you update it.
 
-Either way the new secret is shown once. Rotating again during the 24 hours keeps only the secret you just replaced. Changing the webhook's address ends the overlap too.
+Either way the new secret is shown once, so Board settings stays open until it arrives. Rotating again during the 24 hours keeps only the secret you just replaced, so update your receiver right after. Changing the webhook's address ends the overlap too.
+
+If a rotation reports that it couldn't be confirmed, it may have gone through with its response lost, and that secret can't be shown. The webhook shows **Old secret still signed until…** if that happened with **Keep old secret for 24 hours**. Rotate again to get a secret you can copy, then update your receiver right away, because a second rotation stops signing with the secret your receiver holds.
 
 !!! warning "If the secret leaked, revoke it and replace it on your receiver"
     Visiban can't revoke a secret for you. Anyone holding it can forge requests that your receiver accepts until your receiver stops accepting it. **Revoke old secret now** only stops Visiban's own signatures with it, so replace the secret on your receiver as well.

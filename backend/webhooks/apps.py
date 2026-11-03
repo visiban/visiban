@@ -7,7 +7,8 @@ class WebhooksConfig(AppConfig):
     Always installed, so the tables exist on every install and turning the
     feature on is a setting change rather than a migration. ``WEBHOOKS_ENABLED``
     gates it at runtime: the API refuses every action but ``status/`` and the
-    dispatcher exits without writing anything.
+    dispatcher delivers nothing. Its one write in that state is clearing replaced
+    signing secrets whose overlap has passed (#2054).
     """
 
     default_auto_field = "django.db.models.BigAutoField"
