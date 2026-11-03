@@ -1786,9 +1786,12 @@ backend-schema-fuzz-git-lens:
 #
 # FLOOR: backend-mutation-report fails (exit 1) when the MERGED adjusted score
 # over all targets is under MUTATION_MIN (0.90, #1384, chosen by the maintainer
-# rather than read off observed nightlies). Both jobs stay `allow_failure: true`
-# for an observation week; a follow-up MR on #1384 makes the report blocking
-# once the first week of nightly artifacts is in. Never set the floor to 0.
+# rather than read off observed nightlies). The report is blocking
+# (`allow_failure: false`, #1384); the shards stay `allow_failure: true` because
+# the report already judges them: a failed or timed-out shard still lets the
+# report run (it needs the shards with `artifacts: true`, no `optional`), and the
+# report then exits 2 (not measured) for the missing stats file. Never set the
+# floor to 0.
 #
 # mutmut is pip-installed here, pinned, and stays out of requirements*.txt
 # (mutmut 2.x runs pytest in place, so pytest-django needs no changes; 3.x
@@ -1850,14 +1853,15 @@ backend-mutation:
 # target's own score are printed beside it so the exclusions and a weak module
 # stay visible. Exit 1 = merged score below MUTATION_MIN; exit 2 = not measured
 # (a shard or target missing, inconsistent shards, untested mutants), which is
-# never a green. `allow_failure: true` during the observation week only.
+# never a green. Blocking (#1384): a red report on the weekly schedule is either a
+# real score under the floor (exit 1) or a run that was not measured (exit 2).
 backend-mutation-report:
   stage: test
   needs:
     - job: backend-mutation
       artifacts: true
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  allow_failure: true
+  allow_failure: false
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $MUTATION_TEST == "true"'
   variables:
