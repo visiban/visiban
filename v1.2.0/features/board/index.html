@@ -1145,6 +1145,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#custom-colors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom colors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cards" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4921,7 +4932,7 @@
 </tr>
 <tr>
 <td>Color</td>
-<td>Left-edge stripe color on the label panel</td>
+<td>Left-edge stripe color on the label panel. Pick a preset or a <a href="#custom-colors">custom color</a></td>
 </tr>
 <tr>
 <td>Contact email</td>
@@ -5029,7 +5040,7 @@
 <h2 id="columns">Columns<a class="headerlink" href="#columns" title="Permanent link">&para;</a></h2>
 <p>Columns represent pipeline stages. Each column has:</p>
 <ul>
-<li><strong>Name</strong> and <strong>color</strong></li>
+<li><strong>Name</strong> and <strong>color</strong> — a preset or a <a href="#custom-colors">custom color</a></li>
 <li><strong>WIP limit</strong> — maximum number of active cards allowed. The column header carries a single calm <code>N cards</code> stat line when within budget; when the limit is exceeded the line flips to <code>⚠ Over WIP · count/limit</code> and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has <strong>Enforce WIP limits</strong> enabled (Board Settings → Rules), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode. Optionally, the <strong>Show at-limit WIP indicator</strong> board setting (off by default) surfaces the <em>at</em>-limit case too — see <a href="#at-limit-wip-indicator">At-limit WIP indicator</a> below.</li>
 <li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows <code>Weight weight/limit</code> and the header gains a 2 px amber top accent strip. If the board has <strong>Enforce weight limits</strong> enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a <code>409</code> error; board admins can override with <code>?force=true</code>. Lowering a card's weight is never blocked. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
 <li><strong>Allow card creation</strong> — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected</li>
@@ -5092,6 +5103,18 @@
 <li>Columns under the limit are unaffected: always <code>N cards</code>.</li>
 </ul>
 <p>This setting is purely ambient: it does not change limit enforcement, which is controlled independently by <strong>Enforce WIP limits</strong> / <strong>Enforce WIP hard</strong> above (#973).</p>
+<h2 id="custom-colors">Custom colors<a class="headerlink" href="#custom-colors" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.3</strong></p>
+</blockquote>
+<p>Columns, swimlanes, new card labels and a <a href="../groups/#group-shared-labels">group's shared labels</a> keep their preset swatches and add a custom color control at the end of the row, a dashed circle with a plus. It opens a panel with a saturation square, a hue slider and hex and R, G, B fields.</p>
+<ul>
+<li><strong>Nothing changes until you choose Apply.</strong> The preview in the panel shows your draft; the row and the board do not. Cancel, Escape, clicking elsewhere or tabbing away discards the draft. Whatever you typed in the dialog or card behind it stays as it was: a first click on the area outside closes only the panel, and a second click there closes the dialog or card. The exception is clicking another card on the board, which replaces the open card straight away, so a label name you were typing in it is gone.</li>
+<li><strong>Hex takes 3 or 6 digits</strong> (<code>#ABC</code> is saved as <code>#AABBCC</code>). <strong>R, G and B go from 0 to 255.</strong> Apply stays unavailable and a message explains why until the values are valid.</li>
+<li><strong>When you apply a custom color, it fills the control</strong>, so you can see it and change it later. A value that matches a preset selects that preset instead.</li>
+<li><strong>In the new-label row on a card</strong>, once the label has a name, the button reads <strong>Create label</strong> and applying creates the label in that color, as clicking a preset swatch does.</li>
+<li><strong>From the keyboard:</strong> Tab to the control and press Enter or Space to open it; focus starts on the square. Arrow keys move the square and the hue slider. Tab reaches the fields and buttons in order, and Enter in any field or slider applies.</li>
+</ul>
 <h2 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h2>
 <p>Cards are compact tiles with a full colored border indicating priority. <strong>How much metadata appears on each card depends on the board's <em>Card density</em> setting</strong> (Comfortable / Standard / Dense — see <a href="#card-density">Card density</a> below). At every density the colored border carries priority, the assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.</p>
 <h3 id="card-density">Card density<a class="headerlink" href="#card-density" title="Permanent link">&para;</a></h3>
