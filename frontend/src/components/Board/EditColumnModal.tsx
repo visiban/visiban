@@ -203,7 +203,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
 
               <div>
                 <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-                <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} />
+                <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom />
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer select-none">

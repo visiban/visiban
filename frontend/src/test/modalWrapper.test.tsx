@@ -66,6 +66,7 @@ describe('ModalWrapper', () => {
       </ModalWrapper>
     )
     const backdrop = container.firstChild as HTMLElement
+    fireEvent.mouseDown(backdrop)
     fireEvent.click(backdrop)
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -101,6 +102,7 @@ describe('ModalWrapper', () => {
     )
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
     const backdrop = container.firstChild as HTMLElement
+    fireEvent.mouseDown(backdrop)
     fireEvent.click(backdrop)
     expect(onClose).not.toHaveBeenCalled()
   })
@@ -247,6 +249,38 @@ describe('ModalWrapper', () => {
     expect(child.className).toBe('custom')
     // Parent should be the dialog panel itself, not a padding wrapper
     expect(child.parentElement?.getAttribute('role')).toBe('dialog')
+  })
+})
+
+describe('ModalWrapper — backdrop press origin (#2095)', () => {
+  it('does not close when a press inside the panel is released on the backdrop', () => {
+    const onClose = vi.fn()
+    const { container } = render(
+      <ModalWrapper open={true} onClose={onClose} title="Drag">
+        <p>Body</p>
+      </ModalWrapper>
+    )
+    const backdrop = container.firstChild as HTMLElement
+    // The browser fires the click on the common ancestor of press and release.
+    fireEvent.mouseDown(screen.getByText('Body'))
+    fireEvent.mouseUp(backdrop)
+    fireEvent.click(backdrop)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('does not let an earlier backdrop press license a later click', () => {
+    const onClose = vi.fn()
+    const { container } = render(
+      <ModalWrapper open={true} onClose={onClose} title="Drag">
+        <p>Body</p>
+      </ModalWrapper>
+    )
+    const backdrop = container.firstChild as HTMLElement
+    fireEvent.mouseDown(backdrop)
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
 

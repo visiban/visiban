@@ -584,6 +584,11 @@ describe('CreateGroupModal', () => {
 })
 
 describe('AddColumnModal', () => {
+  it('offers a custom color after the presets (#2095)', () => {
+    render(<AddColumnModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Choose custom color' })).toBeInTheDocument()
+  })
+
   it('renders modal', () => {
     render(<AddColumnModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getByText('Add Column', { selector: 'h2' })).toBeInTheDocument()

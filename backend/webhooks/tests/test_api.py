@@ -24,6 +24,7 @@ from .base import (
     _make_user,
     admin_and_board,
     make_subscription,
+    prune,
     resolving,
 )
 
@@ -228,14 +229,23 @@ class CreateTests(WebhookApiBase):
         self.assertEqual(sub.get_secret(), r.data["secret"])
 
     def test_create_on_empty_board_is_not_expired_by_its_first_event(self):
-        # Cursor 0 with no scan is judged from creation; still "never scanned",
-        # so it keeps its place at the front of the dispatch order.
+        # Cursor 0 and nothing pruned: not expired. Still "never scanned", so
+        # it keeps its place at the front of the dispatch order.
         self.create(name="n")
         sub = WebhookSubscription.objects.get()
         self.assertEqual(sub.cursor, 0)
         self.assertIsNone(sub.last_scanned_at)
         BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
         self.assertFalse(dispatch.cursor_expired(sub))
+
+    def test_create_on_a_fully_pruned_board_starts_at_the_prune_mark(self):
+        # Every event pruned: the newest surviving id is gone, so a cursor of
+        # 0 would sit below the mark and be expired at once (#2058).
+        e1, e2 = (BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={}) for _ in range(2))
+        prune(e1, e2)
+        r = self.create(name="n")
+        self.assertEqual(r.data["last_delivered_event_id"], e2.pk)
+        self.assertFalse(dispatch.cursor_expired(WebhookSubscription.objects.get()))
 
     def test_url_and_secret_never_returned_after_create(self):
         sid = self.create().data["id"]
@@ -397,30 +407,94 @@ class RotateReenableTestActionTests(WebhookApiBase):
         r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {"resume_from": "bogus"}, format="json")
         self.assertEqual(r.status_code, 400)
 
+    def _event(self):
+        return BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
+
+    def _reenable(self, sub, resume_from):
+        return self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {"resume_from": resume_from}, format="json")
+
     def test_reenable_cursor_expired_is_409_and_latest_works(self):
-        e1 = BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
+        e1 = self._event()
         sub = make_subscription(self.board, self.admin, cursor=e1.pk)
         dispatch.disable(sub.pk, "manual", notify=False)
-        BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
-        e1.delete()  # pruned
-        r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {"resume_from": "cursor"}, format="json")
+        e2 = self._event()
+        prune(e1, e2)
+        e3 = self._event()
+        r = self._reenable(sub, "cursor")
         self.assertEqual((r.status_code, r.data["code"]), (409, "cursor_expired"))
-        r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {"resume_from": "latest"}, format="json")
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(
+            r.data["detail"],
+            "Events after the point where this webhook stopped were removed by history cleanup. "
+            "Re-enable with resume_from: latest.",
+        )
+        sub.refresh_from_db()
+        self.assertFalse(sub.enabled)
+        r = self._reenable(sub, "latest")
+        self.assertEqual((r.status_code, r.data["last_delivered_event_id"]), (200, e3.pk))
 
-    def test_reenable_on_an_enabled_webhook_keeps_the_scan_gap(self):
-        e1 = BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
+    def test_reenable_from_cursor_is_409_when_every_missed_event_was_pruned(self):
+        # No newer row to reveal the gap: the old rule answered 200 here and
+        # the lost events went unreported (#2058).
+        e1 = self._event()
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk)
+        dispatch.disable(sub.pk, "failures", notify=False)
+        e2 = self._event()
+        prune(e1, e2)
+        self.assertFalse(BoardEvent.objects.filter(board_id=self.board.pk).exists())
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["code"]), (409, "cursor_expired"))
+
+    def test_reenable_from_latest_after_a_full_prune_resumes_at_the_mark(self):
+        # The newest surviving id is gone (or below the mark); resuming there
+        # would be expired again at once. It resumes at the mark instead.
+        e1 = self._event()
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk)
+        dispatch.disable(sub.pk, "manual", notify=False)
+        e2 = self._event()
+        prune(e1, e2)
+        r = self._reenable(sub, "latest")
+        self.assertEqual((r.status_code, r.data["last_delivered_event_id"]), (200, e2.pk))
+        sub.refresh_from_db()
+        self.assertFalse(dispatch.cursor_expired(sub))
+
+    def test_reenable_cursor_zero_unscanned_for_days_with_nothing_pruned_is_200(self):
+        # The false positive: the old rule judged a cursor of 0 by a 23-hour
+        # scan gap and refused it although nothing was pruned (#2058).
+        sub = make_subscription(self.board, self.admin, cursor=0)
+        WebhookSubscription.objects.filter(pk=sub.pk).update(
+            last_scanned_at=None, created_at=timezone.now() - timedelta(days=2)
+        )
+        dispatch.disable(sub.pk, "manual", notify=False)
+        self._event()
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["enabled"], r.data["last_delivered_event_id"]), (200, True, 0))
+
+    def test_reenable_idle_cursor_whose_own_row_was_pruned_is_200(self):
+        e1 = self._event()
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk)
+        WebhookSubscription.objects.filter(pk=sub.pk).update(last_scanned_at=timezone.now() - timedelta(days=40))
+        dispatch.disable(sub.pk, "manual", notify=False)
+        prune(e1)
+        self._event()
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["last_delivered_event_id"]), (200, e1.pk))
+
+    def test_reenable_on_an_enabled_webhook_leaves_an_expired_cursor_for_the_dispatcher(self):
+        # On a webhook that is already on, reenable validates nothing and
+        # ignores resume_from; the gap stays visible to the next run.
+        e1 = self._event()
         sub = make_subscription(self.board, self.admin, cursor=e1.pk)
         stale = timezone.now() - timedelta(days=2)
         WebhookSubscription.objects.filter(pk=sub.pk).update(last_scanned_at=stale)
-        BoardEvent.objects.create(board_id=self.board.pk, event="card.created", data={})
-        e1.delete()  # pruned
+        e2 = self._event()
+        prune(e1, e2)
+        self._event()
         sub.refresh_from_db()
         self.assertTrue(dispatch.cursor_expired(sub))
         r = self.client.post(_url(self.board.pk, f"{sub.pk}/reenable/"), {}, format="json")
         self.assertEqual(r.status_code, 200)
         sub.refresh_from_db()
-        self.assertEqual(sub.last_scanned_at, stale)
+        self.assertEqual((sub.cursor, sub.last_scanned_at), (e1.pk, stale))
         self.assertTrue(dispatch.cursor_expired(sub))
 
     def test_reenable_restamps_owner(self):

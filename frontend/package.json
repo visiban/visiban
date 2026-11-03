@@ -24,6 +24,7 @@
     "@tiptap/starter-kit": "^3.31.3",
     "axios": "1.20.0",
     "react": "^19.2.0",
+    "react-colorful": "5.8.1",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",

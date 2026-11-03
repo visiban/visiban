@@ -29,6 +29,12 @@ Guarantees, and how each one is kept
   board. A NULL (deleted) account fails closed.
 * **Never unsigned.** A URL or secret that no longer decrypts disables the
   subscription; nothing is sent.
+* **Never skipped silently (D5).** Retention pruning can remove events a
+  webhook has not sent yet. ``prune_board_events`` records, per board, the
+  highest id it removed (``BoardEventPruneMark``, #2058), and a webhook whose
+  cursor is below that mark is turned off as ``cursor_expired`` instead of
+  delivering past the gap. The mark is read after the page of rows, so a
+  prune that lands mid-run is either seen or removed nothing that run read.
 * **Commit-order settle window.** Only rows older than
   ``WEBHOOK_SETTLE_SECONDS`` are read, and a run stops before the oldest
   unsettled row, so a transaction that committed late is still picked up.
@@ -53,7 +59,7 @@ from django.utils import timezone
 
 from boards.models import Board, BoardEvent, BoardMembership
 from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role
-from boards.services.feed import feed_queryset, serialize_feed_rows
+from boards.services.feed import feed_queryset, pruned_through, resume_cursor, serialize_feed_rows
 from visiban import crypto, egress
 from visiban.authorization import authorize_account
 
@@ -68,11 +74,6 @@ WEBHOOK_READER_ROLE = BoardMembership.Role.VIEWER
 STANDING_ROLES = frozenset({BoardMembership.Role.ADMIN, SITE_ADMIN})
 
 TEST_EVENT = "webhook.test"
-
-#: A cursor whose row is gone is "expired" only if the last scan is older than
-#: this. prune_board_events keeps at least one day, so a scan within 23 hours
-#: cannot have missed a row that has since been pruned.
-CURSOR_EXPIRY_SCAN_GAP = timedelta(hours=23)
 
 Reason = WebhookSubscription.DisabledReason
 
@@ -175,33 +176,48 @@ def send_test(subscription: WebhookSubscription):
 
 
 def latest_event_id(board_id: int) -> int:
-    return BoardEvent.objects.filter(board_id=board_id).aggregate(m=Max("id"))["m"] or 0
+    """Where a webhook starts: the board's newest event id or its prune mark, whichever is greater.
 
-
-def cursor_expired(subscription: WebhookSubscription, *, now=None) -> bool:
-    """True when rows after the cursor may have been pruned unseen.
-
-    The feed's own rule (cursor row gone AND newer rows exist), plus one more
-    condition: the last scan is older than 23 hours. A subscription scanned
-    recently cannot have missed a row, because pruning keeps at least a day,
-    so a quiet board whose cursor row aged out is not "expired".
-
-    A cursor of 0 (subscribed while the board had no events) has no row whose
-    absence would prove pruning, so it is judged by the gap alone, measured
-    from creation if it was never scanned: a brand-new webhook missed nothing,
-    but one idle for over 23 hours may have. That errs toward a loud
-    ``cursor_expired`` over a silent skip (D5).
+    Used for a new webhook's cursor (D5: nothing earlier is sent) and for
+    ``reenable`` with ``resume_from: latest``. The prune mark matters when
+    every event after the old cursor was pruned and nothing newer exists: the
+    newest surviving id is then below the mark, and a cursor there would be
+    expired again at once (#2058). Same point the feed's ``410`` hands back as
+    ``next_cursor``.
     """
-    now = now or timezone.now()
-    board_rows = BoardEvent.objects.filter(board_id=subscription.board_id)
-    if board_rows.filter(pk=subscription.cursor).exists():
-        return False
-    if not board_rows.filter(pk__gt=subscription.cursor).exists():
-        return False
-    scanned = subscription.last_scanned_at
-    if scanned is None and not subscription.cursor:
-        scanned = subscription.created_at
-    return scanned is None or scanned < now - CURSOR_EXPIRY_SCAN_GAP
+    return resume_cursor(board_id)
+
+
+def cursor_expired(subscription: WebhookSubscription) -> bool:
+    """True when an event of the board after the cursor was pruned (#2058).
+
+    Exact, not an estimate: ``prune_board_events`` records the highest id it
+    removed from each board, in the same transaction as the delete, and never
+    lowers it. A cursor below that mark skipped at least one pruned event; a
+    cursor at or above it skipped none, whatever its own row's fate and
+    however long since the last scan. So:
+
+    * a webhook whose missed events were all pruned, with nothing newer on
+      the board, is expired (there is no newer row to notice the gap by);
+    * a webhook whose failing event was then pruned is expired, although the
+      failed attempt counted as a scan;
+    * a webhook idle past retention, or with cursor 0 on a board that had no
+      events, is not expired when nothing after it was pruned.
+
+    No mark means nothing has been pruned from the board since the mark table
+    existed. Unlike the feed, which keeps an older inference for boards
+    pruned before the record, a webhook needs no fallback: webhooks ship in
+    the same release as the record, so every event after any webhook's
+    cursor was written after it, and was pruned (if at all) by a pruner that
+    records. A webhook's cursor is set by the server, so it is never another
+    board's id.
+
+    The mark is per board, not per reader, so a webhook can be expired by a
+    pruned row it would never have been sent (a per-user or admin-only row,
+    or a type it does not subscribe to): the loud direction (#2079).
+    """
+    mark = pruned_through(subscription.board_id)
+    return mark is not None and mark > subscription.cursor
 
 
 def configurer_has_standing(user, board) -> bool:
@@ -380,18 +396,14 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
         return
 
     now = timezone.now()
-    # Idle fast path: nothing newer than the cursor on the board at all. One
-    # indexed MAX instead of the feed, settle and tail queries. Standing and
-    # the secrets were still checked above, every run (D4). A cursor at or past
-    # the newest row has nothing to deliver. It may still have lost rows if all
-    # of them were pruned; without a record of pruned ids that can't be seen
-    # (#2058).
+    # Idle fast path: nothing after the cursor on the board, and nothing after
+    # it pruned either (latest_event_id counts the prune mark, #2058). An
+    # indexed MAX and a primary-key lookup instead of the feed, settle and
+    # tail queries. Standing and the secrets were still checked above, every
+    # run (D4). A cursor whose missed events were all pruned, with nothing
+    # newer, sits below the mark, so it falls through to the expiry check.
     if latest_event_id(board.pk) <= sub.cursor:
         WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(last_scanned_at=now)
-        return
-    if cursor_expired(sub, now=now):
-        if disable(sub_id, Reason.CURSOR_EXPIRED, lease_token=token):
-            result.disabled += 1
         return
 
     settle_cutoff = now - timedelta(seconds=int(_setting("WEBHOOK_SETTLE_SECONDS", 10)))
@@ -401,6 +413,15 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
         .filter(pk__gt=sub.cursor, created_at__lte=settle_cutoff)
         .order_by("id")[:max_events]
     )
+    # Checked after the page is read, never before (D5). A prune deletes rows
+    # and raises the mark in one transaction: one that committed before the
+    # page query is in the mark read now, and one that commits after it
+    # removed nothing from this page. Read first, a prune landing in between
+    # would leave the page starting past a gap the check never saw.
+    if cursor_expired(sub):
+        if disable(sub_id, Reason.CURSOR_EXPIRED, lease_token=token):
+            result.disabled += 1
+        return
     # Stop before the oldest row that has not settled yet: a lower id that
     # committed late must not be skipped by delivering a higher one first.
     # Bounded by the page when it is full, so a subscription far behind does

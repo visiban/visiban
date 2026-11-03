@@ -958,6 +958,51 @@ describe('CardDetail', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '+ New label' })).toHaveFocus())
   })
 
+  it('a custom color creates a named label only on Apply, worded "Create label" (#2095)', async () => {
+    const { createLabel } = await import('../api/boards')
+    const mockCreate = createLabel as ReturnType<typeof vi.fn>
+    mockCreate.mockClear()
+    mockCreate.mockResolvedValue({ id: 99, uid: 'x', name: 'Plum', color: '#AA00CC' })
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} />)
+    await user.click(screen.getByText('+ New label'))
+    await user.type(screen.getByRole('textbox', { name: 'New label name' }), 'Plum')
+    await user.click(screen.getByRole('button', { name: 'Choose custom color' }))
+    fireEvent.input(screen.getByRole('textbox', { name: 'Hex value' }), { target: { value: '#aa00cc' } })
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight', keyCode: 39 })
+    expect(mockCreate).not.toHaveBeenCalled()
+    fireEvent.input(screen.getByRole('textbox', { name: 'Hex value' }), { target: { value: '#aa00cc' } })
+    await user.click(screen.getByRole('button', { name: 'Create label' }))
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
+    expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { name: 'Plum', color: '#AA00CC' })
+  })
+
+  it('a custom color with no label name yet only sets the draft color, worded "Apply" (#2095)', async () => {
+    const { createLabel } = await import('../api/boards')
+    const mockCreate = createLabel as ReturnType<typeof vi.fn>
+    mockCreate.mockClear()
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} />)
+    await user.click(screen.getByText('+ New label'))
+    await user.click(screen.getByRole('button', { name: 'Choose custom color' }))
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(screen.getByRole('textbox', { name: 'New label name' })).toBeInTheDocument()
+  })
+
+  it('Escape in the custom color panel closes only the panel, not the label row or the card (#2095)', async () => {
+    const props = defaultProps()
+    const user = userEvent.setup()
+    render(<CardDetail {...props} />)
+    await user.click(screen.getByText('+ New label'))
+    await user.click(screen.getByRole('button', { name: 'Choose custom color' }))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'New label name' })).toBeInTheDocument()
+    expect(props.onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Choose custom color' })).toHaveFocus()
+  })
+
   it('Escape in the title input reverts it without closing the panel; the next Escape closes it (#2036)', async () => {
     const props = defaultProps()
     const user = userEvent.setup()

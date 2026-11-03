@@ -25,7 +25,7 @@ What follows from that design:
 - **Automatic turn-off.** After 20 failures in a row, or 24 hours of failing, the webhook is turned off and the board's admins are told (see [Notices](#notices)).
 - **Starting point.** A new webhook starts with the next event. Nothing that happened before it was created is sent.
 - **Latency.** Events are sent about 10 to 25 seconds after they happen. The dispatcher waits a few seconds so that events from slow transactions are not skipped.
-- **Retention.** Events stay in the feed for `BOARD_EVENT_RETENTION_DAYS` (30 by default). A webhook that may have fallen further behind than that is turned off with the reason *fell too far behind*, rather than skipping what it missed. Until [#2058](https://gitlab.com/visiban/visiban/-/issues/2058) records what was removed, this is an estimate from when the webhook was last scanned: a webhook on a board that had no events when it was created can be turned off after 23 hours without a scan even if nothing was removed, and a webhook whose missed events were all removed, with nothing newer on the board, is not reported. A failed attempt also counts as a scan, so an event that fails and is then removed, with retention set to a day or so, can be lost without a report.
+- **Retention.** Events stay in the feed for `BOARD_EVENT_RETENTION_DAYS` (30 by default). When history cleanup removes an event a webhook has not sent yet, the webhook is turned off with the reason *fell too far behind*, rather than skipping what it missed. This is exact: `prune_board_events` records the highest event it removed from each board, so it applies even when every missed event was removed and nothing newer has happened, and when the missed event is one whose delivery was failing. A webhook that missed nothing keeps sending, however long it was idle or turned off. The record is per board, so a webhook can also be turned off when the only events removed were ones it would never have been sent (another person's stars or saved filters, admin-only events, or types it does not subscribe to). If you schedule `prune_board_events` from host cron or a separately pinned image, keep it on the same version as the backend: an older pruner removes events without recording them, and a webhook then cannot report the loss.
 - **Deleting the board** deletes its webhooks. A `board.deleted` event is never sent.
 
 Delivery is best-effort with retry. If your integration needs every event with certainty, have it read the change feed itself; webhooks are the convenient path, not the guaranteed one.
@@ -85,7 +85,7 @@ Turning a webhook off yourself sends no notice.
 Turning a webhook back on is always confirmed, and the confirmation says what will happen:
 
 - After **repeated delivery failures** or a manual turn-off: sending resumes with the events it missed.
-- After it **fell too far behind** (its missed events may have been removed by history cleanup): it starts with new events, and the gap is never sent.
+- After it **fell too far behind** (history cleanup removed events it had not sent): it starts with new events, and the gap is never sent.
 - After **its creator lost access**: you take it over (see above).
 
 A webhook turned off because its stored address or secret can no longer be read (usually after the server's secret key changed) cannot be turned back on. Delete it and create a new one.

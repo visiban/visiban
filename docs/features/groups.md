@@ -159,6 +159,8 @@ The dialog lists every group you can see, but groups you can't place boards in a
 
 Group admins define a shared label library in the **Settings** tab on the group detail page. New boards created in the group inherit these labels, so your team starts with a consistent tagging vocabulary.
 
+Each label's color is a preset swatch or a [custom color](board.md#custom-colors).
+
 **Watch out:** inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.
 
 **API:** `GET/POST /api/v1/groups/{id}/labels/`, `PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/`

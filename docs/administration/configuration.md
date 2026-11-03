@@ -218,7 +218,7 @@ By default each HTTP request opens and closes its own PostgreSQL connection. Set
 | `WEBHOOK_MAX_EVENTS_PER_RUN` | `100` | Events read for one webhook in one dispatcher run. |
 | `WEBHOOK_RUN_BUDGET_SECONDS` | `50` | Wall-clock budget of one dispatcher run; keep it below the run interval for cron. |
 | `WEBHOOK_BACKOFF_BASE_SECONDS` | `30` | First retry delay after a failure; doubles per consecutive failure. |
-| `WEBHOOK_BACKOFF_MAX_SECONDS` | `3600` | Longest retry delay. Keep it under 23 hours, or a backed-off webhook can be wrongly treated as fallen behind retention. |
+| `WEBHOOK_BACKOFF_MAX_SECONDS` | `3600` | Longest retry delay. |
 | `WEBHOOK_DISABLE_AFTER_FAILURES` | `20` | Consecutive failures that turn a webhook off. |
 | `WEBHOOK_DISABLE_AFTER_HOURS` | `24` | Hours of continuous failure that turn a webhook off. |
 | `WEBHOOK_REFUSAL_FLOOR_SECONDS` | `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | Every "can't send to this address" refusal at save time takes at least this long, so its timing does not reveal which address rule matched. Lowering it trades that for a faster answer. |
