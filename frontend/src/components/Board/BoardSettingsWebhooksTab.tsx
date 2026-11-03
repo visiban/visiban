@@ -17,7 +17,7 @@ import type { WebhookStatus, WebhookSubscription } from "../../types";
 import { webhookPosition } from "../../constants/webhooks";
 import WebhookList from "./webhooks/WebhookList";
 import WebhookCreateForm from "./webhooks/WebhookCreateForm";
-import { axiosResponse } from "./webhooks/webhookFormUtils";
+import { axiosResponse, outcomeUnknown } from "./webhooks/webhookFormUtils";
 import WebhookDetail, { type WebhookConfirm } from "./webhooks/WebhookDetail";
 import WebhookSecretReveal, { type WebhookSecretRevealHandle } from "./webhooks/WebhookSecretReveal";
 import { DispatcherStaleNotice, WebhooksOffNotice } from "./webhooks/WebhookServiceNotice";
@@ -331,7 +331,15 @@ export default function BoardSettingsWebhooksTab({
           if (!guard(go)) go();
         }}
         onSubmit={async (req) => {
-          const created = await issuingSecret(() => createWebhook(boardId, req));
+          let created;
+          try {
+            created = await issuingSecret(() => createWebhook(boardId, req));
+          } catch (err) {
+            // A lost response then a retry would leave a second enabled webhook
+            // with a secret nobody saw. A refused create added nothing.
+            if (outcomeUnknown(err)) await listWebhooks(boardId).then(setSubs).catch(() => undefined);
+            throw err;
+          }
           const { url: _url, secret, ...sub } = created;
           void _url;
           setSubs((prev) => [sub, ...(prev ?? [])]);
@@ -494,7 +502,7 @@ export default function BoardSettingsWebhooksTab({
   return (
     <div className="flex flex-col gap-3">
       {refusals > 0 && (
-        <p key={`refusal-${refusals}`} ref={refusalRef} role="alert" className="rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+        <p key={`refusal-${refusals}`} ref={refusalRef} role="alert" className="scroll-mt-5 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
           {SECRET_PENDING_COPY}
         </p>
       )}

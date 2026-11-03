@@ -170,8 +170,9 @@ services:
         condition: service_completed_successfully
 
   # Delivers outbound webhooks (#863): `dispatch_webhooks --loop`, one run every
-  # 15 seconds. Opt-in via the `webhooks` profile, and it does nothing unless
-  # WEBHOOKS_ENABLED=true is also set in .env. Enable both, then `up -d` again:
+  # 15 seconds. Opt-in via the `webhooks` profile, and it delivers nothing unless
+  # WEBHOOKS_ENABLED=true is also set in .env; its one write without it is clearing
+  # replaced signing secrets past their overlap. Enable both, then `up -d` again:
   #   COMPOSE_PROFILES=webhooks   (comma-separate with scheduler/letsencrypt)
   # Running two copies is safe (each subscription is leased) but pointless.
   # See docs/features/webhooks.md.

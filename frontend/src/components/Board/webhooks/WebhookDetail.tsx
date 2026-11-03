@@ -19,9 +19,10 @@ import {
   urlShapeError,
 } from "../../../constants/webhooks";
 import WebhookStatusPill from "./WebhookStatusPill";
-import { axiosResponse, urlInputClass } from "./webhookFormUtils";
+import { axiosResponse, outcomeUnknown, urlInputClass } from "./webhookFormUtils";
 
 export type WebhookConfirm = "delete" | "disable" | "reenable" | "rotate";
+type InFlightKind = WebhookConfirm | "test" | "address";
 
 interface Props {
   sub: WebhookSubscription;
@@ -100,7 +101,10 @@ export default function WebhookDetail(props: Props) {
   const changeAddressRef = useRef<HTMLButtonElement>(null);
   const [focusChangeAddress, setFocusChangeAddress] = useState(false);
   const triggerRef = useConfirmFocusReturn<WebhookConfirm>(confirm);
-  const [inFlight, setInFlight] = useState<WebhookConfirm | "test" | "address" | null>(null);
+  // One entry per action, not one slot: a test send finishing must not re-arm a
+  // rotate still running, which would let a second rotate replace its secret.
+  const [inFlight, setInFlight] = useState<ReadonlySet<InFlightKind>>(() => new Set());
+  const busy = (kind: InFlightKind) => inFlight.has(kind);
   const [rotateChoice, setRotateChoice] = useState<"keep" | "revoke" | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
@@ -154,8 +158,8 @@ export default function WebhookDetail(props: Props) {
   const takeOver = sub.disabled_reason === "creator_lost_access";
   const expired = sub.disabled_reason === "cursor_expired" || expiredOnServer;
 
-  const handle = async (kind: WebhookConfirm | "test" | "address", fn: () => Promise<void>, fail: (err: unknown) => void) => {
-    setInFlight(kind);
+  const handle = async (kind: InFlightKind, fn: () => Promise<void>, fail: (err: unknown) => void) => {
+    setInFlight((prev) => new Set(prev).add(kind));
     try {
       await fn();
     } catch (err) {
@@ -166,12 +170,16 @@ export default function WebhookDetail(props: Props) {
         else setConfirmError(SESSION_REQUIRED_COPY);
       } else fail(err);
     } finally {
-      setInFlight(null);
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(kind);
+        return next;
+      });
     }
   };
 
   const runTest = () => {
-    if (inFlight === "test") return; // aria-disabled needs its own guard
+    if (busy("test")) return; // aria-disabled needs its own guard
     // Clear the old result so an identical new one is announced again.
     setTestResult(null);
     void handle(
@@ -216,17 +224,14 @@ export default function WebhookDetail(props: Props) {
   };
 
   const rotate = (choice: "keep" | "revoke") => {
-    if (inFlight === "rotate") return; // aria-disabled needs its own guard
+    if (busy("rotate")) return; // aria-disabled needs its own guard
     setConfirmError(null);
     setRotateChoice(choice);
     void handle(
       "rotate",
       () => props.onRotate(choice === "keep" ? ROTATE_OVERLAP_SECONDS : 0),
       (err) => {
-        // A 4xx is the server refusing, so nothing changed. Anything else may
-        // have committed with only the response lost.
-        const httpStatus = axiosResponse(err)?.status;
-        setConfirmError(httpStatus !== undefined && httpStatus < 500 ? "Couldn't rotate the secret. Try again." : ROTATE_UNCONFIRMED_COPY);
+        setConfirmError(outcomeUnknown(err) ? ROTATE_UNCONFIRMED_COPY : "Couldn't rotate the secret. Try again.");
       },
     );
   };
@@ -258,10 +263,10 @@ export default function WebhookDetail(props: Props) {
   const inlineConfirm = (kind: WebhookConfirm, text: string, run: () => void) => (
     <div role="status" aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-2 text-xs text-fg py-1">
       <span>{text}</span>
-      <button type="button" onClick={run} disabled={inFlight === kind} aria-label={`Confirm: ${text}`} className={CONFIRM_BTN}>
+      <button type="button" onClick={run} disabled={busy(kind)} aria-label={`Confirm: ${text}`} className={CONFIRM_BTN}>
         Confirm
       </button>
-      <button type="button" onClick={() => onConfirmChange(null)} disabled={inFlight === kind} className={CANCEL_BTN}>
+      <button type="button" onClick={() => onConfirmChange(null)} disabled={busy(kind)} className={CANCEL_BTN}>
         Cancel
       </button>
       {confirmError && <p role="alert" className="basis-full text-danger">{confirmError}</p>}
@@ -270,7 +275,7 @@ export default function WebhookDetail(props: Props) {
 
   const errLine = lastErrorLine(sub, now);
   const oldSecretUntil = overlapEnd(sub, now);
-  const rotating = inFlight === "rotate";
+  const rotating = busy("rotate");
 
   return (
     <section aria-labelledby={`${uid}-heading`} className="flex flex-col gap-3.5">
@@ -336,10 +341,10 @@ export default function WebhookDetail(props: Props) {
               )}
               {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
               <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => onConfirmChange(null)} disabled={inFlight === "reenable"} className={SECONDARY_BTN}>
+                <button type="button" onClick={() => onConfirmChange(null)} disabled={busy("reenable")} className={SECONDARY_BTN}>
                   Cancel
                 </button>
-                <button ref={turnOnConfirmRef} type="button" onClick={confirmReenable} disabled={inFlight === "reenable"} className={PRIMARY_BTN}>
+                <button ref={turnOnConfirmRef} type="button" onClick={confirmReenable} disabled={busy("reenable")} className={PRIMARY_BTN}>
                   {takeOver ? "Take over and turn on" : expired ? "Turn on from now" : "Turn on"}
                 </button>
               </div>
@@ -385,7 +390,7 @@ export default function WebhookDetail(props: Props) {
                 {addressError ?? `${URL_HELPER_COPY} Changing it makes you this webhook's owner; the secret stays the same${oldSecretUntil ? ", and the old secret stops being signed" : ""}.`}
               </p>
               <div className="flex gap-2">
-                <button type="submit" disabled={inFlight === "address"} className={PRIMARY_BTN}>Save address</button>
+                <button type="submit" disabled={busy("address")} className={PRIMARY_BTN}>Save address</button>
                 <button type="button" onClick={() => { setEditingAddress(false); setAddress(""); setAddressError(null); setFocusChangeAddress(true); }} className={SECONDARY_BTN}>
                   Cancel
                 </button>
@@ -491,8 +496,8 @@ export default function WebhookDetail(props: Props) {
 
       <div className="pt-3 border-t border-line flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={runTest} aria-disabled={inFlight === "test" || undefined} className={SECONDARY_BTN}>
-            {inFlight === "test" ? "Sending…" : "Send test event"}
+          <button type="button" onClick={runTest} aria-disabled={busy("test") || undefined} className={SECONDARY_BTN}>
+            {busy("test") ? "Sending…" : "Send test event"}
           </button>
           <span className="text-xs text-fg-tertiary">Sends one <span className="font-mono">webhook.test</span> event to the saved address.</span>
         </div>

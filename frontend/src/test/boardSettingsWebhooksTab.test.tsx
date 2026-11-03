@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from '../components/Board/BoardSettingsWebhooksTab'
-import { ROTATE_UNCONFIRMED_COPY, SESSION_REQUIRED_COPY } from '../constants/webhooks'
+import { CREATE_UNCONFIRMED_COPY, FORM_GENERIC_COPY, ROTATE_UNCONFIRMED_COPY, SESSION_REQUIRED_COPY } from '../constants/webhooks'
 import type { WebhookStatus, WebhookSubscription } from '../types'
 
 vi.mock('../api/webhooks', () => ({
@@ -279,7 +279,7 @@ describe('Webhooks tab — create and the acknowledged reveal', () => {
     [axiosError(400, 'limit_reached'), /reached a webhook limit/],
     [axiosError(400, 'invalid_event_types'), /can't be sent by webhook/],
     [axiosError(429), /Too many webhook changes/],
-    [axiosError(500), /Couldn't save the webhook/],
+    [axiosError(500), /Couldn't confirm the new webhook/],
   ])('form-level failures (%#)', async (err, text) => {
     const user = setup()
     m.create.mockRejectedValue(err)
@@ -788,6 +788,47 @@ describe('Webhooks tab — detail', () => {
       expect(within(reveal).getByRole('textbox')).toHaveValue('whsec_created')
     })
 
+    it('create: an unconfirmed failure refetches, so a webhook that landed is there to see', async () => {
+      const user = setup()
+      m.list.mockResolvedValue([sub()])
+      m.create.mockRejectedValue(new Error('Network Error'))
+      await renderTab()
+      await user.click(screen.getByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      m.list.mockClear()
+      m.list.mockResolvedValue([sub(), sub({ id: 2, url_display: 'hooks.example.com/…/abcd', url_host: 'hooks.example.com' })])
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+      expect(await screen.findByText(CREATE_UNCONFIRMED_COPY)).toBeInTheDocument()
+      expect(m.list).toHaveBeenCalledTimes(1)
+      await user.click(screen.getByRole('button', { name: '← All webhooks' }))
+      expect(await screen.findByRole('button', { name: /^Manage webhook hooks\.example\.com/ })).toBeInTheDocument()
+    })
+
+    it('create: a refetch that also fails still shows the unconfirmed message', async () => {
+      const user = setup()
+      m.list.mockResolvedValue([sub()])
+      m.create.mockRejectedValue(axiosError(503))
+      await renderTab()
+      await user.click(screen.getByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      m.list.mockRejectedValue(axiosError(503))
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+      expect(await screen.findByText(CREATE_UNCONFIRMED_COPY)).toBeInTheDocument()
+    })
+
+    it('create: a refusal refetches nothing and says to try again', async () => {
+      const user = setup()
+      m.list.mockResolvedValue([sub()])
+      m.create.mockRejectedValue(axiosError(400))
+      await renderTab()
+      await user.click(screen.getByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      m.list.mockClear()
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+      expect(await screen.findByText(FORM_GENERIC_COPY)).toBeInTheDocument()
+      expect(m.list).not.toHaveBeenCalled()
+    })
+
     it('create: the form back button works again once a failure is in', async () => {
       const user = setup()
       m.list.mockResolvedValue([sub()])
@@ -931,6 +972,51 @@ describe('Webhooks tab — detail', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(ROTATE_UNCONFIRMED_COPY)
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('button', { name: KEEP_OLD })).not.toBeInTheDocument())
+  })
+
+  describe('a rotate and a test send running together', () => {
+    it('a test finishing does not re-arm a rotate still running', async () => {
+      const user = setup()
+      let guard: WebhookCloseGuard | null = null
+      let finishTest: (value: unknown) => void = () => {}
+      m.list.mockResolvedValue([sub()])
+      m.test.mockReturnValue(new Promise((resolve) => { finishTest = resolve }))
+      m.rotate.mockReturnValue(new Promise(() => {}))
+      await renderTab({ registerCloseGuard: (g) => { guard = g } })
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: 'Send test event' }))
+      await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+      await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+      await act(async () => { finishTest({ ok: true, code: null, status_code: 200, latency_ms: 5 }) })
+      await screen.findByText('Test event delivered.')
+      const busy = screen.getByRole('button', { name: 'Rotating…' })
+      expect(busy).toHaveAttribute('aria-disabled', 'true')
+      await user.click(busy)
+      await user.click(screen.getByRole('button', { name: REVOKE_OLD }))
+      expect(m.rotate).toHaveBeenCalledTimes(1)
+      act(() => { expect(guard!(vi.fn())).toBe(true) })
+    })
+
+    it('a test started during a rotate leaves the rotate locked, and the rotate finishes alone', async () => {
+      const user = setup()
+      let finishRotate: (value: unknown) => void = () => {}
+      let finishTest: (value: unknown) => void = () => {}
+      m.list.mockResolvedValue([sub()])
+      m.rotate.mockReturnValue(new Promise((resolve) => { finishRotate = resolve }))
+      m.test.mockReturnValue(new Promise((resolve) => { finishTest = resolve }))
+      await renderTab()
+      await openDetail(user)
+      await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+      await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+      await user.click(screen.getByRole('button', { name: 'Send test event' }))
+      expect(screen.getByRole('button', { name: 'Sending…' })).toHaveAttribute('aria-disabled', 'true')
+      await act(async () => { finishTest({ ok: true, code: null, status_code: 200, latency_ms: 5 }) })
+      await screen.findByText('Test event delivered.')
+      await user.click(screen.getByRole('button', { name: REVOKE_OLD }))
+      expect(m.rotate).toHaveBeenCalledTimes(1)
+      await act(async () => { finishRotate({ ...sub(), secret: 'whsec_once' }) })
+      expect(within(await screen.findByTestId('webhook-secret-reveal')).getByRole('textbox')).toHaveValue('whsec_once')
+    })
   })
 
   it('revoke old shows its own progress label', async () => {
