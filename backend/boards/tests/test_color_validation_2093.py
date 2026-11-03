@@ -25,7 +25,7 @@ class NormalizeHexColorTests(SimpleTestCase):
         self.assertEqual(normalize_hex_color("#ABC"), "#AABBCC")
 
     def test_rejects_everything_else(self):
-        for value in BAD + [None, 5, True, "abcdef"]:
+        for value in BAD + [None, 5, True, "abcdef", "#abcdef\n", "#abc\n"]:
             with self.subTest(value=value):
                 self.assertIsNone(normalize_hex_color(value))
 
@@ -213,4 +213,19 @@ class JsonImportColorTests(TestCase):
 
     def test_over_length_color_stays_400(self):
         r = self._post(self._data(columns=[{"name": "c", "color": "#1234567"}]))
+        self.assertEqual(r.status_code, 400, r.content)
+
+
+class TrailingNewlineColorTests(JsonImportColorTests):
+    """``$`` matches before a trailing newline; the rule must not (security-review)."""
+
+    def test_short_hex_with_newline_is_replaced_not_expanded(self):
+        r = self._post(self._data(columns=[{"name": "c", "color": "#abc\n"}], swimlanes=[{"name": "s"}], labels=[]))
+        self.assertEqual(r.status_code, 201, r.content)
+        board = Board.objects.get(pk=r.json()["id"])
+        self.assertEqual(board.columns.get().color, "#6B7280")
+        self.assertEqual(r.json()["import_summary"]["skipped"]["colors"], 1)
+
+    def test_long_hex_with_newline_is_over_length_400(self):
+        r = self._post(self._data(swimlanes=[{"name": "s", "color": "#abcdef\n"}]))
         self.assertEqual(r.status_code, 400, r.content)

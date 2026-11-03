@@ -11,8 +11,9 @@ import re
 
 from rest_framework import serializers
 
-_HEX6_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
-_HEX3_RE = re.compile(r"^#[0-9A-Fa-f]{3}$")
+# fullmatch, not ^...$: "$" also matches before a trailing newline.
+_HEX6_RE = re.compile(r"#[0-9A-Fa-f]{6}")
+_HEX3_RE = re.compile(r"#[0-9A-Fa-f]{3}")
 
 COLOR_ERROR_MESSAGE = "Enter a color as #RRGGBB or #RGB."
 
@@ -25,9 +26,9 @@ def normalize_hex_color(value):
     """
     if not isinstance(value, str):
         return None
-    if _HEX6_RE.match(value):
+    if _HEX6_RE.fullmatch(value):
         return value
-    if _HEX3_RE.match(value):
+    if _HEX3_RE.fullmatch(value):
         return "#" + "".join(ch * 2 for ch in value[1:])
     return None
 
