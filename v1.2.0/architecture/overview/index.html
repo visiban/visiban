@@ -4467,7 +4467,7 @@
 <tr>
 <td><code>backend-sast</code></td>
 <td>bandit, medium+</td>
-<td>MR and <code>main</code>, when <code>backend/**/*.py</code> changed</td>
+<td>MR and <code>main</code>, when <code>backend/**/*.py</code> or <code>clients/**/*.py</code> changed</td>
 <td>Yes</td>
 <td>Yes (<code>changes:</code> matches on a schedule)</td>
 </tr>
@@ -4475,6 +4475,13 @@
 <td><code>frontend-sast</code></td>
 <td>eslint-plugin-security (<code>error</code> rules only; object-injection and timing rules are <code>warn</code>)</td>
 <td>MR and <code>main</code>, when <code>frontend/src/**/*.{ts,tsx}</code> changed</td>
+<td>Yes</td>
+<td>Yes (<code>changes:</code> matches on a schedule)</td>
+</tr>
+<tr>
+<td><code>clients-typescript-sast</code></td>
+<td>eslint-plugin-security (same rule set) on <code>clients/typescript</code></td>
+<td>MR and <code>main</code>, when <code>clients/typescript/**</code> changed</td>
 <td>Yes</td>
 <td>Yes (<code>changes:</code> matches on a schedule)</td>
 </tr>
@@ -4501,7 +4508,7 @@
 </tr>
 <tr>
 <td><code>dep-scan-osv</code></td>
-<td>OSV advisories for <code>backend/requirements.txt</code> and <code>frontend/package-lock.json</code></td>
+<td>OSV advisories for <code>backend/requirements.txt</code>, <code>frontend/package-lock.json</code> and <code>clients/typescript/package-lock.json</code> (accepted risks in each directory's <code>osv-scanner.toml</code>)</td>
 <td>Every MR, <code>main</code>, and nightly (<code>OSV_SCAN=true</code>)</td>
 <td>Yes for HIGH/CRITICAL (CVSS 7.0 or higher, or a HIGH/CRITICAL advisory label when unscored) and for a missing or unparseable report (exit 1). MEDIUM, LOW, and unscored advisories exit 2, which <code>allow_failure: exit_codes: [2]</code> turns into a warning</td>
 <td>Same: blocks on HIGH/CRITICAL, warns on the rest</td>

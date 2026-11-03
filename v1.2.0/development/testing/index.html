@@ -4706,6 +4706,13 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <ul>
 <li>Backend tests run in the <code>backend-test</code> job (8 parallel shards) on every MR that touches <code>backend/**/*</code> or <code>requirements*.txt</code></li>
 <li>Shards are time-balanced by <code>pytest-split</code> from the committed <code>backend/.test_durations</code> file. Shards never write it (concurrent shards would overwrite each other's slice). Refresh it occasionally, e.g. after a large batch of new tests: <code>cd backend &amp;&amp; pytest --store-durations --durations-path .test_durations</code>, then commit the file. A stale file only degrades balance, never correctness.</li>
+<li>The change-feed clients (<code>clients/python</code>, <code>clients/typescript</code>, #1178) have three CI jobs, all triggered by <code>clients/**</code>:<ul>
+<li><code>clients-python-unit</code> runs the stdlib <code>unittest</code> suite with <code>coverage</code> and fails below 80%.</li>
+<li><code>clients-typescript-unit</code> runs <code>tsc</code>, <code>vitest</code> (80% threshold) and the build. <code>clients-typescript-sast</code> runs eslint with the security plugin.</li>
+<li><code>clients-contract</code> boots a real backend, then runs both packages' live tests: a feed phase, a real <code>prune_board_events</code> run, then an expired-cursor phase. It also re-runs when the feed's backend code or the events docs change, so an API change that breaks the clients fails the OSS pipeline.</li>
+<li>Both unit suites also run every scenario in <code>clients/contract/fixtures.json</code>. Add a scenario there, not in one language's test file, so the two stay in step. Locally: <code>cd clients/python &amp;&amp; PYTHONPATH=src python -m unittest discover -s tests -t .</code> and <code>cd clients/typescript &amp;&amp; npm ci &amp;&amp; npm test</code>.</li>
+</ul>
+</li>
 <li><code>backend-benchmark</code> is a <strong>manual</strong> job (#1341) that runs <code>python manage.py benchmark --fail-on-budget</code>.<ul>
 <li><strong>Trigger:</strong> use the pipeline page's manual-job play button on an MR or <code>main</code> pipeline. It's <code>allow_failure: true</code> so an unrun job never blocks a merge, and it never runs on schedules or tags.</li>
 <li><strong>What it does:</strong> the command seeds its own throw-away board (100 cards) and counts SQL queries for the card list, <code>full/</code>, and <code>summary/</code> against committed budgets. It fails on a non-2xx response, on <code>DEBUG</code> being off, or on any endpoint over budget.</li>

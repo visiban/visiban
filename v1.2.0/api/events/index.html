@@ -2375,6 +2375,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#using-the-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the client
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#stability-and-versioning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4426,7 +4437,7 @@ which match what the WebSocket sends that reader.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_..."</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="s2">"http://localhost:8000/api/v1/boards/42/events/?after=0&amp;limit=200"</span>
 </code></pre></div>
-<p>Call again with <code>after</code> set to the previous <code>next_cursor</code> until <code>next_cursor</code> is <code>null</code>. Order is by <code>id</code>, the commit order. Never re-sort by <code>created_at</code>: two events can share a timestamp.</p>
+<p>Call again with <code>after</code> set to the previous <code>next_cursor</code> until <code>next_cursor</code> is <code>null</code>. Order is by <code>id</code>, which follows insertion order and is usually, but not always, commit order (see <a href="#event-coverage">Event coverage</a> and <a href="https://gitlab.com/visiban/visiban/-/issues/2053">#2053</a>). Never re-sort by <code>created_at</code>: two events can share a timestamp.</p>
 <h3 id="pagination-shapes">Pagination shapes<a class="headerlink" href="#pagination-shapes" title="Permanent link">&para;</a></h3>
 <p>Besides the standard offset envelope (<code>{count, offset, page_size, results}</code>) and bare arrays for small bounded lists, the API has three cursor/link shapes (see <a href="../#pagination">Pagination</a> for the full list). They differ on purpose, and each is frozen by the release that introduced it (decision recorded for #1869):</p>
 <table>
@@ -4624,6 +4635,52 @@ for both surfaces.</p>
 <hr />
 <h2 id="sizing-the-window">Sizing the window<a class="headerlink" href="#sizing-the-window" title="Permanent link">&para;</a></h2>
 <p>Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: if events it had not read were pruned, it gets a <code>410</code> and re-syncs; if the board was quiet and nothing it missed was pruned, it keeps reading. But every re-sync is a full <code>/full/</code> fetch, so a too-short window makes routine restarts expensive.</p>
+<hr />
+<h2 id="using-the-client">Using the client<a class="headerlink" href="#using-the-client" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Experimental, 0.x</p>
+<p>The Python and TypeScript clients are new in 1.3 and are <strong>not published</strong> to PyPI or npm. Their API can change in any 0.x release, and they follow the 1.x compatibility rules only once they reach 1.0. The feed itself is the stable contract; the clients are a convenience over it.</p>
+</div>
+<p>Every consumer outside the Django process ends up writing the same loop: hold a cursor, page the feed, save the cursor, and handle <code>410</code> by re-syncing. The clients in <a href="https://gitlab.com/visiban/visiban/-/tree/main/clients/python"><code>clients/python</code></a> and <a href="https://gitlab.com/visiban/visiban/-/tree/main/clients/typescript"><code>clients/typescript</code></a> implement exactly that and nothing else. They are not a general REST SDK. Both need <strong>server 1.3 or later</strong>, because only 1.3 returns <code>next_cursor</code> on a <code>410</code> (see <a href="#errors">When a cursor expires</a>). Against a 1.2 server a <code>410</code> raises <code>ResyncUnsupported</code> rather than guessing a resume point.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Python</label><label for="__tabbed_1_2">TypeScript</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>Standard library only, Python 3.10+. Install from a checkout: <code>pip install ./clients/python</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">visiban_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Resync</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://visiban.example.com"</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span>  <span class="c1"># a PAT with the `read` scope</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">iter_events</span><span class="p">(</span><span class="n">board_id</span><span class="p">):</span>               <span class="c1"># returns once caught up</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">Resync</span><span class="p">):</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="n">replace_local_state</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">snapshot</span><span class="p">)</span>               <span class="c1"># the /full/ board state</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="n">handle</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>                                     <span class="c1"># one feed row, as a dict</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>No runtime dependencies, Node 20.3+ (global <code>fetch</code>, <code>AbortSignal.any</code>). npm cannot install from a Git subdirectory, so build a tarball from a checkout: <code>cd clients/typescript &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; npm pack</code>, then <code>npm install ./visiban-client-0.1.0.tgz</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Client</span><span class="p">,</span><span class="w"> </span><span class="nx">Resync</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"@visiban/client"</span><span class="p">;</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Client</span><span class="p">({</span><span class="w"> </span><span class="nx">baseUrl</span><span class="o">:</span><span class="w"> </span><span class="s2">"https://visiban.example.com"</span><span class="p">,</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="p">});</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">for</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="p">(</span><span class="kd">const</span><span class="w"> </span><span class="nx">item</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">iterEvents</span><span class="p">(</span><span class="nx">boardId</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">item</span><span class="w"> </span><span class="ow">instanceof</span><span class="w"> </span><span class="nx">Resync</span><span class="p">)</span><span class="w"> </span><span class="nx">replaceLocalState</span><span class="p">(</span><span class="nx">item</span><span class="p">.</span><span class="nx">snapshot</span><span class="p">);</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="nx">handle</span><span class="p">(</span><span class="nx">item</span><span class="p">);</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p><strong>What the client does</strong></p>
+<ul>
+<li>Pages with <code>after</code> and <code>limit</code> until <code>next_cursor</code> is <code>null</code>, and yields rows in <code>id</code> order. "Caught up" is the server's <code>next_cursor: null</code>; the client never counts rows, because a full page may or may not be the last one (see <a href="#paging">Paging</a>).</li>
+<li><strong>Advances the cursor only after your loop body returns</strong> for an item, through a pluggable cursor store (pass your own <code>get</code>/<code>set</code> for durable storage). Leaving the loop early, or an exception in your handler, leaves that item uncommitted. To redeliver it, <strong>call <code>iter_events</code> / <code>iterEvents</code> again</strong> for a new iterator over the same store; resuming the old generator after an exception would treat the failed item as handled and commit it. That is <strong>at-least-once</strong> delivery: make handlers idempotent. The clients do not offer exactly-once. The default store is an in-memory one created <strong>per call</strong>, so a bare <code>iter_events(board_id)</code> replays from 0 every time: keep one store across calls, or pass <code>cursor</code>, to resume.</li>
+<li>On <code>410 cursor_expired</code>, keeps the <code>410</code>'s <code>next_cursor</code>, fetches <code>/full/</code>, and yields a <code>Resync</code> carrying the snapshot and that cursor. The stored cursor moves to it only after your handler returns for the <code>Resync</code>, then the feed resumes from it. An event written around the re-sync can arrive both in the snapshot and on the resumed feed, so apply events idempotently.</li>
+<li>Passes redacted rows, unknown event types and unknown fields through untouched; it never raises on them.</li>
+<li>Backs off on <code>429</code>, <code>5xx</code> and network errors (honoring <code>Retry-After</code>, capped), and polls on a configurable interval. Without a poll interval it returns once caught up.</li>
+<li>Authenticates with a <a href="../authentication/">scoped personal access token</a> only (<code>read</code> is enough: the clients issue only <code>GET</code>s). It sends requests only to the host in the base URL you configured: a <code>resync_url</code> is reduced to its path and redirects are never followed. It refuses plain <code>http://</code> to a non-loopback host unless you opt in. <strong>Proxies:</strong> Python's <code>urllib</code> honors the <code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code> environment variables, so the token travels through that proxy (and is readable by it over plain <code>http</code>); Node's built-in <code>fetch</code> does not read them by default. Use <code>https</code> and review proxy variables in the consumer's environment.</li>
+</ul>
+<p><strong>Late-committing rows.</strong> Ids follow insertion, not commit (see <a href="#event-coverage">Event coverage</a>), so a paging reader can step past a row that commits a moment later and never see it. The clients have <strong>no overlap option</strong> in 0.x and their reads are <strong>not gap-free</strong>. A consumer that needs every row can re-read a short overlap itself and deduplicate on <code>id</code>, as described under Event coverage, until <a href="https://gitlab.com/visiban/visiban/-/issues/2053">#2053</a> adds a commit-ordered cursor.</p>
+<p><strong>Verifying webhooks.</strong> The same packages include <code>verify_signature</code> / <code>verifySignature</code> for <a href="../webhooks/#verifying-signatures">webhook deliveries</a>. It is <strong>experimental</strong> until the webhooks API is declared stable (<a href="https://gitlab.com/visiban/visiban/-/issues/2070">#2070</a>). In TypeScript it lives in the separate <code>@visiban/client/webhooks</code> entry point, so the main entry stays free of <code>node:crypto</code> and browser-safe.</p>
+<p><strong>Tested against a real server.</strong> The <code>clients-contract</code> CI job boots a backend and runs both packages' live tests, with the <code>VISIBAN_CONTRACT_REQUIRED</code> flag set so missing configuration fails the job instead of skipping. It runs on merge request and <code>main</code> pipelines (never on schedules) when <code>clients/**</code>, the boards feed code (views, serializers, models, URLs, permissions, broadcast, <code>services/feed.py</code>, the pruner), <code>backend/accounts/**</code>, <code>backend/visiban/</code> settings, URLs, permissions or exceptions, <code>backend/webhooks/**</code>, <code>backend/requirements.txt</code>, <code>.gitlab-ci.yml</code>, or the events and webhooks docs change. A shared fixture file drives both languages' unit suites, which keeps them behaving alike on the scenarios it covers; it does not prove they match elsewhere.</p>
 <hr />
 <h2 id="stability-and-versioning">Stability and versioning<a class="headerlink" href="#stability-and-versioning" title="Permanent link">&para;</a></h2>
 <blockquote>

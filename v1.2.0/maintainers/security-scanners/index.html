@@ -4285,8 +4285,8 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 <td><code>backend-sast</code></td>
 <td>bandit</td>
 <td>Yes, medium+</td>
-<td>MR + <code>main</code> when <code>backend/**/*.py</code> changed</td>
-<td><code>backend/</code></td>
+<td>MR + <code>main</code> when <code>backend/**/*.py</code> or <code>clients/**/*.py</code> changed</td>
+<td><code>backend/</code>, <code>clients/python/</code></td>
 </tr>
 <tr>
 <td><code>frontend-sast</code></td>
@@ -4294,6 +4294,13 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 <td>Yes, <code>error</code> rules (object-injection and timing rules are <code>warn</code>)</td>
 <td>MR + <code>main</code> when <code>frontend/src/**/*.{ts,tsx}</code> changed</td>
 <td><code>frontend/src</code></td>
+</tr>
+<tr>
+<td><code>clients-typescript-sast</code></td>
+<td>eslint-plugin-security (same rule set)</td>
+<td>Yes, <code>error</code> rules</td>
+<td>MR + <code>main</code> when <code>clients/typescript/**</code> changed</td>
+<td><code>clients/typescript/src</code></td>
 </tr>
 <tr>
 <td><code>trivy-scan</code></td>
