@@ -262,7 +262,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                               <span
                                 key={col.name}
                                 title={col.name}
-                                className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                className="color-dot inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: col.color }}
                               />
                             ))}
@@ -323,7 +323,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                       className="inline-flex items-center gap-1.5 text-xs text-fg bg-surface-hover rounded-lg px-2.5 py-1"
                     >
                       <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        className="color-dot w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: col.color }}
                       />
                       {col.name}

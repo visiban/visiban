@@ -76,6 +76,19 @@ async function goToReview(user: ReturnType<typeof userEvent.setup>, preview = ma
   await screen.findByText('Step 2 of 2 · Review and configure')
 }
 
+describe('TrelloReviewStep label chips (#2094)', () => {
+  it('renders each label as a cf-choice-badge chip with the --cf-* variables', async () => {
+    mockPreview.mockReset()
+    renderModal()
+    await goToReview(userEvent.setup())
+    const chip = screen.getByText('Acme').closest('span.cf-choice-badge') as HTMLElement
+    expect(chip).not.toBeNull()
+    for (const v of ['--cf-bg-light', '--cf-fg-light', '--cf-border-light', '--cf-bg-dark', '--cf-fg-dark', '--cf-border-dark'])
+      expect(chip.style.getPropertyValue(v)).toMatch(/^#[0-9A-F]{6}$/)
+    expect(chip.style.color).toBe('')
+  })
+})
+
 describe('TrelloImportModal', () => {
   beforeEach(() => {
     mockPreview.mockReset()

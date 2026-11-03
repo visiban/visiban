@@ -99,6 +99,8 @@ describe('BulkActionToolbar', () => {
     await userEvent.setup().click(screen.getByText('Move to...'))
     expect(screen.getByText('To Do')).toBeInTheDocument()
     expect(screen.getByText('Done')).toBeInTheDocument()
+    // #2094: the column color dot carries the neutral ring
+    expect(screen.getByText('To Do').parentElement?.querySelector('.color-dot')).not.toBeNull()
   })
 
   it('shows assign dropdown with members', async () => {

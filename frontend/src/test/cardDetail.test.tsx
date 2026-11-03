@@ -289,6 +289,21 @@ describe('CardDetail', () => {
     expect(highBtn).not.toBeDisabled()
   })
 
+  it('marks an active label with a check, aria-pressed and a legible chip, not a fill change (#2094)', () => {
+    const on = { id: 100, uid: 'lbluid000001', name: 'Bug', color: '#FFFFFF' }
+    const off = { id: 101, uid: 'lbluid000002', name: 'Keep', color: '#000000' }
+    render(<CardDetail {...defaultProps()} board={makeBoard({ labels: [on, off] })} card={makeCard({ labels: [on] })} />)
+    const active = screen.getByRole('button', { name: /Bug/ })
+    const idle = screen.getByRole('button', { name: /Keep/ })
+    expect(active).toHaveAttribute('aria-pressed', 'true')
+    expect(active.textContent).toContain('\u2713')
+    expect(idle).toHaveAttribute('aria-pressed', 'false')
+    expect(idle.querySelector('.invisible')).not.toBeNull()
+    expect(active.querySelector('.invisible')).toBeNull()
+    expect(active.className).toContain('cf-choice-badge')
+    expect(active.style.getPropertyValue('--cf-fg-light')).toMatch(/^#[0-9A-F]{6}$/)
+  })
+
   it('drops a label from an open detail when it is deleted, keeping other edits (#1888)', async () => {
     const bug = { id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }
     const keep = { id: 101, uid: 'lbluid000002', name: 'Keep', color: '#22C55E' }

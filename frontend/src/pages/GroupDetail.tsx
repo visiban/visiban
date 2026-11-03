@@ -1257,7 +1257,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   {(group.shared_labels ?? []).map((label) => (
                     <div key={label.id} className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2">
                       <span
-                        className="w-3 h-3 rounded-full shrink-0"
+                        className="color-dot w-3 h-3 rounded-full shrink-0"
                         style={{ backgroundColor: label.color }}
                       />
                       <span className="text-fg text-sm flex-1">{label.name}</span>

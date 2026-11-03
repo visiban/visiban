@@ -193,7 +193,7 @@ function CheckboxDropdownInner<T extends string | number>(
                   />
                   {opt.color && (
                     <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      className="color-dot w-2.5 h-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: opt.color }}
                     />
                   )}

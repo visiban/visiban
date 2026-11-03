@@ -58,7 +58,7 @@ export default function SummaryView({ boardId, columns }: Props) {
               <tr key={row.id} className="border-b border-line hover:bg-surface/50">
                 <td className="py-2 pr-4 sticky left-0 bg-sunken">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
+                    <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
                     <span className="font-medium text-fg">{row.name}</span>
                   </div>
                 </td>

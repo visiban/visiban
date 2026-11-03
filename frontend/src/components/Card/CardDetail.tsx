@@ -38,6 +38,7 @@ import { withCustomFieldValue } from "../../utils/customFieldValue";
 import { importedNote } from "../../utils/importedHistory";
 import { DEMO_COMMENT_REASON, DEMO_UPLOAD_REASON, DEMO_DELETE_COMMENT_REASON, DEMO_DELETE_ATTACHMENT_REASON, DEMO_CARD_DETAIL_NOTE, DEMO_EXTERNAL_REF_REASON, DEMO_CARD_FOOTER_NOTE } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
+import { colorChipStyle } from "../../utils/colorContrast";
 
 interface Props {
   card: Card;
@@ -1623,13 +1624,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <button
                         key={label.id}
                         onClick={() => toggleLabel(label)}
-                        className={`text-xs px-2.5 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                          active ? "text-on-primary border-transparent shadow-sm" : "bg-transparent border-line-strong hover:border-line-emphasis"
+                        aria-pressed={active}
+                        // Active is a check mark plus a heavier weight and inset ring, not
+                        // a color change alone (#2094): the tint is the same either way.
+                        className={`cf-choice-badge inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                          active ? "font-semibold shadow-[inset_0_0_0_1px_currentColor]" : ""
                         }`}
-                        style={active
-                          ? { backgroundColor: label.color, borderColor: label.color }
-                          : { color: label.color }}
+                        style={colorChipStyle(label.color)}
                       >
+                        {/* Always rendered so the check reserves its space (weight can still widen the chip slightly); hidden when idle. */}
+                        <span aria-hidden="true" className={active ? "" : "invisible"}>✓</span>
                         {label.name}
                       </button>
                     );

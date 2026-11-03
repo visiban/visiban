@@ -30,6 +30,19 @@ describe('SummaryView', () => {
     expect(await screen.findByText('Failed to load summary.')).toBeInTheDocument()
   })
 
+  it('swimlane color dot carries the neutral ring (#2094)', async () => {
+    mockGetBoardSummary.mockResolvedValue({
+      swimlanes: [{
+        id: 1, name: 'Customer A', color: '#FFFFFF', total_cards: 1,
+        stage_distribution: { 'To Do': 1, 'Done': 0 },
+        velocity_7d: 0, velocity_30d: 0, active_cards: 1, done_30d: 0, avg_cycle_days: null,
+      }],
+    } as never)
+    const { container } = render(<SummaryView boardId={1} columns={['To Do', 'Done']} />)
+    await screen.findByText('Customer A')
+    expect(container.querySelector('.color-dot')).not.toBeNull()
+  })
+
   it('renders summary table with swimlane data', async () => {
     mockGetBoardSummary.mockResolvedValue({
       swimlanes: [

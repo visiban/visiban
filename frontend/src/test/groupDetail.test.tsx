@@ -517,6 +517,17 @@ describe('GroupDetail', () => {
     expect(mockUpdateGroupMemberRole).toHaveBeenCalledWith(1, 2, 'viewer')
   })
 
+  it('shared label dot carries the neutral ring (#2094)', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [{ id: 1, name: 'Design', color: '#ffffff' }] })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    const name = await screen.findByText('Design')
+    expect(name.parentElement?.querySelector('.color-dot')).not.toBeNull()
+  })
+
   it('surfaces an error and keeps the label when label removal fails (#1386)', async () => {
     mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }] })
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
