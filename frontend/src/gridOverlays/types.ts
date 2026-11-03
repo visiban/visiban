@@ -11,7 +11,11 @@ import type { Card, Column, Swimlane } from "../types";
  * enforced exactly once instead of once per overlay.
  */
 export interface GridOverlayCell {
-  /** Non-negative. 0 means "nothing to show here"; the slot renders no tint. */
+  /**
+   * Non-negative. On the default relative scale, 0 means "nothing to show here" and
+   * the slot renders nothing. An overlay with its own `scale` omits a cell to say
+   * that instead, because there 0 is a real reading (a card that just arrived).
+   */
   value: number;
   /** e.g. `"3 cards"` — already pluralized and localized by the overlay. */
   label: string;
@@ -19,20 +23,15 @@ export interface GridOverlayCell {
 
 /**
  * Everything an overlay is allowed to read. Deliberately just the board data
- * already in memory: the 1.2 slot ships no new queries (#1147 non-goal), and a
- * later metric overlay (#459 dwell time) extends this context rather than
- * reaching for the network from inside `compute()`.
+ * already in memory: an overlay never reaches for the network from inside
+ * `compute()`. That is what keeps a metric overlay live and filter-aware (#459), and
+ * what its value has to come from a field on the loaded cards for.
  *
  * `cards` is the *visible* card set — filters already applied — so an overlay never
  * disagrees with what is on screen; `isFiltered` tells the overlay it is describing a
  * filtered subset so it can say so in its labels.
  *
- * `columns` and `swimlanes` are keyed by **id** here. A later server-fed overlay may
- * have to bridge from names: the existing analytics aggregate
- * (`backend/boards/views/analytics.py` — `age_avg_days_per_column` and friends, which
- * #459 can consume instead of adding an endpoint) is keyed by column *name*, and
- * `Column`/`Swimlane` are `unique_together (board, name)`, so the mapping is safe but
- * has to be done by the adapter, not by widening this contract.
+ * `columns` and `swimlanes` are keyed by **id** here.
  */
 export interface GridOverlayContext {
   columns: Column[];
@@ -45,6 +44,28 @@ export interface GridOverlayContext {
    * reports what is on screen and must label it unambiguously.
    */
   isFiltered: boolean;
+  /**
+   * Wall clock in epoch ms, handed in so `compute()` stays pure. Coarse by design: it
+   * advances on the overlay's `refreshMs`, and is 0 for an overlay that declares none,
+   * so an overlay that does not read the time is never rebuilt because time passed.
+   */
+  now: number;
+}
+
+/**
+ * Absolute steps, for a value whose unit has fixed meaning (#459: days).
+ *
+ * Without one, the slot buckets against the board's largest value, which is the only
+ * honest scale for a unit it cannot interpret. With one, the same value always lands on
+ * the same step on every board, and a value below the first threshold is a real reading
+ * that gets the numeral but no tint and no bar. It holds numbers and words, never
+ * classes: the ramp itself stays in `scale.ts`.
+ */
+export interface GridOverlayScale {
+  /** Ascending lower bounds of levels 1..4, inclusive, in the overlay's unit. */
+  thresholds: readonly [number, number, number, number];
+  /** Legend wording per step, lowest first: below level 1, then levels 1..4. */
+  stepLabels: readonly [string, string, string, string, string];
 }
 
 /**
@@ -61,6 +82,21 @@ export interface GridOverlay {
   label: string;
   /** One sentence for the picker tooltip and the legend caption. */
   description: string;
+  /** Absolute steps. Omitted: relative to the largest visible value. */
+  scale?: GridOverlayScale;
+  /** How the value reads on the badge and the legend, e.g. `4.0d`. */
+  formatValue?: (value: number) => string;
+  /**
+   * Set when a value depends on the time as well as the board, so a mounted board does
+   * not show it stale indefinitely. The slot recomputes at this interval, and only then.
+   */
+  refreshMs?: number;
+  /**
+   * One sentence for the legend when visible cards count for nothing in `compute()`, or
+   * null when none do. A cell has no room to say so, and a number that quietly leaves
+   * cards out reads as covering them. Same rules as `compute()`: pure and synchronous.
+   */
+  note?: (ctx: GridOverlayContext) => string | null;
   /**
    * Per-cell values, keyed by `cellKey(columnId, swimlaneId)`. Cells the
    * overlay omits are treated as value 0. Must be pure and synchronous — the

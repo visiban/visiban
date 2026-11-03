@@ -75,9 +75,11 @@ vi.mock('react-router-dom', () => ({
 }))
 
 const socketOptionsSpy = vi.fn()
+let capturedSocketEvent: ((e: { event: string; data: unknown }) => void) | undefined
+let capturedColumnUpdated: ((column: unknown) => void) | undefined
 let mockSocketStatus = 'connected'
 vi.mock('../hooks/useBoardSocket', () => ({
-  useBoardSocket: (_id: unknown, _onEvent: unknown, options?: unknown) => { socketOptionsSpy(options); return { connected: true, status: mockSocketStatus, lastEventAt: null, reconnectAttempt: 0 } },
+  useBoardSocket: (_id: unknown, onEvent: (e: { event: string; data: unknown }) => void, options?: unknown) => { capturedSocketEvent = onEvent; socketOptionsSpy(options); return { connected: true, status: mockSocketStatus, lastEventAt: null, reconnectAttempt: 0 } },
 }))
 
 vi.mock('../hooks/useBoardPan', () => ({
@@ -110,9 +112,10 @@ vi.mock('../components/Board/AnalyticsView', () => ({
   ),
 }))
 vi.mock('../components/Board/ColumnHeader', () => ({
-  default: ({ column, collapsed }: { column: { id: number; name: string }; collapsed: boolean }) => (
-    <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
-  ),
+  default: ({ column, collapsed, onColumnUpdated }: { column: { id: number; name: string }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void }) => {
+    capturedColumnUpdated = onColumnUpdated
+    return <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
+  },
 }))
 // SwimlaneRow mock renders name + focus/exit buttons so focus tests can fire onFocus/onExitFocus via click.
 // data-can-edit surfaces the canEdit prop (#783 — maintenance mode folds into the
@@ -365,6 +368,74 @@ describe('BoardView', () => {
     expect(silentReload).not.toHaveBeenCalled()
     options.onReconnected!()
     expect(silentReload).toHaveBeenCalledTimes(1)
+  })
+
+  describe('a column that stops being done (#459)', () => {
+    const OVERLAY_KEY = 'board:1:grid-overlay'
+    const leaveDone = () => {
+      const done = { ...makeBoard().columns[0], is_done: true }
+      return { done, reopened: { ...done, is_done: false } }
+    }
+    function renderWith(silentReload: () => void) {
+      const { done } = leaveDone()
+      mockBoardContextValue = defaultContext({ silentReload, board: makeBoard({ columns: [done] }) })
+      return render(<BoardView {...defaultProps()} />)
+    }
+    function frame(column: unknown) {
+      act(() => { capturedSocketEvent!({ event: 'column.updated', data: column }) })
+    }
+    afterEach(() => { localStorage.removeItem(OVERLAY_KEY) })
+
+    it('re-reads the board while the dwell overlay is on, since its cards have no time yet', () => {
+      localStorage.setItem(OVERLAY_KEY, 'dwell')
+      const silentReload = vi.fn()
+      renderWith(silentReload)
+      frame(leaveDone().reopened)
+      expect(silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('re-reads for the admin who made the edit: their own response lands before the echo frame', () => {
+      // The REST response updates state first, so the echo sees a column already not
+      // done. Only this callback can notice the flip for the person who made it.
+      localStorage.setItem(OVERLAY_KEY, 'dwell')
+      const silentReload = vi.fn()
+      renderWith(silentReload)
+      act(() => { capturedColumnUpdated!(leaveDone().reopened) })
+      expect(silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('waits for an in-flight drag, so the refetch cannot replace state under the dragged card', () => {
+      localStorage.setItem(OVERLAY_KEY, 'dwell')
+      const silentReload = vi.fn()
+      renderWith(silentReload)
+      const dragged = { id: `col:${leaveDone().done.id}` }
+      act(() => { capturedOnDragStart!({ active: dragged } as unknown as DragStartEvent) })
+      frame(leaveDone().reopened)
+      expect(silentReload).not.toHaveBeenCalled()
+      act(() => { capturedOnDragEnd!({ active: dragged, over: null } as unknown as DragEndEvent) })
+      expect(silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('owes the re-read instead of spending it while the overlay is off, and pays when it turns on', async () => {
+      const silentReload = vi.fn()
+      renderWith(silentReload)
+      frame(leaveDone().reopened)
+      expect(silentReload).not.toHaveBeenCalled()
+      await userEvent.click(screen.getByRole('button', { name: /^Overlay$/ }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Dwell time' }))
+      expect(silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('does nothing for any other column change', () => {
+      localStorage.setItem(OVERLAY_KEY, 'dwell')
+      const silentReload = vi.fn()
+      renderWith(silentReload)
+      const { done } = leaveDone()
+      frame({ ...done, name: 'Renamed' })
+      expect(silentReload).not.toHaveBeenCalled()
+      frame({ ...makeBoard().columns[0], id: 999, is_done: false })
+      expect(silentReload).not.toHaveBeenCalled()
+    })
   })
 
   it('shows a partial-results notice when the search hit the page ceiling (#1763)', () => {

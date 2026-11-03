@@ -39,7 +39,7 @@ Cards are dragged between cells. Every move that changes column or swimlane is l
 
 Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` focuses search, and `?` shows the full shortcut reference.
 
-**Grid overlays** shade each cell by card count, without hiding or resizing anything, so you can spot hot spots at a glance.
+**Grid overlays** shade each cell by card count or by how long its cards have been in their column, without hiding or resizing anything, so you can spot hot spots and stuck work at a glance.
 
 **Board presets** (1.3+) switch card density and the grid overlay together in one step. **Classic** keeps the board exactly as it looked before presets, and admins can set a default preset per board.
 

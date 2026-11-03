@@ -32,7 +32,7 @@ function spreadState() {
       [cellKey(3, 1)]: 5,
       [cellKey(4, 1)]: 8,
     }),
-    { columns: [1, 2, 3, 4].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false },
+    { columns: [1, 2, 3, 4].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
   )!
 }
 
@@ -56,7 +56,7 @@ describe('GridOverlayLegend', () => {
   it('renders an em dash, never a zero, for a level no cell landed in', () => {
     const state = buildGridOverlayState(
       fixedOverlay({ [cellKey(1, 1)]: 1, [cellKey(2, 1)]: 8 }),
-      { columns: [1, 2].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false },
+      { columns: [1, 2].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
     )!
     render(<GridOverlayLegend state={state} />)
     const legend = screen.getByRole('group', { name: /overlay scale/ })
@@ -66,7 +66,7 @@ describe('GridOverlayLegend', () => {
 
   it('shows a one-line empty state instead of a meaningless ramp', () => {
     const state = buildGridOverlayState(fixedOverlay({}), {
-      columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false,
+      columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0,
     })!
     render(<GridOverlayLegend state={state} />)
     expect(screen.getByRole('group', { name: /overlay scale/ })).toHaveTextContent('No values on this board yet.')
@@ -74,7 +74,7 @@ describe('GridOverlayLegend', () => {
 
   it('blames the filter, not the board, when a filter is what emptied the overlay', () => {
     const state = buildGridOverlayState(fixedOverlay({}), {
-      columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [], isFiltered: true,
+      columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [], isFiltered: true, now: 0,
     })!
     render(<GridOverlayLegend state={state} />)
     expect(screen.getByRole('group', { name: /overlay scale/ })).toHaveTextContent('No values match the active filters.')
@@ -82,7 +82,7 @@ describe('GridOverlayLegend', () => {
 
   it('carries the same empty-state copy into the compact form', () => {
     const state = buildGridOverlayState(fixedOverlay({}), {
-      columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [], isFiltered: true,
+      columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [], isFiltered: true, now: 0,
     })!
     render(<GridOverlayLegend state={state} isLargeViewport={false} />)
     expect(screen.getByRole('group', { name: /overlay scale/ })).toHaveTextContent('No values match the active filters.')
@@ -108,5 +108,62 @@ describe('GridOverlayLegend', () => {
     expect(legend).not.toHaveTextContent('Days a card has sat in this cell.')
     // ...but the scale is still described in words.
     expect(legend).toHaveTextContent('Four levels, lightest to darkest. Highest value 8.')
+  })
+
+  describe('absolute scale (#459)', () => {
+    /** Readings of 0.5 (below the scale), 4 and 12: levels 2 and 4 used, 1 and 3 not. */
+    function absoluteState() {
+      return buildGridOverlayState(
+        {
+          ...fixedOverlay({ [cellKey(1, 1)]: 0.5, [cellKey(2, 1)]: 4, [cellKey(3, 1)]: 12 }),
+          scale: { thresholds: [1, 3, 5, 8], stepLabels: ['Under 1d', '1–3d', '3–5d', '5–8d', '8d+'] },
+          formatValue: (v: number) => `${v.toFixed(1)}d`,
+        },
+        { columns: [1, 2, 3].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
+      )!
+    }
+
+    it('names every step, hottest first, with the range observed in it or a dash', () => {
+      render(<GridOverlayLegend state={absoluteState()} />)
+      const rows = [...screen.getByRole('group', { name: /overlay scale/ }).querySelectorAll('div.flex.items-center')]
+        .map((row) => row.textContent)
+      expect(rows).toEqual([
+        'level 4 of 4: 8d+12.0d',
+        'level 3 of 4: 5–8d—no cells',
+        'level 2 of 4: 3–5d4.0d',
+        'level 1 of 4: 1–3d—no cells',
+        'below level 1: Under 1d0.5d',
+      ])
+    })
+
+    it('states a note in both forms, and not over the empty state', () => {
+      const note = '2 cards with no recorded time in this column left out.'
+      const state = { ...absoluteState(), note }
+      const { unmount } = render(<GridOverlayLegend state={state} />)
+      expect(screen.getByRole('group', { name: /overlay scale/ })).toHaveTextContent(note)
+      unmount()
+      const compact = render(<GridOverlayLegend state={state} isLargeViewport={false} />)
+      expect(screen.getByRole('group', { name: /overlay scale/ })).toHaveTextContent(note)
+      compact.unmount()
+      render(<GridOverlayLegend state={{ ...state, isEmpty: true }} />)
+      expect(screen.getByRole('group', { name: /overlay scale/ })).not.toHaveTextContent(note)
+    })
+
+    it('hides the dash from screen readers and says what it means', () => {
+      render(<GridOverlayLegend state={absoluteState()} />)
+      const legend = screen.getByRole('group', { name: /overlay scale/ })
+      expect(legend.querySelector('[aria-hidden="true"]:not(:empty)')).not.toBeNull()
+      expect(legend).toHaveTextContent('no cells')
+    })
+
+    it('collapses to one swatch row from the lowest step to the highest below lg', () => {
+      const { container } = render(<GridOverlayLegend state={absoluteState()} isLargeViewport={false} />)
+      const legend = screen.getByRole('group', { name: /overlay scale/ })
+      expect(legend).toHaveTextContent('Under 1d')
+      expect(legend).toHaveTextContent('8d+')
+      expect(legend).toHaveTextContent('Five steps, lightest to darkest. Highest value 12.0d.')
+      // One swatch per step, including the blank one below level 1.
+      expect(container.querySelectorAll('span.rounded.bg-canvas')).toHaveLength(5)
+    })
   })
 })

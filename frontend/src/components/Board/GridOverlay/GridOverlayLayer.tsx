@@ -1,5 +1,4 @@
 import type { GridOverlayCellState } from "../../../gridOverlays/slot";
-import { formatOverlayValue } from "../../../gridOverlays/scale";
 
 interface Props {
   /** The active overlay's label, e.g. `"Card count"` — read by screen readers. */
@@ -31,11 +30,14 @@ export default function GridOverlayLayer({ overlayLabel, cell, valueAnnouncedByC
   const reading = `${overlayLabel}: ${label}, ${encoding.levelLabel}`;
   return (
     <>
-      <span aria-hidden="true" className="absolute inset-0 z-0 pointer-events-none">
-        <span className={`absolute inset-0 ${encoding.tintClass}`} />
-        {/* Non-color channel: a div, so its height is exact on every platform. */}
-        <span className={`absolute bottom-0 left-0 right-0 ${encoding.barHeightClass} ${encoding.barToneClass}`} />
-      </span>
+      {/* Absent below an absolute scale's first step: that reading is the numeral alone. */}
+      {encoding.level > 0 && (
+        <span aria-hidden="true" className="absolute inset-0 z-0 pointer-events-none">
+          <span className={`absolute inset-0 ${encoding.tintClass}`} />
+          {/* Non-color channel: a div, so its height is exact on every platform. */}
+          <span className={`absolute bottom-0 left-0 right-0 ${encoding.barHeightClass} ${encoding.barToneClass}`} />
+        </span>
+      )}
       {/* Third channel: the value, in the cell's top-right slot. The built-in
           `cards.length` badge stands down while an overlay owns that slot — one scalar
           per corner. No `title`: the badge is pointer-events-none (so a title would
@@ -48,14 +50,26 @@ export default function GridOverlayLayer({ overlayLabel, cell, valueAnnouncedByC
           staying below the sticky swimlane label panel (`z-10`) and the sticky header
           row (`z-20`), which a badge must never cover when the grid is scrolled
           horizontally. A hovered card (`hover:z-20`) still lifts above it, which is
-          what keeps the card's own selection checkbox usable in the same corner. */}
+          what keeps the card's own selection checkbox usable in the same corner.
+
+          An opaque tab hanging from the cell's top edge (#459). Opaque, for the same
+          reason as the cell's blocked-drop label: the card's border would otherwise run
+          through the digits of a value as wide as `12.0d`. Exactly 13px tall from the top
+          edge because that is the room above a card's contents: the cell's 8px padding,
+          the card's 1px border, then the selection checkbox's 4px inset. The first title
+          line starts lower still, at 17px (15px in the compact grid). No other corner of
+          a cell is free: a full compact grid has no empty row at the bottom.
+
+          That height clears the checkbox's box but not its 2px focus ring. So the tab
+          fades while a keyboard user is on a control inside one of the cell's cards. It
+          is `opacity-0`, not hidden: the reading stays in the accessibility tree. */}
       <span
         role={valueAnnouncedByCell ? undefined : "img"}
         aria-label={valueAnnouncedByCell ? undefined : reading}
         aria-hidden={valueAnnouncedByCell ? true : undefined}
-        className="absolute top-1.5 right-2 z-[5] text-xs font-medium tabular-nums text-fg-secondary select-none pointer-events-none"
+        className="absolute top-0 right-1 z-[5] rounded-b bg-canvas px-1 text-xs leading-[13px] font-medium tabular-nums text-fg-secondary select-none pointer-events-none group-has-[[data-card-id]_:focus-visible]/cell:opacity-0"
       >
-        {formatOverlayValue(cell.value)}
+        {cell.display}
       </span>
     </>
   );

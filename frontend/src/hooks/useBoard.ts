@@ -177,8 +177,32 @@ function rollbackMovedCard(cards: Card[], before: Card | undefined): Card[] {
   const i = cards.findIndex((c) => c.id === before.id);
   if (i === -1 || isStaleCard(before, cards[i])) return cards;
   const next = cards.slice();
-  next[i] = { ...cards[i], column: before.column, swimlane: before.swimlane, position: before.position };
+  next[i] = {
+    ...cards[i],
+    column: before.column,
+    swimlane: before.swimlane,
+    position: before.position,
+    column_entered_at: before.column_entered_at,
+  };
   return next;
+}
+
+/**
+ * A card's optimistic copy at its new location. Moving to another column starts a new
+ * visit, so the dwell overlay (#459) drops the card's old time now rather than when the
+ * response lands. The server's value replaces this one on the response. A swimlane-only
+ * move or a reorder is not a new visit and leaves it alone.
+ */
+function placeCardOptimistically(
+  card: Card,
+  columns: Column[],
+  { columnId, swimlaneId, position }: Pick<PendingMove, "columnId" | "swimlaneId" | "position">,
+  now: string,
+): Card {
+  const placed = { ...card, column: columnId, swimlane: swimlaneId, position };
+  if (columnId === card.column) return placed;
+  const isDone = columns.find((c) => c.id === columnId)?.is_done ?? false;
+  return { ...placed, column_entered_at: isDone ? null : now };
 }
 
 export function useBoard() {
@@ -332,13 +356,14 @@ export function useBoard() {
     // Optimistic update — capture the card's pre-move copy for rollback via
     // the ref so this callback does not depend on the `board` state value.
     const before = boardRef.current.cards.find((c) => c.id === cardId);
+    const movedAt = new Date().toISOString();
     setBoard((b) => {
       if (!b) return b;
       return {
         ...b,
         cards: b.cards.map((c) =>
           c.id === cardId
-            ? { ...c, column: columnId, swimlane: swimlaneId, position }
+            ? placeCardOptimistically(c, b.columns, { columnId, swimlaneId, position }, movedAt)
             : c
         ),
       };
@@ -426,13 +451,14 @@ export function useBoard() {
     clearMoveError();
 
     const before = boardRef.current.cards.find((c) => c.id === cardId);
+    const movedAt = new Date().toISOString();
     setBoard((b) => {
       if (!b) return b;
       return {
         ...b,
         cards: b.cards.map((c) =>
           c.id === cardId
-            ? { ...c, column: columnId, swimlane: swimlaneId, position }
+            ? placeCardOptimistically(c, b.columns, { columnId, swimlaneId, position }, movedAt)
             : c
         ),
       };

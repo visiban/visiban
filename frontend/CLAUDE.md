@@ -355,6 +355,56 @@ empty state. Rules:
   Never put the tint on the cell root's `bg-*`: the root already carries `bg-canvas` and
   the drag-over `bg-surface-hover/40`, and a third `bg-*` on one node is a Tailwind
   ordering coin-flip.
+  The overlay value badge is an opaque tab (`top-0 right-1 rounded-b bg-canvas px-1
+  leading-[13px]`), #459. Opaque, because a card's border would otherwise run through a
+  value as wide as `12.0d`. Exactly 13px tall, because that is the room above a card's
+  contents: the cell's 8px padding, the card's 1px border, then the checkbox's 4px inset;
+  the title starts lower still, at 17px, or 15px in the compact grid. Never lower or in
+  another corner: a full compact grid has no free row, so a bottom corner lands on a card's
+  avatar, and adding room would reflow the grid, which this slot forbids. `e2e/grid-overlay-dwell`
+  measures the tab's box against every card's title, checkbox and avatar in both layouts.
+  `text-fg-secondary` on `bg-canvas` is 13.59:1 dark and 9.45:1 light, so the badge passes on
+  every step. Cards are opaque and paint above the tint, so a card's own text is never on
+  it. What does sit on the tint is the populated cell's `+ Add card` button, which takes
+  `text-fg-secondary` on a tinted cell (7.71 dark, 6.01 light at `/40`) instead of its usual
+  `text-fg-faint`; `text-fg-tertiary` is 4.47 and 4.40 there and fails. The bottom bar is not
+  a text carrier and need not reach 3:1 against the tint (2.14 light at `/40`): it repeats
+  the numeral, it is not the only way to read it. The tab is above a card at rest, so the
+  card needs no lift to show its checkbox; a hovered card (`hover:z-20`) still rises over it.
+  The checkbox's box starts at 13px, but its 2px focus ring starts at 11px and `CardItem`'s
+  classes are pinned by the Classic snapshots, so the tab fades
+  (`group-has-[[data-card-id]_:focus-visible]/cell:opacity-0`) while a keyboard user is on
+  a control inside a card. `opacity-0`, never hidden, so the reading stays available. The
+  coarse-pointer button's 44px hit area also starts under the tab (a 25×4px band), but the
+  tab is `pointer-events-none` and the visible `⋯` starts at 17px, so nothing is lost there.
+- **An overlay may declare a `scale` of absolute steps, as numbers and words only.**
+  `GridOverlay.scale` holds lower bounds and legend wording, never classes, so the ramp
+  still lives only in `scale.ts`. Use it when the unit has a fixed meaning (#459: days), so
+  a cell is not called hot merely because it is the worst on a healthy board. On an absolute
+  scale: a value below the first bound is a real reading (the badge alone, no tint, no bar,
+  announced as `below level 1`), a 0 is a reading too and the overlay omits a cell to mean
+  "no value", the flat rule does not apply, and the legend names each step and adds a row
+  for below the scale. Everything else stays relative-to-max. **The value the slot steps is
+  the value the badge shows:** an overlay on fixed bounds rounds before it returns, so
+  `3.0d` can never sit in the "under 3" step.
+- **An overlay that leaves visible cards out says so in the legend.** `GridOverlay.note`
+  returns one sentence with the count, or null. The per-cell reading is not enough, since
+  only a screen reader hears it, and a badge has no room. A legend's unused-level dash is
+  `aria-hidden` with `sr-only` "no cells" beside it: screen readers skip a bare em dash.
+- **`compute()` never reads the clock.** An overlay whose value depends on time declares
+  `refreshMs` and reads `ctx.now`, which `useOverlayClock` floors to that interval. So the
+  grid is rebuilt only when the bucket changes, and an overlay that declares none is never
+  rebuilt because time passed. Never add a per-second tick for a value that shows to a
+  tenth of a day.
+- **A dwell time comes from `column_entered_at`, never from `last_moved_at`.** A
+  swimlane-only move, an archive and a restore all write a movement, so `last_moved_at`
+  is not when the card entered its column. `last_moved_at` is the staleness signal (§ Card
+  aging ramp); the visit rules are the *Flow metric definitions* ADR's, computed on the
+  server. A client-side move has to keep the field true until the response lands, which is
+  why `useBoard` writes it in two places and no others: `placeCardOptimistically` sets it
+  for the move, and `rollbackMovedCard` restores it if the move fails. A column leaving
+  done needs a re-read, since its cards have no time yet; `BoardView` routes that through
+  the drag-deferred resync (#1463), never a bare `silentReload()`.
 - **A cell tint or z-order change needs a browser check in both themes before merge.**
   jsdom renders no paint order, so a vitest suite will pass over a layer that is invisible
   in the product. Class-level assertions (the z value, the tint token) are a guard against

@@ -94,6 +94,8 @@ import { formatPresetDifference, getBoardPreset, listBoardPresets, presetSummary
 import { PRESET_COMMAND_EVENT, type PresetCommand } from "../../boardPresets/activePresetStore";
 import type { BoardPresetId } from "../../types";
 import PresetNoticeToast, { PRESET_LINK_NOTICE_MS, PRESET_NOTICE_MS } from "./PresetNoticeToast";
+import { useOverlayClock } from "../../hooks/useOverlayClock";
+import { dwellOverlay } from "../../gridOverlays/builtin/dwell";
 import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
@@ -547,6 +549,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     window.addEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
     return () => window.removeEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
   }, []);
+  const gridOverlayNow = useOverlayClock(gridOverlay?.refreshMs);
   const gridOverlayOptions = useMemo(
     () => listGridOverlays().map((o) => ({ value: o.id, label: o.label })),
     [],
@@ -600,6 +603,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // Set while this session's own settings modal is deleting the board (#2041).
   const selfDeletingRef = useRef(false);
+  // Filled in below, once the drag state and the deferred resync exist.
+  const onColumnLeftDoneRef = useRef<() => void>(() => {});
+  const handleColumnUpdated = useCallback((column: Column) => {
+    const wasDone = boardRef.current?.columns.find((c) => c.id === column.id)?.is_done;
+    onColumnUpdated(column);
+    if (wasDone && !column.is_done) onColumnLeftDoneRef.current();
+  }, [onColumnUpdated]);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
     if (event.event === "card.created") {
@@ -631,7 +641,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "column.created") {
       onColumnAdded(d as unknown as Column);
     } else if (event.event === "column.updated") {
-      onColumnUpdated(d as unknown as Column);
+      handleColumnUpdated(d as unknown as Column);
     } else if (event.event === "column.deleted") {
       // Use state-only eviction — the delete already happened on the server;
       // calling onColumnDeleted would fire a redundant DELETE API request.
@@ -769,7 +779,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
@@ -843,6 +853,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     silentReload,
     activeCard !== null || activeColumn !== null || activeSwimlane !== null,
   );
+  // Cards in a done column carry no `column_entered_at`, and no card event follows a
+  // change to the column's flag, so the dwell overlay (#459) would leave a column blank
+  // after it stops being done. Nothing else reads the field, so with the overlay off this
+  // only remembers that a re-read is owed, and the reload waits for a drag like any other.
+  const dwellOverlayActive = gridOverlay?.id === dwellOverlay.id;
+  const columnEntryStaleRef = useRef(false);
+  onColumnLeftDoneRef.current = () => {
+    if (dwellOverlayActive) reconnectResync();
+    else columnEntryStaleRef.current = true;
+  };
+  useEffect(() => {
+    if (dwellOverlayActive && columnEntryStaleRef.current) {
+      columnEntryStaleRef.current = false;
+      reconnectResync();
+    }
+  }, [dwellOverlayActive, reconnectResync]);
   // The server closes with a plain 1000 when this user is removed from the
   // board; re-read so the REST 404 swaps in the unavailable page (#2041). Not
   // while this session is itself deleting the board.
@@ -1895,8 +1921,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         swimlanes: board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id)),
         cards: filteredCardIds ? board.cards.filter((c) => filteredCardIds.has(c.id)) : board.cards,
         isFiltered: filteredCardIds !== null,
+        now: gridOverlayNow,
       }),
-    [gridOverlay, board.columns, board.swimlanes, board.cards, hiddenColumnIds, hiddenSwimlaneIds, filteredCardIds],
+    [gridOverlay, gridOverlayNow, board.columns, board.swimlanes, board.cards, hiddenColumnIds, hiddenSwimlaneIds, filteredCardIds],
   );
 
   const handleColumnAdded = useCallback((col: Column) => {
@@ -3048,7 +3075,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     cards={board.cards.filter((c) => c.column === col.id)}
                     boardId={board.id}
                     isAdmin={isAdmin}
-                    onColumnUpdated={onColumnUpdated}
+                    onColumnUpdated={handleColumnUpdated}
                     onRequestDelete={(col) => setConfirmDeleteColumn(col)}
                     collapsed={collapsedColumnIds.has(col.id)}
                     hidden={hiddenColumnIds.has(col.id)}

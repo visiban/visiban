@@ -339,7 +339,7 @@ describe('SwimlaneRow', () => {
 describe('SwimlaneRow — grid overlay lookup (#1147)', () => {
   const overlayCells = () =>
     new Map([
-      [cellKey(10, 20), { value: 3, label: '3 cards', encoding: encodeOverlayLevel(4) }],
+      [cellKey(10, 20), { value: 3, label: '3 cards', display: '3', encoding: encodeOverlayLevel(4) }],
     ])
 
   it('hands each cell its own value and nothing to the cells with none', () => {

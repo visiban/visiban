@@ -683,7 +683,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        card_services.create_card(
+        result = card_services.create_card(
             actor=self.request.user,
             board=board,
             role=role,
@@ -702,6 +702,10 @@ class CardViewSet(viewsets.ModelViewSet):
         # No return value: DRF's CreateModelMixin renders the 201 body from
         # serializer.data, exactly as it did before. The service's rendered
         # payload is the broadcast payload.
+        # That body reads an instance without the queryset's annotations. The
+        # broadcast payload already computed the open visit (#459), so hand it
+        # over rather than spending a query on the same answer.
+        serializer.instance._column_entered_at = result.payload["column_entered_at"]
 
     def perform_destroy(self, instance):
         board, role = self._board_and_role()

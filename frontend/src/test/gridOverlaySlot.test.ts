@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { buildGridOverlayState } from '../gridOverlays/slot'
 import {
+  OVERLAY_BELOW_SCALE_ENCODING,
   OVERLAY_ENCODINGS,
   OVERLAY_FLAT_LEVEL,
   OVERLAY_LEVELS,
   encodeOverlayLevel,
   formatOverlayValue,
   overlayLevel,
+  overlayThresholdLevel,
 } from '../gridOverlays/scale'
 import { getGridOverlay } from '../gridOverlays/registry'
 import { cellKey } from '../gridOverlays/types'
@@ -43,7 +45,7 @@ function fixedOverlay(values: Record<string, number>): GridOverlay {
 }
 
 function ctx(columnIds: number[], swimlaneIds: number[], cards: Card[] = [], isFiltered = false): GridOverlayContext {
-  return { columns: columnIds.map(makeColumn), swimlanes: swimlaneIds.map(makeSwimlane), cards, isFiltered }
+  return { columns: columnIds.map(makeColumn), swimlanes: swimlaneIds.map(makeSwimlane), cards, isFiltered, now: 0 }
 }
 
 describe('overlay scale — dual encoding (#969)', () => {
@@ -219,5 +221,85 @@ describe('buildGridOverlayState', () => {
   it('keeps per-cell object identity stable for memoized cells within one build', () => {
     const state = buildGridOverlayState(fixedOverlay({ [cellKey(1, 1)]: 3 }), ctx([1], [1]))!
     expect(state.cells.get(cellKey(1, 1))).toBe(state.cells.get(cellKey(1, 1)))
+  })
+})
+
+describe('absolute overlay scale (#459)', () => {
+  const scale = { thresholds: [1, 3, 5, 8], stepLabels: ['Under 1d', '1–3d', '3–5d', '5–8d', '8d+'] } as const
+  const scaled = (values: Record<string, number>): GridOverlay => ({ ...fixedOverlay(values), scale })
+
+  it.each([
+    [0.99, 0, ''],
+    [1, 1, 'bg-primary-emphasis/10'],
+    [2.99, 1, 'bg-primary-emphasis/10'],
+    [3, 2, 'bg-primary-emphasis/20'],
+    [5, 3, 'bg-primary-emphasis/30'],
+    [7.99, 3, 'bg-primary-emphasis/30'],
+    [8, 4, 'bg-primary-emphasis/40'],
+    [400, 4, 'bg-primary-emphasis/40'],
+  ])('steps %s to level %s, with lower bounds inclusive', (value, level, tint) => {
+    expect(overlayThresholdLevel(value, scale.thresholds)).toBe(level)
+    const state = buildGridOverlayState(scaled({ [cellKey(1, 1)]: value }), ctx([1], [1]))!
+    expect(state.cells.get(cellKey(1, 1))!.encoding.level).toBe(level)
+    expect(state.cells.get(cellKey(1, 1))!.encoding.tintClass).toBe(tint)
+  })
+
+  it('keeps a reading below the first step, with no tint and its own wording', () => {
+    const state = buildGridOverlayState(scaled({ [cellKey(1, 1)]: 0.2 }), ctx([1], [1]))!
+    const cell = state.cells.get(cellKey(1, 1))!
+    expect(cell.encoding).toBe(OVERLAY_BELOW_SCALE_ENCODING)
+    expect(cell.encoding.levelLabel).toBe('below level 1')
+    expect(state.isEmpty).toBe(false)
+    expect(state.belowScale).toMatchObject({ count: 1, min: 0.2, max: 0.2, stepLabel: 'Under 1d' })
+  })
+
+  it('treats an exact 0 as a reading, where a relative scale treats it as nothing', () => {
+    const values = { [cellKey(1, 1)]: 0 }
+    expect(buildGridOverlayState(scaled(values), ctx([1], [1]))!.cells.size).toBe(1)
+    expect(buildGridOverlayState(fixedOverlay(values), ctx([1], [1]))!.cells.size).toBe(0)
+  })
+
+  it('does not demote equal values: a step means the same on any board', () => {
+    const state = buildGridOverlayState(
+      scaled({ [cellKey(1, 1)]: 9, [cellKey(2, 1)]: 9 }),
+      ctx([1, 2], [1]),
+    )!
+    expect(state.isFlat).toBe(false)
+    expect(state.cells.get(cellKey(1, 1))!.encoding.level).toBe(4)
+  })
+
+  it('does not rank against the maximum: nothing is hot on a board where everything is fresh', () => {
+    const state = buildGridOverlayState(
+      scaled({ [cellKey(1, 1)]: 0.1, [cellKey(2, 1)]: 0.5 }),
+      ctx([1, 2], [1]),
+    )!
+    for (const cell of state.cells.values()) expect(cell.encoding.tintClass).toBe('')
+    expect(state.levels.every((l) => l.count === 0)).toBe(true)
+  })
+
+  it('reports the smallest reading as min, and 0 when there are none', () => {
+    const state = buildGridOverlayState(scaled({ [cellKey(1, 1)]: 0, [cellKey(2, 1)]: 4 }), ctx([1, 2], [1]))!
+    expect(state.min).toBe(0)
+    expect(state.max).toBe(4)
+    expect(buildGridOverlayState(scaled({}), ctx([1], [1]))!.min).toBe(0)
+  })
+
+  it('names each step on an absolute scale and none on a relative one', () => {
+    const absolute = buildGridOverlayState(scaled({}), ctx([1], [1]))!
+    expect(absolute.levels.map((l) => l.stepLabel)).toEqual(['1–3d', '3–5d', '5–8d', '8d+'])
+    const relative = buildGridOverlayState(fixedOverlay({}), ctx([1], [1]))!
+    expect(relative.belowScale).toBeNull()
+    expect(relative.levels.every((l) => l.stepLabel === null)).toBe(true)
+  })
+
+  it('formats with the overlay\'s own formatter, and falls back to the plain one', () => {
+    const state = buildGridOverlayState(
+      { ...scaled({ [cellKey(1, 1)]: 4 }), formatValue: (v) => `${v.toFixed(1)}d` },
+      ctx([1], [1]),
+    )!
+    expect(state.cells.get(cellKey(1, 1))!.display).toBe('4.0d')
+    expect(state.formatValue(1.25)).toBe('1.3d')
+    const plain = buildGridOverlayState(fixedOverlay({ [cellKey(1, 1)]: 4 }), ctx([1], [1]))!
+    expect(plain.cells.get(cellKey(1, 1))!.display).toBe('4')
   })
 })

@@ -511,37 +511,73 @@ Pick an **Overlay** from the dropdown in the board toolbar, next to **Filters**,
 |---|---|
 | **None** (default) | No overlay — the board renders unchanged |
 | **Card count** | How many visible cards sit in each cell, relative to the busiest cell on the board |
+| **Dwell time** *(1.3+)* | The median time the visible cards in each cell have been in their column, to show where work is stuck. See [Dwell time](#dwell-time) |
 
 The choice is remembered per board in `localStorage` under `board:{boardId}:grid-overlay`, so it survives a reload but never follows you to another board. A [board preset](#board-presets) also sets it. It is a personal reading preference available to every role, including viewers: turning an overlay on changes nothing for your teammates and writes nothing to the server.
 
 ### How a cell is shaded
 
-Every overlay shares one scale with four steps, measured against the largest value currently visible on the board.
+Every overlay shades on the same four levels. By default they are measured against the largest value currently visible on the board; [Dwell time](#dwell-time) uses fixed steps in days instead.
+
+On the default scale:
 
 - A cell whose value is zero is left completely untouched.
 - When every cell with a value has the *same* value, the whole board is drawn at the quietest step, because a board where nothing stands out should not look alarming.
+
+Neither applies to fixed steps, where a value keeps its meaning whatever the other cells hold: a card that has just arrived reads `0.0d`, and equal values stay on the step they belong to.
 
 Each step is encoded **three** ways, so the ordering never depends on telling colors apart:
 
 1. **Tint** — a single-hue blue wash that deepens with the value. It is deliberately not a green→amber→red gradient: a busy cell is not a problem, and the board already uses amber and red for card aging and over-limit columns.
 2. **A bar along the cell's bottom edge** — 1px, 2px, 3px, or 4px tall. Height, not hue.
-3. **The value itself**, in the cell's top-right corner. While an overlay is on it replaces the usual card-count badge, so the corner never shows two different numbers.
+3. **The value itself**, in a small tab at the cell's top-right corner, clear of the cards' words. While an overlay is on it replaces the usual card-count badge, so the corner never shows two different numbers.
 
 Screen readers get the reading in words — for example "Card count: 4 cards, level 3 of 4" — and selecting an overlay is announced ("Overlay: Card count" / "Overlay off").
 
-A legend floats in the bottom-right corner of the grid whenever an overlay is active. It names the overlay, describes it in one line, and lists the four steps with the range of values actually observed in each; a step no cell landed in shows `—`.
+A legend floats in the bottom-right corner of the grid whenever an overlay is active. It names the overlay, describes it briefly, and lists each step with the range of values actually observed in it; a step no cell landed in shows `—`.
 
 - When the active overlay has nothing to show, the legend says so instead of showing an empty ramp. If a filter is what left it with nothing to scale, it says that rather than claiming the board is empty.
 - The legend is passive: it never intercepts a click, and it fades out while you drag.
 
 Because the overlay reads the cards that are currently *visible*, narrowing the filter bar re-scales it and the labels switch to "matching cards", so the shading always agrees with what is on screen. Hidden columns and swimlanes are excluded from the scale, so a card parked out of sight cannot wash out every tint on the board.
 
+### Dwell time
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+The **Dwell time** overlay shows where work has stopped moving while you are looking at the board. Each cell shows the median of how long its visible cards have been in their current column, for example `4.0d`. It answers "where is the queue?" without opening a report, and it uses the median so that one forgotten card does not repaint a whole cell.
+
+The steps are fixed, so the same shade means the same thing on every board:
+
+| Median in the cell | Tint and bottom bar |
+|---|---|
+| Under 1 day | None, just the value |
+| 1 to 3 days | Lightest, 1px bar |
+| 3 to 5 days | 2px bar |
+| 5 to 8 days | 3px bar |
+| 8 days or more | Darkest, 4px bar |
+
+A step includes its lower bound, and the step follows the number shown, so a cell reading `3.0d` is always in "3 to 5 days". The shade is one color that deepens, not a warning color: a long dwell is something to look at, not a verdict, and a column of waiting work can be doing its job.
+
+What counts:
+
+- **Time in the column, not in the cell.** Moving a card to another swimlane does not restart its time, and neither does reordering it. Moving it to another column does.
+- **Archiving ends the time, and restoring starts it again.** Reopening a card out of a done column also starts it again.
+- **Done columns and empty cells show nothing.** Time spent in a done column is not waiting. No shade there means no value, not "all clear".
+- **Cards with no usable history are left out.** A card imported without history, or moved by a direct admin edit, has no measured time in its column. The legend counts them, for example "2 cards with no recorded time in this column left out", and a cell's screen-reader reading says so too: "median dwell 3.0 days, 2 of 3 cards measured". If no card on the board can be measured, the legend says there are no values yet.
+- **One card is enough.** A cell with a single card shows that card's time. The overlay describes what is on screen, so it does not need the minimum sample a chart's percentile does.
+
+The overlay is live and follows the filter bar. It updates when a card moves, on your screen or anyone else's, and it keeps counting while the board stays open: values refresh every few minutes, and at once when you return to the tab. With a filter on, each median covers only the cards that match.
+
+Dwell time here is the same definition the rest of Visiban uses: see [Flow metric definitions](../architecture/decisions.md#flow-metric-definitions). This overlay shows *current* dwell, the cards still in the column. It has no date range, because it describes the board as it is now.
+
 ### Notes
 
 - Overlays are **stackable with views, not a replacement for them** — Analytics is a tab, an overlay is a layer, and both can be on at once
-- The **Card count** overlay is computed from the cards the board already loaded. It issues no extra requests and no per-cell queries
+- The **Card count** and **Dwell time** overlays are computed from the cards the board already loaded. They issue no extra requests and no per-cell queries
 - Collapsed columns and collapsed swimlanes render their compact count stubs rather than full cells, so they carry no shading — but they still count toward the scale, so folding a lane never silently re-shades the rest of the board
 - The cell being dragged over is never shaded, so the drop-target highlight stays unambiguous
+- A cell's value fades while a keyboard user is on a control inside one of its cards, so it never covers the focus ring. Screen readers can still reach it
 
 ## Board presets
 
