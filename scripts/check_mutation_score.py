@@ -65,8 +65,8 @@ Exit codes (same contract as TruePPM, #3216):
       consistent run (unequal ``total``, or
       non-skipped mutants that do not add up to it), an unfinished
       run (``untested`` mutants left), or zero scoreable mutants. This
-      applies in report-only mode too, so a dead run is a yellow job,
-      never a meaningless green. Also a floor outside (0, 1], or a
+      applies in report-only mode too, so a dead run is a red report job
+      (blocking since #1384), never a meaningless green. Also a floor outside (0, 1], or a
       stats/cache path outside the allowed roots (repo, cwd, temp dir;
       symlinks followed): reported as ``CONFIG ERROR``, nothing read
       or written
