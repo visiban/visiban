@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from accounts.serializers import BoardUserSerializer
 from visiban import field_enforcement
+from visiban.colors import ColorValidationMixin
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 from visiban.invite_email import InviteEmailField
 from .models import (
@@ -312,7 +313,7 @@ def full_group_access(group):
     return True
 
 
-class GroupLabelSerializer(serializers.ModelSerializer):
+class GroupLabelSerializer(ColorValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = GroupLabel
         fields = ["id", "name", "color"]

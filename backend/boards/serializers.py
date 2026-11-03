@@ -13,6 +13,7 @@ from rest_framework import serializers
 from accounts.models import User
 from accounts.serializers import BoardUserSerializer
 from visiban import field_enforcement
+from visiban.colors import ColorValidationMixin
 from visiban.invite_email import InviteEmailField
 from visiban.exceptions import CodedValidationError
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
@@ -454,7 +455,7 @@ class ColumnPolicyField(serializers.JSONField):
             raise serializers.ValidationError(str(exc)) from None
 
 
-class ColumnSerializer(serializers.ModelSerializer):
+class ColumnSerializer(ColorValidationMixin, serializers.ModelSerializer):
     policy = ColumnPolicyField(
         required=False, allow_null=True, help_text=field_enforcement.COLUMN_POLICY,
     )
@@ -742,7 +743,7 @@ def _swimlane_custom_field_prefetch():
     )
 
 
-class SwimlaneSerializer(serializers.ModelSerializer):
+class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
     """Public swimlane representation — omits contact_email and notes.
 
     Viewer-role members have read access to the board but must not see PII or
@@ -905,7 +906,7 @@ class PublicSwimlaneSerializer(SwimlaneSerializer):
         fields = ["id", "uid", "name", "position", "color", "is_collapsed", "created_at"]
 
 
-class LabelSerializer(serializers.ModelSerializer):
+class LabelSerializer(ColorValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = Label
         fields = ["id", "uid", "name", "color"]

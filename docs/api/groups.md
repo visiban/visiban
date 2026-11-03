@@ -584,7 +584,7 @@ Create a group shared label. Requires group admin.
 A create that arrives while the group is being deleted waits for the delete to finish and then answers `404`, with nothing written (#1719).
 
 ### `PATCH /api/v1/groups/{id}/labels/{label_id}/`
-Update a group shared label name or color. Requires group admin.
+Update a group shared label name or color. Requires group admin. `color` must be hex (`#RRGGBB` or `#RGB`) since 1.3; see [Color values](boards.md#color-values).
 
 > **Added in 1.2**
 

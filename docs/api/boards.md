@@ -786,7 +786,7 @@ The whole-import limit caps every row the import inserts. It is counted from the
 
 - Column and swimlane `position`, card `weight` and `position`, and column `wip_limit` and `weight_limit` must be integers from 0 to 2,147,483,647. Only `wip_limit` and `weight_limit` may be `null`.
 - Column positions must be unique. A column with no `position` takes its index in the list, so an explicit position can collide with another column's default. Swimlane positions may repeat.
-- Text values must not be `null`, a list, or an object, and must not contain NUL characters: column, swimlane, and label `color`; swimlane `contact_email` and `notes`; board and card `description`; comment `body`; checklist `text`; movement `notes`; activity `from_value` and `to_value`. A plain number or `true`/`false` is stored as its text (`5` → `"5"`, `true` → `"True"`), as in earlier releases; `NaN` and `Infinity` are refused. A key left out takes its default.
+- Text values must not be `null`, a list, or an object, and must not contain NUL characters: column, swimlane, and label `color`; swimlane `contact_email` and `notes`; board and card `description`; comment `body`; checklist `text`; movement `notes`; activity `from_value` and `to_value`. A plain number or `true`/`false` is stored as its text (`5` → `"5"`, `true` → `"True"`), as in earlier releases, except for `color` on columns, swimlanes, and labels, which must be hex (since 1.3): a number or boolean there is replaced by the default and counted in `import_summary.skipped.colors`; `NaN` and `Infinity` are refused. A key left out takes its default.
 - Text values stored in a limited column must fit it: column and swimlane `name` (255), label `name` (50), `color` (7), `contact_email` (254), card `title` (500), checklist `text` (500), movement `notes` (500), the column and swimlane names in a movement (255), the `name` form field (255), usernames in `assignee`, `moved_by`, and `actor` (150), and `imported_from_username` on movements, activities, and comments (150).
 - Column `is_done` and `allow_card_creation`, and checklist `is_checked`, must be `true` or `false`.
 - Since 1.3, a column `policy` must be `null` or follow the same rules as the [column API](#column-policy-since-13); it is stored normalized (criteria trimmed, an empty policy as `null`).
@@ -976,7 +976,8 @@ Returns the new board in the shape of `GET /api/v1/boards/{id}/`, plus an `impor
       "checklist_items": 0,
       "label_refs": 4,
       "movements": 12,
-      "activities": 30
+      "activities": 30,
+      "colors": 0
     }
   }
 }
@@ -989,7 +990,7 @@ Returns the new board in the shape of `GET /api/v1/boards/{id}/`, plus an `impor
 | Field | Description |
 |---|---|
 | `import_summary.options_applied` | All five options as resolved, including dependents that followed `cards`, plus `shift_dates_from` (a `YYYY-MM-DD` string) when it was sent or the file's `date_anchor` was used in its place, `shift_dates` when it was sent, and `shift_dates_to` when it was sent and dates moved. A CSV import reports `comments`, `checklist`, and `history` equal to `cards`. |
-| `import_summary.skipped.*` | How many items in the file the chosen options left out: `cards`, `comments`, `checklist_items`, `label_refs` (label references on cards), `movements`, and `activities`. Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are `0` when no options are sent. |
+| `import_summary.skipped.*` | How many items in the file the chosen options left out: `cards`, `comments`, `checklist_items`, `label_refs` (label references on cards), `movements`, and `activities`. `colors` (since 1.3) is different: it counts column, swimlane, and label colors that were not hex and were replaced by the default (see [Color values](#color-values)). Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are `0` when no options are sent, except `colors`, which counts replacements whatever the options. |
 
 The `board.created` event for the new board carries the resolved options as an additional `import_options` field.
 
@@ -1574,7 +1575,7 @@ Column objects returned by all endpoints include the following fields:
 | `id`, `uid` | integer, string | Database ID and stable 16-char hex UID (read-only) |
 | `name` | string | Column name |
 | `position` | integer | Display order (0-based); update via `reorder/` only — a `PATCH`/`PUT` that changes `position` returns `400 Bad Request` (since 1.2, #1275). Echoing the current value back is accepted. |
-| `color` | string | Hex color code |
+| `color` | string | Hex color code, `#RRGGBB`. Since 1.3 a written value must be hex: `#RGB` is accepted and stored expanded (`#abc` becomes `#aabbcc`, case kept), and anything else is `400`. A value equal to the stored one is accepted as is, so rows saved before 1.3 with a non-hex color still load and can be renamed. See [Color values](#color-values). |
 | `wip_limit` | integer / null | Maximum number of cards; `null` means unlimited (binding on every API card write path except board import; see note) |
 | `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited (binding on every API card write path except board import; see note) |
 | `allow_card_creation` | boolean | When `false`, new cards cannot be created directly in this column |
@@ -1658,7 +1659,7 @@ Swimlane response objects include the following fields:
 | `id`, `uid` | integer, string | Database ID and stable 16-char hex UID (read-only) |
 | `name` | string | Swimlane name |
 | `position` | integer | Display order (0-based); update via `reorder/` only — a `PATCH`/`PUT` that changes `position` returns `400 Bad Request` (since 1.2, #1275). Echoing the current value back is accepted. |
-| `color` | string | Hex color code |
+| `color` | string | Hex color code, `#RRGGBB`. Since 1.3 a written value must be hex: `#RGB` is accepted and stored expanded (`#abc` becomes `#aabbcc`, case kept), and anything else is `400`. A value equal to the stored one is accepted as is, so rows saved before 1.3 with a non-hex color still load and can be renamed. See [Color values](#color-values). |
 | `is_collapsed` | boolean | Whether the swimlane row is collapsed in the board view |
 | `created_at` | string | ISO 8601 timestamp of swimlane creation |
 | `contact_email` | string | Admin-only — contact email for this swimlane (empty string if unset) |
@@ -1770,7 +1771,7 @@ Create a label. Requires board admin.
 ### `PUT /api/v1/boards/{id}/labels/{label_id}/` / `PATCH /api/v1/boards/{id}/labels/{label_id}/`
 Update a label. Requires board admin.
 
-**Writable fields:** `name`, `color`
+**Writable fields:** `name`, `color` (hex, see [Color values](#color-values))
 
 `PUT` and `PATCH` are both accepted. `PATCH` changes only the fields you send. `PUT` requires `name`; a `color` you leave out keeps its current value.
 
@@ -2234,3 +2235,17 @@ Response fields:
 Public card objects use `uid` as the identifier and carry no database `id`. `assignee` holds `display_name` only (email, username, and avatar are omitted), or `null` for an unassigned card. Comments and checklist item text are excluded; only the `checklist_total` and `checklist_done` counts appear. The `is_stale` field is `true` when the card has not moved within the board's `staleness_threshold_days` window. `is_stale` ignores the card's column, so a Done-column card can be `true`; clients decide display. The stale-card notification digest, by contrast, skips Done-column cards.
 
 `blocker_count` (since 1.2) is the number of active cards blocking this one — see [Card relations](cards.md#relations-since-12). The count is included, but the relation list is not: relations are same-board only, so every blocker is a card this payload already carries, whereas the relation rows themselves carry the creating user and a timestamp that this payload deliberately excludes.
+
+## Color values
+
+> **Changed in 1.3**
+
+`color` on columns, swimlanes, board labels, and [group labels](groups.md) is stored as text of up to 7 characters. Since 1.3 every write checks it:
+
+- `#RRGGBB` is accepted as sent. The server does not change its case.
+- `#RGB` is accepted and stored expanded, digit by digit: `#abc` is stored as `#aabbcc`.
+- Anything else (`red`, `#12345`, `#GGGGGG`, an empty string) returns `400 Bad Request` with the error under `color`.
+- A value equal to the one already stored is accepted unchanged. Rows saved before 1.3 can hold a non-hex color, and clients resend the current color when they rename a row; those edits keep working. Changing such a row to a different non-hex value is `400`.
+- Responses are unchanged: no `pattern` is published for `color`, because existing rows may not match it.
+- [JSON board import](#post-apiv1boardsimport) does not fail on a non-hex color. It stores the default for that field (`#6B7280` for a column, `#3B82F6` for a swimlane, `#EAB308` for a label), expands `#RGB`, and counts each replacement in `import_summary.skipped.colors`. A color longer than 7 characters is still `400`.
+- Board templates and Trello imports apply the same rule and fall back to the default.

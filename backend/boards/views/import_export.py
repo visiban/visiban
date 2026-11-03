@@ -33,6 +33,7 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiResponse, OpenApiTypes
+from visiban.colors import normalize_hex_color
 from visiban.parsers import LimitedMultiPartParser
 
 
@@ -264,6 +265,9 @@ def _external_ref_export(card):
 
 _IMPORT_SKIP_KEYS = (
     "cards", "comments", "checklist_items", "label_refs", "movements", "activities",
+    # Not an option skip: colors replaced with the default because they were
+    # not hex (#2093). Kept here so every import reports the same shape.
+    "colors",
 )
 
 
@@ -495,6 +499,24 @@ def _cap_warnings(warnings):
 
 def _list_len(value):
     return len(value) if isinstance(value, list) else 0
+
+
+def _import_color(item, default, skipped):
+    """The color a JSON-imported row is stored with (#2093).
+
+    A missing key takes ``default``. A present value must be hex (``#RGB`` is
+    expanded); anything else is replaced by ``default`` and counted in
+    ``skipped["colors"]`` rather than failing the import, because older
+    Visiban exports can hold non-hex colors from before the API checked them
+    and the import is the only way to bring such a board back.
+    """
+    if "color" not in item:
+        return default
+    normalized = normalize_hex_color(item["color"])
+    if normalized is None:
+        skipped["colors"] += 1
+        return default
+    return normalized
 
 
 def _json_skip_counts(data, options):
@@ -1726,7 +1748,7 @@ class BoardImportExportMixin:
                     board=board,
                     name=col["name"],
                     position=col.get("position", i),
-                    color=col.get("color", "#6B7280"),
+                    color=_import_color(col, "#6B7280", skipped),
                     wip_limit=col.get("wip_limit"),
                     weight_limit=col.get("weight_limit"),
                     allow_card_creation=col.get("allow_card_creation", i == 0),
@@ -1746,7 +1768,7 @@ class BoardImportExportMixin:
                     board=board,
                     name=sw["name"],
                     position=sw.get("position", i),
-                    color=sw.get("color", "#3B82F6"),
+                    color=_import_color(sw, "#3B82F6", skipped),
                     contact_email=sw.get("contact_email", ""),
                     notes=sw.get("notes", ""),
                     # Row limits (#1150), restored as exported: an import
@@ -1770,7 +1792,7 @@ class BoardImportExportMixin:
             # every card label link and its LABEL_CHANGE activity below (#119).
             lbl_data = data.get("labels", []) if options["labels"] else []
             lbl_objs = Label.objects.bulk_create([
-                Label(board=board, name=lbl["name"], color=lbl.get("color", "#EAB308"))
+                Label(board=board, name=lbl["name"], color=_import_color(lbl, "#EAB308", skipped))
                 for lbl in lbl_data
             ])
             label_map = {lbl["name"]: obj for lbl, obj in zip(lbl_data, lbl_objs)}

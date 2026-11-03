@@ -384,7 +384,8 @@ class JsonImportValueValidationTests(TestCase):
         )
         board = self.assert_201(data)
         self.assertEqual(board.description, "12")
-        self.assertEqual(board.columns.get().color, "5")
+        # A coerced non-hex color ("5") is replaced by the default (#2093).
+        self.assertEqual(board.columns.get().color, "#6B7280")
         card = board.cards.get()
         self.assertEqual(card.description, "5")
         self.assertEqual(CardComment.objects.get(card=card).body, "0")

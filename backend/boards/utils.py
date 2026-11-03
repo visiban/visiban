@@ -41,6 +41,8 @@ def create_template_columns(board, template):
     and the two silently drifted from what GET /boards/templates/ listed
     (#1115).
     """
+    from visiban.colors import normalize_hex_color
+
     from .column_policy import policy_or_none
     from .models import Column
 
@@ -52,13 +54,15 @@ def create_template_columns(board, template):
     # boards/template_sync.py) rather than only the built-in, trusted
     # BOARD_TEMPLATES data. This is a last line of defense: a malformed
     # column dict should render as an oddly-named/colored column, not a
-    # 500 that fails board creation entirely.
+    # 500 that fails board creation entirely. The color gets the same rule:
+    # a non-hex provider value falls back to the default rather than being
+    # stored (#2093).
     Column.objects.bulk_create([
         Column(
             board=board,
             name=col.get("name") or f"Column {i + 1}",
             position=i,
-            color=col.get("color") or "#6B7280",
+            color=normalize_hex_color(col.get("color")) or "#6B7280",
             allow_card_creation=(i == 0),
             is_done=bool(col.get("is_done", False)),
             # Explicit column policy (#1101). policy_or_none, not the

@@ -1707,6 +1707,8 @@ export interface ImportSkippedCounts {
   label_refs: number;
   movements: number;
   activities: number;
+  /** Non-hex colors replaced by the default (#2093); absent from older servers. */
+  colors?: number;
 }
 
 export interface ImportSummary {
