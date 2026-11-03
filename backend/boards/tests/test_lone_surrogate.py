@@ -271,6 +271,26 @@ class FormEncodedJsonFieldTests(TestCase):
         self.assertEqual(resp.status_code, 201, resp.content[:300])
         self.assertEqual(CustomFieldDefinition.objects.get().choices_json, ["\U0001F600"])
 
+    def test_a_very_deeply_nested_form_encoded_jsonfield_is_a_400(self):
+        # DRF's json.loads on form input catches only TypeError/ValueError.
+        deep = "[" * 100_000 + "]" * 100_000
+        url = f"/api/v1/boards/{self.board.pk}/custom-fields/"
+        data = {"name": "cf", "field_type": "dropdown", "choices": deep}
+        for fmt in ("multipart", "urlencoded"):
+            with self.subTest(format=fmt):
+                if fmt == "multipart":
+                    resp = self.client.post(url, data, format="multipart")
+                else:
+                    resp = self.client.post(
+                        url, urlencode(data), content_type="application/x-www-form-urlencoded"
+                    )
+                self.assertEqual(resp.status_code, 400, resp.content[:200])
+        resp = self.client.patch(
+            f"/api/v1/boards/{self.board.pk}/columns/{self.col.pk}/", {"policy": deep}, format="multipart"
+        )
+        self.assertEqual(resp.status_code, 400, resp.content[:200])
+        self.assertFalse(CustomFieldDefinition.objects.exists())
+
     def test_the_guard_is_on_drf_s_jsonfield_itself(self):
         # A field declared some other way (a new serializer, an enterprise app)
         # inherits it; nothing has to remember to use a project subclass.

@@ -210,7 +210,7 @@ first offending field is named, and a surrogate in a field the endpoint would ha
 unknown key, say) is now a `400` where it was a `200`. A valid pair such as an emoji
 (`"\ud83d\ude00"`) is accepted unchanged. A JSON-encoded value inside a string, such as a
 multi-select custom field value, is checked after it is decoded. The same refusal applies to a `JSONField` value sent form-encoded or multipart. It does not cover a query string or a form body sent with an unusual `charset` (for example `utf-7`), which can still answer `500`
-([#2120](https://gitlab.com/visiban/visiban/-/issues/2120), [#2121](https://gitlab.com/visiban/visiban/-/issues/2121)).
+([#2120](https://gitlab.com/visiban/visiban/-/issues/2120)).
 
 Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),

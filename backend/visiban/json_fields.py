@@ -31,7 +31,12 @@ def install():
         return
 
     def to_internal_value(self, data):
-        value = original(self, data)
+        try:
+            value = original(self, data)
+        except RecursionError:
+            # DRF's form-input json.loads catches only TypeError/ValueError, so a
+            # string nested ~10,000 levels deep was an unhandled 500.
+            self.fail("invalid")
         code_point = first_lone_surrogate(value)
         if code_point is not None:
             raise ValidationError(f"Surrogate characters are not allowed: U+{code_point:X}.")
