@@ -39,6 +39,7 @@ from django.utils.dateparse import parse_datetime
 
 from accounts.models import User
 from visiban.colors import normalize_hex_color
+from visiban.parsers import first_lone_surrogate
 from groups.models import GroupMembership
 
 from ..models import (
@@ -326,6 +327,14 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
 
     if not isinstance(data, dict):
         raise TrelloImportError("Invalid Trello export: expected an object at the top level.")
+    # A lone UTF-16 surrogate is valid JSON but cannot be encoded for
+    # PostgreSQL: it was a 500 at the first lookup or INSERT (#2085). Only the
+    # code point is named, so the message stays JSON-encodable.
+    code_point = first_lone_surrogate(data)
+    if code_point is not None:
+        raise TrelloImportError(
+            f"The export contains a character that cannot be stored (unpaired surrogate U+{code_point:X})."
+        )
     if "lists" not in data or "cards" not in data:
         raise TrelloImportError(
             "This does not look like a Trello board export: 'lists' and 'cards' are required. "

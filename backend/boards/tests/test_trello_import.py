@@ -636,3 +636,34 @@ class TrelloImportThrottleTests(TrelloImportBase):
         rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
         self.assertIn("board_import_preview", rates)
         self.assertIn("board_import", rates)
+
+
+class TrelloLoneSurrogateTests2085(TrelloImportBase):
+    """#2085: a lone surrogate was a 500 on PostgreSQL at the first lookup or INSERT."""
+
+    def test_surrogate_anywhere_in_the_export_is_a_400_in_both_modes(self):
+        mutations = {
+            "board name": lambda d: d.update(name="a\ud800"),
+            "card name": lambda d: d["cards"][0].update(name="a\ud800"),
+            "card desc": lambda d: d["cards"][0].update(desc="a\ud800"),
+            "list name": lambda d: d["lists"][0].update(name="a\ud800"),
+            "label name": lambda d: d["labels"][0].update(name="a\ud800"),
+        }
+        for label, mutate in mutations.items():
+            data = load_fixture()
+            mutate(data)
+            for mode in ("dry_run", "confirm"):
+                with self.subTest(label=label, mode=mode):
+                    resp = self.post(mode, data=data)
+                    self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertIn("U+D800", resp.json()["detail"])
+        self.assertEqual(Board.objects.count(), 0)
+
+    def test_valid_surrogate_pair_is_imported(self):
+        data = load_fixture()
+        data["cards"][0]["name"] = "Party \U0001F600"
+        raw = json.dumps(data).encode()  # ensure_ascii: the emoji is a \ud83d\ude00 escape
+        self.assertIn(b"\\ud83d\\ude00", raw)
+        resp = self.post("confirm", data=raw)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content[:300])
+        self.assertTrue(Card.objects.filter(title="Party \U0001F600").exists())
