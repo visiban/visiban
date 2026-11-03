@@ -213,11 +213,13 @@ test.describe('A short viewport (#2095)', () => {
       await page.keyboard.press('Tab')
       const control = panel(page).getByRole(name === 'Hue' ? 'slider' : name === 'Cancel' || name === 'Apply' ? 'button' : 'textbox', { name, exact: true })
       await expect(control).toBeFocused()
-      await expect.poll(async () => {
-        if (await fade.count() === 0) return true
-        const [c, f] = await Promise.all([control.boundingBox(), fade.boundingBox()])
-        return c !== null && f !== null && c.y + c.height <= f.y + 0.5
-      }).toBe(true)
+      // Measured in one page turn: the fade can unmount between two separate locator calls.
+      await expect.poll(() => panel(page).evaluate((el) => {
+        const veil = el.querySelector('.bg-gradient-to-t')
+        const focused = document.activeElement
+        if (!veil || !focused) return true
+        return focused.getBoundingClientRect().bottom <= veil.getBoundingClientRect().top + 0.5
+      })).toBe(true)
     }
     await expect(fade).toHaveCount(0)
     const atEnd = await panel(page).evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1)
