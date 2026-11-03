@@ -380,7 +380,7 @@ Full detail: [CHANGELOG.md](https://gitlab.com/visiban/visiban/-/blob/main/CHANG
 - A failed `resources/read` now returns JSON-RPC error code `-32603` (or `-32602` for an unknown URI) instead of `0`, and the message no longer repeats the "Error creating resource from template" prefix.
 - An unknown method returns `-32601` instead of `-32602`.
 - Transport-level errors carry `id: null` instead of `"server-error"`.
-- A missing or JSON-only `Accept` header is now accepted (200) instead of rejected (406).
+- A `POST` whose `Accept` header does not accept both `application/json` and `text/event-stream` (including a missing, JSON-only or event-stream-only one) is still rejected with 406. Only wildcard handling changed: `*/*`, or `application/*` together with `text/*`, is now accepted (200), where 1.30.0 returned 406 for `*/*`.
 - An unsupported `mcp-protocol-version` header is still a 400, but the message now mentions a `_meta` envelope.
 - `serverInfo.version` now reports the Visiban app version instead of the SDK version, and the empty `experimental` capability is no longer advertised.
 - Request bodies over 4 MiB are rejected with 413.
