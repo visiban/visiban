@@ -965,7 +965,15 @@ export interface Board {
   health_status: HealthStatus | null;
   effective_health_status: HealthStatus | null;
   health_status_source: HealthStatusSource | null;
+  /** #1146 — the board's default preset id, or null for none. Board admins write it with `patchBoard`. */
+  default_preset: BoardPresetId | null;
 }
+
+/**
+ * Ids of the code-defined board presets (#1146); `boardPresets/registry.ts` holds
+ * the definitions. Mirrors `BoardPresetId` in `backend/boards/models.py`.
+ */
+export type BoardPresetId = "classic" | "default";
 
 /** Board and group health values (#1133); `null` on the wire means inherit / none. */
 export type HealthStatus = "on_track" | "at_risk" | "off_track";
@@ -1065,6 +1073,8 @@ export interface BoardFull {
   health_status: HealthStatus | null;
   effective_health_status: HealthStatus | null;
   health_status_source: HealthStatusSource | null;
+  /** #1146 — the board's default preset id, or null for none. Read-only here (written with `patchBoard`). */
+  default_preset: BoardPresetId | null;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share

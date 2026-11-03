@@ -22,6 +22,7 @@ from boards.custom_field_types import CHOICE_COLOR_KEYS
 from boards.models import (
     Board,
     BoardMembership,
+    BoardPresetId,
     Card,
     CardExternalRef,
     CardMovement,
@@ -303,6 +304,7 @@ _EFFECTIVE_MEMBER_SPEC = {
 _EXPORT_MIN_ROLE_ENUM = set(Board.ExportMinRole.values)
 _CARD_DENSITY_ENUM = {"comfortable", "standard", "dense"}
 _HEALTH_STATUS_ENUM = set(HealthStatus.values)
+_DEFAULT_PRESET_ENUM = set(BoardPresetId.values)
 
 _BOARD_FULL_SPEC = {
     "id": _FieldSpec((int,)),
@@ -346,6 +348,8 @@ _BOARD_FULL_SPEC = {
     "health_status": _FieldSpec((str,), nullable=True, enum=_HEALTH_STATUS_ENUM),
     "effective_health_status": _FieldSpec((str,), nullable=True, enum=_HEALTH_STATUS_ENUM),
     "health_status_source": _FieldSpec((dict,), nullable=True),
+    # #1146: null = no board default.
+    "default_preset": _FieldSpec((str,), nullable=True, enum=_DEFAULT_PRESET_ENUM),
 }
 
 

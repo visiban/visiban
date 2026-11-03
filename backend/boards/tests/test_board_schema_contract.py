@@ -407,6 +407,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "share_link_active",
             # Additive (#1133): own, effective and source health status.
             "health_status", "effective_health_status", "health_status_source",
+            # Additive (#1146): the board's default preset id.
+            "default_preset",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")

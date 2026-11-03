@@ -8,7 +8,12 @@ import { MENU_ITEM_FOCUS_RING } from "./menuItemFocusRing";
 
 export interface SingleSelectDropdownProps<T extends string | number> {
   label: string;
-  options: { value: T; label: string }[];
+  /**
+   * `description` (#1146) is an optional second line under the option's label
+   * (`text-xs text-fg-tertiary`), e.g. a board preset's summary. It is part of
+   * the menu item's text, so it is read with the label.
+   */
+  options: { value: T; label: string; description?: string }[];
   selected: T | null;
   onChange: (selected: T | null) => void;
   /**
@@ -63,6 +68,42 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * it keep the trigger's text as its name, unchanged.
    */
   ariaLabel?: string;
+  /**
+   * #1146 — appended to the `ariaLabel` name after a comma (`"Preset: Default,
+   * modified"`), so state shown by `triggerSuffix` is in the accessible name
+   * too. Ignored without `ariaLabel`.
+   */
+  ariaLabelDetail?: string;
+  /**
+   * #1146 — rendered after the trigger text, before the chevron (e.g. a
+   * `Modified` tag). Visible text, not decorative: mirror it in
+   * `ariaLabelDetail` when `ariaLabel` is set, because the label overrides it.
+   */
+  triggerSuffix?: ReactNode;
+  /**
+   * #1146 — classes for a span wrapping the trigger text (e.g. `"truncate"`
+   * with a `max-w-*` on `className`). Omitted, the text is rendered bare,
+   * exactly as before.
+   */
+  labelClassName?: string;
+  /**
+   * #1146 — non-interactive content at the top of the menu (e.g. what a
+   * modified preset changed). Not a menu item, so arrow keys skip it.
+   */
+  menuHeader?: ReactNode;
+  /**
+   * #1146 — command items (e.g. `Reset to \u201cDefault\u201d`) listed before the
+   * options. They are `role="menuitem"` like the options and share the
+   * roving Arrow/Home/End focus, and choosing one closes the menu without
+   * calling `onChange`.
+   */
+  menuActions?: { key: string; label: string; onSelect: () => void }[];
+  /**
+   * #1146 — `"menuitemradio"` exposes the selection to assistive tech: options get
+   * that role plus `aria-checked`, instead of a color-only `text-info`. Opt-in; the
+   * default `"menuitem"` leaves existing callers unchanged.
+   */
+  optionRole?: "menuitem" | "menuitemradio";
 }
 
 const MIN_MENU_WIDTH = 140;
@@ -78,7 +119,16 @@ export default function SingleSelectDropdown<T extends string | number>({
   onOpenChange,
   portalMenu = false,
   ariaLabel,
+  ariaLabelDetail,
+  triggerSuffix,
+  labelClassName,
+  menuHeader,
+  menuActions,
+  optionRole = "menuitem",
 }: SingleSelectDropdownProps<T>) {
+  const actions = menuActions ?? [];
+  // Actions come first in the roving order, then the options (#1146).
+  const itemCount = actions.length + options.length;
   const [open, setOpenState] = useState(false);
   // Menu anchor captured at open time (portal mode only), so the position survives a
   // re-render without re-measuring. Same approach as SplitButton.
@@ -122,12 +172,12 @@ export default function SingleSelectDropdown<T extends string | number>({
   const closeFromViewport = useCallback(() => setOpen(false), [setOpen]);
   const top = useAnchoredPlacement(panelRef, {
     anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
-    deps: [open, options.length],
+    deps: [open, itemCount],
     onResize: closeFromViewport,
     onOutsideScroll: closeFromViewport,
   });
 
-  const { moreBelow, onScroll } = useOverflowFade(listRef, [open, options.length]);
+  const { moreBelow, onScroll } = useOverflowFade(listRef, [open, itemCount]);
 
   useDropdownEscape(open, () => setOpen(false), triggerRef, escapePriority);
 
@@ -177,7 +227,7 @@ export default function SingleSelectDropdown<T extends string | number>({
       return;
     }
     if (e.key === "ArrowDown") {
-      itemRefs.current[Math.min(i + 1, options.length - 1)]?.focus();
+      itemRefs.current[Math.min(i + 1, itemCount - 1)]?.focus();
       e.preventDefault();
     } else if (e.key === "ArrowUp") {
       if (i === 0) triggerRef.current?.focus();
@@ -187,7 +237,7 @@ export default function SingleSelectDropdown<T extends string | number>({
       itemRefs.current[0]?.focus();
       e.preventDefault();
     } else if (e.key === "End") {
-      itemRefs.current[options.length - 1]?.focus();
+      itemRefs.current[itemCount - 1]?.focus();
       e.preventDefault();
     }
   };
@@ -198,6 +248,7 @@ export default function SingleSelectDropdown<T extends string | number>({
       role="menu"
       id={menuId}
       aria-labelledby={`${id}-trigger`}
+      aria-describedby={menuHeader !== undefined && menuHeader !== null ? `${id}-header` : undefined}
       style={
         portalMenu && anchor
           ? {
@@ -218,7 +269,35 @@ export default function SingleSelectDropdown<T extends string | number>({
     >
       {/* Inner scroll region so the overflow fade can sit over it (#1455 rule (b)). */}
       <div ref={listRef} onScroll={onScroll} className={portalMenu ? "min-h-0 overflow-y-auto" : undefined}>
-      {options.map((opt, i) => (
+      {menuHeader !== undefined && menuHeader !== null && (
+        <div id={`${id}-header`} className="px-3 py-1.5 text-xs text-fg-tertiary">{menuHeader}</div>
+      )}
+      {actions.map((action, i) => (
+        <div key={`action-${action.key}`}>
+          {(i > 0 || (menuHeader !== undefined && menuHeader !== null)) && (
+            <div role="separator" className="mx-4">
+              <div className="h-px bg-sunken" />
+              <div className="h-px bg-surface-active/50" />
+            </div>
+          )}
+          <button
+            ref={(el) => { itemRefs.current[i] = el; }}
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              triggerRef.current?.focus();
+              action.onSelect();
+            }}
+            onKeyDown={(e) => handleItemKeyDown(e, i)}
+            className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} text-fg-secondary`}
+          >
+            {action.label}
+          </button>
+        </div>
+      ))}
+      {options.map((opt, optIndex) => {
+        const i = actions.length + optIndex;
+        return (
         <div key={opt.value}>
           {i > 0 && (
             <div role="separator" className="mx-4">
@@ -228,7 +307,8 @@ export default function SingleSelectDropdown<T extends string | number>({
           )}
           <button
             ref={(el) => { itemRefs.current[i] = el; }}
-            role="menuitem"
+            role={optionRole}
+            aria-checked={optionRole === "menuitemradio" ? selected === opt.value : undefined}
             onClick={() => {
               onChange(selected === opt.value ? null : opt.value);
               setOpen(false);
@@ -248,10 +328,18 @@ export default function SingleSelectDropdown<T extends string | number>({
               selected === opt.value ? "text-info" : "text-fg-secondary"
             }`}
           >
-            {opt.label}
+            {opt.description !== undefined ? (
+              <>
+                <span className="block">{opt.label}</span>
+                <span className="block text-xs text-fg-tertiary">{opt.description}</span>
+              </>
+            ) : (
+              opt.label
+            )}
           </button>
         </div>
-      ))}
+        );
+      })}
       </div>
       {portalMenu && moreBelow && (
         <div
@@ -272,7 +360,11 @@ export default function SingleSelectDropdown<T extends string | number>({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
-        aria-label={ariaLabel !== undefined ? `${ariaLabel}: ${displayLabel}` : undefined}
+        aria-label={
+          ariaLabel !== undefined
+            ? `${ariaLabel}: ${displayLabel}${ariaLabelDetail ? `, ${ariaLabelDetail}` : ""}`
+            : undefined
+        }
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           selected !== null
             ? "border-info text-info"
@@ -284,7 +376,8 @@ export default function SingleSelectDropdown<T extends string | number>({
             {triggerPrefix}
           </span>
         )}
-        {displayLabel}
+        {labelClassName !== undefined ? <span className={labelClassName}>{displayLabel}</span> : displayLabel}
+        {triggerSuffix}
         <svg
           className="w-3 h-3 text-fg-muted"
           viewBox="0 0 16 16"

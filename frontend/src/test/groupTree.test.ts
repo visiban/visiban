@@ -22,7 +22,7 @@ function makeGroup(id: number, parent: number | null = null): Group {
 
 function makeBoard(id: number, group: number | null = null): Board {
   return {
-    health_status: null, effective_health_status: null, health_status_source: null,
+    health_status: null, effective_health_status: null, health_status_source: null, default_preset: null,
     id, uid: `uid${id}`, name: `Board ${id}`, description: '', owner: fakeUser,
     archived_card_count: 0,
     group, group_name: group !== null ? `Group ${group}` : null,

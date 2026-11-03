@@ -83,12 +83,17 @@ import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
 import { useDeferredResync } from "../../hooks/useDeferredResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
-import { LayoutCompactIcon, LayoutExpandedIcon, OverlayIcon } from "./toolbarIcons";
+import { LayoutCompactIcon, LayoutExpandedIcon, OverlayIcon, PresetIcon } from "./toolbarIcons";
 import BoardActivityDrawer from "./BoardActivityDrawer";
 import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { useGridOverlayPref } from "../../hooks/useGridOverlayPref";
+import { useBoardPreset } from "../../hooks/useBoardPreset";
+import { formatPresetDifference, getBoardPreset, listBoardPresets, presetSummary } from "../../boardPresets/registry";
+import { PRESET_COMMAND_EVENT, type PresetCommand } from "../../boardPresets/activePresetStore";
+import type { BoardPresetId } from "../../types";
+import PresetNoticeToast, { PRESET_LINK_NOTICE_MS, PRESET_NOTICE_MS } from "./PresetNoticeToast";
 import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
@@ -452,11 +457,96 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // choice). Resolved once here and fed through the same `density` prop
   // that already flows down to SwimlaneRow -> BoardCell -> CardItem.
   const [cardDensityOverride, setCardDensityOverride] = useCardDensityOverride(board.id);
-  const effectiveCardDensity = cardDensityOverride ?? board.card_density;
   // #1147 — which grid overlay is shading the cells. Board-scoped, per-user, and
   // `none` by default, so an un-configured board is byte-for-byte the pre-#1147 one.
-  const [gridOverlayId, setGridOverlayId] = useGridOverlayPref(board.id);
+  const [gridOverlayLocal, setGridOverlayId, clearGridOverlayId] = useGridOverlayPref(board.id);
+  // #1146 — board presets. Density and overlay are resolved here, once: a
+  // `?preset=` link, then this user's own choices, then the board's default
+  // preset, then the board itself. With no board default and no link this is
+  // exactly `override ?? board.card_density` and `local ?? none`, as before.
+  // Declared here, ahead of its other readers further down, because the preset
+  // hook needs it; one instance so two functional updates never race.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const boardPreset = useBoardPreset({
+    boardId: board.id,
+    board,
+    densityOverride: cardDensityOverride,
+    setDensityOverride: setCardDensityOverride,
+    localOverlay: gridOverlayLocal,
+    setLocalOverlay: setGridOverlayId,
+    clearLocalOverlay: clearGridOverlayId,
+    searchParams,
+    setSearchParams,
+  });
+  const effectiveCardDensity = boardPreset.display.density;
+  const gridOverlayId = boardPreset.display.overlay;
   const gridOverlay = useMemo(() => getGridOverlay(gridOverlayId), [gridOverlayId]);
+  const presetOptions = useMemo(
+    () =>
+      listBoardPresets().map((p) => ({
+        value: p.id,
+        label: p.name,
+        description: p.id === board.default_preset ? `Board default · ${presetSummary(p)}` : presetSummary(p),
+      })),
+    [board.default_preset],
+  );
+  const activePreset = boardPreset.activePreset;
+  const presetModified = boardPreset.differences.length > 0;
+  // The primitive reports a click on the selected option as null. For a preset
+  // that means "this one again": a reset when modified, nothing when not.
+  const handlePresetChange = (next: BoardPresetId | null) => {
+    const id = next ?? activePreset?.id ?? null;
+    if (id === null) return;
+    const same = id === activePreset?.id;
+    if (same && !presetModified) return;
+    boardPreset.applyPreset(id, same ? "reset" : "apply");
+  };
+  const presetPickerRef = useRef<HTMLSpanElement>(null);
+  const focusPresetTrigger = useCallback(() => {
+    presetPickerRef.current?.querySelector<HTMLButtonElement>("button[aria-haspopup]")?.focus();
+  }, []);
+  const presetNotice = boardPreset.notice;
+  const presetMenuActions = [
+    ...(presetModified && activePreset
+      ? [{ key: "reset", label: `Reset to \u201c${activePreset.name}\u201d`, onSelect: () => boardPreset.applyPreset(activePreset.id, "reset") }]
+      : []),
+    ...(presetNotice ? [{ key: "undo", label: `Undo: ${presetNotice.message}`, onSelect: boardPreset.undoNotice }] : []),
+  ];
+  // The preset notice (#1146) renders in every view, not only the board grid: a ⌘K
+  // command or a ?preset= link can apply a preset while Summary, History,
+  // Analytics or the Lens is showing, and its Undo must be offered there too.
+  // Each view's root is `relative` so the notice anchors bottom-center in it.
+  const presetNoticeNode = boardPreset.notice ? (
+    <PresetNoticeToast
+      noticeId={boardPreset.notice.id}
+      message={boardPreset.notice.message}
+      onUndo={boardPreset.undoNotice}
+      onDismiss={boardPreset.dismissNotice}
+      onReturnFocus={focusPresetTrigger}
+      durationMs={boardPreset.notice.reason === "link" ? PRESET_LINK_NOTICE_MS : PRESET_NOTICE_MS}
+    />
+  ) : null;
+
+  // ⌘K "Apply preset: …" / "Reset to preset: …" (#1146) arrive from the shell-level
+  // palette as a window event and take the picker's own apply path, so they raise
+  // the same Undo notice. Read through a ref so the listener subscribes once.
+  const presetCommandRef = useRef({ boardPreset, activePreset, presetModified });
+  presetCommandRef.current = { boardPreset, activePreset, presetModified };
+  useEffect(() => {
+    const onPresetCommand = (e: Event) => {
+      const command = (e as CustomEvent<PresetCommand>).detail;
+      const { boardPreset: bp, activePreset: active, presetModified: modified } = presetCommandRef.current;
+      if (command?.kind === "reset") {
+        if (active && modified) bp.applyPreset(active.id, "reset");
+      } else if (command?.kind === "apply" && getBoardPreset(command.presetId)) {
+        const same = command.presetId === active?.id;
+        if (same && !modified) return;
+        bp.applyPreset(command.presetId, same ? "reset" : "apply");
+      }
+    };
+    window.addEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
+    return () => window.removeEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
+  }, []);
   const gridOverlayOptions = useMemo(
     () => listGridOverlays().map((o) => ({ value: o.id, label: o.label })),
     [],
@@ -737,7 +827,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     collectActivityEvent(event);
   }, [handleSocketEvent, collectActivityEvent]);
 
-  const [searchParams, setSearchParams] = useSearchParams();
   // Lens filter-row visibility (mirrors the board's local `showFilters`). Opens on
   // mount when a shared link already carries an active lens filter.
   const [lensShowFilters, setLensShowFilters] = useState(() => lensFilterActiveCount(searchParams) > 0);
@@ -2328,7 +2417,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       return null;
     }
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         {/* Shared Row 2 — uses the SAME wrapper structure as the board's toolbar
             (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row)
             so the tabs and controls line up pixel-for-pixel and the row scrolls
@@ -2362,13 +2451,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             showFilters={lensShowFilters}
           />
         </SectionErrorBoundary>
+        {presetNoticeNode}
       </div>
     );
   }
 
   if (view === "summary") {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
@@ -2376,13 +2466,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
         </SectionErrorBoundary>
+        {presetNoticeNode}
       </div>
     );
   }
 
   if (view === "history") {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
@@ -2390,6 +2481,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
         </SectionErrorBoundary>
+        {presetNoticeNode}
       </div>
     );
   }
@@ -2404,7 +2496,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   if (view === "analytics") {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
@@ -2446,6 +2538,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             blockFormRequest={blockFormRequest}
           />
         )}
+        {presetNoticeNode}
       </div>
     );
   }
@@ -2507,6 +2600,52 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
         {/* Zone 2: Board controls */}
         <div className="flex items-center gap-1">
+          {/* Board preset picker (#1146). First in Zone 2, right after the divider:
+              a preset bundles how this zone's own presentation controls are set
+              (density, overlay), so it leads them. Never folds into the overflow
+              kebab, for the same reason as the Overlay picker: it is a selection,
+              not an action. `portalMenu` because Row 2 clips in-flow menus. The
+              trigger reads "Preset" with nothing active, else the preset's name,
+              truncated at 10rem, plus a dashed "Modified" tag once the board no
+              longer matches it. Choosing the active preset again re-applies it.
+              `ariaLabel` only while a preset is active, so the name at rest is
+              "Preset", not "Preset: Preset". Options are menuitemradio so the
+              active preset is exposed, not color-only. While an apply notice is up,
+              its Undo is also a menu action here: the notice sits far later in the
+              tab order than its 8s timer allows a keyboard user to reach. */}
+          <span ref={presetPickerRef} className="contents">
+          <SingleSelectDropdown<BoardPresetId>
+            label="Preset"
+            ariaLabel={activePreset ? "Preset" : undefined}
+            ariaLabelDetail={presetModified ? "modified" : undefined}
+            optionRole="menuitemradio"
+            triggerPrefix={PresetIcon}
+            portalMenu
+            className="!text-xs max-w-[10rem]"
+            labelClassName="truncate min-w-0"
+            options={presetOptions}
+            selected={activePreset?.id ?? null}
+            onChange={handlePresetChange}
+            triggerSuffix={
+              presetModified ? (
+                <span data-testid="preset-modified-tag" className="shrink-0 border border-dashed border-line-strong rounded px-1 text-fg-secondary">
+                  Modified
+                </span>
+              ) : undefined
+            }
+            menuHeader={
+              presetModified && activePreset ? (
+                <>
+                  <span className="block font-medium text-fg-secondary">Modified from “{activePreset.name}”</span>
+                  {boardPreset.differences.map((d) => (
+                    <span key={d.element} className="block">{formatPresetDifference(d)}</span>
+                  ))}
+                </>
+              ) : undefined
+            }
+            menuActions={presetMenuActions}
+          />
+          </span>
           <SplitButton
             primaryLabel={allExpanded ? "Collapse" : "Expand"}
             primaryAriaLabel={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
@@ -3072,6 +3211,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             isLargeViewport={isLargeViewport}
           />
         )}
+        {/* #1146 — bottom-centered in the same anchor as the legend, above it
+            (z-50 vs z-30), so it never covers the activity drawer. */}
+        {presetNoticeNode}
         </div>{/* end legend anchor */}
 
         {drawerOpen && (
@@ -3234,6 +3376,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onUpdateBoardSettings={onUpdateBoardSettings}
           cardDensityOverride={cardDensityOverride}
           onSetCardDensityOverride={setCardDensityOverride}
+          densityPresetSource={boardPreset.densitySource}
+          effectiveCardDensity={effectiveCardDensity}
           gitLensEnabled={gitLensEnabled}
           lensConnection={lensConnection}
           onManageLens={() => { closeSettings(); setShowLensModal(true); }}

@@ -142,6 +142,7 @@ Pure reorders (same cell, different position) do not create movement records.
 - Swimlane label sidebar on the left (resizable by dragging right edge, persisted to localStorage)
 - Column headers sticky on scroll, show WIP count
 - Optional grid overlay per cell: none, or a card-count badge
+- Board presets (1.3): **Classic** (the board as it looked before presets) and **Default** (Standard density) set card density and the grid overlay together, from the toolbar picker, a `?preset=` link or the ⌘K palette, with Modified / Reset and Undo; board admins can set a per-board default preset (`default_preset`)
 - Optional WIP limit enforcement (`enforce_wip_limits` board setting): moving, creating, or restoring a card into a full column returns an error (board import exempt); board admins can override; archived cards excluded from count
 - "At-limit" indicator — visually distinct state when a column is exactly at its WIP limit, ahead of actually going over; off by default (`show_wip_at_limit` board setting), admin-toggled
 - Optional weight limit enforcement (`enforce_weight_limits` board setting): moving a card that would push a column over its weight budget is blocked; board admins can override; archived cards excluded from weight sum

@@ -30,6 +30,7 @@ Single-letter shortcuts are suppressed when focus is in an input, textarea, sele
 | <kbd>G</kbd> then <kbd>U</kbd> | Open the user menu |
 
 - **Command palette:** the single cross-route entry point. Type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the surface: it searches cards on a board, jumps to a board on the Dashboard, and lists navigation targets on Settings / Admin.
+- **Board presets** <span class="vb-version" title="Added in 1.3">1.3+</span>: on a board, the palette offers **Apply preset: Classic** and **Apply preset: Default** (not the one already in use), and **Reset to preset: …** when the active preset is modified. They do exactly what the toolbar [Preset dropdown](board.md#board-presets) does, including the Undo notice, from any view of the board (Board, Summary, History, Analytics, Lens). They are not listed while the palette is acting on a card. No new shortcut key.
 - **Empty query:** the default list starts with your starred boards (alphabetical), then your most recent visits, so a blank `⌘K` → `Enter` jumps into the workspace you care about most.
 - **Card actions:** on a board, the palette also lists commands for a card; see [Card actions in the command palette](#card-actions-in-the-command-palette).
 - **`G` then `U`** is a chord, not a combo: press and release `G`, then press `U` within one second, to open the [user menu](navigation.md) from anywhere in the authenticated app.

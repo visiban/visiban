@@ -109,6 +109,7 @@ Board
  ├── show_wip_at_limit (bool, default false — ambient "WIP n/n" indicator at exactly the limit)
  ├── show_row_chip_field_names (bool, default true — label pinned swimlane row chips with their field name)
  ├── health_status (str, nullable — on_track | at_risk | off_track; null = inherit from its group's chain; 1.3+)
+ ├── default_preset (str, nullable — classic | default; null = no board default; presets are code-defined, #1146; 1.3+)
  ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
  ├── BoardFavorite → User  (unique per user+board)
  ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done, policy)

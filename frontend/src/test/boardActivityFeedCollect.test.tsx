@@ -144,7 +144,7 @@ const fakeUser: User = {
 
 function makeBoard(): BoardFull {
   return {
-    health_status: null, effective_health_status: null, health_status_source: null,
+    health_status: null, effective_health_status: null, health_status_source: null, default_preset: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [

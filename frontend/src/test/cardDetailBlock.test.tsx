@@ -99,7 +99,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
-    health_status: null, effective_health_status: null, health_status_source: null,
+    health_status: null, effective_health_status: null, health_status_source: null, default_preset: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],

@@ -44,3 +44,14 @@ export const OverlayIcon: ReactNode = (
     <rect x="10" y="10" width="4" height="4" fill="currentColor" stroke="none" opacity="0.4" />
   </svg>
 );
+
+/**
+ * Board preset picker (#1146) — a bookmark: a preset is a saved way of reading the
+ * board. Not decorative in practice: like `OverlayIcon`, it keeps the control
+ * identifiable once its text becomes the preset's name.
+ */
+export const PresetIcon: ReactNode = (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 2h8v12l-4-3-4 3z" />
+  </svg>
+);

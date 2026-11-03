@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { NONE_OVERLAY_ID, resolveGridOverlayId } from "../gridOverlays/registry";
+import { resolveGridOverlayId } from "../gridOverlays/registry";
 
 /**
  * Board-scoped choice of grid overlay (#1147).
@@ -17,38 +17,51 @@ import { NONE_OVERLAY_ID, resolveGridOverlayId } from "../gridOverlays/registry"
  * shape `useCardDensityOverride` already uses for `Board.card_density`:
  *
  *   1. this per-user, per-board local choice, when set
- *   2. the board's own default (a future `Board.grid_overlay` column owned by #1146)
+ *   2. the board's default preset's overlay (#1146, `Board.default_preset`)
  *   3. `none`
  *
- * Step 2 does not exist yet, so today the ladder is (1) then (3). When #1146 adds the
- * server column, this hook keeps returning the local override and the caller resolves
- * `localChoice ?? board.grid_overlay ?? NONE_OVERLAY_ID` — never the other way round,
- * or an admin changing the board default would stomp a user's personal choice.
+ * #1146 shipped step 2 as a preset id rather than a `Board.grid_overlay` column, so
+ * this hook returns the local choice as `null` when the key is absent and the caller
+ * resolves `localChoice ?? boardDefaultPreset.overlay ?? NONE_OVERLAY_ID`
+ * (`effectiveDisplay` in `boardPresets/registry.ts`) — never the other way round, or
+ * an admin changing the board default would stomp a user's personal choice. A stored
+ * `none` is a choice ("I turned the overlay off"), distinct from no key at all.
  */
 function storageKey(boardId: number): string {
   return `board:${boardId}:grid-overlay`;
 }
 
-function load(boardId: number): string {
+function load(boardId: number): string | null {
   try {
-    // resolveGridOverlayId turns an unknown or stale id into "none" — a board
-    // that renders un-overlaid beats a board that throws.
-    return resolveGridOverlayId(localStorage.getItem(storageKey(boardId)));
+    const raw = localStorage.getItem(storageKey(boardId));
+    // No key = no local choice. A stored id this build does not know is still a
+    // choice, and resolveGridOverlayId turns it into "none" — a board that renders
+    // un-overlaid beats a board that throws.
+    return raw === null ? null : resolveGridOverlayId(raw);
   } catch {
-    return NONE_OVERLAY_ID;
+    return null;
   }
 }
 
-function save(boardId: number, overlayId: string): void {
+function save(boardId: number, overlayId: string | null): void {
   try {
-    localStorage.setItem(storageKey(boardId), overlayId);
+    if (overlayId === null) localStorage.removeItem(storageKey(boardId));
+    else localStorage.setItem(storageKey(boardId), overlayId);
   } catch {
     // localStorage unavailable (private browsing, quota exceeded) — fail silently
   }
 }
 
-export function useGridOverlayPref(boardId: number): [string, (overlayId: string | null) => void] {
-  const [overlayId, setState] = useState<string>(() => load(boardId));
+/**
+ * Returns `[localChoice, setOverlayId, clearOverlayId]`. `localChoice` is `null` when
+ * this browser has made no choice for the board; `setOverlayId(null)` stores "none"
+ * (turning the overlay off is a choice), `clearOverlayId()` removes the key so the
+ * board's default applies again (#1146).
+ */
+export function useGridOverlayPref(
+  boardId: number,
+): [string | null, (overlayId: string | null) => void, () => void] {
+  const [overlayId, setState] = useState<string | null>(() => load(boardId));
 
   const setOverlayId = useCallback(
     (next: string | null) => {
@@ -59,5 +72,10 @@ export function useGridOverlayPref(boardId: number): [string, (overlayId: string
     [boardId],
   );
 
-  return [overlayId, setOverlayId];
+  const clearOverlayId = useCallback(() => {
+    setState(null);
+    save(boardId, null);
+  }, [boardId]);
+
+  return [overlayId, setOverlayId, clearOverlayId];
 }

@@ -256,7 +256,7 @@ Fields hidden from the card face at Comfortable / Standard (weight, attachment c
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Any board member, not just admins, can flip **Use my own density** in **Board Settings → Display** and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974).
+Any board member, not just admins, can flip **Use my own density** in **Board Settings → Display** and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974). Since 1.3 a [board preset](#board-presets) you apply can set this override too, and the Display tab then says which preset set it. An override you set yourself, including one from before 1.3, is never attributed to a preset, even when its value matches one. When the board has a default preset that sets a density, turning the override off returns you to that preset's density.
 
 Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.
 
@@ -421,7 +421,7 @@ Bare single-key shortcuts (`f`, `/`, `?`, `.`, `b`, `s`, `h`, `a`, `l`, `e`, `c`
 The board toolbar (Row 2) groups controls into three zones plus a pinned trailing cluster:
 
 - **Zone 1** — view tabs (Board / Summary / History / Analytics)
-- **Zone 2** — board controls (Collapse split button, Filters, Layout toggle, Archived)
+- **Zone 2** — board controls (Preset, Collapse split button, Filters, Overlay, Layout toggle, Archived)
 - **Zone 3** (wide viewports only) — board tools (Activity drawer, Keyboard shortcuts, Export, Settings)
 - **Trailing cluster** — overflow kebab (`⋮`) and connection status; always visible
 
@@ -512,7 +512,7 @@ Pick an **Overlay** from the dropdown in the board toolbar, next to **Filters**,
 | **None** (default) | No overlay — the board renders unchanged |
 | **Card count** | How many visible cards sit in each cell, relative to the busiest cell on the board |
 
-The choice is remembered per board in `localStorage` under `board:{boardId}:grid-overlay`, so it survives a reload but never follows you to another board. It is a personal reading preference available to every role, including viewers: turning an overlay on changes nothing for your teammates and writes nothing to the server.
+The choice is remembered per board in `localStorage` under `board:{boardId}:grid-overlay`, so it survives a reload but never follows you to another board. A [board preset](#board-presets) also sets it. It is a personal reading preference available to every role, including viewers: turning an overlay on changes nothing for your teammates and writes nothing to the server.
 
 ### How a cell is shaded
 
@@ -542,6 +542,54 @@ Because the overlay reads the cards that are currently *visible*, narrowing the 
 - The **Card count** overlay is computed from the cards the board already loaded. It issues no extra requests and no per-cell queries
 - Collapsed columns and collapsed swimlanes render their compact count stubs rather than full cells, so they carry no shading — but they still count toward the scale, so folding a lane never silently re-shades the rest of the board
 - The cell being dragged over is never shaded, so the drop-target highlight stays unambiguous
+
+## Board presets
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+A **preset** is a named way of reading a board: it sets the card density and the grid overlay together, so you can switch between them in one step. Applying a preset changes only how the board looks to you. It never changes cards, columns, or board settings, so it is always safe to try, and every apply can be undone.
+
+Two presets ship with Visiban:
+
+| Preset | What it sets |
+|---|---|
+| **Classic** | The board exactly as it looked before presets existed: the board's own [card density](#card-density), no overlay. |
+| **Default** | Standard density, no overlay. |
+
+Presets are built in; you cannot create or edit your own yet.
+
+### Choosing a preset
+
+Pick a preset from the **Preset** dropdown (bookmark icon) at the start of the board toolbar's controls. Each option shows a one-line summary, and the board's default preset is labeled **Board default**. The trigger reads **Preset** when no preset is active and the preset's name when one is.
+
+Choosing a preset saves its density as your [personal density override](#personal-density-override) and its overlay as your [overlay](#grid-overlays) choice for that board, and records which preset you chose, all in this browser. A notice confirms the change, for example **Applied “Default”**, with an **Undo** button that puts back your previous settings. The notice closes by itself after a few seconds (longer when a link applied the preset), and waits while your pointer or keyboard focus is on it. While it is showing, the **Preset** dropdown also offers **Undo**, so you can reach it from the keyboard.
+
+You can also apply a preset from the [command palette](keyboard-shortcuts.md) (⌘K / Ctrl+K): type **Apply preset: Classic** or **Apply preset: Default**, or **Reset to preset: …** when the active preset is modified. These work exactly like the dropdown, including the Undo notice, in every view of the board (Board, Summary, History, Analytics and the Lens).
+
+The trigger names a preset only when one is actually in use: one you chose, or the board's default preset. A density or overlay you set yourself, including settings from before 1.3, is not shown as a preset even when its values match one.
+
+### Modified and Reset
+
+If you change the density or the overlay after choosing a preset, the trigger adds a **Modified** tag. Open the dropdown to see what differs from the preset, for example `Overlay: Card count (preset: No overlay)`, and choose **Reset to “Default”** to go back to it. Choosing the modified preset again does the same. Reset also shows a notice with **Undo**.
+
+**Board Settings → Display** says when a preset set your density: the **Use my own density** toggle reads `Set by preset “Default” for your view only`, and turning it off returns you to the board default preset's density if the board has one that sets a density, otherwise to the board's own density; the toggle says which, and says the preset will show as Modified when that density differs. Turning the toggle on starts from the density you see now, so it never changes your view by itself. When the density comes from the board's default preset instead, the tab reads `Set by preset “Default”: your view shows standard density.`
+
+### Sharing a preset link
+
+While a preset is applied, the board's URL carries it, for example `?preset=default`, so you can share the link. Opening such a link applies that preset for you, replacing your own density and overlay choices on that board, and shows a notice, **Applied “Default” from the link**, whose **Undo** puts your previous choices back and removes `?preset=` from the URL. Once you modify the preset, `?preset=` is removed from the URL, because the link would no longer show what you see; reloading the page then keeps your changes. Reloading a page whose link names the preset you are already using changes nothing and shows no notice. An unknown preset name in a link is ignored.
+
+### Board default preset
+
+Board admins can choose a default preset in **Board Settings → Display → Board default preset**: **None**, **Classic**, or **Default**. Members who have not picked a preset on that board see the board default. Everyone else sees the read-only setting.
+
+Which preset applies, highest first:
+
+1. A `?preset=` link
+2. Your own choices on this board: a preset you picked, your personal density override, or your overlay choice, each of which wins over the board default for that setting (the trigger then shows the board default as **Modified** where they differ)
+3. The board's default preset
+4. The board's own density setting, with no overlay
+
+With no board default (the setting for every board created or upgraded before 1.3) and no link, the board looks exactly as it did before presets existed. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later, in an open tab as after a reload. A preset you chose that is not the board default stays yours when the board default changes. Each board keeps its own preset: moving to another board never carries one over.
 
 ## Views
 

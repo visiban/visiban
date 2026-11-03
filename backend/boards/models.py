@@ -18,6 +18,19 @@ from groups.models import HealthStatus
 logger = logging.getLogger(__name__)
 
 
+class BoardPresetId(models.TextChoices):
+    """Ids of the code-defined board presets (#1146).
+
+    Mirrors `frontend/src/boardPresets/registry.ts`. An id is a persisted and
+    public contract (stored in ``Board.default_preset`` and in ``?preset=``
+    links), so a shipped id is never renamed or removed; the label is free to
+    be reworded.
+    """
+
+    CLASSIC = "classic", "Classic"
+    DEFAULT = "default", "Default"
+
+
 class BoardTemplate(models.Model):
     """
     A pre-configured board layout that users can select at board creation time.
@@ -222,6 +235,21 @@ class Board(models.Model):
     # database constraint (nothing filters on it).
     health_status = models.CharField(
         max_length=16, null=True, blank=True, default=None, choices=HealthStatus.choices,
+    )
+    # Board presets (#1146): the preset a member sees on this board until they
+    # choose one themselves. Presets are code-defined bundles in 1.3 (the
+    # definitions live in the frontend's `boardPresets` registry), so the board
+    # stores only an id. null = no board default, which renders exactly as a
+    # board did before presets existed. A ``BoardPreset`` table for authored
+    # presets (#2047) would be additive next to this column, which is why the
+    # 1.3 architect review chose an id here over a table now.
+    default_preset = models.CharField(
+        max_length=32, null=True, blank=True, default=None, choices=BoardPresetId.choices,
+        help_text=(
+            "Id of the board preset members see by default (#1146): ``classic`` "
+            "or ``default``, or null for none. A member's own preset choice and a "
+            "``?preset=`` link both take precedence. Validated at the serializer layer."
+        ),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -5,7 +5,7 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
+import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSettingsWebhooksTab";
@@ -18,6 +18,8 @@ import type { ViewPrefs } from "../../hooks/useViewPrefs";
 import Avatar from "../Common/Avatar";
 import { Toggle, ToggleField } from "../Common/Toggle";
 import DemoInert from "../Common/DemoInert";
+import { getBoardPreset, listBoardPresets } from "../../boardPresets/registry";
+import type { PresetDensitySource } from "../../hooks/useBoardPreset";
 import InviteLinkPanel from "../Group/InviteLinkPanel";
 import { EMAIL_RE } from "../../constants/inviteEmail";
 import type { EmailInviteFormHandle } from "../Common/EmailInviteForm";
@@ -68,6 +70,15 @@ interface Props {
    *  that happen to share this tab. */
   cardDensityOverride?: CardDensity | null;
   onSetCardDensityOverride?: (value: CardDensity | null) => void;
+  /** #1146 — which preset supplies the density this user sees, and how: `own-key`
+   *  when a preset they applied wrote their personal density key (a preset and
+   *  "Use my own density" write the same key, so the toggle names the writer),
+   *  `board-default` when the board's default preset sets it and they have no
+   *  key. Null when the density is their own setting or the board's own. */
+  densityPresetSource?: PresetDensitySource;
+  /** #1146 — the density the board actually renders for this user, for the
+   *  "Set by preset" line. */
+  effectiveCardDensity?: CardDensity;
   /** Whether the issue board lens feature is enabled instance-wide. */
   gitLensEnabled?: boolean;
   /** The board's current lens connection, or null when none is configured. */
@@ -113,6 +124,10 @@ interface Props {
 }
 
 const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
+// #1146 — the two places Display names a preset as the density's source. Each is
+// referenced with aria-describedby by the control it explains.
+const DENSITY_SET_BY_PRESET_ID = "density-set-by-preset";
+const DENSITY_OVERRIDE_DESCRIPTION_ID = "density-override-description";
 
 /** #1967 — true when share link issue time `a` is later than `b`. Falls back
  *  to "different" when either value does not parse, so a malformed value can
@@ -153,7 +168,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -1786,7 +1801,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 <h3 id="card-density-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card density</h3>
                 {isAdmin && onUpdateBoardSettings ? (
                   <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
-                  <fieldset className="flex flex-col gap-2 transition-colors duration-150">
+                  <fieldset
+                    className="flex flex-col gap-2 transition-colors duration-150"
+                    aria-describedby={densityPresetSource?.via === "board-default" ? DENSITY_SET_BY_PRESET_ID : undefined}
+                  >
                     <legend className="sr-only">Card density</legend>
                     {([
                       { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
@@ -1826,6 +1844,19 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   </p>
                 )}
 
+                {/* #1146 — a preset now writes density too. Say so, or the radio
+                    above and the toggle below can both look unrelated to what
+                    the board shows. */}
+                {/* When the preset wrote the personal key, the toggle below says so
+                    instead (one statement of the source, not two that read as a
+                    contradiction); this line covers a board default preset, which
+                    writes no key. */}
+                {densityPresetSource?.via === "board-default" && effectiveCardDensity && (
+                  <p id={DENSITY_SET_BY_PRESET_ID} data-testid="density-set-by-preset" className="text-xs text-fg-tertiary mt-2">
+                    Set by preset “{densityPresetSource.presetName}”: your view shows <span className="capitalize">{effectiveCardDensity}</span> density.
+                  </p>
+                )}
+
                 {/* #974 — per-user density override, layered on top of the
                     board default above. Gated on its own callback prop,
                     independent of the isAdmin/viewPrefs gates elsewhere in
@@ -1840,7 +1871,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       checked={cardDensityOverride !== null}
                       onChange={(next) => {
                         if (next) {
-                          const initial = lastPickedDensity ?? board.card_density;
+                          // Seed with the density the member sees now (#1146): under
+                          // a board default preset that sets one, that is not
+                          // board.card_density, and seeding that would change their view.
+                          const initial = lastPickedDensity ?? effectiveCardDensity ?? board.card_density;
                           setLastPickedDensity(initial);
                           onSetCardDensityOverride(initial);
                         } else {
@@ -1849,15 +1883,22 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       }}
                       label="Use my own density"
                       labelSize="xs"
+                      descriptionId={DENSITY_OVERRIDE_DESCRIPTION_ID}
+                      aria-describedby={DENSITY_OVERRIDE_DESCRIPTION_ID}
                       description={
-                        cardDensityOverride !== null
+                        cardDensityOverride !== null && densityPresetSource?.via === "own-key"
+                          ? `Set by preset “${densityPresetSource.presetName}” for your view only — stored in your browser. Turn this off to use ${densityPresetSource.offFallsBackTo === "board-default-preset" ? "the board default preset's density" : "the board's density"}${densityPresetSource.offChangesDensity ? "; the preset will then show as Modified." : "."}`
+                          : cardDensityOverride !== null
                           ? "Overriding the board default for your view only — stored in your browser."
                           : "Following the board default for your view."
                       }
                     />
 
                     {cardDensityOverride !== null && (
-                      <fieldset className="flex flex-col gap-2 mt-2 ml-6 border-l-2 border-line pl-4">
+                      <fieldset
+                        className="flex flex-col gap-2 mt-2 ml-6 border-l-2 border-line pl-4"
+                        aria-describedby={densityPresetSource?.via === "own-key" ? DENSITY_OVERRIDE_DESCRIPTION_ID : undefined}
+                      >
                         <legend className="sr-only">Your personal density override</legend>
                         {([
                           { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
@@ -1896,6 +1937,60 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     )}
                   </div>
                 )}
+              </section>
+
+              {/* Default preset (#1146) — board admin setting, read-only line for
+                  everyone else, same split as Card density above. Presets are
+                  code-defined in 1.3; this stores only which one is the default. */}
+              <section aria-labelledby="default-preset-heading">
+                <h3 id="default-preset-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Board default preset</h3>
+                {isAdmin && onUpdateBoardSettings ? (
+                  <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
+                  <fieldset className="flex flex-col gap-2 transition-colors duration-150" aria-describedby="default-preset-help">
+                    <legend className="sr-only">Board default preset</legend>
+                    {[
+                      { value: null, label: "None", description: "No preset is applied unless a member picks one." },
+                      ...listBoardPresets().map((p) => ({ value: p.id as BoardPresetId | null, label: p.name, description: p.description })),
+                    ].map(({ value, label, description }) => {
+                      const checked = (board.default_preset ?? null) === value;
+                      return (
+                        <label
+                          key={value ?? "none"}
+                          className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
+                            checked
+                              ? "border-primary-emphasis bg-primary-emphasis/10"
+                              : "border-line-strong hover:bg-surface-hover/40"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="default-preset"
+                            value={value ?? ""}
+                            checked={checked}
+                            onChange={() => onUpdateBoardSettings({ default_preset: value })}
+                            className="sr-only"
+                          />
+                          <span className="flex-1">
+                            <span className="block text-sm text-fg font-medium">{label}</span>
+                            <span className="block text-xs text-fg-muted mt-0.5">{description}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </fieldset>
+                  </DemoInert>
+                ) : (
+                  <p className="text-sm text-fg-secondary">
+                    {getBoardPreset(board.default_preset) ? (
+                      <>This board's default preset is <span className="font-medium text-fg">{getBoardPreset(board.default_preset)?.name}</span>. Only board admins can change this.</>
+                    ) : (
+                      <>This board has no default preset. Only board admins can change this.</>
+                    )}
+                  </p>
+                )}
+                <p id="default-preset-help" className="text-xs text-fg-tertiary mt-2">
+                  Members who have not picked a preset in the board toolbar see this one. Their own choice, or a link with a preset, comes first.
+                </p>
               </section>
 
               {viewPrefs && onToggleHiddenColumn && onToggleHiddenSwimlane && (
