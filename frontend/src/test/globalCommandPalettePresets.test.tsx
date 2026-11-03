@@ -138,6 +138,40 @@ describe("GlobalCommandPalette — board preset commands (#1146)", () => {
     expect(actionLabels()).toEqual(["Apply preset: Classic"]);
   });
 
+  it("hides preset commands while a card target is active (#2059)", async () => {
+    act(() => publishActivePreset({ boardId: 5, activePresetId: null, modified: false }));
+    const face = document.createElement("div");
+    face.setAttribute("data-card-id", "100");
+    face.tabIndex = 0;
+    document.body.appendChild(face);
+    face.focus();
+    const onQuery = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail;
+      detail.response = {
+        cardIds: [100], source: "focused", summary: "A card",
+        actions: [{ id: "archive", label: "Archive card", enabled: true }],
+      };
+    };
+    window.addEventListener("visiban:card-target-query", onQuery);
+    try {
+      const { useBoard } = await import("../hooks/useBoard");
+      vi.mocked(useBoard).mockReturnValue({ ...emptyBoardContext(), unavailable: false, board, getLastFullFetchAt: () => null });
+      render(
+        <MemoryRouter initialEntries={["/boards/5"]}>
+          <BoardProvider>
+            <GlobalCommandPalette />
+          </BoardProvider>
+        </MemoryRouter>,
+      );
+      fireEvent.keyDown(face, { key: "k", metaKey: true });
+      expect(screen.getByRole("option", { name: /^Archive card/ })).toBeInTheDocument();
+      expect(actionLabels()).toEqual([]);
+    } finally {
+      window.removeEventListener("visiban:card-target-query", onQuery);
+      face.remove();
+    }
+  });
+
   it("offers no preset commands off-board", async () => {
     render(
       <MemoryRouter initialEntries={["/"]}>
