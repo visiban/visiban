@@ -1853,7 +1853,8 @@ backend-mutation:
 # target's own score are printed beside it so the exclusions and a weak module
 # stay visible. Exit 1 = merged score below MUTATION_MIN; exit 2 = not measured
 # (a shard or target missing, inconsistent shards, untested mutants), which is
-# never a green. Blocking (#1384): a red report on the weekly schedule is real.
+# never a green. Blocking (#1384): a red report on the weekly schedule is either a
+# real score under the floor (exit 1) or a run that was not measured (exit 2).
 backend-mutation-report:
   stage: test
   needs:

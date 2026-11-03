@@ -81,7 +81,7 @@ error raised before any stats are read, so it writes no merged file.
 
 A floor is a fraction (``0.90``, not ``90``) and is never set to 0 as a
 placeholder: unset or empty means "report-only", and the job says so. ``0`` or
-anything outside (0, 1] exits 2. The nightly job sets ``MUTATION_MIN=0.90``
+anything outside (0, 1] exits 2. The weekly job sets ``MUTATION_MIN=0.90``
 (#1384; the report job is blocking, the shard jobs stay ``allow_failure``).
 """
 
