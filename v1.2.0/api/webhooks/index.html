@@ -4537,7 +4537,7 @@
 <h3 id="post-create"><code>POST /</code> — create<a class="headerlink" href="#post-create" title="Permanent link">&para;</a></h3>
 <p>Body: <code>url</code> (required), <code>name</code> (optional, at most 200 characters), <code>event_types</code> (optional, default <code>[]</code>).</p>
 <p>The <code>201</code> response is the subscription object plus <code>url</code> and <code>secret</code>, with <code>Cache-Control: no-store</code>. <strong>This is the only response that contains them.</strong> The secret is <code>whsec_</code> followed by 43 URL-safe characters.</p>
-<p>A new webhook starts at the board's newest event, so <code>last_delivered_event_id</code> starts at that event's id (<code>0</code> on a board with no events): nothing earlier is delivered.</p>
+<p>A new webhook starts at the board's newest event, so <code>last_delivered_event_id</code> starts at that event's id: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id instead, and on a board that never had events at <code>0</code>.</p>
 <h3 id="patch-id"><code>PATCH {id}/</code><a class="headerlink" href="#patch-id" title="Permanent link">&para;</a></h3>
 <p>Send only the keys you change. Changing <code>url</code> validates it again, makes the caller the owner (<code>configured_by</code>), and leaves the secret unchanged.</p>
 <h3 id="post-idreenable"><code>POST {id}/reenable/</code><a class="headerlink" href="#post-idreenable" title="Permanent link">&para;</a></h3>
@@ -4552,11 +4552,11 @@
 <tbody>
 <tr>
 <td><code>cursor</code> (default)</td>
-<td>Delivers what was missed since the webhook stopped. <code>409 {"code": "cursor_expired"}</code> if those events were already pruned from the feed.</td>
+<td>Delivers what was missed since the webhook stopped. <code>409 {"code": "cursor_expired"}</code> if any event after <code>last_delivered_event_id</code> was pruned from the feed, including when every missed event was pruned and nothing newer exists.</td>
 </tr>
 <tr>
 <td><code>latest</code></td>
-<td>Skips to new events.</td>
+<td>Skips to new events: <code>last_delivered_event_id</code> becomes the board's newest event id or its highest pruned id, whichever is greater.</td>
 </tr>
 </tbody>
 </table>
