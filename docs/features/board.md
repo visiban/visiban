@@ -61,7 +61,7 @@ Each swimlane has the following fields:
 | Field | Description |
 |---|---|
 | Name | Required; unique per board |
-| Color | Left-edge stripe color on the label panel |
+| Color | Left-edge stripe color on the label panel. Pick a preset or a [custom color](#custom-colors) |
 | Contact email | Optional; set when you create the swimlane. Displayed in the label panel for admins only (hidden from members and viewers) |
 | Notes | Optional free-text field on the data model; not currently exposed in the UI |
 | Position | Controls row order on the board |
@@ -148,7 +148,7 @@ Click a column header to collapse it to a narrow vertical strip. When collapsed:
 
 Columns represent pipeline stages. Each column has:
 
-- **Name** and **color**
+- **Name** and **color** — a preset or a [custom color](#custom-colors)
 - **WIP limit** — maximum number of active cards allowed. The column header carries a single calm `N cards` stat line when within budget; when the limit is exceeded the line flips to `⚠ Over WIP · count/limit` and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode. Optionally, the **Show at-limit WIP indicator** board setting (off by default) surfaces the *at*-limit case too — see [At-limit WIP indicator](#at-limit-wip-indicator) below.
 - **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows `Weight weight/limit` and the header gains a 2 px amber top accent strip. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a `409` error; board admins can override with `?force=true`. Lowering a card's weight is never blocked. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
@@ -217,6 +217,18 @@ The column header's stat line only flips out of its calm state to warn about the
 - Columns under the limit are unaffected: always `N cards`.
 
 This setting is purely ambient: it does not change limit enforcement, which is controlled independently by **Enforce WIP limits** / **Enforce WIP hard** above (#973).
+
+## Custom colors
+
+> **Added in 1.3**
+
+Columns, swimlanes, new card labels and a [group's shared labels](groups.md#group-shared-labels) keep their preset swatches and add a custom color control at the end of the row, a dashed circle with a plus. It opens a panel with a saturation square, a hue slider and hex and R, G, B fields.
+
+- **Nothing changes until you choose Apply.** The preview in the panel shows your draft; the row and the board do not. Cancel, Escape, clicking elsewhere or tabbing away discards the draft. Whatever you typed in the dialog behind it stays as it was.
+- **Hex takes 3 or 6 digits** (`#ABC` is saved as `#AABBCC`). **R, G and B go from 0 to 255.** Apply stays unavailable and a message explains why until the values are valid.
+- **When you apply a custom color, it fills the control**, so you can see it and change it later. A value that matches a preset selects that preset instead.
+- **In the new-label row on a card**, once the label has a name, the button reads **Create label** and applying creates the label in that color, as clicking a preset swatch does.
+- **From the keyboard:** Tab to the control and press Enter or Space to open it; focus starts on the square. Arrow keys move the square and the hue slider. Tab reaches the fields and buttons in order, and Enter in any field or slider applies.
 
 ## Cards
 

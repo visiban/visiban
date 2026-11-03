@@ -285,3 +285,22 @@ body {
 .board-scroll::-webkit-scrollbar-button {
   display: none;
 }
+
+/* Custom color panel (#2095). Two classes, to win over the stylesheet react-colorful
+   injects at runtime. The pointer sits on arbitrary user colors, so it keeps a white
+   ring with a dark outline in both themes rather than a themed token. */
+.custom-color-panel .react-colorful {
+  width: 100%;
+  height: 168px;
+}
+
+.custom-color-panel .react-colorful__pointer {
+  width: 20px;
+  height: 20px;
+  outline: 1px solid rgb(0 0 0 / 0.7);
+}
+
+.custom-color-panel .react-colorful__interactive:focus-visible .react-colorful__pointer {
+  outline: 2px solid rgb(var(--primary-emphasis));
+  outline-offset: 1px;
+}

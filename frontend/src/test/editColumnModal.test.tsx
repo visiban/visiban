@@ -152,6 +152,21 @@ describe('EditColumnModal', () => {
     swatches.forEach(btn => expect(btn).toHaveAttribute('aria-label'))
   })
 
+  it('shows a persisted custom color on the custom trigger, with no preset selected (#2095)', () => {
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={makeColumn({ color: '#123abc' })}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onRequestDelete={onRequestDelete}
+        onClose={onClose}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Custom color, selected' })).toBeInTheDocument()
+    screen.getAllByRole('button', { name: /Select color/ }).forEach(b => expect(b).toHaveAttribute('aria-pressed', 'false'))
+  })
+
   it('selected color swatch has aria-pressed=true, others false', () => {
     const selectedColor = '#6B7280'
     render(

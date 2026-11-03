@@ -1658,6 +1658,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           size="sm"
                           className="flex gap-2"
                           groupLabel="Label color"
+                          allowCustom
+                          applyLabel={newLabelName.trim() ? "Create label" : undefined}
                           // void: handleCreateLabel already catches its own rejection and surfaces it via labelError.
                           onChange={(c) => { setNewLabelColor(c); if (newLabelName.trim()) void handleCreateLabel(c); }}
                           getAriaLabel={(_c, name) => newLabelName.trim() ? `Create "${newLabelName.trim()}" with color ${name}` : `Select color ${name}`}

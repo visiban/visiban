@@ -72,9 +72,19 @@ export default function ModalWrapper({
 
   useFocusTrap(panelRef, open);
 
+  // A press that starts inside the panel and ends on the backdrop (a color picker drag
+  // released past the panel's edge, a text selection) fires its click on the backdrop,
+  // their common ancestor. Only a press that began on the backdrop may dismiss.
+  const pressedBackdropRef = useRef(false);
+  const handleBackdropMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    pressedBackdropRef.current = e.target === e.currentTarget;
+  }, []);
+
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (dismissable && e.target === e.currentTarget) {
+      const pressedBackdrop = pressedBackdropRef.current;
+      pressedBackdropRef.current = false;
+      if (dismissable && pressedBackdrop && e.target === e.currentTarget) {
         onClose();
       }
     },
@@ -89,6 +99,7 @@ export default function ModalWrapper({
     <div
       role="presentation"
       className="fixed inset-0 bg-backdrop/60 z-50 flex items-center justify-center p-4"
+      onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >
       <div

@@ -67,7 +67,7 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
         </p>
         <div>
           <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
-          <ColorSwatchPicker colors={PALETTE_COLORS} value={color} onChange={setColor} />
+          <ColorSwatchPicker colors={PALETTE_COLORS} value={color} onChange={setColor} allowCustom />
         </div>
       </div>
 
