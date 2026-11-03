@@ -4398,6 +4398,16 @@
 <td><code>GET /api/v1/notifications/unread-count/</code></td>
 <td>Same polling cadence as the list endpoint</td>
 </tr>
+<tr>
+<td>Summary and Analytics</td>
+<td><code>GET /api/v1/boards/{id}/summary/</code>, <code>GET /api/v1/boards/{id}/analytics/</code></td>
+<td>Both replay movement history in Python since <a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>, for the cards relevant to their window: a query-count guard cannot see that cost. Measured but not gated until <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigns their budgets</td>
+</tr>
+<tr>
+<td>Flow metrics</td>
+<td><code>GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age}/</code></td>
+<td>Each replays the whole board's movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>), so cost grows with the board's movements, not with the requested range. Measured but not gated until <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigns their budgets</td>
+</tr>
 </tbody>
 </table>
 <p>This job is additive. <code>perf-check</code> and <code>perf-bench</code> are unchanged and still run where they already did. <code>perf-check</code>'s own description (<a href="https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-check.md"><code>.claude/agents/perf-check.md</code></a>) now states the division of labor: a query-count guard doesn't satisfy a latency budget.</p>
@@ -4459,7 +4469,8 @@
 <p>It isn't a silent default. The self-test fails a scenario whose budget is null without a valid <code>#NNNN</code> reference, or with no baseline entry at all, and asserts that a pending scenario can never produce a violation.</p>
 <ul>
 <li>When the issue assigns the budget, replace <code>budget_p95_ms</code> and delete <code>pending_budget</code> in the same whole-file re-derivation.</li>
-<li>Nothing is pending now: <code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the scenario) got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.</li>
+<li>Pending now: <code>board_summary</code>, <code>board_analytics</code>, <code>flow_cycle_time</code>, <code>flow_throughput</code>, <code>flow_cumulative_flow</code> and <code>flow_wip_age</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a> added the scenarios), until <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a>.</li>
+<li>The first scenario to use this was <code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the scenario), which got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.</li>
 <li>The <code>suppressions-check</code> CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending (<a href="https://gitlab.com/visiban/visiban/-/issues/1812">#1812</a>; see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</li>
 </ul>
 <h2 id="pooled-connections">Pooled connections<a class="headerlink" href="#pooled-connections" title="Permanent link">&para;</a></h2>

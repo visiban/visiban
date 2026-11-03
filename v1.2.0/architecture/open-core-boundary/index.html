@@ -4478,7 +4478,7 @@
 <tr>
 <td>Flow charts (cycle time, throughput and weekly run chart, cumulative flow diagram, WIP age, CFD bottleneck highlight)</td>
 <td>OSS</td>
-<td>Same reasoning; ruled 2026-11-02. Planned in #448, not yet shipped. See <a href="#analytics-split">Analytics (split)</a></td>
+<td>Same reasoning; ruled 2026-11-02. Shipped in 1.3 (#448). See <a href="#analytics-split">Analytics (split)</a></td>
 <td>#1750, #448</td>
 </tr>
 <tr>
@@ -4795,7 +4795,7 @@
 <p><strong>Why.</strong> Seeing where work piles up passes the small-team test, and OSS already ships bottleneck detection. The earlier split would have left most of #448 disputed: "velocity trends over time" covers the throughput run chart, and enterprise #12 also claims cycle time, lead time and throughput.</p>
 <p><strong>Supersedes.</strong> This replaces the 2026-10-20 note on #1750, which ruled the CFD, velocity trends, cross-period comparison, scheduled reports and <code>ANALYTICS_EXTENSIONS</code> panels Enterprise. It also replaces the earlier table rows "Advanced analytics (velocity trends, CFD, exports)" (#341 note) and "Advanced analytics (cycle time dists, CFD)" (enterprise #12), and the earlier wording of this section, which placed velocity trends, bottleneck detection, historical period comparisons and exportable reports in Enterprise.</p>
 <p><strong>Cost accepted.</strong> Under the project's backward compatibility rules, a shipped OSS feature cannot practically move back to Enterprise. Enterprise #12 is the open tracking issue for rescoping the enterprise side to the three items above; a note was posted there on 2026-11-02.</p>
-<p><strong>Not decided here.</strong> Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. Neither are MCP analytics tools. The #448 charts are planned, not shipped; the <a href="../decisions/">flow metric definitions</a> apply wherever they ship.</p>
+<p><strong>Not decided here.</strong> Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. Neither are MCP analytics tools. The <a href="../decisions/">flow metric definitions</a> apply wherever the #448 charts ship.</p>
 <p>The OSS analytics summary exposes an <code>ANALYTICS_EXTENSIONS</code> registration point (<code>boards/hooks.py</code>) so enterprise can add panels without modifying OSS view files. The summary returns the panels in <code>extension_panels</code>, and the Summary tab renders <code>stats</code> and <code>table</code> panels below the swimlane table (see the <a href="../../api/boards/#extension-panel-payload">payload contract</a>).</p>
 <p><strong>Authorization is OSS's job, not each panel's (#1826).</strong> A panel declares the lowest board role that may see it with a <code>min_role</code> attribute on the callable. The summary drops every panel above the caller's role before calling any panel, so a panel that forgets a role check cannot leak to viewers. <strong>Behavior change for extension authors in 1.2:</strong> a panel with no <code>min_role</code>, or an invalid one, is admin-only (fail closed). Enterprise panels registered before 1.2 must set <code>min_role</code> to stay visible to non-admin members. See <a href="../../api/boards/#panel-visibility-by-role">panel visibility by role</a> and <a href="../../development/security-invariants/">Security Invariants</a> Rule 12.</p>
 <p><strong>Issue:</strong> #1750 (ruling), #341 (basic analytics), #448 (flow charts). Enterprise side: enterprise #12.</p>
