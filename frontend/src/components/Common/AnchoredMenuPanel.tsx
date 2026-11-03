@@ -100,6 +100,7 @@ export default function AnchoredMenuPanel({
     <div
       ref={panelRef}
       onKeyDown={handleKeyDown}
+      data-anchored-menu=""
       {...aria}
       style={{
         position: "fixed",

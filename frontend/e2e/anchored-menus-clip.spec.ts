@@ -101,31 +101,128 @@ test.describe('anchored filter menus (#1482)', () => {
     expect(await panel.evaluate((n) => n.parentElement === document.body)).toBe(true)
   })
 
-  test('Tab off a portaled menu continues to the next toolbar control; Shift+Tab returns to the trigger', async ({ page }) => {
+  // Marks the control that follows `trigger` in document order (outside any
+  // anchored panel), so the test can assert focus lands on the real next control.
+  async function markNextControl(page: Page, trigger: Locator) {
+    await trigger.evaluate((node) => {
+      const sel = 'button:not([disabled]),input:not([disabled]):not([type="hidden"]),a[href],select,textarea,[tabindex]:not([tabindex="-1"])'
+      const all = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter(
+        (el) => !el.closest('[data-anchored-menu]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden',
+      )
+      const next = all[all.indexOf(node as HTMLElement) + 1]
+      next.setAttribute('data-e2e-next', '1')
+    })
+    return page.locator('[data-e2e-next="1"]')
+  }
+
+  test('Saved filters: Shift+Tab off the first control returns to the trigger; Tab off the last lands on the next toolbar control', async ({ page }) => {
     await openBoard(page)
     await page.getByRole('button', { name: /^filters/i }).click()
     // An active filter enables "Save current filters", the panel's first control.
     await page.locator('[data-board-search="true"]').fill('task')
     const trigger = page.getByRole('button', { name: 'Saved filters' })
+    const next = await markNextControl(page, trigger)
     await trigger.click()
     const panel = page.getByRole('group', { name: 'Saved filters' })
     await expect(panel).toBeVisible()
     await expect(page.getByRole('button', { name: /save current filters/i })).toBeFocused()
-    // Shift+Tab off the first control lands on the trigger, menu closed.
     await page.keyboard.press('Shift+Tab')
     await expect(panel).toHaveCount(0)
     await expect(trigger).toBeFocused()
-    // Forward: tab through the panel's last control, then on from the trigger.
     await trigger.click()
     await expect(panel).toBeVisible()
-    const lastTabbable = await panel.evaluate((n) => {
-      const els = n.querySelectorAll('button:not([disabled]),input')
-      return els.length
-    })
-    for (let i = 0; i < lastTabbable; i++) await page.keyboard.press('Tab')
+    const count = await panel.evaluate((n) => n.querySelectorAll('button:not([disabled]),input').length)
+    for (let i = 0; i < count; i++) await page.keyboard.press('Tab')
     await expect(panel).toHaveCount(0)
-    const focusedIsTrigger = await trigger.evaluate((n) => n === document.activeElement)
-    expect(focusedIsTrigger).toBe(false)
-    expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true)
+    await expect(next).toBeFocused()
+  })
+
+  test('Facet menu: Tab-out keeps the facet mounted, so Shift+Tab lands on its trigger and Tab on the next control', async ({ page }) => {
+    await openBoard(page)
+    await page.getByRole('button', { name: /^filters/i }).click()
+    await page.getByRole('button', { name: /\+ filter/i }).click()
+    await page.getByRole('checkbox', { name: /label/i }).check()
+    await page.keyboard.press('Escape')
+    const trigger = page.getByRole('button', { name: /^label/i })
+    await expect(trigger).toBeVisible()
+    const next = await markNextControl(page, trigger)
+    const panel = page.getByRole('group', { name: 'Label' })
+    await trigger.click()
+    await expect(panel).toBeVisible()
+    await page.keyboard.press('Shift+Tab')
+    await expect(panel).toHaveCount(0)
+    await expect(trigger).toBeVisible()
+    await expect(trigger).toBeFocused()
+    await trigger.click()
+    await expect(panel).toBeVisible()
+    const count = await panel.evaluate((n) => n.querySelectorAll('input').length)
+    for (let i = 0; i < count; i++) await page.keyboard.press('Tab')
+    await expect(panel).toHaveCount(0)
+    await expect(trigger).toBeVisible()
+    await expect(next).toBeFocused()
+  })
+
+  test('History filters: the User list (board members) is not clipped by the view panel and stays hit-testable', async ({ page }) => {
+    const members = Array.from({ length: 40 }, (_, i) => ({
+      id: i + 1,
+      user: i === 0 ? BOARD_USER : { id: i + 1, username: `member${i}`, display_name: `Member ${i}`, avatar_url: '' },
+      role: i === 0 ? ('admin' as const) : ('member' as const),
+      is_moderator: false,
+      joined_at: '2026-01-01T00:00:00Z',
+    }))
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/movements/**`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [], count: 0, offset: 0, page_size: 50 }) }),
+    )
+    await openBoard(page, { ...BOARD_FULL, members } as unknown as typeof BOARD_FULL)
+    await page.getByRole('button', { name: /history/i }).first().click()
+    await page.getByRole('button', { name: /^user/i }).click()
+    const menu = page.getByRole('menu')
+    await expect(menu).toBeVisible()
+    await expectInViewport(menu)
+    const items = menu.getByRole('menuitem')
+    await items.last().scrollIntoViewIfNeeded()
+    expect(await topmostAtCenter(items.last())).toBe(true)
+    expect(await menu.evaluate((n) => n.parentElement === document.body)).toBe(true)
+  })
+
+  test('Offboarding transfer-owner results are not clipped by the overflow-hidden board list and stay hit-testable', async ({ page }) => {
+    const owned = Array.from({ length: 3 }, (_, i) => ({ id: 40 + i, uid: `boarduid0004${i}`, name: `Owned ${i}` }))
+    const adminUser = (id: number, username: string, ownedBoards: typeof owned) => ({
+      id, username, email: `${username}@example.com`, display_name: username, first_name: username, last_name: '', avatar_url: '',
+      is_active: true, is_site_admin: id === 1, can_access_all_content: false, is_superuser: false, must_change_password: false,
+      date_joined: '2024-01-01T00:00:00Z', owned_boards: ownedBoards,
+    })
+    await page.setViewportSize({ width: 1280, height: VIEWPORT_H })
+    await routeAuth(page)
+    await page.route('**/api/v1/auth/user/', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...BOARD_USER, is_site_admin: true }) }),
+    )
+    await page.route('**/api/v1/admin/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, offset: 0, page_size: 50, results: [] }) }),
+    )
+    await page.route('**/api/v1/admin/users/**', (route) =>
+      route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ count: 2, offset: 0, page_size: 50, results: [adminUser(1, 'testuser', []), adminUser(5, 'bob', owned)] }),
+      }),
+    )
+    await page.route('**/api/users/**', (route) =>
+      route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(Array.from({ length: 8 }, (_, i) => ({ id: 100 + i, username: `cand${i}`, display_name: `Candidate ${i}`, avatar_url: '' }))),
+      }),
+    )
+    await page.goto('/admin?tab=users')
+    await page.getByRole('button', { name: /deactivate/i }).first().click()
+    const inputs = page.getByPlaceholder('Search for a member…')
+    await inputs.last().scrollIntoViewIfNeeded()
+    await inputs.last().fill('ca')
+    const results = page.getByRole('button', { name: /candidate/i })
+    await expect(results).toHaveCount(8)
+    const panel = results.first().locator('xpath=ancestor::*[@data-anchored-menu]')
+    await expectInViewport(panel)
+    await results.last().scrollIntoViewIfNeeded()
+    expect(await topmostAtCenter(results.last())).toBe(true)
+    expect(await panel.evaluate((n) => getComputedStyle(n).position)).toBe('fixed')
   })
 })

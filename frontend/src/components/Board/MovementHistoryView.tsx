@@ -345,18 +345,21 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
         <div className="flex items-center gap-2 px-4 py-2 border-b border-line-subtle flex-wrap shrink-0">
           <SingleSelectDropdown
             label="Swimlane"
+            portalMenu
             options={swimlaneOptions}
             selected={filters.swimlaneId}
             onChange={(v) => applyFilters({ ...filters, swimlaneId: v })}
           />
           <SingleSelectDropdown
             label="Column"
+            portalMenu
             options={columnOptions}
             selected={filters.columnId}
             onChange={(v) => applyFilters({ ...filters, columnId: v })}
           />
           <SingleSelectDropdown
             label="User"
+            portalMenu
             options={userOptions}
             selected={filters.userId}
             onChange={(v) => applyFilters({ ...filters, userId: v })}

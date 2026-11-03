@@ -498,8 +498,10 @@ interface OffboardingModalProps {
  * focus trap still contains it): the rows sit in an `overflow-hidden` list,
  * which clipped the old in-flow `absolute` menu on the last board.
  */
-function TransferResultsPanel({ anchor, onDismiss, children }: {
+function TransferResultsPanel({ anchor, count, onDismiss, children }: {
   anchor: MenuAnchor | null;
+  /** Result count: the debounced search changes the list height, so re-measure on it. */
+  count: number;
   onDismiss: () => void;
   children: React.ReactNode;
 }) {
@@ -510,6 +512,7 @@ function TransferResultsPanel({ anchor, onDismiss, children }: {
       panelRef={ref}
       onDismiss={onDismiss}
       mode="inline"
+      deps={[count]}
       minWidth={anchor ? anchor.right - anchor.left : 0}
     >
       <ul>{children}</ul>
@@ -617,6 +620,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
                 {(memberResults[board.id] ?? []).length > 0 && (
                   <TransferResultsPanel
                     anchor={memberAnchors[board.id] ?? null}
+                    count={memberResults[board.id].length}
                     onDismiss={() => setMemberResults((prev) => ({ ...prev, [board.id]: [] }))}
                   >
                     {memberResults[board.id].map((member) => (
