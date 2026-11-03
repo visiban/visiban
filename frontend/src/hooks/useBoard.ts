@@ -6,7 +6,7 @@ import { failureReason } from "../utils/moveFailure";
 import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "../utils/placementLimits";
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
-import type { BoardFull, BoardMembership, Card, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { BoardFull, BoardMembership, Card, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
 export type MoveOutcome = { ok: true } | { ok: false; error: unknown };
@@ -129,6 +129,38 @@ function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card
   const next = cards.slice();
   next[i] = prepare(incoming);
   return next;
+}
+
+/**
+ * Apply the positions a `card.moved` frame carries for the siblings the move
+ * renumbered (#1890). Before 1.3 the frame carried only the moved card, so
+ * every other client kept the old positions of the cards around it until it
+ * reloaded. The client cannot renumber the cell itself: it does not know the
+ * server's tie-break, and a reorder within one cell leaves a gap. So it
+ * applies the server's numbers.
+ *
+ * Only `position` changes; nothing else about the sibling is in the pair.
+ * A pair is skipped when the stored copy is newer (`isStaleCard`): a position
+ * shift does not bump `version`, so a pair carries the sibling's version as
+ * of the move, and a stored copy with a higher one has since been moved or
+ * edited and already holds the server's later state. Ids not on the board
+ * (an archived card, one this client never loaded) are skipped too. Returns
+ * the same array when nothing changes, and untouched cards keep their
+ * identity so memoized card faces do not re-render.
+ */
+function applySiblingPositions(cards: Card[], pairs: readonly CardSiblingPosition[]): Card[] {
+  const byId = new Map<number, CardSiblingPosition>();
+  for (const pair of pairs) {
+    if (typeof pair?.id === "number" && typeof pair.position === "number") byId.set(pair.id, pair);
+  }
+  let next: Card[] | null = null;
+  for (let i = 0; i < cards.length; i++) {
+    const pair = byId.get(cards[i].id);
+    if (!pair || pair.position === cards[i].position || isStaleCard(pair, cards[i])) continue;
+    next ??= cards.slice();
+    next[i] = { ...cards[i], position: pair.position };
+  }
+  return next ?? cards;
 }
 
 /**
@@ -553,15 +585,27 @@ export function useBoard() {
     });
   }, []);
 
-  const updateCard = useCallback((card: Card) => {
+  const updateCard = useCallback((card: Card, siblingPositions?: readonly CardSiblingPosition[]) => {
     // Fed by card.updated and card.moved frames and by every HTTP card response
     // (CardDetail, CardItem, the bulk toolbar), which are not ordered against
     // each other: an older version must not replace a newer one (#1969).
     // dropUnknownLabels: a response/echo that lands after label.deleted must not
     // put the deleted label back on the card (#1888).
+    //
+    // `siblingPositions` is card.moved's `sibling_positions` (#1890), applied
+    // in the same update so the cell never renders half-renumbered. A frame
+    // from an older server has none, and only the card is applied, as before.
+    // The pairs of a frame whose moved card is stale are dropped with it: a
+    // later change to that card has already landed, and if it was another move
+    // in the same cell, its frame already applied newer positions for the same
+    // siblings at the same (unbumped) version, which these would undo.
     setBoard((b) => {
       if (!b) return b;
-      const cards = replaceCardUnlessStale(b.cards, card, (c) => dropUnknownLabels(c, b.labels));
+      let cards = replaceCardUnlessStale(b.cards, card, (c) => dropUnknownLabels(c, b.labels));
+      if (Array.isArray(siblingPositions) && siblingPositions.length > 0
+        && !isStaleCard(card, b.cards.find((c) => c.id === card.id))) {
+        cards = applySiblingPositions(cards, siblingPositions);
+      }
       return cards === b.cards ? b : { ...b, cards };
     });
   }, []);

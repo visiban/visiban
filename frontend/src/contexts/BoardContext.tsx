@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { useBoard } from "../hooks/useBoard";
 import type { MoveBlockedError, MoveOutcome } from "../hooks/useBoard";
-import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { BoardFull, BoardMembership, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 export interface BoardContextType {
   board: BoardFull | null;
@@ -33,7 +33,8 @@ export interface BoardContextType {
   addColumn: (column: Column) => void;
   removeColumn: (columnId: number) => Promise<void>;
   addSwimlane: (swimlane: Swimlane) => void;
-  updateCard: (card: Card) => void;
+  /** `siblingPositions`: card.moved's `sibling_positions` (#1890), applied with the card. */
+  updateCard: (card: Card, siblingPositions?: readonly CardSiblingPosition[]) => void;
   updateColumn: (column: Column) => void;
   addLabel: (label: Label) => void;
   updateLabel: (label: Label) => void;

@@ -848,7 +848,13 @@ class CreateCardAtomicReorderTests(CrudToolsTestCase):
         # appended, then the same-cell reorder ({card}, no movement).
         events = [c.args[1] for c in broadcast.call_args_list]
         self.assertEqual(events, ["card.created", "card.moved"])
-        self.assertEqual(set(broadcast.call_args_list[1].args[2]), {"card"})
+        moved_data = broadcast.call_args_list[1].args[2]
+        # Plus the siblings the reorder renumbered (#1890, additive).
+        self.assertEqual(set(moved_data), {"card", "sibling_positions"})
+        self.assertEqual(
+            moved_data["sibling_positions"],
+            [{"id": self.sibling.pk, "position": 1, "version": self.sibling.version}],
+        )
         self.assertEqual(
             [(event, card_id) for event, card_id, _board, _actor in hook_calls],
             [("card.created", card.id), ("card.moved", card.id)],
@@ -1544,7 +1550,7 @@ class BroadcastPayloadShapeTests(CrudToolsTestCase):
         # The follow-up same-cell reorder: {card} with no movement, as the
         # same reorder over REST broadcasts it.
         (moved,) = self._events("card.moved")
-        self.assertEqual(set(moved), {"card"})
+        self.assertEqual(set(moved), {"card", "sibling_positions"})
         self._assert_rest_card(moved["card"], result["id"])
         self.assertEqual(moved["card"]["position"], 0)
 
@@ -1554,7 +1560,7 @@ class BroadcastPayloadShapeTests(CrudToolsTestCase):
             "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
         )
         (data,) = self._events("card.moved")
-        self.assertEqual(set(data), {"card", "movement"})
+        self.assertEqual(set(data), {"card", "movement", "sibling_positions"})
         self._assert_rest_card(data["card"], card.id)
         movement = CardMovement.objects.get(card=card, to_column=self.other_column)
         self.assertEqual(data["movement"]["id"], movement.id)
@@ -1581,7 +1587,7 @@ class BroadcastPayloadShapeTests(CrudToolsTestCase):
         )
         self.assertIsNone(result["movement"])
         (data,) = self._events("card.moved")
-        self.assertEqual(set(data), {"card"})
+        self.assertEqual(set(data), {"card", "sibling_positions"})
         self._assert_rest_card(data["card"], card.id)
 
     def test_update_card_broadcasts_a_rest_card(self):

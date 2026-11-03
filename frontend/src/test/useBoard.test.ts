@@ -3,7 +3,7 @@ import { renderHook, waitFor, act, render, screen } from '@testing-library/react
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { useBoard } from '../hooks/useBoard'
-import type { BoardFull, Card, Column, Swimlane, Label } from '../types'
+import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label } from '../types'
 
 const mockNavigate = vi.fn()
 
@@ -1757,6 +1757,116 @@ describe('useBoard — stale card versions (#1969)', () => {
     // ...and an even older move frame cannot put it back in the old column.
     act(() => { result.current.updateCard(stored(1, { column: 10 })) })
     expect(result.current.board!.cards[0]).toMatchObject({ column: 11, title: 'Edited', version: 3 })
+  })
+
+  // card.moved's sibling_positions (#1890): the cards the move renumbered.
+  describe('card.moved sibling positions (#1890)', () => {
+    const cell = (id: number, position: number, version = 1, overrides: Partial<Card> = {}) =>
+      stored(version, { id, uid: `crd${id}`, position, ...overrides })
+
+    async function renderCards(cards: Card[]) {
+      mockGetBoardFull.mockResolvedValue(makeBoard({ cards }))
+      const hook = renderHook(() => useBoard())
+      await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+      return hook
+    }
+
+    const positionOf = (cards: Card[], id: number) => cards.find((c) => c.id === id)!.position
+
+    it('a remote client applies the shifted sibling positions with the moved card', async () => {
+      // Cell [A0, B1, C2]; a remote user moves A to 2: the server shifts C to 3.
+      const { result } = await renderCards([cell(1, 0), cell(2, 1), cell(3, 2)])
+      act(() => {
+        result.current.updateCard(cell(1, 2, 2), [{ id: 3, position: 3, version: 1 }])
+      })
+      const cards = result.current.board!.cards
+      expect(positionOf(cards, 1)).toBe(2)
+      expect(positionOf(cards, 3)).toBe(3)
+      expect(positionOf(cards, 2)).toBe(1)
+      // The order the cell renders in is now the server's: B, A, C.
+      const order = [...cards].sort((a, b) => a.position - b.position).map((c) => c.id)
+      expect(order).toEqual([2, 1, 3])
+    })
+
+    it('a frame without sibling_positions still applies the moved card (older server)', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1)])
+      act(() => { result.current.updateCard(cell(1, 1, 2, { column: 11 })) })
+      const cards = result.current.board!.cards
+      expect(cards.find((c) => c.id === 1)).toMatchObject({ column: 11, position: 1, version: 2 })
+      expect(positionOf(cards, 2)).toBe(1)
+    })
+
+    it('an empty sibling_positions list changes only the moved card', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1)])
+      const sibling = result.current.board!.cards[1]
+      act(() => { result.current.updateCard(cell(1, 0, 2, { column: 11 }), []) })
+      expect(result.current.board!.cards[1]).toBe(sibling)
+    })
+
+    it('skips a pair for a sibling the client holds a newer version of', async () => {
+      // Sibling 2 was moved or edited since (v5); the pair was written at v4.
+      const { result } = await renderCards([cell(1, 0), cell(2, 7, 5, { column: 11 })])
+      act(() => {
+        result.current.updateCard(cell(1, 1, 2), [{ id: 2, position: 0, version: 4 }])
+      })
+      expect(result.current.board!.cards.find((c) => c.id === 2)).toMatchObject({ column: 11, position: 7, version: 5 })
+    })
+
+    it('applies a pair at an equal or newer version, and ignores unknown ids', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1, 3), cell(3, 2, 3)])
+      act(() => {
+        result.current.updateCard(cell(1, 5, 2), [
+          { id: 2, position: 0, version: 3 },
+          { id: 3, position: 1, version: 4 },
+          { id: 999, position: 4, version: 1 },
+        ])
+      })
+      const cards = result.current.board!.cards
+      expect(positionOf(cards, 2)).toBe(0)
+      expect(positionOf(cards, 3)).toBe(1)
+      expect(cards).toHaveLength(3)
+    })
+
+    it('a pair without a usable version is applied (pre-#1969 rule)', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1)])
+      act(() => {
+        result.current.updateCard(cell(1, 1, 2), [{ id: 2, position: 2 } as unknown as CardSiblingPosition])
+      })
+      expect(positionOf(result.current.board!.cards, 2)).toBe(2)
+    })
+
+    it('skips a malformed pair', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1)])
+      act(() => {
+        result.current.updateCard(cell(1, 0, 2), [
+          { id: 2, position: '3', version: 1 } as unknown as CardSiblingPosition,
+          null as unknown as CardSiblingPosition,
+        ])
+      })
+      expect(positionOf(result.current.board!.cards, 2)).toBe(1)
+    })
+
+    it('a stale move frame does not apply its sibling positions', async () => {
+      // Two moves of card 1 in one cell; the second frame (v3) arrived first and
+      // put sibling 2 at 0. The first frame (v2) must not put it back at 1:
+      // a position shift does not bump the sibling's version, so only the
+      // moved card's version tells the two frames apart.
+      const { result } = await renderCards([cell(1, 1, 3), cell(2, 0, 4)])
+      const before = result.current.board
+      act(() => {
+        result.current.updateCard(cell(1, 0, 2), [{ id: 2, position: 1, version: 4 }])
+      })
+      expect(result.current.board).toBe(before)
+      expect(positionOf(result.current.board!.cards, 2)).toBe(0)
+    })
+
+    it('applies the pairs when the moved card is not on this board copy', async () => {
+      const { result } = await renderCards([cell(2, 1)])
+      act(() => {
+        result.current.updateCard(cell(1, 0, 2), [{ id: 2, position: 2, version: 1 }])
+      })
+      expect(positionOf(result.current.board!.cards, 2)).toBe(2)
+    })
   })
 
   it('addCard ignores an older copy of a card it already holds (late card.created)', async () => {

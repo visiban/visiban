@@ -242,7 +242,7 @@ A redacted row has a non-null `redacted_at`, and in its `data`:
 - `title`, `description` and `blocked_reason` are `null`, in the card object (the top-level `data`, or `data.card` for `card.moved`);
 - each `custom_field_values` entry keeps its `field_definition` and has `value: null`;
 - `external_ref`, when the card had one, keeps `provider` and has `ref: null` and `url: null`;
-- in `card.moved`, `movement.card_title` and `movement.notes` are `null`.
+- in `card.moved`, `movement.card_title` and `movement.notes` are `null`. `sibling_positions` (since 1.3, #1890) holds only ids, positions and versions, and is kept unchanged.
 
 Every key is kept, at every level, so the row has the same shape as when it was written. `uid`, `id`, `column`, `swimlane`, `labels`, `is_blocked`, `blocked_at` and the other fields are unchanged. A consumer that replays rows into local state should skip the content fields of a row whose `redacted_at` is set. Otherwise it overwrites a live card's title with `null`, which can happen after a purge that included live cards.
 

@@ -53,6 +53,8 @@ The receiver is outside the board, so it gets the narrowest view the board offer
 
 You can limit a webhook to some event types. **All events** also includes event types added in later versions; receivers should ignore an `event` they do not recognize.
 
+An event's `data` can also gain fields in a later version, so receivers should ignore keys they do not recognize. For example, since 1.3 a `card.moved` body carries `sibling_positions`, the other cards whose position the move changed (see [Sibling positions on `card.moved`](../api/websockets.md#sibling-positions-on-cardmoved-since-13)).
+
 ## Set up a webhook (board admins)
 
 1. Open the board, then **Board settings → Webhooks**.

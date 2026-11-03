@@ -1362,10 +1362,14 @@ def _lock_move_cells(*, board, card_id, cells):
     ``of=("self",)`` keeps the lock on card rows only, so that if a join is
     ever added a column-row lock is not taken as a side effect outside the
     documented order. ``cells`` is a set of ``(column_id, swimlane_id)`` pairs.
-    Returns ``(card, locked_pks)``: the locked moved card, or ``None`` when it
-    no longer exists on the board (deleted by a concurrent request: a genuine
-    404), and the pks of every row this statement locked, for
-    ``_require_cells_locked``.
+    Returns ``(card, locked_pks, positions)``: the locked moved card, or
+    ``None`` when it no longer exists on the board (deleted by a concurrent
+    request: a genuine 404); the pks of every row this statement locked, for
+    ``_require_cells_locked``; and ``{pk: position}`` for those rows as read
+    under the lock, which ``_shifted_sibling_positions`` diffs against after
+    the move's UPDATEs (#1890). A row's position read here is its latest
+    committed one: a row this statement waited on is re-read once the lock is
+    granted, which is also why ``card.position`` is taken from the locked row.
 
     What this statement locks is the set of rows in its *snapshot*, which is
     taken before it waits on any lock. A card a concurrent move commits into
@@ -1378,7 +1382,11 @@ def _lock_move_cells(*, board, card_id, cells):
         .select_for_update(of=("self",))
     )
     card = next((row for row in locked if row.pk == card_id), None)
-    return card, frozenset(row.pk for row in locked)
+    return (
+        card,
+        frozenset(row.pk for row in locked),
+        {row.pk: row.position for row in locked},
+    )
 
 
 def _move_cells_filter(card_id, cells):
@@ -1387,6 +1395,48 @@ def _move_cells_filter(card_id, cells):
     for column_id, swimlane_id in cells:
         cell_filter |= Q(column_id=column_id, swimlane_id=swimlane_id)
     return cell_filter
+
+
+def _shifted_sibling_positions(*, board, card_id, cells, positions_before):
+    """The siblings a move renumbered, as ``{id, position, version}`` (#1890).
+
+    Why: the compaction and shift UPDATEs in ``_move_card_attempt`` change the
+    ``position`` of other cards in the source and target cells, and before
+    #1890 the ``card.moved`` frame carried only the moved card, so every other
+    client kept the old sibling positions until it reloaded. Those clients
+    cannot renumber the cell themselves: they do not know the server's
+    tie-break, and a reorder within one cell shifts the cards after the
+    target position without compacting the slot the card left. So the server
+    sends the result.
+
+    It is a diff, not a model of the UPDATEs: the cells are read back after
+    the UPDATEs, inside the move's transaction, and compared with the
+    positions ``_lock_move_cells`` read under the lock. Every row in the cells
+    is locked by this move and no card can enter them while it holds their
+    column rows (``_require_cells_locked``), so the read sees exactly what
+    this transaction will commit. One query; the result is bounded by the two
+    cells, and holds only cards whose position changed.
+
+    Archived cards are left out. The target-cell shift moves them too, but no
+    client shows an archived card in a cell, and a restored card's frame
+    (``card.unarchived``) carries its position anyway. ``version`` is the
+    sibling's own, which a position shift does not change: it lets a client
+    skip a pair for a card it already holds a newer copy of (the #1969 rule).
+    """
+    cell_filter = Q()
+    for column_id, swimlane_id in cells:
+        cell_filter |= Q(column_id=column_id, swimlane_id=swimlane_id)
+    rows = (
+        Card.objects.filter(cell_filter, board=board, archived_at__isnull=True)
+        .exclude(pk=card_id)
+        .order_by("pk")
+        .values_list("pk", "position", "version")
+    )
+    return [
+        {"id": pk, "position": position, "version": version}
+        for pk, position, version in rows
+        if positions_before.get(pk) != position
+    ]
 
 
 def _require_cells_locked(*, board, card_id, cells, locked_pks, current_version):
@@ -1874,7 +1924,9 @@ def _move_card_attempt(
             (card.column_id, card.swimlane_id),
             (target_column.pk, target_swimlane.pk),
         }
-        locked, locked_pks = _lock_move_cells(board=board, card_id=card.pk, cells=cells)
+        locked, locked_pks, positions_before = _lock_move_cells(
+            board=board, card_id=card.pk, cells=cells,
+        )
         if locked is None:
             # Deleted between the read and the lock.
             raise CardNotFound()
@@ -1996,11 +2048,18 @@ def _move_card_attempt(
         card.version = F("version") + 1
         card.save(update_fields=["column", "swimlane", "position", "version"])
         card.refresh_from_db(fields=["version"])
+        sibling_positions = _shifted_sibling_positions(
+            board=board, card_id=card.pk, cells=cells, positions_before=positions_before,
+        )
 
         payload = render(card, movement)
-        # The WebSocket payload is the same dict as the REST body so a client can
-        # update its movement history without re-polling /movements/.
-        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_MOVED, dict(payload), actor.id)
+        # The WebSocket payload is the REST body, so a client can update its
+        # movement history without re-polling /movements/, plus the siblings
+        # this move renumbered (#1890; additive, the REST body is unchanged).
+        _broadcast_after_commit(
+            board_id, _broadcast.EVT_CARD_MOVED,
+            {**payload, "sibling_positions": sibling_positions}, actor.id,
+        )
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
 

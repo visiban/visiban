@@ -1333,6 +1333,130 @@ class SideEffectTests(CardServiceTestBase):
         self.assertTrue(others)  # fixture sanity
 
 
+class MovedFrameSiblingPositionsTests(CardServiceTestBase):
+    """``card.moved`` carries the siblings the move renumbered (#1890).
+
+    Every test checks the frame against the database: the pairs must be
+    exactly the active cards whose position changed, with their new position
+    and their own (unchanged) version, so a client applying them ends up with
+    the server's order. The base fixture's ``self.card`` sits at position 0
+    of (A, L).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.lane_2 = _make_swimlane(self.board, "L2", 1)
+
+    def _positions(self):
+        return dict(
+            Card.objects.filter(board=self.board, archived_at__isnull=True)
+            .values_list("pk", "position")
+        )
+
+    def _moved_frame(self, **kwargs):
+        """Move ``self.card``; return (frame data, positions before, after)."""
+        before = self._positions()
+        with self.captureOnCommitCallbacks(execute=True):
+            result = self._move(**kwargs)
+        after = self._positions()
+        (frame,) = [
+            call.args[2] for call in self.broadcast.call_args_list
+            if call.args[1] == "card.moved"
+        ]
+        return frame, result, before, after
+
+    def _expected(self, before, after):
+        versions = dict(Card.objects.values_list("pk", "version"))
+        return [
+            {"id": pk, "position": after[pk], "version": versions[pk]}
+            for pk in sorted(after)
+            if pk != self.card.pk and before[pk] != after[pk]
+        ]
+
+    def test_same_cell_reorder_carries_the_target_shift(self):
+        s1, s2, s3 = (
+            _make_card(self.col_a, self.lane, title=f"s{i}", position=i) for i in (1, 2, 3)
+        )
+        frame, _result, before, after = self._moved_frame(
+            target_column_id=self.col_a.pk, position=2,
+        )
+        # Siblings at or after the target position shift up; s1 does not move.
+        self.assertEqual(
+            [(p["id"], p["position"]) for p in frame["sibling_positions"]],
+            [(s2.pk, 3), (s3.pk, 4)],
+        )
+        self.assertEqual(frame["sibling_positions"], self._expected(before, after))
+        self.assertNotIn(s1.pk, [p["id"] for p in frame["sibling_positions"]])
+
+    def test_cross_column_move_carries_source_compaction_and_target_shift(self):
+        a1 = _make_card(self.col_a, self.lane, title="a1", position=1)
+        a2 = _make_card(self.col_a, self.lane, title="a2", position=2)
+        b0 = _make_card(self.col_b, self.lane, title="b0", position=0)
+        b1 = _make_card(self.col_b, self.lane, title="b1", position=1)
+        frame, _result, before, after = self._moved_frame(position=1)
+        self.assertEqual(
+            [(p["id"], p["position"]) for p in frame["sibling_positions"]],
+            [(a1.pk, 0), (a2.pk, 1), (b1.pk, 2)],
+        )
+        self.assertEqual(frame["sibling_positions"], self._expected(before, after))
+        self.assertNotIn(b0.pk, [p["id"] for p in frame["sibling_positions"]])
+
+    def test_cross_swimlane_move_carries_both_cells(self):
+        a1 = _make_card(self.col_a, self.lane, title="a1", position=1)
+        c0 = _make_card(self.col_a, self.lane_2, title="c0", position=0)
+        # A card in a cell the move does not touch never appears.
+        bystander = _make_card(self.col_b, self.lane_2, title="by", position=0)
+        frame, _result, before, after = self._moved_frame(
+            target_column_id=self.col_a.pk, target_swimlane_id=self.lane_2.pk, position=0,
+        )
+        self.assertEqual(
+            [(p["id"], p["position"]) for p in frame["sibling_positions"]],
+            [(a1.pk, 0), (c0.pk, 1)],
+        )
+        self.assertEqual(frame["sibling_positions"], self._expected(before, after))
+        self.assertNotIn(bystander.pk, [p["id"] for p in frame["sibling_positions"]])
+
+    def test_pairs_carry_the_siblings_own_unchanged_version(self):
+        b0 = _make_card(self.col_b, self.lane, title="b0", position=0)
+        Card.objects.filter(pk=b0.pk).update(version=7)
+        frame, _result, _before, _after = self._moved_frame(position=0)
+        self.assertEqual(frame["sibling_positions"], [{"id": b0.pk, "position": 1, "version": 7}])
+        b0.refresh_from_db()
+        self.assertEqual(b0.version, 7)  # a position shift does not bump it
+
+    def test_archived_cards_are_left_out(self):
+        archived = _make_card(
+            self.col_b, self.lane, title="arch", position=0, archived_at=timezone.now(),
+        )
+        frame, _result, _before, _after = self._moved_frame(position=0)
+        archived.refresh_from_db()
+        self.assertEqual(archived.position, 1)  # the shift did move it
+        self.assertEqual(frame["sibling_positions"], [])
+
+    def test_a_move_that_shifts_nothing_sends_an_empty_list(self):
+        frame, _result, _before, _after = self._moved_frame(position=0)
+        self.assertEqual(frame["sibling_positions"], [])
+
+    def test_rest_body_and_feed_row(self):
+        """The REST body is unchanged; the feed row replays the pairs."""
+        b0 = _make_card(self.col_b, self.lane, title="b0", position=0)
+        frame, result, _before, _after = self._moved_frame(position=0)
+        self.assertNotIn("sibling_positions", result.payload)
+        row = BoardEvent.objects.filter(board_id=self.board.pk, event="card.moved").latest("pk")
+        self.assertEqual(row.data["sibling_positions"], frame["sibling_positions"])
+        self.assertEqual(row.data["sibling_positions"][0]["id"], b0.pk)
+
+    def test_pairs_are_published_only_after_commit(self):
+        _make_card(self.col_b, self.lane, title="b0", position=0)
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            self._move(position=0)
+        self.broadcast.assert_not_called()
+        for cb in callbacks:
+            cb()
+        payload = self.broadcast.call_args[0][2]
+        self.assertEqual(len(payload["sibling_positions"]), 1)
+
+
 class BlockedPeerBroadcastTests(CardServiceTestBase):
     """Archiving, restoring or deleting a blocker must tell the blocked card (#449).
 

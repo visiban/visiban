@@ -307,7 +307,20 @@ describe('BoardView socket event routing — new event types', () => {
     await act(async () => {})
     const moved = { id: 5, uid: 'crd005', title: 'Moved card', column: 11, swimlane: 20, version: 4 }
     act(() => { getOnEvent.dispatch({ event: 'card.moved', data: { card: moved, movement: null } as unknown as Record<string, unknown> }) })
-    expect(ctx.updateCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, version: 4 }))
+    // A frame from a pre-1.3 server has no sibling_positions: the card alone.
+    expect(ctx.updateCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, version: 4 }), undefined)
+  })
+
+  it('card.moved passes sibling_positions to updateCard with the card (#1890)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const moved = { id: 5, uid: 'crd005', title: 'Moved card', column: 11, swimlane: 20, version: 4 }
+    const siblings = [{ id: 6, position: 2, version: 1 }, { id: 7, position: 0, version: 3 }]
+    act(() => { getOnEvent.dispatch({ event: 'card.moved', data: { card: moved, sibling_positions: siblings } as unknown as Record<string, unknown> }) })
+    expect(ctx.updateCard).toHaveBeenCalledTimes(1)
+    expect(ctx.updateCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, version: 4 }), siblings)
   })
 
   it('custom_field frames pass updaters, so two frames before a re-render both survive (#1970)', async () => {
