@@ -1,4 +1,9 @@
-/** Tests for the board-scoped grid-overlay preference hook (#1147). */
+/**
+ * Tests for the board-scoped grid-overlay preference hook (#1147).
+ *
+ * Since #1146 the hook returns the local choice as `null` when no key is stored, so
+ * the board's default preset can apply underneath it; a stored `none` is a choice.
+ */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useGridOverlayPref } from '../hooks/useGridOverlayPref'
@@ -9,9 +14,33 @@ describe('useGridOverlayPref', () => {
   beforeEach(() => localStorage.clear())
   afterEach(() => vi.restoreAllMocks())
 
-  it('defaults to None when nothing is stored', () => {
+  it('reports no local choice when nothing is stored', () => {
+    const { result } = renderHook(() => useGridOverlayPref(7))
+    expect(result.current[0]).toBeNull()
+  })
+
+  it('reads a stored none back as a choice, not as no choice', () => {
+    localStorage.setItem(KEY, 'none')
     const { result } = renderHook(() => useGridOverlayPref(7))
     expect(result.current[0]).toBe('none')
+  })
+
+  it('clearing removes the key and reports no local choice (#1146)', () => {
+    localStorage.setItem(KEY, 'card-count')
+    const { result } = renderHook(() => useGridOverlayPref(7))
+    act(() => result.current[2]())
+    expect(result.current[0]).toBeNull()
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('still clears state when localStorage removal throws', () => {
+    localStorage.setItem(KEY, 'card-count')
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('denied')
+    })
+    const { result } = renderHook(() => useGridOverlayPref(7))
+    act(() => result.current[2]())
+    expect(result.current[0]).toBeNull()
   })
 
   it('reads a stored overlay id back', () => {
@@ -51,15 +80,15 @@ describe('useGridOverlayPref', () => {
   it('keeps each board separate', () => {
     localStorage.setItem('board:7:grid-overlay', 'card-count')
     const { result } = renderHook(() => useGridOverlayPref(8))
-    expect(result.current[0]).toBe('none')
+    expect(result.current[0]).toBeNull()
   })
 
-  it('falls back to None when localStorage reads throw (private browsing)', () => {
+  it('falls back to no choice when localStorage reads throw (private browsing)', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('denied')
     })
     const { result } = renderHook(() => useGridOverlayPref(7))
-    expect(result.current[0]).toBe('none')
+    expect(result.current[0]).toBeNull()
   })
 
   it('still updates state when localStorage writes throw (quota exceeded)', () => {

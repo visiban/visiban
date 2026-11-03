@@ -53,7 +53,7 @@ const mockPatchBoard = patchBoard as ReturnType<typeof vi.fn>
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
-    health_status: null, effective_health_status: null, health_status_source: null,
+    health_status: null, effective_health_status: null, health_status_source: null, default_preset: null,
     id: 1,
     uid: 'boarduid0001',
     archived_card_count: 0,

@@ -42,7 +42,7 @@ from .permissions import (
 )
 
 from .models import (
-    Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
+    Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column, Swimlane, Label, Card,
     CardMovement, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
@@ -3163,6 +3163,15 @@ def _board_health_start(board):
     return (board.group if board.group_id and group_field.is_cached(board) else None, board.group_id)
 
 
+# Shared by BoardSerializer (writable) and BoardFullSerializer (read-only).
+DEFAULT_PRESET_HELP = (
+    "Id of the board preset members see by default (#1146): `classic` (the board "
+    "exactly as it rendered before presets) or `default`, or null for no board "
+    "default. A member's own preset choice and a `?preset=` link take precedence. "
+    "Presets are defined by the client in 1.3; this field stores only the id."
+)
+
+
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
 class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
@@ -3216,10 +3225,25 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             ),
         },
     )
+    # #1146: declared explicitly so the "must be one of" message names the
+    # accepted ids, and so `""` is a 400 rather than a second spelling of
+    # "no default" (null is the only one). Writable by board admins only, like
+    # every board field (BoardViewSet.perform_update).
+    default_preset = serializers.ChoiceField(
+        choices=BoardPresetId.choices,
+        allow_null=True,
+        required=False,
+        help_text=DEFAULT_PRESET_HELP,
+        error_messages={
+            "invalid_choice": (
+                "default_preset must be one of: " + str(sorted(BoardPresetId.values)) + ", or null."
+            ),
+        },
+    )
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", "default_preset"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -3598,6 +3622,12 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         choices=HealthStatus.choices, allow_null=True, read_only=True,
         help_text=HEALTH_STATUS_HELP,
     )
+    # Read-only here like every field of /full/; written through
+    # PATCH /boards/{id}/ (BoardSerializer).
+    default_preset = serializers.ChoiceField(
+        choices=BoardPresetId.choices, allow_null=True, read_only=True,
+        help_text=DEFAULT_PRESET_HELP,
+    )
 
     class Meta:
         model = Board
@@ -3608,6 +3638,7 @@ class BoardFullSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             "archived_card_count", "share_link_active",
             "health_status", "effective_health_status", "health_status_source",
+            "default_preset",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.
