@@ -786,7 +786,7 @@ The whole-import limit caps every row the import inserts. It is counted from the
 
 - Column and swimlane `position`, card `weight` and `position`, and column `wip_limit` and `weight_limit` must be integers from 0 to 2,147,483,647. Only `wip_limit` and `weight_limit` may be `null`.
 - Column positions must be unique. A column with no `position` takes its index in the list, so an explicit position can collide with another column's default. Swimlane positions may repeat.
-- Text values must not be `null`, a list, or an object, and must not contain NUL characters: column, swimlane, and label `color`; swimlane `contact_email` and `notes`; board and card `description`; comment `body`; checklist `text`; movement `notes`; activity `from_value` and `to_value`. A plain number or `true`/`false` is stored as its text (`5` → `"5"`, `true` → `"True"`), as in earlier releases; `NaN` and `Infinity` are refused. A key left out takes its default.
+- Text values must not be `null`, a list, or an object, and must not contain NUL characters: column, swimlane, and label `color`; swimlane `contact_email` and `notes`; board and card `description`; comment `body`; checklist `text`; movement `notes`; activity `from_value` and `to_value`. A plain number or `true`/`false` is stored as its text (`5` → `"5"`, `true` → `"True"`), as in earlier releases, except for `color` on columns, swimlanes, and labels, which must be hex (since 1.3): a number or boolean there is replaced by the default and counted in `import_summary.skipped.colors`; `NaN` and `Infinity` are refused. A key left out takes its default.
 - Text values stored in a limited column must fit it: column and swimlane `name` (255), label `name` (50), `color` (7), `contact_email` (254), card `title` (500), checklist `text` (500), movement `notes` (500), the column and swimlane names in a movement (255), the `name` form field (255), usernames in `assignee`, `moved_by`, and `actor` (150), and `imported_from_username` on movements, activities, and comments (150).
 - Column `is_done` and `allow_card_creation`, and checklist `is_checked`, must be `true` or `false`.
 - Since 1.3, a column `policy` must be `null` or follow the same rules as the [column API](#column-policy-since-13); it is stored normalized (criteria trimmed, an empty policy as `null`).
@@ -976,7 +976,8 @@ Returns the new board in the shape of `GET /api/v1/boards/{id}/`, plus an `impor
       "checklist_items": 0,
       "label_refs": 4,
       "movements": 12,
-      "activities": 30
+      "activities": 30,
+      "colors": 0
     }
   }
 }
@@ -989,7 +990,7 @@ Returns the new board in the shape of `GET /api/v1/boards/{id}/`, plus an `impor
 | Field | Description |
 |---|---|
 | `import_summary.options_applied` | All five options as resolved, including dependents that followed `cards`, plus `shift_dates_from` (a `YYYY-MM-DD` string) when it was sent or the file's `date_anchor` was used in its place, `shift_dates` when it was sent, and `shift_dates_to` when it was sent and dates moved. A CSV import reports `comments`, `checklist`, and `history` equal to `cards`. |
-| `import_summary.skipped.*` | How many items in the file the chosen options left out: `cards`, `comments`, `checklist_items`, `label_refs` (label references on cards), `movements`, and `activities`. `colors` (since 1.3) is different: it counts column, swimlane, and label colors that were not hex and were replaced by the default (see [Color values](#color-values)). Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are `0` when no options are sent. |
+| `import_summary.skipped.*` | How many items in the file the chosen options left out: `cards`, `comments`, `checklist_items`, `label_refs` (label references on cards), `movements`, and `activities`. `colors` (since 1.3) is different: it counts column, swimlane, and label colors that were not hex and were replaced by the default (see [Color values](#color-values)). Items the importer drops regardless of options — a label name with no definition, an activity with an unknown event type — are not counted. All are `0` when no options are sent, except `colors`, which counts replacements whatever the options. |
 
 The `board.created` event for the new board carries the resolved options as an additional `import_options` field.
 

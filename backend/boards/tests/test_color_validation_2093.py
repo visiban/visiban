@@ -229,3 +229,29 @@ class TrailingNewlineColorTests(JsonImportColorTests):
     def test_long_hex_with_newline_is_over_length_400(self):
         r = self._post(self._data(swimlanes=[{"name": "s", "color": "#abcdef\n"}]))
         self.assertEqual(r.status_code, 400, r.content)
+
+
+class TrelloExecutePlanColorTests(TestCase):
+    def test_swimlane_and_label_colors_use_the_shared_rule(self):
+        from boards.services import trello_import
+
+        user = User.objects.create_user(username="tr2093", password="x")
+        colors = ["red", "#abc", "#112233"]
+        plan = trello_import.ImportPlan(
+            board_name="T", board_description="",
+            columns=[{"key": "c", "name": "To Do", "position": 0}],
+            labels=[{"key": f"l{i}", "name": f"L{i}", "color": c} for i, c in enumerate(colors)],
+            swimlanes=[
+                {"key": f"s{i}", "name": f"S{i}", "color": c, "position": i} for i, c in enumerate(colors)
+            ],
+            cards=[], checklist_items={}, comments=[], member_user_ids=[], preview={},
+        )
+        board = trello_import.execute_plan(plan, user)
+        self.assertEqual(
+            list(board.swimlanes.order_by("position").values_list("color", flat=True)),
+            [trello_import.DEFAULT_COLUMN_COLOR, "#aabbcc", "#112233"],
+        )
+        self.assertEqual(
+            list(board.labels.order_by("name").values_list("color", flat=True)),
+            [trello_import.DEFAULT_LABEL_COLOR, "#aabbcc", "#112233"],
+        )
