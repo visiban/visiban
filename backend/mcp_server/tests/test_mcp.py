@@ -72,7 +72,7 @@ class McpRequest:
     def __init__(self, app):
         self.app = app
 
-    async def _call(self, payload, token=None, path="/mcp", raw_authorization=None):
+    async def _call(self, payload, token=None, path="/mcp", raw_authorization=None, extra_headers=None):
         # ``payload`` is serialized with ASCII escapes (``json.dumps`` default), so a
         # lone surrogate travels as the valid-JSON text ``\\ud800`` the way a real
         # client sends it; httpx's own ``json=`` would fail encoding it client-side.
@@ -80,6 +80,7 @@ class McpRequest:
             "content-type": "application/json",
             "accept": "application/json, text/event-stream",
         }
+        headers.update(extra_headers or {})
         if raw_authorization is not None:
             headers["authorization"] = raw_authorization
         elif token is not None:
@@ -94,9 +95,10 @@ class McpRequest:
             response = await client.post(path, content=json.dumps(payload).encode(), headers=headers)
         return response.status_code, response.content
 
-    def post(self, payload, token=None, path="/mcp", raw_authorization=None):
+    def post(self, payload, token=None, path="/mcp", raw_authorization=None, extra_headers=None):
         return async_to_sync(self._call)(
-            payload, token=token, path=path, raw_authorization=raw_authorization
+            payload, token=token, path=path, raw_authorization=raw_authorization,
+            extra_headers=extra_headers,
         )
 
 

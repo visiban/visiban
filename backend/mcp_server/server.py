@@ -289,6 +289,12 @@ def _throttled(*, compute=False, as_resource=False):
                 if as_resource:
                     raise ResourceError(denial["error"]["detail"])
                 return _as_tool_result(denial)
+            if not as_resource:
+                # Before any tool logic: a lone UTF-16 surrogate in any argument
+                # would otherwise reach psycopg as UnicodeEncodeError (#2085).
+                refusal = tools.surrogate_refusal(kwargs)
+                if refusal is not None:
+                    return _as_tool_result(refusal)
             out = await fn(*args, **kwargs)
             return out if as_resource else _as_tool_result(out)
         return wrapper

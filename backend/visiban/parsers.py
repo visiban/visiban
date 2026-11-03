@@ -176,7 +176,12 @@ class StrictJSONParser(JSONParser):
 
     def parse(self, stream, media_type=None, parser_context=None):
         raw = stream.read()
-        data = super().parse(io.BytesIO(raw), media_type, parser_context)
+        try:
+            data = super().parse(io.BytesIO(raw), media_type, parser_context)
+        except RecursionError:
+            # DRF's JSONParser catches only ValueError, so a deeply nested
+            # "[[[[..." body (about 100k deep) was an unhandled 500 on main too.
+            raise ParseError("JSON parse error - the document is nested too deeply.") from None
         encoding = ((parser_context or {}).get("encoding") or "utf-8").lower()
         # The bytes-level scan only means something for an ASCII-compatible
         # encoding; for any other, fall through to the (correct) walk.
