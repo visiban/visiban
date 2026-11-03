@@ -72,6 +72,7 @@ Lists all accounts on the instance, 50 per page. Use the search bar to filter by
 | Badge | Meaning |
 |---|---|
 | **Admin** | User has site admin privileges (`is_site_admin`) |
+| **Superuser** | User is a Django superuser (`is_superuser`). Only another superuser can change a superuser's access or sign-in, so a site admin who is not a superuser sees a note instead of those actions |
 | **All content** | User can read and write every board and group on the instance (`can_access_all_content`) |
 | **Reset req.** | User will be prompted to set a new password on next login |
 | **Inactive** | Account is deactivated — user cannot log in |

@@ -34,6 +34,13 @@ describe('OverflowMenu', () => {
     expect(screen.getByRole('button', { name: 'More board actions' })).toBeInTheDocument()
   })
 
+  it('sets aria-describedby on the trigger only when triggerDescribedBy is passed (#2083)', () => {
+    const { rerender } = render(<OverflowMenu items={[item('a', 'Alpha')]} />)
+    expect(screen.getByRole('button', { name: 'More board actions' })).not.toHaveAttribute('aria-describedby')
+    rerender(<OverflowMenu items={[item('a', 'Alpha')]} triggerDescribedBy="why-short" />)
+    expect(screen.getByRole('button', { name: 'More board actions' })).toHaveAttribute('aria-describedby', 'why-short')
+  })
+
   it('does not render at all when the items array is empty', () => {
     const { container } = render(
       <OverflowMenu items={[]} showDot={false} onDismissDot={() => {}} />,

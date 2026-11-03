@@ -1288,13 +1288,18 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                       <div className="flex items-center gap-2">
                         <Avatar user={u} size="sm" />
                         <div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span className="text-fg">
                               {u.display_name || u.first_name || u.username}
                             </span>
                             {u.is_site_admin && (
                               <span className="px-2 py-0.5 text-xs rounded-full bg-primary-emphasis/20 text-info">
                                 Admin
+                              </span>
+                            )}
+                            {u.is_superuser && (
+                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">
+                                Superuser
                               </span>
                             )}
                             {u.can_access_all_content && (
@@ -1380,13 +1385,19 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                             is a superuser row seen by a site admin once the
                             tour has nothing to restart (#1644). */}
                         {isSuperuserOnlyRow(u) && (
-                          <span className="text-xs text-fg-tertiary max-w-xs">
+                          <span
+                            id={`superuser-row-note-${u.id}`}
+                            className="text-xs text-fg-tertiary max-w-xs"
+                          >
                             Only a superuser can change this account's access or sign-in.
                           </span>
                         )}
                         <OverflowMenu
                           items={buildOverflowItems(u)}
                           ariaLabel={`More actions for ${u.display_name || u.username}`}
+                          triggerDescribedBy={
+                            isSuperuserOnlyRow(u) ? `superuser-row-note-${u.id}` : undefined
+                          }
                         />
                       </div>
                     </td>
