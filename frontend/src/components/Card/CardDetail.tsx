@@ -2220,6 +2220,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         {showMovePopover && movePopoverAnchor && (
           <div
             ref={movePopoverRef}
+            // Owns the inline role="alert" for a refused move, so the shared
+            // toast mirrors it silently (MoveBlockedToast, frontend/CLAUDE.md § Toasts).
+            data-move-popover=""
             className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
             style={{ top: movePopoverAnchor.top, left: movePopoverAnchor.left }}
           >

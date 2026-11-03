@@ -104,7 +104,7 @@ function ToastItem({ toast, pending, onClose, onAction }: ItemProps) {
               type="button"
               aria-disabled={pending || undefined}
               onClick={() => { if (!pending) onAction(toast); }}
-              className={`block mt-1.5 text-xs underline ${TOAST_TEXT_TONE[variant]} transition rounded max-[640px]:min-h-11 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+              className={`mt-1.5 inline-flex items-center max-[820px]:min-h-11 text-xs underline ${TOAST_TEXT_TONE[variant]} transition rounded aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
             >
               {pending ? action.pendingLabel ?? `${action.label}…` : action.label}
             </button>
@@ -154,8 +154,10 @@ export default function ToastRegion({
       // A click on a toast never closes an open card detail sheet (#1914).
       data-keeps-card-sheet-open
       data-testid="toast-region"
-      onMouseEnter={onPointerEnter}
-      onMouseLeave={onPointerLeave}
+      // Mouse only: an emulated hover from a tap never ends, so touch and pen
+      // must not pause the stack.
+      onPointerEnter={(e) => { if (e.pointerType === "mouse") onPointerEnter(); }}
+      onPointerLeave={(e) => { if (e.pointerType === "mouse") onPointerLeave(); }}
       onFocus={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusIn(e.relatedTarget as Element | null);
       }}

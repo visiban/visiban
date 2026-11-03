@@ -102,6 +102,9 @@ describe('ToastProvider — region and announcements (#2060)', () => {
       api.notify({ variant: 'success', title: 'd' })
     })
     expect(within(region()).getByTestId('toast-waiting')).toHaveTextContent('+1 waiting')
+    tick()
+    // The waiting line is not live, so the queue growing is announced.
+    expect(polite()).toHaveTextContent('1 more notification waiting.')
     expect(within(region()).queryByText('d')).toBeNull()
     // Dismissing one lets the waiting toast in.
     fireEvent.click(within(region()).getAllByRole('button', { name: 'Dismiss notification' })[0])
@@ -157,14 +160,53 @@ describe('ToastProvider — timing (#2060)', () => {
     setup()
     act(() => { api.notify({ variant: 'info', title: 'read me' }) })
     advance(5000)
-    fireEvent.mouseEnter(region())
+    fireEvent.pointerEnter(region(), { pointerType: 'mouse' })
     advance(60000)
     expect(within(region()).getByText('read me')).toBeInTheDocument()
-    fireEvent.mouseLeave(region())
+    fireEvent.pointerLeave(region(), { pointerType: 'mouse' })
     advance(5999)
     expect(within(region()).getByText('read me')).toBeInTheDocument()
     advance(1)
     expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull()
+  })
+
+  it('a touch or pen pointer never pauses the stack', () => {
+    setup()
+    act(() => { api.notify({ variant: 'success', title: 'tapped' }) })
+    fireEvent.pointerEnter(region(), { pointerType: 'touch' })
+    advance(4000)
+    expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull()
+  })
+
+  it('dismissing the focused toast resumes the timers of the others', () => {
+    setup()
+    act(() => {
+      api.notify({ variant: 'blocked', title: 'stay', testId: 'stay' })
+      api.notify({ variant: 'success', title: 'timed', testId: 'timed' })
+    })
+    const outside = screen.getByRole('button', { name: 'outside' })
+    act(() => { outside.focus() })
+    const close = within(screen.getByTestId('stay')).getByRole('button', { name: 'Dismiss notification' })
+    act(() => { close.focus() })
+    fireEvent.click(close)
+    expect(outside).toHaveFocus()
+    advance(4000)
+    expect(screen.queryByTestId('timed')).toBeNull()
+  })
+
+  it('an evicted toast that held focus hands focus back', () => {
+    setup()
+    act(() => {
+      api.notify({ variant: 'success', title: 'a', testId: 'a' })
+      api.notify({ variant: 'success', title: 'b' })
+      api.notify({ variant: 'success', title: 'c' })
+    })
+    const outside = screen.getByRole('button', { name: 'outside' })
+    act(() => { outside.focus() })
+    act(() => { within(screen.getByTestId('a')).getByRole('button', { name: 'Dismiss notification' }).focus() })
+    act(() => { api.notify({ variant: 'warning', title: 'd' }) })
+    expect(screen.queryByTestId('a')).toBeNull()
+    expect(outside).toHaveFocus()
   })
 
   it('pauses while focus is inside the region', () => {

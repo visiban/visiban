@@ -132,11 +132,28 @@ describe('MoveBlockedToast', () => {
     }
   })
 
-  it('is only a visible mirror while an aria-modal surface is open (the Move popover reports inline)', () => {
+  it('still announces while some other aria-modal surface is open', () => {
+    vi.useFakeTimers()
+    try {
+      const modal = document.createElement('div')
+      modal.setAttribute('aria-modal', 'true')
+      document.body.appendChild(modal)
+      renderToast(
+        <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      )
+      act(() => { vi.advanceTimersByTime(0) })
+      expect(screen.getByTestId('toast-announcer-assertive')).toHaveTextContent('WIP limit reached.')
+      modal.remove()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('is only a visible mirror while the card sheet Move popover is open (it reports inline)', () => {
     vi.useFakeTimers()
     try {
       const sheet = document.createElement('div')
-      sheet.setAttribute('aria-modal', 'true')
+      sheet.setAttribute('data-move-popover', '')
       document.body.appendChild(sheet)
       renderToast(
         <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />

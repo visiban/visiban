@@ -264,7 +264,9 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
   return (
     <>
-      <div ref={rootRef} className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-fg rounded-lg shadow-2xl px-4 py-2.5 border border-line">
+      {/* An open menu opens upward into the space the toast region floats in,
+          so the toolbar outranks the region (z-[55]) while one is open. */}
+      <div ref={rootRef} className={`fixed bottom-4 left-1/2 -translate-x-1/2 ${dropdown !== null ? "z-[56]" : "z-40"} flex items-center gap-2 bg-surface text-fg rounded-lg shadow-2xl px-4 py-2.5 border border-line`}>
         <span className="text-sm font-medium tabular-nums">
           {count} selected
         </span>

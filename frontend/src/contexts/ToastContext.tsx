@@ -97,7 +97,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, UNDO_GUARD_MS));
   }, []);
 
+  const markFocusLoss = (id: number) => {
+    const el = regionRef.current?.querySelector(`[data-toast-id="${id}"]`);
+    if (el && el.contains(document.activeElement)) restoreFocusPending.current = true;
+  };
+
   const commit = useCallback((tr: ToastTransition) => {
+    // Before the re-render: an evicted toast may hold focus.
+    for (const t of tr.evicted) markFocusLoss(t.id);
+    const waitingBefore = stateRef.current.queued.length;
     stateRef.current = tr.state;
     setState(tr.state);
     if (tr.state.visible.length === 0) {
@@ -120,6 +128,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       clearTimers(t.id);
       t.onDismiss?.("evicted");
     }
+    // The +N waiting line is not live; say when the queue grows. Each waiting
+    // toast is announced in full when it enters.
+    const waiting = tr.state.queued.length;
+    if (waiting > waitingBefore) {
+      announce(`${waiting} more ${waiting === 1 ? "notification" : "notifications"} waiting.`, false);
+    }
   }, [announce, clearTimers, startGuard]);
 
   releaseRef.current = (id: number) => {
@@ -129,11 +143,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const findToast = (id: number): ToastRecord | undefined =>
     stateRef.current.visible.find((t) => t.id === id) ?? stateRef.current.queued.find((t) => t.id === id);
-
-  const markFocusLoss = (id: number) => {
-    const el = regionRef.current?.querySelector(`[data-toast-id="${id}"]`);
-    if (el && el.contains(document.activeElement)) restoreFocusPending.current = true;
-  };
 
   const close = useCallback((id: number, reason: ToastDismissReason) => {
     const t = findToast(id);
@@ -233,6 +242,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // Dismissing a focused toast returns focus to where the user was before
   // entering the region, else the board grid, never <body>.
   useEffect(() => {
+    // A removed node fires no blur, so recompute the focus-within pause from
+    // where focus actually is after every change to the stack.
+    setFocusWithin(Boolean(regionRef.current?.contains(document.activeElement)));
     if (!restoreFocusPending.current) return;
     restoreFocusPending.current = false;
     const active = document.activeElement;

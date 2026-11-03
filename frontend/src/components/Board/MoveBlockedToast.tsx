@@ -69,13 +69,14 @@ function moveBlockedToast(error: MoveBlockedError, isAdmin: boolean, onForce: ()
 }
 
 /**
- * A move refused while an `aria-modal` surface is open came from the card
- * detail sheet's Move popover (drag-and-drop is suspended while the sheet is
- * open), which reports it inline in its own `role="alert"` first. Its toast is
- * the visible mirror only: one live announcement per action.
+ * A move refused while the card detail sheet's Move popover is open came from
+ * that popover, which reports it inline in its own `role="alert"` first (it
+ * stays open on failure). Its toast is then the visible mirror only: one live
+ * announcement per action. Named explicitly: any other open `aria-modal`
+ * surface has no inline alert for a move, so the toast must announce.
  */
-function raisedInsideModal(): boolean {
-  return document.querySelector('[aria-modal="true"]') !== null;
+function reportedByMovePopover(): boolean {
+  return document.querySelector("[data-move-popover]") !== null;
 }
 
 /**
@@ -93,7 +94,7 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
   useEffect(() => {
     notify({
       ...moveBlockedToast(error, isAdmin, () => forceRef.current()),
-      announce: !raisedInsideModal(),
+      announce: !reportedByMovePopover(),
       onDismiss: () => dismissRef.current(),
     });
   }, [error, isAdmin, notify]);
