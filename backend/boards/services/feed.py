@@ -19,9 +19,9 @@ directly skips layer 2 and returns fields the socket never sends
 (security-invariants Rules 8 and 10).
 """
 
-from django.db.models import Q
+from django.db.models import Max, Q
 
-from ..models import BoardEvent
+from ..models import BoardEvent, BoardEventPruneMark
 from ..permissions import ADMIN_ONLY_EVENTS, PER_USER_EVENTS, admin_only_event_visible
 
 
@@ -72,3 +72,43 @@ def serialize_feed_rows(board_id, rows, *, role, reader_id):
             ),
         },
     ).data
+
+
+def pruned_through(board_id):
+    """The highest event id retention pruning removed from *board_id*'s feed, or ``None``.
+
+    Read from ``BoardEventPruneMark`` (#2058), which ``prune_board_events``
+    writes in the same transaction as each delete and never lowers. A cursor
+    is expired iff this is greater than it. ``None`` means nothing has been
+    pruned from the board since the mark table existed, not that nothing was
+    ever pruned: see the model docstring.
+
+    Read it *after* the rows a caller is about to hand out. The prune deletes
+    rows and raises the mark atomically, so a page read first and the mark
+    read second can never show a row missing that the mark does not cover;
+    the other order can.
+
+    No authorization of its own: callers pass a board id they have already
+    authorized (the feed view) or one the server set (a webhook's board).
+    """
+    return (
+        BoardEventPruneMark.objects.filter(board_id=board_id)
+        .values_list("max_pruned_id", flat=True)
+        .first()
+    )
+
+
+def resume_cursor(board_id):
+    """The newest position on *board_id*'s feed: ``max(newest event id, prune mark)`` (#2058).
+
+    Where a reader that is told to skip ahead (the feed's ``410`` hands it
+    back as ``next_cursor``; a webhook is created at it or re-enabled from it
+    with ``resume_from: latest``) should stand so that it is not immediately
+    expired again. The newest surviving id alone is not enough: when every
+    event after a cursor was pruned and nothing newer exists, it sits *below*
+    the mark (or there is none), and a cursor there would still be expired.
+    A cursor at the mark is never expired (nothing after it was pruned), and
+    neither is one at the newest row (its row exists).
+    """
+    newest = BoardEvent.objects.filter(board_id=board_id).aggregate(newest=Max("id"))["newest"]
+    return max(newest or 0, pruned_through(board_id) or 0)

@@ -92,7 +92,7 @@ export function disabledReasonCopy(
     case "cursor_expired":
       return {
         headline: "Turned off because it fell too far behind",
-        body: "Visiban can't confirm it still has every event this webhook missed, so it can't resume where it stopped. Events from that gap won't be sent. Turning it back on starts with new events.",
+        body: "This board's history cleanup removed events it had not sent yet, so Visiban can't resume where it stopped. Events from that gap were not delivered and won't be. Turning it back on starts with new events.",
         action: "Turn on from now",
       };
     case "creator_lost_access": {
