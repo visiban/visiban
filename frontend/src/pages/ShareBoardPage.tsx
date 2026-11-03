@@ -4,6 +4,7 @@ import { getPublicBoard } from "../api/boards";
 import type { BoardPublic, PublicCard, PublicColumn, PublicSwimlane, Label } from "../types";
 import { PRIORITY_COLORS } from "../constants/colors";
 import ShareBoardHeader from "../components/Board/ShareBoardHeader";
+import { colorChipStyle } from "../utils/colorContrast";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,8 +46,8 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
               return (
                 <span
                   key={label.id}
-                  className="text-xs font-semibold px-1 py-0.5 rounded leading-none shrink-0"
-                  style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
+                  className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none shrink-0"
+                  style={colorChipStyle(label.color)}
                   title={label.name}
                 >
                   {display}
@@ -106,7 +107,7 @@ function StaticSwimlaneSidebar({ swimlane }: { swimlane: PublicSwimlane }) {
 function StaticColumnHeader({ column, cardCount }: { column: PublicColumn; cardCount: number }) {
   return (
     <div className="bg-surface px-2 py-2 flex items-center gap-1.5 min-w-0">
-      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+      <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
       <span className="text-sm font-medium text-fg truncate flex-1" title={column.name}>{column.name}</span>
       <span className="text-xs text-fg-muted shrink-0">{cardCount}</span>
     </div>

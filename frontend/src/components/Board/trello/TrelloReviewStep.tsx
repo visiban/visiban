@@ -8,6 +8,7 @@ import {
   unmappableLine,
   visibleWarnings,
 } from "./trelloImportCopy";
+import { colorChipStyle } from "../../../utils/colorContrast";
 
 interface Props {
   preview: TrelloImportPreview;
@@ -238,8 +239,8 @@ export default function TrelloReviewStep({
                   <li key={l.trello_id} className="flex items-center gap-3 px-3 py-2">
                     <div className="min-w-0">
                       <span
-                        className="inline-flex items-center max-w-full min-w-0 text-xs px-2 py-0.5 rounded-full border font-medium"
-                        style={{ backgroundColor: `${l.color}22`, borderColor: `${l.color}44`, color: l.color }}
+                        className="cf-choice-badge inline-flex items-center max-w-full min-w-0 text-xs px-2 py-0.5 rounded-full border font-medium"
+                        style={colorChipStyle(l.color)}
                         title={
                           l.original_color && l.original_color !== l.color ? `Trello color: ${l.original_color}` : l.name
                         }

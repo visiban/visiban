@@ -102,10 +102,13 @@ describe('LensIssueCard', () => {
     expect(openSpy).not.toHaveBeenCalled()
   })
 
-  it('tints label chips with the hex color (prepending #)', () => {
-    render(<LensIssueCard issue={makeIssue({ labels: [{ name: 'bug', color: 'ff0000' }] })} />)
+  it('derives a legible chip from the hex color (prepending #) (#2094)', () => {
+    render(<LensIssueCard issue={makeIssue({ labels: [{ name: 'bug', color: 'ffffff' }] })} />)
     const chip = screen.getByText('bug')
-    expect(chip).toHaveStyle({ color: '#ff0000' })
+    expect(chip.className).toContain('cf-choice-badge')
+    expect(chip.style.getPropertyValue('--cf-fg-light')).toMatch(/^#[0-9A-F]{6}$/)
+    expect(chip.style.getPropertyValue('--cf-fg-light')).not.toBe('#FFFFFF')
+    expect(chip.style.color).toBe('')
   })
 
   it('renders the milestone with a flag glyph', () => {

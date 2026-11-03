@@ -155,7 +155,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       >
         {/* Color dot is the drag handle — same pattern as expanded header */}
         <span
-          className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
+          className={`color-dot w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
           style={{ backgroundColor: column.color }}
           title={isAdmin ? "Drag to reorder" : undefined}
           data-column-drag-handle
@@ -207,7 +207,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             ◀
           </button>
           <span
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
+            className={`color-dot w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
             style={{ backgroundColor: column.color }}
             title={isAdmin ? "Drag to reorder" : undefined}
             {...(isAdmin ? { ...attributes, ...listeners } : {})}

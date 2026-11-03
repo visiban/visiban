@@ -20,6 +20,7 @@ import { ChoiceBadge, ChoiceDot } from "./ChoiceValue";
 import { updateCard } from "../../api/cards";
 import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
 import ExternalRefGlyph from "./ExternalRefGlyph";
+import { colorChipStyle } from "../../utils/colorContrast";
 
 
 
@@ -754,8 +755,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   return (
                     <span
                       key={label.id}
-                      className="text-xs font-semibold px-1 py-0.5 rounded leading-none shrink-0"
-                      style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
+                      className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none shrink-0"
+                      style={colorChipStyle(label.color)}
                       title={label.name}
                     >
                       {display}

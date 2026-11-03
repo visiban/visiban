@@ -1917,7 +1917,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               className="flex items-center justify-between py-2 border-b border-line/60 last:border-0 cursor-pointer group"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                                <span className="color-dot w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
                                 <span className={`text-sm truncate ${isHidden ? "text-fg-muted line-through" : "text-fg"}`}>
                                   {col.name}
                                 </span>
@@ -1948,7 +1948,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               className="flex items-center justify-between py-2 border-b border-line/60 last:border-0 cursor-pointer group"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: lane.color }} />
+                                <span className="color-dot w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: lane.color }} />
                                 <span className={`text-sm truncate ${isHidden ? "text-fg-muted line-through" : "text-fg"}`}>
                                   {lane.name}
                                 </span>

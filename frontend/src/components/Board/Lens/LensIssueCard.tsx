@@ -1,6 +1,7 @@
 import Avatar from "../../Common/Avatar";
 import type { NormalizedIssue } from "../../../types";
 import { isSafeHttpUrl } from "../../../utils/safeUrl";
+import { colorChipStyle } from "../../../utils/colorContrast";
 
 interface Props {
   issue: NormalizedIssue;
@@ -85,12 +86,8 @@ export default function LensIssueCard({ issue, laneCount = 1, compact = false }:
           {issue.labels.map((label) => (
             <span
               key={label.name}
-              className="text-xs font-semibold px-1 py-0.5 rounded leading-none"
-              style={{
-                backgroundColor: `#${label.color}22`,
-                color: `#${label.color}`,
-                border: `1px solid #${label.color}44`,
-              }}
+              className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none"
+              style={colorChipStyle(`#${label.color}`)}
               title={label.name}
             >
               {label.name}

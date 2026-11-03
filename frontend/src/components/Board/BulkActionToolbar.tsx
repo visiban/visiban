@@ -292,7 +292,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                   onKeyDown={(e) => handleMoveItemKeyDown(e, i)}
                   className={`flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg ${MENU_ITEM_FOCUS_RING}`}
                 >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                  <span className="color-dot w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
                   {col.name}
                 </button>
               ))}

@@ -206,11 +206,24 @@ body {
   --cf-fg: var(--cf-fg-dark);
   background-color: var(--cf-bg);
   color: var(--cf-fg);
+  /* Only user-colored label chips set --cf-border-* (#2094); a choice badge has no border width. */
+  --cf-border: var(--cf-border-dark, transparent);
+  border-color: var(--cf-border);
 }
 
 [data-theme="light"] .cf-choice-badge {
   --cf-bg: var(--cf-bg-light);
   --cf-fg: var(--cf-fg-light);
+  --cf-border: var(--cf-border-light, transparent);
+}
+
+/*
+  Color dot ring (#2094). A user color can be near-white or near-black, which
+  vanishes against one theme's surface (white on light is 1.0:1, black on dark
+  1.44:1). A constant mid-gray 1px ring keeps the dot's edge visible in both.
+*/
+.color-dot {
+  box-shadow: 0 0 0 1px rgb(128 128 128 / 0.85);
 }
 
 /*

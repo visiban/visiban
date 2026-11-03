@@ -2830,7 +2830,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           {activeColumn && (
             <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
+                <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
                 <span className="font-semibold text-fg-secondary text-sm truncate" title={activeColumn.name}>{activeColumn.name}</span>
               </div>
               {/* Discoverability hint for the ⌥-gated trash zone (#965). The hint

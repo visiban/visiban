@@ -26,7 +26,7 @@ export default function FilterChip({ label, colorDot, avatarUser, onDismiss }: F
       onKeyDown={handleKeyDown}
     >
       {colorDot && (
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorDot }} />
+        <span className="color-dot w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorDot }} />
       )}
       {avatarUser && (
         <Avatar user={avatarUser} size="xs" />
