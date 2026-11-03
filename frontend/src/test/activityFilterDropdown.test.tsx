@@ -51,7 +51,7 @@ describe("ActivityFilterDropdown", () => {
       />
     );
     await user.click(screen.getByRole("button", { name: /filter/i }));
-    const menu = screen.getByRole("menu");
+    const menu = screen.getByRole("group", { name: "Filter" });
     const trigger = screen.getByRole("button", { name: /filter/i });
     expect(menu.style.position).toBe("fixed");
     expect(menu.style.right).not.toBe("");
@@ -145,9 +145,9 @@ describe("ActivityFilterDropdown", () => {
       />
     );
     await user.click(screen.getByRole("button", { name: /filter/i }));
-    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Filter" })).toBeInTheDocument();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Filter" })).not.toBeInTheDocument();
   });
 
   describe("All toggle", () => {

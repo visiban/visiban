@@ -71,6 +71,14 @@ describe("CheckboxDropdown menu (#1482)", () => {
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
   });
 
+  it("reports a resize or outside-scroll dismissal through onOpenChange (FilterBar collapses the facet)", async () => {
+    const onOpenChange = vi.fn();
+    render(<CheckboxDropdown label="Label" options={OPTIONS} selected={[]} onChange={() => {}} onOpenChange={onOpenChange} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: /label/i }));
+    fireEvent.scroll(document.body);
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("caps the panel at the viewport so a long list scrolls", async () => {
     render(<CheckboxDropdown label="Label" options={OPTIONS} selected={[]} onChange={() => {}} />);
     await userEvent.setup().click(screen.getByRole("button", { name: /label/i }));
@@ -86,7 +94,7 @@ describe("ActivityFilterDropdown menu (#1482)", () => {
       </ScrollRegion>,
     );
     await userEvent.setup().click(screen.getByRole("button", { name: /filter/i }));
-    const menu = screen.getByRole("menu");
+    const menu = screen.getByRole("group", { name: "Filter" });
     expect(menu.style.position).toBe("fixed");
     expect(screen.getByTestId("region").contains(menu)).toBe(true);
   });
@@ -101,7 +109,7 @@ describe("ActivityFilterDropdown menu (#1482)", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /filter/i }));
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Filter" })).not.toBeInTheDocument();
     expect(closePanel).not.toHaveBeenCalled();
     await user.keyboard("{Escape}");
     expect(closePanel).toHaveBeenCalledTimes(1);
@@ -112,7 +120,7 @@ describe("ActivityFilterDropdown menu (#1482)", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: /filter/i }));
     expect(screen.getByRole("checkbox", { name: /select all event types/i })).toHaveFocus();
     fireEvent.scroll(document.body);
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Filter" })).not.toBeInTheDocument();
   });
 });
 
@@ -129,6 +137,12 @@ describe("SavedFiltersDropdown menu (#1482)", () => {
     const panel = text.closest("div[style]") as HTMLElement;
     expect(panel.style.position).toBe("fixed");
     expect(screen.getByTestId("region").contains(panel)).toBe(false);
+  });
+
+  it("moves focus into the portaled panel once placed", async () => {
+    render(<SavedFiltersDropdown {...props} filters={{ ...EMPTY_FILTER, search: "x" }} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: /saved filters/i }));
+    expect(screen.getByText(/save current filters/i).closest("button")).toHaveFocus();
   });
 
   it("closes on an outside scroll and leaves save mode", async () => {

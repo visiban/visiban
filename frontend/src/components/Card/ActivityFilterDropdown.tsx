@@ -152,7 +152,8 @@ export default function ActivityFilterDropdown({
           mode="inline"
           minWidth={200}
           deps={[options.length]}
-          role="menu"
+          role="group"
+          aria-label={label}
         >
           {options.length === 0 ? (
             <p className="px-3 py-2 text-sm text-fg-muted italic">

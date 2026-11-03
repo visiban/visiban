@@ -90,6 +90,12 @@ export default function SavedFiltersDropdown({
     return () => document.removeEventListener("mousedown", handler);
   }, [open, setOpen]);
 
+  // Portaled out of the trigger's DOM, so Tab from the trigger would skip the
+  // menu: move focus in once it is placed and visible (#1482).
+  const focusFirst = useCallback(() => {
+    panelRef.current?.querySelector<HTMLElement>("button:not([disabled]), input")?.focus();
+  }, []);
+
   const dismiss = useCallback(() => { setOpen(false); setSaveMode(false); }, [setOpen]);
 
   // Focus the name input whenever save mode is entered.
@@ -146,6 +152,7 @@ export default function SavedFiltersDropdown({
         onClick={handleToggle}
         title="Saved filters"
         aria-label="Saved filters"
+        aria-expanded={open}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           savedFilters.length > 0
             ? "border-line-strong text-fg-secondary hover:border-line-emphasis"
@@ -173,7 +180,9 @@ export default function SavedFiltersDropdown({
           panelRef={panelRef}
           onDismiss={dismiss}
           minWidth={256}
-          className="w-64"
+          onPlaced={focusFirst}
+          role="group"
+          aria-label="Saved filters"
           deps={[saveMode, saveError, loading, savedFilters.length]}
         >
           {/* Save current filter section */}
@@ -221,7 +230,7 @@ export default function SavedFiltersDropdown({
                 disabled={!hasActiveFilters}
                 className={`w-full text-left px-3 py-1.5 text-sm transition flex items-center gap-2 ${
                   hasActiveFilters
-                    ? "text-fg-secondary hover:bg-surface-hover hover:text-fg"
+                    ? "text-fg-secondary hover:bg-surface-hover hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                     : "text-fg-faint cursor-not-allowed"
                 }`}
                 title={hasActiveFilters ? undefined : "Set at least one filter to save it"}
@@ -261,7 +270,7 @@ export default function SavedFiltersDropdown({
                   <div className="flex items-center group px-1">
                     <button
                       onClick={() => { onLoad(f); setOpen(false); setSaveMode(false); }}
-                      className="flex-1 text-left px-2 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition truncate"
+                      className="flex-1 text-left px-2 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition truncate focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                       title={f.name}
                     >
                       {f.name}

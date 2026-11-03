@@ -48,7 +48,7 @@ test.describe('anchored filter menus (#1482)', () => {
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     await page.getByRole('tab', { name: /activity/i }).click()
     await page.locator('[role="dialog"]').getByRole('button', { name: /^filter/i }).click()
-    const menu = page.getByRole('menu')
+    const menu = page.getByRole('group', { name: 'Filter' })
     await expect(menu).toBeVisible()
     const reset = menu.getByRole('button', { name: /reset to default/i })
     await expect(reset).toBeVisible()
