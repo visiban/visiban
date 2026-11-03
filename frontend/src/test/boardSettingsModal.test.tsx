@@ -3052,3 +3052,70 @@ it('BoardSettingsModal — the toggle predicts Modified only when turning it off
   expect(screen.getByText(/Turn this off to use the board's density\.$/)).toBeInTheDocument()
   expect(screen.queryByText(/will then show as Modified/)).not.toBeInTheDocument()
 })
+
+describe('BoardSettingsModal — density under a board default preset (#1146 round 2)', () => {
+  it('turning "Use my own density" on seeds the density the member sees, not board.card_density', async () => {
+    const onSet = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'comfortable', default_preset: 'default' }}
+        isAdmin={false} onClose={vi.fn()} initialTab="display"
+        cardDensityOverride={null} onSetCardDensityOverride={onSet}
+        densityPresetSource={{ presetName: 'Default', via: 'board-default' }} effectiveCardDensity="standard"
+      />,
+    )
+    await user.click(screen.getByRole('switch', { name: 'Use my own density' }))
+    expect(onSet).toHaveBeenCalledWith('standard')
+  })
+
+  it('names the board default preset as what turning the override off returns to', () => {
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'comfortable', default_preset: 'default' }}
+        isAdmin={false} onClose={vi.fn()} initialTab="display"
+        cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
+        densityPresetSource={{ presetName: 'Default', via: 'own-key', offChangesDensity: false, offFallsBackTo: 'board-default-preset' }}
+        effectiveCardDensity="standard"
+      />,
+    )
+    expect(screen.getByText(/Turn this off to use the board default preset's density\.$/)).toBeInTheDocument()
+    expect(screen.queryByText(/the board's density/)).not.toBeInTheDocument()
+  })
+
+  it('describes the admin density group with the board-default "Set by preset" line', () => {
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, default_preset: 'default' }} isAdmin={true} onClose={vi.fn()} initialTab="display"
+        onUpdateBoardSettings={vi.fn()} cardDensityOverride={null} onSetCardDensityOverride={vi.fn()}
+        densityPresetSource={{ presetName: 'Default', via: 'board-default' }} effectiveCardDensity="standard"
+      />,
+    )
+    expect(screen.getByRole('group', { name: 'Card density' })).toHaveAccessibleDescription(
+      'Set by preset “Default”: your view shows standard density.',
+    )
+  })
+
+  it('leaves the admin density group undescribed when no preset supplies the density', () => {
+    render(
+      <BoardSettingsModal
+        board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display"
+        onUpdateBoardSettings={vi.fn()} densityPresetSource={null} effectiveCardDensity="comfortable"
+      />,
+    )
+    expect(screen.getByRole('group', { name: 'Card density' })).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('describes the override switch and, when a preset wrote the key, the personal group, with the source text', () => {
+    render(
+      <BoardSettingsModal
+        board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
+        cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
+        densityPresetSource={{ presetName: 'Default', via: 'own-key', offChangesDensity: true, offFallsBackTo: 'board' }}
+        effectiveCardDensity="standard"
+      />,
+    )
+    expect(screen.getByRole('switch', { name: 'Use my own density' })).toHaveAccessibleDescription(/Set by preset “Default” for your view only/)
+    expect(screen.getByRole('group', { name: 'Your personal density override' })).toHaveAccessibleDescription(/Set by preset “Default”/)
+  })
+})

@@ -47,6 +47,11 @@ function saveMarker(boardId: number, id: BoardPresetId | null): void {
   }
 }
 
+/** The marker an apply of `preset` records: none for the board default. */
+function markerFor(preset: BoardPreset, board: PresetBoard): BoardPresetId | null {
+  return preset.id === board.default_preset ? null : preset.id;
+}
+
 interface Args {
   boardId: number;
   board: PresetBoard;
@@ -61,10 +66,12 @@ interface Args {
 
 /** What one apply replaced, so its notice can undo it. */
 interface Snapshot {
+  /** The board the apply wrote to; Undo never writes anywhere else. */
+  boardId: number;
   densityOverride: CardDensity | null;
   localOverlay: string | null;
   marker: BoardPresetId | null;
-  sessionPresetId: BoardPresetId | null;
+  linkPresetId: BoardPresetId | null;
   urlPresetId: BoardPresetId | null;
 }
 
@@ -90,6 +97,9 @@ export type PresetDensitySource =
       /** `own-key` only: whether removing the key changes the density, which is
        *  when "turn this off" would leave the preset modified. */
       offChangesDensity?: boolean;
+      /** `own-key` only: what the density falls back to without the key — the
+       *  board default preset's density, or the board's own `card_density`. */
+      offFallsBackTo?: "board-default-preset" | "board";
     }
   | null;
 
@@ -121,10 +131,17 @@ function noticeMessage(preset: BoardPreset, reason: "apply" | "reset" | "link"):
  * picker), so it beats whatever the member had; a member's keys beat the board
  * default element by element (`effectiveDisplay`).
  *
- * The active preset is this tab's choice when there is one, else the one recorded
- * by the per-user marker (`presetMarkerKey`), else the board default. It is never
- * guessed from the keys' values, which a member may have set themselves in 1.2.
- * No server state beyond `Board.default_preset`.
+ * The active preset is the one recorded by the per-user marker (`presetMarkerKey`),
+ * else the board default, resolved from those current inputs on every render, so a
+ * tab and a reload always agree. Applying the board default records no marker, so
+ * a member who chose it follows the board default when an admin changes it. It is
+ * never guessed from the keys' values, which a member may have set themselves in
+ * 1.2. No server state beyond `Board.default_preset`; the marker was accepted by
+ * the owner ruling on #1146 (2026-11-03).
+ *
+ * All of this state belongs to one board. `App` remounts `BoardView` per board id,
+ * and the hook also resets itself if `boardId` changes under it, so a preset, a
+ * notice or an Undo can never cross from one board to another.
  *
  * Once the active preset is modified, `?preset=` is dropped from the URL: the link
  * would no longer describe the board on screen, and a reload must not silently
@@ -142,7 +159,10 @@ export function useBoardPreset({
   setSearchParams,
 }: Args): BoardPresetState {
   const urlPresetId = parsePresetParam(searchParams.get(PRESET_PARAM));
-  const [sessionPresetId, setSessionPresetId] = useState<BoardPresetId | null>(null);
+  // The preset the current `?preset=` value stands for, once applied in this tab
+  // (by the link itself or by the picker writing it). Drives dropping the param
+  // once the preset is modified; never used to decide which preset is active.
+  const [linkPresetId, setLinkPresetId] = useState<BoardPresetId | null>(null);
   const [marker, setMarkerState] = useState<BoardPresetId | null>(() => loadMarker(boardId));
   const [notice, setNotice] = useState<PresetNotice | null>(null);
   const noticeSeq = useRef(0);
@@ -150,9 +170,20 @@ export function useBoardPreset({
   // applied once, not on every render (or twice under StrictMode).
   const appliedUrlRef = useRef<BoardPresetId | null>(null);
 
+  // Board switched under a mounted hook: drop everything that belonged to the
+  // previous board (React's adjust-state-on-prop-change pattern).
+  const [stateBoardId, setStateBoardId] = useState(boardId);
+  if (stateBoardId !== boardId) {
+    setStateBoardId(boardId);
+    setLinkPresetId(null);
+    setMarkerState(loadMarker(boardId));
+    setNotice(null);
+    appliedUrlRef.current = null;
+  }
+
   const user = { densityOverride, localOverlay };
   const display = effectiveDisplay(board, user);
-  const activePresetId = sessionPresetId ?? resolveActivePresetId(board, marker);
+  const activePresetId = resolveActivePresetId(board, marker);
   const activePreset = getBoardPreset(activePresetId);
   const differences = activePreset ? presetDifferences(activePreset, board, display) : [];
   const isModified = differences.length > 0;
@@ -163,7 +194,12 @@ export function useBoardPreset({
   if (activePreset && !densityModified) {
     if (densityOverride !== null && marker === activePreset.id) {
       const withoutKey = effectiveDisplay(board, { densityOverride: null, localOverlay }).density;
-      densitySource = { presetName: activePreset.name, via: "own-key", offChangesDensity: withoutKey !== display.density };
+      densitySource = {
+        presetName: activePreset.name,
+        via: "own-key",
+        offChangesDensity: withoutKey !== display.density,
+        offFallsBackTo: boardDefault?.bundle.density != null ? "board-default-preset" : "board",
+      };
     } else if (densityOverride === null && boardDefault?.id === activePreset.id && boardDefault.bundle.density !== null) {
       densitySource = { presetName: activePreset.name, via: "board-default" };
     }
@@ -171,8 +207,8 @@ export function useBoardPreset({
 
   // Setters from the density hook are recreated every render; read them and the
   // current values from a ref so the callbacks and effects below stay stable.
-  const latestRef = useRef({ setDensityOverride, setLocalOverlay, clearLocalOverlay, board, densityOverride, localOverlay, marker, sessionPresetId, urlPresetId });
-  latestRef.current = { setDensityOverride, setLocalOverlay, clearLocalOverlay, board, densityOverride, localOverlay, marker, sessionPresetId, urlPresetId };
+  const latestRef = useRef({ setDensityOverride, setLocalOverlay, clearLocalOverlay, board, boardId, densityOverride, localOverlay, marker, linkPresetId, urlPresetId });
+  latestRef.current = { setDensityOverride, setLocalOverlay, clearLocalOverlay, board, boardId, densityOverride, localOverlay, marker, linkPresetId, urlPresetId };
 
   const setMarker = useCallback(
     (id: BoardPresetId | null) => {
@@ -213,15 +249,16 @@ export function useBoardPreset({
     (preset: BoardPreset, reason: "apply" | "reset" | "link", snapshotUrl: BoardPresetId | null) => {
       const w = latestRef.current;
       const snapshot: Snapshot = {
+        boardId: w.boardId,
         densityOverride: w.densityOverride,
         localOverlay: w.localOverlay,
         marker: w.marker,
-        sessionPresetId: w.sessionPresetId,
+        linkPresetId: w.linkPresetId,
         urlPresetId: snapshotUrl,
       };
       writePlan(planPresetApply(preset, w.board));
-      setMarker(preset.id === w.board.default_preset ? null : preset.id);
-      setSessionPresetId(preset.id);
+      setMarker(markerFor(preset, w.board));
+      setLinkPresetId(preset.id);
       noticeSeq.current += 1;
       setNotice({ id: noticeSeq.current, message: noticeMessage(preset, reason), reason, snapshot });
     },
@@ -239,16 +276,32 @@ export function useBoardPreset({
     appliedUrlRef.current = urlPresetId;
     const preset = getBoardPreset(urlPresetId);
     if (!preset) return;
+    const w = latestRef.current;
+    const plan = planPresetApply(preset, w.board);
+    // The link already describes this member's stored state (typically: they
+    // picked the preset, which wrote the param, then reloaded). Nothing changes,
+    // so nothing is announced and there is nothing to undo.
+    if (
+      plan.densityOverride === w.densityOverride &&
+      plan.localOverlay === w.localOverlay &&
+      markerFor(preset, w.board) === w.marker
+    ) {
+      setLinkPresetId(preset.id);
+      return;
+    }
     // Undo drops the link too: the restored settings are not what it describes.
     commitApply(preset, "link", null);
   }, [urlPresetId, commitApply]);
 
   useEffect(() => {
-    // Only for the preset the link applied: before the layout effect above has run,
-    // the active preset is still the resolved one and its state says nothing about
-    // the link.
-    if (isModified && urlPresetId !== null && sessionPresetId === urlPresetId) setUrlPreset(null);
-  }, [isModified, urlPresetId, sessionPresetId, setUrlPreset]);
+    // Only once this tab has applied the preset the param names (linkPresetId is
+    // state, so on the render before the layout effect above it is still unset
+    // and says nothing about the link).
+    if (isModified && urlPresetId !== null && linkPresetId === urlPresetId) {
+      setLinkPresetId(null);
+      setUrlPreset(null);
+    }
+  }, [isModified, urlPresetId, linkPresetId, setUrlPreset]);
 
   // The ⌘K palette lives outside the board view; tell it what is active.
   useEffect(() => {
@@ -269,11 +322,14 @@ export function useBoardPreset({
   const undoNotice = useCallback(() => {
     if (!notice) return;
     const { snapshot } = notice;
+    setNotice(null);
+    // Defensive: a notice never outlives its board (see the reset above), but an
+    // Undo must never write one board's snapshot into another board's keys.
+    if (snapshot.boardId !== latestRef.current.boardId) return;
     writePlan({ densityOverride: snapshot.densityOverride, localOverlay: snapshot.localOverlay });
     setMarker(snapshot.marker);
-    setSessionPresetId(snapshot.sessionPresetId);
+    setLinkPresetId(snapshot.linkPresetId);
     setUrlPreset(snapshot.urlPresetId);
-    setNotice(null);
   }, [notice, writePlan, setMarker, setUrlPreset]);
 
   const dismissNotice = useCallback(() => setNotice(null), []);

@@ -112,6 +112,9 @@ vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({ savedFilters: [], loading: false, saveFilter: vi.fn(), removeFilter: vi.fn(), hydrateFilter: vi.fn() }),
 }))
 vi.mock('../components/Board/MovementHistoryView', () => ({ default: () => <div /> }))
+vi.mock('../api/gitLens', () => ({ getLensConnection: vi.fn(() => Promise.resolve({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' })) }))
+vi.mock('../components/Board/Lens/LensView', () => ({ default: () => <div data-testid="lens-view" /> }))
+vi.mock('../components/Board/Lens/LensToolbar', () => ({ default: () => <div /> }))
 
 // ---------------------------------------------------------------------------
 // Fixtures — fixed dates and a pinned clock, so the card face is deterministic.
@@ -206,10 +209,10 @@ function gridHtml(): string {
   return screen.getByRole('region', { name: 'Board' }).innerHTML.replace(/_r_[0-9a-z]+_/g, '_r_ID_')
 }
 
-function renderBoard(board: BoardFull = makeBoard(), search = '') {
+function renderBoard(board: BoardFull = makeBoard(), search = '', currentUser: User | null = null) {
   mockSearchParams = new URLSearchParams(search)
   mockBoardContextValue = context(board)
-  return render(<BoardView />)
+  return render(<BoardView currentUser={currentUser} />)
 }
 
 function presetTrigger(): HTMLElement {
@@ -247,36 +250,27 @@ describe('BoardView — board presets (#1146)', () => {
   })
 
   describe('Classic reproduces current behavior byte for byte', () => {
-    it('renders the same grid as a board with no preset, and matches the pinned snapshot', () => {
-      const { unmount } = renderBoard()
-      const baseline = gridHtml()
-      unmount()
-
-      // A member who had personal settings opens a Classic link.
-      localStorage.setItem(DENSITY_KEY, 'dense')
-      localStorage.setItem(OVERLAY_KEY, 'card-count')
-      renderBoard(makeBoard(), 'preset=classic')
-      const classic = gridHtml()
-
-      expect(classic).toBe(baseline)
-      // Pinned: a change to the card face that reaches Classic (e.g. #871's
-      // redesign applied to every board) fails here and must be gated out of
-      // Classic instead.
-      expect(classic).toMatchSnapshot()
-    })
-
-    it('renders the same grid for each board density', () => {
-      for (const card_density of ['comfortable', 'standard', 'dense'] as const) {
+    // One pinned snapshot per density tier. Each compares Classic against a board
+    // with no preset in the same build (a regression in the preset path), AND
+    // against a stored snapshot (a card-face change that reaches Classic, e.g.
+    // #871's redesign applied to every board, at any tier). Such a change must be
+    // gated out of Classic, not land by updating these snapshots.
+    for (const card_density of ['comfortable', 'standard', 'dense'] as const) {
+      it(`renders a ${card_density} board byte for byte, and matches the pinned ${card_density} snapshot`, () => {
         const { unmount } = renderBoard(makeBoard({ card_density }))
         const baseline = gridHtml()
         unmount()
+
+        // A member who had personal settings opens a Classic link.
         localStorage.setItem(DENSITY_KEY, card_density === 'dense' ? 'comfortable' : 'dense')
-        const again = renderBoard(makeBoard({ card_density }), 'preset=classic')
-        expect(gridHtml()).toBe(baseline)
-        again.unmount()
-        localStorage.clear()
-      }
-    })
+        localStorage.setItem(OVERLAY_KEY, 'card-count')
+        renderBoard(makeBoard({ card_density }), 'preset=classic')
+        const classic = gridHtml()
+
+        expect(classic).toBe(baseline)
+        expect(classic).toMatchSnapshot(`classic-${card_density}`)
+      })
+    }
 
     it('is sensitive: Default renders a different grid on a comfortable board', () => {
       const { unmount } = renderBoard()
@@ -481,7 +475,7 @@ describe('BoardView — board presets (#1146)', () => {
       const user = userEvent.setup()
       renderBoard()
       await choosePreset(user, 'Default')
-      expect(densitySource()).toEqual({ presetName: 'Default', via: 'own-key', offChangesDensity: true })
+      expect(densitySource()).toEqual({ presetName: 'Default', via: 'own-key', offChangesDensity: true, offFallsBackTo: 'board' })
     })
 
     it('ignores a stale marker', () => {
@@ -521,6 +515,129 @@ describe('BoardView — board presets (#1146)', () => {
       command({ kind: 'apply', presetId: 'default' })
       command({ kind: 'apply', presetId: 'standup' })
       expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('state never crosses boards', () => {
+    it('switching boards under a mounted BoardView drops the preset, the notice and its Undo', async () => {
+      const user = userEvent.setup()
+      const view = renderBoard()
+      await choosePreset(user, 'Default')
+      // Modifying drops ?preset= (a real navigation to another board drops it
+      // too; the router double here keeps params across the switch).
+      await chooseOverlay(user, 'Card count')
+      expect(latestPresetParam()).toBeNull()
+      expect(screen.getByTestId('preset-notice')).toBeInTheDocument()
+      expect(localStorage.getItem(MARKER_KEY)).toBe('default')
+      // App keys BoardView by board id (app.test.tsx); this proves the hook is safe
+      // even if a board switch ever reuses the mounted instance.
+      act(() => { mockBoardContextValue = context(makeBoard({ id: 2, uid: 'boarduid0002' })) })
+      view.rerender(<BoardView />)
+      expect(presetTrigger()).toHaveAccessibleName('Preset')
+      expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+      await user.click(presetTrigger())
+      expect(screen.queryByRole('menuitem', { name: /^Undo/ })).not.toBeInTheDocument()
+      expect(localStorage.getItem('board:2:preset')).toBeNull()
+      expect(localStorage.getItem('board:2:card-density-override')).toBeNull()
+      expect(localStorage.getItem('board:2:grid-overlay')).toBeNull()
+      // Board 1's state is left as the member set it.
+      expect(localStorage.getItem(MARKER_KEY)).toBe('default')
+    })
+
+    it("reads board 2's own marker after the switch", () => {
+      localStorage.setItem('board:2:preset', 'classic')
+      const view = renderBoard()
+      act(() => { mockBoardContextValue = context(makeBoard({ id: 2, uid: 'boarduid0002' })) })
+      view.rerender(<BoardView />)
+      expect(presetTrigger()).toHaveAccessibleName(/^Preset: Classic/)
+    })
+  })
+
+  describe('the active preset is resolved from current inputs', () => {
+    it('a member who chose the board default follows a later change of board default, like a reload', async () => {
+      const user = userEvent.setup()
+      const view = renderBoard(makeBoard({ default_preset: 'default' }))
+      await choosePreset(user, 'Classic')
+      await choosePreset(user, 'Default')
+      expect(localStorage.getItem(MARKER_KEY)).toBeNull()
+      act(() => { mockBoardContextValue = context(makeBoard({ default_preset: 'classic' })) })
+      view.rerender(<BoardView />)
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
+      view.unmount()
+      renderBoard(makeBoard({ default_preset: 'classic' }))
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
+    })
+
+    it('an explicit choice survives a change of board default', async () => {
+      const user = userEvent.setup()
+      const view = renderBoard(makeBoard({ default_preset: 'default' }))
+      await choosePreset(user, 'Classic')
+      act(() => { mockBoardContextValue = context(makeBoard({ default_preset: 'classic' })) })
+      view.rerender(<BoardView />)
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
+      act(() => { mockBoardContextValue = context(makeBoard({ default_preset: null })) })
+      view.rerender(<BoardView />)
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
+    })
+  })
+
+  describe('reloading with ?preset=', () => {
+    it('raises no notice when the link changes nothing (picked, then reloaded)', async () => {
+      const user = userEvent.setup()
+      const first = renderBoard()
+      await choosePreset(user, 'Default')
+      expect(latestPresetParam()).toBe('default')
+      first.unmount()
+      renderBoard(makeBoard(), 'preset=default')
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Default')
+      expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+    })
+
+    it('raises no notice for a board-default link on a member following the board default', () => {
+      renderBoard(makeBoard({ default_preset: 'default' }), 'preset=default')
+      expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+    })
+
+    it('still drops the param once the preset is then modified', async () => {
+      const user = userEvent.setup()
+      localStorage.setItem(DENSITY_KEY, 'standard')
+      localStorage.setItem(OVERLAY_KEY, 'none')
+      localStorage.setItem(MARKER_KEY, 'default')
+      renderBoard(makeBoard(), 'preset=default')
+      await chooseOverlay(user, 'Card count')
+      expect(latestPresetParam()).toBeNull()
+    })
+  })
+
+  describe('the notice shows in every view', () => {
+    function command(detail: unknown) {
+      act(() => { window.dispatchEvent(new CustomEvent('visiban:preset-command', { detail })) })
+    }
+
+    for (const view of ['summary', 'history', 'analytics'] as const) {
+      it(`a ⌘K apply in the ${view} view shows the notice with Undo`, async () => {
+        const user = userEvent.setup()
+        renderBoard(makeBoard(), `view=${view}`)
+        command({ kind: 'apply', presetId: 'default' })
+        const notice = screen.getByTestId('preset-notice')
+        expect(notice).toHaveTextContent('Applied \u201cDefault\u201d')
+        await user.click(within(notice).getByRole('button', { name: 'Undo' }))
+        expect(localStorage.getItem(DENSITY_KEY)).toBeNull()
+      })
+    }
+
+    it('a ⌘K apply in the lens view shows the notice', async () => {
+      // No ?view=: with a lens configured the board lands on it (#1063).
+      renderBoard(makeBoard(), '', { ...fakeUser, git_lens_enabled: true } as User)
+      expect(await screen.findByTestId('lens-view')).toBeInTheDocument()
+      command({ kind: 'apply', presetId: 'classic' })
+      expect(screen.getByTestId('preset-notice')).toHaveTextContent('Applied \u201cClassic\u201d')
+    })
+
+    it('a ?preset= link opened on the summary view shows the notice', () => {
+      localStorage.setItem(DENSITY_KEY, 'dense')
+      renderBoard(makeBoard(), 'view=summary&preset=default')
+      expect(screen.getByTestId('preset-notice')).toHaveTextContent('from the link')
     })
   })
 

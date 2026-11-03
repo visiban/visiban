@@ -124,6 +124,10 @@ interface Props {
 }
 
 const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
+// #1146 — the two places Display names a preset as the density's source. Each is
+// referenced with aria-describedby by the control it explains.
+const DENSITY_SET_BY_PRESET_ID = "density-set-by-preset";
+const DENSITY_OVERRIDE_DESCRIPTION_ID = "density-override-description";
 
 /** #1967 — true when share link issue time `a` is later than `b`. Falls back
  *  to "different" when either value does not parse, so a malformed value can
@@ -1797,7 +1801,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 <h3 id="card-density-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card density</h3>
                 {isAdmin && onUpdateBoardSettings ? (
                   <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
-                  <fieldset className="flex flex-col gap-2 transition-colors duration-150">
+                  <fieldset
+                    className="flex flex-col gap-2 transition-colors duration-150"
+                    aria-describedby={densityPresetSource?.via === "board-default" ? DENSITY_SET_BY_PRESET_ID : undefined}
+                  >
                     <legend className="sr-only">Card density</legend>
                     {([
                       { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
@@ -1845,7 +1852,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     contradiction); this line covers a board default preset, which
                     writes no key. */}
                 {densityPresetSource?.via === "board-default" && effectiveCardDensity && (
-                  <p data-testid="density-set-by-preset" className="text-xs text-fg-tertiary mt-2">
+                  <p id={DENSITY_SET_BY_PRESET_ID} data-testid="density-set-by-preset" className="text-xs text-fg-tertiary mt-2">
                     Set by preset “{densityPresetSource.presetName}”: your view shows <span className="capitalize">{effectiveCardDensity}</span> density.
                   </p>
                 )}
@@ -1864,7 +1871,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       checked={cardDensityOverride !== null}
                       onChange={(next) => {
                         if (next) {
-                          const initial = lastPickedDensity ?? board.card_density;
+                          // Seed with the density the member sees now (#1146): under
+                          // a board default preset that sets one, that is not
+                          // board.card_density, and seeding that would change their view.
+                          const initial = lastPickedDensity ?? effectiveCardDensity ?? board.card_density;
                           setLastPickedDensity(initial);
                           onSetCardDensityOverride(initial);
                         } else {
@@ -1873,9 +1883,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       }}
                       label="Use my own density"
                       labelSize="xs"
+                      descriptionId={DENSITY_OVERRIDE_DESCRIPTION_ID}
+                      aria-describedby={DENSITY_OVERRIDE_DESCRIPTION_ID}
                       description={
                         cardDensityOverride !== null && densityPresetSource?.via === "own-key"
-                          ? `Set by preset “${densityPresetSource.presetName}” for your view only — stored in your browser. Turn this off to use the board's density${densityPresetSource.offChangesDensity ? "; the preset will then show as Modified." : "."}`
+                          ? `Set by preset “${densityPresetSource.presetName}” for your view only — stored in your browser. Turn this off to use ${densityPresetSource.offFallsBackTo === "board-default-preset" ? "the board default preset's density" : "the board's density"}${densityPresetSource.offChangesDensity ? "; the preset will then show as Modified." : "."}`
                           : cardDensityOverride !== null
                           ? "Overriding the board default for your view only — stored in your browser."
                           : "Following the board default for your view."
@@ -1883,7 +1895,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     />
 
                     {cardDensityOverride !== null && (
-                      <fieldset className="flex flex-col gap-2 mt-2 ml-6 border-l-2 border-line pl-4">
+                      <fieldset
+                        className="flex flex-col gap-2 mt-2 ml-6 border-l-2 border-line pl-4"
+                        aria-describedby={densityPresetSource?.via === "own-key" ? DENSITY_OVERRIDE_DESCRIPTION_ID : undefined}
+                      >
                         <legend className="sr-only">Your personal density override</legend>
                         {([
                           { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },

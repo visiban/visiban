@@ -75,10 +75,16 @@ interface ToggleFieldProps {
    */
   ariaDisabled?: boolean;
   "aria-describedby"?: string;
+  /**
+   * #1146 — an id for the description span, so another control (or the switch
+   * itself, via `aria-describedby`) can reference it. Optional; omitted, the span
+   * has no id, as before.
+   */
+  descriptionId?: string;
   labelSize?: "sm" | "xs";
 }
 
-export function ToggleField({ checked, onChange, label, description, disabled, ariaDisabled, "aria-describedby": ariaDescribedBy, labelSize = "sm" }: ToggleFieldProps) {
+export function ToggleField({ checked, onChange, label, description, disabled, ariaDisabled, "aria-describedby": ariaDescribedBy, descriptionId, labelSize = "sm" }: ToggleFieldProps) {
   const id = useId();
   const labelId = `${id}-label`;
   const inert = disabled || ariaDisabled;
@@ -95,7 +101,7 @@ export function ToggleField({ checked, onChange, label, description, disabled, a
       >
         <span id={labelId} className={`${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-secondary`}>{label}</span>
         {description && (
-          <span className={`block ${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-muted mt-0.5`}>{description}</span>
+          <span id={descriptionId} className={`block ${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-muted mt-0.5`}>{description}</span>
         )}
       </label>
       <Toggle

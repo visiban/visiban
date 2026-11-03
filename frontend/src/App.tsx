@@ -439,7 +439,13 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           </div>
         )}
         {board && (
+          // Keyed by board id (#1146): the /boards/:id route keeps this page
+          // mounted when the id changes, so without the key every per-board
+          // piece of BoardView state (the board-scoped localStorage hooks, the
+          // active preset and its Undo notice, filters, scroll) would carry
+          // over to the next board.
           <BoardView
+            key={board.id}
             onBoardDeleted={handleBack}
             userTimezone={user.timezone ?? ""}
             userDateFormat={user.date_format ?? "MM/DD/YYYY"}

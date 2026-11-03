@@ -79,9 +79,16 @@ vi.mock('../components/Layout/AppSidebar', () => ({
   default: () => <div data-testid="sidebar" />,
 }))
 
-vi.mock('../components/Board/BoardView', () => ({
-  default: () => <div data-testid="board-view">Board</div>,
-}))
+const boardViewMounts = vi.hoisted(() => ({ count: 0 }))
+vi.mock('../components/Board/BoardView', async () => {
+  const React = await import('react')
+  // Counts real mounts, so a test can tell a remount from a re-render (#1146).
+  function MockBoardView() {
+    React.useEffect(() => { boardViewMounts.count += 1 }, [])
+    return <div data-testid="board-view">Board</div>
+  }
+  return { default: MockBoardView }
+})
 
 vi.mock('../pages/Dashboard', () => ({
   default: () => <div data-testid="dashboard">Dashboard</div>,
@@ -413,6 +420,25 @@ describe('App', () => {
     expect(screen.getByTestId('board-view')).toBeInTheDocument()
   })
 
+
+  it('remounts BoardView when the board id changes, so no per-board state carries over (#1146)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    const boardOf = (id: number) => ({
+      id, name: `Board ${id}`, description: '', group: null, group_name: null,
+      columns: [], swimlanes: [], cards: [], labels: [], members: [],
+      created_at: '', updated_at: '', current_user_role: 'admin' as const,
+    })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: boardOf(1), loading: false, error: null })
+    const view = render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    const before = boardViewMounts.count
+    // Same board, new data: a re-render, not a remount.
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: { ...boardOf(1), name: 'Renamed' }, loading: false, error: null })
+    view.rerender(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    expect(boardViewMounts.count).toBe(before)
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: boardOf(2), loading: false, error: null })
+    view.rerender(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    expect(boardViewMounts.count).toBe(before + 1)
+  })
 
   it('renders mobile hamburger button when authenticated', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })

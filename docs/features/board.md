@@ -564,7 +564,7 @@ Pick a preset from the **Preset** dropdown (bookmark icon) at the start of the b
 
 Choosing a preset saves its density as your [personal density override](#personal-density-override) and its overlay as your [overlay](#grid-overlays) choice for that board, and records which preset you chose, all in this browser. A notice confirms the change, for example **Applied “Default”**, with an **Undo** button that puts back your previous settings. The notice closes by itself after a few seconds (longer when a link applied the preset), and waits while your pointer or keyboard focus is on it. While it is showing, the **Preset** dropdown also offers **Undo**, so you can reach it from the keyboard.
 
-You can also apply a preset from the [command palette](keyboard-shortcuts.md) (⌘K / Ctrl+K): type **Apply preset: Classic** or **Apply preset: Default**, or **Reset to preset: …** when the active preset is modified. These work exactly like the dropdown, including the Undo notice.
+You can also apply a preset from the [command palette](keyboard-shortcuts.md) (⌘K / Ctrl+K): type **Apply preset: Classic** or **Apply preset: Default**, or **Reset to preset: …** when the active preset is modified. These work exactly like the dropdown, including the Undo notice, in every view of the board (Board, Summary, History, Analytics and the Lens).
 
 The trigger names a preset only when one is actually in use: one you chose, or the board's default preset. A density or overlay you set yourself, including settings from before 1.3, is not shown as a preset even when its values match one.
 
@@ -572,11 +572,11 @@ The trigger names a preset only when one is actually in use: one you chose, or t
 
 If you change the density or the overlay after choosing a preset, the trigger adds a **Modified** tag. Open the dropdown to see what differs from the preset, for example `Overlay: Card count (preset: No overlay)`, and choose **Reset to “Default”** to go back to it. Choosing the modified preset again does the same. Reset also shows a notice with **Undo**.
 
-**Board Settings → Display** says when a preset set your density: the **Use my own density** toggle reads `Set by preset “Default” for your view only`, and turning it off returns you to the board's density, which marks the preset as Modified when that density differs. When the density comes from the board's default preset instead, the tab reads `Set by preset “Default”: your view shows standard density.`
+**Board Settings → Display** says when a preset set your density: the **Use my own density** toggle reads `Set by preset “Default” for your view only`, and turning it off returns you to the board default preset's density if the board has one that sets a density, otherwise to the board's own density; the toggle says which, and says the preset will show as Modified when that density differs. Turning the toggle on starts from the density you see now, so it never changes your view by itself. When the density comes from the board's default preset instead, the tab reads `Set by preset “Default”: your view shows standard density.`
 
 ### Sharing a preset link
 
-While a preset is applied, the board's URL carries it, for example `?preset=default`, so you can share the link. Opening such a link applies that preset for you, replacing your own density and overlay choices on that board, and shows a notice, **Applied “Default” from the link**, whose **Undo** puts your previous choices back and removes `?preset=` from the URL. Once you modify the preset, `?preset=` is removed from the URL, because the link would no longer show what you see; reloading the page then keeps your changes. An unknown preset name in a link is ignored.
+While a preset is applied, the board's URL carries it, for example `?preset=default`, so you can share the link. Opening such a link applies that preset for you, replacing your own density and overlay choices on that board, and shows a notice, **Applied “Default” from the link**, whose **Undo** puts your previous choices back and removes `?preset=` from the URL. Once you modify the preset, `?preset=` is removed from the URL, because the link would no longer show what you see; reloading the page then keeps your changes. Reloading a page whose link names the preset you are already using changes nothing and shows no notice. An unknown preset name in a link is ignored.
 
 ### Board default preset
 
@@ -589,7 +589,7 @@ Which preset applies, highest first:
 3. The board's default preset
 4. The board's own density setting, with no overlay
 
-With no board default (the setting for every board created or upgraded before 1.3) and no link, the board looks exactly as it did before presets existed. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later.
+With no board default (the setting for every board created or upgraded before 1.3) and no link, the board looks exactly as it did before presets existed. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later, in an open tab as after a reload. A preset you chose that is not the board default stays yours when the board default changes. Each board keeps its own preset: moving to another board never carries one over.
 
 ## Views
 

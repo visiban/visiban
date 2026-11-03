@@ -512,6 +512,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       : []),
     ...(presetNotice ? [{ key: "undo", label: `Undo: ${presetNotice.message}`, onSelect: boardPreset.undoNotice }] : []),
   ];
+  // The preset notice (#1146) renders in every view, not only the board grid: a ⌘K
+  // command or a ?preset= link can apply a preset while Summary, History,
+  // Analytics or the Lens is showing, and its Undo must be offered there too.
+  // Each view's root is `relative` so the notice anchors bottom-center in it.
+  const presetNoticeNode = boardPreset.notice ? (
+    <PresetNoticeToast
+      noticeId={boardPreset.notice.id}
+      message={boardPreset.notice.message}
+      onUndo={boardPreset.undoNotice}
+      onDismiss={boardPreset.dismissNotice}
+      onReturnFocus={focusPresetTrigger}
+      durationMs={boardPreset.notice.reason === "link" ? PRESET_LINK_NOTICE_MS : PRESET_NOTICE_MS}
+    />
+  ) : null;
+
   // ⌘K "Apply preset: …" / "Reset to preset: …" (#1146) arrive from the shell-level
   // palette as a window event and take the picker's own apply path, so they raise
   // the same Undo notice. Read through a ref so the listener subscribes once.
@@ -2402,7 +2417,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       return null;
     }
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         {/* Shared Row 2 — uses the SAME wrapper structure as the board's toolbar
             (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row)
             so the tabs and controls line up pixel-for-pixel and the row scrolls
@@ -2436,13 +2451,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             showFilters={lensShowFilters}
           />
         </SectionErrorBoundary>
+        {presetNoticeNode}
       </div>
     );
   }
 
   if (view === "summary") {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
@@ -2450,13 +2466,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
         </SectionErrorBoundary>
+        {presetNoticeNode}
       </div>
     );
   }
 
   if (view === "history") {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
@@ -2464,6 +2481,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
         </SectionErrorBoundary>
+        {presetNoticeNode}
       </div>
     );
   }
@@ -2478,7 +2496,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   if (view === "analytics") {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
@@ -2520,6 +2538,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             blockFormRequest={blockFormRequest}
           />
         )}
+        {presetNoticeNode}
       </div>
     );
   }
@@ -3192,19 +3211,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             isLargeViewport={isLargeViewport}
           />
         )}
-        {/* #1146 — after a preset is applied or reset: bottom-centered in the same
-            anchor as the legend, above it (z-50 vs z-30), so it never covers the
-            activity drawer. */}
-        {boardPreset.notice && (
-          <PresetNoticeToast
-            noticeId={boardPreset.notice.id}
-            message={boardPreset.notice.message}
-            onUndo={boardPreset.undoNotice}
-            onDismiss={boardPreset.dismissNotice}
-            onReturnFocus={focusPresetTrigger}
-            durationMs={boardPreset.notice.reason === "link" ? PRESET_LINK_NOTICE_MS : PRESET_NOTICE_MS}
-          />
-        )}
+        {/* #1146 — bottom-centered in the same anchor as the legend, above it
+            (z-50 vs z-30), so it never covers the activity drawer. */}
+        {presetNoticeNode}
         </div>{/* end legend anchor */}
 
         {drawerOpen && (
