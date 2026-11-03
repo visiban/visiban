@@ -142,10 +142,6 @@ test.describe('card detail', () => {
     await expect(dialog.getByText('To Do → Done')).toBeVisible({ timeout: 5_000 })
   })
 
-  // The Move-blocked toast is outside the panel's focus trap (#1732; there is
-  // no backdrop since #1914, but the trap stands), so an admin overrides a
-  // limit from the Move popover itself (#1772). Keyboard-only from the failure
-  // on: the override must be reachable with Tab inside the trap.
   test('unblocking shows the outcome as a success toast that clears itself (#2060)', async ({ page }) => {
     const blockedAt = new Date(Date.now() - (3 * 86400 + 5 * 3600 + 60) * 1000).toISOString()
     const blocked = { ...CARD, is_blocked: true, blocked_at: blockedAt, blocked_reason: 'Waiting on vendor' }
@@ -172,6 +168,10 @@ test.describe('card detail', () => {
     await expect(toast).toHaveCount(0, { timeout: 8_000 })
   })
 
+  // The Move-blocked toast is outside the panel's focus trap (#1732; there is
+  // no backdrop since #1914, but the trap stands), so an admin overrides a
+  // limit from the Move popover itself (#1772). Keyboard-only from the failure
+  // on: the override must be reachable with Tab inside the trap.
   test('admin overrides a WIP limit from the Move popover by keyboard', async ({ page }) => {
     const moveUrls: string[] = []
     await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/move\/(\?.*)?$/, (route) => {

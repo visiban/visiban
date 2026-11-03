@@ -38,13 +38,34 @@ beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
 describe('ToastProvider — region and announcements (#2060)', () => {
-  it('renders no region until a toast is raised, then one labelled region', () => {
+  it('renders no region until a toast is raised, then one labeled region', () => {
     setup()
     expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull()
     act(() => { api.notify({ variant: 'success', title: 'Unblocked "Payment flow" after 3d 5h' }) })
     expect(region()).toHaveAttribute('data-keeps-card-sheet-open')
     expect(region().className).toContain('z-[55]')
     expect(within(region()).getByText('Unblocked "Payment flow" after 3d 5h')).toBeInTheDocument()
+  })
+
+  it('gives every variant its glyph, so the word and shape tell them apart without hue', () => {
+    setup()
+    act(() => {
+      api.notify({ variant: 'success', title: 's', testId: 'success' })
+      api.notify({ variant: 'info', title: 'i', testId: 'info' })
+      api.notify({ variant: 'danger', title: 'd', testId: 'danger' })
+    })
+    expect(screen.getByTestId('success')).toHaveTextContent('✓')
+    expect(screen.getByTestId('info')).toHaveTextContent('ℹ')
+    const octagon = screen.getByTestId('danger').querySelector('svg[data-glyph="danger"]')
+    expect(octagon).not.toBeNull()
+    expect(octagon).toHaveAttribute('aria-hidden', 'true')
+    // Never the reserved hard-block or card-blocked glyphs.
+    expect(screen.getByTestId('danger').textContent).not.toMatch(/[⛔⊘]/)
+    act(() => {
+      api.notify({ key: 'w', variant: 'warning', title: 'w', testId: 'warning' })
+      api.notify({ key: 'b', variant: 'blocked', title: 'b', testId: 'hard', hardGlyph: true })
+    })
+    expect(screen.getByTestId('hard')).toHaveTextContent('⛔')
   })
 
   it('keeps both live regions mounted, fills them one tick later, never makes the toast itself live', () => {

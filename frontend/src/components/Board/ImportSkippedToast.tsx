@@ -28,7 +28,7 @@ export const IMPORT_TOAST_KEY = "import-summary";
  * A notice that lists warnings persists until dismissed; the skipped-counts-only
  * notice auto-dismisses after 8 s, and the region pauses it while hovered or
  * focused. The announcement carries the headline and a count, never the list;
- * the list stays a focusable, labelled `ul` in the visible toast so it is
+ * the list stays a focusable, labeled `ul` in the visible toast so it is
  * reachable by keyboard. Renders nothing itself.
  */
 export default function ImportSkippedToast({ summary, onDismiss }: Props) {
