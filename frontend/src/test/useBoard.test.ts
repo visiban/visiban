@@ -1860,6 +1860,65 @@ describe('useBoard — stale card versions (#1969)', () => {
       expect(positionOf(result.current.board!.cards, 2)).toBe(0)
     })
 
+    // Ordering by event_id: two moves of different cards in one cell send the
+    // same sibling at the same (unbumped) version; only the event_id orders them.
+    it('an out-of-order frame from a different card\'s move does not regress a sibling', async () => {
+      // Cell [A, B, S]. Move of A (event 10) put S at 3; a later move of B
+      // (event 11) put it at 2. Frame 11 arrives first.
+      const { result } = await renderCards([cell(1, 0), cell(2, 1), cell(3, 2, 4)])
+      act(() => { result.current.updateCard(cell(2, 0, 2), [{ id: 3, position: 2, version: 4 }], 11) })
+      act(() => { result.current.updateCard(cell(1, 1, 2), [{ id: 3, position: 3, version: 4 }], 10) })
+      const cards = result.current.board!.cards
+      expect(positionOf(cards, 3)).toBe(2)
+      // The late frame's own card is still applied.
+      expect(cards.find((c) => c.id === 1)).toMatchObject({ position: 1, version: 2 })
+    })
+
+    it('in-order frames apply in turn', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1), cell(3, 2, 4)])
+      act(() => { result.current.updateCard(cell(1, 1, 2), [{ id: 3, position: 3, version: 4 }], 10) })
+      expect(positionOf(result.current.board!.cards, 3)).toBe(3)
+      act(() => { result.current.updateCard(cell(2, 0, 2), [{ id: 3, position: 2, version: 4 }], 11) })
+      expect(positionOf(result.current.board!.cards, 3)).toBe(2)
+    })
+
+    it('a frame without event_id still applies its pairs (older server)', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1), cell(3, 2, 4)])
+      act(() => { result.current.updateCard(cell(2, 0, 2), [{ id: 3, position: 2, version: 4 }], 11) })
+      act(() => { result.current.updateCard(cell(1, 1, 2), [{ id: 3, position: 5, version: 4 }]) })
+      expect(positionOf(result.current.board!.cards, 3)).toBe(5)
+    })
+
+    it('ids order only the cards they set: moves in another cell are not blocked', async () => {
+      // Frame 11 renumbered card 3 (one cell); the late frame 10 renumbered
+      // card 5 in an unrelated cell, which frame 11 never touched.
+      const { result } = await renderCards([cell(1, 0), cell(3, 2, 4), cell(5, 1, 1, { column: 11 })])
+      act(() => { result.current.updateCard(cell(2, 0, 2), [{ id: 3, position: 1, version: 4 }], 11) })
+      act(() => { result.current.updateCard(cell(4, 0, 2, { column: 11 }), [{ id: 5, position: 2, version: 1 }], 10) })
+      const cards = result.current.board!.cards
+      expect(positionOf(cards, 3)).toBe(1)
+      expect(positionOf(cards, 5)).toBe(2)
+    })
+
+    it('a late move frame of a card keeps a position a later frame already set', async () => {
+      // Card 3 moved to column 11 (event 11, v5, position 0); a move of card 4
+      // in that cell (event 12) then shifted it to 1, and frame 12 came first.
+      const { result } = await renderCards([cell(3, 2, 4), cell(4, 0, 1, { column: 11 })])
+      act(() => { result.current.updateCard(cell(4, 0, 2, { column: 11 }), [{ id: 3, position: 1, version: 5 }], 12) })
+      act(() => { result.current.updateCard(cell(3, 0, 5, { column: 11 }), [], 11) })
+      expect(result.current.board!.cards.find((c) => c.id === 3)).toMatchObject({ column: 11, position: 1, version: 5 })
+    })
+
+    it('a full reload resets the ordering, so later frames are compared afresh', async () => {
+      const { result } = await renderCards([cell(1, 0), cell(2, 1), cell(3, 2, 4)])
+      act(() => { result.current.updateCard(cell(2, 0, 2), [{ id: 3, position: 2, version: 4 }], 11) })
+      mockGetBoardFull.mockResolvedValue(makeBoard({ cards: [cell(1, 0), cell(2, 1), cell(3, 4, 4)] }))
+      act(() => { result.current.silentReload() })
+      await waitFor(() => expect(positionOf(result.current.board!.cards, 3)).toBe(4))
+      act(() => { result.current.updateCard(cell(1, 1, 2), [{ id: 3, position: 6, version: 4 }], 5) })
+      expect(positionOf(result.current.board!.cards, 3)).toBe(6)
+    })
+
     it('applies the pairs when the moved card is not on this board copy', async () => {
       const { result } = await renderCards([cell(2, 1)])
       act(() => {

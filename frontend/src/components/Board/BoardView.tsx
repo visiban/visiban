@@ -504,9 +504,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // card.moved payload is { card, movement } — consistent with the REST
       // response — plus, since 1.3, sibling_positions: the cards the move
       // renumbered (#1890). A frame from an older server has no such key, and
-      // only the card is applied, as before.
+      // only the card is applied, as before. The frame's event_id orders it
+      // against other moves that set the same cards' positions.
       const moved = d as unknown as CardMovedEventPayload;
-      onCardUpdated(moved.card, moved.sibling_positions);
+      onCardUpdated(moved.card, moved.sibling_positions, event.event_id);
     } else if (event.event === "card.updated") {
       const updatedCard = d as unknown as Card;
       onCardUpdated(updatedCard);

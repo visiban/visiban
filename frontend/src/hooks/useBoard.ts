@@ -221,6 +221,17 @@ export function useBoard() {
   // unsafe under-count direction #1289 guards against. Discard such responses.
   const archivedCountGen = useRef(0);
 
+  // Per card, the highest `card.moved` event_id (the frame's change-feed id,
+  // #1114) whose data set that card's position (#1890). A position shift does
+  // not bump `version`, so two moves of different cards in one cell send the
+  // same siblings at the same version, and only the event_id orders them: the
+  // later move locks the cell's card rows before it inserts its feed row, so
+  // ids follow commit order for any two moves that touch the same card. Kept
+  // per card, not per board, because moves in unrelated cells are not ordered
+  // against each other. Cleared whenever a `/full/` response replaces the
+  // cards, which carries newer positions than any frame before it.
+  const positionEventIds = useRef(new Map<number, number>());
+
   // When the latest `/full/` response was applied (Date.now()), or null before
   // the first one. BoardView compares it with the socket's first open (#1968):
   // the socket joins the board's broadcast group only after `/full/` returned,
@@ -240,6 +251,7 @@ export function useBoard() {
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
         lastFullAtRef.current = Date.now();
+        positionEventIds.current.clear();
         setUnavailable(false);
         setBoard(b);
       })
@@ -282,6 +294,7 @@ export function useBoard() {
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
         lastFullAtRef.current = Date.now();
+        positionEventIds.current.clear();
         setUnavailable(false);
         setBoard(b);
       })
@@ -585,7 +598,7 @@ export function useBoard() {
     });
   }, []);
 
-  const updateCard = useCallback((card: Card, siblingPositions?: readonly CardSiblingPosition[]) => {
+  const updateCard = useCallback((card: Card, siblingPositions?: readonly CardSiblingPosition[], eventId?: number) => {
     // Fed by card.updated and card.moved frames and by every HTTP card response
     // (CardDetail, CardItem, the bulk toolbar), which are not ordered against
     // each other: an older version must not replace a newer one (#1969).
@@ -599,12 +612,37 @@ export function useBoard() {
     // later change to that card has already landed, and if it was another move
     // in the same cell, its frame already applied newer positions for the same
     // siblings at the same (unbumped) version, which these would undo.
+    //
+    // `eventId` is a card.moved frame's event_id. Versions cannot order two
+    // frames that set one card's position at the same version (two moves of
+    // different cards in its cell), so positionEventIds does: a pair, or the
+    // moved card's own position, is not applied over a position a frame with a
+    // higher event_id already set. Without an event_id (an older server, or an
+    // HTTP response) nothing is compared or recorded: the pre-#1890 behavior.
+    //
+    // The updater reads and writes positionEventIds. It stays idempotent (it
+    // only raises entries to the frame's own id, and compares with a strict
+    // >), so React running it twice gives the same result.
+    const ordered = typeof eventId === "number" && Number.isFinite(eventId);
     setBoard((b) => {
       if (!b) return b;
-      let cards = replaceCardUnlessStale(b.cards, card, (c) => dropUnknownLabels(c, b.labels));
-      if (Array.isArray(siblingPositions) && siblingPositions.length > 0
-        && !isStaleCard(card, b.cards.find((c) => c.id === card.id))) {
-        cards = applySiblingPositions(cards, siblingPositions);
+      const seen = positionEventIds.current;
+      const newerThanFrame = (id: number) => ordered && (seen.get(id) ?? -Infinity) > eventId;
+      const record = (id: number) => {
+        if (ordered && !newerThanFrame(id)) seen.set(id, eventId);
+      };
+      const stored = b.cards.find((c) => c.id === card.id);
+      const cardStale = isStaleCard(card, stored);
+      const keepPosition = stored !== undefined && newerThanFrame(card.id);
+      let cards = replaceCardUnlessStale(b.cards, card, (c) => {
+        const prepared = dropUnknownLabels(c, b.labels);
+        return keepPosition && stored ? { ...prepared, position: stored.position } : prepared;
+      });
+      if (!cardStale) record(card.id);
+      if (Array.isArray(siblingPositions) && siblingPositions.length > 0 && !cardStale) {
+        const fresh = siblingPositions.filter((p) => typeof p?.id === "number" && !newerThanFrame(p.id));
+        cards = applySiblingPositions(cards, fresh);
+        for (const p of fresh) record(p.id);
       }
       return cards === b.cards ? b : { ...b, cards };
     });

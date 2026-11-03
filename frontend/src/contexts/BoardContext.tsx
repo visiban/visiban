@@ -33,8 +33,12 @@ export interface BoardContextType {
   addColumn: (column: Column) => void;
   removeColumn: (columnId: number) => Promise<void>;
   addSwimlane: (swimlane: Swimlane) => void;
-  /** `siblingPositions`: card.moved's `sibling_positions` (#1890), applied with the card. */
-  updateCard: (card: Card, siblingPositions?: readonly CardSiblingPosition[]) => void;
+  /**
+   * `siblingPositions`: card.moved's `sibling_positions` (#1890), applied with
+   * the card. `eventId`: that frame's `event_id`, which orders frames that set
+   * one card's position at the same version.
+   */
+  updateCard: (card: Card, siblingPositions?: readonly CardSiblingPosition[], eventId?: number) => void;
   updateColumn: (column: Column) => void;
   addLabel: (label: Label) => void;
   updateLabel: (label: Label) => void;

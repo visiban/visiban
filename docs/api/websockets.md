@@ -311,6 +311,23 @@ Since 1.3 the frame also carries `sibling_positions`: one entry for every
   frame's `sibling_positions` too: a later change to that card has already
   reached you, and if it was another move in the same cell, its frame sent
   newer positions for the same siblings at the same sibling `version`.
+- `version` cannot order two moves of *different* cards in one cell: both
+  send the same siblings at the same `version`. Use the frame's `event_id`
+  instead. Two moves that set the same card's position are ordered by
+  `event_id` in commit order, because the later move locks that card's row
+  before it writes its change-feed row. Remember, per card, the highest
+  `event_id` whose frame set its position (as a sibling entry or as the moved
+  card), and skip a sibling entry, or the moved card's `position`, from a
+  frame with a lower `event_id`. Keep it per card: moves in unrelated cells
+  are not ordered against each other, so a frame for one cell must not block
+  another cell's entries. Clear it when you replace the board from `/full/`.
+  A frame with no `event_id` (from a server before the change feed) cannot be
+  compared, so apply it.
+
+The Visiban web app applies these rules (since 1.3). An HTTP response has no
+`event_id`, so a response that lands after a later frame can still put an
+older position on screen until the next frame for that card or the next full
+refresh; the same holds for a `card.updated` frame at an equal `version`.
 
 The field is additive. A client written for 1.2 ignores it and behaves as
 before, and a 1.3 client must accept a frame without it (from an older server
