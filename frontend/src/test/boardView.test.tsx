@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, act, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, act, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
+import { ToastProvider } from '../contexts/ToastContext'
 import CustomFieldQuickEditPopover from '../components/Card/CustomFieldQuickEditPopover'
 import InlineBoardName from '../components/Board/InlineBoardName'
 import type { BoardFull, User } from '../types'
@@ -196,7 +197,9 @@ vi.mock('../components/Common/Tooltip', () => ({
     React.cloneElement(children, { 'data-tooltip': content }),
 }))
 vi.mock('../components/Board/BulkActionToolbar', () => ({
-  default: () => <div data-testid="bulk-toolbar">Bulk Actions</div>,
+  default: ({ onCardsArchived }: { onCardsArchived?: (ids: number[]) => void }) => (
+    <div data-testid="bulk-toolbar">Bulk Actions<button type="button" onClick={() => onCardsArchived?.([1])}>ArchiveMock</button></div>
+  ),
 }))
 vi.mock('../components/Board/ArchivedCardsPanel', () => ({
   default: () => <div data-testid="archived-panel">Archived</div>,
@@ -1268,7 +1271,7 @@ describe('BoardView', () => {
     it('does not announce success or repeat the toast cause in the status region on failure', async () => {
       const err = Object.assign(new Error('Network Error'), { isAxiosError: true })
       await dropOnCell(vi.fn().mockResolvedValue({ ok: false, error: err }))
-      // The role="alert" toast owns the failure announcement; the status region stays blank.
+      // The blocked toast's assertive announcement owns the failure; the status region stays blank.
       expect(screen.queryByText(/moved to column/)).not.toBeInTheDocument()
       expect(screen.queryByText(/could not be moved/)).not.toBeInTheDocument()
     })
@@ -1749,6 +1752,58 @@ describe('BoardView', () => {
       rerender(<BoardView {...defaultProps()} />)
 
       expect(screen.queryByTestId('bulk-toolbar')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('shared toast region on the board (#2060)', () => {
+    const card = {
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Toast Card',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'user1', display_name: 'User 1', avatar_url: '' },
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
+      blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+    }
+
+    async function archiveFromToolbar() {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+      const user = userEvent.setup()
+      await user.click(screen.getByTestId('select-card-1-20'))
+      await user.click(screen.getByRole('button', { name: 'ArchiveMock' }))
+      return user
+    }
+
+    it('"Card archived" is a success toast in the region, with an action that opens the panel', async () => {
+      const user = await archiveFromToolbar()
+      const region = screen.getByRole('region', { name: 'Notifications' })
+      const toast = within(region).getByTestId('archive-toast')
+      expect(toast).toHaveAttribute('data-variant', 'success')
+      expect(toast).toHaveTextContent('Card archived')
+      await user.click(within(toast).getByRole('button', { name: 'View in Archived panel' }))
+      expect(screen.getByTestId('archived-panel')).toBeInTheDocument()
+      expect(screen.queryByTestId('archive-toast')).toBeNull()
+    })
+
+    it('renders in the slot right after the grid and before BulkActionToolbar', async () => {
+      await archiveFromToolbar()
+      const region = screen.getByRole('region', { name: 'Notifications' })
+      expect(region.parentElement).toHaveAttribute('data-toast-slot')
+      const grid = document.querySelector('[data-board-scroll]') as HTMLElement
+      const toolbar = screen.getByTestId('bulk-toolbar')
+      expect(grid.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(region.compareDocumentPosition(toolbar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('one Tab from the last stop in the grid reaches the first toast action', async () => {
+      const user = await archiveFromToolbar()
+      const grid = document.querySelector('[data-board-scroll]') as HTMLElement
+      const stops = Array.from(grid.querySelectorAll<HTMLElement>('button, [tabindex="0"]'))
+      stops[stops.length - 1].focus()
+      await user.tab()
+      expect(screen.getByRole('button', { name: 'View in Archived panel' })).toHaveFocus()
     })
   })
 

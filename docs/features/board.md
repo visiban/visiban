@@ -332,6 +332,17 @@ Press **Escape** or click the **×** button to clear the selection. Selection is
 - When some cards fail, a message in the toolbar says how many failed and why, and the selection stays so you can retry. This applies to Move, Assign, Priority, Archive, and Delete.
 - Assign, Priority, Archive, and Delete fire their requests concurrently via `Promise.allSettled`. **Move to...** runs sequentially instead, to avoid database deadlocks from concurrent position-reorder transactions.
 
+## Notifications
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Short notices about what just happened appear at the bottom center of the screen: a refused move, the result of an import, an archived or unblocked card, or (on the shared demo) a change that cannot be saved. Up to three show at once, stacked upward, with the most important one nearest the bottom. When the bulk action toolbar is showing, notices sit just above it so they never cover its buttons or its result message.
+
+- **How long they stay.** A success notice stays 4 seconds (5 for "Card archived"), other information 6 seconds (8 for the import notice), and a warning 8 seconds (the shared demo's "can't be saved" notice keeps 5 seconds for now). A refused move stays until you dismiss it or make another move. Moving the pointer over a notice, tabbing into it, or switching to another browser tab pauses the countdown, which starts over when you come back.
+- **When more than three arrive**, a less important notice makes room, and a refused move is never pushed out. Notices that cannot fit yet wait, and a **+N waiting** line shows how many.
+- **Dismissing.** Every notice has a **×**. With the keyboard, press **Tab** from the board to reach the notices, and **Escape** dismisses the one that has focus; focus then returns to where you were.
+- **Screen readers** hear each notice once, politely, except refused moves and failures, which are announced right away. A notice raised from inside the card detail panel (for example after **Unblock card**) is announced by the panel itself, so it is not read twice.
+
 ## Right-click to add
 
 Right-click any board cell to open an inline card creation input directly in that column + swimlane.

@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import CardBlockSection, { type BlockFormMode } from '../components/Card/CardBlockSection'
 import { useEscapeStack } from '../hooks/useEscapeStack'
+import { ToastProvider } from '../contexts/ToastContext'
 import type { Card, CardBlock } from '../types'
 
 vi.mock('../api/cards', () => ({
@@ -207,6 +208,29 @@ describe('CardBlockSection (#1149)', () => {
     expect(onUpdated).toHaveBeenCalledWith(cleared)
     expect(screen.queryByTestId('card-blocked-banner')).not.toBeInTheDocument()
     expect(screen.getByTestId('card-block-status')).toHaveTextContent('Unblocked "Payment flow" after 3d 5h')
+  })
+
+  it('shows the unblock outcome as a visible success toast, announced once (#2060)', async () => {
+    mockUnblock.mockResolvedValue(makeCard({ version: 5 }))
+    render(<ToastProvider><Harness card={blockedCard} initialMode="unblock" /></ToastProvider>)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Unblock card' })) })
+    const toast = screen.getByTestId('unblock-toast')
+    expect(toast).toHaveAttribute('data-variant', 'success')
+    expect(toast).toHaveTextContent('Unblocked "Payment flow" after 3d 5h')
+    expect(toast).toHaveTextContent('✓')
+    // The sheet is aria-modal: its own live region announces, the toast is the visible mirror.
+    expect(screen.getByTestId('card-block-status')).toHaveTextContent('Unblocked "Payment flow" after 3d 5h')
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(screen.getByTestId('toast-announcer-polite')).toHaveTextContent('')
+  })
+
+  it('a successful block raises no toast: the banner it reveals takes focus', async () => {
+    mockBlock.mockResolvedValue(blockedCard)
+    render(<ToastProvider><Harness card={makeCard()} initialMode="block" /></ToastProvider>)
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Waiting' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Block card' })) })
+    expect(screen.getByTestId('card-blocked-banner')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Notifications' })).toBeNull()
   })
 
   it('unblock without a resolution sends an empty one', async () => {

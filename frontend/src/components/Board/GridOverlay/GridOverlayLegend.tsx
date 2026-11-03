@@ -41,7 +41,7 @@ function rangeLabel(level: GridOverlayLevelSummary): string {
  * `pointer-events-none` is load-bearing twice over: the panel has nothing interactive
  * in it, and it sits near the horizontal scrollbar, so a graze must never swallow a
  * scrollbar drag or a click on the corner cell. `z-30` is deliberately below
- * `BulkActionToolbar` (`z-40`) and `MoveBlockedToast` (`z-50`) — a transient message
+ * `BulkActionToolbar` (`z-40`) and the shared toast region (`z-[55]`) — a transient message
  * always wins over a passive key.
  *
  * `role="group"`, never `role="region"`: the board is capped at four landmarks.

@@ -437,9 +437,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       onCardUpdated(updated);
     } catch {
       // Silent rollback — matches the existing label/priority quick-toggle
-      // precedent in CardDetail: no toast system exists in this app, and the
-      // card simply stays at its last-known-good server state since we never
-      // optimistically mutated `card` itself here (only local UI state).
+      // precedent in CardDetail: the card simply stays at its last-known-good
+      // server state since we never optimistically mutated `card` itself here
+      // (only local UI state). A failure toast through the shared region
+      // (frontend/CLAUDE.md § Toasts) would be a design change, not done here.
     }
   };
 

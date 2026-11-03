@@ -54,6 +54,8 @@ import SavedFilterTabs from "./SavedFilterTabs";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
+import { ToastRegionSlot } from "../../contexts/ToastContext";
+import { useToast } from "../../contexts/useToast";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
 import LensView from "./Lens/LensView";
@@ -276,6 +278,9 @@ const MEMBER_ECHO_MS = 2000;
 // inside a gap below the threshold is still missed until the next resync.
 const FIRST_OPEN_RESYNC_MS = 1000;
 
+
+/** Coalescing key of the "Card archived" toast. */
+const ARCHIVE_TOAST_KEY = "archive";
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   // #1913: instance flags come from site-config, not the deprecated User copies.
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
@@ -802,8 +807,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       cardNotFoundTimerRef.current = null;
     }, 4000);
   }, []);
-  const [archiveToast, setArchiveToast] = useState(false);
-  const archiveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
       if (highlightedCardTimerRef.current !== null) {
@@ -1223,20 +1226,24 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   useBoardPan(scrollEl);
 
+  // "Card archived" is a `success` toast in the shared region (#2060,
+  // frontend/CLAUDE.md § Toasts), keyed so a second archive replaces it. It
+  // keeps its shipped 5 s rather than the 4 s success default, since it
+  // carries an action to read and reach.
+  const { notify: notifyToast, dismiss: dismissToast } = useToast();
   const showArchiveToast = useCallback(() => {
-    setArchiveToast(true);
-    if (archiveToastTimerRef.current) clearTimeout(archiveToastTimerRef.current);
-    // Auto-dismiss after 5 seconds so the toast doesn't linger indefinitely.
-    archiveToastTimerRef.current = setTimeout(() => setArchiveToast(false), 5000);
-  }, []);
-
-  // Clear the auto-dismiss timer on unmount to avoid a setState call on an
-  // unmounted component if the user navigates away while the toast is visible.
-  useEffect(() => {
-    return () => {
-      if (archiveToastTimerRef.current) clearTimeout(archiveToastTimerRef.current);
-    };
-  }, []);
+    notifyToast({
+      key: ARCHIVE_TOAST_KEY,
+      variant: "success",
+      title: "Card archived",
+      durationMs: 5000,
+      action: {
+        label: "View in Archived panel",
+        onAction: () => { setShowArchived(true); dismissToast(ARCHIVE_TOAST_KEY); },
+      },
+      testId: "archive-toast",
+    });
+  }, [notifyToast, dismissToast]);
 
   const toggleCardSelection = useCallback((cardId: number) => {
     setSelectedCardIds((prev) => {
@@ -1776,8 +1783,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // reader users a failed move had succeeded (#1761).
     void Promise.resolve(onMoveCard(card.id, targetColumnId, targetSwimlaneId, position)).then((outcome) => {
       if (outcome && outcome.ok === false) {
-        // The move_failed / limit toast is role="alert" and already announces the
-        // cause; blank this status region so the failure is read once (#1761).
+        // The move_failed / limit toast is announced assertively by the shared
+        // toast region and already carries the cause; blank this status region
+        // so the failure is read once (#1761, #2060).
         setDndAnnouncement("");
       } else if (targetCol && targetSwim) {
         setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}', swimlane '${targetSwim.name}'`);
@@ -2528,16 +2536,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
       {cardNotFoundNotice}
-      {archiveToast && (
-        <div className="flex items-center justify-between gap-3 mx-4 mt-2 px-4 py-2 bg-surface-hover/80 border border-line-strong rounded-lg text-fg text-sm">
-          <span>Card archived — view in <button onClick={() => { setShowArchived(true); setArchiveToast(false); }} className="text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Archived panel</button></span>
-          <button
-            onClick={() => setArchiveToast(false)}
-            aria-label="Dismiss notification"
-            className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >×</button>
-        </div>
-      )}
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
       {view === "board" && collapsedSwimlaneIds.size > 0 && (
@@ -2852,6 +2850,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </DragOverlay>
       </DndContext>
       </SectionErrorBoundary>
+
+      {/* The shared toast region renders here: the next DOM sibling after the
+          grid and before BulkActionToolbar, so one Tab from the focused card
+          reaches the first toast action (frontend/CLAUDE.md § Toasts). */}
+      <ToastRegionSlot />
 
       {selectedCardIds.size > 0 && canEdit && (
         <BulkActionToolbar
