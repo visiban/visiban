@@ -19,6 +19,7 @@ import Avatar from "../Common/Avatar";
 import { Toggle, ToggleField } from "../Common/Toggle";
 import DemoInert from "../Common/DemoInert";
 import { getBoardPreset, listBoardPresets } from "../../boardPresets/registry";
+import type { PresetDensitySource } from "../../hooks/useBoardPreset";
 import InviteLinkPanel from "../Group/InviteLinkPanel";
 import { EMAIL_RE } from "../../constants/inviteEmail";
 import type { EmailInviteFormHandle } from "../Common/EmailInviteForm";
@@ -69,11 +70,12 @@ interface Props {
    *  that happen to share this tab. */
   cardDensityOverride?: CardDensity | null;
   onSetCardDensityOverride?: (value: CardDensity | null) => void;
-  /** #1146 — the name of the preset that set the density this user sees, or null
-   *  when no preset did (none active, the active one leaves density to the board,
-   *  or the user changed density since). A preset and "Use my own density" now
-   *  write the same per-user key, so the tab says which one did. */
-  densityPresetName?: string | null;
+  /** #1146 — which preset supplies the density this user sees, and how: `own-key`
+   *  when a preset they applied wrote their personal density key (a preset and
+   *  "Use my own density" write the same key, so the toggle names the writer),
+   *  `board-default` when the board's default preset sets it and they have no
+   *  key. Null when the density is their own setting or the board's own. */
+  densityPresetSource?: PresetDensitySource;
   /** #1146 — the density the board actually renders for this user, for the
    *  "Set by preset" line. */
   effectiveCardDensity?: CardDensity;
@@ -162,7 +164,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetName = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -1842,9 +1844,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     instead (one statement of the source, not two that read as a
                     contradiction); this line covers a board default preset, which
                     writes no key. */}
-                {densityPresetName && effectiveCardDensity && (cardDensityOverride === null || !onSetCardDensityOverride) && (
+                {densityPresetSource?.via === "board-default" && effectiveCardDensity && (
                   <p data-testid="density-set-by-preset" className="text-xs text-fg-tertiary mt-2">
-                    Set by preset “{densityPresetName}”: your view shows <span className="capitalize">{effectiveCardDensity}</span> density.
+                    Set by preset “{densityPresetSource.presetName}”: your view shows <span className="capitalize">{effectiveCardDensity}</span> density.
                   </p>
                 )}
 
@@ -1872,8 +1874,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       label="Use my own density"
                       labelSize="xs"
                       description={
-                        cardDensityOverride !== null && densityPresetName
-                          ? `Set by preset “${densityPresetName}” for your view only — stored in your browser. Turn this off to follow the board default; the preset will then show as Modified.`
+                        cardDensityOverride !== null && densityPresetSource?.via === "own-key"
+                          ? `Set by preset “${densityPresetSource.presetName}” for your view only — stored in your browser. Turn this off to use the board's density${densityPresetSource.offChangesDensity ? "; the preset will then show as Modified." : "."}`
                           : cardDensityOverride !== null
                           ? "Overriding the board default for your view only — stored in your browser."
                           : "Following the board default for your view."

@@ -1,7 +1,7 @@
 /** The info notice after a board preset is applied or reset (#1146). */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import PresetNoticeToast, { PRESET_NOTICE_MS } from '../components/Board/PresetNoticeToast'
+import PresetNoticeToast, { PRESET_LINK_NOTICE_MS, PRESET_NOTICE_MS } from '../components/Board/PresetNoticeToast'
 
 describe('PresetNoticeToast', () => {
   beforeEach(() => vi.useFakeTimers())
@@ -35,7 +35,7 @@ describe('PresetNoticeToast', () => {
     const status = screen.getByRole('status')
     expect(status).toHaveTextContent('')
     act(() => { vi.advanceTimersByTime(0) })
-    expect(status).toHaveTextContent('Reset to “Default”')
+    expect(status).toHaveTextContent('Reset to “Default”. Undo is also in the Preset menu.')
   })
 
   it('auto-dismisses after the delay', () => {
@@ -43,6 +43,14 @@ describe('PresetNoticeToast', () => {
     act(() => { vi.advanceTimersByTime(PRESET_NOTICE_MS - 1) })
     expect(props.onDismiss).not.toHaveBeenCalled()
     act(() => { vi.advanceTimersByTime(1) })
+    expect(props.onDismiss).toHaveBeenCalledTimes(1)
+  })
+
+  it('honors a longer delay, used for a link-applied preset', () => {
+    const { props } = renderToast({ durationMs: PRESET_LINK_NOTICE_MS })
+    act(() => { vi.advanceTimersByTime(PRESET_NOTICE_MS) })
+    expect(props.onDismiss).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(PRESET_LINK_NOTICE_MS - PRESET_NOTICE_MS) })
     expect(props.onDismiss).toHaveBeenCalledTimes(1)
   })
 

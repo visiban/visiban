@@ -2977,7 +2977,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
         initialTab="display"
         cardDensityOverride="standard"
         onSetCardDensityOverride={vi.fn()}
-        densityPresetName="Default"
+        densityPresetSource={{ presetName: "Default", via: "own-key", offChangesDensity: true }}
         effectiveCardDensity="standard"
       />,
     )
@@ -2996,7 +2996,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
         initialTab="display"
         cardDensityOverride={null}
         onSetCardDensityOverride={vi.fn()}
-        densityPresetName="Default"
+        densityPresetSource={{ presetName: "Default", via: "board-default" }}
         effectiveCardDensity="standard"
       />,
     )
@@ -3009,9 +3009,46 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
     render(
       <BoardSettingsModal
         board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display" onUpdateBoardSettings={vi.fn()}
-        densityPresetName={null} effectiveCardDensity="comfortable"
+        densityPresetSource={null} effectiveCardDensity="comfortable"
       />,
     )
     expect(screen.queryByTestId('density-set-by-preset')).not.toBeInTheDocument()
   })
+})
+
+describe('BoardSettingsModal — a member\'s own density is never attributed to a preset (#1146)', () => {
+  it('keeps the plain override copy when no preset wrote the key', () => {
+    render(
+      <BoardSettingsModal
+        board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
+        cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
+        densityPresetSource={null} effectiveCardDensity="standard"
+      />,
+    )
+    expect(screen.getByText('Overriding the board default for your view only — stored in your browser.')).toBeInTheDocument()
+    expect(screen.queryByText(/Set by preset/)).not.toBeInTheDocument()
+  })
+
+  it('never shows the board-default line while the member has their own key', () => {
+    render(
+      <BoardSettingsModal
+        board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
+        cardDensityOverride="dense" onSetCardDensityOverride={vi.fn()}
+        densityPresetSource={{ presetName: 'Default', via: 'own-key' }} effectiveCardDensity="dense"
+      />,
+    )
+    expect(screen.queryByTestId('density-set-by-preset')).not.toBeInTheDocument()
+  })
+})
+
+it('BoardSettingsModal — the toggle predicts Modified only when turning it off changes the density (#1146)', () => {
+  render(
+    <BoardSettingsModal
+      board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
+      cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
+      densityPresetSource={{ presetName: 'Default', via: 'own-key', offChangesDensity: false }} effectiveCardDensity="standard"
+    />,
+  )
+  expect(screen.getByText(/Turn this off to use the board's density\.$/)).toBeInTheDocument()
+  expect(screen.queryByText(/will then show as Modified/)).not.toBeInTheDocument()
 })

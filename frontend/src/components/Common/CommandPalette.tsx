@@ -29,7 +29,7 @@ function priorityLevel(p: string | null | undefined): PriorityLevel {
   return "none";
 }
 
-interface StaticAction {
+export interface StaticAction {
   id: string;
   label: string;
   hint?: string;
@@ -92,6 +92,10 @@ interface Props {
   resolveCardActions?: (cardIds: number[]) => CardTargetInfo | null;
   /** Runs a card action; GlobalCommandPalette dispatches `visiban:card-action`. */
   onCardAction?: (detail: CardActionDetail) => void;
+  /** #1146 — board preset commands ("Apply preset: …", "Reset to preset: …"), built
+   * per board by the shell-level owner, which knows the active preset. Listed after
+   * the static actions and dispatched through `onAction` like them. */
+  presetActions?: StaticAction[];
 }
 
 export default function CommandPalette({
@@ -108,6 +112,7 @@ export default function CommandPalette({
   cardTarget = null,
   resolveCardActions,
   onCardAction,
+  presetActions,
 }: Props) {
   const boardMode = Array.isArray(boardCards) && Array.isArray(columns);
   const cardsForMode: Card[] = useMemo(
@@ -267,6 +272,15 @@ export default function CommandPalette({
     });
     for (const action of actionMatches) {
       items.push({ kind: "action", key: `action-${action.id}`, action });
+    }
+
+    // Board preset commands (#1146): board mode only, matched by label. Hidden
+    // while a card target is active (#2059): the palette is then about that card,
+    // and a board-wide view change would read as acting on it.
+    if (boardMode && !target) {
+      for (const action of (presetActions ?? []).filter((a) => a.label.toLowerCase().includes(q))) {
+        items.push({ kind: "action", key: `action-${action.id}`, action });
+      }
     }
 
     return items;

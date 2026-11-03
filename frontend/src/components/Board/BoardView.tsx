@@ -90,9 +90,10 @@ import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { useGridOverlayPref } from "../../hooks/useGridOverlayPref";
 import { useBoardPreset } from "../../hooks/useBoardPreset";
-import { formatPresetDifference, listBoardPresets, presetSummary } from "../../boardPresets/registry";
+import { formatPresetDifference, getBoardPreset, listBoardPresets, presetSummary } from "../../boardPresets/registry";
+import { PRESET_COMMAND_EVENT, type PresetCommand } from "../../boardPresets/activePresetStore";
 import type { BoardPresetId } from "../../types";
-import PresetNoticeToast from "./PresetNoticeToast";
+import PresetNoticeToast, { PRESET_LINK_NOTICE_MS, PRESET_NOTICE_MS } from "./PresetNoticeToast";
 import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
@@ -467,6 +468,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // hook needs it; one instance so two functional updates never race.
   const [searchParams, setSearchParams] = useSearchParams();
   const boardPreset = useBoardPreset({
+    boardId: board.id,
     board,
     densityOverride: cardDensityOverride,
     setDensityOverride: setCardDensityOverride,
@@ -490,8 +492,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   );
   const activePreset = boardPreset.activePreset;
   const presetModified = boardPreset.differences.length > 0;
-  // Settings → Display says which preset set the density, when one did (#1146):
-  // a preset and the "Use my own density" toggle now write the same key.
   // The primitive reports a click on the selected option as null. For a preset
   // that means "this one again": a reset when modified, nothing when not.
   const handlePresetChange = (next: BoardPresetId | null) => {
@@ -512,10 +512,26 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       : []),
     ...(presetNotice ? [{ key: "undo", label: `Undo: ${presetNotice.message}`, onSelect: boardPreset.undoNotice }] : []),
   ];
-  const densityPresetName =
-    activePreset && activePreset.bundle.density !== null && !boardPreset.differences.some((d) => d.element === "density")
-      ? activePreset.name
-      : null;
+  // ⌘K "Apply preset: …" / "Reset to preset: …" (#1146) arrive from the shell-level
+  // palette as a window event and take the picker's own apply path, so they raise
+  // the same Undo notice. Read through a ref so the listener subscribes once.
+  const presetCommandRef = useRef({ boardPreset, activePreset, presetModified });
+  presetCommandRef.current = { boardPreset, activePreset, presetModified };
+  useEffect(() => {
+    const onPresetCommand = (e: Event) => {
+      const command = (e as CustomEvent<PresetCommand>).detail;
+      const { boardPreset: bp, activePreset: active, presetModified: modified } = presetCommandRef.current;
+      if (command?.kind === "reset") {
+        if (active && modified) bp.applyPreset(active.id, "reset");
+      } else if (command?.kind === "apply" && getBoardPreset(command.presetId)) {
+        const same = command.presetId === active?.id;
+        if (same && !modified) return;
+        bp.applyPreset(command.presetId, same ? "reset" : "apply");
+      }
+    };
+    window.addEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
+    return () => window.removeEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
+  }, []);
   const gridOverlayOptions = useMemo(
     () => listGridOverlays().map((o) => ({ value: o.id, label: o.label })),
     [],
@@ -3186,6 +3202,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onUndo={boardPreset.undoNotice}
             onDismiss={boardPreset.dismissNotice}
             onReturnFocus={focusPresetTrigger}
+            durationMs={boardPreset.notice.reason === "link" ? PRESET_LINK_NOTICE_MS : PRESET_NOTICE_MS}
           />
         )}
         </div>{/* end legend anchor */}
@@ -3350,7 +3367,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onUpdateBoardSettings={onUpdateBoardSettings}
           cardDensityOverride={cardDensityOverride}
           onSetCardDensityOverride={setCardDensityOverride}
-          densityPresetName={densityPresetName}
+          densityPresetSource={boardPreset.densitySource}
           effectiveCardDensity={effectiveCardDensity}
           gitLensEnabled={gitLensEnabled}
           lensConnection={lensConnection}

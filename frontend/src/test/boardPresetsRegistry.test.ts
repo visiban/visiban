@@ -10,7 +10,6 @@ import {
   effectiveDisplay,
   formatPresetDifference,
   getBoardPreset,
-  inferActivePresetId,
   listBoardPresets,
   overlayLabel,
   parsePresetParam,
@@ -18,6 +17,7 @@ import {
   presetDifferences,
   presetDisplay,
   presetSummary,
+  resolveActivePresetId,
   type BoardPreset,
   type PresetBoard,
 } from '../boardPresets/registry'
@@ -184,30 +184,22 @@ describe('presetDifferences', () => {
   })
 })
 
-describe('inferActivePresetId', () => {
-  it('is none for a member with no keys on a board without a default', () => {
-    expect(inferActivePresetId(board(), noKeys)).toBeNull()
+describe('resolveActivePresetId', () => {
+  it('is none with no applied preset and no board default', () => {
+    expect(resolveActivePresetId(board(), null)).toBeNull()
   })
 
-  it('is the board default for a member with no keys', () => {
-    expect(inferActivePresetId(board({ default_preset: 'default' }), noKeys)).toBe('default')
+  it('is the board default when the member applied none', () => {
+    expect(resolveActivePresetId(board({ default_preset: 'default' }), null)).toBe('default')
   })
 
-  it('names the preset a member applied earlier from their keys', () => {
-    expect(inferActivePresetId(board(), { densityOverride: 'standard', localOverlay: 'none' })).toBe('default')
-    expect(inferActivePresetId(board(), { densityOverride: null, localOverlay: 'none' })).toBe('classic')
-    const b = board({ default_preset: 'default', card_density: 'dense' })
-    expect(inferActivePresetId(b, { densityOverride: 'dense', localOverlay: 'none' })).toBe('classic')
+  it('is the preset the member applied, over the board default', () => {
+    expect(resolveActivePresetId(board(), 'default')).toBe('default')
+    expect(resolveActivePresetId(board({ default_preset: 'default' }), 'classic')).toBe('classic')
   })
 
-  it('prefers the board default on a tie', () => {
-    const b = board({ card_density: 'standard', default_preset: 'classic' })
-    expect(inferActivePresetId(b, { densityOverride: 'standard', localOverlay: 'none' })).toBe('classic')
-  })
-
-  it('falls back to the board default (modified) or none when nothing matches', () => {
-    const keys = { densityOverride: null, localOverlay: 'card-count' }
-    expect(inferActivePresetId(board({ default_preset: 'default' }), keys)).toBe('default')
-    expect(inferActivePresetId(board(), keys)).toBeNull()
+  it('ignores an unknown or stale marker', () => {
+    expect(resolveActivePresetId(board(), 'standup')).toBeNull()
+    expect(resolveActivePresetId(board({ default_preset: 'classic' }), 'standup')).toBe('classic')
   })
 })

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useOptionalBoardContext } from "../../contexts/BoardContext";
-import CommandPalette from "./CommandPalette";
-import type { Card } from "../../types";
+import CommandPalette, { type StaticAction } from "./CommandPalette";
+import type { BoardPresetId, Card } from "../../types";
+import { listBoardPresets } from "../../boardPresets/registry";
+import { PRESET_COMMAND_EVENT, useActivePreset, type PresetCommand } from "../../boardPresets/activePresetStore";
 import {
   CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, focusedCardFaceId,
   type CardActionDetail, type CardTargetInfo, type CardTargetQueryDetail,
@@ -13,6 +15,10 @@ function queryCardTarget(detail: CardTargetQueryDetail): CardTargetInfo | null {
   window.dispatchEvent(new CustomEvent(CARD_TARGET_QUERY_EVENT, { detail }));
   return detail.response ?? null;
 }
+
+/** Action-id prefix for "Apply preset: …" (#1146); the preset id follows the colon. */
+const PRESET_APPLY_PREFIX = "preset-apply:";
+const PRESET_RESET_ID = "preset-reset";
 
 // Shell-level owner for the ⌘K command palette. Hoisted from BoardView
 // (#869) so the shortcut fires on every authenticated route and the palette
@@ -78,6 +84,21 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
     return "Jump to…";
   })();
 
+  // #1146 — the open board's active preset, published by BoardView. The active
+  // preset is never offered as "Apply": unmodified it would do nothing, and
+  // modified it is offered as "Reset to preset: …" instead.
+  const activePreset = useActivePreset();
+  const presetActions = useMemo((): StaticAction[] => {
+    if (!board) return [];
+    const snap = activePreset && activePreset.boardId === board.id ? activePreset : null;
+    const actions: StaticAction[] = listBoardPresets()
+      .filter((p) => p.id !== snap?.activePresetId)
+      .map((p) => ({ id: `${PRESET_APPLY_PREFIX}${p.id}`, label: `Apply preset: ${p.name}`, boardOnly: true }));
+    const active = snap?.modified ? listBoardPresets().find((p) => p.id === snap.activePresetId) : undefined;
+    if (active) actions.push({ id: PRESET_RESET_ID, label: `Reset to preset: ${active.name}`, boardOnly: true });
+    return actions;
+  }, [board, activePreset]);
+
   const handleClose = useCallback(() => setOpen(false), []);
 
   const handleOpenCard = useCallback((card: Card) => {
@@ -106,6 +127,13 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
       window.dispatchEvent(new Event("visiban:open-settings"));
       return;
     }
+    if (actionId === PRESET_RESET_ID || actionId.startsWith(PRESET_APPLY_PREFIX)) {
+      const detail: PresetCommand = actionId === PRESET_RESET_ID
+        ? { kind: "reset" }
+        : { kind: "apply", presetId: actionId.slice(PRESET_APPLY_PREFIX.length) as BoardPresetId };
+      window.dispatchEvent(new CustomEvent<PresetCommand>(PRESET_COMMAND_EVENT, { detail }));
+      return;
+    }
   }, []);
 
   if (boardMode && board) {
@@ -124,6 +152,7 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
         onClose={handleClose}
         onOpenCard={handleOpenCard}
         onAction={handleAction}
+        presetActions={presetActions}
       />
     );
   }

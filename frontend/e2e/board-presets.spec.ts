@@ -103,3 +103,32 @@ test('the picker is reachable by keyboard and its menu roves with the arrow keys
   await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Default')
   await expect(presetTrigger(page)).toBeFocused()
 })
+
+test('a ?preset= link shows the Undo notice, and Undo restores the member settings', async ({ page }) => {
+  await page.addInitScript(([d, o]) => {
+    if (!sessionStorage.getItem('seeded')) {
+      localStorage.setItem(d, 'dense')
+      localStorage.setItem(o, 'card-count')
+      sessionStorage.setItem('seeded', '1')
+    }
+  }, [DENSITY_KEY, OVERLAY_KEY])
+  await openBoard(page, '?preset=default')
+  const notice = page.getByTestId('preset-notice')
+  await expect(notice).toContainText('Applied “Default” from the link')
+  await notice.getByRole('button', { name: 'Undo' }).click()
+  await expect(presetTrigger(page)).toHaveAccessibleName('Preset')
+  expect(await stored(page, DENSITY_KEY)).toBe('dense')
+  expect(await stored(page, OVERLAY_KEY)).toBe('card-count')
+  await expect(page).not.toHaveURL(/preset=/)
+})
+
+test('the command palette applies a preset with the same Undo notice', async ({ page }) => {
+  await openBoard(page)
+  await page.keyboard.press('ControlOrMeta+k')
+  const input = page.getByPlaceholder(/search cards/i)
+  await input.fill('apply preset: default')
+  await page.keyboard.press('Enter')
+  await expect(presetTrigger(page)).toHaveAccessibleName('Preset: Default')
+  await expect(page.getByTestId('preset-notice')).toContainText('Applied “Default”')
+  expect(await stored(page, DENSITY_KEY)).toBe('standard')
+})

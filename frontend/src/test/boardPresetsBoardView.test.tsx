@@ -18,6 +18,7 @@ import type { CollisionDetection } from '@dnd-kit/core'
 
 const DENSITY_KEY = 'board:1:card-density-override'
 const OVERLAY_KEY = 'board:1:grid-overlay'
+const MARKER_KEY = 'board:1:preset'
 
 let mockSearchParams = new URLSearchParams()
 // Every URL the board was given, so a test can read the latest `?preset=`.
@@ -89,7 +90,11 @@ vi.mock('../components/Board/AnalyticsView', () => ({ default: () => <div /> }))
 vi.mock('../components/Card/CardDetail', () => ({ default: () => <div data-testid="card-detail" /> }))
 vi.mock('../components/Board/AddColumnModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div /> }))
-vi.mock('../components/Board/BoardSettingsModal', () => ({ default: () => <div data-testid="settings-modal" /> }))
+vi.mock('../components/Board/BoardSettingsModal', () => ({
+  default: ({ densityPresetSource }: { densityPresetSource?: unknown }) => (
+    <div data-testid="settings-modal" data-density-source={JSON.stringify(densityPresetSource ?? null)} />
+  ),
+}))
 vi.mock('../components/Board/FilterBar', () => ({
   default: () => <div data-testid="filter-bar" />,
   EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [] },
@@ -430,6 +435,95 @@ describe('BoardView — board presets (#1146)', () => {
     })
   })
 
+  describe('upgrade from 1.2: a member\'s own settings are not a preset', () => {
+    function densitySource(): unknown {
+      act(() => { window.dispatchEvent(new Event('visiban:open-settings')) })
+      return JSON.parse(screen.getByTestId('settings-modal').getAttribute('data-density-source') ?? 'null')
+    }
+
+    it('own density and overlay that match Default are not reported as Default', () => {
+      localStorage.setItem(DENSITY_KEY, 'standard')
+      localStorage.setItem(OVERLAY_KEY, 'none')
+      renderBoard()
+      expect(presetTrigger()).toHaveAccessibleName('Preset')
+      expect(densitySource()).toBeNull()
+      expect(localStorage.getItem(MARKER_KEY)).toBeNull()
+    })
+
+    it('a stored none overlay is not reported as Classic', () => {
+      localStorage.setItem(OVERLAY_KEY, 'none')
+      renderBoard()
+      expect(presetTrigger()).toHaveAccessibleName('Preset')
+    })
+
+    it('own settings that match no preset leave the trigger at rest, and nothing is written', () => {
+      localStorage.setItem(DENSITY_KEY, 'dense')
+      localStorage.setItem(OVERLAY_KEY, 'card-count')
+      renderBoard()
+      expect(presetTrigger()).toHaveAccessibleName('Preset')
+      expect(localStorage.getItem(DENSITY_KEY)).toBe('dense')
+      expect(localStorage.getItem(OVERLAY_KEY)).toBe('card-count')
+    })
+
+    it('own density equal to the board default preset is the member\'s, not set by the preset', () => {
+      localStorage.setItem(DENSITY_KEY, 'standard')
+      renderBoard(makeBoard({ default_preset: 'default' }))
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Default')
+      expect(densitySource()).toBeNull()
+    })
+
+    it('a board default preset with no member key is named as the density source', () => {
+      renderBoard(makeBoard({ default_preset: 'default' }))
+      expect(densitySource()).toEqual({ presetName: 'Default', via: 'board-default' })
+    })
+
+    it('a preset the member applied is named as the writer of their key', async () => {
+      const user = userEvent.setup()
+      renderBoard()
+      await choosePreset(user, 'Default')
+      expect(densitySource()).toEqual({ presetName: 'Default', via: 'own-key', offChangesDensity: true })
+    })
+
+    it('ignores a stale marker', () => {
+      localStorage.setItem(MARKER_KEY, 'standup')
+      renderBoard()
+      expect(presetTrigger()).toHaveAccessibleName('Preset')
+    })
+  })
+
+  describe('command palette commands', () => {
+    function command(detail: unknown) {
+      act(() => { window.dispatchEvent(new CustomEvent('visiban:preset-command', { detail })) })
+    }
+
+    it('applies a preset through the picker path, with the Undo notice', () => {
+      renderBoard()
+      command({ kind: 'apply', presetId: 'default' })
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Default')
+      expect(screen.getByTestId('preset-notice')).toHaveTextContent('Applied \u201cDefault\u201d')
+      expect(localStorage.getItem(DENSITY_KEY)).toBe('standard')
+    })
+
+    it('resets a modified preset, and ignores a reset with nothing to reset', async () => {
+      const user = userEvent.setup()
+      renderBoard()
+      command({ kind: 'reset' })
+      expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+      command({ kind: 'apply', presetId: 'classic' })
+      await chooseOverlay(user, 'Card count')
+      command({ kind: 'reset' })
+      expect(localStorage.getItem(OVERLAY_KEY)).toBe('none')
+      expect(screen.getByTestId('preset-notice')).toHaveTextContent('Reset to \u201cClassic\u201d')
+    })
+
+    it('ignores re-applying the active unmodified preset and unknown ids', () => {
+      renderBoard(makeBoard({ default_preset: 'default' }))
+      command({ kind: 'apply', presetId: 'default' })
+      command({ kind: 'apply', presetId: 'standup' })
+      expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+    })
+  })
+
   describe('precedence: ?preset= > member > board default', () => {
     it('a board default applies to a member with no keys, without writing any', () => {
       renderBoard(makeBoard({ default_preset: 'default' }))
@@ -456,6 +550,22 @@ describe('BoardView — board presets (#1146)', () => {
       expect(presetTrigger()).toHaveAccessibleName('Preset: Default, modified')
     })
 
+    it('a ?preset= link raises the Undo notice, and Undo restores the member settings and drops the link', async () => {
+      const user = userEvent.setup()
+      localStorage.setItem(DENSITY_KEY, 'dense')
+      localStorage.setItem(OVERLAY_KEY, 'card-count')
+      renderBoard(makeBoard(), 'preset=default')
+      const notice = screen.getByTestId('preset-notice')
+      expect(notice).toHaveTextContent('Applied \u201cDefault\u201d from the link')
+      expect(localStorage.getItem(DENSITY_KEY)).toBe('standard')
+      await user.click(within(notice).getByRole('button', { name: 'Undo' }))
+      expect(localStorage.getItem(DENSITY_KEY)).toBe('dense')
+      expect(localStorage.getItem(OVERLAY_KEY)).toBe('card-count')
+      expect(localStorage.getItem(MARKER_KEY)).toBeNull()
+      expect(latestPresetParam()).toBeNull()
+      expect(presetTrigger()).toHaveAccessibleName('Preset')
+    })
+
     it('a ?preset= link beats both the member keys and the board default', () => {
       localStorage.setItem(DENSITY_KEY, 'dense')
       localStorage.setItem(OVERLAY_KEY, 'card-count')
@@ -466,9 +576,12 @@ describe('BoardView — board presets (#1146)', () => {
       expect(localStorage.getItem(OVERLAY_KEY)).toBe('none')
     })
 
-    it('names the preset a member applied in an earlier visit', () => {
-      localStorage.setItem(DENSITY_KEY, 'standard')
-      localStorage.setItem(OVERLAY_KEY, 'none')
+    it('names the preset a member applied in an earlier visit', async () => {
+      const user = userEvent.setup()
+      const { unmount } = renderBoard()
+      await choosePreset(user, 'Default')
+      expect(localStorage.getItem(MARKER_KEY)).toBe('default')
+      unmount()
       renderBoard()
       expect(presetTrigger()).toHaveAccessibleName('Preset: Default')
     })

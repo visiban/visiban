@@ -108,12 +108,17 @@ class BoardDefaultPresetTests(TestCase):
         url = f"/api/v1/groups/{group.pk}/boards/"
         with patch(PATCH_BROADCAST):
             bad = self.client.post(url, {"name": "Bad", "default_preset": "standup"}, format="json")
-            ok = self.client.post(url, {"name": "Good", "default_preset": "classic"}, format="json")
+            ok = self.client.post(
+                url, {"name": "Good", "default_preset": "classic", "health_status": "at_risk"}, format="json",
+            )
         self.assertEqual(bad.status_code, 400, bad.content)
         self.assertIn("default_preset", bad.json())
         self.assertFalse(Board.objects.filter(name="Bad").exists())
         self.assertEqual(ok.status_code, 201, ok.content)
-        self.assertEqual(Board.objects.get(name="Good").default_preset, "classic")
+        good = Board.objects.get(name="Good")
+        self.assertEqual(good.default_preset, "classic")
+        # docs/api/groups.md lists both as accepted on this route.
+        self.assertEqual(good.health_status, "at_risk")
 
     def test_create_without_it_is_null(self):
         with patch(PATCH_BROADCAST):

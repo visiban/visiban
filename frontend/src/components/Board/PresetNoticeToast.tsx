@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 
 /** How long the notice stays when nobody is hovering or focusing it. */
 export const PRESET_NOTICE_MS = 8000;
+/**
+ * A notice for a change the member did not start (a `?preset=` link) stays longer:
+ * focus is on the page, not on a control, so the pause-on-focus never engages.
+ */
+export const PRESET_LINK_NOTICE_MS = 20000;
+/** Said after the message, so a screen-reader user knows where Undo also lives. */
+export const PRESET_NOTICE_UNDO_HINT = "Undo is also in the Preset menu.";
 
 interface Props {
   /** Changes on every apply, which restarts the timer and the announcement. */
@@ -14,6 +21,8 @@ interface Props {
    * whose buttons unmount with the notice (focus would otherwise drop to <body>).
    */
   onReturnFocus?: () => void;
+  /** Auto-dismiss delay; defaults to `PRESET_NOTICE_MS`. */
+  durationMs?: number;
 }
 
 /**
@@ -31,7 +40,7 @@ interface Props {
  * its text one tick later; a live region that mounts already holding text is not
  * reliably announced.
  */
-export default function PresetNoticeToast({ noticeId, message, onUndo, onDismiss, onReturnFocus }: Props) {
+export default function PresetNoticeToast({ noticeId, message, onUndo, onDismiss, onReturnFocus, durationMs = PRESET_NOTICE_MS }: Props) {
   const [announced, setAnnounced] = useState("");
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -39,16 +48,16 @@ export default function PresetNoticeToast({ noticeId, message, onUndo, onDismiss
 
   useEffect(() => {
     setAnnounced("");
-    const tick = setTimeout(() => setAnnounced(message), 0);
+    const tick = setTimeout(() => setAnnounced(`${message}. ${PRESET_NOTICE_UNDO_HINT}`), 0);
     return () => clearTimeout(tick);
   }, [noticeId, message]);
 
   useEffect(() => {
     if (paused) return;
     // Restarts the full delay after a pause, rather than resuming mid-way.
-    const timer = setTimeout(onDismiss, PRESET_NOTICE_MS);
+    const timer = setTimeout(onDismiss, durationMs);
     return () => clearTimeout(timer);
-  }, [noticeId, paused, onDismiss]);
+  }, [noticeId, paused, onDismiss, durationMs]);
 
   return (
     <div

@@ -6,9 +6,10 @@ import { NONE_OVERLAY_ID, getGridOverlay, resolveGridOverlayId } from "../gridOv
  * card-face fields, density, grid overlay and default filter.
  *
  * In 1.3 presets are code-defined constants, never authored (#2047 owns authoring,
- * 1.4). Persisted state is only the id: `Board.default_preset` on the server, the
- * `?preset=` link parameter, and the two existing per-user keys a preset writes
- * (`board:{id}:card-density-override`, `board:{id}:grid-overlay`). No new storage.
+ * 1.4). Persisted state is ids and the existing keys only: `Board.default_preset` on
+ * the server, the `?preset=` link parameter, the two existing per-user keys a preset
+ * writes (`board:{id}:card-density-override`, `board:{id}:grid-overlay`), and a
+ * per-user marker of which preset wrote them (`board:{id}:preset`, `useBoardPreset`).
  *
  * A preset is presentation state only. It never changes cards, columns or board
  * settings, so applying one is always safe and undoable, and it carries no domain
@@ -218,20 +219,18 @@ export function formatPresetDifference(diff: PresetDifference): string {
 }
 
 /**
- * Which preset the board is showing when no preset was chosen in this tab.
+ * Which preset is active: the one this member actually applied (recorded by the
+ * per-user marker the apply writes, `board:{id}:preset`, see `useBoardPreset`),
+ * else the board's default preset, else none.
  *
- * A member with neither key set is on the board's default preset (or none). A
- * member with a key set made a choice: the preset whose values match what is on
- * screen names it (the board default first, so a tie reads as the board's own),
- * and when none matches, the board default is shown as modified (or none).
+ * Never inferred from the density and overlay keys themselves: those predate
+ * presets (#974, #1147), so a member's own 1.2 "Standard" density or a stored
+ * `none` overlay is the member's setting, not a preset, even when the values
+ * happen to match one. With a board default, the member's own keys show it as
+ * modified where they differ.
  */
-export function inferActivePresetId(board: PresetBoard, user: PresetUserState): BoardPresetId | null {
-  const boardDefault = getBoardPreset(board.default_preset);
-  if (user.densityOverride === null && user.localOverlay === null) return boardDefault?.id ?? null;
-  const current = effectiveDisplay(board, user);
-  const candidates = boardDefault ? [boardDefault, ...PRESETS.filter((p) => p !== boardDefault)] : PRESETS;
-  const match = candidates.find((p) => presetDifferences(p, board, current).length === 0);
-  return match?.id ?? boardDefault?.id ?? null;
+export function resolveActivePresetId(board: PresetBoard, appliedPresetId: string | null): BoardPresetId | null {
+  return getBoardPreset(appliedPresetId)?.id ?? getBoardPreset(board.default_preset)?.id ?? null;
 }
 
 /** One-line picker summary: `Standard density · No overlay`. */
