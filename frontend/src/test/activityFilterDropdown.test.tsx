@@ -40,7 +40,7 @@ describe("ActivityFilterDropdown", () => {
     }
   });
 
-  it("right-aligns the menu panel (right-0, no left-0) so it does not clip off the drawer", async () => {
+  it("anchors the panel's right edge to the trigger, fixed and in the sheet's DOM (#1482)", async () => {
     const user = userEvent.setup();
     render(
       <ActivityFilterDropdown
@@ -52,8 +52,13 @@ describe("ActivityFilterDropdown", () => {
     );
     await user.click(screen.getByRole("button", { name: /filter/i }));
     const menu = screen.getByRole("menu");
-    expect(menu.className).toMatch(/\bright-0\b/);
-    expect(menu.className).not.toMatch(/\bleft-0\b/);
+    const trigger = screen.getByRole("button", { name: /filter/i });
+    expect(menu.style.position).toBe("fixed");
+    expect(menu.style.right).not.toBe("");
+    expect(menu.style.left).toBe("");
+    // Inline mode: still inside the trigger's wrapper so the card sheet's focus
+    // trap and click-outside dismissal treat it as part of the sheet.
+    expect(trigger.parentElement!.contains(menu)).toBe(true);
   });
 
   it("uses whitespace-nowrap on option rows so labels never wrap/truncate", async () => {

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useId, useImperativeHandle, useRef, useState, forwardRef } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import AnchoredMenuPanel from "./AnchoredMenuPanel";
+import { captureMenuAnchor, type MenuAnchor } from "../../utils/menuAnchor";
 
 export interface CheckboxDropdownProps<T extends string | number> {
   label: string;
@@ -48,6 +50,10 @@ function CheckboxDropdownInner<T extends string | number>(
   forwardedRef: React.Ref<HTMLButtonElement>,
 ) {
   const [open, setOpenState] = useState(false);
+  // Trigger rect captured at open: the menu is a `fixed` portal, so a scroll
+  // region or `overflow` ancestor can never clip it, and it holds user data
+  // (assignees, labels) whose length is unbounded (#1482).
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +71,7 @@ function CheckboxDropdownInner<T extends string | number>(
   const setOpen = useCallback(
     (next: boolean) => {
       setOpenState(next);
+      if (!next) setAnchor(null);
       onOpenChange?.(next);
     },
     [onOpenChange],
@@ -75,18 +82,20 @@ function CheckboxDropdownInner<T extends string | number>(
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The menu is portaled out of `ref`, so it needs its own check.
+      if (menuRef.current?.contains(target)) return;
+      if (ref.current && !ref.current.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open, setOpen]);
 
-  useEffect(() => {
-    if (open) {
-      const first = menuRef.current?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-      setTimeout(() => first?.focus(), 0);
-    }
-  }, [open]);
+  // Runs once the panel is placed and visible (browsers ignore focus() on a hidden element).
+  const focusFirst = useCallback(() => {
+    menuRef.current?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.focus();
+  }, []);
+  const dismiss = useCallback(() => setOpen(false), [setOpen]);
 
   const toggle = (value: T) => {
     onChange(
@@ -112,7 +121,10 @@ function CheckboxDropdownInner<T extends string | number>(
     <div ref={ref} className="relative">
       <button
         ref={triggerRef}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!open) setAnchor(captureMenuAnchor(triggerRef.current));
+          setOpen(!open);
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -147,13 +159,17 @@ function CheckboxDropdownInner<T extends string | number>(
         </svg>
       </button>
 
-      {open && (
-        <div
-          ref={menuRef}
+      {open && anchor && (
+        <AnchoredMenuPanel
+          anchor={anchor}
+          panelRef={menuRef}
+          onDismiss={dismiss}
+          onPlaced={focusFirst}
+          minWidth={140}
+          deps={[options.length]}
           role="group"
           id={menuId}
           aria-label={label}
-          className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]"
         >
           {options.length === 0 ? (
             <p className="px-3 py-2 text-sm text-fg-muted italic">
@@ -186,7 +202,7 @@ function CheckboxDropdownInner<T extends string | number>(
               </div>
             ))
           )}
-        </div>
+        </AnchoredMenuPanel>
       )}
     </div>
   );

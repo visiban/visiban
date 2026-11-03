@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import AnchoredMenuPanel from "../Common/AnchoredMenuPanel";
+import { captureMenuAnchor, type MenuAnchor } from "../../utils/menuAnchor";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { FilterState } from "./FilterBar";
@@ -43,13 +45,22 @@ export default function SavedFiltersDropdown({
   firstElementRef,
   externalTriggerRef,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  // Trigger rect captured at open: the menu is a `fixed` portal so no scroll
+  // region can clip it, and it lists user-saved filters (#1482).
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
   const [saveMode, setSaveMode] = useState(false);
   const [newName, setNewName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const setOpen = useCallback((next: boolean) => {
+    setOpenState(next);
+    if (!next) setAnchor(null);
+  }, []);
+
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,14 +78,19 @@ export default function SavedFiltersDropdown({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      // The menu is portaled out of `ref`, so it needs its own check.
+      if (panelRef.current?.contains(target)) return;
+      if (ref.current && !ref.current.contains(target)) {
         setOpen(false);
         setSaveMode(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [open, setOpen]);
+
+  const dismiss = useCallback(() => { setOpen(false); setSaveMode(false); }, [setOpen]);
 
   // Focus the name input whenever save mode is entered.
   useEffect(() => {
@@ -93,6 +109,7 @@ export default function SavedFiltersDropdown({
       setSaveMode(false);
       setSaveError(null);
       setNewName("");
+      setAnchor(captureMenuAnchor(triggerRef.current));
       setOpen(true);
     }
   }
@@ -150,8 +167,15 @@ export default function SavedFiltersDropdown({
         </svg>
       </button>
 
-      {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 w-64">
+      {open && anchor && (
+        <AnchoredMenuPanel
+          anchor={anchor}
+          panelRef={panelRef}
+          onDismiss={dismiss}
+          minWidth={256}
+          className="w-64"
+          deps={[saveMode, saveError, loading, savedFilters.length]}
+        >
           {/* Save current filter section */}
           {saveMode ? (
             <div className="px-3 py-2">
@@ -256,7 +280,7 @@ export default function SavedFiltersDropdown({
               ))}
             </>
           )}
-        </div>
+        </AnchoredMenuPanel>
       )}
     </div>
   );
