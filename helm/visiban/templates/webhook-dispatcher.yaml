@@ -5,7 +5,8 @@ One Deployment running `python manage.py dispatch_webhooks --loop`. Off unless
 `webhooks.dispatcher.enabled` is true, so `helm upgrade` on an existing release
 starts nothing. It delivers only while backend.settings.webhooksEnabled is also
 true (WEBHOOKS_ENABLED, rendered by visiban.backendEnv); otherwise each run
-exits without writing.
+exits without delivering, and its one write is clearing replaced signing secrets
+whose overlap has passed (#2054).
 
 A Deployment rather than a CronJob: deliveries should leave within seconds of
 an event, and a per-minute CronJob would create 1440 pods a day. Replicas are

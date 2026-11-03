@@ -17,7 +17,7 @@ import type { WebhookStatus, WebhookSubscription } from "../../types";
 import { webhookPosition } from "../../constants/webhooks";
 import WebhookList from "./webhooks/WebhookList";
 import WebhookCreateForm from "./webhooks/WebhookCreateForm";
-import { axiosResponse } from "./webhooks/webhookFormUtils";
+import { axiosResponse, outcomeUnknown } from "./webhooks/webhookFormUtils";
 import WebhookDetail, { type WebhookConfirm } from "./webhooks/WebhookDetail";
 import WebhookSecretReveal, { type WebhookSecretRevealHandle } from "./webhooks/WebhookSecretReveal";
 import { DispatcherStaleNotice, WebhooksOffNotice } from "./webhooks/WebhookServiceNotice";
@@ -33,6 +33,9 @@ export const WEBHOOK_ESCAPE = {
   rotateConfirm: 55,
   secretGuard: 56,
 } as const;
+
+/** Said when a way out of the tab is refused because a one-time secret is on its way. */
+const SECRET_PENDING_COPY = "Wait for the new secret. It can only be shown once, so you can't leave until it arrives.";
 
 const CLOCK_TICK_MS = 30_000;
 const HIGHLIGHT_MS = 1500;
@@ -83,10 +86,19 @@ export default function BoardSettingsWebhooksTab({
   const [now, setNow] = useState(() => Date.now());
   const [reloadKey, setReloadKey] = useState(0);
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
+  // How many ways out were refused during this request; 0 hides the banner. It
+  // keys the banner, so each refusal is a new alert and is announced again. The
+  // key is prefixed: its siblings include WebhookDetail, keyed by a bare webhook id.
+  const [refusals, setRefusals] = useState(0);
 
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const refusalRef = useRef<HTMLParagraphElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const revealRef = useRef<WebhookSecretRevealHandle>(null);
+  // A create or rotate is running: its response is the only copy of a secret.
+  const secretPendingRef = useRef(false);
+  // A confirm's request is running: closing it would read as a cancel and hide a failure.
+  const confirmRunningRef = useRef(false);
   const manageRefs = useRef(new Map<number, HTMLButtonElement>());
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deepLinkDoneRef = useRef(false);
@@ -134,6 +146,11 @@ export default function BoardSettingsWebhooksTab({
     return () => { canceled = true; };
   }, [boardId, reloadKey]);
 
+  // The tab may be scrolled well past its top by the time something is refused.
+  useEffect(() => {
+    if (refusals > 0) refusalRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [refusals]);
+
   // Focus targets resolve after the render that mounts them.
   useEffect(() => {
     if (pendingFocus === null) return;
@@ -166,6 +183,13 @@ export default function BoardSettingsWebhooksTab({
 
   // ── The secret guard (Escape 56, Close, backdrop, tab switch) ────────────────
   const guard = useCallback<WebhookCloseGuard>((proceed) => {
+    // Nothing is on screen yet to ask about, so this refuses rather than prompts:
+    // leaving now would drop the response, and the server has already replaced
+    // the secret, with nothing to tell anyone the new one was never seen.
+    if (secretPendingRef.current) {
+      setRefusals((n) => n + 1);
+      return true;
+    }
     const r = revealRefState.current;
     if (!r || r.acknowledged) return false;
     guardProceedRef.current = proceed;
@@ -188,10 +212,15 @@ export default function BoardSettingsWebhooksTab({
       guard(() => onRequestClose?.());
     }
   }, WEBHOOK_ESCAPE.secretGuard);
-  useEscapeStack(() => (confirm === "rotate" ? setConfirm(null) : false), WEBHOOK_ESCAPE.rotateConfirm);
-  useEscapeStack(() => (confirm === "reenable" ? setConfirm(null) : false), WEBHOOK_ESCAPE.reenableConfirm);
-  useEscapeStack(() => (confirm === "disable" ? setConfirm(null) : false), WEBHOOK_ESCAPE.disableConfirm);
-  useEscapeStack(() => (confirm === "delete" ? setConfirm(null) : false), WEBHOOK_ESCAPE.deleteConfirm);
+  // Each confirm's Escape: swallowed, not closed, while its request runs.
+  const escapeConfirm = (kind: WebhookConfirm) => () => {
+    if (confirm !== kind) return false;
+    if (!confirmRunningRef.current) setConfirm(null);
+  };
+  useEscapeStack(escapeConfirm("rotate"), WEBHOOK_ESCAPE.rotateConfirm);
+  useEscapeStack(escapeConfirm("reenable"), WEBHOOK_ESCAPE.reenableConfirm);
+  useEscapeStack(escapeConfirm("disable"), WEBHOOK_ESCAPE.disableConfirm);
+  useEscapeStack(escapeConfirm("delete"), WEBHOOK_ESCAPE.deleteConfirm);
 
   const replaceSub = (updated: WebhookSubscription) =>
     setSubs((prev) => (prev ? prev.map((s) => (s.id === updated.id ? updated : s)) : prev));
@@ -206,6 +235,25 @@ export default function BoardSettingsWebhooksTab({
         setFeatureOff(true);
       }
       throw err;
+    }
+  };
+
+  const issuingSecret = async <T,>(fn: () => Promise<T>): Promise<T> => {
+    secretPendingRef.current = true;
+    try {
+      return await guarded(fn);
+    } finally {
+      secretPendingRef.current = false;
+      setRefusals(0);
+    }
+  };
+
+  const whileConfirmRuns = async (fn: () => Promise<void>) => {
+    confirmRunningRef.current = true;
+    try {
+      await fn();
+    } finally {
+      confirmRunningRef.current = false;
     }
   };
 
@@ -278,9 +326,20 @@ export default function BoardSettingsWebhooksTab({
     body = (
       <WebhookCreateForm
         eventOptions={status.subscribable_event_types}
-        onCancel={() => openList("add")}
+        onCancel={() => {
+          const go = () => openList("add");
+          if (!guard(go)) go();
+        }}
         onSubmit={async (req) => {
-          const created = await guarded(() => createWebhook(boardId, req));
+          let created;
+          try {
+            created = await issuingSecret(() => createWebhook(boardId, req));
+          } catch (err) {
+            // A lost response then a retry would leave a second enabled webhook
+            // with a secret nobody saw. A refused create added nothing.
+            if (outcomeUnknown(err)) await listWebhooks(boardId).then(setSubs).catch(() => undefined);
+            throw err;
+          }
           const { url: _url, secret, ...sub } = created;
           void _url;
           setSubs((prev) => [sub, ...(prev ?? [])]);
@@ -303,7 +362,10 @@ export default function BoardSettingsWebhooksTab({
           status={status}
           now={now}
           confirm={confirm}
-          onConfirmChange={setConfirm}
+          onConfirmChange={(next) => {
+            // Another confirm opening would unmount the one whose request runs.
+            if (!confirmRunningRef.current) setConfirm(next);
+          }}
           currentUserHasPassword={currentUserHasPassword}
           reveal={reveal?.origin === "rotate" && reveal.subId === sub.id ? revealPanel : undefined}
           revealOpen={revealShown}
@@ -312,24 +374,46 @@ export default function BoardSettingsWebhooksTab({
             if (!guard(go)) go();
           }}
           onTest={() => guarded(() => testWebhook(boardId, sub.id))}
-          onDisable={async () => {
+          onDisable={() => whileConfirmRuns(async () => {
             replaceSub(await guarded(() => disableWebhook(boardId, sub.id)));
             setConfirm(null);
             setLive(`${webhookPosition(subs, sub.id)} turned off.`);
-          }}
-          onReenable={async (resumeFrom, password) => {
+          })}
+          onReenable={(resumeFrom, password) => whileConfirmRuns(async () => {
             replaceSub(await guarded(() => reenableWebhook(boardId, sub.id, resumeFrom, password)));
             setConfirm(null);
             setLive(`${webhookPosition(subs, sub.id)} is on.`);
             setPendingFocus("detail-heading");
-          }}
-          onRotate={async () => {
-            const { secret, ...updated } = await guarded(() => rotateWebhookSecret(boardId, sub.id));
+          })}
+          onRotate={(overlapSeconds) => whileConfirmRuns(async () => {
+            let rotated;
+            try {
+              rotated = await issuingSecret(() => rotateWebhookSecret(boardId, sub.id, overlapSeconds));
+            } catch (err) {
+              // The response may be all that was lost. Show what the server has,
+              // so the "until" line is true before anyone retries: a retry retires
+              // whatever that lost rotation left as the current secret.
+              if (axiosResponse(err)?.data?.code !== "webhooks_disabled") {
+                const list = await listWebhooks(boardId).catch(() => null);
+                if (list) {
+                  setSubs(list);
+                  // Deleted elsewhere: the detail view would render nothing.
+                  if (!list.some((s) => s.id === sub.id)) {
+                    setLive("This webhook no longer exists.");
+                    openList("list-heading");
+                  }
+                }
+              }
+              throw err;
+            }
+            const { secret, ...updated } = rotated;
             replaceSub(updated);
             setConfirm(null);
+            // Its own webhook's detail is the one place this reveal renders.
+            setView({ kind: "detail", id: sub.id });
             setReveal({ subId: sub.id, host: sub.url_host, secret, origin: "rotate", acknowledged: false, guardOpen: false });
-          }}
-          onDelete={async () => {
+          })}
+          onDelete={() => whileConfirmRuns(async () => {
             await guarded(() => deleteWebhook(boardId, sub.id));
             // Read before the row leaves the list.
             const position = webhookPosition(subs, sub.id);
@@ -341,7 +425,7 @@ export default function BoardSettingsWebhooksTab({
             }
             setLive(`${position} deleted.`);
             openList("list-heading");
-          }}
+          })}
           onChangeAddress={async (url) => {
             replaceSub(await guarded(() => updateWebhook(boardId, sub.id, { url })));
             setLive("Address changed. You're now this webhook's owner.");
@@ -417,6 +501,11 @@ export default function BoardSettingsWebhooksTab({
 
   return (
     <div className="flex flex-col gap-3">
+      {refusals > 0 && (
+        <p key={`refusal-${refusals}`} ref={refusalRef} role="alert" className="scroll-mt-5 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+          {SECRET_PENDING_COPY}
+        </p>
+      )}
       {status.dispatcher_stale && <DispatcherStaleNotice lastRunLabel={lastRunLabel} />}
       {body}
       {/* The list status slot: created, deleted, turned off, turned on. */}

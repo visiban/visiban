@@ -789,6 +789,8 @@ export interface WebhookSubscription {
   updated_at: string;
   configured_at: string | null;
   secret_rotated_at: string | null;
+  /** When the replaced secret stops signing; null when no rotation overlap is open. */
+  previous_secret_expires_at: string | null;
 }
 
 /** `POST /boards/{id}/webhooks/` — the only response carrying `url` and `secret`. */

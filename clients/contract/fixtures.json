@@ -1148,6 +1148,149 @@
         "body": "{\"a\":1}",
         "now": 1700000000,
         "expected": false
+      },
+      {
+        "name": "multi_match_first",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789,v1=6e92b6b473427af428b944e567fd928ccc5b2db939622f43f853dab511367715"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "multi_match_second",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=6e92b6b473427af428b944e567fd928ccc5b2db939622f43f853dab511367715,v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "multi_held_old_secret",
+        "secret": "whsec_other",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789,v1=6e92b6b473427af428b944e567fd928ccc5b2db939622f43f853dab511367715"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "multi_match_neither",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=6e92b6b473427af428b944e567fd928ccc5b2db939622f43f853dab511367715,v1=0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "multi_unknown_scheme_first",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v2=x,v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "multi_only_unknown_scheme",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v2=x,v3=y"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "multi_folded_whitespace",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=6e92b6b473427af428b944e567fd928ccc5b2db939622f43f853dab511367715 ,\tv1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "multi_empty_values_around_a_match",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": ",v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789,"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "multi_only_empty_values",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": ",,"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "empty_header",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": ""
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "multi_at_the_value_cap",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": true
+      },
+      {
+        "name": "multi_over_the_value_cap",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=0000000000000000000000000000000000000000000000000000000000000000,v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
+      },
+      {
+        "name": "multi_prefix_is_not_a_match",
+        "secret": "whsec_test",
+        "headers": {
+          "X-Visiban-Timestamp": "1700000000",
+          "X-Visiban-Signature": "v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d378,v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d37890"
+        },
+        "body": "{\"a\":1}",
+        "now": 1700000000,
+        "expected": false
       }
     ]
   }

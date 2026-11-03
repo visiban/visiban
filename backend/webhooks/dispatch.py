@@ -39,6 +39,11 @@ Guarantees, and how each one is kept
   ``WEBHOOK_SETTLE_SECONDS`` are read, and a run stops before the oldest
   unsettled row, so a transaction that committed late is still picked up.
   Best-effort until #2053 gives the feed a commit-ordered cursor.
+* **A replaced secret signs only inside its overlap (#2054).** Each delivery
+  re-reads the wall clock, so a window that ends mid-run drops the old value at
+  the next row. :func:`run_once` also clears expired columns before its gate,
+  because ``_due_ids`` skips disabled rows and a server with the feature off
+  would otherwise keep the ciphertext forever.
 """
 
 from __future__ import annotations
@@ -94,12 +99,15 @@ def user_agent() -> str:
 # ─── Request building ────────────────────────────────────────────────────────
 
 
-def build_request(subscription_id: int, board_id: int, row: dict, secret: str, *, now=None):
+def build_request(
+    subscription_id: int, board_id: int, row: dict, secret: str, *, previous_secret=None, now=None
+):
     """Return ``(body, headers)`` for one delivery of the feed *row*.
 
     *row* is one serialized feed row ``{id, event, data, actor_id, actor, redacted_at,
     created_at}``. The body is exactly that row as JSON; the signature covers
-    ``f"{timestamp}.{body}"``.
+    ``f"{timestamp}.{body}"``. With *previous_secret* (an open rotation overlap)
+    the header lists the current secret's signature, then the previous one's.
     """
     timestamp = int((now or timezone.now()).timestamp())
     body = json.dumps(row, cls=DjangoJSONEncoder, separators=(",", ":"), ensure_ascii=False).encode(
@@ -113,7 +121,7 @@ def build_request(subscription_id: int, board_id: int, row: dict, secret: str, *
         "X-Visiban-Board-Id": str(board_id),
         "X-Visiban-Subscription-Id": str(subscription_id),
         "X-Visiban-Timestamp": str(timestamp),
-        "X-Visiban-Signature": signing.sign(secret, timestamp, body),
+        "X-Visiban-Signature": signing.signature_header(secret, previous_secret, timestamp, body),
     }
     return body, headers
 
@@ -165,7 +173,14 @@ def send_test(subscription: WebhookSubscription):
         "created_at": now.isoformat().replace("+00:00", "Z"),
         "redacted_at": None,
     }
-    body, headers = build_request(subscription.pk, subscription.board_id, row, secret, now=now)
+    body, headers = build_request(
+        subscription.pk,
+        subscription.board_id,
+        row,
+        secret,
+        previous_secret=subscription.get_previous_secret(),
+        now=now,
+    )
     started = time.monotonic()
     status, code = post(url, body, headers)
     latency_ms = int((time.monotonic() - started) * 1000) if status is not None else None
@@ -321,9 +336,30 @@ def _due_ids(now):
     )
 
 
+def sweep_expired_previous_secrets(*, now=None) -> int:
+    """Clear previous secrets whose overlap has passed. Returns how many.
+
+    Every row, disabled ones included: ``_due_ids`` never sees those, and the
+    ciphertext should not outlive its window. Leaves ``configured_at`` and
+    ``secret_rotated_at`` alone, so a run in progress never reads an expiry as a
+    reconfiguration (``_still_configured_as_read``). A rotation committing at the
+    same moment is safe: the row is re-checked against this filter after its
+    lock, and a fresh window no longer matches.
+    """
+    now = now or timezone.now()
+    cleared = WebhookSubscription.objects.filter(previous_secret_expires_at__lte=now).update(
+        previous_secret_encrypted="", previous_secret_expires_at=None, updated_at=now
+    )
+    if cleared:
+        logger.info("webhook previous secrets expired: count=%s", cleared)
+    return cleared
+
+
 def run_once(*, budget_seconds=None, clock=time.monotonic) -> RunResult:
     """Process due subscriptions until done or the run budget is spent."""
     result = RunResult()
+    # Before the gate: turning the feature off must not strand a replaced secret.
+    sweep_expired_previous_secrets()
     if not webhooks_enabled():
         result.skipped = True
         return result
@@ -440,6 +476,8 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
         window &= Q(pk__lt=first_unsettled)
     WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(last_scanned_at=now)
     payloads = serialize_feed_rows(board.pk, rows, role=WEBHOOK_READER_ROLE, reader_id=None)
+    # Read once, so an unreadable one logs once per run, not once per row.
+    previous_secret = sub.get_previous_secret()
 
     cursor = sub.cursor
     pending = cursor  # cursor value not yet written (skipped rows)
@@ -456,7 +494,15 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
             # secret. The next run starts from the new state.
             result.lost_lease += 1
             break
-        body, headers = build_request(sub.pk, board.pk, payload, secret)
+        # The wall clock per row: the overlap can end during a run, and that is
+        # not a reconfiguration, so the run carries on with the current secret.
+        body, headers = build_request(
+            sub.pk,
+            board.pk,
+            payload,
+            secret,
+            previous_secret=previous_secret if sub.previous_secret_active_until else None,
+        )
         attempt_at = timezone.now()
         status, code = post(url, body, headers)
         if code is None:

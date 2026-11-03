@@ -166,7 +166,7 @@ export function testResultCopy(result: WebhookTestResult | "rate_limited", timeo
         remedy: redirect
           ? "Visiban doesn't follow redirects. Use the address the receiver redirects to."
           : result.status_code === 401 || result.status_code === 403
-            ? "Check that the receiver verifies X-Visiban-Signature with the current secret."
+            ? "Check that the receiver verifies X-Visiban-Signature with the current secret and accepts any value the header lists."
             : "Check the receiver's logs; it must answer with a 2xx status.",
       };
     }
@@ -246,9 +246,21 @@ export const SAMPLE_PAYLOAD = `{
 }`;
 
 export const VERIFY_STEPS = `signed   = timestamp + "." + raw request body
-expected = hex(HMAC_SHA256(secret, signed))
-accept if X-Visiban-Signature == "v1=" + expected
+expected = "v1=" + hex(HMAC_SHA256(secret, signed))
+values   = X-Visiban-Signature split on ",", each trimmed
+accept if any value == expected (constant time)
      and |now - X-Visiban-Timestamp| <= 300 seconds`;
+
+/** A rotate that failed with no clear refusal: the commit may have landed and only the response been lost. */
+export const ROTATE_UNCONFIRMED_COPY =
+  "Couldn't confirm the rotation. It may have gone through, in which case the new secret it made can't be shown. Rotate again to get a secret you can copy, and update your receiver right away: if the first rotation did go through, this one stops signing with the secret your receiver holds now.";
+
+/** A create that failed with no clear refusal: the same, and a retry would add a second webhook. */
+export const CREATE_UNCONFIRMED_COPY =
+  "Couldn't confirm the new webhook. It may have been created, in which case its secret can't be shown. Check All webhooks before you try again, and delete one you didn't mean to keep.";
+
+/** How long "keep old" signs with the replaced secret: 24 hours (the API allows up to seven days). */
+export const ROTATE_OVERLAP_SECONDS = 86400;
 
 export const WEBHOOKS_DOCS_URL = "https://docs.visiban.com/features/webhooks/";
 export const WEBHOOKS_VERIFY_URL = "https://docs.visiban.com/api/webhooks/#verifying-signatures";

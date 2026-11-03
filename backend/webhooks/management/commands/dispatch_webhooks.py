@@ -10,9 +10,11 @@ dispatchers never deliver the same event (webhooks.dispatch). Before exiting,
 either mode waits briefly for a disable notice's email, which is sent on a
 daemon thread and would otherwise die with the process.
 
-Exits at once, writing nothing, while ``WEBHOOKS_ENABLED`` is off or
-``DEMO_MODE`` is on. In ``--loop`` mode it keeps sleeping in that state, so
-turning the setting on needs only a restart of the backend, not a new service.
+Exits at once while ``WEBHOOKS_ENABLED`` is off or ``DEMO_MODE`` is on, delivering
+nothing; the one thing it writes in that state is clearing replaced signing
+secrets whose overlap has passed (#2054). In ``--loop`` mode it keeps sleeping in
+that state, so turning the setting on needs only a restart of the backend, not a
+new service.
 """
 
 import signal

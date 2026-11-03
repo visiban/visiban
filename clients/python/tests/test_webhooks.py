@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from visiban_client import verify_signature
+from visiban_client.webhooks import MAX_SIGNATURE_VALUES
 
 from .helpers import load_fixtures
 
@@ -27,6 +28,11 @@ class SignatureTests(unittest.TestCase):
                     case["secret"], case["headers"], case["body"].encode(), now=case["now"]
                 )
                 self.assertEqual(got, case["expected"])
+
+    def test_refuses_a_signature_header_over_the_value_cap(self):
+        signature = ",".join(["v2=x"] * MAX_SIGNATURE_VALUES + [SIG["signature"]])
+        h = {"X-Visiban-Timestamp": SIG["timestamp"], "X-Visiban-Signature": signature}
+        self.assertFalse(verify_signature(SIG["secret"], h, SIG["body"].encode(), now=1700000000))
 
     def test_rejects_str_body(self):
         with self.assertRaises(TypeError):

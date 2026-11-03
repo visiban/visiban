@@ -29,6 +29,8 @@ tab. The audit trail is the ``configured_by`` / ``*_at`` columns plus one
 structured log line per change (``dispatch.log_config_event``), ids only.
 """
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
@@ -62,6 +64,7 @@ from .serializers import (
     WebhookCreatedSerializer,
     WebhookReenableSerializer,
     WebhookRotatedSerializer,
+    WebhookRotateSerializer,
     WebhookStatusSerializer,
     WebhookSubscriptionSerializer,
     WebhookTestResultSerializer,
@@ -118,6 +121,19 @@ class _CodedForbidden(PermissionDenied):
 def _no_store(response):
     response["Cache-Control"] = "no-store"
     return response
+
+
+def _has_usable_secret(sub) -> bool:
+    """False for an empty secret or one under a lost key.
+
+    Rotating is how an admin recovers from either, so it must still succeed, but
+    keeping such a value as the previous secret would promise a grace period it
+    could never give.
+    """
+    try:
+        return bool(sub.get_secret())
+    except crypto.SecretDecryptionError:
+        return False
 
 
 class WebhookSubscriptionViewSet(viewsets.ViewSet):
@@ -281,7 +297,8 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         description=(
             "Any of `name`, `event_types`, `url`. Changing `url` requires an "
             "interactive session and makes the caller the webhook's owner "
-            "(`configured_by`); the secret is unchanged."
+            "(`configured_by`); the secret is unchanged, and any open secret "
+            "overlap ends."
         ),
         request=WebhookWriteSerializer,
         responses={200: WebhookSubscriptionSerializer, **_ERRORS},
@@ -308,7 +325,13 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
             sub.set_url(attrs["url"], ser.context["url_host"])
             sub.configured_by = request.user
             sub.configured_at = timezone.now()
-            fields += ["url_encrypted", "url_host", "configured_by", "configured_at"]
+            # The new host never held the old secret, and signing with it would
+            # hand that host requests replayable at the old receiver.
+            sub.clear_previous_secret()
+            fields += [
+                "url_encrypted", "url_host", "configured_by", "configured_at",
+                "previous_secret_encrypted", "previous_secret_expires_at",
+            ]
         # update_fields: the dispatcher writes this row concurrently (cursor,
         # failure state, lease, disable). A full-row save from this request's
         # earlier read would roll those back.
@@ -424,10 +447,20 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         summary="Rotate a webhook's signing secret",
         description=(
             "Requires an interactive session and makes the caller the owner. The "
-            "old secret stops working immediately; the new one is returned once."
+            "new secret is returned once. With `overlap_seconds` above 0 the old "
+            "secret keeps signing beside it until `previous_secret_expires_at`; "
+            "without it the old secret stops signing immediately and any open "
+            "overlap ends."
         ),
-        request=None,
-        responses={200: WebhookRotatedSerializer, **_READ_ERRORS},
+        request=WebhookRotateSerializer,
+        responses={
+            200: WebhookRotatedSerializer,
+            400: OpenApiResponse(
+                response=_ERROR,
+                description="`overlap_seconds` out of range (a field error), or a body that is not a JSON object.",
+            ),
+            **_READ_ERRORS,
+        },
     )
     @action(detail=True, methods=["post"])
     def rotate(self, request, board_pk=None, pk=None):
@@ -435,16 +468,37 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         self._require_session()
         self._throttle(WebhookConfigThrottle)
         sub = self._subscription(board, pk)
+        ser = WebhookRotateSerializer(data=require_json_object(request))
+        ser.is_valid(raise_exception=True)
+        overlap = ser.validated_data["overlap_seconds"]
         secret = generate_secret()
         now = timezone.now()
-        sub.set_secret(secret)
-        sub.secret_rotated_at = now
-        sub.configured_by = request.user
-        sub.configured_at = now
-        sub.save(update_fields=[
-            "secret_encrypted", "secret_rotated_at", "configured_by", "configured_at", "updated_at",
-        ])
-        dispatch.log_config_event("rotate", sub, actor_id=request.user.pk)
+        # Read-modify-write: the current secret becomes the previous one. Two
+        # rotations at once must not both read the same one, or the first caller's
+        # new secret, already on their screen, would vanish with no overlap.
+        with transaction.atomic():
+            try:
+                sub = WebhookSubscription.objects.select_for_update().get(pk=sub.pk)
+            except WebhookSubscription.DoesNotExist:
+                raise NotFound() from None
+            keep_previous = overlap > 0 and _has_usable_secret(sub)
+            if keep_previous:
+                sub.previous_secret_encrypted = sub.secret_encrypted
+                sub.previous_secret_expires_at = now + timedelta(seconds=overlap)
+            else:
+                sub.clear_previous_secret()
+            sub.set_secret(secret)
+            sub.secret_rotated_at = now
+            sub.configured_by = request.user
+            sub.configured_at = now
+            sub.save(update_fields=[
+                "secret_encrypted", "previous_secret_encrypted", "previous_secret_expires_at",
+                "secret_rotated_at", "configured_by", "configured_at", "updated_at",
+            ])
+        dispatch.log_config_event(
+            "rotate", sub, actor_id=request.user.pk, reason=f"overlap={overlap if keep_previous else 0}"
+        )
+        sub = self._subscription(board, sub.pk)
         data = dict(WebhookRotatedSerializer(sub).data)
         data["secret"] = secret
         return _no_store(Response(data))

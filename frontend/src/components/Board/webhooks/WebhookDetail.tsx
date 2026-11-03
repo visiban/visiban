@@ -4,6 +4,8 @@ import type { WebhookStatus, WebhookSubscription, WebhookTestResult } from "../.
 import { useConfirmFocusReturn } from "../../../hooks/useConfirmFocusReturn";
 import { relativeTime } from "../../../utils/relativeTime";
 import {
+  ROTATE_OVERLAP_SECONDS,
+  ROTATE_UNCONFIRMED_COPY,
   SAMPLE_PAYLOAD,
   SESSION_REQUIRED_COPY,
   URL_ERROR_COPY,
@@ -17,9 +19,10 @@ import {
   urlShapeError,
 } from "../../../constants/webhooks";
 import WebhookStatusPill from "./WebhookStatusPill";
-import { axiosResponse, urlInputClass } from "./webhookFormUtils";
+import { axiosResponse, outcomeUnknown, urlInputClass } from "./webhookFormUtils";
 
 export type WebhookConfirm = "delete" | "disable" | "reenable" | "rotate";
+type InFlightKind = WebhookConfirm | "test" | "address";
 
 interface Props {
   sub: WebhookSubscription;
@@ -37,7 +40,8 @@ interface Props {
   onTest: () => Promise<WebhookTestResult>;
   onDisable: () => Promise<void>;
   onReenable: (resumeFrom: WebhookResumeFrom, password?: string) => Promise<void>;
-  onRotate: () => Promise<void>;
+  /** `overlapSeconds`: how long the replaced secret keeps signing; 0 stops it now. */
+  onRotate: (overlapSeconds: number) => Promise<void>;
   onDelete: () => Promise<void>;
   onChangeAddress: (url: string) => Promise<void>;
 }
@@ -46,6 +50,9 @@ const SECONDARY_BTN =
   "text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40";
 const PRIMARY_BTN =
   "text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium disabled:opacity-40";
+const DANGER_BTN =
+  "text-xs bg-danger-bg text-on-danger px-3 py-1.5 rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis font-medium aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
+const INERT_WHEN_ARIA_DISABLED = "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 const CONFIRM_BTN = "min-h-6 px-1 text-danger hover:text-danger font-medium transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis";
 const CANCEL_BTN = "min-h-6 px-1 text-fg-tertiary hover:text-fg transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 
@@ -59,6 +66,16 @@ function dateLabel(iso: string | null): string {
   if (!iso) return "";
   const t = new Date(iso);
   return Number.isNaN(t.getTime()) ? "" : t.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function dateTimeLabel(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+/** The end of an open rotation overlap, or null. The server says null once past; so does this between refetches. */
+function overlapEnd(sub: WebhookSubscription, now: number): number | null {
+  const end = sub.previous_secret_expires_at ? Date.parse(sub.previous_secret_expires_at) : NaN;
+  return end > now ? end : null;
 }
 
 function lastErrorLine(sub: WebhookSubscription, now: number): string | null {
@@ -80,10 +97,15 @@ export default function WebhookDetail(props: Props) {
   const turnOnRef = useRef<HTMLButtonElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const turnOnConfirmRef = useRef<HTMLButtonElement>(null);
+  const keepOldRef = useRef<HTMLButtonElement>(null);
   const changeAddressRef = useRef<HTMLButtonElement>(null);
   const [focusChangeAddress, setFocusChangeAddress] = useState(false);
   const triggerRef = useConfirmFocusReturn<WebhookConfirm>(confirm);
-  const [inFlight, setInFlight] = useState<WebhookConfirm | "test" | "address" | null>(null);
+  // One entry per action, not one slot: a test send finishing must not re-arm a
+  // rotate still running, which would let a second rotate replace its secret.
+  const [inFlight, setInFlight] = useState<ReadonlySet<InFlightKind>>(() => new Set());
+  const busy = (kind: InFlightKind) => inFlight.has(kind);
+  const [rotateChoice, setRotateChoice] = useState<"keep" | "revoke" | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -104,6 +126,7 @@ export default function WebhookDetail(props: Props) {
     // The confirm replaced its trigger: move focus into it (the password
     // field when there is one, else the confirm's own button).
     if (confirm === "reenable") (passwordRef.current ?? turnOnConfirmRef.current)?.focus();
+    if (confirm === "rotate") keepOldRef.current?.focus();
     setConfirmError(null);
     setPasswordError(null);
     if (confirm !== "reenable") {
@@ -135,8 +158,8 @@ export default function WebhookDetail(props: Props) {
   const takeOver = sub.disabled_reason === "creator_lost_access";
   const expired = sub.disabled_reason === "cursor_expired" || expiredOnServer;
 
-  const handle = async (kind: WebhookConfirm | "test" | "address", fn: () => Promise<void>, fail: (err: unknown) => void) => {
-    setInFlight(kind);
+  const handle = async (kind: InFlightKind, fn: () => Promise<void>, fail: (err: unknown) => void) => {
+    setInFlight((prev) => new Set(prev).add(kind));
     try {
       await fn();
     } catch (err) {
@@ -147,12 +170,16 @@ export default function WebhookDetail(props: Props) {
         else setConfirmError(SESSION_REQUIRED_COPY);
       } else fail(err);
     } finally {
-      setInFlight(null);
+      setInFlight((prev) => {
+        const next = new Set(prev);
+        next.delete(kind);
+        return next;
+      });
     }
   };
 
   const runTest = () => {
-    if (inFlight === "test") return; // aria-disabled needs its own guard
+    if (busy("test")) return; // aria-disabled needs its own guard
     // Clear the old result so an identical new one is announced again.
     setTestResult(null);
     void handle(
@@ -196,6 +223,19 @@ export default function WebhookDetail(props: Props) {
     );
   };
 
+  const rotate = (choice: "keep" | "revoke") => {
+    if (busy("rotate")) return; // aria-disabled needs its own guard
+    setConfirmError(null);
+    setRotateChoice(choice);
+    void handle(
+      "rotate",
+      () => props.onRotate(choice === "keep" ? ROTATE_OVERLAP_SECONDS : 0),
+      (err) => {
+        setConfirmError(outcomeUnknown(err) ? ROTATE_UNCONFIRMED_COPY : "Couldn't rotate the secret. Try again.");
+      },
+    );
+  };
+
   const saveAddress = (e: React.FormEvent) => {
     e.preventDefault();
     const shape = urlShapeError(address);
@@ -223,10 +263,10 @@ export default function WebhookDetail(props: Props) {
   const inlineConfirm = (kind: WebhookConfirm, text: string, run: () => void) => (
     <div role="status" aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-2 text-xs text-fg py-1">
       <span>{text}</span>
-      <button type="button" onClick={run} disabled={inFlight === kind} aria-label={`Confirm: ${text}`} className={CONFIRM_BTN}>
+      <button type="button" onClick={run} disabled={busy(kind)} aria-label={`Confirm: ${text}`} className={CONFIRM_BTN}>
         Confirm
       </button>
-      <button type="button" onClick={() => onConfirmChange(null)} disabled={inFlight === kind} className={CANCEL_BTN}>
+      <button type="button" onClick={() => onConfirmChange(null)} disabled={busy(kind)} className={CANCEL_BTN}>
         Cancel
       </button>
       {confirmError && <p role="alert" className="basis-full text-danger">{confirmError}</p>}
@@ -234,6 +274,8 @@ export default function WebhookDetail(props: Props) {
   );
 
   const errLine = lastErrorLine(sub, now);
+  const oldSecretUntil = overlapEnd(sub, now);
+  const rotating = busy("rotate");
 
   return (
     <section aria-labelledby={`${uid}-heading`} className="flex flex-col gap-3.5">
@@ -299,10 +341,10 @@ export default function WebhookDetail(props: Props) {
               )}
               {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
               <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => onConfirmChange(null)} disabled={inFlight === "reenable"} className={SECONDARY_BTN}>
+                <button type="button" onClick={() => onConfirmChange(null)} disabled={busy("reenable")} className={SECONDARY_BTN}>
                   Cancel
                 </button>
-                <button ref={turnOnConfirmRef} type="button" onClick={confirmReenable} disabled={inFlight === "reenable"} className={PRIMARY_BTN}>
+                <button ref={turnOnConfirmRef} type="button" onClick={confirmReenable} disabled={busy("reenable")} className={PRIMARY_BTN}>
                   {takeOver ? "Take over and turn on" : expired ? "Turn on from now" : "Turn on"}
                 </button>
               </div>
@@ -345,10 +387,10 @@ export default function WebhookDetail(props: Props) {
                 className={urlInputClass(Boolean(addressError))}
               />
               <p id={`${uid}-addr-help`} role="status" aria-live="polite" aria-atomic="true" className={`text-xs min-h-4 ${addressError ? "text-danger" : "text-fg-tertiary"}`}>
-                {addressError ?? `${URL_HELPER_COPY} Changing it makes you this webhook's owner; the secret stays the same.`}
+                {addressError ?? `${URL_HELPER_COPY} Changing it makes you this webhook's owner; the secret stays the same${oldSecretUntil ? ", and the old secret stops being signed" : ""}.`}
               </p>
               <div className="flex gap-2">
-                <button type="submit" disabled={inFlight === "address"} className={PRIMARY_BTN}>Save address</button>
+                <button type="submit" disabled={busy("address")} className={PRIMARY_BTN}>Save address</button>
                 <button type="button" onClick={() => { setEditingAddress(false); setAddress(""); setAddressError(null); setFocusChangeAddress(true); }} className={SECONDARY_BTN}>
                   Cancel
                 </button>
@@ -390,13 +432,43 @@ export default function WebhookDetail(props: Props) {
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-fg-tertiary">Signing secret</span>
         <p className="text-xs text-fg-secondary">Set. It can't be shown again.</p>
+        {oldSecretUntil !== null && (
+          <p className="text-xs text-fg-secondary">Old secret still signed until {dateTimeLabel(oldSecretUntil)}.</p>
+        )}
         <div className="ml-6 border-l-2 border-line pl-4 flex flex-col gap-2">
           <p id={`${uid}-rotate-help`} className="text-xs text-fg-tertiary">
-            Rotating issues a new secret, shown once. The current one stops working right away.
+            Rotating issues a new secret, shown once. You choose whether the current one keeps signing for 24 hours or stops right away.
           </p>
           {confirm === "rotate"
-            ? inlineConfirm("rotate", "Rotate the secret? Update your receiver right after, or its signature checks will fail.", () =>
-                void handle("rotate", props.onRotate, () => setConfirmError("Couldn't rotate the secret. Try again.")))
+            ? (
+              <div role="group" aria-labelledby={`${uid}-rotate`} className="flex flex-col gap-2 py-1">
+                <p id={`${uid}-rotate`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
+                  Rotate the secret? Choose what happens to the current one.
+                </p>
+                <p id={`${uid}-rotate-keep`} className="text-xs text-fg-secondary">
+                  <span className="font-medium text-fg">Keep old secret for 24 hours:</span> Visiban signs each delivery with both secrets, so your receiver keeps working while you update it. Your receiver's check must accept any signature the header lists; see Verify the signature below.
+                  {oldSecretUntil !== null && " The older secret from your last rotation stops being signed either way, so update your receiver right away."}
+                </p>
+                <p id={`${uid}-rotate-revoke`} className="text-xs text-fg-secondary">
+                  <span className="font-medium text-fg">Revoke old secret now:</span> only the new secret signs from now on, and your receiver rejects deliveries until you update it.
+                </p>
+                <p id={`${uid}-rotate-leak`} className="text-xs text-fg-secondary">
+                  If the secret leaked, choose Revoke old secret now, then replace the secret on your receiver. Visiban can't revoke the old secret on your receiver, so anyone who holds it can forge requests until your receiver stops accepting it.
+                </p>
+                {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${SECONDARY_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={() => rotate("revoke")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-revoke ${uid}-rotate-leak`} className={DANGER_BTN}>
+                    {rotating && rotateChoice === "revoke" ? "Rotating…" : "Revoke old secret now"}
+                  </button>
+                  <button ref={keepOldRef} type="button" onClick={() => rotate("keep")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-keep`} className={`${PRIMARY_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
+                    {rotating && rotateChoice === "keep" ? "Rotating…" : "Keep old secret for 24 hours"}
+                  </button>
+                </div>
+              </div>
+            )
             : sub.disabled_reason !== "secret_unavailable" && !revealOpen && (
               <div>
                 <button ref={triggerRef("rotate")} type="button" onClick={() => onConfirmChange("rotate")} aria-describedby={`${uid}-rotate-help`} className={SECONDARY_BTN}>
@@ -424,8 +496,8 @@ export default function WebhookDetail(props: Props) {
 
       <div className="pt-3 border-t border-line flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={runTest} aria-disabled={inFlight === "test" || undefined} className={SECONDARY_BTN}>
-            {inFlight === "test" ? "Sending…" : "Send test event"}
+          <button type="button" onClick={runTest} aria-disabled={busy("test") || undefined} className={SECONDARY_BTN}>
+            {busy("test") ? "Sending…" : "Send test event"}
           </button>
           <span className="text-xs text-fg-tertiary">Sends one <span className="font-mono">webhook.test</span> event to the saved address.</span>
         </div>

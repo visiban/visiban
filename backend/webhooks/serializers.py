@@ -20,7 +20,7 @@ from accounts.serializers import BoardUserSerializer
 from visiban import egress
 from visiban.exceptions import CodedValidationError
 
-from .models import SUBSCRIBABLE_EVENT_TYPES, WebhookSubscription
+from .models import MAX_SECRET_OVERLAP_SECONDS, SUBSCRIBABLE_EVENT_TYPES, WebhookSubscription
 
 INVALID_EVENT_TYPES = "invalid_event_types"
 LIMIT_REACHED = "limit_reached"
@@ -178,6 +178,18 @@ class WebhookReenableSerializer(serializers.Serializer):
     )
 
 
+class WebhookRotateSerializer(serializers.Serializer):
+    overlap_seconds = serializers.IntegerField(
+        default=0,
+        min_value=0,
+        max_value=MAX_SECRET_OVERLAP_SECONDS,
+        help_text=(
+            "How long the replaced secret keeps signing beside the new one. `0` (the "
+            "default) stops it at once and ends any open overlap."
+        ),
+    )
+
+
 _DISABLED_REASONS = [c.value for c in WebhookSubscription.DisabledReason if c.value]
 
 
@@ -192,6 +204,12 @@ class WebhookSubscriptionSerializer(serializers.ModelSerializer):
         source="cursor",
         read_only=True,
         help_text="Id of the last change-feed row delivered or skipped by type.",
+    )
+    previous_secret_expires_at = serializers.DateTimeField(
+        source="previous_secret_active_until",
+        read_only=True,
+        allow_null=True,
+        help_text="When the replaced secret stops signing; null when no overlap is open.",
     )
 
     class Meta:
@@ -220,6 +238,7 @@ class WebhookSubscriptionSerializer(serializers.ModelSerializer):
             "updated_at",
             "configured_at",
             "secret_rotated_at",
+            "previous_secret_expires_at",
         ]
         read_only_fields = fields
 

@@ -21,13 +21,24 @@ destination without decrypting anything.
 Nothing here is registered in the Django admin, and the board export does not
 include subscriptions: a copied board must not inherit a destination or a
 signing secret.
+
+Rotation overlap (#2054)
+------------------------
+``previous_secret_encrypted`` holds the secret a rotation replaced, moved
+verbatim, so a receiver that has not updated yet keeps verifying until
+``previous_secret_expires_at``. It is only ever an optional extra signature: the
+current secret alone decides whether a delivery can be signed at all. The two
+columns are written together, by ``rotate``, a URL change and the dispatcher's
+sweep, and neither is ever returned by the API or written to a log.
 """
 
+import logging
 import secrets
 
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from boards.broadcast import BOARD_CHANNEL_EVENTS, EVT_BOARD_DELETED, EVT_PING
 from boards.permissions import ADMIN_ONLY_EVENTS, PER_USER_EVENTS
@@ -44,6 +55,12 @@ SUBSCRIBABLE_EVENT_TYPES = tuple(
 )
 
 SECRET_PREFIX = "whsec_"
+
+#: Longest ``rotate`` overlap: seven days. A constant, deliberately not a setting:
+#: this is how long a replaced signing secret may go on signing.
+MAX_SECRET_OVERLAP_SECONDS = 604800
+
+logger = logging.getLogger(__name__)
 
 
 def generate_secret() -> str:
@@ -67,6 +84,9 @@ class WebhookSubscription(models.Model):
     url_encrypted = models.TextField(default="", db_default="")
     url_host = models.CharField(max_length=255, default="", db_default="")
     secret_encrypted = models.TextField(default="", db_default="")
+    #: The replaced secret during a rotation overlap, same ciphertext and label.
+    previous_secret_encrypted = models.TextField(default="", db_default="", blank=True)
+    previous_secret_expires_at = models.DateTimeField(null=True, blank=True)
     #: Empty list = every type in SUBSCRIBABLE_EVENT_TYPES.
     event_types = models.JSONField(default=list, db_default=[])
     enabled = models.BooleanField(default=True, db_default=True)
@@ -146,6 +166,39 @@ class WebhookSubscription(models.Model):
     def get_secret(self) -> str:
         """Raises ``crypto.SecretDecryptionError``."""
         return crypto.decrypt_secret(self.secret_encrypted, info=crypto.WEBHOOK_SECRET_INFO)
+
+    @property
+    def previous_secret_active_until(self):
+        """When the open overlap ends, or None when there is none.
+
+        Reads the wall clock, so a window that has passed reads as closed even
+        before the dispatcher's sweep clears the columns.
+        """
+        expires_at = self.previous_secret_expires_at
+        if not self.previous_secret_encrypted or expires_at is None or expires_at <= timezone.now():
+            return None
+        return expires_at
+
+    def get_previous_secret(self) -> str | None:
+        """The previous secret while its overlap is open, else None. Never raises.
+
+        An unreadable previous secret costs only the receiver's grace period,
+        so unlike ``get_secret`` it does not stop delivery: the request is still
+        signed with the current secret, and the failure is logged by id.
+        """
+        if self.previous_secret_active_until is None:
+            return None
+        try:
+            return crypto.decrypt_secret(self.previous_secret_encrypted, info=crypto.WEBHOOK_SECRET_INFO) or None
+        except crypto.SecretDecryptionError:
+            logger.warning(
+                "webhook previous secret unreadable: subscription_id=%s board_id=%s", self.pk, self.board_id
+            )
+            return None
+
+    def clear_previous_secret(self):
+        self.previous_secret_encrypted = ""
+        self.previous_secret_expires_at = None
 
     def wants(self, event_type: str) -> bool:
         if event_type not in SUBSCRIBABLE_EVENT_TYPES:

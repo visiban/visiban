@@ -4,6 +4,7 @@ import {
   SESSION_REQUIRED_COPY,
   FORM_ERROR_COPY,
   FORM_GENERIC_COPY,
+  CREATE_UNCONFIRMED_COPY,
   FORM_THROTTLED_COPY,
   URL_ERROR_COPY,
   URL_HELPER_COPY,
@@ -11,7 +12,7 @@ import {
   urlShapeError,
 } from "../../../constants/webhooks";
 import WebhookEventTypePicker from "./WebhookEventTypePicker";
-import { axiosResponse, urlInputClass } from "./webhookFormUtils";
+import { axiosResponse, outcomeUnknown, urlInputClass } from "./webhookFormUtils";
 
 interface Props {
   eventOptions: string[];
@@ -71,6 +72,7 @@ export default function WebhookCreateForm({ eventOptions, onSubmit, onCancel }: 
       else if (code === "session_required") setFormError({ text: SESSION_REQUIRED_COPY, tone: "danger" });
       else if (code === "invalid_event_types") setEventsError(FORM_ERROR_COPY.invalid_event_types);
       else if (response?.status === 429) setFormError({ text: FORM_THROTTLED_COPY, tone: "warning" });
+      else if (outcomeUnknown(err)) setFormError({ text: CREATE_UNCONFIRMED_COPY, tone: "danger" });
       else setFormError({ text: (code && FORM_ERROR_COPY[code]) || FORM_GENERIC_COPY, tone: "danger" });
     } finally {
       setSubmitting(false);

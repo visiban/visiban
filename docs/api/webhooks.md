@@ -98,7 +98,8 @@ Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rota
   "created_at": "2026-11-01T09:10:00.000000Z",
   "updated_at": "2026-11-01T09:14:31.552000Z",
   "configured_at": "2026-11-01T09:10:00.000000Z",
-  "secret_rotated_at": null
+  "secret_rotated_at": null,
+  "previous_secret_expires_at": null
 }
 ```
 
@@ -146,7 +147,24 @@ The password is never echoed back or logged.
 
 ### `POST {id}/rotate/`
 
-Returns the subscription object plus a new `secret`, with `Cache-Control: no-store`. The old secret stops working immediately: a dispatcher run that started before the rotation stops before its next delivery. A delivery already in flight may still be signed with the old secret, and it is retried with the new one if your receiver rejects it.
+Returns the subscription object plus a new `secret`, with `Cache-Control: no-store`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `overlap_seconds` | integer, optional | How long the old secret keeps signing beside the new one: `0` to `604800` (seven days). Default `0`. |
+
+**With `overlap_seconds` above 0**, every delivery lists two signatures until `previous_secret_expires_at`, so a receiver holding either secret keeps working while you update it (see [Rotating without downtime](#rotating-without-downtime)). The dispatcher then drops the old secret; `previous_secret_expires_at` reads `null` once the time has passed. Only one previous secret is kept: rotating during an overlap replaces it with the secret being retired and starts a new window.
+
+**With `0`, or an empty body**, the old secret stops signing immediately and any open overlap ends: a dispatcher run that started before the rotation stops before its next delivery. A delivery already in flight may still be signed with the old secret, and it is retried with the new one if your receiver rejects it.
+
+If the current secret cannot be decrypted (or is empty), the rotation still succeeds, no overlap opens and `previous_secret_expires_at` is `null`.
+
+!!! warning "If the secret leaked, use `overlap_seconds: 0` and replace it on your receiver"
+    Visiban cannot revoke trust in a secret. Whoever holds a leaked secret can forge requests your receiver accepts until **your receiver** stops accepting that secret, whatever Visiban sends. `overlap_seconds: 0` only stops Visiban's own signatures with it. An overlap keeps those signatures going, so never use one to rotate away from a compromised secret.
+
+A value out of range, or of the wrong type, is a `400` field error keyed `overlap_seconds`.
+
+Changing a webhook's `url` also ends any open overlap: the new host never held the old secret, and requests signed with it could be replayed at the old receiver.
 
 ### `POST {id}/test/`
 
@@ -166,7 +184,7 @@ Sends the event below, synchronously, with the same headers and signature as a r
 
 ### Validation errors
 
-The refusals below carry the machine-error shape `{"detail": "...", "code": "..."}` with a string `code`. Other invalid input (a `name` over 200 characters, a `resume_from` other than `cursor` or `latest`) returns the standard DRF field-error object keyed by field name, with no `code`. A body that is not a JSON object is a plain `400`.
+The refusals below carry the machine-error shape `{"detail": "...", "code": "..."}` with a string `code`. Other invalid input (a `name` over 200 characters, a `resume_from` other than `cursor` or `latest`, an `overlap_seconds` out of range) returns the standard DRF field-error object keyed by field name, with no `code`. A body that is not a JSON object is a plain `400`.
 
 | `code` | When |
 |---|---|
@@ -202,7 +220,7 @@ The body is one row of the [change feed](events.md), exactly as `GET /boards/{id
 | `X-Visiban-Event-Id` | The change-feed id. **Your idempotency key**: delivery is at-least-once, so the same id can arrive twice. `0` is the test event. |
 | `X-Visiban-Board-Id`, `X-Visiban-Subscription-Id` | Which board and which webhook. |
 | `X-Visiban-Timestamp` | Unix seconds when this request was signed. |
-| `X-Visiban-Signature` | `v1=` + hex HMAC-SHA256 of `"{timestamp}.{raw body}"` with the webhook's secret. |
+| `X-Visiban-Signature` | One or more comma-separated signatures, each `v1=` + hex HMAC-SHA256 of `"{timestamp}.{raw body}"`. One value with the webhook's secret; during a [rotation overlap](#rotating-without-downtime), two: `v1=<new>,v1=<old>`. |
 
 ### Response
 
@@ -218,8 +236,9 @@ Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. T
 
 1. Read the raw request body as bytes, **before** any JSON parsing.
 2. Compute HMAC-SHA256 of `timestamp + "." + body` with your secret, hex-encoded, and prefix `v1=`.
-3. Compare it with `X-Visiban-Signature` in constant time.
-4. Refuse the request if `X-Visiban-Timestamp` is more than 5 minutes from your clock. That limits replay of a captured request.
+3. Split `X-Visiban-Signature` on commas and trim each value (a proxy may fold the header). Refuse more than 8 values.
+4. Compare your signature with **each** value in constant time, and accept the request when **any** value matches. A scheme you do not recognize simply does not match; do not treat it as an error.
+5. Refuse the request if `X-Visiban-Timestamp` is more than 5 minutes from your clock. That limits replay of a captured request.
 
 === "Python"
 
@@ -229,6 +248,7 @@ Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. T
     import time
 
     TOLERANCE_SECONDS = 300
+    MAX_SIGNATURE_VALUES = 8
 
     # headers: a case-insensitive mapping, such as Django's request.headers or Flask's request.headers.
     def verify(secret: str, headers, raw_body: bytes) -> bool:
@@ -239,8 +259,14 @@ Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. T
         if abs(time.time() - int(timestamp)) > TOLERANCE_SECONDS:
             return False
         message = timestamp.encode() + b"." + raw_body
-        expected = "v1=" + hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected, signature)
+        expected = ("v1=" + hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()).encode()
+        values = signature.split(",")
+        if len(values) > MAX_SIGNATURE_VALUES:
+            return False
+        matched = False
+        for value in values:
+            matched |= hmac.compare_digest(expected, value.strip().encode())
+        return matched
     ```
 
 === "Node.js"
@@ -249,6 +275,7 @@ Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. T
     const crypto = require("node:crypto");
 
     const TOLERANCE_SECONDS = 300;
+    const MAX_SIGNATURE_VALUES = 8;
 
     // rawBody must be the unparsed request body (a Buffer), e.g. express.raw({ type: "application/json" }).
     function verify(secret, headers, rawBody) {
@@ -261,8 +288,18 @@ Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order. T
         "v1=" +
         crypto.createHmac("sha256", secret).update(`${timestamp}.`).update(rawBody).digest("hex");
       const a = Buffer.from(expected);
-      const b = Buffer.from(signature);
-      return a.length === b.length && crypto.timingSafeEqual(a, b);
+      const values = signature.split(",");
+      if (values.length > MAX_SIGNATURE_VALUES) {
+        return false;
+      }
+      let matched = false;
+      for (const value of values) {
+        const b = Buffer.from(value.trim());
+        if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+          matched = true;
+        }
+      }
+      return matched;
     }
     ```
 
@@ -270,6 +307,21 @@ Test vector: secret `whsec_test`, timestamp `1700000000`, body `{"a":1}` gives
 `v1=38877139021993b830af32feea6e18a8da83eb2f6e49ee50bd9e4cf4ca4d3789`.
 
 The [Python and TypeScript clients](events.md#using-the-client) ship this check as `verify_signature` / `verifySignature` (experimental, and tested against the vector above), so a consumer that both polls and receives pushes can use one package.
+
+### Rotating without downtime
+
+Rotating with `overlap_seconds` lists both signatures, new first, with no spaces, over the same timestamp and body:
+
+```http
+X-Visiban-Signature: v1=<signature with the new secret>,v1=<signature with the old secret>
+```
+
+Your receiver holds **one** secret and needs no second setting: it accepts the request when any listed value matches. So the order of work is: rotate with an overlap, put the new secret in your receiver, and let the window end. Outside a window the header is a single value, byte-for-byte what it has always been.
+
+!!! warning "A verifier that compares the whole header rejects every delivery during an overlap"
+    Comparing `X-Visiban-Signature` as one string fails on `v1=a,v1=b`, **whichever secret the receiver holds**. Every snippet and client published before overlaps were added does that, and an un-upgraded receiver fails closed. No stable release carried those verifiers, which is why the format could change at all, but if you built a receiver against a development build or an earlier copy of these snippets, update it (or the client package) to the check above before you use an overlap. A rotation with `overlap_seconds: 0` never sends two values.
+
+The header is not itself signed, so anything on the path could append a value. That is harmless: an appended value still has to match the HMAC of the timestamp and body under your secret.
 
 ## Stability
 

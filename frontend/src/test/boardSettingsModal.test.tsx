@@ -33,6 +33,7 @@ vi.mock('../api/webhooks', () => ({
   }),
   listWebhooks: vi.fn().mockResolvedValue([]),
   createWebhook: vi.fn(),
+  rotateWebhookSecret: vi.fn(),
 }))
 
 vi.mock('../api/auth', () => ({
@@ -2863,7 +2864,7 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
       consecutive_failures: 0, failing_since: null, next_attempt_at: null, last_attempt_at: null,
       last_success_at: null, last_error_code: '', last_status_code: null, created_by: null, configured_by: null,
       created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', configured_at: null,
-      secret_rotated_at: null, url: 'https://hooks.example.com/abcd', secret: 'whsec_modal',
+      secret_rotated_at: null, previous_secret_expires_at: null, url: 'https://hooks.example.com/abcd', secret: 'whsec_modal',
     })
     const user = userEvent.setup()
     const onClose = vi.fn()
@@ -2889,6 +2890,64 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
     // With no secret on screen, Close closes.
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  describe('with a one-time secret on its way (#2054)', () => {
+    const webhook = {
+      id: 9, board: 1, name: '', url_display: 'hooks.example.com/…/abcd', url_host: 'hooks.example.com',
+      event_types: [], enabled: true, disabled_reason: null, disabled_at: null, last_delivered_event_id: 0,
+      consecutive_failures: 0, failing_since: null, next_attempt_at: null, last_attempt_at: null,
+      last_success_at: null, last_error_code: '', last_status_code: null, created_by: null, configured_by: null,
+      created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', configured_at: null,
+      secret_rotated_at: null, previous_secret_expires_at: null,
+    }
+
+    async function expectEveryWayOutRefused(container: HTMLElement, onClose: ReturnType<typeof vi.fn>, user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+      await user.click(container.firstChild as HTMLElement)
+      fireEvent.keyDown(document, { key: 'Escape' })
+      await user.click(screen.getByRole('button', { name: 'Data' }))
+      expect(onClose).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
+      expect(await screen.findByText(/Wait for the new secret/)).toBeInTheDocument()
+    }
+
+    it('rotate: Close, the backdrop, Escape and a tab switch cannot lose the response', async () => {
+      const { listWebhooks, rotateWebhookSecret } = await import('../api/webhooks')
+      ;(listWebhooks as ReturnType<typeof vi.fn>).mockResolvedValueOnce([webhook])
+      let finish: (value: unknown) => void = () => {}
+      ;(rotateWebhookSecret as ReturnType<typeof vi.fn>).mockReturnValue(new Promise((resolve) => { finish = resolve }))
+      const user = userEvent.setup()
+      const onClose = vi.fn()
+      const { container } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
+      await user.click(await screen.findByRole('button', { name: /^Manage webhook/ }))
+      await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+      await user.click(screen.getByRole('button', { name: 'Keep old secret for 24 hours' }))
+
+      await expectEveryWayOutRefused(container, onClose, user)
+
+      finish({ ...webhook, secret: 'whsec_rotated' })
+      const reveal = await screen.findByTestId('webhook-secret-reveal')
+      expect(within(reveal).getByRole('textbox')).toHaveValue('whsec_rotated')
+    })
+
+    it('create: Close, the backdrop, Escape and a tab switch cannot lose the response', async () => {
+      const { createWebhook } = await import('../api/webhooks')
+      let finish: (value: unknown) => void = () => {}
+      ;(createWebhook as ReturnType<typeof vi.fn>).mockReturnValue(new Promise((resolve) => { finish = resolve }))
+      const user = userEvent.setup()
+      const onClose = vi.fn()
+      const { container } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
+      await user.click(await screen.findByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+
+      await expectEveryWayOutRefused(container, onClose, user)
+
+      finish({ ...webhook, url: 'https://hooks.example.com/abcd', secret: 'whsec_created' })
+      const reveal = await screen.findByTestId('webhook-secret-reveal')
+      expect(within(reveal).getByRole('textbox')).toHaveValue('whsec_created')
+    })
   })
 })
 

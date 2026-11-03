@@ -4,10 +4,14 @@
  * "@visiban/client/webhooks" so the main entry point stays browser-safe.
  *
  * X-Visiban-Signature = "v1=" + hex(HMAC-SHA256(secret, `${timestamp}.${raw body}`))
+ *
+ * During a secret rotation the header lists two comma-separated values,
+ * `v1=<new>,v1=<old>`; a request is accepted when any listed value matches.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const TOLERANCE_SECONDS = 300;
+export const MAX_SIGNATURE_VALUES = 8;
 
 export type HeadersLike = Headers | Record<string, string | string[] | undefined>;
 
@@ -18,8 +22,9 @@ function header(headers: HeadersLike, name: string): string {
   const lowered = name.toLowerCase();
   for (const [key, value] of Object.entries(headers)) {
     if (key.toLowerCase() === lowered) {
-      const first = Array.isArray(value) ? value[0] : value;
-      return typeof first === "string" ? first : "";
+      // Several header lines mean what one comma-joined line means.
+      const joined = Array.isArray(value) ? value.join(",") : value;
+      return typeof joined === "string" ? joined : "";
     }
   }
   return "";
@@ -34,7 +39,8 @@ export interface VerifyOptions {
 
 /**
  * True when the delivery is authentic and fresh. `rawBody` must be the exact
- * bytes received, before JSON parsing. Never throws on bad input headers.
+ * bytes received, before JSON parsing. Never throws on bad input headers. More
+ * than MAX_SIGNATURE_VALUES values in the signature header is a refusal.
  */
 export function verifySignature(
   secret: string | Uint8Array,
@@ -64,6 +70,14 @@ export function verifySignature(
   }
   const expected = "v1=" + createHmac("sha256", secret).update(`${timestamp}.`).update(rawBody).digest("hex");
   const a = Buffer.from(expected);
-  const b = Buffer.from(signature);
-  return a.length === b.length && timingSafeEqual(a, b);
+  const values = signature.split(",");
+  if (values.length > MAX_SIGNATURE_VALUES) return false;
+  // Every value is compared, with no early exit, so the time taken does not say
+  // which one matched. An unknown scheme is just a value that does not match.
+  let matched = false;
+  for (const value of values) {
+    const b = Buffer.from(value.trim());
+    if (a.length === b.length && timingSafeEqual(a, b)) matched = true;
+  }
+  return matched;
 }
