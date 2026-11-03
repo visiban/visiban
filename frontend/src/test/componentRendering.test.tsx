@@ -207,6 +207,16 @@ describe('CardItem', () => {
     expect(screen.queryByTitle('Stale — no movement recently')).not.toBeInTheDocument()
   })
 
+  it('lifts to the overlay badge\'s z when selected or holding focus, so the badge cannot hide its checkbox (#459)', () => {
+    const { container, rerender } = render(<CardItem density="dense" card={makeCard()} selected />)
+    const root = () => container.querySelector('.group') as HTMLElement
+    expect(root().className).toContain('z-[5]')
+    expect(root().className).not.toMatch(/(^|\s)z-0(\s|$)/)
+    rerender(<CardItem density="dense" card={makeCard()} />)
+    expect(root().className).toMatch(/(^|\s)z-0(\s|$)/)
+    expect(root().className).toContain('focus-within:z-[5]')
+  })
+
   it('shows recently moved dot when last_moved_at is within 24 hours', () => {
     const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
     render(<CardItem density="dense" card={makeCard({ last_moved_at: recentlyMoved })} />)

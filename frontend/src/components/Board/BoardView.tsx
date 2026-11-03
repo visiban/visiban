@@ -94,6 +94,7 @@ import { formatPresetDifference, getBoardPreset, listBoardPresets, presetSummary
 import { PRESET_COMMAND_EVENT, type PresetCommand } from "../../boardPresets/activePresetStore";
 import type { BoardPresetId } from "../../types";
 import PresetNoticeToast, { PRESET_LINK_NOTICE_MS, PRESET_NOTICE_MS } from "./PresetNoticeToast";
+import { useOverlayClock } from "../../hooks/useOverlayClock";
 import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
@@ -547,6 +548,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     window.addEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
     return () => window.removeEventListener(PRESET_COMMAND_EVENT, onPresetCommand);
   }, []);
+  const gridOverlayNow = useOverlayClock(gridOverlay?.refreshMs);
   const gridOverlayOptions = useMemo(
     () => listGridOverlays().map((o) => ({ value: o.id, label: o.label })),
     [],
@@ -1895,8 +1897,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         swimlanes: board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id)),
         cards: filteredCardIds ? board.cards.filter((c) => filteredCardIds.has(c.id)) : board.cards,
         isFiltered: filteredCardIds !== null,
+        now: gridOverlayNow,
       }),
-    [gridOverlay, board.columns, board.swimlanes, board.cards, hiddenColumnIds, hiddenSwimlaneIds, filteredCardIds],
+    [gridOverlay, gridOverlayNow, board.columns, board.swimlanes, board.cards, hiddenColumnIds, hiddenSwimlaneIds, filteredCardIds],
   );
 
   const handleColumnAdded = useCallback((col: Column) => {

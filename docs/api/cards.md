@@ -182,6 +182,7 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
 | `updated_at` | string | yes | no | ISO 8601 timestamp of last field update |
 | `last_moved_at` | string / null | yes | yes | ISO 8601 timestamp of the card's most recent `CardMovement`; `null` for cards that have never been moved |
 | `last_move_is_creation` | boolean | yes | yes | `true` when the most recent `CardMovement` is the card's creation (empty `from_column_name`, type `move`) rather than a move. Clients use it to avoid labeling a new card "moved"; `last_moved_at` is unchanged |
+| `column_entered_at` | string / null | yes | yes | ISO 8601 start of the card's open visit to its current column, since 1.3 (#459): the clock the [dwell time overlay](../features/board.md#dwell-time) runs from. A swimlane-only move does not change it, unlike `last_moved_at`; a move to another column, a restore or a reopen does. `null` for an archived card, a card in a done column, and a card with no measured open visit (no recorded movement, or a column that does not match its history). Not on the anonymous share-link payload. Definition: [Flow metric definitions](../architecture/decisions.md#bottleneck-overlay-459) |
 | `attachment_count` | integer | yes | no | Number of attachments on this card |
 | `checklist_total` | integer | yes | no | Total number of checklist items |
 | `checklist_done` | integer | yes | no | Number of checked checklist items |
@@ -216,6 +217,7 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
   "updated_at": "2026-03-15T09:41:22Z",
   "last_moved_at": "2026-03-15T09:41:22Z",
   "last_move_is_creation": false,
+  "column_entered_at": "2026-03-15T09:41:22Z",
   "attachment_count": 2,
   "checklist_total": 3,
   "checklist_done": 1,

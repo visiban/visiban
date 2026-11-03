@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act, render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
@@ -2160,5 +2160,104 @@ describe('useBoard — maintenance mode (#783)', () => {
 
     expect(result.current.board!.cards[0].column).toBe(10)
     expect(result.current.moveError?.code).toBe('move_failed')
+  })
+})
+
+// The dwell overlay reads `column_entered_at` off the card (#459), so an optimistic move
+// has to keep it true until the server's copy lands, or the cell lies in between.
+describe('useBoard — column_entered_at across a move (#459)', () => {
+  const ENTERED = '2026-10-01T00:00:00.000Z'
+  const NOW = Date.UTC(2026, 10, 3, 12)
+
+  async function renderCard() {
+    const base = makeBoard()
+    mockGetBoardFull.mockResolvedValue({
+      ...base,
+      columns: [base.columns[0], { ...base.columns[0], id: 11, uid: 'col11', name: 'Doing' }, { ...base.columns[0], id: 12, uid: 'col12', name: 'Done', is_done: true }],
+      cards: [{ ...base.cards[0], column: base.columns[0].id, column_entered_at: ENTERED, version: 1 }],
+    })
+    const hook = renderHook(() => useBoard())
+    await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+    return hook
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  /** Starts a move that never settles, so the optimistic copy can be read. */
+  function moveAndHold(result: { current: ReturnType<typeof useBoard> }, column: number, swimlane: number) {
+    mockMoveCard.mockReturnValueOnce(new Promise(() => {}))
+    act(() => { void result.current.moveCard(result.current.board!.cards[0].id, column, swimlane, 0) })
+    return result.current.board!.cards[0]
+  }
+
+  it('starts a new visit when the card changes column', async () => {
+    const { result } = await renderCard()
+    const before = Date.now()
+    const card = moveAndHold(result, 11, result.current.board!.cards[0].swimlane)
+    expect(card.column_entered_at).not.toBe(ENTERED)
+    expect(Date.parse(card.column_entered_at!)).toBeGreaterThanOrEqual(before - 1000)
+  })
+
+  it('clears it when the card enters a done column', async () => {
+    const { result } = await renderCard()
+    expect(moveAndHold(result, 12, result.current.board!.cards[0].swimlane).column_entered_at).toBeNull()
+  })
+
+  it('keeps it on a swimlane-only move, which is not a new visit', async () => {
+    const { result } = await renderCard()
+    const { column } = result.current.board!.cards[0]
+    expect(moveAndHold(result, column, 99).column_entered_at).toBe(ENTERED)
+  })
+
+  it('restores it when the move is rolled back', async () => {
+    const { result } = await renderCard()
+    const { id, swimlane } = result.current.board!.cards[0]
+    mockMoveCard.mockRejectedValueOnce(new Error('network'))
+    await act(async () => { await result.current.moveCard(id, 11, swimlane, 0) })
+    expect(result.current.board!.cards[0].column_entered_at).toBe(ENTERED)
+  })
+
+  it('takes the server value from the move response', async () => {
+    const { result } = await renderCard()
+    const card = result.current.board!.cards[0]
+    mockMoveCard.mockResolvedValueOnce({ card: { ...card, column: 11, version: 2, column_entered_at: '2026-11-03T11:59:59.000Z' } })
+    await act(async () => { await result.current.moveCard(card.id, 11, card.swimlane, 0) })
+    expect(result.current.board!.cards[0].column_entered_at).toBe('2026-11-03T11:59:59.000Z')
+  })
+
+  it('applies the same rules to a forced move', async () => {
+    const { result } = await renderCard()
+    const { id, swimlane } = result.current.board!.cards[0]
+    mockMoveCard.mockRejectedValueOnce(new Error('network'))
+    await act(async () => { await result.current.forceMoveCardTo(id, 12, swimlane, 0) })
+    expect(result.current.board!.cards[0].column_entered_at).toBe(ENTERED)
+    mockMoveCard.mockReturnValueOnce(new Promise(() => {}))
+    act(() => { void result.current.forceMoveCardTo(id, 12, swimlane, 0) })
+    expect(result.current.board!.cards[0].column_entered_at).toBeNull()
+  })
+
+  it('reloads when a column stops being done, because its cards have no time yet', async () => {
+    const { result } = await renderCard()
+    const done = result.current.board!.columns.find((c) => c.id === 12)!
+    mockGetBoardFull.mockClear()
+    act(() => { result.current.updateColumn({ ...done, is_done: false }) })
+    await waitFor(() => expect(mockGetBoardFull).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not reload for any other column change', async () => {
+    const { result } = await renderCard()
+    const doing = result.current.board!.columns.find((c) => c.id === 11)!
+    const done = result.current.board!.columns.find((c) => c.id === 12)!
+    mockGetBoardFull.mockClear()
+    act(() => { result.current.updateColumn({ ...doing, name: 'Renamed' }) })
+    act(() => { result.current.updateColumn({ ...doing, is_done: true }) })
+    act(() => { result.current.updateColumn({ ...done, name: 'Shipped' }) })
+    expect(mockGetBoardFull).not.toHaveBeenCalled()
   })
 })

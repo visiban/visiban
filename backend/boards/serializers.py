@@ -4,7 +4,8 @@ import json
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models as _db_models
-from django.db.models import Prefetch
+from django.db.models import F, Prefetch, Q
+from django.db.models.functions import Coalesce, Concat, NullIf
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
@@ -2344,6 +2345,103 @@ def _annotate_last_move(qs):
     )
 
 
+def _movement_column_key(prefix):
+    """The ADR's "column key" of one end of a movement, as a SQL expression.
+
+    The uid snapshot when present, else the uid of the column the FK still
+    points to, else the name snapshot marked as a name, else NULL (unknown).
+    The ``name:`` mark keeps a name from ever comparing equal to a uid: a
+    column deleted and recreated under one name is a different column (see
+    *Flow metric definitions* in docs/architecture/decisions.md).
+    """
+    return Coalesce(
+        NullIf(F(f"{prefix}_column_uid"), _db_models.Value("")),
+        F(f"{prefix}_column__uid"),
+        _db_models.Case(
+            _db_models.When(**{f"{prefix}_column_name": ""}, then=_db_models.Value(None)),
+            default=Concat(_db_models.Value("name:"), F(f"{prefix}_column_name")),
+            output_field=_db_models.CharField(),
+        ),
+        output_field=_db_models.CharField(),
+    )
+
+
+def _annotate_column_entered_at(qs):
+    """Annotate ``_column_entered_at``: the start of the card's open visit (#459).
+
+    This is the value the bottleneck overlay's current dwell runs from, and the
+    server's half of the *Flow metric definitions* ADR: the browser only
+    computes ``now - column_entered_at`` and a median, so what counts as a visit
+    is decided once, here.
+
+    ``last_moved_at`` cannot stand in for it. ``move_card`` writes a movement
+    for a swimlane-only move, and archive and restore write rows too, so the
+    newest movement of any kind is not when the card entered its column. A
+    swimlane-only move must not reset dwell.
+
+    The subquery takes the newest row that opens or closes a visit, ignoring
+    rows dated after this request (an import can write those, and they must not
+    produce a negative dwell):
+
+    * a transition (both column keys known and different), the creation
+      movement, or an ``unarchived`` event opens one; its ``moved_at`` is the
+      answer, but only if it opened it in the card's current column, because a
+      mismatch means the card changed column without a movement (a Django admin
+      edit) and the visit is not measured;
+    * an ``archived`` event closes one, so the card has no open visit;
+    * a swimlane-only move or an unattributable row does neither and is skipped.
+
+    Archived cards and cards in done columns short-circuit to NULL in the CASE,
+    so a board's Done column pays for no subquery. ``_card_queryset`` applies
+    this next to ``_annotate_last_move``, for the same reason (#1883): a
+    correlated subquery in the main SELECT costs no per-card query and does not
+    grow the Python side with history. Compiled per queryset, because "after
+    this request" needs the current time; idempotent like its neighbors.
+    """
+    if "_column_entered_at" in qs.query.annotations:
+        return qs
+    from .models import CardMovement as _CM
+    types = _CM.MovementType
+    earlier = _CM.objects.filter(card=_db_models.OuterRef("card_id")).filter(
+        Q(moved_at__lt=_db_models.OuterRef("moved_at"))
+        | Q(moved_at=_db_models.OuterRef("moved_at"), id__lt=_db_models.OuterRef("id"))
+    )
+    visit_events = (
+        _CM.objects.filter(card=_db_models.OuterRef("pk"), moved_at__lte=timezone.now())
+        .annotate(_from_key=_movement_column_key("from"), _to_key=_movement_column_key("to"))
+        .filter(
+            Q(movement_type__in=[types.ARCHIVED, types.UNARCHIVED])
+            | (
+                Q(movement_type=types.MOVE, _from_key__isnull=False, _to_key__isnull=False)
+                & ~Q(_from_key=F("_to_key"))
+            )
+            | (
+                # The creation movement: the card's earliest row, source empty.
+                # A later row with an empty source is unattributable, not a start.
+                Q(movement_type=types.MOVE, _from_key__isnull=True, _to_key__isnull=False)
+                & ~_db_models.Exists(earlier)
+            )
+        )
+        .order_by("-moved_at", "-id")
+        .annotate(
+            _visit_start=_db_models.Case(
+                _db_models.When(movement_type=types.ARCHIVED, then=_db_models.Value(None)),
+                _db_models.When(_to_key=_db_models.OuterRef("column__uid"), then=F("moved_at")),
+                default=_db_models.Value(None),
+                output_field=_db_models.DateTimeField(),
+            )
+        )
+    )
+    return qs.annotate(
+        _column_entered_at=_db_models.Case(
+            _db_models.When(archived_at__isnull=False, then=_db_models.Value(None)),
+            _db_models.When(column__is_done=True, then=_db_models.Value(None)),
+            default=_db_models.Subquery(visit_events.values("_visit_start")[:1]),
+            output_field=_db_models.DateTimeField(),
+        )
+    )
+
+
 def _annotate_is_stale(qs, stale_cutoff):
     """Annotate the queryset with ``_is_stale_annotated`` at the SQL level.
 
@@ -2555,6 +2653,23 @@ def _last_moved_at(card):
     return last[0] if last else None
 
 
+def _column_entered_at(card):
+    """Start of the card's open visit to its column, or ``None`` (#459).
+
+    Reads the ``_annotate_column_entered_at`` annotation when present. A card
+    from a hand-built queryset runs the same expression for just itself, so the
+    definition never forks and a missed queryset is slow, never wrong (the same
+    contract as ``_last_move``).
+    """
+    if hasattr(card, "_column_entered_at"):
+        return card._column_entered_at
+    return (
+        _annotate_column_entered_at(Card.objects.filter(pk=card.pk))
+        .values_list("_column_entered_at", flat=True)
+        .first()
+    )
+
+
 def _last_move_is_creation(card) -> bool:
     """True when the newest movement is the card's creation row (#1576).
 
@@ -2706,7 +2821,7 @@ def _card_queryset(qs, stale_cutoff=None):
             _active_blockers_prefetch(),
         )
     )
-    qs = _annotate_last_move(qs)
+    qs = _annotate_column_entered_at(_annotate_last_move(qs))
     if stale_cutoff is not None:
         qs = _annotate_is_stale(qs, stale_cutoff)
     return qs
@@ -2794,6 +2909,7 @@ class CardSerializer(serializers.ModelSerializer):
     description = serializers.CharField(max_length=50_000, allow_blank=True, required=False)
     last_moved_at = serializers.SerializerMethodField()
     last_move_is_creation = serializers.SerializerMethodField()
+    column_entered_at = serializers.SerializerMethodField()
     # Read-and-write, same shape both ways — see CustomFieldValuesField (#371).
     custom_field_values = CustomFieldValuesField()
     # MR/PR link (#352). Omitted = untouched, null = cleared, object = full
@@ -2847,7 +2963,8 @@ class CardSerializer(serializers.ModelSerializer):
             "id", "uid", "column", "swimlane", "title", "description", "priority",
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
-            "last_moved_at", "last_move_is_creation", "attachment_count", "checklist_total", "checklist_done",
+            "last_moved_at", "last_move_is_creation", "column_entered_at",
+            "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
             # Manual blocked state (#1149). Additive; read-only here — they
@@ -3010,6 +3127,11 @@ class CardSerializer(serializers.ModelSerializer):
 
     def get_last_move_is_creation(self, obj) -> bool:
         return _last_move_is_creation(obj)
+
+    def get_column_entered_at(self, obj) -> datetime.datetime | None:
+        # Nullable on purpose (#459), see _annotate_column_entered_at. The hint
+        # keeps the schema nullable, as on get_last_moved_at (#1108).
+        return _column_entered_at(obj)
 
     def get_attachment_count(self, obj) -> int:
         # len() on the prefetched rows uses memory; .count() would query.

@@ -1,5 +1,4 @@
 import type { GridOverlayLevelSummary, GridOverlayState } from "../../../gridOverlays/slot";
-import { formatOverlayValue } from "../../../gridOverlays/scale";
 
 interface Props {
   state: GridOverlayState;
@@ -23,10 +22,18 @@ function Swatch({ level, dimmed = false }: { level: GridOverlayLevelSummary; dim
 }
 
 /** Observed range for a level, or an em dash when no cell landed in it. */
-function rangeLabel(level: GridOverlayLevelSummary): string {
-  if (level.count === 0) return "—";
-  if (level.min === level.max) return formatOverlayValue(level.min);
-  return `${formatOverlayValue(level.min)}–${formatOverlayValue(level.max)}`;
+function RangeLabel({ level, format }: { level: GridOverlayLevelSummary; format: (value: number) => string }) {
+  // Many screen readers skip a bare em dash, which would leave a step name with no value.
+  if (level.count === 0) {
+    return (
+      <>
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">no cells</span>
+      </>
+    );
+  }
+  if (level.min === level.max) return <>{format(level.min)}</>;
+  return <>{`${format(level.min)}–${format(level.max)}`}</>;
 }
 
 /**
@@ -53,24 +60,31 @@ export default function GridOverlayLegend({ state, isDragging = false, isLargeVi
   const emptyCopy = state.isFiltered
     ? "No values match the active filters."
     : "No values on this board yet.";
+  // Lightest first. Only an absolute scale has a step below level 1.
+  const steps = state.belowScale ? [state.belowScale, ...state.levels] : state.levels;
   const frame = `absolute bottom-4 right-4 z-30 pointer-events-none select-none bg-surface border border-line rounded-lg shadow-xl transition-opacity duration-150 ${opacity}`;
 
   if (!isLargeViewport) {
     // Compact form: the ramp reads left-to-right like a colorbar, no per-level ranges.
     return (
-      <div role="group" aria-label={`${state.label} overlay scale`} className={`${frame} px-2.5 py-1.5 flex items-center gap-2`}>
+      <div role="group" aria-label={`${state.label} overlay scale`} className={`${frame} max-w-[calc(100%-2rem)] px-2.5 py-1.5 flex flex-wrap items-center gap-2`}>
         <span className="text-xs font-medium text-fg">{state.label}</span>
         {state.isEmpty ? (
           <span className="text-xs text-fg-muted italic">{emptyCopy}</span>
         ) : (
           <>
+            {steps[0].stepLabel && <span className="text-xs text-fg-secondary">{steps[0].stepLabel}</span>}
             <span className="flex items-center gap-1">
-              {state.levels.map((level) => (
+              {steps.map((level) => (
                 <Swatch key={level.level} level={level} dimmed={level.count === 0} />
               ))}
             </span>
+            {steps[steps.length - 1].stepLabel && (
+              <span className="text-xs text-fg-secondary">{steps[steps.length - 1].stepLabel}</span>
+            )}
+            {state.note && <span className="text-xs text-fg-secondary">{state.note}</span>}
             <span className="sr-only">
-              Four levels, lightest to darkest. Highest value {formatOverlayValue(state.max)}.
+              {state.belowScale ? "Five steps" : "Four levels"}, lightest to darkest. Highest value {state.formatValue(state.max)}.
             </span>
           </>
         )}
@@ -96,16 +110,19 @@ export default function GridOverlayLegend({ state, isDragging = false, isLargeVi
         // *collapsed* to count stubs rather than shaded — that is deliberate: folding a
         // lane must not silently re-scale the rest of the board. Hidden columns and
         // swimlanes are excluded upstream, in `buildGridOverlayState`.
-        [...state.levels].reverse().map((level) => (
+        [...steps].reverse().map((level) => (
           <div key={level.level} className="flex items-center gap-2">
             <span className="sr-only">{level.encoding.levelLabel}: </span>
             <Swatch level={level} dimmed={level.count === 0} />
+            {/* An absolute scale names its step, and the range is what landed in it. */}
+            {level.stepLabel && <span className="w-14 shrink-0 text-xs text-fg-secondary">{level.stepLabel}</span>}
             <span className={`text-xs tabular-nums flex-1 ${level.count === 0 ? "text-fg-muted" : "text-fg-secondary"}`}>
-              {rangeLabel(level)}
+              <RangeLabel level={level} format={state.formatValue} />
             </span>
           </div>
         ))
       )}
+      {!state.isEmpty && state.note && <p className="text-xs text-fg-secondary leading-snug">{state.note}</p>}
     </div>
   );
 }

@@ -169,6 +169,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           overlayLabel={overlayLabel}
           cell={overlay}
           valueAnnouncedByCell={isEmptyAddable}
+          compact={compact}
         />
       )}
       {/* Blocked drop target (#1150): the ring is color only, so the limit is
@@ -302,7 +303,9 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       {column.allow_card_creation && canEdit && !adding && cards.length > 0 && (
         <button
           onClick={() => setAdding(true)}
-          className="relative w-full text-left text-xs rounded px-1.5 py-1 transition mt-1 text-fg-faint hover:text-fg-secondary hover:bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          // On an overlay tint fg-faint sinks out of sight, and this button sits on the
+          // tint rather than on a card (#459). fg-secondary keeps at least 6:1 at /40.
+          className={`relative w-full text-left text-xs rounded px-1.5 py-1 transition mt-1 ${overlay && overlay.encoding.level > 0 ? "text-fg-secondary" : "text-fg-faint"} hover:text-fg-secondary hover:bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
         >
           + Add card
         </button>

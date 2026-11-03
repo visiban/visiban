@@ -5,9 +5,9 @@
  * Reuses the mock infrastructure of boardViewCardLayoutToggle.test.tsx, with the
  * SwimlaneRow double widened to expose the overlay props it receives.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, Card, User } from '../types'
@@ -279,11 +279,11 @@ describe('BoardView — grid overlay slot (#1147)', () => {
     expect(screen.getByRole('button', { name: /^Overlay$/ })).toBeInTheDocument()
   })
 
-  it('offers exactly the two registered overlays, None first', async () => {
+  it('offers exactly the registered overlays, None first', async () => {
     render(<BoardView />)
     await userEvent.click(getPicker())
     const items = screen.getAllByRole('menuitem').map((i) => i.textContent)
-    expect(items).toEqual(['None', 'Card count'])
+    expect(items).toEqual(['None', 'Card count', 'Dwell time'])
   })
 
   it('defaults to None: no legend, and SwimlaneRow gets no overlay props', () => {
@@ -355,6 +355,53 @@ describe('BoardView — grid overlay slot (#1147)', () => {
     expect(screen.queryByRole('group', { name: /overlay scale/ })).not.toBeInTheDocument()
     expect(screen.getByText('Overlay off')).toBeInTheDocument()
     expect(localStorage.getItem(OVERLAY_KEY)).toBe('none')
+  })
+
+  describe('dwell time (#459)', () => {
+    const NOW = Date.UTC(2026, 10, 3, 12)
+    const daysAgo = (days: number) => new Date(NOW - days * 86_400_000).toISOString()
+    const dwellCard = (id: number, column: number, days: number | null) => ({
+      ...makeCard(id, column, 20),
+      column_entered_at: days === null ? null : daysAgo(days),
+    })
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+      vi.setSystemTime(NOW)
+      localStorage.setItem(OVERLAY_KEY, 'dwell')
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('reads the median off the loaded cards and offers the one-hue legend', () => {
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ cards: [dwellCard(1, 10, 2), dwellCard(2, 10, 4), dwellCard(3, 10, 9)] }),
+      })
+      render(<BoardView />)
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-overlay-label', 'Dwell time')
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-overlay-cells', '1')
+      const legend = screen.getByRole('group', { name: 'Dwell time overlay scale' })
+      expect(legend).toHaveTextContent('3–5d')
+      expect(legend).toHaveTextContent('4.0d')
+    })
+
+    it('recomputes as time passes, with no board change', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [dwellCard(1, 10, 0.5)] }) })
+      render(<BoardView />)
+      const legend = screen.getByRole('group', { name: 'Dwell time overlay scale' })
+      expect(legend).toHaveTextContent('0.5d')
+      act(() => { vi.advanceTimersByTime(12 * 60 * 60_000) })
+      expect(legend).toHaveTextContent('1.0d')
+    })
+
+    it('states the empty board copy when no card has a measured visit', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [dwellCard(1, 10, null)] }) })
+      render(<BoardView />)
+      expect(screen.getByRole('group', { name: 'Dwell time overlay scale' })).toHaveTextContent(
+        'No values on this board yet.',
+      )
+    })
   })
 
   it('keeps the picker out of the overflow kebab — a menu item carries an action, not a selection', async () => {

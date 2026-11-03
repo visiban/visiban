@@ -55,6 +55,7 @@ function overlayFor(count: number) {
     swimlanes: [swimlane],
     cards,
     isFiltered: false,
+    now: 0,
   })!
   return { cell: state.cells.get(cellKey(column.id, swimlane.id)), label: state.label }
 }
@@ -151,5 +152,57 @@ describe('BoardCell — grid overlay layer (#1147)', () => {
     ).toBeInTheDocument()
     // No second announcement from the badge.
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  describe('dwell readings (#459)', () => {
+    const NOW = Date.UTC(2026, 10, 3)
+    function dwellFor(days: number) {
+      const state = buildGridOverlayState(getGridOverlay('dwell'), {
+        columns: [column],
+        swimlanes: [swimlane],
+        cards: [{ ...makeCard(1), column_entered_at: new Date(NOW - days * 86_400_000).toISOString() }],
+        isFiltered: false,
+        now: NOW,
+      })!
+      return { cell: state.cells.get(cellKey(column.id, swimlane.id)), label: state.label }
+    }
+
+    it('shows the badge in days with the tint and bar of its step', () => {
+      const { cell, label } = dwellFor(4)
+      const { container } = render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label })} />)
+      expect(screen.getByRole('img', { name: 'Dwell time: median dwell 4.0 days, level 2 of 4' })).toHaveTextContent('4.0d')
+      expect(container.querySelector('.bg-primary-emphasis\\/20')).not.toBeNull()
+      expect(container.querySelector('.h-0\\.5')).not.toBeNull()
+    })
+
+    it('moves the badge off the first row in the compact grid, where it would sit on a title', () => {
+      const { cell, label } = dwellFor(4)
+      const { unmount } = render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label })} />)
+      expect(screen.getByRole('img', { name: /Dwell time/ }).className).toContain('top-1.5')
+      unmount()
+      render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label, compact: true })} />)
+      const badge = screen.getByRole('img', { name: /Dwell time/ })
+      expect(badge.className).toContain('bottom-1.5')
+      expect(badge.className).not.toContain('top-1.5')
+    })
+
+    it('draws the badge alone under one day: no tint, no bar', () => {
+      const { cell, label } = dwellFor(0.5)
+      const { container } = render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label })} />)
+      expect(screen.getByRole('img', { name: 'Dwell time: median dwell 0.5 days, below level 1' })).toHaveTextContent('0.5d')
+      expect(container.querySelector('[class*="bg-primary-emphasis/"]')).toBeNull()
+      expect(container.querySelector('.h-px')).toBeNull()
+    })
+
+    it('lifts the add-card button off the tint, and leaves it quiet with no tint under it', () => {
+      const tinted = dwellFor(9)
+      const { unmount } = render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: tinted.cell, overlayLabel: tinted.label })} />)
+      expect(screen.getByRole('button', { name: '+ Add card' }).className).toContain('text-fg-secondary')
+      expect(screen.getByRole('button', { name: '+ Add card' }).className).not.toContain('text-fg-faint')
+      unmount()
+      const fresh = dwellFor(0.5)
+      render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: fresh.cell, overlayLabel: fresh.label })} />)
+      expect(screen.getByRole('button', { name: '+ Add card' }).className).toContain('text-fg-faint')
+    })
   })
 })

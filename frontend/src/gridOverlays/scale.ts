@@ -64,6 +64,15 @@ export const OVERLAY_ENCODINGS: readonly OverlayEncoding[] = [
 ];
 
 /**
+ * The encoding of a real reading below an absolute scale's first step: the numeral
+ * alone. "No tint" here is a statement about the value, unlike level 0's "no value".
+ */
+export const OVERLAY_BELOW_SCALE_ENCODING: OverlayEncoding = {
+  ...OVERLAY_ENCODINGS[0],
+  levelLabel: "below level 1",
+};
+
+/**
  * Buckets a value against the board's busiest cell.
  *
  * Relative-to-max rather than absolute thresholds: the slot has no idea what unit
@@ -74,6 +83,15 @@ export function overlayLevel(value: number, max: number): number {
   if (!(value > 0) || !(max > 0)) return 0;
   const level = Math.ceil((value / max) * OVERLAY_LEVELS);
   return Math.min(OVERLAY_LEVELS, Math.max(1, level));
+}
+
+/** Buckets a value against absolute lower bounds. 0 = below the first one. */
+export function overlayThresholdLevel(value: number, thresholds: readonly number[]): number {
+  let level = 0;
+  for (const threshold of thresholds) {
+    if (value >= threshold) level += 1;
+  }
+  return level;
 }
 
 /** The encoding row for a level. Out-of-range levels clamp to level 0. */

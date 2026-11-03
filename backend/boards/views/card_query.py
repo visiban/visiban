@@ -43,8 +43,8 @@ from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
     ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
-    _card_attachments, _is_blocked, _card_checklist_items, _card_queryset, _last_moved_at,
-    _last_move_is_creation,
+    _card_attachments, _is_blocked, _card_checklist_items, _card_queryset, _column_entered_at,
+    _last_moved_at, _last_move_is_creation,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
 
@@ -110,6 +110,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
     )
     last_moved_at = serializers.SerializerMethodField()
     last_move_is_creation = serializers.SerializerMethodField()
+    column_entered_at = serializers.SerializerMethodField()
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
@@ -126,7 +127,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "id", "uid", "board", "column", "swimlane", "title", "description",
             "priority", "assignee", "labels", "due_date", "weight", "position",
             "created_by", "created_at", "updated_at", "last_moved_at",
-            "last_move_is_creation", "attachment_count", "checklist_total", "checklist_done",
+            "last_move_is_creation", "column_entered_at", "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref",
             # Manual blocked state (#1149), as on CardSerializer.
@@ -152,6 +153,10 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # field set to stay in step with CardSerializer's readable fields.
         # Reads the last-move annotations _card_queryset() adds — no query.
         return _last_move_is_creation(obj)
+
+    def get_column_entered_at(self, obj) -> datetime.datetime | None:
+        # Same parity reason; reads the annotation _card_queryset() adds (#459).
+        return _column_entered_at(obj)
 
     def get_attachment_count(self, obj) -> int:
         return len(_card_attachments(obj))

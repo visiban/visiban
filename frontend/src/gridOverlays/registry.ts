@@ -1,6 +1,7 @@
 import type { GridOverlay } from "./types";
 import { noneOverlay } from "./builtin/none";
 import { cardCountOverlay } from "./builtin/cardCount";
+import { dwellOverlay } from "./builtin/dwell";
 
 /**
  * The overlay registry.
@@ -54,13 +55,14 @@ export function resolveGridOverlayId(id: string | null | undefined): string {
 }
 
 /**
- * Built-ins register at module load. Only two overlays ship in 1.2 (#1147):
- * `none` and the `card-count` reference overlay that proves the seam.
+ * Built-ins register at module load: `none` and the `card-count` reference overlay
+ * that proves the seam (1.2, #1147), and `dwell` (1.3, #459).
  *
  * `registerGridOverlay` is deliberately **not** an enterprise extension point yet
  * (see CLAUDE.md § Open core vs. enterprise boundary): nothing outside this directory
- * calls it in 1.2, so its shape is still free to change. Declaring it stable is a
+ * calls it, so its shape is still free to change. Declaring it stable is a
  * decision for whoever first wants to register an overlay from outside OSS.
  */
 registerGridOverlay(noneOverlay);
 registerGridOverlay(cardCountOverlay);
+registerGridOverlay(dwellOverlay);

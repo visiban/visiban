@@ -117,6 +117,7 @@ export const CARD = {
   created_at: new Date().toISOString(),
   updated_at: '2026-01-01T00:00:00Z',
   last_moved_at: null as string | null,
+  column_entered_at: null as string | null,
   attachment_count: 0,
   checklist_total: 0,
   checklist_done: 0,

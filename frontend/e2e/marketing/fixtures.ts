@@ -260,6 +260,7 @@ function buildCard(spec: CardSpec): Card {
     updated_at: ago(spec.idleDays * DAY),
     last_moved_at: ago(spec.idleDays * DAY),
     last_move_is_creation: false,
+    column_entered_at: ago(spec.idleDays * DAY),
     attachment_count: spec.id === 2 ? 2 : 0,
     checklist_total: spec.checklist[1],
     checklist_done: spec.checklist[0],

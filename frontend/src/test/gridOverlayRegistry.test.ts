@@ -29,9 +29,9 @@ function makeCard(id: number, column: number, swimlane: number): Card {
 }
 
 describe('grid overlay registry', () => {
-  it('ships exactly two overlays in 1.2, with None first', () => {
+  it('ships the built-in overlays, with None first', () => {
     const ids = listGridOverlays().map((o) => o.id)
-    expect(ids).toEqual(['none', 'card-count'])
+    expect(ids).toEqual(['none', 'card-count', 'dwell'])
     expect(NONE_OVERLAY_ID).toBe('none')
   })
 
@@ -65,7 +65,7 @@ describe('grid overlay registry', () => {
 
   it('None contributes no cells, so the board renders unchanged', () => {
     const none = getGridOverlay('none')!
-    const cells = none.compute({ columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [makeCard(1, 1, 1)], isFiltered: false })
+    const cells = none.compute({ columns: [makeColumn(1)], swimlanes: [makeSwimlane(1)], cards: [makeCard(1, 1, 1)], isFiltered: false, now: 0 })
     expect(cells.size).toBe(0)
   })
 
@@ -76,6 +76,7 @@ describe('grid overlay registry', () => {
       swimlanes: [makeSwimlane(7)],
       cards: [makeCard(1, 1, 7), makeCard(2, 1, 7), makeCard(3, 2, 7)],
       isFiltered: false,
+      now: 0,
     })
     expect(cells.get(cellKey(1, 7))).toEqual({ value: 2, label: '2 cards' })
     expect(cells.get(cellKey(2, 7))).toEqual({ value: 1, label: '1 card' })
@@ -90,6 +91,7 @@ describe('grid overlay registry', () => {
       swimlanes: [makeSwimlane(7)],
       cards: [makeCard(1, 1, 7), makeCard(2, 1, 7)],
       isFiltered: true,
+      now: 0,
     })
     expect(cells.get(cellKey(1, 7))!.label).toBe('2 matching cards')
   })

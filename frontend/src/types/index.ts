@@ -670,6 +670,11 @@ export interface Card {
   /** True when the newest movement is the card's creation, not a move (#1576).
    *  Optional: absent in payloads that predate the field; treat as false. */
   last_move_is_creation?: boolean;
+  /** Start of the card's open visit to its column (#459), the dwell overlay's clock.
+   *  Null for a card in a done column or with no measured visit; never reset by a
+   *  swimlane-only move, so it is not `last_moved_at`. Optional: absent in payloads
+   *  that predate the field. */
+  column_entered_at?: string | null;
   attachment_count: number;
   checklist_total: number;
   checklist_done: number;
