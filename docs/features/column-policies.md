@@ -10,7 +10,7 @@ A board admin can give each column a short **policy**: its **entry criteria** (w
 
 **How it works:** the policy is text the board shows at the moments it matters: in the column header, while you drag a card over the column, and in card detail. In **Ask the mover to confirm** mode, a card dropped into the column opens a checklist of its entry criteria first.
 
-**Yes, but:** a policy is guidance, not enforcement. The server never refuses a move because of it. The confirm checklist is a prompt in the web app only; the API, the [MCP server](mcp-server.md), bulk moves, the card detail **Move** button, an admin's **Move anyway (admin override)** after a limit block, and board import never show it. Use [WIP limits](board.md) when you need a hard rule.
+**Yes, but:** a policy is guidance, not enforcement. The server never refuses a move because of it. The confirm checklist is a prompt in the web app only; the API, the [MCP server](mcp-server.md), bulk moves, the card detail **Move** button, **Move to…** in a card's [actions menu](board.md#card-actions-menu) and **Move card to…** in the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette), an admin's **Move anyway (admin override)** after a limit block, and board import never show it. Use [WIP limits](board.md) when you need a hard rule.
 
 ---
 

@@ -1,11 +1,17 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useId } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
 import { listBoards } from "../../api/boards";
-import type { Board, Card, Column } from "../../types";
+import type { Board, BoardFull, Card, Column } from "../../types";
+import { userDisplayName } from "../../types";
+import { PRIORITY_COLORS } from "../../constants/colors";
+import {
+  PALETTE_COMMAND_LABELS, PRIORITY_CHOICES, paletteCardActions,
+  type CardActionDetail, type CardActionEntry, type CardTargetInfo,
+} from "../../utils/cardActions";
 
 type PriorityLevel = "high" | "medium" | "low" | "none";
 
@@ -30,6 +36,11 @@ interface StaticAction {
   /** When true the action is only surfaced on board routes — it acts on the
    * currently-open board and has no meaning on Dashboard/Group/Settings/Admin. */
   boardOnly?: boolean;
+  /** Card-scoped (#2059): listed only when a card target resolves (open sheet >
+   * focused card > selection, or a card result drilled into with →). Carried
+   * by the card-action rows built from `paletteCardActions()`, which dispatch
+   * `visiban:card-action` instead of `onAction`. */
+  cardTarget?: boolean;
 }
 
 const STATIC_ACTIONS: StaticAction[] = [
@@ -39,14 +50,19 @@ const STATIC_ACTIONS: StaticAction[] = [
   { id: "settings", label: "Open board settings", boardOnly: true },
 ];
 
-type ResultKind = "card" | "board" | "action";
+type ResultKind = "card-action" | "choice" | "card" | "board" | "action";
+
+/** A second-level list behind a `…` card command (columns, people, priorities). */
+type ChoiceKind = "move" | "assign" | "priority";
+interface Choice { label: string; value: number | string | null; dot?: string }
 
 interface ResultItem {
   kind: ResultKind;
   key: string;
   card?: Card;
   board?: Board;
-  action?: StaticAction;
+  action?: StaticAction & { entry?: CardActionEntry };
+  choice?: Choice;
   /** Resolved column name for cards */
   columnName?: string;
 }
@@ -68,6 +84,14 @@ interface Props {
   /** Required only when `boardCards` are supplied; off-board callers can omit. */
   onOpenCard?: (card: Card) => void;
   onAction: (actionId: string) => void;
+  /** Board members, for the "Assign card to…" list. */
+  members?: BoardFull["members"];
+  /** The card target resolved when the palette opened (#2059); null/omitted = none. */
+  cardTarget?: CardTargetInfo | null;
+  /** Target info for explicit cards: the `→` drill-in on a card result. */
+  resolveCardActions?: (cardIds: number[]) => CardTargetInfo | null;
+  /** Runs a card action; GlobalCommandPalette dispatches `visiban:card-action`. */
+  onCardAction?: (detail: CardActionDetail) => void;
 }
 
 export default function CommandPalette({
@@ -80,6 +104,10 @@ export default function CommandPalette({
   onClose,
   onOpenCard,
   onAction,
+  members = [],
+  cardTarget = null,
+  resolveCardActions,
+  onCardAction,
 }: Props) {
   const boardMode = Array.isArray(boardCards) && Array.isArray(columns);
   const cardsForMode: Card[] = useMemo(
@@ -94,6 +122,13 @@ export default function CommandPalette({
   const [boards, setBoards] = useState<Board[]>([]);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  // Drill-in levels (#2059): a card result's actions (→), then a `…`
+  // command's choices. Escape / ← / Backspace on empty back out one level.
+  const [drill, setDrill] = useState<CardTargetInfo | null>(null);
+  const [sub, setSub] = useState<ChoiceKind | null>(null);
+  const [announce, setAnnounce] = useState("");
+  const target = drill ?? (boardMode ? cardTarget : null);
+  const targetHeaderId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -106,6 +141,9 @@ export default function CommandPalette({
     if (!open) return;
     setQuery("");
     setActiveIndex(0);
+    setDrill(null);
+    setSub(null);
+    setAnnounce("");
     setLoadingBoards(true);
     listBoards()
       .then((b) => {
@@ -117,6 +155,14 @@ export default function CommandPalette({
   // pruneByIds is stable across renders via the hook's closure scope.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- pruneByIds intentionally excluded, see comment above
   }, [open]);
+
+  // Announce the card target on open (#2059), one tick after the reset above
+  // so the always-mounted region sees a text change.
+  useEffect(() => {
+    if (!open || !boardMode || !cardTarget) return;
+    const t = setTimeout(() => setAnnounce(`Acting on ${cardTarget.summary}`), 0);
+    return () => clearTimeout(t);
+  }, [open, boardMode, cardTarget]);
 
   // #1732 — the palette is modal-like: trap Tab and restore focus on close.
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -135,9 +181,40 @@ export default function CommandPalette({
     return m;
   }, [columnsForMode])();
 
+  const choices = (kind: ChoiceKind): Choice[] => {
+    if (kind === "move") return columnsForMode.map((c) => ({ label: c.name, value: c.id, dot: c.color }));
+    if (kind === "assign") {
+      return [
+        { label: "Unassign", value: null },
+        ...members.filter((m) => m.role !== "viewer").map((m) => ({ label: userDisplayName(m.user), value: m.user.id })),
+      ];
+    }
+    return PRIORITY_CHOICES.map((p) => ({ label: p.charAt(0).toUpperCase() + p.slice(1), value: p, dot: PRIORITY_COLORS[p] }));
+  };
+
+  // Card commands for the target: enabled ones that match; disabled ones only
+  // when a typed query matches them (a viewer who types "block" learns why),
+  // never as noise on an empty query.
+  const cardActionItems = (info: CardTargetInfo, q: string): ResultItem[] =>
+    paletteCardActions(info)
+      .filter((a) => a.label.toLowerCase().includes(q) && (a.enabled || q !== ""))
+      .map((a) => ({
+        kind: "card-action" as const,
+        key: `card-action-${a.id}`,
+        action: { id: a.id, label: a.label, cardTarget: true, entry: a },
+      }));
+
   const results: ResultItem[] = (() => {
     const q = query.trim().toLowerCase();
     const items: ResultItem[] = [];
+
+    if (sub) {
+      return choices(sub)
+        .filter((c) => c.label.toLowerCase().includes(q))
+        .map((c) => ({ kind: "choice" as const, key: `choice-${sub}-${String(c.value)}`, choice: c }));
+    }
+    if (drill) return cardActionItems(drill, q);
+    if (target) items.push(...cardActionItems(target, q));
 
     // Cards — only in board mode; match title
     if (boardMode) {
@@ -209,11 +286,25 @@ export default function CommandPalette({
     }
   }, [activeIndex]);
 
-  // Priority 60 — above most UI panels. Close on Escape.
+  const resetLevel = () => { setQuery(""); setActiveIndex(0); };
+  const backOut = (): boolean => {
+    if (sub) { setSub(null); resetLevel(); setAnnounce(target ? `Card actions for ${target.summary}` : ""); return true; }
+    if (drill) { setDrill(null); resetLevel(); setAnnounce("All results"); return true; }
+    return false;
+  };
+
+  // Priority 60 — above most UI panels. Escape backs out one drill-in level,
+  // then closes.
   useEscapeStack(() => {
     if (!open) return false;
+    if (backOut()) return;
     onClose();
   }, 60);
+
+  // No card target and a query that names a card command: say how to get one.
+  const q0 = query.trim().toLowerCase();
+  const showNoTargetHint = boardMode && !target && !sub && q0 !== ""
+    && PALETTE_COMMAND_LABELS.some((l) => l.toLowerCase().includes(q0));
 
   const activate = useCallback((item: ResultItem, newTab = false) => {
     if (item.kind === "card" && item.card && onOpenCard) {
@@ -229,11 +320,30 @@ export default function CommandPalette({
         // synchronously, and any failure is handled by its own error boundary.
         void navigate(path);
       }
+    } else if (item.kind === "card-action" && item.action?.entry && target) {
+      const entry = item.action.entry;
+      if (!entry.enabled) {
+        // Disabled commands do nothing and re-announce why.
+        setAnnounce((prev) => (prev === entry.reason ? `${entry.reason}\u00a0` : entry.reason ?? ""));
+        return;
+      }
+      if (entry.id === "move" || entry.id === "assign" || entry.id === "priority") {
+        setSub(entry.id);
+        setAnnounce(entry.id === "move" ? "Choose a column" : entry.id === "assign" ? "Choose a person" : "Choose a priority");
+        resetLevel();
+        return;
+      }
+      // Block card… closes the palette and opens the reason form in the sheet.
+      onClose();
+      onCardAction?.({ cardIds: target.cardIds, action: entry.id });
+    } else if (item.kind === "choice" && item.choice && sub && target) {
+      onClose();
+      onCardAction?.({ cardIds: target.cardIds, action: sub, value: item.choice.value });
     } else if (item.kind === "action" && item.action) {
       onClose();
       onAction(item.action.id);
     }
-  }, [onClose, onOpenCard, navigate, onAction]);
+  }, [onClose, onOpenCard, navigate, onAction, onCardAction, target, sub]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -246,8 +356,28 @@ export default function CommandPalette({
       e.preventDefault();
       const item = results[activeIndex];
       if (item) activate(item, e.metaKey || e.ctrlKey);
+    } else if (e.key === "ArrowRight" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      // → on a card result drills into its actions. Only with the caret at
+      // the end, so → still moves the caret inside a typed query.
+      const item = results[activeIndex];
+      const input = e.currentTarget as HTMLInputElement;
+      const atEnd = input.selectionStart === input.value.length && input.selectionEnd === input.value.length;
+      if (item?.kind === "card" && item.card && atEnd && resolveCardActions) {
+        const info = resolveCardActions([item.card.id]);
+        if (info) {
+          e.preventDefault();
+          setDrill(info);
+          setAnnounce(`Card actions for ${info.summary}`);
+          resetLevel();
+        }
+      }
+    } else if ((e.key === "ArrowLeft" || e.key === "Backspace") && query === "" && (sub || drill)) {
+      e.preventDefault();
+      backOut();
     }
-  }, [results, activeIndex, activate]);
+  // resetLevel/backOut only touch local state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- resetLevel/backOut touch only local state
+  }, [results, activeIndex, activate, resolveCardActions, query, sub, drill]);
 
   if (!open) return null;
 
@@ -278,9 +408,10 @@ export default function CommandPalette({
             value={query}
             onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={sub === "move" ? "Choose a column…" : sub === "assign" ? "Choose a person…" : sub === "priority" ? "Choose a priority…" : drill ? "Search card actions…" : placeholder}
             className="bg-transparent flex-1 text-sm text-fg placeholder-fg-muted outline-none"
             aria-label="Command palette search"
+            aria-describedby={target ? targetHeaderId : undefined}
             aria-autocomplete="list"
             aria-activedescendant={results[activeIndex] ? `palette-item-${results[activeIndex].key}` : undefined}
             role="combobox"
@@ -291,14 +422,27 @@ export default function CommandPalette({
           </kbd>
         </div>
 
+        {/* The card the card commands act on (#2059). */}
+        {target && (
+          <div id={targetHeaderId} className="px-3 py-1.5 border-b border-line text-xs text-fg-tertiary flex items-center gap-2 shrink-0" data-testid="palette-card-target">
+            {(drill || sub) && <span aria-hidden="true">←</span>}
+            <span className="truncate">
+              Acting on <span className="text-fg-secondary">{target.summary}</span>
+              {sub && <> · {sub === "move" ? "Move card to" : sub === "assign" ? "Assign card to" : "Set priority"}</>}
+            </span>
+          </div>
+        )}
+
         {/* Results */}
         <div ref={listRef} className="overflow-y-auto flex-1 py-1" role="listbox" aria-label="Results">
-          {loadingBoards && results.length === 0 && (
+          {loadingBoards && !drill && !sub && results.length === 0 && (
             <p className="px-3 py-2 text-xs text-fg-muted italic">Loading…</p>
           )}
-          {!loadingBoards && results.length === 0 && (
+          {(!loadingBoards || drill || sub) && results.length === 0 && (
             <p className="px-3 py-2 text-xs text-fg-muted italic text-center">
-              {!boardMode && boards.length === 0 && query.trim() === ""
+              {drill || sub
+                ? "No matching card actions"
+                : !boardMode && boards.length === 0 && query.trim() === ""
                 ? "You don't have any boards yet."
                 : query.trim() === "" && boards.length > 0
                 ? (boardMode ? "Start typing to search boards and cards" : "Start typing to jump to a board")
@@ -313,17 +457,25 @@ export default function CommandPalette({
             const label =
               item.kind === "card" ? item.card!.title
               : item.kind === "board" ? item.board!.name
+              : item.kind === "choice" ? item.choice!.label
               : item.action!.label;
 
+            const entry = item.kind === "card-action" ? item.action!.entry : undefined;
+            const disabled = entry !== undefined && !entry.enabled;
             const sublabel =
-              item.kind === "card"
+              // Each card command names its target, so the choice is explicit.
+              item.kind === "card-action" && target
+                ? target.summary
+                : item.kind === "card"
                 ? item.columnName
                 : item.kind === "board"
                 ? (item.board!.group_name ?? "No group")
                 : null;
 
             const sectionLabel =
-              item.kind === "card" ? "Cards"
+              item.kind === "card-action" ? "Card actions"
+              : item.kind === "choice" ? (sub === "move" ? "Columns" : sub === "assign" ? "People" : "Priorities")
+              : item.kind === "card" ? "Cards"
               : item.kind === "board" ? "Boards"
               : "Actions";
 
@@ -338,13 +490,18 @@ export default function CommandPalette({
                   id={`palette-item-${item.key}`}
                   role="option"
                   aria-selected={isActive}
+                  aria-disabled={disabled || undefined}
+                  aria-describedby={disabled ? `palette-reason-${item.key}` : undefined}
                   data-active={isActive}
                   onClick={() => activate(item)}
                   onMouseEnter={() => setActiveIndex(i)}
                   className={`w-full text-left px-3 py-1.5 flex items-center gap-2 transition ${
                     isActive ? "bg-surface-hover/60" : "hover:bg-surface-hover/40"
-                  }`}
+                  } ${disabled ? "cursor-not-allowed" : ""}`}
                 >
+                  {item.kind === "choice" && item.choice?.dot && (
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.choice.dot }} aria-hidden="true" />
+                  )}
                   {item.kind === "card" && item.card && (
                     <span
                       className={`w-1 h-4 rounded shrink-0 ${PRIORITY_COLOR[priorityLevel(item.card.priority)]}`}
@@ -357,13 +514,23 @@ export default function CommandPalette({
                       <span className="text-warning text-xs shrink-0" aria-hidden="true">★</span>
                     </>
                   )}
-                  <span className={`text-sm truncate ${isActive ? "text-fg" : "text-fg-secondary"}`}>
-                    {label}
-                  </span>
+                  {disabled ? (
+                    <span className="flex flex-col min-w-0">
+                      <span className="text-sm truncate text-fg-tertiary">{label}</span>
+                      <span id={`palette-reason-${item.key}`} className="text-xs text-fg-tertiary">{entry?.reason}</span>
+                    </span>
+                  ) : (
+                    <span className={`text-sm truncate ${isActive ? "text-fg" : "text-fg-secondary"}`}>
+                      {label}
+                    </span>
+                  )}
                   {sublabel && (
                     <span className="text-xs text-fg-muted ml-auto shrink-0 truncate max-w-[140px]">
                       {sublabel}
                     </span>
+                  )}
+                  {item.kind === "card" && isActive && resolveCardActions && (
+                    <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0" title="Card actions">→</kbd>
                   )}
                   {item.kind === "action" && item.action?.hint && (
                     <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted ml-auto shrink-0">
@@ -376,11 +543,33 @@ export default function CommandPalette({
           })}
         </div>
 
+        {/* No target: card commands are not listed, so say how to get one. */}
+        {showNoTargetHint && (
+          <div role="group" aria-label="Card actions" className="px-3 pb-2 shrink-0" data-testid="palette-no-card-target">
+            <div className="pt-1 pb-0.5 text-xs uppercase tracking-wide text-fg-muted select-none">Card actions</div>
+            <p className="text-xs text-fg-tertiary italic">Select, focus or open a card to act on it.</p>
+            <p className="text-xs text-fg-tertiary italic">Or search for a card and press →.</p>
+          </div>
+        )}
+
+        {/* Always mounted, so a disabled command's re-announced reason is read. */}
+        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announce}</p>
+
         {/* Footer hints */}
         <div className="px-3 py-2 border-t border-line text-xs text-fg-muted flex items-center gap-3 shrink-0">
           <span>↑↓ navigate</span>
-          <span>↵ open</span>
-          <span>⌘↵ new tab</span>
+          {drill || sub ? (
+            <>
+              <span>↵ run</span>
+              <span>← back</span>
+            </>
+          ) : (
+            <>
+              <span>↵ open</span>
+              <span>⌘↵ new tab</span>
+              {boardMode && resolveCardActions && <span>→ card actions</span>}
+            </>
+          )}
         </div>
       </div>
     </div>,

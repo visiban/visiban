@@ -24,6 +24,7 @@ import {
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
+import { userDisplayName } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { placementVerdict, trippedLimitSentence } from "../../utils/placementLimits";
 import { entryCriteriaFor, entryCriteriaSentence, needsEntryConfirm } from "../../utils/columnPolicy";
@@ -54,6 +55,14 @@ import SavedFilterTabs from "./SavedFilterTabs";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
+import CardContextMenu, { type CardMenuAnchor, type CardMenuCloseReason } from "../Card/CardContextMenu";
+import CardDeleteConfirm from "../Card/CardDeleteConfirm";
+import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
+import {
+  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, archiveCards, assignCards, cardActionEntries, cardLink,
+  cardTargetSummary, contextMenuTargetIds, moveCardsToColumn, resolveCardTarget, setCardsPriority, successMessage,
+  type CardActionContext, type CardActionDetail, type CardActionId, type CardTargetQueryDetail,
+} from "../../utils/cardActions";
 import { ToastRegionSlot } from "../../contexts/ToastContext";
 import { useToast } from "../../contexts/useToast";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
@@ -1281,6 +1290,205 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     showCardNotFound("The card you had open was deleted or archived, so it was closed.");
   }, [board.cards, selectedCardId, showCardNotFound]);
 
+  // ── Card context menu and ⌘K card actions (#2059) ──────────────────────
+  // One executor for both surfaces. The menu opens from CardItem; the palette
+  // reaches it through window events (§ Command palette ownership), asking
+  // which cards it would act on with CARD_TARGET_QUERY_EVENT and dispatching
+  // CARD_ACTION_EVENT. Availability comes from cardActionEntries(), the same
+  // role gating as the bulk toolbar and the card detail sheet.
+  const [cardMenu, setCardMenu] = useState<{ cardIds: number[]; originId: number; anchor: CardMenuAnchor } | null>(null);
+  const [blockFormRequest, setBlockFormRequest] = useState<{ mode: "block" | "unblock"; seq: number } | null>(null);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<number[] | null>(null);
+  // Outcome of a menu/palette action. Failures are shown (warning row) and
+  // announced; success is announced only. Placeholder until the shared toast
+  // region (#2060) exists: single-card results move there (#2107).
+  // `shown`: a success whose effect is not visible on the board (Copy link, a
+  // delete that removes the card) is also shown, briefly. `announced`: the
+  // board itself changed in view (Move, Assign, Priority, Archive).
+  // `failed`: shown in the warning shell until dismissed or replaced.
+  const [cardActionStatus, setCardActionStatus] = useState<{ text: string; kind: "failed" | "shown" | "announced" } | null>(null);
+  const cardActionStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
+  }, []);
+  const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced") => {
+    // Announce-only is for a change visible on the board grid; from Summary,
+    // History, Analytics or Lens the grid is not in view, so show it too.
+    const kind = requested === "announced" && viewRef.current !== "board" ? "shown" : requested;
+    setCardActionStatus({ text, kind });
+    if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
+    cardActionStatusTimerRef.current = null;
+    // A failure persists until dismissed or replaced (WCAG 2.2.1); only successes clear.
+    if (kind === "failed") return;
+    cardActionStatusTimerRef.current = setTimeout(() => {
+      setCardActionStatus(null);
+      cardActionStatusTimerRef.current = null;
+    }, 4000);
+  }, []);
+
+  const isBoardModerator = board.members.some(
+    (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
+  );
+  const cardActionContext: CardActionContext = {
+    role: board.current_user_role,
+    currentUserId: currentUser?.id ?? null,
+    isModerator: isBoardModerator,
+    demoMode,
+    maintenanceBlocked: blockedByMaintenance,
+  };
+  // Latest state for the stable callbacks and window listeners below.
+  const cardActionStateRef = useRef({ selectedCardIds, selectedCard, cardActionContext });
+  cardActionStateRef.current = { selectedCardIds, selectedCard, cardActionContext };
+
+  const openCardMenu = useCallback((card: Card, anchor: CardMenuAnchor) => {
+    setCardMenu({ cardIds: contextMenuTargetIds(card.id, cardActionStateRef.current.selectedCardIds), originId: card.id, anchor });
+  }, []);
+
+  // Focus goes back to the card the menu was opened on (or the board region
+  // when the action removed it), so a surface the action opens captures the
+  // card as its opener and returns focus there on close (#1775).
+  const focusCardOrBoard = (cardId: number) => {
+    (findBoardCardElement(cardId) ?? document.querySelector<HTMLElement>(BOARD_SCROLL_SELECTOR))?.focus();
+  };
+
+  const runCardActionRef = useRef<(cardIds: number[], action: CardActionId, value?: number | string | null) => Promise<void>>(async () => {});
+  runCardActionRef.current = async (cardIds, action, value) => {
+    const current = boardRef.current;
+    if (!current) return;
+    const cards = cardIds.map((id) => current.cards.find((c) => c.id === id)).filter((c): c is Card => !!c);
+    if (cards.length === 0) return;
+    // Never run what the menu shows disabled; the server is still the authority.
+    const entry = cardActionEntries(cards, cardActionStateRef.current.cardActionContext).find((e) => e.id === action);
+    if (!entry?.enabled) return;
+    const selected = cardActionStateRef.current.selectedCardIds;
+    const isWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
+    const finish = (failure: string | null, success: string) => {
+      if (failure) { reportCardAction(failure, "failed"); return; }
+      reportCardAction(success, "announced");
+      // § Bulk operations rule 1: a selection clears only on full success.
+      if (isWholeSelection) clearSelection();
+    };
+    switch (action) {
+      case "open":
+      case "block":
+      case "unblock": {
+        clearSelection();
+        setSelectedCard(cards[0]);
+        // Only the board and analytics views render the card sheet.
+        if (viewRef.current !== "board" && viewRef.current !== "analytics") setView("board");
+        if (action !== "open") setBlockFormRequest({ mode: action, seq: Date.now() });
+        return;
+      }
+      case "copy-link": {
+        try {
+          await navigator.clipboard.writeText(cardLink(current.id, cards[0].id));
+          reportCardAction(successMessage("copy-link", cards), "shown");
+        } catch {
+          reportCardAction("Couldn't copy the link. The browser blocked clipboard access.", "failed");
+        }
+        return;
+      }
+      case "move": {
+        const column = current.columns.find((c) => c.id === Number(value));
+        if (!column) return;
+        const r = await moveCardsToColumn(current.id, cards, column);
+        r.done.forEach((c) => onCardUpdated(c));
+        finish(r.failureMessage, successMessage("move", cards, column.name));
+        return;
+      }
+      case "assign": {
+        const userId = value == null ? null : Number(value);
+        const member = current.members.find((m) => m.user.id === userId);
+        const r = await assignCards(current.id, cards, userId);
+        r.done.forEach((c) => onCardUpdated(c));
+        finish(r.failureMessage, successMessage("assign", cards, member ? userDisplayName(member.user) : undefined));
+        return;
+      }
+      case "priority": {
+        const priority = String(value) as Card["priority"];
+        const r = await setCardsPriority(current.id, cards, priority);
+        r.done.forEach((c) => onCardUpdated(c));
+        finish(r.failureMessage, successMessage("priority", cards, priority));
+        return;
+      }
+      case "archive": {
+        const r = await archiveCards(current.id, cards);
+        r.done.forEach((id) => onCardArchived(id));
+        if (r.done.length > 0) {
+          showArchiveToast();
+          // The archived face took focus with it; land on the board, not <body>.
+          setTimeout(() => {
+            if (document.activeElement === document.body) document.querySelector<HTMLElement>(BOARD_SCROLL_SELECTOR)?.focus();
+          }, 0);
+        }
+        finish(r.failureMessage, successMessage("archive", cards));
+        return;
+      }
+      case "delete":
+        setDeleteTargetIds(cards.map((c) => c.id));
+        return;
+    }
+  };
+  const runCardAction = useCallback(
+    (cardIds: number[], action: CardActionId, value?: number | string | null) => runCardActionRef.current(cardIds, action, value),
+    [],
+  );
+
+  const cardMenuRef = useRef(cardMenu);
+  cardMenuRef.current = cardMenu;
+  // Synchronous focus: on Tab the browser moves on from the card itself.
+  // An outside press leaves focus wherever the press put it.
+  const closeCardMenu = useCallback((reason: CardMenuCloseReason) => {
+    const menu = cardMenuRef.current;
+    if (menu && reason !== "outside") focusCardOrBoard(menu.originId);
+    setCardMenu(null);
+  }, []);
+
+  // The palette's side of the contract: answer target queries, run actions.
+  useEffect(() => {
+    const onQuery = (ev: Event) => {
+      const detail = (ev as CustomEvent<CardTargetQueryDetail>).detail;
+      const current = boardRef.current;
+      if (!detail || !current) return;
+      const { selectedCardIds: sel, selectedCard: open, cardActionContext: ctx } = cardActionStateRef.current;
+      const target = detail.cardIds
+        ? { cardIds: detail.cardIds, source: "result" as const }
+        : resolveCardTarget({
+            openCardId: open?.id ?? null,
+            // A focused card counts only if it is on this board.
+            focusedCardId: detail.focusedCardId != null && current.cards.some((c) => c.id === detail.focusedCardId) ? detail.focusedCardId : null,
+            selectedIds: sel,
+          });
+      if (!target) { detail.response = null; return; }
+      const cards = target.cardIds.map((id) => current.cards.find((c) => c.id === id)).filter((c): c is Card => !!c);
+      if (cards.length === 0) { detail.response = null; return; }
+      detail.response = {
+        cardIds: cards.map((c) => c.id),
+        source: target.source,
+        summary: cardTargetSummary(cards, target.source),
+        actions: cardActionEntries(cards, ctx),
+      };
+    };
+    const onAction = (ev: Event) => {
+      const detail = (ev as CustomEvent<CardActionDetail>).detail;
+      if (!detail || !Array.isArray(detail.cardIds)) return;
+      void runCardAction(detail.cardIds, detail.action, detail.value);
+    };
+    window.addEventListener(CARD_TARGET_QUERY_EVENT, onQuery);
+    window.addEventListener(CARD_ACTION_EVENT, onAction);
+    return () => {
+      window.removeEventListener(CARD_TARGET_QUERY_EVENT, onQuery);
+      window.removeEventListener(CARD_ACTION_EVENT, onAction);
+    };
+  }, [runCardAction]);
+
+  // The menu is never left open over a card that is gone or a sheet that opened.
+  useEffect(() => {
+    if (cardMenu && (selectedCard || !board.cards.some((c) => c.id === cardMenu.originId))) setCardMenu(null);
+  }, [cardMenu, selectedCard, board.cards]);
+  // A sheet closing ends its block-form request.
+  useEffect(() => { if (!selectedCard) setBlockFormRequest(null); }, [selectedCard]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // ⌘\ / Ctrl+\ — toggle activity drawer (fires even from input fields)
@@ -2070,6 +2278,41 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     replayTour,
   ]);
 
+  // Card-action outcome region (#2059), rendered by EVERY view branch below:
+  // the palette's card commands and a carried-over selection work from
+  // Summary, History, Analytics and Lens too, so their results must not be
+  // silent there.
+  const cardActionNotice = (
+    <>
+      {/* Outcome of a context-menu or palette card action (#2059), in the
+          same in-flow notice slot and warning shell as the card-not-found
+          notice. Always mounted so the text swap is announced. A failure is
+          shown in the warning shell with its dismiss button beside the region,
+          never inside it (#1772); a `shown` success uses the archive notice's
+          neutral shell; an `announced` success is screen-reader only. */}
+      <div className={
+        cardActionStatus?.kind === "failed"
+          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-warning/10 border border-warning/30 rounded-lg text-sm"
+          : cardActionStatus?.kind === "shown"
+          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-surface-hover/80 border border-line-strong rounded-lg text-sm"
+          : "sr-only"
+      }>
+        <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status" className={cardActionStatus?.kind === "failed" ? "text-warning-on-tint" : "text-fg"}>
+          {cardActionStatus?.kind === "failed" && <span aria-hidden="true" className="mr-1.5">⚠</span>}
+          {cardActionStatus?.text}
+        </p>
+        {cardActionStatus?.kind === "failed" && (
+          <button
+            type="button"
+            onClick={() => setCardActionStatus(null)}
+            aria-label="Dismiss card action message"
+            className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >×</button>
+        )}
+      </div>
+    </>
+  );
+
   // Lens view — read-only GitHub/GitLab issue mirror. If the tab disappears
   // while it's active (flag flipped off, or connection removed), fall back to
   // the board view rather than rendering a dead tab.
@@ -2105,6 +2348,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </div>
           </div>
         </nav>
+        {cardActionNotice}
         <SectionErrorBoundary section="Lens">
           <LensView
             boardId={board.id}
@@ -2123,6 +2367,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
+        {cardActionNotice}
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
         </SectionErrorBoundary>
@@ -2136,6 +2381,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
+        {cardActionNotice}
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
         </SectionErrorBoundary>
@@ -2158,6 +2404,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
         {cardNotFoundNotice}
+        {cardActionNotice}
         <SectionErrorBoundary section="Analytics">
           <AnalyticsView
             boardId={board.id}
@@ -2191,6 +2438,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
+            blockFormRequest={blockFormRequest}
           />
         )}
       </div>
@@ -2536,6 +2784,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
       {cardNotFoundNotice}
+      {cardActionNotice}
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
       {view === "board" && collapsedSwimlaneIds.size > 0 && (
@@ -2741,6 +2990,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       highlightedCardId={highlightedCardId}
                       currentCardId={selectedCard?.id ?? null}
                       onToggleCardSelection={toggleCardSelection}
+                      // No context menu while the card sheet is open (#2059): the
+                      // menu would take focus out of the aria-modal sheet, the same
+                      // reason the selection checkbox is withheld (#1914). ⌘K acts
+                      // on the open card instead.
+                      onOpenCardMenu={selectedCard ? undefined : openCardMenu}
+                      contextTargetCardId={cardMenu && cardMenu.cardIds.length === 1 && !selectedCardIds.has(cardMenu.originId) ? cardMenu.originId : null}
                       onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
                       onCardAdded={onCardAdded}
                       onSwimlaneUpdated={onSwimlaneUpdated}
@@ -2851,6 +3106,50 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       </DndContext>
       </SectionErrorBoundary>
 
+      {cardMenu && (() => {
+        const menuCards = cardMenu.cardIds.map((id) => board.cards.find((c) => c.id === id)).filter((c): c is Card => !!c);
+        if (menuCards.length === 0) return null;
+        return (
+          <CardContextMenu
+            anchor={cardMenu.anchor}
+            label={menuCards.length === 1 ? `Card actions: ${menuCards[0].title}` : `Actions for ${menuCards.length} cards`}
+            header={menuCards.length > 1 ? `${menuCards.length} cards` : undefined}
+            entries={cardActionEntries(menuCards, cardActionContext)}
+            columns={board.columns}
+            members={board.members}
+            onAction={(action, value) => {
+              const ids = menuCards.map((c) => c.id);
+              closeCardMenu("action");
+              void runCardAction(ids, action, value);
+            }}
+            onClose={closeCardMenu}
+          />
+        );
+      })()}
+
+      {deleteTargetIds && (() => {
+        const delCards = deleteTargetIds.map((id) => board.cards.find((c) => c.id === id)).filter((c): c is Card => !!c);
+        return (
+          <CardDeleteConfirm
+            boardId={board.id}
+            cards={delCards}
+            canModifyAll={isAdmin || isBoardModerator}
+            currentUserId={currentUser?.id ?? null}
+            onDeleted={(ids) => {
+              ids.forEach((id) => onCardDeleted(id));
+              const sel = cardActionStateRef.current.selectedCardIds;
+              if (ids.length === deleteTargetIds.length && deleteTargetIds.every((id) => sel.has(id)) && sel.size === ids.length) clearSelection();
+            }}
+            onClose={(failure) => {
+              const firstId = deleteTargetIds[0];
+              setDeleteTargetIds(null);
+              if (failure) reportCardAction(failure, "failed");
+              else if (delCards.length > 0) reportCardAction(successMessage("delete", delCards), "shown");
+              setTimeout(() => focusCardOrBoard(firstId), 0);
+            }}
+          />
+        );
+      })()}
       {/* The shared toast region renders here: the next DOM sibling after the
           grid and before BulkActionToolbar, so one Tab from the focused card
           reaches the first toast action (frontend/CLAUDE.md § Toasts). */}
@@ -2892,6 +3191,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
+            blockFormRequest={blockFormRequest}
           />
         </SectionErrorBoundary>
       )}

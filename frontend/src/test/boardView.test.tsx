@@ -119,14 +119,17 @@ vi.mock('../components/Board/ColumnHeader', () => ({
 // existing per-board write gate) so tests can assert on it without rendering the
 // real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null }) => {
+  default: ({ swimlane, cards, onFocus, onExitFocus, isFocused, compact, canEdit, onEditFieldOrder, hideRowChipFieldNames, sidebarWidth, onToggleCardSelection, currentCardId, onOpenCardMenu, contextTargetCardId }: { swimlane: { id: number; name: string }; cards?: { id: number }[]; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; sidebarWidth?: number; onToggleCardSelection?: (cardId: number) => void; currentCardId?: number | null; onOpenCardMenu?: (card: never, anchor: { top: number; bottom: number; left: number }) => void; contextTargetCardId?: number | null }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-current-card-id={String(currentCardId ?? '')} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
+      <div data-testid={`swim-${swimlane.id}`} data-current-card-id={String(currentCardId ?? '')} data-context-target={String(contextTargetCardId ?? '')} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)} data-hide-row-chip-names={String(hideRowChipFieldNames ?? false)} data-sidebar-width={String(sidebarWidth)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
         {onEditFieldOrder && <button data-testid={`edit-order-${swimlane.id}`} onClick={onEditFieldOrder}>EditOrderMock</button>}
         {onToggleCardSelection && <button data-testid={`select-card-1-${swimlane.id}`} onClick={() => onToggleCardSelection(1)}>SelectCardMock</button>}
+        {onOpenCardMenu && (cards ?? []).map((c) => (
+          <button key={c.id} data-testid={`open-menu-${c.id}`} onClick={() => onOpenCardMenu(c as never, { top: 10, bottom: 10, left: 10 })}>OpenMenuMock</button>
+        ))}
       </div>
     )
   },
@@ -135,7 +138,7 @@ vi.mock('../components/Card/CardItem', () => ({
   default: ({ card, compact, overlay, inDoneColumn }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean }) => <div data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
 vi.mock('../components/Card/CardDetail', () => ({
-  default: ({ card, onClose, onDeleted, onForceMoveCard }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown> }) => <div data-testid="card-detail">{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
+  default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
 }))
 vi.mock('../components/Board/AddColumnModal', () => ({
   default: ({ onAdded }: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true; is_done: false }) => void }) => (
@@ -222,9 +225,14 @@ vi.mock('../hooks/useCardSearch', () => ({
 }))
 vi.mock('../api/cards', () => ({
   getCardStatus: vi.fn(),
+  // Card context menu / palette card actions (#2059).
+  moveCard: vi.fn(),
+  updateCard: vi.fn(),
+  archiveCard: vi.fn(),
+  deleteCard: vi.fn(),
 }))
 
-import { getCardStatus } from '../api/cards'
+import { archiveCard, deleteCard, getCardStatus, moveCard, updateCard } from '../api/cards'
 import { getLensConnection } from '../api/gitLens'
 import { LENS_ONLY_BOARD_TOOLTIP } from '../components/Board/lensTabState'
 import { flagsWrapper } from './instanceFlagsWrapper'
@@ -1686,7 +1694,7 @@ describe('BoardView', () => {
 
       expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
       expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent('The card you had open was deleted or archived, so it was closed.')
+      expect(screen.getByText('The card you had open was deleted or archived, so it was closed.')).toHaveTextContent('The card you had open was deleted or archived, so it was closed.')
     })
 
     it('the notice clears itself after 4 seconds', () => {
@@ -2661,5 +2669,236 @@ describe('BoardView', () => {
       expect(await screen.findByTestId(testId)).toBeInTheDocument()
       expect(trigger).toHaveFocus()
     })
+  })
+})
+
+// Card context menu and ⌘K card actions (#2059): BoardView owns the target
+// set, the executor and the palette's window-event contract.
+describe('BoardView card actions (#2059)', () => {
+  const card1 = {
+    id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Fix payout rounding',
+    description: '', priority: 'medium' as const, assignee: null,
+    labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    last_moved_at: null, attachment_count: 0, checklist_total: 0,
+    checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+    custom_field_values: [],
+    blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+  }
+  const card2 = { ...card1, id: 2, uid: 'carduid00002', title: 'Second card' }
+  const query = (detail: Record<string, unknown>) => {
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:card-target-query', { detail })) })
+    return detail.response as { cardIds: number[]; source: string; summary: string; actions: { id: string; enabled: boolean }[] } | null
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
+    localStorage.clear()
+    vi.mocked(getCardStatus).mockResolvedValue(null)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2] }) })
+  })
+
+  it('right-clicking a card outside the selection opens the menu on that card alone and outlines it', () => {
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    expect(screen.getByRole('menu', { name: 'Card actions: Second card' })).toBeInTheDocument()
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-context-target', '2')
+  })
+
+  it('a card inside the selection acts on the whole selection, and Escape closes only the menu', async () => {
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    expect(screen.getByTestId('bulk-toolbar')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('open-menu-1'))
+    expect(screen.getByRole('menu', { name: 'Card actions: Fix payout rounding' })).toBeInTheDocument()
+    // In the selection: no transient outline.
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-context-target', '')
+    await act(async () => { fireEvent.keyDown(document, { key: 'Escape' }) })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    // The menu's Escape (59) outranks the selection clear (10).
+    expect(screen.getByTestId('bulk-toolbar')).toBeInTheDocument()
+  })
+
+  it('Move to… runs the move and announces it', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: { ...card2, column: 11 } } as never)
+    const updateCardSpy = vi.fn()
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2] }), updateCard: updateCardSpy })
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Done' }))
+    await waitFor(() => expect(moveCard).toHaveBeenCalledWith(1, 2, { column_id: 11, swimlane_id: 20, position: 9999 }))
+    expect(updateCardSpy).toHaveBeenCalledWith(expect.objectContaining({ id: 2, column: 11 }))
+    expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Moved “Second card” to Done.')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('a failed archive is shown with the bulk partial-failure wording', async () => {
+    vi.mocked(archiveCard).mockRejectedValue(new Error('offline'))
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive card' }))
+    expect(await screen.findByText('1 of 1 card could not be archived — a network error occurred.')).toBeInTheDocument()
+    // A failure persists until dismissed (no auto-clear timer).
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss card action message' }))
+    expect(screen.getByTestId('card-action-status')).toHaveTextContent('')
+  })
+
+  it('Block card… opens the card sheet with the block form requested', () => {
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Block card…' }))
+    expect(screen.getByTestId('card-detail')).toHaveTextContent('Second card')
+    expect(screen.getByTestId('card-detail')).toHaveAttribute('data-block-form', 'block')
+    // No menu over an open sheet.
+    expect(screen.queryByTestId('open-menu-1')).not.toBeInTheDocument()
+  })
+
+  it('Delete card… asks first, then deletes', async () => {
+    vi.mocked(deleteCard).mockResolvedValue(undefined as never)
+    const removeCard = vi.fn()
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2] }), removeCard })
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete card…' }))
+    expect(deleteCard).not.toHaveBeenCalled()
+    const dialog = screen.getByRole('dialog', { name: 'Delete this card?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(deleteCard).toHaveBeenCalledWith(1, 2))
+    await waitFor(() => expect(removeCard).toHaveBeenCalledWith(2))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this card?' })).not.toBeInTheDocument())
+    // The card is gone from view, so the success is shown as well as announced.
+    expect(screen.getByTestId('card-action-status')).toHaveTextContent('Deleted “Second card”.')
+    expect(screen.getByTestId('card-action-status').parentElement).not.toHaveClass('sr-only')
+  })
+
+  it('Copy link writes the card deep link and announces it', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link to card' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/boards/1?card=2`))
+    expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Link copied to the clipboard.')
+    // Nothing on the board changes, so it is shown, not only announced.
+    expect(screen.getByTestId('card-action-status').parentElement).not.toHaveClass('sr-only')
+  })
+
+  it('says so when the clipboard is blocked', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) }, configurable: true })
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link to card' }))
+    expect(await screen.findByText("Couldn't copy the link. The browser blocked clipboard access.")).toBeInTheDocument()
+  })
+
+  it('answers palette target queries: none, focused, selection, then the open sheet', () => {
+    render(<BoardView currentUser={fakeUser} />)
+    expect(query({})).toBeNull()
+    expect(query({ focusedCardId: 2 })).toMatchObject({ cardIds: [2], source: 'focused', summary: 'Second card' })
+    // A focused id that is not on this board is ignored.
+    expect(query({ focusedCardId: 999 })).toBeNull()
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    expect(query({})).toMatchObject({ cardIds: [1], source: 'selection' })
+    expect(query({ cardIds: [2] })).toMatchObject({ cardIds: [2], source: 'result' })
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 2 } })) })
+    expect(query({ focusedCardId: 1 })).toMatchObject({ cardIds: [2], source: 'open' })
+  })
+
+  it('runs a palette card action from the window event', async () => {
+    vi.mocked(updateCard).mockResolvedValue({ ...card2, priority: 'high' } as never)
+    render(<BoardView currentUser={fakeUser} />)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
+    })
+    await waitFor(() => expect(updateCard).toHaveBeenCalledWith(1, 2, { priority: 'high' }))
+    expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Set “Second card” to high priority.')
+    // The board shows the change, so the success is announced only.
+    expect(screen.getByTestId('card-action-status').parentElement).toHaveClass('sr-only')
+  })
+
+  it('assigns from the window event and clears a fully successful selection', async () => {
+    vi.mocked(updateCard).mockResolvedValue({ ...card1 } as never)
+    render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByTestId('select-card-1-20'))
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [1], action: 'assign', value: 1 } }))
+    })
+    await waitFor(() => expect(updateCard).toHaveBeenCalledWith(1, 1, { assignee_id: 1 }))
+    expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Assigned “Fix payout rounding” to Jane Doe.')
+    await waitFor(() => expect(screen.queryByTestId('bulk-toolbar')).not.toBeInTheDocument())
+  })
+
+  it('never runs an action the target may not take (viewer)', async () => {
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2], current_user_role: 'viewer' }) })
+    render(<BoardView currentUser={fakeUser} />)
+    expect(query({ focusedCardId: 2 })?.actions.find((a) => a.id === 'archive')).toMatchObject({ enabled: false })
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'archive' } }))
+    })
+    await act(async () => {})
+    expect(archiveCard).not.toHaveBeenCalled()
+  })
+})
+
+// #2059 completeness: card commands run from the palette in every view, so
+// their results must be visible there, and Block must reach a view that
+// renders the card sheet.
+describe('BoardView card actions outside the board grid (#2059)', () => {
+  const card = {
+    id: 2, uid: 'carduid00002', column: 10, swimlane: 20, title: 'Second card',
+    description: '', priority: 'medium' as const, assignee: null,
+    labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    last_moved_at: null, attachment_count: 0, checklist_total: 0,
+    checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+    custom_field_values: [],
+    blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+  }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    vi.mocked(getCardStatus).mockResolvedValue(null)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+  })
+
+  it.each(['summary', 'history', 'analytics'])('shows a palette action result in the %s view', async (view) => {
+    mockSearchParams = new URLSearchParams(`view=${view}`)
+    vi.mocked(updateCard).mockResolvedValue({ ...card, priority: 'high' } as never)
+    render(<BoardView currentUser={fakeUser} />)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
+    })
+    const status = await screen.findByText('Set “Second card” to high priority.')
+    // The grid is not in view, so the success is shown, not only announced.
+    expect(status.closest('div')).not.toHaveClass('sr-only')
+  })
+
+  it('shows a palette action result in the Lens view', async () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
+    // A configured lens is the landing tab with no ?view= (#1063).
+    mockSearchParams = new URLSearchParams()
+    vi.mocked(updateCard).mockResolvedValue({ ...card, priority: 'high' } as never)
+    render(<BoardView currentUser={lensUser} />)
+    expect(await screen.findByTestId('lens-view')).toBeInTheDocument()
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
+    })
+    const status = await screen.findByText('Set “Second card” to high priority.')
+    expect(status.closest('div')).not.toHaveClass('sr-only')
+    expect(screen.getByTestId('lens-view')).toBeInTheDocument()
+  })
+
+  it('Block card… from the Summary view switches to the board and opens the sheet with the form', async () => {
+    mockSearchParams = new URLSearchParams('view=summary')
+    render(<BoardView currentUser={fakeUser} />)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'block' } }))
+    })
+    expect(await screen.findByTestId('card-detail')).toHaveAttribute('data-block-form', 'block')
+    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
   })
 })

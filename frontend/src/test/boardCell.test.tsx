@@ -21,8 +21,8 @@ vi.mock('@dnd-kit/sortable', () => ({
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
 
 vi.mock('../components/Card/CardItem', () => ({
-  default: ({ card, onClick, compact, inDoneColumn, current, onSelect, peekSuppressed, dimmed, onExpandChange }: { card: Card; peekSuppressed?: boolean; onClick?: () => void; compact?: boolean; inDoneColumn?: boolean; current?: boolean; onSelect?: () => void; dimmed?: boolean; onExpandChange?: (id: number, expanded: boolean) => void }) => (
-    <div data-testid={`card-${card.id}`} data-compact={String(compact ?? false)} data-in-done-column={String(inDoneColumn ?? false)} data-current={String(current ?? false)} data-selectable={String(!!onSelect)} data-peek-suppressed={String(peekSuppressed ?? false)} data-dimmed={String(dimmed ?? false)} onClick={onClick}>{card.title}{onSelect && <button data-testid={`select-${card.id}`} onClick={(e) => { e.stopPropagation(); onSelect() }} />}
+  default: ({ card, onClick, compact, inDoneColumn, current, onSelect, peekSuppressed, dimmed, onExpandChange, onOpenMenu, contextTarget }: { card: Card; peekSuppressed?: boolean; onClick?: () => void; compact?: boolean; inDoneColumn?: boolean; current?: boolean; onSelect?: () => void; dimmed?: boolean; onExpandChange?: (id: number, expanded: boolean) => void; onOpenMenu?: unknown; contextTarget?: boolean }) => (
+    <div data-testid={`card-${card.id}`} data-card-id={card.id} data-has-menu={String(!!onOpenMenu)} data-context-target={String(!!contextTarget)} data-compact={String(compact ?? false)} data-in-done-column={String(inDoneColumn ?? false)} data-current={String(current ?? false)} data-selectable={String(!!onSelect)} data-peek-suppressed={String(peekSuppressed ?? false)} data-dimmed={String(dimmed ?? false)} onClick={onClick}>{card.title}{onSelect && <button data-testid={`select-${card.id}`} onClick={(e) => { e.stopPropagation(); onSelect() }} />}
       <button data-testid={`expand-${card.id}`} onClick={(e) => { e.stopPropagation(); onExpandChange?.(card.id, true) }} />
       <button data-testid={`collapse-${card.id}`} onClick={(e) => { e.stopPropagation(); onExpandChange?.(card.id, false) }} />
     </div>
@@ -354,6 +354,37 @@ describe('BoardCell', () => {
     const notCanceled = fireEvent.contextMenu(cell)
     expect(notCanceled).toBe(false)
     expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
+  })
+
+  // #2059 — a right-click on a card belongs to the card's context menu; only
+  // empty cell space keeps the add-card shortcut, in a populated cell too.
+  it('right-click on a card face does not open the new-card input', () => {
+    dnd.active = null
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 })]
+    render(<BoardCell {...props} />)
+    const notCanceled = fireEvent.contextMenu(screen.getByText('Test Card'))
+    expect(notCanceled).toBe(true)
+    expect(screen.queryByPlaceholderText('Card title…')).not.toBeInTheDocument()
+  })
+
+  it('right-click on empty space in a populated cell still opens the new-card input', () => {
+    dnd.active = null
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 })]
+    const { container } = render(<BoardCell {...props} />)
+    const cell = container.querySelector('[data-board-cell]') as HTMLElement
+    expect(fireEvent.contextMenu(cell)).toBe(false)
+    expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
+  })
+
+  it('hands every card the menu opener and outlines only the menu target', () => {
+    const props = { ...defaultProps(), onOpenCardMenu: vi.fn(), contextTargetCardId: 2 }
+    props.cards = [makeCard({ id: 1 }), makeCard({ id: 2, title: 'Other' })]
+    render(<BoardCell {...props} />)
+    expect(screen.getByTestId('card-1')).toHaveAttribute('data-has-menu', 'true')
+    expect(screen.getByTestId('card-1')).toHaveAttribute('data-context-target', 'false')
+    expect(screen.getByTestId('card-2')).toHaveAttribute('data-context-target', 'true')
   })
 
   it('a contextmenu during an active drag neither opens the input nor the native menu (#1287)', () => {

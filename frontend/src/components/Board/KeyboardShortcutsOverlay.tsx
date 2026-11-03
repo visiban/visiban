@@ -36,6 +36,7 @@ function buildSections(showLens: boolean): ShortcutSection[] {
       heading: "Navigation",
       rows: [
         { key: formatShortcut({ mod: true, key: "K" }), description: "Open command palette" },
+        { key: "→ / ←", description: "In the command palette, show a card result's actions / go back" },
         { key: "/", description: "Focus the search box" },
         { key: formatShortcut({ mod: true, key: "," }), description: "Open board settings" },
         { key: "G U", sequence: ["G", "U"], description: "Open the user menu" },
@@ -61,6 +62,7 @@ function buildSections(showLens: boolean): ShortcutSection[] {
         { key: formatShortcut({ mod: true, shift: true, key: "L" }), description: "Switch card layout (compact / expanded)" },
         { key: formatShortcut({ mod: true, key: "\\" }), description: "Toggle the activity drawer" },
         { key: formatShortcut({ mod: true, shift: true, key: "E" }), description: "Export the board" },
+        { key: `Menu / ${formatShortcut({ shift: true, key: "F10" })}`, description: "Open the focused card's action menu" },
         { key: ".", description: "Open the overflow menu" },
         { key: "Space + drag", description: "Pan the board" },
         { key: "Tab", description: "Move between filter chips; Delete or Backspace to remove" },

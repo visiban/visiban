@@ -20,6 +20,8 @@ Open a card and click **Block…** in its header. Say what it is waiting on, the
 2. Enter a **Reason**. It is required, up to 500 characters. Pick wording your team will reuse: reasons that differ only in capitals or spacing are counted as one in Analytics.
 3. Click **Block card**. **Cancel** or Escape closes the form without blocking, and returns you to **Block…**.
 
+You can also start from the board: right-click the card (or focus it and press <kbd>Menu</kbd> / <kbd>Shift+F10</kbd>) and choose **Block card…** from its [actions menu](board.md#card-actions-menu), or press <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> and run **Block card…** from the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette). Either way the card opens with the form ready and the cursor in **Reason**. **Unblock card** works the same way for a blocked card.
+
 While the card is blocked, a red banner at the top of *Details* shows:
 
 - **Blocked for 3d 5h**, and the reason

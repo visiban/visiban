@@ -1,8 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useOptionalBoardContext } from "../../contexts/BoardContext";
 import CommandPalette from "./CommandPalette";
 import type { Card } from "../../types";
+import {
+  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, focusedCardFaceId,
+  type CardActionDetail, type CardTargetInfo, type CardTargetQueryDetail,
+} from "../../utils/cardActions";
+
+/** Asks the board (BoardView) for a card target over the window-event contract (#2059). */
+function queryCardTarget(detail: CardTargetQueryDetail): CardTargetInfo | null {
+  window.dispatchEvent(new CustomEvent(CARD_TARGET_QUERY_EVENT, { detail }));
+  return detail.response ?? null;
+}
 
 // Shell-level owner for the ⌘K command palette. Hoisted from BoardView
 // (#869) so the shortcut fires on every authenticated route and the palette
@@ -16,6 +26,12 @@ import type { Card } from "../../types";
 // the subset that makes sense in board context.
 export default function GlobalCommandPalette({ userId }: { userId?: number | null } = {}) {
   const [open, setOpen] = useState(false);
+  const openRef = useRef(open);
+  openRef.current = open;
+  // Card-scoped commands (#2059): the target is resolved once, as the palette
+  // opens, while the card that had keyboard focus still has it. Hover is
+  // never a target.
+  const [cardTarget, setCardTarget] = useState<CardTargetInfo | null>(null);
   const { pathname } = useLocation();
   const boardCtx = useOptionalBoardContext();
 
@@ -28,24 +44,31 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
   // input — the palette itself is a typing surface, so opening it from a
   // search box or editor is intentional. shouldIgnoreShortcut is reserved
   // for bare-key shortcuts like `f` / `/` / `?`.
+  const openPalette = useCallback(() => {
+    const focusedCardId = focusedCardFaceId(document.activeElement);
+    setCardTarget(inBoardRoute ? queryCardTarget({ focusedCardId }) : null);
+    setOpen(true);
+  }, [inBoardRoute]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        setOpen((v) => !v);
+        if (openRef.current) setOpen(false);
+        else openPalette();
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [openPalette]);
 
   // Row 1 search button in Navbar dispatches this event on click — the single
   // bridge between the visible chrome trigger and the palette state.
   useEffect(() => {
-    const openListener = () => setOpen(true);
+    const openListener = () => openPalette();
     window.addEventListener("visiban:open-palette", openListener);
     return () => window.removeEventListener("visiban:open-palette", openListener);
-  }, []);
+  }, [openPalette]);
 
   // Adaptive placeholder per surface. Matches the navbar trigger copy so the
   // user sees the same words before and after the palette opens.
@@ -59,6 +82,11 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
 
   const handleOpenCard = useCallback((card: Card) => {
     window.dispatchEvent(new CustomEvent("visiban:open-card", { detail: { cardId: card.id } }));
+  }, []);
+
+  const resolveCardActions = useCallback((cardIds: number[]) => queryCardTarget({ cardIds }), []);
+  const handleCardAction = useCallback((detail: CardActionDetail) => {
+    window.dispatchEvent(new CustomEvent(CARD_ACTION_EVENT, { detail }));
   }, []);
 
   const handleAction = useCallback((actionId: string) => {
@@ -87,6 +115,10 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
         userId={userId}
         boardCards={board.cards}
         columns={board.columns}
+        members={board.members}
+        cardTarget={cardTarget}
+        resolveCardActions={resolveCardActions}
+        onCardAction={handleCardAction}
         isAdmin={isAdmin}
         placeholder={placeholder}
         onClose={handleClose}

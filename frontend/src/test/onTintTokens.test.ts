@@ -211,7 +211,7 @@ describe('card metadata on an aging tint (#1844)', () => {
   const META = ['fg-secondary', 'fg-tertiary', 'fg-muted', 'fg-faint', 'info', 'danger', 'success']
   const TINTED = ['warning', 'stale', 'stale2x', 'stale3x'] as const
   // Sibling components CardItem imports that never render inside the row: they are portaled.
-  const PORTALED = ['CardPeekPopover', 'CustomFieldQuickEditPopover']
+  const PORTALED = ['CardPeekPopover', 'CustomFieldQuickEditPopover', 'CardContextMenu'] // CardContextMenu: type-only import in CardItem; the menu itself is portaled (#2059)
   const themes = [
     ['dark', darkBlock],
     ['light', lightBlock],
@@ -332,6 +332,7 @@ describe('card metadata on an aging tint (#1844)', () => {
   it('every non-text utility on a rebound token is listed with a reason', () => {
     const intended = new Set([
       'border-fg-tertiary', // dotted quick-edit underline under a chip value: follows the rescoped text tone
+      'ring-info', // transient context-menu target outline on the card root (#2059), outside the metadata row
       'bg-info', // selected-card fill on the card root, outside the metadata row (and dropped under a tint)
     ])
     // Literal regex (no RegExp constructor); the token list must match the rescope exactly.
