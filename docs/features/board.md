@@ -43,7 +43,7 @@ An empty cell shows a dashed inset border with **+ Add card** centered; the affo
 
 - Click anywhere in the cell, or press **Tab** to focus it then **Enter**/**Space**, to open the inline new-card input.
 - The dashed border disappears the moment a card lives in the cell; populated cells keep the **+ Add card** button anchored at the bottom for additional cards.
-- Double-click and right-click on a cell still work for power users.
+- Double-click and right-click on a cell still work for power users. Since 1.3 a right-click **on a card** opens that card's [actions menu](#card-actions-menu) instead; right-click the empty space in the cell to add a card.
 
 Card creation requires the column's *Allow card creation* setting and at least the Member role.
 
@@ -334,7 +334,39 @@ Press **Escape** or click the **×** button to clear the selection. Selection is
 
 ## Right-click to add
 
-Right-click any board cell to open an inline card creation input directly in that column + swimlane.
+Right-click the empty space in any board cell to open an inline card creation input directly in that column + swimlane. A right-click on a card opens the card's actions menu instead (see below).
+
+## Card actions menu
+
+<a id="card-actions-menu"></a>
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Right-click a card to act on it without opening it: move it, assign it, set its priority, block it, archive it, and more.
+
+**How to open it:**
+
+- **Mouse:** right-click a card.
+- **Keyboard:** focus a card and press the <kbd>Menu</kbd> key or <kbd>Shift+F10</kbd>.
+- **Touch screen:** select or focus a card and tap its **⋯ More actions** button. A long press still picks the card up to drag it.
+
+**Which cards it acts on:** right-click a card that is part of your current selection and the menu acts on every selected card. Right-click any other card and it acts on that one card only, without changing your selection; that card is outlined while the menu is open.
+
+| Item | One card | Several cards |
+|---|---|---|
+| **Open card** | Opens the card detail panel | Select one card |
+| **Copy link to card** | Copies a link that opens this card | Select one card |
+| **Move to… ▸** | Moves to a column (the card keeps its swimlane) | Same, for each card |
+| **Assign to… ▸** | Sets or clears the assignee | Same, for each card |
+| **Set priority ▸** | Sets the priority | Same, for each card |
+| **Block card…** / **Unblock card** | Opens the card with the [block form](blocked-cards.md) ready | Select one card |
+| **Archive card** | Archives the card | Same, for each card |
+| **Delete card…** | Asks first, then deletes | Same, for each card |
+
+- Items you cannot use stay in the menu, dimmed, with the reason underneath (for example *Viewers can't block cards*, *Select one card*, or the maintenance or shared-demo notice), so you know why.
+- Use <kbd>↑</kbd> / <kbd>↓</kbd> to move, <kbd>→</kbd> to open a submenu, <kbd>←</kbd> to close it, and a letter to jump to the item that starts with it. <kbd>Esc</kbd> closes a submenu, then the menu, and returns you to the card.
+- The menu is not offered while a card detail panel is open; use the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette) to act on the open card.
+- When some cards in a multi-card action fail, a notice under the toolbar says how many failed and why, and the selection stays so you can retry, as in [bulk card operations](#bulk-card-operations).
 
 ## Keyboard shortcuts
 
@@ -351,6 +383,7 @@ Right-click any board cell to open an inline card creation input directly in tha
 | `y` | Toggle the Archived cards panel |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
 | `⌘K` / `Ctrl+K` | Open the command palette |
+| `Menu` / `Shift+F10` | Open the focused card's [actions menu](#card-actions-menu) |
 | `⌘\` / `Ctrl+\` | Toggle the activity drawer |
 | `⌘⇧E` / `Ctrl+Shift+E` | Open the Export board dialog (when export is permitted) |
 | `⌘,` / `Ctrl+,` | Open the Board settings dialog (admins only) |

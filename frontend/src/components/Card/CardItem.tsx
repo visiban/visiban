@@ -21,6 +21,7 @@ import { updateCard } from "../../api/cards";
 import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
 import ExternalRefGlyph from "./ExternalRefGlyph";
 import { colorChipStyle } from "../../utils/colorContrast";
+import type { CardMenuAnchor } from "./CardContextMenu";
 
 
 
@@ -85,6 +86,17 @@ interface Props {
    * plain, non-interactive chips.
    */
   onCardUpdated?: (card: Card) => void;
+  /**
+   * Opens the card context menu (#2059) for this card at `anchor`: right-click,
+   * `Menu` / `Shift+F10` while the card has focus, or the `⋯ More actions`
+   * button at coarse pointer. One stable callback for every card (it takes the
+   * card), so the memo comparator stays cheap. Omit it and none of those paths
+   * exist (share page, drag overlay, while the card detail sheet is open).
+   */
+  onOpenMenu?: (card: Card, anchor: CardMenuAnchor) => void;
+  /** The context menu is open on this card alone (outside the selection): a
+   *  transient `ring-info` outline marks what it will act on (#2059). */
+  contextTarget?: boolean;
 }
 
 /** True when focus arrived by keyboard. Falls back to true where `:focus-visible` is unsupported. */
@@ -170,11 +182,13 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.boardId === next.boardId &&
     prev.dimmed === next.dimmed &&
     prev.onExpandChange === next.onExpandChange &&
-    prev.onCardUpdated === next.onCardUpdated
+    prev.onCardUpdated === next.onCardUpdated &&
+    prev.onOpenMenu === next.onOpenMenu &&
+    prev.contextTarget === next.contextTarget
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, dimmed = false, onExpandChange, onCardUpdated }: Props) {
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false }: Props) {
   // Per-density visibility booleans (#961). The decision tree:
   //   comfortable → one urgency badge, one primary label, checklist, assignee
   //   standard    → adds due date (when not in urgency), weight (>1), attachments, second label
@@ -216,6 +230,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   // Ref to the card's outer div so we can capture its bounding rect on hover.
   const cardRef = useRef<HTMLDivElement>(null);
+  // Context menu (#2059): the pointer type of the last press, so a touch
+  // long-press (dnd-kit's drag start, #1287) never opens the menu, and the
+  // time a key opened it, so the native `contextmenu` event the Menu key and
+  // Shift+F10 also fire does not open it a second time.
+  const lastPointerType = useRef<string | null>(null);
+  const keyboardMenuAt = useRef(0);
+  const rectAnchor = (el: HTMLElement): CardMenuAnchor => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, left: r.left };
+  };
+  const menuEnabled = !!onOpenMenu && !readOnly && !overlay;
   // Ref to the peek timer so we can clear it on mouseleave / drag start.
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -502,7 +527,35 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       // forwards the dnd-kit KeyboardSensor listener, and the div already has role="button" and
       // tabIndex from dnd-kit `attributes`. Behavior is identical to the spread; restating it
       // makes the keyboard handler visible to static analysis (S1082) (#1376).
-      onKeyDown={(e) => { listeners?.onKeyDown?.(e); }}
+      onKeyDown={(e) => {
+        // Menu / Shift+F10 on the focused card opens its context menu, anchored
+        // to the card's bottom-left (#2059). Platform keys, no letters.
+        if (menuEnabled && e.target === e.currentTarget && (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))) {
+          e.preventDefault();
+          e.stopPropagation();
+          keyboardMenuAt.current = Date.now();
+          onOpenMenu?.(card, rectAnchor(e.currentTarget));
+          return;
+        }
+        listeners?.onKeyDown?.(e);
+      }}
+      onPointerDown={menuEnabled ? (e) => { lastPointerType.current = e.pointerType; } : undefined}
+      // The card owns right-click (#2059): it stops here, so the cell's
+      // add-card shortcut fires only from empty cell space (BoardCell also
+      // ignores a contextmenu from inside a card face).
+      onContextMenu={menuEnabled ? (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (isDragging) return;
+        // A touch long-press is the drag start (#1287); release-without-movement
+        // is unverified on device, so the touch path is the ⋯ button only.
+        const native = e.nativeEvent as MouseEvent & { pointerType?: string };
+        if (native.pointerType === "touch" || lastPointerType.current === "touch") return;
+        if (Date.now() - keyboardMenuAt.current < 500) return;
+        // A keyboard-generated contextmenu has no pointer position.
+        const fromKeyboard = e.clientX === 0 && e.clientY === 0;
+        onOpenMenu?.(card, fromKeyboard ? rectAnchor(e.currentTarget) : { top: e.clientY, bottom: e.clientY, left: e.clientX });
+      } : undefined}
       onClick={readOnly ? undefined : onClick}
       // The card detail sheet finds the open card's face by this (#1914). The
       // drag-overlay copy has none, so it never matches.
@@ -519,7 +572,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-sunken
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${current ? "border-2 -m-px border-primary-emphasis ring-2 ring-primary-emphasis ring-offset-2 ring-offset-sunken" : highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? `ring-2 ring-primary-soft${overlayClass ? "" : " bg-info/20"}` : ""}
+        ${current ? "border-2 -m-px border-primary-emphasis ring-2 ring-primary-emphasis ring-offset-2 ring-offset-sunken" : contextTarget ? "ring-1 ring-info bg-info/10" : highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse motion-reduce:animate-none" : selected ? `ring-2 ring-primary-soft${overlayClass ? "" : " bg-info/20"}` : ""}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -570,6 +623,28 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
             </svg>
           )}
         </div>
+      )}
+      {/* ⋯ More actions (#2059): the guaranteed touch path to the context menu,
+          on the selected or focused card at coarse pointer only. Never a
+          hover reveal (§ Hover-reveal controls); 44px target. Presses stop
+          here so they neither open the card nor start a drag (#1287). */}
+      {menuEnabled && (
+        <button
+          type="button"
+          aria-label="More actions"
+          aria-haspopup="menu"
+          data-testid="card-more-actions"
+          onClick={(e) => { e.stopPropagation(); onOpenMenu?.(card, rectAnchor(e.currentTarget)); }}
+          onKeyDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className={`absolute -top-1 right-5 z-10 w-11 h-11 items-center justify-center rounded-full text-fg-secondary hidden ${
+            selected ? "[@media(pointer:coarse)]:flex" : "[@media(pointer:coarse)]:group-focus-within:flex"
+          } focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+        >
+          <span aria-hidden="true" className="w-7 h-7 rounded-full bg-surface-hover border border-line-strong flex items-center justify-center leading-none">⋯</span>
+        </button>
       )}
       <div className={`relative px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         <p className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : "text-sm text-fg line-clamp-2"}`}>

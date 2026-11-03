@@ -288,4 +288,69 @@ describe("GlobalCommandPalette — board mode (inside BoardProvider)", () => {
 
     window.removeEventListener("visiban:open-card", spy as EventListener);
   });
+  // #2059 — the palette resolves its card target by asking the board over a
+  // window event as it opens, capturing the focused card first, and runs card
+  // commands by dispatching visiban:card-action.
+  it("asks the board for the card target with the focused card, and dispatches card actions", async () => {
+    const { useBoard } = await import("../hooks/useBoard");
+    vi.mocked(useBoard).mockReturnValue({ ...emptyBoardContext(), unavailable: false, board: boardFixture, getLastFullFetchAt: () => null });
+
+    const face = document.createElement("div");
+    face.setAttribute("data-card-id", "100");
+    face.tabIndex = 0;
+    document.body.appendChild(face);
+    face.focus();
+
+    const queries: { focusedCardId?: number | null; cardIds?: number[] }[] = [];
+    const onQuery = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail;
+      queries.push({ ...detail });
+      detail.response = {
+        cardIds: detail.cardIds ?? [100], source: detail.cardIds ? "result" : "focused", summary: "Fix login redirect loop",
+        actions: [{ id: "archive", label: "Archive card", enabled: true }],
+      };
+    };
+    const onAction = vi.fn();
+    window.addEventListener("visiban:card-target-query", onQuery);
+    window.addEventListener("visiban:card-action", onAction);
+    try {
+      render(
+        <MemoryRouter initialEntries={["/boards/5"]}>
+          <BoardProvider>
+            <GlobalCommandPalette />
+          </BoardProvider>
+        </MemoryRouter>
+      );
+      fireEvent.keyDown(face, { key: "k", metaKey: true });
+      expect(queries[0]).toEqual({ focusedCardId: 100 });
+      expect(screen.getByTestId("palette-card-target")).toHaveTextContent("Acting on Fix login redirect loop");
+      fireEvent.click(screen.getByRole("option", { name: "Archive card" }));
+      expect(onAction).toHaveBeenCalledTimes(1);
+      expect((onAction.mock.calls[0][0] as CustomEvent).detail).toEqual({ cardIds: [100], action: "archive" });
+
+      // Drill-in on a card result asks for that card explicitly.
+      fireEvent.keyDown(document, { key: "k", metaKey: true });
+      const input = screen.getByLabelText("Command palette search");
+      fireEvent.change(input, { target: { value: "Fix login" } });
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+      fireEvent.keyDown(input, { key: "ArrowRight" });
+      expect(queries[queries.length - 1]).toEqual({ cardIds: [100] });
+    } finally {
+      window.removeEventListener("visiban:card-target-query", onQuery);
+      window.removeEventListener("visiban:card-action", onAction);
+      face.remove();
+    }
+  });
+
+  it("does not ask for a card target off-board", () => {
+    const onQuery = vi.fn();
+    window.addEventListener("visiban:card-target-query", onQuery);
+    try {
+      renderOffBoard("/");
+      act(() => { window.dispatchEvent(new CustomEvent("visiban:open-palette")); });
+      expect(onQuery).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("visiban:card-target-query", onQuery);
+    }
+  });
 });
