@@ -275,3 +275,35 @@ class DeepAncestorWalkTests(TestCase):
         self.assertEqual(patch.status_code, 403)
         self.root.refresh_from_db()
         self.assertEqual(self.root.name, "Root")
+
+    def test_ancestor_walk_query_count_is_flat_in_depth(self):
+        from groups.models import get_accessible_group_ids
+
+        def chain(depth, tag):
+            node = None
+            for i in range(depth):
+                node = _group(self.admin, f"{tag}{i}", parent=node)
+            GroupMembership.objects.create(
+                group=node, user=self.member, role=GroupMembership.Role.MEMBER,
+            )
+            return node
+
+        def count():
+            with CaptureQueriesContext(connection) as ctx:
+                get_accessible_group_ids(self.member)
+            return len(ctx.captured_queries)
+
+        baseline = count()
+        chain(5, "deep")
+        self.assertEqual(count(), baseline)
+
+    def test_grandparent_detail_routes_stay_closed(self):
+        base = f"/api/v1/groups/{self.root.id}"
+        for suffix in ("descendant-boards", "invite-links", "board-defaults"):
+            response = self.client.get(f"{base}/{suffix}/")
+            self.assertIn(response.status_code, (403, 404, 405), suffix)
+            self.assertNotEqual(response.status_code, 200, suffix)
+        self.assertEqual(self.client.delete(f"{base}/").status_code, 403)
+        self.assertEqual(
+            self.client.post(f"{base}/boards/", {"name": "x"}, format="json").status_code, 403,
+        )

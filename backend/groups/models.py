@@ -217,24 +217,16 @@ def get_accessible_group_ids(user):
     # subgroup through the sidebar tree.  Ancestors are read-only — the user
     # won't have write permissions on them unless they have an explicit
     # membership there.
-    ancestor_frontier = set(
-        Group.objects.filter(id__in=direct_ids, parent__isnull=False)
-        .values_list("parent_id", flat=True)
-    )
-    for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
-        if not ancestor_frontier:
-            break
-        all_ids |= ancestor_frontier
-        ancestor_frontier = set(
-            Group.objects.filter(id__in=ancestor_frontier, parent__isnull=False)
-            # Exclude on the parent (the groups about to be added), not on the
-            # frontier groups themselves: those are already in ``all_ids``, so
-            # excluding by ``id`` emptied the next frontier and the walk never
-            # got past the immediate parent (#2080). Excluding parents already
-            # seen also keeps the loop cycle-safe.
-            .exclude(parent_id__in=all_ids)
-            .values_list("parent_id", flat=True)
-        )
+    # One query whatever the depth: a fixed-width ``parent__parent...`` join
+    # reads up to _GROUP_TRAVERSAL_MAX_DEPTH ancestors of every direct group.
+    # The old per-level loop stopped at the immediate parent (#2080); a fixed
+    # join width also makes a parent cycle harmless, since it cannot loop.
+    paths = ["__".join(["parent"] * d) for d in range(1, _GROUP_TRAVERSAL_MAX_DEPTH + 1)]
+    for row in Group.objects.filter(id__in=direct_ids, parent__isnull=False).values_list(*paths):
+        for ancestor_id in row:
+            if ancestor_id is None:
+                break
+            all_ids.add(ancestor_id)
     # Walk DOWN: include descendant sub-groups.
     frontier = set(direct_ids)
     for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH):
