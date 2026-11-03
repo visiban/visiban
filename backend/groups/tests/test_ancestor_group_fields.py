@@ -204,3 +204,74 @@ class AncestorGroupFieldsTests(TestCase):
         self.assertEqual(len(rows), 4)
         self.assertTrue(all(not r["navigation_only"] for r in rows))
         self.assertEqual(queries, baseline)
+
+
+class DeepAncestorWalkTests(TestCase):
+    """``get_accessible_group_ids`` lists every ancestor, not just the parent (#2080).
+
+    Widening the id set must widen navigation only: a grandparent reached
+    through a member's subgroup renders navigation-only and its nested routes
+    stay closed, exactly like the immediate parent (#1681).
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="deepadmin", password="pass")
+        self.member = User.objects.create_user(username="deepmember", password="pass")
+        self.root = _group(self.admin, "Root", description="Root notes")
+        self.mid = _group(self.admin, "Mid", parent=self.root)
+        self.leaf = _group(self.admin, "Leaf", parent=self.mid)
+        GroupMembership.objects.create(
+            group=self.leaf, user=self.member, role=GroupMembership.Role.MEMBER,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.member)
+
+    def test_depth_three_member_gets_all_ancestors(self):
+        from groups.models import get_accessible_group_ids
+
+        self.assertEqual(
+            get_accessible_group_ids(self.member),
+            {self.root.id, self.mid.id, self.leaf.id},
+        )
+
+    def test_walk_stays_bounded_on_a_cycle(self):
+        from groups.models import get_accessible_group_ids
+
+        # Bypass validation to force root -> leaf -> mid -> root.
+        Group.objects.filter(pk=self.root.pk).update(parent=self.leaf)
+        self.assertEqual(
+            get_accessible_group_ids(self.member),
+            {self.root.id, self.mid.id, self.leaf.id},
+        )
+
+    def test_grandparent_is_navigation_only_in_list_and_retrieve(self):
+        response = self.client.get("/api/v1/groups/")
+        self.assertEqual(response.status_code, 200)
+        rows = {g["id"]: g for g in response.json()["results"]}
+        self.assertEqual(set(rows), {self.root.id, self.mid.id, self.leaf.id})
+        for group in (self.root, self.mid):
+            self.assertTrue(rows[group.id]["navigation_only"])
+            for key, empty in _WITHHELD.items():
+                self.assertEqual(rows[group.id][key], empty, key)
+        self.assertFalse(rows[self.leaf.id]["navigation_only"])
+        detail = self.client.get(f"/api/v1/groups/{self.root.id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertTrue(detail.json()["navigation_only"])
+        self.assertEqual(detail.json()["description"], "")
+
+    def test_grandparent_nested_routes_stay_closed(self):
+        for suffix in ("members", "boards", "labels", "subgroups"):
+            response = self.client.get(f"/api/v1/groups/{self.root.id}/{suffix}/")
+            self.assertEqual(response.status_code, 403, suffix)
+
+    def test_grandparent_grants_no_role_or_write(self):
+        from groups.models import user_has_group_access, user_is_group_admin
+
+        self.assertFalse(user_has_group_access(self.member, self.root))
+        self.assertFalse(user_is_group_admin(self.member, self.root))
+        patch = self.client.patch(
+            f"/api/v1/groups/{self.root.id}/", {"name": "Hijack"}, format="json",
+        )
+        self.assertEqual(patch.status_code, 403)
+        self.root.refresh_from_db()
+        self.assertEqual(self.root.name, "Root")

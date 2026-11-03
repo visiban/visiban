@@ -185,6 +185,7 @@ def get_accessible_group_ids(user):
     member, plus all descendant sub-groups of those groups.
     Site admins have access to all groups.
 
+    Ancestors are listed for navigation only, up to the same cap (#2080).
     Descendant discovery is capped at _GROUP_TRAVERSAL_MAX_DEPTH iterations.
     Groups nested deeper than this limit will not appear in the result set.
 
@@ -226,7 +227,12 @@ def get_accessible_group_ids(user):
         all_ids |= ancestor_frontier
         ancestor_frontier = set(
             Group.objects.filter(id__in=ancestor_frontier, parent__isnull=False)
-            .exclude(id__in=all_ids)
+            # Exclude on the parent (the groups about to be added), not on the
+            # frontier groups themselves: those are already in ``all_ids``, so
+            # excluding by ``id`` emptied the next frontier and the walk never
+            # got past the immediate parent (#2080). Excluding parents already
+            # seen also keeps the loop cycle-safe.
+            .exclude(parent_id__in=all_ids)
             .values_list("parent_id", flat=True)
         )
     # Walk DOWN: include descendant sub-groups.
