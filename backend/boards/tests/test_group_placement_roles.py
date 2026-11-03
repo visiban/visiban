@@ -196,6 +196,16 @@ class GroupPlacementRoleTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIsNone(board.group_id)
 
+    def test_grandparent_group_visible_but_not_administered(self):
+        mid = Group.objects.create(name="Mid", owner=self.owner, parent=self.group)
+        leaf = Group.objects.create(name="Leaf", owner=self.owner, parent=mid)
+        GroupMembership.objects.create(group=leaf, user=self.user, role=Role.ADMIN)
+        resp, board = self._move(self.group.pk)
+        # The grandparent lists for navigation (#2080), so it answers 403 like
+        # the parent, not the 404 of a group the caller cannot see.
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIsNone(board.group_id)
+
     def test_all_content_site_admin_allowed_without_membership(self):
         self.user.can_access_all_content = True
         self.user.save(update_fields=["can_access_all_content"])

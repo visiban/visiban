@@ -307,3 +307,42 @@ class DeepAncestorWalkTests(TestCase):
         self.assertEqual(
             self.client.post(f"{base}/boards/", {"name": "x"}, format="json").status_code, 403,
         )
+
+    def test_ancestor_and_descendant_membership_keeps_sibling_branch(self):
+        from groups.models import get_accessible_group_ids
+
+        # R > M > N > L plus M2 under M; member of R and L. M2 is under R, so
+        # the member can open it and the list must include it.
+        n = _group(self.admin, "N", parent=self.mid)
+        low = _group(self.admin, "Low", parent=n)
+        m2 = _group(self.admin, "M2", parent=self.mid)
+        GroupMembership.objects.create(group=self.root, user=self.member, role=GroupMembership.Role.MEMBER)
+        GroupMembership.objects.create(group=low, user=self.member, role=GroupMembership.Role.MEMBER)
+        self.assertIn(m2.id, get_accessible_group_ids(self.member))
+
+    def test_descendant_only_member_does_not_see_uncle_branch(self):
+        from groups.models import get_accessible_group_ids
+
+        # R > M > Leaf plus L2 under M; member of Leaf only. L2 is a sibling
+        # reached only through an ancestor, so it must stay hidden.
+        sibling = _group(self.admin, "Sibling", parent=self.mid)
+        uncle = _group(self.admin, "Uncle", parent=self.root)
+        ids = get_accessible_group_ids(self.member)
+        self.assertNotIn(sibling.id, ids)
+        self.assertNotIn(uncle.id, ids)
+
+    def test_ancestor_chain_matches_access_cap(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        node = None
+        chain = []
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH + 2):
+            node = _group(self.admin, f"Cap{i}", parent=node)
+            chain.append(node)
+        user = User.objects.create_user(username="capuser", password="pass")
+        GroupMembership.objects.create(group=node, user=user, role=GroupMembership.Role.MEMBER)
+        ids = get_accessible_group_ids(user)
+        # The member's group plus its ancestors: MAX_DEPTH groups, like
+        # user_has_group_access.
+        expected = {g.id for g in chain[-_GROUP_TRAVERSAL_MAX_DEPTH:]}
+        self.assertEqual(ids, expected)
