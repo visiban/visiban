@@ -85,7 +85,8 @@ class WebhookSubscription(models.Model):
     last_attempt_at = models.DateTimeField(null=True, blank=True)
     last_success_at = models.DateTimeField(null=True, blank=True)
     #: When the dispatcher last read this subscription's feed, delivered or not.
-    #: The cursor-expiry rule needs it: see dispatch._cursor_expired.
+    #: Orders the run (least recently scanned first). Not used for cursor
+    #: expiry, which reads the board's prune mark (#2058).
     last_scanned_at = models.DateTimeField(null=True, blank=True)
     #: A fixed code from visiban.egress, never exception or response text.
     last_error_code = models.CharField(max_length=32, default="", db_default="", blank=True)

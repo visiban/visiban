@@ -118,7 +118,7 @@ Body: `url` (required), `name` (optional, at most 200 characters), `event_types`
 
 The `201` response is the subscription object plus `url` and `secret`, with `Cache-Control: no-store`. **This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
 
-A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at that event's id (`0` on a board with no events): nothing earlier is delivered.
+A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at that event's id: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id instead, and on a board that never had events at `0`.
 
 ### `PATCH {id}/`
 
@@ -130,8 +130,8 @@ Resets the failure state and makes the caller the owner. On a webhook that is al
 
 | `resume_from` | Result |
 |---|---|
-| `cursor` (default) | Delivers what was missed since the webhook stopped. `409 {"code": "cursor_expired"}` if those events were already pruned from the feed. |
-| `latest` | Skips to new events. |
+| `cursor` (default) | Delivers what was missed since the webhook stopped. `409 {"code": "cursor_expired"}` if any event after `last_delivered_event_id` was pruned from the feed, including when every missed event was pruned and nothing newer exists. |
+| `latest` | Skips to new events: `last_delivered_event_id` becomes the board's newest event id or its highest pruned id, whichever is greater. |
 
 `409 {"code": "secret_unavailable"}` when the stored URL or secret can no longer be decrypted (the instance encryption key changed). Delete the webhook and create a new one.
 

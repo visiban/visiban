@@ -346,8 +346,9 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         summary="Re-enable a webhook",
         description=(
             "Requires an interactive session and makes the caller the owner. "
-            "`resume_from: cursor` (default) delivers what was missed; if those "
-            "events were pruned the response is 409 `cursor_expired`, and "
+            "`resume_from: cursor` (default) delivers what was missed; if any "
+            "event after the webhook's position was pruned the response is 409 "
+            "`cursor_expired`, and "
             "`resume_from: latest` skips to new events. Taking over a webhook "
             "turned off with `creator_lost_access` also needs `current_password` "
             "(400 `password_required` / `password_incorrect`), or, for an account "
@@ -390,22 +391,17 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
             if not sub.enabled:
                 if resume_from == "latest":
                     sub.cursor = dispatch.latest_event_id(board.pk)
-                elif dispatch.cursor_expired(sub, now=now):
+                elif dispatch.cursor_expired(sub):
                     return Response(
                         {
                             "detail": (
-                                "Some events this webhook missed may have been removed by "
-                                "history cleanup. Re-enable with resume_from: latest."
+                                "Events after the point where this webhook stopped were removed "
+                                "by history cleanup. Re-enable with resume_from: latest."
                             ),
                             "code": CURSOR_EXPIRED,
                         },
                         status=status.HTTP_409_CONFLICT,
                     )
-                # The cursor was just re-validated, so it counts as scanned.
-                # Only here: on a webhook that is already on nothing was
-                # validated, and stamping would erase a gap cursor_expired
-                # still has to report.
-                sub.last_scanned_at = now
             sub.enabled = True
             sub.disabled_reason = ""
             sub.disabled_at = None
@@ -418,7 +414,7 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
             sub.save(update_fields=[
                 "cursor", "enabled", "disabled_reason", "disabled_at", "consecutive_failures",
                 "failing_since", "next_attempt_at", "last_error_code", "configured_by",
-                "configured_at", "last_scanned_at", "updated_at",
+                "configured_at", "updated_at",
             ])
         dispatch.log_config_event("reenable", sub, actor_id=request.user.pk, reason=resume_from)
         sub = self._subscription(board, sub.pk)

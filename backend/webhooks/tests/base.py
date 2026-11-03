@@ -2,11 +2,15 @@
 
 import ipaddress
 from contextlib import contextmanager
+from datetime import timedelta
+from io import StringIO
 from unittest.mock import patch
 
+from django.core.management import call_command
 from django.test import override_settings
 from django.utils import timezone
 
+from boards.models import BoardEvent
 from boards.tests.conftest import _make_board, _make_membership, _make_user
 from visiban import egress
 from webhooks.models import WebhookSubscription, generate_secret
@@ -45,6 +49,20 @@ def make_subscription(board, user, *, url=HOOK_URL, secret=None, **fields):
     return sub
 
 
+def prune(*events):
+    """Prune *events* the way retention does (#2058).
+
+    Backdates them past a one-day window and runs ``prune_board_events``, which
+    deletes them and raises their board's prune mark in one transaction. A bare
+    ``.delete()`` would remove the rows without the record the expiry rule
+    reads, which no supported path does.
+    """
+    BoardEvent.objects.filter(pk__in=[e.pk for e in events]).update(
+        created_at=timezone.now() - timedelta(days=3)
+    )
+    call_command("prune_board_events", days=1, stdout=StringIO())
+
+
 def admin_and_board(name="Hooks board"):
     admin = _make_user(email=f"{name.replace(' ', '').lower()}-admin@example.com")
     board = _make_board(admin, name=name)
@@ -57,6 +75,7 @@ __all__ = [
     "PUBLIC_IP",
     "admin_and_board",
     "make_subscription",
+    "prune",
     "resolving",
     "_make_membership",
     "_make_user",
