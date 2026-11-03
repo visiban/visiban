@@ -207,7 +207,7 @@ opaque string rather than failing on it.
     `provision_fuzz_token`), the `set_site_admin` and `purge_card_history` management commands, and the Django admin. A change made straight through the ORM (`manage.py shell`) has no actor to
     record and leaves no row, so an empty log means "no audited path made this change" — not
     "nothing happened". That includes a superuser regaining a flag someone cleared in the database:
-    the next save of the account restores it (for example at sign-in), and unless that save came through a route above it writes no entry.
+    the next save of the account restores it (for example at sign-in), and unless that save came through a route above it writes no entry. A flag restored this way during a `PATCH /api/v1/admin/users/{id}/` is logged under that request's actor.
 
 ---
 

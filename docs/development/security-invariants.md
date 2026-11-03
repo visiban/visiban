@@ -27,7 +27,7 @@ Each rule has a statement, the reason it exists, and a table:
 | Entry point | The file and function (or class) where a request on that surface starts |
 | Enforced via | The code that applies the rule on that surface today |
 
-Entry points use file and function names, not line numbers, so the table survives edits. Paths are relative to `backend/`. Where a rule has a shared implementation, it lives in `visiban/authorization.py` and the "Enforced via" column names it.
+Entry points use file and function names, not line numbers, so the table survives edits. Paths are relative to `backend/`. Where a rule has a shared implementation, it lives in `visiban/authorization.py` and the "Enforced via" column names it. The exceptions are listed under "What it doesn't enumerate" below.
 
 **What the tests enumerate.** `accounts/tests/test_auth_entry_points.py` enforces Rules 1 and 2. It discovers every routed REST and non-DRF view, every routed WebSocket consumer, the MCP transport, every invite-link model, and every function that looks an invite up by its token, and fails when one skips the shared function.
 
@@ -42,6 +42,7 @@ Entry points use file and function names, not line numbers, so the table survive
 - Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15 and Rule 16: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
+- Rule 16 also keeps its shared function outside `visiban/authorization.py` (`accounts/models.py` `record_access_flag_changes`, beside the log model it writes), a deviation from the same step.
 
 **Go deeper:** [Authorization Entry Points](authorization-entry-points.md) says what each entry point calls and how that test finds them.
 
@@ -769,9 +770,9 @@ actor. Locking the actor after the target could deadlock against
 
 | Surface | Entry point | Enforced via |
 |---|---|---|
-| Admin API | `accounts/admin_views.py` `AdminUserDetailView.patch` | The refusal runs on the row from `lock_user_row` against a fresh actor read: `400` with `can_access_all_content` and `detail`. `record_access_flag_changes` with source `admin_api` and the acting admin. No other admin API route writes either flag: `AdminPatchUserSerializer` is the only serializer that carries them, and `AdminCreateUserSerializer` carries neither |
+| Admin API | `accounts/admin_views.py` `AdminUserDetailView.patch` | The refusal runs on the row from `lock_user_row` against a fresh actor read: `400` with `can_access_all_content` and `detail`. `record_access_flag_changes` with source `admin_api` and the acting admin. No other admin API route writes either flag: `AdminPatchUserSerializer` is the only serializer that writes them (`AdminUserSerializer` only outputs them), and `AdminCreateUserSerializer` carries neither |
 | Django admin (user form) | `accounts/admin.py` `VisibanUserAdmin.save_model`, `get_readonly_fields` | The form carries neither flag. `is_superuser`, which implies both, is read-only for a non-superuser (`_SUPERUSER_ONLY_FIELDS`), and `save_model` refuses a promotion under the row lock when a fresh read of the actor isn't an active superuser. `record_access_flag_changes` with source `django_admin` and the acting superuser |
-| Superuser status change (model save) | `accounts/signals.py` `capture_prior_superuser_state`, `ensure_superuser_is_site_admin` | Keeps both flags in step with `is_superuser`. Writes no log row: it has no actor, and the route that changed the status records the flags, so each change is recorded once. A superuser's flag cleared by a raw database write and restored by the next save is recorded only if that save came through a route in this table |
+| Superuser status change (model save) | `accounts/signals.py` `capture_prior_superuser_state`, `ensure_superuser_is_site_admin` | Keeps both flags in step with `is_superuser`. Writes no log row: it has no actor, and the route that changed the status records the flags, so each change is recorded once. A superuser's flag cleared by a raw database write and restored by the next save is recorded only if that save came through a route in this table; during a `PATCH` on the admin API, that row names the `PATCH`'s actor |
 | Current-user API | `accounts/serializers.py` `CurrentUserSerializer` (`/auth/me/`, `/auth/user/`) | Both flags are in `read_only_fields`, so a user can't set them on their own account |
 | Management commands | `accounts/management/commands/set_site_admin.py`; `accounts/management/commands/ensure_site_admin.py`; `operator_commands/management/commands/createsuperuser.py` | Outside the rule's threat model: anyone who can run them has shell access, which is the real control. Each records `record_access_flag_changes` with source `cli` and no actor, in the transaction that makes the change |
 | Demo-site seed (action log exception) | `boards/management/commands/seed_demo_data.py` | Explicit exception, as for its password sets under Rule 3: `--demo-site` requires `DEMO_MODE=true`, and the hourly `--reset-database` empties the action log |
