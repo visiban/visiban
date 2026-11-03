@@ -2241,23 +2241,4 @@ describe('useBoard — column_entered_at across a move (#459)', () => {
     act(() => { void result.current.forceMoveCardTo(id, 12, swimlane, 0) })
     expect(result.current.board!.cards[0].column_entered_at).toBeNull()
   })
-
-  it('reloads when a column stops being done, because its cards have no time yet', async () => {
-    const { result } = await renderCard()
-    const done = result.current.board!.columns.find((c) => c.id === 12)!
-    mockGetBoardFull.mockClear()
-    act(() => { result.current.updateColumn({ ...done, is_done: false }) })
-    await waitFor(() => expect(mockGetBoardFull).toHaveBeenCalledTimes(1))
-  })
-
-  it('does not reload for any other column change', async () => {
-    const { result } = await renderCard()
-    const doing = result.current.board!.columns.find((c) => c.id === 11)!
-    const done = result.current.board!.columns.find((c) => c.id === 12)!
-    mockGetBoardFull.mockClear()
-    act(() => { result.current.updateColumn({ ...doing, name: 'Renamed' }) })
-    act(() => { result.current.updateColumn({ ...doing, is_done: true }) })
-    act(() => { result.current.updateColumn({ ...done, name: 'Shipped' }) })
-    expect(mockGetBoardFull).not.toHaveBeenCalled()
-  })
 })

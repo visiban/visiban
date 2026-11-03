@@ -175,15 +175,19 @@ describe('BoardCell — grid overlay layer (#1147)', () => {
       expect(container.querySelector('.h-0\\.5')).not.toBeNull()
     })
 
-    it('moves the badge off the first row in the compact grid, where it would sit on a title', () => {
+    it('draws the value as an opaque tab at the top edge, so a card border never crosses the digits', () => {
       const { cell, label } = dwellFor(4)
-      const { unmount } = render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label })} />)
-      expect(screen.getByRole('img', { name: /Dwell time/ }).className).toContain('top-1.5')
-      unmount()
+      render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label })} />)
+      const classes = screen.getByRole('img', { name: /Dwell time/ }).className.split(/\s+/)
+      for (const cls of ['bg-canvas', 'px-1', 'top-0', 'right-1', 'leading-[13px]']) expect(classes).toContain(cls)
+      // Translucent would let the card border show through, which is what this is for.
+      expect(classes.some((c) => c.startsWith('bg-canvas/'))).toBe(false)
+    })
+
+    it('stays in the same corner in the compact grid: no other corner of a full cell is free', () => {
+      const { cell, label } = dwellFor(4)
       render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label, compact: true })} />)
-      const badge = screen.getByRole('img', { name: /Dwell time/ })
-      expect(badge.className).toContain('bottom-1.5')
-      expect(badge.className).not.toContain('top-1.5')
+      expect(screen.getByRole('img', { name: /Dwell time/ }).className).toContain('top-0')
     })
 
     it('draws the badge alone under one day: no tint, no bar', () => {

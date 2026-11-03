@@ -106,16 +106,35 @@ class OpenVisitTests(_Fixture, TestCase):
         self.row(card, self.days_ago(5), src=self.done, dst=self.doing)
         self.assertEqual(self.entered(card), self.days_ago(5))
 
+    def _tied_rows(self, card, when, destinations, *, reverse_write):
+        """Rows that all tie on ``moved_at``, each moving on to the next column.
+
+        The stored order is what a sort with no ``id`` tiebreak falls back on, so it
+        is written both ways round: an engine returning the first or the last row of
+        a tie gets one of the two wrong. An UPDATE rewrites the row, which is what
+        makes the write order the stored order.
+        """
+        rows = []
+        source = None
+        for destination in destinations:
+            rows.append(self.row(card, self.days_ago(100), src=source, dst=destination))
+            source = destination
+        for mv in reversed(rows) if reverse_write else rows:
+            CardMovement.objects.filter(pk=mv.pk).update(moved_at=when)
+
     def test_tie_on_moved_at_is_broken_by_id(self):
-        card = self.card(column=self.doing)
+        """Movement order is (moved_at, id): the highest id is the latest row."""
         when = self.days_ago(3)
-        self.row(card, when, dst=self.todo)
-        self.row(card, when, src=self.todo, dst=self.done)
-        self.row(card, when, src=self.done, dst=self.doing)
-        self.assertEqual(self.entered(card), when)
-        # And the highest id wins even when an earlier one points elsewhere.
-        self.row(card, when, src=self.doing, dst=self.todo)
-        self.assertIsNone(self.entered(card))
+        for reverse_write in (False, True):
+            with self.subTest(reverse_write=reverse_write):
+                # Ends in the card's column: measured, whatever a tie's other rows say.
+                ends_here = self.card(column=self.doing)
+                self._tied_rows(ends_here, when, [self.todo, self.done, self.doing], reverse_write=reverse_write)
+                self.assertEqual(self.entered(ends_here), when)
+                # Passes through the card's column first: the latest row points away.
+                ends_away = self.card(column=self.doing)
+                self._tied_rows(ends_away, when, [self.doing, self.done, self.todo], reverse_write=reverse_write)
+                self.assertIsNone(self.entered(ends_away))
 
 
 class NotMeasuredTests(_Fixture, TestCase):

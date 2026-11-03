@@ -102,23 +102,70 @@ test.describe('dwell time overlay', () => {
     expect(onTop).toBe(true)
   })
 
-  test('a selected first card lifts above the value badge, so its checkbox shows', async ({ page }) => {
+  test('the value badge is opaque, so a card border never crosses the digits', async ({ page }) => {
+    await openBoard(page)
+    await selectDwell(page)
+    const badge = cellOf(page, 'Older task').getByRole('img', { name: /Dwell time/ })
+    const [badgeColor, canvas] = await badge.evaluate((el) => [
+      getComputedStyle(el).backgroundColor,
+      `rgb(${getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim().split(/\s+/).join(', ')})`,
+    ])
+    expect(badgeColor).toBe(canvas)
+  })
+
+  // The badge's box against every card's words, avatar and checkbox, not a sample point:
+  // a corner of a word under the pill is what "readable" fails on. Both card layouts, and
+  // a full compact grid on a column with no add-card row, where no free row exists.
+  for (const layout of ['expanded', 'compact'] as const) {
+    test(`the value badge covers nothing on a card in the ${layout} layout`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('user:prefs:card-layout', value), layout)
+      const assignee = { id: 1, username: 'a', display_name: 'Alice', avatar_url: '' }
+      const long = 'A long title that reaches the right edge of the card on its first line'
+      await openBoard(page, [
+        card(11, COLUMN_TODO.id, 'Fresh task', 2),
+        ...[21, 22, 23, 24].map((id) => ({ ...card(id, COLUMN_DOING.id, `${long} ${id}`, 13), assignee })),
+        card(15, COLUMN_FINISHED.id, 'Finished task', null),
+      ])
+      await selectDwell(page)
+
+      const cell = cellOf(page, `${long} 21`)
+      const badge = cell.getByRole('img', { name: /Dwell time/ })
+      await expect(badge).toHaveText('13.0d')
+      const hits = await cell.evaluate((root) => {
+        const badgeBox = root.querySelector('[role="img"][aria-label^="Dwell time"]')!.getBoundingClientRect()
+        const targets = root.querySelectorAll('[data-card-id] p, [data-card-id] [role="checkbox"], [data-card-id] [aria-label="More actions"] span, [data-card-id] img, [data-card-id] [title]')
+        const overlaps: string[] = []
+        for (const el of Array.from(targets)) {
+          const r = el.getBoundingClientRect()
+          const x = Math.min(r.right, badgeBox.right) - Math.max(r.left, badgeBox.left)
+          const y = Math.min(r.bottom, badgeBox.bottom) - Math.max(r.top, badgeBox.top)
+          if (r.width > 0 && r.height > 0 && x > 0 && y > 0) overlaps.push(`${el.tagName} ${el.getAttribute('role') ?? ''} ${x}x${y}`)
+        }
+        return { overlaps, targetCount: targets.length }
+      })
+      expect(hits.targetCount).toBeGreaterThanOrEqual(8)
+      expect(hits.overlaps).toEqual([])
+    })
+  }
+
+  test('a selected first card keeps its checkbox visible beside the value', async ({ page }) => {
     await openBoard(page)
     await selectDwell(page)
     const cell = cellOf(page, 'Fresh task')
-    const zOf = (locator: ReturnType<Page['locator']>) => locator.evaluate((el) => getComputedStyle(el).zIndex)
     const firstCard = cell.locator('[data-card-id]').first()
-    await expect.poll(() => zOf(firstCard)).toBe('0')
-
     await firstCard.hover()
     const checkbox = firstCard.getByRole('checkbox')
     await checkbox.click()
     await page.mouse.move(0, 0)
     await expect(checkbox).toHaveAttribute('aria-checked', 'true')
-
-    // Equal to the badge's z, and the card is later in DOM order, so it paints on top.
-    await expect.poll(() => zOf(firstCard)).toBe('5')
-    await expect.poll(() => zOf(cell.getByRole('img', { name: /Dwell time/ }))).toBe('5')
+    // The checkbox's own box lies below the badge's: nothing has to be lifted to show it.
+    // Polled, because the card eases back down from its hover lift.
+    await expect(async () => {
+      const badgeBox = await cell.getByRole('img', { name: /Dwell time/ }).boundingBox()
+      const checkBox = await checkbox.boundingBox()
+      expect(badgeBox!.y + badgeBox!.height).toBeLessThanOrEqual(checkBox!.y)
+    }).toPass()
+    await expect(cell.getByRole('img', { name: /Dwell time/ })).toHaveText('0.4d')
   })
 
   test('toggling off returns the board to normal', async ({ page }) => {

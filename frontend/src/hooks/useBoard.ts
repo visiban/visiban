@@ -677,13 +677,8 @@ export function useBoard() {
   }, []);
 
   const updateColumn = useCallback((column: Column) => {
-    const wasDone = boardRef.current?.columns.find((c) => c.id === column.id)?.is_done;
     setBoard((b) => b ? { ...b, columns: b.columns.map((c) => c.id === column.id ? column : c) } : b);
-    // Cards in a done column carry no `column_entered_at`, and no card event follows a
-    // change to the column's flag. Without a reload, the dwell overlay (#459) would
-    // leave this column blank after it stops being done.
-    if (wasDone && !column.is_done) silentReload();
-  }, [silentReload]);
+  }, []);
 
   const addLabel = useCallback((label: Label) => {
     setBoard((b) => b ? { ...b, labels: [...b.labels, label] } : b);

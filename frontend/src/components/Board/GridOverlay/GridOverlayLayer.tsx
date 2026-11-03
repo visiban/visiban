@@ -10,12 +10,6 @@ interface Props {
    * descendant's text), the badge must not announce it a second time.
    */
   valueAnnouncedByCell?: boolean;
-  /**
-   * The compact card grid. The first row's second card is half a cell wide with its one
-   * line of title right at the top, so a pill in the top corner sits on the words. The
-   * bottom edge is the add-card row there, which leaves its right side free.
-   */
-  compact?: boolean;
 }
 
 /**
@@ -31,7 +25,7 @@ interface Props {
  * every overlay at once: tint (color), the bottom bar's height (geometry), and the
  * numeral itself always ship together.
  */
-export default function GridOverlayLayer({ overlayLabel, cell, valueAnnouncedByCell = false, compact = false }: Props) {
+export default function GridOverlayLayer({ overlayLabel, cell, valueAnnouncedByCell = false }: Props) {
   const { encoding, label } = cell;
   const reading = `${overlayLabel}: ${label}, ${encoding.levelLabel}`;
   return (
@@ -58,14 +52,18 @@ export default function GridOverlayLayer({ overlayLabel, cell, valueAnnouncedByC
           horizontally. A hovered card (`hover:z-20`) still lifts above it, which is
           what keeps the card's own selection checkbox usable in the same corner.
 
-          An opaque pill, for the same reason as the cell's blocked-drop label: the corner
-          straddles the first card's border, and a value like `12.0d` is wide enough that
-          the border line would otherwise run through the digits (#459). */}
+          An opaque tab hanging from the cell's top edge (#459). Opaque, for the same
+          reason as the cell's blocked-drop label: the card's border would otherwise run
+          through the digits of a value as wide as `12.0d`. Exactly 13px tall from the top
+          edge because that is the room above a card's contents: the cell's 8px padding,
+          the card's 1px border, then the selection checkbox's 4px inset. The first title
+          line starts lower still, at 17px (15px in the compact grid). No other corner of
+          a cell is free: a full compact grid has no empty row at the bottom. */}
       <span
         role={valueAnnouncedByCell ? undefined : "img"}
         aria-label={valueAnnouncedByCell ? undefined : reading}
         aria-hidden={valueAnnouncedByCell ? true : undefined}
-        className={`absolute ${compact ? "bottom-1.5" : "top-1.5"} right-1 z-[5] rounded bg-canvas px-1 text-xs font-medium tabular-nums text-fg-secondary select-none pointer-events-none`}
+        className="absolute top-0 right-1 z-[5] rounded-b bg-canvas px-1 text-xs leading-[13px] font-medium tabular-nums text-fg-secondary select-none pointer-events-none"
       >
         {cell.display}
       </span>

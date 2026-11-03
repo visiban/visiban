@@ -355,22 +355,22 @@ empty state. Rules:
   Never put the tint on the cell root's `bg-*`: the root already carries `bg-canvas` and
   the drag-over `bg-surface-hover/40`, and a third `bg-*` on one node is a Tailwind
   ordering coin-flip.
-  The overlay value badge is an opaque pill (`rounded bg-canvas px-1`) because its corner
-  straddles the first card's border and a value like `12.0d` is wide enough for that line
-  to run through the digits (#459). `text-fg-secondary` on `bg-canvas` is 13.59:1 dark and
-  9.45:1 light, so the badge passes on every step. Cards are opaque and paint above the
-  tint, so a card's own text is never on it. What does sit on the tint is the populated
-  cell's `+ Add card` button, which takes `text-fg-secondary` on a tinted cell (7.71 dark,
-  6.01 light at `/40`) instead of its usual `text-fg-faint`; `text-fg-tertiary` is 4.47 and
-  4.40 there and fails. The bottom bar is not a text carrier and need not reach 3:1 against
-  the tint (2.14 light at `/40`): it repeats the numeral, it is not the only way to read it.
-  A pill that paints above cards must not hide a card's state, so `CardItem`'s root is
-  `z-[5]` when selected and `focus-within:z-[5]`. Equal to the badge, it wins on DOM order,
-  which uncovers the selection checkbox, its focus ring and the coarse-pointer `⋯` button,
-  and it stays below the drop-verdict pill (`z-[6]`) and the sticky panels. Never `z-20` for
-  a persistent state: a selected card would paint over the sticky swimlane label on scroll.
-  In the compact card grid the pill moves to `bottom-1.5` of the cell, clear of the bar:
-  the top corner there is the second card's one line of title.
+  The overlay value badge is an opaque tab (`top-0 right-1 rounded-b bg-canvas px-1
+  leading-[13px]`), #459. Opaque, because a card's border would otherwise run through a
+  value as wide as `12.0d`. Exactly 13px tall, because that is the room above a card's
+  contents: the cell's 8px padding, the card's 1px border, then the checkbox's 4px inset;
+  the title starts lower still, at 17px, or 15px in the compact grid. Never lower or in
+  another corner: a full compact grid has no free row, so a bottom corner lands on a card's
+  avatar, and adding room would reflow the grid, which this slot forbids. `e2e/grid-overlay-dwell`
+  measures the tab's box against every card's title, checkbox and avatar in both layouts.
+  `text-fg-secondary` on `bg-canvas` is 13.59:1 dark and 9.45:1 light, so the badge passes on
+  every step. Cards are opaque and paint above the tint, so a card's own text is never on
+  it. What does sit on the tint is the populated cell's `+ Add card` button, which takes
+  `text-fg-secondary` on a tinted cell (7.71 dark, 6.01 light at `/40`) instead of its usual
+  `text-fg-faint`; `text-fg-tertiary` is 4.47 and 4.40 there and fails. The bottom bar is not
+  a text carrier and need not reach 3:1 against the tint (2.14 light at `/40`): it repeats
+  the numeral, it is not the only way to read it. The tab is above a card at rest, so the
+  card needs no lift to show its checkbox; a hovered card (`hover:z-20`) still rises over it.
 - **An overlay may declare a `scale` of absolute steps, as numbers and words only.**
   `GridOverlay.scale` holds lower bounds and legend wording, never classes, so the ramp
   still lives only in `scale.ts`. Use it when the unit has a fixed meaning (#459: days), so
@@ -395,7 +395,10 @@ empty state. Rules:
   is not when the card entered its column. `last_moved_at` is the staleness signal (§ Card
   aging ramp); the visit rules are the *Flow metric definitions* ADR's, computed on the
   server. A client-side move has to keep the field true until the response lands, which is
-  why `placeCardOptimistically` in `useBoard` is the only place that writes it.
+  why `useBoard` writes it in two places and no others: `placeCardOptimistically` sets it
+  for the move, and `rollbackMovedCard` restores it if the move fails. A column leaving
+  done needs a re-read, since its cards have no time yet; `BoardView` routes that through
+  the drag-deferred resync (#1463), never a bare `silentReload()`.
 - **A cell tint or z-order change needs a browser check in both themes before merge.**
   jsdom renders no paint order, so a vitest suite will pass over a layer that is invisible
   in the product. Class-level assertions (the z value, the tint token) are a guard against
@@ -404,9 +407,7 @@ empty state. Rules:
   background channel — same precedent as hiding the centered `+ Add card` overlay during a
   drag.
 - **One scalar per cell corner.** The top-right slot renders *either* the built-in
-  `cards.length` badge (at ≥ 2) *or* the overlay's value badge, never both. The built-in
-  badge stands down while an overlay is on even when the compact grid draws the value at
-  the bottom.
+  `cards.length` badge (at ≥ 2) *or* the overlay's value badge, never both.
 - **A cell whose `aria-label` is set must carry the overlay reading inside that label.**
   An empty addable cell is `role="button"` with an `aria-label`, and an `aria-label`
   overrides every descendant's text — an `sr-only` reading there is silently discarded.

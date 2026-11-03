@@ -897,6 +897,7 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
         "id", "uid", "column", "swimlane", "priority", "assignee", "assignee_id",
         "labels", "label_ids", "due_date", "weight", "position", "created_by",
         "created_at", "updated_at", "last_moved_at", "last_move_is_creation",
+        "column_entered_at",
         "attachment_count", "checklist_total", "checklist_done", "is_stale",
         "archived_at", "version", "blocker_count", "is_blocked", "blocked_at",
     }

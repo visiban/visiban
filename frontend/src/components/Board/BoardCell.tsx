@@ -169,7 +169,6 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           overlayLabel={overlayLabel}
           cell={overlay}
           valueAnnouncedByCell={isEmptyAddable}
-          compact={compact}
         />
       )}
       {/* Blocked drop target (#1150): the ring is color only, so the limit is

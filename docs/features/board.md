@@ -519,14 +519,18 @@ The choice is remembered per board in `localStorage` under `board:{boardId}:grid
 
 Every overlay shades on the same four levels. By default they are measured against the largest value currently visible on the board; [Dwell time](#dwell-time) uses fixed steps in days instead.
 
+On the default scale:
+
 - A cell whose value is zero is left completely untouched.
 - When every cell with a value has the *same* value, the whole board is drawn at the quietest step, because a board where nothing stands out should not look alarming.
+
+Neither applies to fixed steps, where a value keeps its meaning whatever the other cells hold: a card that has just arrived reads `0.0d`, and equal values stay on the step they belong to.
 
 Each step is encoded **three** ways, so the ordering never depends on telling colors apart:
 
 1. **Tint** — a single-hue blue wash that deepens with the value. It is deliberately not a green→amber→red gradient: a busy cell is not a problem, and the board already uses amber and red for card aging and over-limit columns.
 2. **A bar along the cell's bottom edge** — 1px, 2px, 3px, or 4px tall. Height, not hue.
-3. **The value itself**, in the cell's top-right corner. While an overlay is on it replaces the usual card-count badge, so the corner never shows two different numbers.
+3. **The value itself**, in a small tab at the cell's top-right corner, clear of the cards' words. While an overlay is on it replaces the usual card-count badge, so the corner never shows two different numbers.
 
 Screen readers get the reading in words — for example "Card count: 4 cards, level 3 of 4" — and selecting an overlay is announced ("Overlay: Card count" / "Overlay off").
 

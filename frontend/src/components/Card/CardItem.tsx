@@ -567,11 +567,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       // A selected card drops its bg-info/20 fill while an aging tint is shown:
       // the fill under the tint pulled the badge to 3.7:1 (#1841). The
       // selection ring alone still marks it.
-      // z-[5] when selected or holding focus (#459): a cell's value badge sits at z-[5]
-      // earlier in DOM order, and the card's z-0 traps its checkbox and coarse-pointer
-      // menu underneath it. Equal to the badge, so later DOM order wins, and still below
-      // the drop-verdict pill (z-[6]) and the sticky panels. A hovered card stays z-20.
-      className={`group bg-surface rounded-md select-none transition-all border ${selected ? "z-[5]" : "z-0"} focus-within:z-[5]
+      className={`group bg-surface rounded-md select-none transition-all border z-0
         ${expanded ? "absolute left-0 right-0 overflow-hidden" : "relative"}
         ${readOnly ? "cursor-default" : "cursor-pointer hover:-translate-y-0.5 hover:z-20"}
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-sunken
