@@ -155,6 +155,7 @@ _IMPORTED_NAME_FALLBACK = "Board"
 # far beyond any realistic duplicate count.
 _IMPORTED_NAME_MAX_SUFFIX = 12
 _CONTROL_CHARS_RE = re.compile(r"[\x01-\x1f\x7f]+")
+_LONE_SURROGATE_RE = re.compile("[\ud800-\udfff]")
 
 
 def _cell(row, name):
@@ -193,8 +194,11 @@ def _imported_board_name(source_name, user, group):
     empty or non-string value falls back to ``"Board"``. The base is
     truncated so the prefix and any suffix fit ``Board.name``'s max_length.
     """
+    # A lone UTF-16 surrogate (valid JSON) cannot be bound to the duplicate
+    # lookup below; PostgreSQL answered a 500 (#2085). Replaced, not refused,
+    # like the NUL and control characters beside it.
     stem = (
-        _CONTROL_CHARS_RE.sub(" ", source_name.replace("\x00", "")).strip()
+        _CONTROL_CHARS_RE.sub(" ", _LONE_SURROGATE_RE.sub("\ufffd", source_name.replace("\x00", ""))).strip()
         if isinstance(source_name, str) else ""
     )
     stem = stem or _IMPORTED_NAME_FALLBACK

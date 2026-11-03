@@ -64,6 +64,7 @@ from boards.views._helpers import (
     _count_subquery, card_payload_context, get_accessible_boards_queryset,
     render_card_payloads,
 )
+from visiban.parsers import first_lone_surrogate
 from visiban.request_shape import MAX_OFFSET
 
 from .context import get_current_user
@@ -347,6 +348,33 @@ def reject_removed_arguments(arguments):
     if not errors:
         return None
     return _error_payload(ValidationFailed(errors))
+
+
+def surrogate_errors(arguments):
+    """Return ``{argument: [message]}`` for each argument holding a lone UTF-16 surrogate (#2085).
+
+    ``"\\ud800"`` is valid JSON but decodes to a ``str`` that UTF-8 cannot
+    encode, so psycopg raises ``UnicodeEncodeError`` at the first query that
+    binds it (a lookup, an INSERT) and the call dies as an opaque server
+    error. The SDK refuses it on its legacy transport only; the modern
+    (``mcp-protocol-version: 2026-07-28``) transport decodes with stdlib
+    ``json.loads`` and lets it through, and a ``labels`` value sent as a
+    JSON-encoded string is decoded by the SDK after that. So the check lives
+    here, at the one place every tool passes through (``server._throttled``),
+    on the final argument values, nested lists and mappings included.
+    """
+    errors = {}
+    for name, value in arguments.items():
+        code_point = first_lone_surrogate(value)
+        if code_point is not None:
+            errors[name] = [f"Surrogate characters are not allowed: U+{code_point:X}."]
+    return errors
+
+
+def surrogate_refusal(arguments):
+    """The ``validation_error`` payload for :func:`surrogate_errors`, or ``None``."""
+    errors = surrogate_errors(arguments)
+    return _error_payload(ValidationFailed(errors)) if errors else None
 
 
 _NUL_MESSAGE = "Must not contain NUL (0x00) characters."

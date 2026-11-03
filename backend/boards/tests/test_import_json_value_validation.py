@@ -745,3 +745,28 @@ class JsonImportValueValidationTests(TestCase):
         self.assertEqual(CardChecklist.objects.get(card=new_card).text, "step")
         self.assertEqual(CardMovement.objects.get(card=new_card).notes, "moved")
         self.assertIsNotNone(new.cards.get(title="Old").archived_at)
+
+
+class SurrogateBoardNameTests2085(TestCase):
+    """#2085: a lone surrogate in the file's board name was a 500 on PostgreSQL."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(username="imp2085", password="x")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_surrogate_in_board_name_imports_with_a_replacement_character(self):
+        f = io.BytesIO(json.dumps(_payload(name="a\ud800b", cards=[])).encode())
+        f.name = "board.json"
+        resp = self.client.post(IMPORT_URL, {"file": f}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content[:300])
+        self.assertEqual(Board.objects.get(pk=resp.json()["id"]).name, "Imported: a\ufffdb")
+
+    def test_surrogate_in_a_card_title_is_a_400_not_a_500(self):
+        f = io.BytesIO(json.dumps(_payload(cards=[_card(title="\ud800")])).encode())
+        f.name = "board.json"
+        before = Board.objects.count()
+        resp = self.client.post(IMPORT_URL, {"file": f}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Board.objects.count(), before)

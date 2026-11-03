@@ -13,6 +13,10 @@ class BoardsConfig(AppConfig):
         import boards.lookups  # noqa: F401  (registers ci_contains, #1809)
         import boards.signals  # noqa: F401
 
+        from visiban import json_fields
+
+        json_fields.install()  # #2085: lone surrogate in any JSONField -> 400
+
         # Process-wide DB plumbing, hooked here because the project package has
         # no AppConfig of its own. It must run before the first query loads a
         # timestamptz value, and ready() runs before any request or command

@@ -18,14 +18,13 @@ parsed as before.
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.exceptions import ParseError
-from rest_framework.parsers import JSONParser
 from rest_framework.settings import api_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Card, Column, Swimlane
 from boards.views.import_export import BoardImportExportMixin
-from visiban.parsers import LimitedFormParser, LimitedMultiPartParser
+from visiban.parsers import LimitedFormParser, LimitedMultiPartParser, StrictJSONParser
 
 TOO_MANY_FILES = 150  # DATA_UPLOAD_MAX_NUMBER_FILES defaults to 100
 
@@ -165,7 +164,7 @@ class ParserWiringTests(SimpleTestCase):
     def test_default_parsers_are_the_limited_subclasses_in_drf_order(self):
         self.assertEqual(
             [p for p in api_settings.DEFAULT_PARSER_CLASSES],
-            [JSONParser, LimitedFormParser, LimitedMultiPartParser],
+            [StrictJSONParser, LimitedFormParser, LimitedMultiPartParser],
         )
         self.assertEqual(
             [p.media_type for p in api_settings.DEFAULT_PARSER_CLASSES],
