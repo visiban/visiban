@@ -92,6 +92,24 @@ describe('system-signal on-tint text on untinted surfaces (#2046)', () => {
   })
 })
 
+// #2060: toast titles use success-on-tint / info-on-tint on bg-surface and on the info shell
+// (bg-primary/15 over bg-surface). Pin the ratios recorded in frontend/CLAUDE.md § Color tokens.
+describe('toast on-tint text (#2060)', () => {
+  it.each([
+    ['dark', 'success-on-tint', darkBlock, 10.4, 9.1],
+    ['dark', 'info-on-tint', darkBlock, 8.1, 7.0],
+    ['light', 'success-on-tint', lightBlock, 7.1, 5.7],
+    ['light', 'info-on-tint', lightBlock, 8.7, 7.0],
+  ])('%s theme: %s holds AA on surface and on the primary/15 shell', (_theme, name, block, onSurface, onShell) => {
+    const text = rgbOf(block, name)
+    const surface = rgbOf(block, 'surface')
+    const shell = rgbOf(block, 'primary').map((v, i) => 0.15 * v + 0.85 * surface[i])
+    expect(ratio(text, surface)).toBeGreaterThanOrEqual(onSurface)
+    expect(ratio(text, shell)).toBeGreaterThanOrEqual(onShell)
+    expect(Math.min(ratio(text, surface), ratio(text, shell))).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
 // Hue, alpha and opacity are parsed from the real stage classes, so changing a
 // stage's fill or opacity re-runs these checks against the new values.
 const parse = (stage: keyof typeof AGING_STAGE_CLASSES) => {

@@ -54,6 +54,7 @@ import SavedFilterTabs from "./SavedFilterTabs";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
+import { ToastRegionSlot } from "../../contexts/ToastContext";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
 import LensView from "./Lens/LensView";
@@ -2852,6 +2853,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </DragOverlay>
       </DndContext>
       </SectionErrorBoundary>
+
+      {/* The shared toast region renders here: the next DOM sibling after the
+          grid and before BulkActionToolbar, so one Tab from the focused card
+          reaches the first toast action (frontend/CLAUDE.md § Toasts). */}
+      <ToastRegionSlot />
 
       {selectedCardIds.size > 0 && canEdit && (
         <BulkActionToolbar

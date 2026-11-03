@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useToast } from "../../contexts/useToast";
 import { blockCard, getCardBlocks, unblockCard } from "../../api/cards";
 import type { Card, CardBlock } from "../../types";
 import { blockedElapsedMs, formatBlockedDuration } from "../../utils/blockedState";
@@ -81,6 +82,7 @@ export default function CardBlockSection({
   const inFlight = useRef(false);
   const focusBannerNext = useRef(false);
   const fieldId = useId();
+  const { notify } = useToast();
   const helperId = `${fieldId}-helper`;
 
   const blocked = card.blocked_at != null;
@@ -148,7 +150,13 @@ export default function CardBlockSection({
         const updated = await unblockCard(boardId, card.id, trimmed);
         const after = wasBlockedAt ? formatBlockedDuration(blockedElapsedMs(wasBlockedAt), 2) : null;
         onCardUpdated(updated);
-        setAnnouncement(after ? `Unblocked "${card.title}" after ${after}` : `Unblocked "${card.title}"`);
+        const outcome = after ? `Unblocked "${card.title}" after ${after}` : `Unblocked "${card.title}"`;
+        setAnnouncement(outcome);
+        // The banner that said "blocked" is gone, so the outcome also gets a
+        // visible `success` toast (#2060). The sheet is aria-modal and this
+        // section's live region above already announced it, so the toast is
+        // the visible mirror only (frontend/CLAUDE.md § Toasts, modal rule).
+        notify({ key: `unblock:${card.id}`, variant: "success", title: outcome, announce: false, testId: "unblock-toast" });
       }
       onFormModeChange(null);
     } catch (err) {
