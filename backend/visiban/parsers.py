@@ -10,10 +10,15 @@ what it does not cover is a ``JSONField`` value (saved-filter ``state_json``,
 custom-field ``choices``), a ``dict`` key, and any view that reads
 ``request.data`` directly. Guarding the parsed JSON body once, here, covers all
 of them and any field added later. A lone surrogate in an object body answers
-``{"<field>": ["Surrogate characters are not allowed: U+D800."]}``, the body
-``CharField`` already gives that field (unchanged); a surrogate in a key, or in
-a non-object body, answers ``{"detail": "JSON parse error - ..."}``, as a
-malformed JSON document does. A valid surrogate *pair* (an emoji written ``\\ud83d\\ude00``)
+``{"<field>": ["Surrogate characters are not allowed: U+D800."]}``, the message
+``CharField`` already gives; a surrogate in a key, in a non-object body, or
+under a key that is not a short plain identifier answers
+``{"detail": "JSON parse error - ..."}`` (a client-chosen key is never echoed
+unbounded), as a malformed JSON document does. This is not byte-identical to the
+stock behavior: the parser names only the first offending top-level field
+(``CharField`` named every bad field), and a surrogate in a field the
+serializer would have ignored (an unknown key, a ``labels`` list it discards)
+is now a 400 where it used to be a 200. A valid surrogate *pair* (an emoji written ``\\ud83d\\ude00``)
 is decoded by ``json`` into one code point and is never touched.
 
 Cost: a bytes-level regex scan for the six-character ``\\ud[89a-f]`` escape,
@@ -122,6 +127,8 @@ class LimitedFormParser(FormParser):
 # carries a surrogate, lone or paired, so it is a cheap necessary condition.
 _SURROGATE_ESCAPE = re.compile(rb"\\[uU][dD][89a-fA-F]")
 _LONE_SURROGATE = re.compile("[\ud800-\udfff]")
+# A top-level key short and plain enough to echo as a field name.
+_ECHO_KEY = re.compile(r"[A-Za-z0-9_.-]{1,64}")
 _ASCII_SAFE_ENCODINGS = frozenset({"utf-8", "utf8", "ascii", "us-ascii"})
 
 
@@ -157,11 +164,14 @@ class StrictJSONParser(JSONParser):
     """``JSONParser`` that answers a lone UTF-16 surrogate with a 400 (#2085).
 
     For a JSON object body the 400 is field-keyed, ``{"<field>": ["Surrogate
-    characters are not allowed: U+D800."]}``, byte-for-byte what DRF's
-    ``CharField`` already returns for that field, so the guard changes no
-    existing response. It is a ``ParseError`` (``{"detail": ...}``) only when
-    the body is not an object, or the surrogate is in an object *key* (echoing
-    that key would put the unencodable string in the response).
+    characters are not allowed: U+D800."]}``: the same message and shape as
+    DRF's ``CharField`` for that field, but only the first offending top-level
+    field is named, and a surrogate in a field the serializer ignores is now a
+    400 (it was a 200). It is a ``ParseError`` (``{"detail": ...}``) when the
+    body is not an object, the surrogate is in an object *key*, or the
+    offending top-level key is not a short plain identifier (``_ECHO_KEY``):
+    the key is client text, and an unbounded echo would reflect up to the body
+    cap back (the importers bound every echo, #1507).
     """
 
     def parse(self, stream, media_type=None, parser_context=None):
@@ -178,7 +188,9 @@ class StrictJSONParser(JSONParser):
                     break
                 code_point = first_lone_surrogate(value)
                 if code_point is not None:
-                    raise ValidationError({key: [_surrogate_message(code_point)]})
+                    if _ECHO_KEY.fullmatch(key):
+                        raise ValidationError({key: [_surrogate_message(code_point)]})
+                    break
         code_point = first_lone_surrogate(data)
         if code_point is not None:
             raise ParseError(f"JSON parse error - {_surrogate_message(code_point)}")

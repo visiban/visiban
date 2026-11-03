@@ -35,7 +35,7 @@ class SurrogateArgumentTests(CrudToolsTestCase):
                 self.assertNotIn(b"Internal", body)
         self.assertFalse(Card.objects.filter(title__startswith="Sur card").exists())
 
-    def test_lone_surrogate_in_update_card_reason_arguments_is_refused(self):
+    def test_lone_surrogate_in_update_card_assignee_is_refused(self):
         card = Card.objects.create(
             board=self.board, column=self.column, swimlane=self.swimlane,
             title="Untouched", created_by=self.user, position=0,
@@ -46,6 +46,17 @@ class SurrogateArgumentTests(CrudToolsTestCase):
         self.assertEqual(status, 400, body)
         card.refresh_from_db()
         self.assertEqual(card.title, "Untouched")
+
+    def test_lone_surrogate_in_block_card_reason_is_refused(self):
+        card = Card.objects.create(
+            board=self.board, column=self.column, swimlane=self.swimlane,
+            title="Unblocked", created_by=self.user, position=0,
+        )
+        status, body = self._tools_call(
+            "block_card", self.write_token, {"card_id": card.id, "reason": BAD},
+        )
+        self.assertEqual(status, 400, body)
+        card.refresh_from_db()
 
     def test_valid_surrogate_pair_in_title_is_created(self):
         status, body = self._create(title="Party \U0001F600")

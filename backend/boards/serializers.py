@@ -16,6 +16,7 @@ from accounts.serializers import BoardUserSerializer
 from visiban import field_enforcement
 from visiban.colors import ColorValidationMixin
 from visiban.invite_email import InviteEmailField
+from visiban.parsers import first_lone_surrogate
 from visiban.exceptions import CodedValidationError
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 # Module-level (not lazy) so ``@extend_schema_field`` can reference it at class-body
@@ -1455,6 +1456,14 @@ def _normalize_multi_select_value(definition, raw, stored=""):
             except (ValueError, RecursionError):
                 decoded = None
             if isinstance(decoded, list):
+                # The value is a JSON string inside JSON, so a "\\ud800" escape
+                # is decoded only here, after the request parser has run (#2085).
+                # Refused before the "not a choice" message could echo it.
+                code_point = first_lone_surrogate(decoded)
+                if code_point is not None:
+                    raise serializers.ValidationError(
+                        f"Surrogate characters are not allowed: U+{code_point:X}."
+                    )
                 entries = decoded
         if entries is None:
             entries = [text]

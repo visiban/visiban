@@ -548,6 +548,10 @@ def parse_options(raw: str | None, export: TrelloExport) -> ImportOptions:
         raise TrelloImportError("'mapping' is not valid JSON.")
     if not isinstance(data, dict):
         raise TrelloImportError("'mapping' must be a JSON object.")
+    # Same lone-surrogate refusal as the export itself (#2085): the unknown-key
+    # echo and default_swimlane_name both reach the response or PostgreSQL.
+    if first_lone_surrogate(data) is not None:
+        raise TrelloImportError("'mapping' contains a character that cannot be stored (unpaired surrogate).")
     unknown = sorted(set(data) - MAPPING_KEYS)
     if unknown:
         raise TrelloImportError(f"Unknown mapping option(s): {', '.join(unknown)}.")

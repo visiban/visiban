@@ -667,3 +667,16 @@ class TrelloLoneSurrogateTests2085(TrelloImportBase):
         resp = self.post("confirm", data=raw)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content[:300])
         self.assertTrue(Card.objects.filter(title="Party \U0001F600").exists())
+
+    def test_surrogate_in_the_mapping_field_is_a_400(self):
+        for label, mapping in (
+            ("default_swimlane_name", {"default_swimlane_name": "a\ud800"}),
+            ("unknown key", {"a\ud800": True}),
+        ):
+            for mode in ("dry_run", "confirm"):
+                with self.subTest(label=label, mode=mode):
+                    resp = self.post(mode, mapping=json.dumps(mapping))
+                    self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+                    resp.content.decode("utf-8")
+                    self.assertIn("'mapping'", resp.json()["detail"])
+        self.assertEqual(Board.objects.count(), 0)

@@ -197,11 +197,22 @@ Django raises those as a `SuspiciousOperation`, which DRF does not catch and Dja
 an HTML page, so `visiban/parsers.py` re-raises them as DRF's `ParseError` from the form parsers
 in `DEFAULT_PARSER_CLASSES` ([#2072](https://gitlab.com/visiban/visiban/-/issues/2072)). A
 view that pins `parser_classes` must use those classes, not DRF's, or its oversize bodies go
-back to HTML. A JSON body holding a lone UTF-16 surrogate (`"\ud800"`, valid JSON that PostgreSQL cannot
-store) is a `400` too ([#2085](https://gitlab.com/visiban/visiban/-/issues/2085)), from
-`StrictJSONParser`: `{"<field>": ["Surrogate characters are not allowed: U+D800."]}` for an
-object body, `{"detail": "JSON parse error - ..."}` for a surrogate in a key or in a non-object
-body. A valid pair such as an emoji (`"\ud83d\ude00"`) is accepted unchanged. Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
+back to HTML.
+
+A JSON body holding a lone UTF-16 surrogate (`"\ud800"`, valid JSON that PostgreSQL cannot
+store) is a `400` as well ([#2085](https://gitlab.com/visiban/visiban/-/issues/2085)), from
+`StrictJSONParser` in the same `DEFAULT_PARSER_CLASSES`. For an object body it names the first
+offending top-level field, `{"<field>": ["Surrogate characters are not allowed: U+D800."]}`, the
+message a text field already gave. It answers `{"detail": "JSON parse error - ..."}` instead when
+the surrogate is in a key or in a non-object body, or when that field name is not a short plain
+identifier (a client-chosen name is never echoed unbounded). Two differences from before: only the
+first offending field is named, and a surrogate in a field the endpoint would have ignored (an
+unknown key, say) is now a `400` where it was a `200`. A valid pair such as an emoji
+(`"\ud83d\ude00"`) is accepted unchanged. A JSON-encoded value inside a string, such as a
+multi-select custom field value, is checked after it is decoded. This covers JSON bodies only: a
+query string or form body sent with an unusual `charset` (for example `utf-7`) is not covered.
+
+Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),
 and a query string over `DATA_UPLOAD_MAX_NUMBER_FIELDS`. Both are tracked in
 [#2073](https://gitlab.com/visiban/visiban/-/issues/2073).

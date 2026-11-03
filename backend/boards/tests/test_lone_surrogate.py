@@ -9,6 +9,8 @@ Bodies are sent as raw bytes with the ``\\ud800`` escape intact: a test client
 that serializes a Python ``str`` holding a lone surrogate would fail on the
 client side before the server saw anything.
 """
+import json
+
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -132,6 +134,65 @@ class LoneSurrogateRestTests(TestCase):
         resp = self._send("patch", self.card_url, '{"title": ')
         self.assertEqual(resp.status_code, 400)
         self.assertTrue(resp.json()["detail"].startswith("JSON parse error - "))
+
+    # -- the echo is bounded --------------------------------------------------
+
+    def test_an_oversized_or_markup_key_is_never_echoed(self):
+        for key in ("k" * 200_000, "<script>alert(1)</script>", "a b", ""):
+            with self.subTest(key=key[:20]):
+                resp = self._send("patch", self.card_url, '{"%s": "\\ud800"}' % key)
+                self.assertRefused(resp)
+                self.assertLess(len(resp.content), 400)
+                self.assertNotIn(b"<script>", resp.content)
+
+    def test_a_short_plain_key_is_named(self):
+        resp = self._send("patch", self.card_url, '{"nonsense": "\\ud800"}')
+        self.assertRefused(resp, "nonsense")
+
+    # -- charsets: a surrogate with no \\u escape in the bytes ---------------
+
+    def test_utf7_raw_surrogate_is_a_400(self):
+        # "+2AA-" is UTF-7 for U+D800; the bytes carry no "\\ud800" escape, so
+        # only the encoding check keeps the prefilter from skipping the walk.
+        resp = self.client.patch(
+            self.card_url, data=b'{"title": "a+2AA-b"}',
+            content_type="application/json; charset=utf-7",
+        )
+        self.assertRefused(resp, "title")
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.title, "Keep me")
+
+    def test_utf16_escape_is_a_400(self):
+        # In UTF-16 the escape is not the ASCII bytes the prefilter searches for.
+        resp = self.client.patch(
+            self.card_url, data='{"x": "\\ud800"}'.encode("utf-16"),
+            content_type="application/json; charset=utf-16",
+        )
+        self.assertRefused(resp, "x")
+
+    def test_utf16_valid_body_is_untouched(self):
+        resp = self.client.patch(
+            self.card_url, data='{"title": "\U0001F600"}'.encode("utf-16"),
+            content_type="application/json; charset=utf-16",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+
+    # -- a JSON string holding JSON (multi-select values) ---------------------
+
+    def test_surrogate_escape_inside_a_multi_select_value_is_a_400(self):
+        definition = CustomFieldDefinition.objects.create(
+            board=self.board, name="Platforms", field_type="multi_select",
+            choices_json=["web", "ios"], position=0,
+        )
+        body = json.dumps({"custom_field_values": [
+            {"field_definition": definition.pk, "value": '["\\ud800"]'},
+        ]})
+        self.assertIn("\\\\ud800", body)  # the surrogate escape survives the parser
+        resp = self._send("patch", self.card_url, body)
+        self.assertEqual(resp.status_code, 400, resp.content[:300])
+        resp.content.decode("utf-8")
+        self.assertIn("U+D800", json.dumps(resp.json()))
+        self.assertFalse(self.card.custom_field_values.exists())
 
 
 class ContainsLoneSurrogateTests(SimpleTestCase):
