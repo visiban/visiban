@@ -129,7 +129,9 @@ The `card.moved` event includes both the updated card and the movement record, t
 }
 ```
 
-`movement` is `null` if only the position changed within the same column/swimlane cell (a pure reorder, with no column or swimlane change).
+There is no `movement` key if only the position changed within the same column/swimlane cell (a pure reorder, with no column or swimlane change).
+
+Since 1.3 the event also carries `sibling_positions`, the other cards whose position the move changed in its source and target cells, as `{ "id", "position", "version" }` entries (#1890). The web app applies them so every open copy of the board shows the cards in the same order as the mover's, without a reload. A frame from an older server has no `sibling_positions` and still applies. See [Sibling positions on `card.moved`](../api/websockets.md#sibling-positions-on-cardmoved-since-13) for the rules.
 
 ## Group real-time events
 

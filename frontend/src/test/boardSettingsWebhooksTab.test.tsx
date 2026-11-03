@@ -332,6 +332,8 @@ describe('Webhooks tab — detail', () => {
     expect(screen.getByText('Set. It can\'t be shown again.')).toBeInTheDocument()
     expect(screen.getByText(/Owner now: Maya Kim/)).toBeInTheDocument()
     expect(screen.getByLabelText('Sample payload')).toHaveTextContent('"event": "card.moved"')
+    // The card.moved data shape: the card nested under "card" (#1890).
+    expect(screen.getByLabelText('Sample payload')).toHaveTextContent('"card": { "id": 392')
     expect(screen.getByText(/accept if X-Visiban-Signature == "v1=" \+ expected/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '← All webhooks' }))
     await waitFor(() => expect(screen.getByRole('button', { name: /^Manage webhook hooks\.zapier\.com/ })).toHaveFocus())

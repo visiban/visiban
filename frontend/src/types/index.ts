@@ -1771,5 +1771,29 @@ export interface ShareLinkUpdatedPayload {
   issued_at: string | null;
 }
 
+/**
+ * One card a move renumbered, in `card.moved`'s `sibling_positions` (#1890).
+ * `version` is the sibling's own: a position shift does not bump it, so a
+ * client holding a newer copy of the sibling skips the pair (#1969 rule).
+ */
+export interface CardSiblingPosition {
+  id: number;
+  position: number;
+  version: number;
+}
+
+/**
+ * `card.moved` WebSocket payload: the REST move response (`card`, plus
+ * `movement` unless the move was a reorder within one cell) and, since 1.3,
+ * `sibling_positions`: every active card in the move's source and target
+ * cells whose position the move changed (#1890). Optional because a frame
+ * from an older server, or a change-feed row written by one, has no key.
+ */
+export interface CardMovedEventPayload {
+  card: Card;
+  movement?: CardMovement;
+  sibling_positions?: CardSiblingPosition[];
+}
+
 /** `group.created` / `group.updated` WebSocket payload; `is_starred` omitted for non-actors (#1705). */
 export type GroupEventPayload = Omit<Group, "is_starred"> & { is_starred?: boolean };

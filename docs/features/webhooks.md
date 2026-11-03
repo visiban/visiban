@@ -32,13 +32,17 @@ Delivery is best-effort with retry. If your integration needs every event with c
 
 ## What is sent
 
-Every request body is one change-feed event, exactly as [`GET /boards/{id}/events/`](../api/events.md) returns it to a **viewer**:
+Every request body is one change-feed event, exactly as [`GET /boards/{id}/events/`](../api/events.md) returns it to a **viewer**. Its `data` is the event's WebSocket payload; see the [event reference](../api/websockets.md#event-reference) for each event's shape. A `card.moved` body looks like this:
 
 ```json
 {
   "id": 4182,
   "event": "card.moved",
-  "data": { "id": 311, "column": 14, "swimlane": 3, "...": "..." },
+  "data": {
+    "card": { "id": 311, "column": 14, "swimlane": 3, "position": 0, "...": "..." },
+    "movement": { "from_column": 12, "to_column": 14, "...": "..." },
+    "sibling_positions": [{ "id": 305, "position": 1, "version": 4 }]
+  },
   "actor_id": 7,
   "actor": { "id": 7, "username": "maya", "display_name": "Maya", "avatar_url": "" },
   "created_at": "2026-11-01T09:14:03.118000Z"
@@ -52,6 +56,8 @@ The receiver is outside the board, so it gets the narrowest view the board offer
 - Fields a viewer cannot see, such as moderator flags and admin-only swimlane values, are removed.
 
 You can limit a webhook to some event types. **All events** also includes event types added in later versions; receivers should ignore an `event` they do not recognize.
+
+An event's `data` can also gain fields in a later version, so receivers should ignore keys they do not recognize. For example, since 1.3 a `card.moved` body carries `sibling_positions`, the other cards whose position the move changed (see [Sibling positions on `card.moved`](../api/websockets.md#sibling-positions-on-cardmoved-since-13)).
 
 ## Set up a webhook (board admins)
 

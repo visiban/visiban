@@ -231,8 +231,14 @@ export function eventsSummary(eventTypes: string[]): string {
 export const SAMPLE_PAYLOAD = `{
   "id": 84213,
   "event": "card.moved",
-  "data": { "id": 392, "title": "…",
-            "column": 4, "swimlane": 2 },
+  "data": {
+    "card": { "id": 392, "title": "…",
+              "column": 4, "swimlane": 2 },
+    "movement": { "from_column": 3, "to_column": 4 },
+    "sibling_positions": [
+      { "id": 388, "position": 2, "version": 5 }
+    ]
+  },
   "actor_id": 12,
   "actor": { "id": 12, "username": "…",
              "display_name": "…" },

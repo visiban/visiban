@@ -223,7 +223,7 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 | `card.created` | New card created | Full `CardSerializer` object |
 | `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed, [relation](cards.md#relations-since-12) added/removed, card [blocked or unblocked](cards.md#block-and-unblock-since-13) (since 1.3) | Full `CardSerializer` object |
 | `card.deleted` | Card deleted | `{ "card_uid": <string> }` |
-| `card.moved` | Card moved to a different column or swimlane | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer> }` — the `movement` object also carries `card_uid` and `card_title` so board-level consumers can identify the card without a second fetch. A reorder within the same column and swimlane sends `{ "card": <CardSerializer> }` with no `movement` key |
+| `card.moved` | Card moved to a different column or swimlane, or reordered within its cell | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer>, "sibling_positions": [{ "id", "position", "version" }, ...] }` — the `movement` object also carries `card_uid` and `card_title` so board-level consumers can identify the card without a second fetch. A reorder within the same column and swimlane sends no `movement` key. `sibling_positions` (since 1.3) lists the other cards the move renumbered; see [the note below](#sibling-positions-on-cardmoved-since-13) |
 | `card.archived` | Card archived | `{ "card_uid": <string> }` |
 | `card.unarchived` | Card restored from archive | Full `CardSerializer` object |
 
@@ -265,6 +265,82 @@ and `card.updated`, which clients could not apply.*
 
     A client that applies `card.updated` by replacing the card with that id
     needs no special handling for either case.
+
+### Sibling positions on `card.moved` (since 1.3)
+
+A move renumbers other cards. Leaving a cell closes the gap the card left
+(the `position` of every active card after it in the source cell drops by
+one), and entering a cell, or a reorder within one, makes room (the `position`
+of every card at or after the target position rises by one). Before 1.3 the `card.moved` frame carried only the
+moved card, so other clients kept the old positions of those siblings until
+they reloaded the board (#1890).
+
+Since 1.3 the frame also carries `sibling_positions`: one entry for every
+**active** (not archived) card in the move's source and target cells whose
+`position` the move changed, sorted by `id`:
+
+```json
+{
+  "event": "card.moved",
+  "data": {
+    "card": { "id": 101, "column": 3, "swimlane": 2, "position": 1, "version": 5, "...": "..." },
+    "movement": { "...": "..." },
+    "sibling_positions": [
+      { "id": 98,  "position": 0, "version": 2 },
+      { "id": 104, "position": 2, "version": 7 }
+    ]
+  }
+}
+```
+
+- `id` and `position` are the sibling's id and its position after the move.
+  The moved card is never listed; its position is in `card`.
+- `version` is the sibling's own `version`, which a position shift does not
+  increment. A client that holds a copy of that card with a **higher**
+  `version` has a later change to it (a move or an edit) and should skip the
+  entry, by the same rule as [card versions](#delivery-guarantees).
+- Only the source and target cells are covered, so the list is bounded by the
+  size of those two cells. It is empty when the move shifted nothing (for
+  example, a card moved to the end of an empty cell). The key is always present
+  on frames from a 1.3 or later server.
+- Apply an entry by setting that card's `position`, then sort the cell by
+  `position`. Do not renumber the cell yourself: a reorder within one cell
+  leaves a gap where the card was, and only the server's numbers match what a
+  later `/full/` read returns.
+- If the moved `card` in a frame is older than the copy you hold, skip the
+  frame's `sibling_positions` too: a later change to that card has already
+  reached you, and if it was another move in the same cell, its frame sent
+  newer positions for the same siblings at the same sibling `version`.
+- `version` cannot order two moves of *different* cards in one cell: both
+  send the same siblings at the same `version`. Use the frame's `event_id`
+  instead. Two moves that set the same card's position are ordered by
+  `event_id` in commit order, because the later move locks that card's row
+  before it writes its change-feed row. Remember, per card, the highest
+  `event_id` whose frame set its position (as a sibling entry or as the moved
+  card), and skip a sibling entry, or the moved card's `position`, from a
+  frame with a lower `event_id`. Keep it per card: moves in unrelated cells
+  are not ordered against each other, so a frame for one cell must not block
+  another cell's entries. Keep it when you replace the board from `/full/`: a
+  frame you applied while that request was in flight can be newer than a
+  frame for the same card delivered after the response, and clearing would
+  let the late frame move the card back. `event_id` only grows and card ids
+  are not reused, so a kept entry never blocks a newer frame. A frame with no
+  `event_id` (from a server before the change feed) cannot be compared, so
+  apply it.
+
+The Visiban web app applies these rules (since 1.3). An HTTP response has no
+`event_id`, so a response that lands after a later frame can still put an
+older position on screen until the next frame for that card or the next full
+refresh; the same holds for a `card.updated` frame at an equal `version`.
+
+The field is additive. A client written for 1.2 ignores it and behaves as
+before, and a 1.3 client must accept a frame without it (from an older server
+during a rolling upgrade, or a [change feed](events.md) row written before the
+upgrade) and apply the card alone. The REST response to
+`POST /api/v1/boards/{id}/cards/{id}/move/` does not carry the field; the
+mover's own client receives it on its socket like every other subscriber.
+Archived cards are left out because no client shows them in a cell; a restored
+card's `card.unarchived` frame carries its current position.
 
 ### Deleting a container deletes its cards
 
@@ -577,7 +653,8 @@ ws.onmessage = (event) => {
       // is sent for them; see "Deleting a container deletes its cards")
       break;
     case "card.moved":
-      // update card position and record movement
+      // update the card, record the movement, and (since 1.3) set the
+      // position of each card in data.sibling_positions
       break;
     default:
       // ignore unknown event types for forward compatibility

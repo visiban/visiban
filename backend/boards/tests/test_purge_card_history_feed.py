@@ -970,6 +970,16 @@ class RedactPayloadUnitTests(TestCase):
         # The input is not mutated.
         self.assertEqual(data["card"]["title"], "t")
 
+    def test_sibling_positions_carry_no_content_and_are_kept(self):
+        # #1890: ids, positions and versions only, so a purge leaves them as is.
+        siblings = [{"id": 4, "position": 2, "version": 1}]
+        self.assertEqual(
+            redact_card_event_payload(
+                "card.moved", {"card": {"uid": "u", "title": "t"}, "sibling_positions": siblings},
+            ),
+            {"card": {"uid": "u", "title": None}, "sibling_positions": siblings},
+        )
+
     def test_flat_legacy_card_moved_is_redacted_as_a_card(self):
         # The MCP tools' create-at-position card.moved (1.2 pre-releases).
         self.assertEqual(
