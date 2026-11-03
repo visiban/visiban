@@ -257,13 +257,14 @@ def get_accessible_group_ids(user):
         all_ids |= children
         frontier = children
     else:
-        # The for-loop completed all iterations without the frontier emptying,
-        # meaning the group tree may extend beyond the traversal cap.
-        if frontier:
+        # The loop used every step without the frontier emptying. The frontier
+        # being non-empty only means the last level was reached; warn only when
+        # a group really exists below it and was left out.
+        if frontier and Group.objects.filter(parent__in=frontier).exists():
             logger.warning(
                 "Group descendant traversal capped at depth %d for user %s. "
                 "Groups nested deeper than this limit are not included in the accessible set.",
-                _GROUP_TRAVERSAL_MAX_DEPTH,
+                _GROUP_TRAVERSAL_MAX_DEPTH - 1,
                 getattr(user, "pk", user),
             )
     return all_ids
@@ -317,7 +318,7 @@ def get_group_ids_for_board_access(user):
         all_ids |= children
         frontier = children
     else:
-        if frontier:
+        if frontier and Group.objects.filter(parent__in=frontier).exists():
             logger.warning(
                 "Group descendant traversal capped at depth %d for user %s "
                 "(board-access scoping). Groups nested deeper than this limit "

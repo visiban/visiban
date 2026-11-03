@@ -299,10 +299,15 @@ class DeepAncestorWalkTests(TestCase):
 
     def test_grandparent_detail_routes_stay_closed(self):
         base = f"/api/v1/groups/{self.root.id}"
-        for suffix in ("descendant-boards", "invite-links", "board-defaults"):
+        for suffix in ("descendant-boards", "invite-links"):
             response = self.client.get(f"{base}/{suffix}/")
-            self.assertIn(response.status_code, (403, 404, 405), suffix)
-            self.assertNotEqual(response.status_code, 200, suffix)
+            self.assertEqual(response.status_code, 403, suffix)
+        # board-defaults accepts PATCH only, so a GET would answer 405 before
+        # any guard runs; PATCH reaches the admin check.
+        response = self.client.patch(
+            f"{base}/board-defaults/", {"allowed_priorities": ["high"]}, format="json",
+        )
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(self.client.delete(f"{base}/").status_code, 403)
         self.assertEqual(
             self.client.post(f"{base}/boards/", {"name": "x"}, format="json").status_code, 403,
@@ -376,3 +381,30 @@ class DeepAncestorWalkTests(TestCase):
         from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH as group_depth
 
         self.assertEqual(group_depth, board_depth)
+
+    def test_no_cap_warning_on_exactly_max_depth_tree(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        node = None
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+            node = _group(self.admin, f"Exact{i}", parent=node)
+            if i == 0:
+                top = node
+        user = User.objects.create_user(username="exactuser", password="pass")
+        GroupMembership.objects.create(group=top, user=user, role=GroupMembership.Role.MEMBER)
+        with self.assertNoLogs("groups.models", level="WARNING"):
+            get_accessible_group_ids(user)
+
+    def test_cap_warning_when_a_group_is_dropped(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        node = None
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH + 1):
+            node = _group(self.admin, f"Over{i}", parent=node)
+            if i == 0:
+                top = node
+        user = User.objects.create_user(username="overuser", password="pass")
+        GroupMembership.objects.create(group=top, user=user, role=GroupMembership.Role.MEMBER)
+        with self.assertLogs("groups.models", level="WARNING") as logs:
+            get_accessible_group_ids(user)
+        self.assertIn(f"depth {_GROUP_TRAVERSAL_MAX_DEPTH - 1}", logs.output[0])

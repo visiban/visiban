@@ -950,8 +950,8 @@ class Issue846ParentMembershipVisibilityTests(TestCase):
 class DeepSubgroupVisibilityTests(TestCase):
     """Pins depth-3 subgroup visibility for parent-group members.
 
-    get_accessible_group_ids walks descendants up to _GROUP_TRAVERSAL_MAX_DEPTH
-    (=6). A user in the root group must see subgroups 2+ levels down so the
+    get_accessible_group_ids walks descendants up to _GROUP_TRAVERSAL_MAX_DEPTH - 1
+    (=5) levels below a membership. A user in the root group must see subgroups 2+ levels down so the
     expanded sidebar tree and the subgroup-boards toggle keep working at depth.
     """
 
