@@ -4797,7 +4797,7 @@
 <p>Users with <code>can_access_all_content</code> see all boards and groups regardless of explicit membership — this is the flag that controls board-level omniscience. <code>is_site_admin</code> alone doesn't grant it.</p>
 <div class="admonition note">
 <p class="admonition-title">Two flags, two purposes</p>
-<p><code>is_site_admin</code> gates admin panel access and protection from demotion. <code>can_access_all_content</code> gates implicit board/group access. The <code>set_site_admin</code> management command sets both together, but they can be managed independently via the admin panel for accounts that are not superusers (a superuser always has both). See <a href="../../../administration/site-admins/">Site Admins</a> for details.</p>
+<p><code>is_site_admin</code> gates admin panel access and protection from demotion. <code>can_access_all_content</code> gates implicit board/group access. The <code>set_site_admin</code> management command sets both together, but they can be managed independently via the admin panel for accounts that are not superusers (a superuser always has both). <em>(1.3+)</em> Only a superuser can grant <code>can_access_all_content</code> there; any site admin can revoke it. See <a href="../../../administration/site-admins/">Site Admins</a> for details.</p>
 </div>
 <p>See <a href="../managing/">Managing Roles</a> for how to grant site admin status.</p>
 

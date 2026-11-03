@@ -4632,6 +4632,7 @@
 <li>outbound-email configuration changes</li>
 <li>password events: set or disabled for another account in the Django admin, and passwords set by the <code>ensure_site_admin</code>, <code>changepassword</code> and <code>provision_fuzz_token</code> management commands (source <code>cli</code>)</li>
 <li>card-history purges (<code>card_history.purged</code>, written by the <code>purge_card_history</code> management command with the <code>--actor</code> superuser as actor; #1797)</li>
+<li><em>(1.3+)</em> grants and revokes of <code>is_site_admin</code> and <code>can_access_all_content</code>, from the admin API, the Django admin and the <code>set_site_admin</code>, <code>ensure_site_admin</code> and <code>createsuperuser</code> commands (#1830)</li>
 </ul>
 <p><code>actor_id</code> and <code>actor_username</code> are plain columns, not a foreign key. A FK's <code>on_delete=SET_NULL</code> would let deleting a user erase who performed a privileged action, the one thing this table exists to answer. There is deliberately no retention pruner; volume is a handful of rows a month. See <a href="../open-core-boundary/#audit-log-split">Open-core boundary § Audit log</a> for why this stays in OSS rather than the enterprise compliance audit log.</p>
 <h3 id="board">Board<a class="headerlink" href="#board" title="Permanent link">&para;</a></h3>

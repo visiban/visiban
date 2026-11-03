@@ -3201,6 +3201,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rule-16-only-a-superuser-grants-all-content-access-and-access-flag-changes-are-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 16: Only a superuser grants all-content access, and access-flag changes are recorded
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-to-add-a-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4374,7 +4385,7 @@ audit code.</p>
 </tr>
 </tbody>
 </table>
-<p>Entry points use file and function names, not line numbers, so the table survives edits. Paths are relative to <code>backend/</code>. Where a rule has a shared implementation, it lives in <code>visiban/authorization.py</code> and the "Enforced via" column names it.</p>
+<p>Entry points use file and function names, not line numbers, so the table survives edits. Paths are relative to <code>backend/</code>. Where a rule has a shared implementation, it lives in <code>visiban/authorization.py</code> and the "Enforced via" column names it. The exceptions are listed under "What it doesn't enumerate" below.</p>
 <p><strong>What the tests enumerate.</strong> <code>accounts/tests/test_auth_entry_points.py</code> enforces Rules 1 and 2. It discovers every routed REST and non-DRF view, every routed WebSocket consumer, the MCP transport, every invite-link model, and every function that looks an invite up by its token, and fails when one skips the shared function.</p>
 <ul>
 <li>It checks that each top-level path segment with a route is either gated by <code>PendingAccountActionMiddleware</code> or recorded as serving no session HTML.</li>
@@ -4385,9 +4396,10 @@ audit code.</p>
 <p><strong>What it doesn't enumerate.</strong></p>
 <ul>
 <li>Rule 3: the revocation table is a review checklist.</li>
-<li>Rule 5, Rule 9, Rule 10, Rule 13, Rule 14 and Rule 15: review checklists, pinned by the tests named under each.</li>
+<li>Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15 and Rule 16: review checklists, pinned by the tests named under each.</li>
 <li>Locking: the concurrent tests for each consume-once path cover it.</li>
 <li>Rules 11 and 12 are enumerated by their own tests instead: <code>groups/tests/test_group_member_guards.py</code> <code>GroupMembershipEntryPointTests</code> (Rule 11) and <code>boards/tests/test_analytics_panel_min_role_1826.py</code> <code>AnalyticsExtensionsEntryPointTests</code> (Rule 12). Both rules also keep their shared function outside <code>visiban/authorization.py</code> (<code>groups/services.py</code> <code>lock_membership_for_removal_or_demotion</code> and <code>boards/permissions.py</code> <code>analytics_extensions_for_role</code>), an accepted deviation from step 5 of <a href="#how-to-add-a-rule">How to add a rule</a>.</li>
+<li>Rule 16 also keeps its shared function outside <code>visiban/authorization.py</code> (<code>accounts/models.py</code> <code>record_access_flag_changes</code>, beside the log model it writes), a deviation from the same step.</li>
 </ul>
 <p><strong>Go deeper:</strong> <a href="../authorization-entry-points/">Authorization Entry Points</a> says what each entry point calls and how that test finds them.</p>
 <h2 id="rule-1-account-state-gates-apply-to-every-transport">Rule 1: Account-state gates apply to every transport<a class="headerlink" href="#rule-1-account-state-gates-apply-to-every-transport" title="Permanent link">&para;</a></h2>
@@ -4623,17 +4635,17 @@ re-checks.</p>
 <tr>
 <td>Django admin (user delete)</td>
 <td><code>accounts/admin.py</code> <code>VisibanUserAdmin.delete_view</code>, <code>guarded_delete_selected</code> (the <code>delete_selected</code> action), <code>delete_model</code>, <code>delete_queryset</code>, <code>_lock_and_check_admins</code>, <code>_lock_cards_then_targets</code>; <code>user_deletion_refusals</code></td>
-<td>A delete applies the account guards to every actor, superusers included: not the actor's own account, not a board owner (<code>Board.owner</code> is CASCADE, so the boards and their cards would go too; the refusal shows a count, not board names; <code>accounts/admin_views.py</code> <code>deactivation_refusal</code>, #1616), and not the last active site admin or last active superuser. The delete view and the bulk action refuse with an error message and delete nothing; a bulk delete is judged as a set, is all-or-nothing, and also refuses a selection that would remove every active site admin or superuser; the bulk action runs in one transaction so a refusal leaves no deletion log entries. <code>delete_model</code> and <code>delete_queryset</code> judge the rules again under three locks, in this order: (1) the targets, the actor and the active site-admin and superuser rows, one pk-ordered <code>FOR NO KEY UPDATE</code> (the flag-based rules and the actor's standing, including a target promoted or an actor demoted since the request started, are judged on these locked rows; <code>FOR NO KEY UPDATE</code> doesn't block the <code>FOR KEY SHARE</code> a card write or board insert takes on a user row); (2) every card the delete will write (the owned boards' cards and the cards carrying a reference to a target), one pk-ordered <code>FOR UPDATE</code>; (3) the target rows, one pk-ordered <code>FOR UPDATE</code>, after which the refusals are judged again, so the owned-boards rule is checked against boards committed up to that point. The guard decisions are judged on locked rows and a board is never silently deleted by a delete that didn't check it: a board insert that has reached COMMIT before step (3) is seen by the re-check and the delete is refused; an insert still in flight takes its foreign-key lock on the owner only at COMMIT (the key is deferred), so it waits for the delete and then fails its foreign key. Cards are locked before the target rows, the order a card writer uses, for the cards snapshotted at step (2). The limit: a card that gains a reference to a target between steps (2) and (3) isn't locked, and the cascade's update of it can deadlock with a writer holding that card; PostgreSQL aborts one side, which can be the delete, and nothing is lost. Tables not scoped to a card (invite links, export log, group rows) aren't locked. A user who owns groups (<code>Group.owner</code> is CASCADE, so their groups, subgroups and memberships would go too) is refused until ownership is transferred, in the page check and again at step (3) (the refusal shows a count). A non-superuser actor may delete only accounts that aren't another staff, superuser or site-admin account (<code>_is_protected_other_account</code>), judged on the locked rows at step (1) as well. The shell and management commands are the only unguarded routes</td>
+<td>A delete applies the account guards to every actor, superusers included: not the actor's own account, not a board owner (<code>Board.owner</code> is CASCADE, so the boards and their cards would go too; the refusal shows a count, not board names; <code>accounts/admin_views.py</code> <code>deactivation_refusal</code>, #1616), and not the last active site admin or last active superuser. The delete view and the bulk action refuse with an error message and delete nothing; a bulk delete is judged as a set, is all-or-nothing, and also refuses a selection that would remove every active site admin or superuser; the bulk action runs in one transaction so a refusal leaves no deletion log entries. <code>delete_model</code> and <code>delete_queryset</code> judge the rules again under three locks, in this order: (1) the targets, the actor and the active site-admin and superuser rows, one pk-ordered <code>FOR NO KEY UPDATE</code> (the flag-based rules and the actor's standing, including a target promoted or an actor demoted since the request started, are judged on these locked rows; <code>FOR NO KEY UPDATE</code> doesn't block the <code>FOR KEY SHARE</code> a card write or board insert takes on a user row); (2) every card the delete will write (the owned boards' cards and the cards carrying a reference to a target), one pk-ordered <code>FOR UPDATE</code>; (3) the target rows, one pk-ordered <code>FOR UPDATE</code>, after which the refusals are judged again, so the owned-boards rule is checked against boards committed up to that point. The guard decisions are judged on locked rows and a board is never silently deleted by a delete that didn't check it: a board insert that has reached COMMIT before step (3) is seen by the re-check and the delete is refused; an insert still in flight takes its foreign-key lock on the owner only at COMMIT (the key is deferred), so it waits for the delete and then fails its foreign key. Cards are locked before the target rows, the order a card writer uses, for the cards snapshotted at step (2). The limit: a card that gains a reference to a target between steps (2) and (3) isn't locked, and the cascade's update of it can deadlock with a writer holding that card; PostgreSQL aborts one side, which can be the delete, and nothing is lost. Tables not scoped to a card (invite links, export log, group rows) aren't locked. A user who owns groups (<code>Group.owner</code> is CASCADE, so their groups, subgroups and memberships would go too) is refused until ownership is transferred, in the page check and again at step (3) (the refusal shows a count). A non-superuser actor may delete only accounts that aren't another staff, superuser, site-admin or all-content account (<code>_is_protected_other_account</code>), judged on the locked rows at step (1) as well. The shell and management commands are the only unguarded routes</td>
 </tr>
 <tr>
 <td>Django admin (user form fields and visibility)</td>
 <td><code>accounts/admin.py</code> <code>VisibanUserAdmin.get_readonly_fields</code>, <code>get_queryset</code></td>
-<td>For a non-superuser: <code>is_staff</code>, <code>is_superuser</code>, <code>groups</code> and <code>user_permissions</code> are read-only; <code>email</code>, <code>username</code>, <code>first_name</code>, <code>last_name</code> and <code>is_active</code> of a staff, superuser or site-admin account other than the actor's own are read-only; superuser accounts aren't listed or editable (these limits apply to non-superuser staff only). <code>get_fieldsets</code> (which adds the hidden <code>row_version</code>), <code>row_version</code> and <code>save_related</code> don't alter these field and visibility limits: read-only fields stay out of the form and of <code>row_version</code>, and <code>save_related</code> writes only many-to-many fields the form carries (#1622)</td>
+<td>For a non-superuser: <code>is_staff</code>, <code>is_superuser</code>, <code>groups</code> and <code>user_permissions</code> are read-only; <code>email</code>, <code>username</code>, <code>first_name</code>, <code>last_name</code> and <code>is_active</code> of a staff, superuser, site-admin or all-content account other than the actor's own are read-only; superuser accounts aren't listed or editable (these limits apply to non-superuser staff only). <code>get_fieldsets</code> (which adds the hidden <code>row_version</code>), <code>row_version</code> and <code>save_related</code> don't alter these field and visibility limits: read-only fields stay out of the form and of <code>row_version</code>, and <code>save_related</code> writes only many-to-many fields the form carries (#1622)</td>
 </tr>
 <tr>
 <td>Django admin (user password form)</td>
 <td><code>accounts/admin.py</code> <code>VisibanUserAdmin.user_change_password</code></td>
-<td>The per-user password form is refused for a non-superuser when the target is a staff, superuser or site-admin account other than the actor's own. These limits apply to non-superuser staff only; superusers edit these fields and set these passwords</td>
+<td>The per-user password form is refused for a non-superuser when the target is a staff, superuser, site-admin or all-content account other than the actor's own. These limits apply to non-superuser staff only; superusers edit these fields and set these passwords</td>
 </tr>
 <tr>
 <td>Writes to the user row from a request-start copy</td>
@@ -5824,6 +5836,85 @@ every-record check, DNS rebinding, redirects not followed, a real TLS handshake
 proving the pin and hostname verification, and <code>NoOtherOutboundCallTests</code>,
 which fails on any other network call in the <code>webhooks</code> app),
 <code>webhooks/tests/test_api.py</code> (<code>url_not_allowed</code> is one code with one message).</p>
+<h2 id="rule-16-only-a-superuser-grants-all-content-access-and-access-flag-changes-are-recorded">Rule 16: Only a superuser grants all-content access, and access-flag changes are recorded<a class="headerlink" href="#rule-16-only-a-superuser-grants-all-content-access-and-access-flag-changes-are-recorded" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> <code>can_access_all_content</code> is granted only by an active superuser, judged
+on a fresh read of the actor when the target row is locked. A site admin who isn't
+a superuser can revoke it from an account that isn't a superuser. Every actual
+change of <code>can_access_all_content</code> or <code>is_site_admin</code> writes an <code>AdminActionLog</code>
+row in the transaction that makes the change, through
+<code>accounts/models.py</code> <code>record_access_flag_changes</code>. A resubmitted value is neither
+a grant nor a log row, though a request from a site admin who isn't a superuser
+that names the flag on a superuser account is still refused (Rule 2's superuser
+target rule). In the Django admin, an all-content account is protected like a
+staff, superuser or site-admin account (<code>_is_protected_other_account</code>).</p>
+<p><strong>Why.</strong> The flag reads and writes every board and group, which is far more than
+<code>is_site_admin</code> gives. If a site admin could set it, the two flags would not be
+independent at all. Banning only a self-grant doesn't help, because a site admin
+can create another account and grant it there. A log alone doesn't help either,
+because it shows the access only after it was taken. The actor is read again
+because <code>request.user</code> was loaded when the request began, and it may have lost
+superuser status since. On the Admin API that read takes no lock on the actor's
+row: a demotion that commits between the read and the grant's commit orders after
+the grant, the same result as a grant made a moment earlier, and the log names the
+actor. Locking the actor after the target could deadlock against
+<code>VisibanUserAdmin.save_model</code>'s pk-ordered lock set.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin API</td>
+<td><code>accounts/admin_views.py</code> <code>AdminUserDetailView.patch</code></td>
+<td>The refusal runs on the row from <code>lock_user_row</code> against a fresh actor read: <code>400</code> with <code>can_access_all_content</code> and <code>detail</code>. <code>record_access_flag_changes</code> with source <code>admin_api</code> and the acting admin. No other admin API route writes either flag: <code>AdminPatchUserSerializer</code> is the only serializer that writes them (<code>AdminUserSerializer</code> only outputs them), and <code>AdminCreateUserSerializer</code> carries neither</td>
+</tr>
+<tr>
+<td>Django admin (user form)</td>
+<td><code>accounts/admin.py</code> <code>VisibanUserAdmin.save_model</code>, <code>get_readonly_fields</code></td>
+<td>The form carries neither flag. <code>is_superuser</code>, which implies both, is read-only for a non-superuser (<code>_SUPERUSER_ONLY_FIELDS</code>), and <code>save_model</code> refuses a promotion under the row lock when a fresh read of the actor isn't an active superuser. <code>record_access_flag_changes</code> with source <code>django_admin</code> and the acting superuser</td>
+</tr>
+<tr>
+<td>Superuser status change (model save)</td>
+<td><code>accounts/signals.py</code> <code>capture_prior_superuser_state</code>, <code>ensure_superuser_is_site_admin</code></td>
+<td>Keeps both flags in step with <code>is_superuser</code>. Writes no log row: it has no actor, and the route that changed the status records the flags, so each change is recorded once. A superuser's flag cleared by a raw database write and restored by the next save is recorded only if that save came through a route in this table; during a <code>PATCH</code> on the admin API, that row names the <code>PATCH</code>'s actor</td>
+</tr>
+<tr>
+<td>Current-user API</td>
+<td><code>accounts/serializers.py</code> <code>CurrentUserSerializer</code> (<code>/auth/me/</code>, <code>/auth/user/</code>)</td>
+<td>Both flags are in <code>read_only_fields</code>, so a user can't set them on their own account</td>
+</tr>
+<tr>
+<td>Management commands</td>
+<td><code>accounts/management/commands/set_site_admin.py</code>; <code>accounts/management/commands/ensure_site_admin.py</code>; <code>operator_commands/management/commands/createsuperuser.py</code></td>
+<td>Outside the rule's threat model: anyone who can run them has shell access, which is the real control. Each records <code>record_access_flag_changes</code> with source <code>cli</code> and no actor, in the transaction that makes the change</td>
+</tr>
+<tr>
+<td>Demo-site seed (action log exception)</td>
+<td><code>boards/management/commands/seed_demo_data.py</code></td>
+<td>Explicit exception, as for its password sets under Rule 3: <code>--demo-site</code> requires <code>DEMO_MODE=true</code>, and the hourly <code>--reset-database</code> empties the action log</td>
+</tr>
+<tr>
+<td>Admin panel</td>
+<td><code>frontend/src/pages/AdminPage.tsx</code> <code>buildOverflowItems</code></td>
+<td><strong>Grant all-content</strong> is left out for an actor whose <code>is_superuser</code> is <code>false</code>. Convenience only: the Admin API row above is what enforces the rule</td>
+</tr>
+<tr>
+<td>MCP, OAuth signup and invite redemption</td>
+<td><code>mcp_server/tools.py</code>; <code>accounts/adapter.py</code> <code>SocialRegistrationAdapter</code>; <code>accounts/invite_utils.py</code></td>
+<td>Don't write either flag</td>
+</tr>
+</tbody>
+</table>
+<p>Coverage: <code>accounts/tests/test_access_flag_grants_1830.py</code> (the refusal, fresh
+actor and locked-row cases; the log rows on each route; a failed log write rolling
+the change back on the admin API, <code>save_model</code>, <code>set_site_admin</code>, <code>ensure_site_admin</code>
+and <code>createsuperuser</code>; neither flag in the Django admin forms; <code>/auth/me/</code> and
+<code>/auth/user/</code> ignoring both flags), <code>accounts/tests/test_admin_staff_target_rules.py</code>
+(all-content accounts in the Django admin).</p>
 <h2 id="how-to-add-a-rule">How to add a rule<a class="headerlink" href="#how-to-add-a-rule" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Write the rule as a statement of behavior, not an implementation: what must

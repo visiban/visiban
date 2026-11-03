@@ -4277,10 +4277,10 @@
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 </code></pre></div>
 <p><strong>Django admin panel</strong></p>
-<p>Navigate to <code>/admin/accounts/user/</code>, find the user, and toggle the <code>is_site_admin</code> checkbox.</p>
+<p>The user form at <code>/admin/accounts/user/</code> has no site admin checkbox. A superuser can turn on <strong>Superuser status</strong> there, which also gives the account site admin and all-content access.</p>
 <div class="admonition note">
 <p class="admonition-title">Two separate flags</p>
-<p>The <code>set_site_admin</code> command sets both <code>is_site_admin</code> (admin panel access) and <code>can_access_all_content</code> (board/group omniscience) together. To manage them independently for accounts that are not superusers — for example, granting admin panel access without board omniscience — use the admin panel instead. See <a href="../../../administration/site-admins/">Site Admins</a> for details.</p>
+<p>The <code>set_site_admin</code> command sets both <code>is_site_admin</code> (admin panel access) and <code>can_access_all_content</code> (board/group omniscience) together. To manage them independently for accounts that are not superusers — for example, granting admin panel access without board omniscience — use the admin panel instead; <em>(1.3+)</em> only a superuser can grant all-content access there. See <a href="../../../administration/site-admins/">Site Admins</a> for details.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>

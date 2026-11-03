@@ -4235,7 +4235,7 @@
 </tr>
 <tr>
 <td><code>can_access_all_content</code></td>
-<td>Read/write access to <strong>every board and group</strong> on the instance, regardless of membership. This is the "omniscient" content access.</td>
+<td>Read/write access to <strong>every board and group</strong> on the instance, regardless of membership. This is the "omniscient" content access. <em>(1.3+)</em> Only a superuser can grant it from the admin panel or API.</td>
 </tr>
 </tbody>
 </table>
@@ -4250,9 +4250,20 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Grant admin panel access only — board/group access unchanged</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Then immediately revoke content access if the user should not have it:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># (use the admin panel toggle, or Django admin to uncheck can_access_all_content)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># (Site Admin → Users → Revoke all-content in the admin panel)</span>
 </code></pre></div>
-<p>To let a user (e.g. a support engineer) see all boards <strong>without</strong> admin panel access, enable <code>can_access_all_content</code> in the admin panel (<strong>Site Admin → Users → Grant all-content</strong>) and leave <code>is_site_admin</code> off.</p>
+<p>Or use <strong>Make admin</strong> in the admin panel, which sets <code>is_site_admin</code> alone.</p>
+<p>To let a user (e.g. a support engineer) see all boards <strong>without</strong> admin panel access, a superuser enables <code>can_access_all_content</code> in the admin panel (<strong>Site Admin → Users → Grant all-content</strong>) and leaves <code>is_site_admin</code> off.</p>
+<blockquote>
+<p><strong>Changed in 1.3</strong> (#1830)</p>
+</blockquote>
+<p><strong>Who can grant all-content access.</strong> Only a superuser, because the flag reads and writes every board and group. A site admin who is not a superuser doesn't see <strong>Grant all-content</strong>, and the API refuses the grant with <code>400</code>, on their own account and on any other. They can still revoke the flag from an account that is not a superuser. Every grant and revoke of either flag is recorded in the <a href="../../api/admin/#action-log">admin action log</a>, with the actor. Changes made by a management command have <code>source</code> <code>cli</code> and no actor.</p>
+<p><strong>If your instance has no superuser.</strong> Anyone who can run <code>manage.py</code> still has a route:</p>
+<ul>
+<li><code>python manage.py createsuperuser</code> creates a superuser, who can then grant the flag from the admin panel.</li>
+<li><code>python manage.py set_site_admin &lt;username&gt;</code> sets both flags on that account directly. A site admin can then <strong>Demote admin</strong> to leave all-content access on its own.</li>
+</ul>
+<p><code>ensure_site_admin</code> won't help here: it does nothing once any site admin exists.</p>
 <p>The <code>set_site_admin</code> management command always sets <strong>both</strong> flags together for convenience:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Grant both flags</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
@@ -4260,7 +4271,7 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Revoke both flags</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;<span class="w"> </span>--revoke
 </code></pre></div>
-<p>To manage the flags independently for accounts that are not superusers, use <strong>Site Admin → Users</strong> in the admin panel.</p>
+<p>To manage the flags independently for accounts that are not superusers, use <strong>Site Admin → Users</strong> in the admin panel. Granting all-content access there takes a superuser.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Superuser status implies both flags. The admin API refuses to clear either flag on an account that is still a superuser, and a save that would leave <code>can_access_all_content</code> off on a superuser sets both flags again. Remove superuser status first (which also clears both flags). <strong>Site Admin → Users</strong> therefore does not show <strong>Demote admin</strong> or <strong>Revoke all-content</strong> on a superuser's row.
@@ -4278,7 +4289,7 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 </code></pre></div>
 <p><strong>Django admin panel (advanced)</strong></p>
-<p>Go to <code>/admin/accounts/user/</code> (the Django admin — see <a href="../django-admin/">Django Admin</a> for why this differs from the <code>/admin</code> site-admin panel above), open the user, and enable the <code>Is site admin</code> checkbox.</p>
+<p>The user form at <code>/admin/accounts/user/</code> (the Django admin — see <a href="../django-admin/">Django Admin</a> for why this differs from the <code>/admin</code> site-admin panel above) has no site admin checkbox. A superuser can turn on <strong>Superuser status</strong> there, which also gives the account site admin and all-content access.</p>
 <h2 id="revoking-site-admin">Revoking site admin<a class="headerlink" href="#revoking-site-admin" title="Permanent link">&para;</a></h2>
 <p><strong>Admin panel (recommended)</strong></p>
 <p>Go to <strong>Site Admin → Users</strong> (<code>/admin</code>), find the user, and click <strong>Demote admin</strong> in their row.</p>
