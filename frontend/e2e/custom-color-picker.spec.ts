@@ -248,9 +248,16 @@ test.describe('Custom color trigger on a touch screen (#2095)', () => {
   }
 
   test('md: 44x44, leaving the neighboring swatch its own taps, empty and selected', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 640 })
+    // Wide enough that the trigger shares the swatch's row. At 320px it wraps to its own,
+    // and nothing is left beside it to take taps from.
+    await page.setViewportSize({ width: 1024, height: 768 })
     await openEditModal(page)
     const purple = page.getByRole('button', { name: 'Select color Purple' })
+    const centerY = async (b: ReturnType<typeof trigger>) => {
+      const box = await b.boundingBox()
+      return box ? box.y + box.height / 2 : NaN
+    }
+    expect(await centerY(trigger(page))).toBe(await centerY(purple))
     expect(await ownsEdges(purple)).toBe('own,own')
     const size = await hitArea(trigger(page))
     expect(size.position).toBe('absolute')
@@ -260,6 +267,7 @@ test.describe('Custom color trigger on a touch screen (#2095)', () => {
     await page.getByRole('textbox', { name: 'Hex value' }).fill('#112233')
     await page.getByRole('button', { name: 'Apply' }).click()
     await expect(trigger(page, 'Custom color, selected')).toHaveCSS('transform', /matrix\(1\.1/)
+    expect(await centerY(trigger(page, 'Custom color, selected'))).toBe(await centerY(purple))
     expect(await ownsEdges(purple)).toBe('own,own')
   })
 

@@ -438,6 +438,30 @@ describe('CardDetail sheet — click-catcher (#1914)', () => {
       expect(props.onClose).toHaveBeenCalledOnce()
     })
 
+    it('a press on another card still swaps the sheet, and the typed label name goes with it', () => {
+      const { cell } = mountBoard()
+      const other = document.createElement('div')
+      other.setAttribute('data-card-id', '2')
+      cell.appendChild(other)
+      const cardClick = vi.fn()
+      other.addEventListener('click', cardClick)
+      const props = defaultProps()
+      const { rerender } = render(<CardDetail key={props.card.id} {...props} />)
+      openPicker()
+
+      press(other)
+      fireEvent.mouseDown(other)
+      click(other)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(cardClick).toHaveBeenCalledOnce()
+      expect(props.onClose).not.toHaveBeenCalled()
+
+      // BoardView keys the sheet by card, so the swap is a new instance (panels replace, never stack).
+      rerender(<CardDetail key={2} {...props} card={{ ...props.card, id: 2 }} />)
+      expect(screen.queryByRole('textbox', { name: 'New label name' })).toBeNull()
+      expect(screen.getByRole('button', { name: '+ New label' })).toBeInTheDocument()
+    })
+
     it('a control outside the sheet still works, and the sheet survives that press', () => {
       mountBoard()
       const filters = document.createElement('button')

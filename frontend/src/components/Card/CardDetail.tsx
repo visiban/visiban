@@ -242,8 +242,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // also fire) and for anything that is not a control. A control elsewhere
     // in the app (toolbar, sidebar, navbar) closes the sheet AND works, in one
     // click, and takes focus as it normally would.
-    // `closes`: false while a popover in the sheet is open: this press dismisses it
-    // alone, as Escape would, and still behaves as a press outside otherwise.
+    // `closes`: false while the custom color popover is open in the sheet: this press
+    // dismisses it alone, as Escape would, and still behaves as a press outside otherwise.
+    // Only that popover opts in so far; see utils/dismissLayer.ts.
     let pending: { x: number; y: number; consume: boolean; closes: boolean } | null = null;
     // A press on the open card's own face: its click re-selects the same card,
     // so keep focus in the sheet instead of letting the press move it there.

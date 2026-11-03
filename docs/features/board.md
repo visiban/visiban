@@ -224,7 +224,7 @@ This setting is purely ambient: it does not change limit enforcement, which is c
 
 Columns, swimlanes, new card labels and a [group's shared labels](groups.md#group-shared-labels) keep their preset swatches and add a custom color control at the end of the row, a dashed circle with a plus. It opens a panel with a saturation square, a hue slider and hex and R, G, B fields.
 
-- **Nothing changes until you choose Apply.** The preview in the panel shows your draft; the row and the board do not. Cancel, Escape, clicking elsewhere or tabbing away discards the draft. Whatever you typed in the dialog or card behind it stays as it was: a first click on the area outside closes only the panel, and a second click there closes the dialog or card.
+- **Nothing changes until you choose Apply.** The preview in the panel shows your draft; the row and the board do not. Cancel, Escape, clicking elsewhere or tabbing away discards the draft. Whatever you typed in the dialog or card behind it stays as it was: a first click on the area outside closes only the panel, and a second click there closes the dialog or card. The exception is clicking another card on the board, which replaces the open card straight away, so a label name you were typing in it is gone.
 - **Hex takes 3 or 6 digits** (`#ABC` is saved as `#AABBCC`). **R, G and B go from 0 to 255.** Apply stays unavailable and a message explains why until the values are valid.
 - **When you apply a custom color, it fills the control**, so you can see it and change it later. A value that matches a preset selects that preset instead.
 - **In the new-label row on a card**, once the label has a name, the button reads **Create label** and applying creates the label in that color, as clicking a preset swatch does.
