@@ -5117,7 +5117,7 @@
 </tr>
 <tr>
 <td><code>validation_error</code></td>
-<td>A field failed validation — includes an <code>errors</code> object keyed by field name, e.g. an <code>assignee</code> username or label name that does not resolve to an assignable board member/label, or an <code>assignee</code>, <code>labels</code>, <code>label</code> or <code>priority</code> argument that contains a NUL (0x00) character (refused before any lookup, #2033). Every unresolved <code>assignee</code> returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a <code>viewer</code> (who cannot be assigned).</td>
+<td>A field failed validation — includes an <code>errors</code> object keyed by field name, e.g. an <code>assignee</code> username or label name that does not resolve to an assignable board member/label, or an <code>assignee</code>, <code>labels</code>, <code>label</code> or <code>priority</code> argument that contains a NUL (0x00) character (refused before any lookup, #2033), or any string argument of any tool that contains an unpaired UTF-16 surrogate such as <code>"\ud800"</code> (valid JSON that PostgreSQL cannot store; refused before the tool runs, with <code>errors</code> keyed by the argument, #2085). On the legacy transport a surrogate escape written directly in the request body is refused earlier by the MCP SDK, as a JSON-RPC parse error (<code>-32700</code>, HTTP 400). Every unresolved <code>assignee</code> returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a <code>viewer</code> (who cannot be assigned).</td>
 </tr>
 <tr>
 <td><code>wip_limit_exceeded</code> / <code>wip_hard_blocked</code></td>

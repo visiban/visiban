@@ -6732,7 +6732,7 @@
 </blockquote>
 <p>Without a <code>name</code> field, both formats name the new board <code>Imported: &lt;name&gt;</code>:</p>
 <ul>
-<li><strong>JSON</strong> — <code>&lt;name&gt;</code> is the <code>name</code> field in the file.</li>
+<li><strong>JSON</strong> — <code>&lt;name&gt;</code> is the <code>name</code> field in the file. An unpaired UTF-16 surrogate in it (<code>"\ud800"</code>, which PostgreSQL cannot store) is replaced with U+FFFD in the default name.</li>
 <li><strong>CSV</strong> — a CSV carries no board name, so <code>&lt;name&gt;</code> is the uploaded filename without its extension (<code>Q3 plan.csv</code> → <code>Imported: Q3 plan</code>). An empty filename stem falls back to <code>Board</code>.</li>
 </ul>
 <p>If a board with that exact name exists, the lowest unused number is appended: <code>Imported: Roadmap - 1</code>, then <code>- 2</code>, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when <code>group_id</code> is set, otherwise every ungrouped board you can access (the boards under <strong>My Boards</strong> on the dashboard). The name is truncated to the 255-character limit so the prefix and number always fit. Names are not unique, so two simultaneous imports can occasionally get the same name.</p>
@@ -7125,6 +7125,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 </tbody>
 </table>
 <p><strong><code>mapping</code> options</strong> — unknown keys return <code>400</code>.</p>
+<p>An export, or a <code>mapping</code>, that contains an unpaired UTF-16 surrogate (<code>"\ud800"</code>, valid JSON that PostgreSQL cannot store) returns <code>400</code> naming the surrogate's code point.</p>
 <table>
 <thead>
 <tr>
