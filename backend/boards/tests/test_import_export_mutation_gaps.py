@@ -1141,7 +1141,7 @@ class ImportJsonDefaultsTests(ImportBase):
                     "checklist_items": 1,
                     "label_refs": 1,
                     "movements": 1,
-                    "activities": 1,
+                    "activities": 1, "colors": 0,
                 },
             },
         )
@@ -1178,7 +1178,7 @@ class ImportJsonDefaultsTests(ImportBase):
                 "checklist_items": 1,
                 "label_refs": 1,
                 "movements": 2,
-                "activities": 1,
+                "activities": 1, "colors": 0,
             },
         )
         self.assertEqual(Card.objects.count(), 0)
@@ -1207,7 +1207,7 @@ class ImportJsonDefaultsTests(ImportBase):
                     "checklist_items": 0,
                     "label_refs": 0,
                     "movements": 0,
-                    "activities": 0,
+                    "activities": 0, "colors": 0,
                 }
                 base.update(expected)
                 self.assertEqual(skipped, base)
@@ -1600,7 +1600,7 @@ class ImportCsvTests(ImportBase):
                 "checklist_items": 0,
                 "label_refs": 3,
                 "movements": 0,
-                "activities": 0,
+                "activities": 0, "colors": 0,
             },
         )
         self.assertEqual(Card.objects.count(), 0)
