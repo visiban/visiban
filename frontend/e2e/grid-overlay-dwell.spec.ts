@@ -168,6 +168,26 @@ test.describe('dwell time overlay', () => {
     await expect(cell.getByRole('img', { name: /Dwell time/ })).toHaveText('0.4d')
   })
 
+  test('the value tab fades while a keyboard user is on a card checkbox, then returns', async ({ page }) => {
+    await openBoard(page)
+    await selectDwell(page)
+    const cell = cellOf(page, 'Old task with a longer title that wraps around the card')
+    const badge = cell.getByRole('img', { name: /Dwell time/ })
+    await expect(badge).toHaveCSS('opacity', '1')
+
+    const firstCard = cell.locator('[data-card-id]').first()
+    await firstCard.focus()
+    await page.keyboard.press('Tab')
+    await expect(firstCard.getByRole('checkbox')).toBeFocused()
+    await expect(badge).toHaveCSS('opacity', '0')
+    // Still in the accessibility tree: faded, not hidden.
+    await expect(cell.getByRole('img', { name: /Dwell time/ })).toHaveCount(1)
+
+    await page.keyboard.press('Shift+Tab')
+    await expect(firstCard.getByRole('checkbox')).not.toBeFocused()
+    await expect(badge).toHaveCSS('opacity', '1')
+  })
+
   test('toggling off returns the board to normal', async ({ page }) => {
     await openBoard(page)
     await selectDwell(page)

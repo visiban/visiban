@@ -577,6 +577,7 @@ Dwell time here is the same definition the rest of Visiban uses: see [Flow metri
 - The **Card count** and **Dwell time** overlays are computed from the cards the board already loaded. They issue no extra requests and no per-cell queries
 - Collapsed columns and collapsed swimlanes render their compact count stubs rather than full cells, so they carry no shading — but they still count toward the scale, so folding a lane never silently re-shades the rest of the board
 - The cell being dragged over is never shaded, so the drop-target highlight stays unambiguous
+- A cell's value fades while a keyboard user is on a control inside one of its cards, so it never covers the focus ring. Screen readers can still reach it
 
 ## Board presets
 

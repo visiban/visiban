@@ -371,6 +371,12 @@ empty state. Rules:
   a text carrier and need not reach 3:1 against the tint (2.14 light at `/40`): it repeats
   the numeral, it is not the only way to read it. The tab is above a card at rest, so the
   card needs no lift to show its checkbox; a hovered card (`hover:z-20`) still rises over it.
+  The checkbox's box starts at 13px, but its 2px focus ring starts at 11px and `CardItem`'s
+  classes are pinned by the Classic snapshots, so the tab fades
+  (`group-has-[[data-card-id]_:focus-visible]/cell:opacity-0`) while a keyboard user is on
+  a control inside a card. `opacity-0`, never hidden, so the reading stays available. The
+  coarse-pointer button's 44px hit area also starts under the tab (a 25×4px band), but the
+  tab is `pointer-events-none` and the visible `⋯` starts at 17px, so nothing is lost there.
 - **An overlay may declare a `scale` of absolute steps, as numbers and words only.**
   `GridOverlay.scale` holds lower bounds and legend wording, never classes, so the ramp
   still lives only in `scale.ts`. Use it when the unit has a fixed meaning (#459: days), so

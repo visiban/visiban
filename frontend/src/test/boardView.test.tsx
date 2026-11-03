@@ -76,6 +76,7 @@ vi.mock('react-router-dom', () => ({
 
 const socketOptionsSpy = vi.fn()
 let capturedSocketEvent: ((e: { event: string; data: unknown }) => void) | undefined
+let capturedColumnUpdated: ((column: unknown) => void) | undefined
 let mockSocketStatus = 'connected'
 vi.mock('../hooks/useBoardSocket', () => ({
   useBoardSocket: (_id: unknown, onEvent: (e: { event: string; data: unknown }) => void, options?: unknown) => { capturedSocketEvent = onEvent; socketOptionsSpy(options); return { connected: true, status: mockSocketStatus, lastEventAt: null, reconnectAttempt: 0 } },
@@ -111,9 +112,10 @@ vi.mock('../components/Board/AnalyticsView', () => ({
   ),
 }))
 vi.mock('../components/Board/ColumnHeader', () => ({
-  default: ({ column, collapsed }: { column: { id: number; name: string }; collapsed: boolean }) => (
-    <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
-  ),
+  default: ({ column, collapsed, onColumnUpdated }: { column: { id: number; name: string }; collapsed: boolean; onColumnUpdated?: (c: unknown) => void }) => {
+    capturedColumnUpdated = onColumnUpdated
+    return <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
+  },
 }))
 // SwimlaneRow mock renders name + focus/exit buttons so focus tests can fire onFocus/onExitFocus via click.
 // data-can-edit surfaces the canEdit prop (#783 — maintenance mode folds into the
@@ -389,6 +391,16 @@ describe('BoardView', () => {
       const silentReload = vi.fn()
       renderWith(silentReload)
       frame(leaveDone().reopened)
+      expect(silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('re-reads for the admin who made the edit: their own response lands before the echo frame', () => {
+      // The REST response updates state first, so the echo sees a column already not
+      // done. Only this callback can notice the flip for the person who made it.
+      localStorage.setItem(OVERLAY_KEY, 'dwell')
+      const silentReload = vi.fn()
+      renderWith(silentReload)
+      act(() => { capturedColumnUpdated!(leaveDone().reopened) })
       expect(silentReload).toHaveBeenCalledTimes(1)
     })
 

@@ -200,11 +200,13 @@ class ColumnKeyTests(_Fixture, TestCase):
         self.assertIsNone(self.entered(card))
 
     def test_a_name_never_matches_a_current_column(self):
-        """A column deleted and recreated under one name is a different column."""
+        """A column deleted and recreated under one name is a different column.
+
+        The name is the column's own uid on purpose: an unmarked name key would then
+        compare equal to the current column, which is what the ``name:`` mark prevents.
+        """
         card = self.card()
-        self.row(
-            card, self.days_ago(5), dst=None, to_column_name=self.todo.name,
-        )
+        self.row(card, self.days_ago(5), dst=None, to_column_name=self.todo.uid)
         self.assertIsNone(self.entered(card))
 
     def test_fk_supplies_the_key_when_the_uid_snapshot_is_empty(self):
@@ -213,9 +215,13 @@ class ColumnKeyTests(_Fixture, TestCase):
         self.assertEqual(self.entered(card), self.days_ago(5))
 
     def test_uid_snapshot_differing_from_a_name_key_is_a_transition(self):
-        """A deleted source known only by name still has a key, so this transitions."""
+        """A deleted source known only by name still has a key, so this transitions.
+
+        Named with the destination's uid on purpose: an unmarked name key would make
+        the two ends equal and the row a swimlane-only move.
+        """
         card = self.card()
-        self.row(card, self.days_ago(3), dst=self.todo, from_column_name="Gone")
+        self.row(card, self.days_ago(3), dst=self.todo, from_column_name=self.todo.uid)
         self.assertEqual(self.entered(card), self.days_ago(3))
 
     def test_same_name_key_on_both_ends_is_not_a_transition(self):

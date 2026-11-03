@@ -184,6 +184,16 @@ describe('BoardCell — grid overlay layer (#1147)', () => {
       expect(classes.some((c) => c.startsWith('bg-canvas/'))).toBe(false)
     })
 
+    it('fades the tab, without removing its reading, while a keyboard user is inside a card', () => {
+      // CardItem's z-0 traps its checkbox ring under the tab, and Classic pins CardItem's
+      // classes, so the overlay gets out of the way. The browser behavior is in the e2e.
+      const { cell, label } = dwellFor(4)
+      render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label })} />)
+      const classes = screen.getByRole('img', { name: /Dwell time/ }).className.split(/\s+/)
+      expect(classes).toContain('group-has-[[data-card-id]_:focus-visible]/cell:opacity-0')
+      expect(classes).not.toContain('invisible')
+    })
+
     it('stays in the same corner in the compact grid: no other corner of a full cell is free', () => {
       const { cell, label } = dwellFor(4)
       render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label, compact: true })} />)

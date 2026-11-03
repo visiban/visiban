@@ -58,12 +58,16 @@ export default function GridOverlayLayer({ overlayLabel, cell, valueAnnouncedByC
           edge because that is the room above a card's contents: the cell's 8px padding,
           the card's 1px border, then the selection checkbox's 4px inset. The first title
           line starts lower still, at 17px (15px in the compact grid). No other corner of
-          a cell is free: a full compact grid has no empty row at the bottom. */}
+          a cell is free: a full compact grid has no empty row at the bottom.
+
+          That height clears the checkbox's box but not its 2px focus ring. So the tab
+          fades while a keyboard user is on a control inside one of the cell's cards. It
+          is `opacity-0`, not hidden: the reading stays in the accessibility tree. */}
       <span
         role={valueAnnouncedByCell ? undefined : "img"}
         aria-label={valueAnnouncedByCell ? undefined : reading}
         aria-hidden={valueAnnouncedByCell ? true : undefined}
-        className="absolute top-0 right-1 z-[5] rounded-b bg-canvas px-1 text-xs leading-[13px] font-medium tabular-nums text-fg-secondary select-none pointer-events-none"
+        className="absolute top-0 right-1 z-[5] rounded-b bg-canvas px-1 text-xs leading-[13px] font-medium tabular-nums text-fg-secondary select-none pointer-events-none group-has-[[data-card-id]_:focus-visible]/cell:opacity-0"
       >
         {cell.display}
       </span>
