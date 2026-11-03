@@ -25,6 +25,7 @@ This measures query counts for:
 - `GET /api/boards/{id}/cards/` — budget ≤ 12
 - `GET /api/boards/{id}/full/` — budget ≤ 20
 - `GET /api/boards/{id}/summary/` — budget ≤ 10
+- `GET /api/boards/{id}/analytics/` and the four `metrics/*` flow endpoints — budgets in `_HISTORY_ENDPOINTS` (the fixture has real movement history, #448)
 
 If any endpoint **exceeds its budget**, that is a confirmed N+1. Do not proceed to the next step until you understand why.
 

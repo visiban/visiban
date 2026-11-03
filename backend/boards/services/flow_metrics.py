@@ -24,7 +24,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from ..models import Card, CardBlock, CardMovement, CardRelation, Column
@@ -36,6 +36,8 @@ PERCENTILES = (50, 85, 95)
 SECONDS_PER_DAY = 86_400
 # Whole ISO weeks and enough completions for P85/P95 on a small team (ADR).
 DEFAULT_RANGE_DAYS = 90
+# How many reasons the blocked-time summary's "top reasons" list returns (#1149).
+TOP_BLOCK_REASONS = 10
 
 # Quoted verbatim from the ADR, and by docs/features/analytics.md.
 DEFINITIONS = {
@@ -461,6 +463,9 @@ class BoardFlow:
     cards: list
     done_uids: set
     current_uids: set
+    # The filter the snapshot was loaded under, for metrics with their own rows.
+    swimlane_id: int | None = None
+    label_id: int | None = None
 
     def column_ref(self, key):
         """``key`` as a response ``column_uid``: a current column's uid, or None if deleted."""
@@ -481,12 +486,15 @@ def _base_cards(board, swimlane_id, label_id):
     return cards
 
 
-def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns=None):
+def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns=None, cards_matching=None):
     """Load and analyze a board's history in a fixed number of queries.
 
     Pass ``columns`` (the board's columns, in position order) when the caller
     already holds them. Hard-deleted cards are out by construction: this reads
     through ``Card``, and their retained movements have ``card`` NULL.
+
+    ``cards_matching`` narrows which cards are loaded, each still with its whole
+    history, for a caller that can prove the others cannot change its answer.
     """
     now = now or timezone.now()
     if columns is None:
@@ -494,6 +502,8 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
     done_uids = {c.uid for c in columns if c.is_done}
 
     selected = _base_cards(board, swimlane_id, label_id)
+    if cards_matching is not None:
+        selected = selected.filter(cards_matching)
     cards = [
         CardFlow(
             id=row["id"], uid=row["uid"], title=row["title"], swimlane_id=row["swimlane_id"],
@@ -532,7 +542,46 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
     return BoardFlow(
         board=board, now=now, columns=columns, cards=cards,
         done_uids=done_uids, current_uids={c.uid for c in columns},
+        swimlane_id=swimlane_id, label_id=label_id,
     )
+
+
+def load_recent_completions(board, flow_range, *, columns):
+    """Only the cards a first completion inside ``flow_range`` can come from.
+
+    The Summary view opens on every visit and must not cost the board's whole
+    history. A first completion in the range needs a row into a done column in
+    the range, so cards without one are skipped. A card with one is loaded whole,
+    because its row may be a second entry, and its cycle time needs its history.
+    """
+    done = [c for c in columns if c.is_done]
+    if not done:
+        return load_board_flow(board, now=flow_range.end, columns=columns, cards_matching=Q(pk__in=[]))
+    entered_done = CardMovement.objects.filter(
+        Q(to_column_uid__in=[c.uid for c in done]) | Q(to_column_uid="", to_column_id__in=[c.id for c in done]),
+        card=OuterRef("pk"),
+        moved_at__gte=flow_range.start,
+        moved_at__lte=flow_range.end,
+    )
+    return load_board_flow(board, now=flow_range.end, columns=columns, cards_matching=Exists(entered_done))
+
+
+def load_recent_dwell(board, flow_range, *, columns):
+    """Only the cards current dwell or a visit closing in ``flow_range`` can come from.
+
+    An open visit needs a live card outside a done column. A visit closes at a
+    movement or at ``archived_at``, so a card with neither in the range has no
+    visit closing in it. Finished work older than the range is therefore skipped.
+    """
+    moved = CardMovement.objects.filter(
+        card=OuterRef("pk"), moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
+    )
+    relevant = (
+        (Q(archived_at__isnull=True) & ~Q(column__is_done=True))
+        | Q(archived_at__gte=flow_range.start)
+        | Exists(moved)
+    )
+    return load_board_flow(board, now=flow_range.end, columns=columns, cards_matching=relevant)
 
 
 def card_directory(flow, uids):
@@ -683,20 +732,27 @@ def completed_dwell(flow, flow_range):
 
 def current_dwell(flow):
     """Open visits, measured now. A snapshot: no range."""
-    samples, excluded = [], 0
+    open_visits, excluded = [], 0
     for card, visit in _dwell_visits(flow):
         if not visit.is_open:
             continue
-        if not visit.measured:
+        if visit.measured:
+            open_visits.append((card, visit))
+        else:
             excluded += 1
-            continue
-        samples.append({
+    blocked = blocked_card_ids(flow, [card for card, _ in open_visits])
+    samples = [
+        {
             "card_uid": card.uid,
             "column_uid": flow.column_ref(visit.key),
             "value_days": visit.value_days(flow.now),
             "start": _iso(visit.start),
             "end": None,
-        })
+            # Additive to the ADR's sample: #1151's aging_cards names blocked cards.
+            "is_blocked": card.id in blocked,
+        }
+        for card, visit in open_visits
+    ]
     return _dwell_response(flow, samples, excluded)
 
 
@@ -724,6 +780,97 @@ def _dwell_by_column(flow, card):
         if value is not None:
             totals[visit.key] = totals.get(visit.key, 0.0) + value
     return [{"column_uid": flow.column_ref(key), "value_days": value} for key, value in totals.items()]
+
+
+def blocked_card_ids(flow, cards):
+    """Which of ``cards`` are blocked now: manually or by an active relation (#1149, #449).
+
+    The same union as ``CardSerializer.is_blocked``. One query, for the relations.
+    """
+    if not cards:
+        return set()
+    by_relation = set(
+        CardRelation.objects.filter(
+            to_card_id__in=[card.id for card in cards],
+            relation_type=CardRelation.Type.BLOCKS,
+            from_card__archived_at__isnull=True,
+        ).values_list("to_card_id", flat=True)
+    )
+    return by_relation | {card.id for card in cards if card.blocked_at is not None}
+
+
+def blocked_time(flow, flow_range):
+    """Blocked time per column and the most common reasons, inside the range (#1149).
+
+    ADR "Blocked time": reported as its own metric, never subtracted. One query
+    over ``CardBlock`` (indexed by board). A block counts for the part of it that
+    falls inside the range; an open block runs to now, or to ``archived_at`` while
+    its card is archived (a restore clears ``archived_at``, so the block then runs
+    to now again). An open block whose card was hard-deleted has no end anyone can
+    observe, so it is left out rather than accruing time forever.
+
+    Time is attributed to the column the card was in when it was blocked
+    (``CardBlock.column``), falling back to the stored name for a column that was
+    deleted and recreated. A block in a column that no longer exists still counts
+    toward ``top_reasons``.
+
+    Reasons are grouped case- and whitespace-insensitively, since the same cause
+    typed twice ("Waiting on customer" / "waiting on customer ") is one cluster;
+    the newest spelling is the one shown. Every end is clipped to now: an imported
+    block can carry a future timestamp, and it must not inflate anyone's numbers.
+
+    Rows are summed in Python rather than in SQL because of the reason clustering.
+    The row count is the blocks overlapping the range on one board, which stays
+    small next to the movement rows the same request already loaded.
+
+    Under a swimlane or label filter only blocks of live cards it selects count:
+    a hard-deleted card has no current swimlane or labels to match.
+    """
+    now = flow.now
+    start = flow_range.start
+    col_id_to_name = {c.id: c.name for c in flow.columns}
+    col_names = set(col_id_to_name.values())
+    seconds_per_column = {c.name: 0.0 for c in flow.columns}
+    blocks_per_column = {c.name: 0 for c in flow.columns}
+    reasons: dict[str, dict] = {}
+    rows = (
+        CardBlock.objects.filter(board=flow.board, blocked_at__lte=now)
+        .filter(Q(unblocked_at__isnull=True) | Q(unblocked_at__gte=start))
+        .exclude(card__isnull=True, unblocked_at__isnull=True)
+    )
+    if flow.swimlane_id is not None or flow.label_id is not None:
+        rows = rows.filter(card__in=_base_cards(flow.board, flow.swimlane_id, flow.label_id).order_by().values("id"))
+    for row in rows.order_by("-blocked_at", "-id").values(
+        "column_id", "column_name", "reason", "blocked_at", "unblocked_at", "card__archived_at",
+    ):
+        end = min(row["unblocked_at"] or row["card__archived_at"] or now, now)
+        begin = max(row["blocked_at"], start)
+        if end <= begin:
+            continue
+        seconds = (end - begin).total_seconds()
+        name = col_id_to_name.get(row["column_id"])
+        if name is None and row["column_name"] in col_names:
+            name = row["column_name"]
+        if name is not None:
+            seconds_per_column[name] += seconds
+            blocks_per_column[name] += 1
+        key = " ".join(row["reason"].split()).casefold()
+        bucket = reasons.setdefault(key, {"reason": row["reason"].strip(), "count": 0, "seconds": 0.0})
+        bucket["count"] += 1
+        bucket["seconds"] += seconds
+    top = sorted(reasons.values(), key=lambda r: (-r["count"], -r["seconds"], r["reason"]))
+    return {
+        "days_per_column": {k: round(v / SECONDS_PER_DAY, 1) for k, v in seconds_per_column.items()},
+        "seconds_per_column": {k: int(v) for k, v in seconds_per_column.items()},
+        "blocks_per_column": blocks_per_column,
+        "top_reasons": [
+            {
+                "reason": r["reason"], "count": r["count"],
+                "total_days": round(r["seconds"] / SECONDS_PER_DAY, 1), "total_seconds": int(r["seconds"]),
+            }
+            for r in top[:TOP_BLOCK_REASONS]
+        ],
+    }
 
 
 def _blocked_seconds_in_progress(flow, in_progress):
@@ -766,17 +913,7 @@ def age(flow, flow_range):
         elif card.age_start is not None:
             in_progress.append(card)
     blocked_seconds = _blocked_seconds_in_progress(flow, in_progress)
-    relation_blocked = (
-        set(
-            CardRelation.objects.filter(
-                to_card_id__in=[card.id for card in in_progress],
-                relation_type=CardRelation.Type.BLOCKS,
-                from_card__archived_at__isnull=True,
-            ).values_list("to_card_id", flat=True)
-        )
-        if in_progress
-        else set()
-    )
+    blocked = blocked_card_ids(flow, in_progress)
     samples = [
         {
             "card_uid": card.uid,
@@ -785,8 +922,8 @@ def age(flow, flow_range):
             "start": _iso(card.age_start),
             "dwell_by_column": _dwell_by_column(flow, card),
             # Additive to the ADR's sample for the drawer's blocked time and
-            # the chart's square mark. Same union as CardSerializer.is_blocked.
-            "is_blocked": card.blocked_at is not None or card.id in relation_blocked,
+            # the chart's square mark.
+            "is_blocked": card.id in blocked,
             "blocked_days": blocked_seconds.get(card.id, 0.0) / SECONDS_PER_DAY,
         }
         for card in in_progress

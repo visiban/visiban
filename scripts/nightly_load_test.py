@@ -294,6 +294,10 @@ def _endpoints(base_url, board_id, sample_card_id):
         "card_timeline": f"{base_url}/api/v1/boards/{board_id}/cards/{sample_card_id}/timeline/",
         "notifications_list": f"{base_url}/api/v1/notifications/",
         "notifications_unread": f"{base_url}/api/v1/notifications/unread-count/",
+        # Both replay movement history since #448: summary for the cards completed
+        # in 30 days, analytics for the cards relevant to its window.
+        "board_summary": f"{base_url}/api/v1/boards/{board_id}/summary/",
+        "board_analytics": f"{base_url}/api/v1/boards/{board_id}/analytics/",
         # The flow metrics replay the whole board's movement history (#448).
         "flow_cycle_time": f"{base_url}/api/v1/boards/{board_id}/metrics/cycle-time/",
         "flow_throughput": f"{base_url}/api/v1/boards/{board_id}/metrics/throughput/",

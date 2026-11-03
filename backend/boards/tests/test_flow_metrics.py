@@ -703,6 +703,163 @@ class ColumnEnteredAtTests(FlowFixture):
             self.assertNotIn(card.id, entered)
 
 
+class NarrowedLoadTests(FlowFixture):
+    """summary and analytics skip cards that cannot change their answer, and only those."""
+
+    def mixed_board(self):
+        """Every case near a window's edge, on two swimlanes."""
+        cards = {
+            "recent": self.path(self.backlog, 40, self.doing, 20, self.done, 5),
+            "recent_other_lane": self.path(self.backlog, 40, self.doing, 20, self.done, 6, lane=self.other_lane),
+            "straight": self.path(self.backlog, 40, self.done, 3),
+            "created_done": self.path(self.done, 2),
+            "old": self.path(self.backlog, 200, self.doing, 150, self.done, 90),
+            "old_then_released": self.path(self.backlog, 200, self.doing, 150, self.done, 90, self.released, 2),
+            "reopened_recently": self.path(self.backlog, 200, self.doing, 150, self.done, 90, self.review, 2),
+            "archived_after_done": self.path(self.backlog, 40, self.doing, 20, self.done, 4, archived=1),
+            "archived_old": self.path(self.backlog, 200, self.doing, 150, archived=100),
+            "archived_recent": self.path(self.backlog, 200, self.doing, 150, archived=2),
+            "wip": self.path(self.backlog, 40, self.doing, 20),
+            "untouched": self.path(self.backlog, 60),
+        }
+        no_uid = self.path(self.backlog, 40, self.doing, 20, self.done, 7)
+        CardMovement.objects.filter(card=no_uid).update(to_column_uid="", from_column_uid="")
+        cards["fk_only"] = no_uid
+        broken = self.card(self.done, created=40)
+        self.row(broken, None, self.backlog, 40)
+        self.row(broken, self.review, self.done, 3)
+        cards["broken"] = broken
+        return cards
+
+    def test_completion_rollup_matches_the_full_replay(self):
+        self.mixed_board()
+        narrowed = fm.load_recent_completions(self.board, self.last(30), columns=list(self.board.columns.order_by("position")))
+        self.assertEqual(
+            fm.swimlane_completion_rollup(narrowed),
+            fm.swimlane_completion_rollup(self.flow()),
+        )
+
+    def test_completion_load_skips_old_work_and_keeps_a_later_entry_whole(self):
+        cards = self.mixed_board()
+        narrowed = fm.load_recent_completions(self.board, self.last(30), columns=list(self.board.columns.order_by("position")))
+        loaded = {card.uid for card in narrowed.cards}
+        self.assertNotIn(cards["old"].uid, loaded)
+        self.assertNotIn(cards["wip"].uid, loaded)
+        self.assertNotIn(cards["reopened_recently"].uid, loaded)
+        self.assertIn(cards["fk_only"].uid, loaded)
+        # A second done entry in the window loads the card, whose first completion
+        # is older: it must not count, which takes its whole history to know.
+        kept = next(card for card in narrowed.cards if card.uid == cards["old_then_released"].uid)
+        self.assertEqual(kept.completion_at, self.ago(90))
+
+    def test_a_board_with_no_done_column_loads_nothing(self):
+        Column.objects.filter(board=self.board, is_done=True).update(is_done=False)
+        self.path(self.backlog, 10, self.doing, 5)
+        columns = list(self.board.columns.order_by("position"))
+        with self.assertNumQueries(0):
+            flow = fm.load_recent_completions(self.board, self.last(30), columns=columns)
+        self.assertEqual(flow.cards, [])
+
+    def test_dwell_matches_the_full_replay(self):
+        self.mixed_board()
+        columns = list(self.board.columns.order_by("position"))
+        for days in (1, 7, 30, 120):
+            with self.subTest(days=days):
+                window = self.last(days)
+                narrowed = fm.load_recent_dwell(self.board, window, columns=columns)
+                full = self.flow()
+                self.assertEqual(fm.completed_dwell_by_swimlane(narrowed, window), fm.completed_dwell_by_swimlane(full, window))
+                self.assertEqual(fm.current_dwell_by_swimlane(narrowed), fm.current_dwell_by_swimlane(full))
+
+    def test_dwell_load_skips_finished_work_older_than_the_window(self):
+        cards = self.mixed_board()
+        columns = list(self.board.columns.order_by("position"))
+        loaded = {card.uid for card in fm.load_recent_dwell(self.board, self.last(30), columns=columns).cards}
+        self.assertNotIn(cards["old"].uid, loaded)
+        self.assertNotIn(cards["archived_old"].uid, loaded)
+        for name in ("wip", "untouched", "archived_recent", "recent", "old_then_released"):
+            self.assertIn(cards[name].uid, loaded, name)
+
+
+class CompletionRollupTests(FlowFixture):
+    def rollup(self):
+        return fm.swimlane_completion_rollup(self.flow())[self.lane.id]
+
+    def test_a_card_without_complete_history_counts_toward_velocity_not_cycle_time(self):
+        """Its cycle start cannot be trusted once continuity broke (ADR "Missing history")."""
+        card = self.path(self.backlog, 20, self.doing, 10, self.done, 2)
+        Card.objects.filter(pk=card.pk).update(column=self.released)
+        row = self.rollup()
+        self.assertEqual((row["velocity_7d"], row["velocity_30d"]), (1, 1))
+        self.assertIsNone(row["avg_cycle_days"])
+
+    def test_the_mean_is_over_cards_completed_in_thirty_days_and_rounded(self):
+        self.path(self.backlog, 20, self.doing, 10, self.done, 2)
+        self.path(self.backlog, 20, self.doing, 10, self.done, 5)
+        self.path(self.backlog, 90, self.doing, 80, self.done, 40)
+        row = self.rollup()
+        self.assertEqual((row["velocity_7d"], row["velocity_30d"]), (2, 2))
+        self.assertEqual(row["avg_cycle_days"], 6.5)
+
+
+class BlockedMetricTests(FlowFixture):
+    """ADR "Blocked time" belongs to the service, so #1151 needs no second implementation."""
+
+    def block(self, card, reason, start, end=None):
+        return CardBlock.objects.create(
+            card=card, board=self.board, column=self.doing, column_name="Doing", column_uid=self.doing.uid,
+            reason=reason, blocked_at=self.ago(start), unblocked_at=self.ago(end) if end is not None else None,
+        )
+
+    def test_blocked_time_sums_inside_the_range_per_column_and_reason(self):
+        card = self.path(self.backlog, 20, self.doing, 15)
+        self.block(card, "Vendor", 10, 8)
+        self.block(card, "vendor ", 40, 5)
+        result = fm.blocked_time(self.flow(), self.last(30))
+        self.assertEqual(result["days_per_column"]["Doing"], 27)
+        self.assertEqual(result["blocks_per_column"]["Doing"], 2)
+        self.assertEqual(result["top_reasons"][0]["count"], 2)
+
+    def test_a_swimlane_or_label_filter_reaches_blocked_time(self):
+        label = Label.objects.create(board=self.board, name="T")
+        here = self.path(self.backlog, 20, self.doing, 15)
+        there = self.path(self.backlog, 20, self.doing, 15, lane=self.other_lane)
+        there.labels.add(label)
+        self.block(here, "Here", 5, 3)
+        self.block(there, "There", 5, 4)
+        by_lane = fm.blocked_time(self.flow(swimlane_id=self.lane.id), self.last(30))
+        self.assertEqual([r["reason"] for r in by_lane["top_reasons"]], ["Here"])
+        by_label = fm.blocked_time(self.flow(label_id=label.id), self.last(30))
+        self.assertEqual([r["reason"] for r in by_label["top_reasons"]], ["There"])
+
+    def test_a_filter_leaves_out_a_deleted_card_with_no_swimlane_to_match(self):
+        gone = self.path(self.backlog, 20, self.doing, 15)
+        self.block(gone, "Gone", 5, 3)
+        gone.delete()
+        self.assertEqual(fm.blocked_time(self.flow(), self.last(30))["top_reasons"][0]["reason"], "Gone")
+        self.assertEqual(fm.blocked_time(self.flow(swimlane_id=self.lane.id), self.last(30))["top_reasons"], [])
+
+    def test_current_dwell_names_blocked_cards(self):
+        manual = self.path(self.backlog, 20, self.doing, 15)
+        Card.objects.filter(pk=manual.pk).update(blocked_at=self.ago(1))
+        by_relation = self.path(self.backlog, 20, self.doing, 15)
+        clear = self.path(self.backlog, 20)
+        CardRelation.objects.create(from_card=clear, to_card=by_relation, relation_type=CardRelation.Type.BLOCKS)
+        samples = self.by_card(fm.current_dwell(self.flow()))
+        self.assertTrue(samples[manual.uid]["is_blocked"])
+        self.assertTrue(samples[by_relation.uid]["is_blocked"])
+        self.assertFalse(samples[clear.uid]["is_blocked"])
+
+    def test_no_cards_needs_no_query(self):
+        with self.assertNumQueries(0):
+            self.assertEqual(fm.blocked_card_ids(self.flow_stub(), []), set())
+
+    def flow_stub(self):
+        return fm.BoardFlow(
+            board=self.board, now=self.now, columns=[], cards=[], done_uids=set(), current_uids=set(),
+        )
+
+
 class HeatmapRecomputeTests(FlowFixture):
     """ADR "Changes handed to #448" items 5-7: the Analytics view reads visits."""
 

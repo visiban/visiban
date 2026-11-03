@@ -80,7 +80,7 @@ class BenchmarkCommandAllowedHostsTests(TestCase):
         # this is the exact false-pass the issue describes: a rejected
         # request reports "0 queries ✅ OK" instead of running the view.
         rows = re.findall(r"(GET /api/boards/\{id\}/\S+): (\d+) queries", output)
-        self.assertEqual(len(rows), 3, f"expected 3 benchmark rows, got: {output}")
+        self.assertEqual(len(rows), 8, f"expected 8 benchmark rows, got: {output}")
         for endpoint, count in rows:
             self.assertGreater(int(count), 0, f"{endpoint} reported 0 queries — likely rejected before querying")
 
@@ -128,3 +128,21 @@ class BenchmarkCommandCiGateTests(TestCase):
         with mock.patch("rest_framework.test.APIClient.get", return_value=fake):
             with self.assertRaises(CommandError):
                 call_command("benchmark", "--fail-on-budget", stdout=StringIO(), stderr=StringIO())
+
+
+class BenchmarkFixtureTests(TestCase):
+    """The replay endpoints can only be guarded on a fixture with real history (#448)."""
+
+    def test_fixture_gives_the_replay_completions_work_in_progress_and_reopens(self):
+        from boards.management.commands.benchmark import Command
+        from boards.services import flow_metrics as fm
+
+        command = Command(stdout=StringIO())
+        _user, board = command._seed()
+        flow = fm.load_board_flow(board)
+        self.assertEqual(len(flow.cards), 100)
+        self.assertTrue(all(card.complete_history for card in flow.cards))
+        self.assertGreater(sum(1 for card in flow.cards if card.completion_at), 0)
+        self.assertGreater(sum(1 for card in flow.cards if card.cycle_start), 0)
+        self.assertGreater(sum(1 for card in flow.cards if card.reopens), 0)
+        self.assertGreater(sum(1 for card in flow.cards if card.is_in_progress(flow.done_uids)), 0)

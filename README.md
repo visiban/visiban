@@ -67,7 +67,7 @@ All connected users see changes in **real time** over a WebSocket connection. Dr
 |---|---|
 | **Swimlane board** | Grid of columns × swimlane rows. Collapse, resize, and reorder with drag-and-drop. [→ Board guide](https://docs.visiban.com/next/features/board/) |
 | **Movement audit trail** | Every card move is timestamped and attributed. View per-card history or search the board-level History tab. [→ Card history](https://docs.visiban.com/next/features/card-history/) |
-| **Analytics** | Dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
+| **Analytics** | Cycle time, throughput, cumulative flow and WIP aging charts, dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
 | **Real-time sync** | WebSocket-powered — card moves, edits, and structural changes appear instantly for all connected users. [→ Real-time](https://docs.visiban.com/next/features/realtime/) |
 | **Groups & RBAC** | Boards live inside nested groups (access is inherited through up to 6 levels; creating a subgroup or moving a group past that depth is refused). Four roles — admin, member, collaborator, viewer — plus a moderator entitlement, with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
 | **Card detail** | Rich-text description, priority, assignee, labels, due date, weight, checklist, file attachments, and threaded comments with @mentions. [→ Board guide](https://docs.visiban.com/next/features/board/#cards) |

@@ -23,6 +23,7 @@
 | Card timeline | `GET /api/v1/boards/{board_id}/cards/{id}/timeline/` | Exercises the composite indexes added in migration `0045_add_activity_comment_composite_indexes` |
 | Notifications list | `GET /api/v1/notifications/` | The highest-QPS authenticated endpoint in the product — the frontend polls it every 15-30s |
 | Notifications unread count | `GET /api/v1/notifications/unread-count/` | Same polling cadence as the list endpoint |
+| Summary and Analytics | `GET /api/v1/boards/{id}/summary/`, `GET /api/v1/boards/{id}/analytics/` | Both replay movement history in Python since [#448](https://gitlab.com/visiban/visiban/-/issues/448), for the cards relevant to their window: a query-count guard cannot see that cost. Measured but not gated until [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) assigns their budgets |
 | Flow metrics | `GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age}/` | Each replays the whole board's movement history in Python ([#448](https://gitlab.com/visiban/visiban/-/issues/448)), so cost grows with the board's movements, not with the requested range. Measured but not gated until [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) assigns their budgets |
 
 This job is additive. `perf-check` and `perf-bench` are unchanged and still run where they already did. `perf-check`'s own description ([`.claude/agents/perf-check.md`](https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-check.md)) now states the division of labor: a query-count guard doesn't satisfy a latency budget.
@@ -72,7 +73,7 @@ A budget may only come from a NUC run, so a new scenario can land before its bud
 It isn't a silent default. The self-test fails a scenario whose budget is null without a valid `#NNNN` reference, or with no baseline entry at all, and asserts that a pending scenario can never produce a violation.
 
 - When the issue assigns the budget, replace `budget_p95_ms` and delete `pending_budget` in the same whole-file re-derivation.
-- Pending now: `flow_cycle_time`, `flow_throughput`, `flow_cumulative_flow` and `flow_wip_age` ([#448](https://gitlab.com/visiban/visiban/-/issues/448) added the scenarios), until [#2110](https://gitlab.com/visiban/visiban/-/issues/2110).
+- Pending now: `board_summary`, `board_analytics`, `flow_cycle_time`, `flow_throughput`, `flow_cumulative_flow` and `flow_wip_age` ([#448](https://gitlab.com/visiban/visiban/-/issues/448) added the scenarios), until [#2110](https://gitlab.com/visiban/visiban/-/issues/2110).
 - The first scenario to use this was `card_search_multi_board` ([#1810](https://gitlab.com/visiban/visiban/-/issues/1810) added the scenario), which got its budget in [#1808](https://gitlab.com/visiban/visiban/-/issues/1808).
 - The `suppressions-check` CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending ([#1812](https://gitlab.com/visiban/visiban/-/issues/1812); see [Suppression markers](suppressions.md#what-ci-enforces)).
 

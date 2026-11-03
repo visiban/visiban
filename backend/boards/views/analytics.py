@@ -19,7 +19,7 @@ from rest_framework import serializers, status
 
 from accounts.serializers import BoardUserSerializer
 
-from ..models import BoardExportLog, CardBlock, CardMovement, CardRelation
+from ..models import BoardExportLog, CardMovement, CardRelation
 from ..serializers import CardMovementSerializer
 from .. import hooks
 from ..permissions import analytics_extensions_for_role
@@ -149,79 +149,6 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
         ),
     },
 )
-
-# How many reasons the analytics "top reasons" list returns (#1149).
-_TOP_BLOCK_REASONS = 10
-
-
-def _blocked_time_summary(board, columns, period_cutoff, now):
-    """Blocked time per column and the most common reasons, inside the window (#1149).
-
-    One query over ``CardBlock`` (indexed by board). A block counts for the
-    part of it that falls inside ``[period_cutoff, now]``; an open block runs
-    to now, or to ``archived_at`` while its card is archived (a restore clears
-    ``archived_at``, so the block then runs to now again).
-    An open block whose card was hard-deleted has no end anyone can observe,
-    so it is left out rather than accruing time forever.
-
-    Time is attributed to the column the card was in when it was blocked
-    (``CardBlock.column``), falling back to the stored name for a column that
-    was deleted and recreated, like the dwell-time heatmap. A block in a
-    column that no longer exists still counts toward ``top_reasons``.
-
-    Reasons are grouped case- and whitespace-insensitively, since the same
-    cause typed twice ("Waiting on customer" / "waiting on customer ") is one
-    cluster; the newest spelling is the one shown.
-
-    Every end is clipped to now: an imported block can carry a future
-    timestamp, and it must not inflate anyone's numbers.
-
-    Rows are summed in Python rather than in SQL because of the reason
-    clustering. The row count is the blocks overlapping the window on one
-    board (indexed by board), which stays small next to the movement rows the
-    heatmap above already loads for the same window.
-    """
-    col_id_to_name = {c.id: c.name for c in columns}
-    col_names = set(col_id_to_name.values())
-    seconds_per_column = {c.name: 0.0 for c in columns}
-    blocks_per_column = {c.name: 0 for c in columns}
-    reasons: dict[str, dict] = {}
-    rows = (
-        CardBlock.objects.filter(board=board, blocked_at__lte=now)
-        .filter(Q(unblocked_at__isnull=True) | Q(unblocked_at__gte=period_cutoff))
-        .exclude(card__isnull=True, unblocked_at__isnull=True)
-        .order_by("-blocked_at", "-id")
-        .values("column_id", "column_name", "reason", "blocked_at", "unblocked_at", "card__archived_at")
-    )
-    for row in rows:
-        end = min(row["unblocked_at"] or row["card__archived_at"] or now, now)
-        start = max(row["blocked_at"], period_cutoff)
-        if end <= start:
-            continue
-        seconds = (end - start).total_seconds()
-        name = col_id_to_name.get(row["column_id"])
-        if name is None and row["column_name"] in col_names:
-            name = row["column_name"]
-        if name is not None:
-            seconds_per_column[name] += seconds
-            blocks_per_column[name] += 1
-        key = " ".join(row["reason"].split()).casefold()
-        bucket = reasons.setdefault(key, {"reason": row["reason"].strip(), "count": 0, "seconds": 0.0})
-        bucket["count"] += 1
-        bucket["seconds"] += seconds
-    top = sorted(reasons.values(), key=lambda r: (-r["count"], -r["seconds"], r["reason"]))
-    return {
-        "days_per_column": {k: round(v / 86400, 1) for k, v in seconds_per_column.items()},
-        "seconds_per_column": {k: int(v) for k, v in seconds_per_column.items()},
-        "blocks_per_column": blocks_per_column,
-        "top_reasons": [
-            {
-                "reason": r["reason"], "count": r["count"],
-                "total_days": round(r["seconds"] / 86400, 1), "total_seconds": int(r["seconds"]),
-            }
-            for r in top[:_TOP_BLOCK_REASONS]
-        ],
-    }
 
 # A bad query parameter answers ``{detail, code}`` with this code (#1825): the
 # one 400 shape for bad query parameters across the API (docs/api/index.md,
@@ -574,13 +501,13 @@ class BoardAnalyticsMixin:
     def summary(self, request, pk=None):
         """Per-swimlane card counts, stage distribution, velocity, and cycle-time metrics.
 
-        Uses aggregate queries regardless of board size instead of the
-        previous S×(C+4) loop (one filter per swimlane×column cell).
+        A fixed number of queries, never one per swimlane or cell.
 
         Velocity, done_30d and avg_cycle_days come from the flow service (#448):
         counts are cards by first completion, and avg_cycle_days is the mean cycle
         time of the cards completed in the last 30 days, as the flow metric record
-        (ADR #1532) defines them.
+        (ADR #1532) defines them. That takes a replay in Python, but only of the
+        cards that entered a done column in those 30 days.
         """
         # ``slim=True`` skips favorites/labels/memberships prefetches that this
         # aggregate endpoint never reads (#928).
@@ -605,7 +532,7 @@ class BoardAnalyticsMixin:
         # from the flow service (ADR #1532, #448). A card that bounces between
         # done columns counts once and stays counted after it is archived.
         rollup = flow_metrics.swimlane_completion_rollup(
-            flow_metrics.load_board_flow(board, now=now, columns=columns)
+            flow_metrics.load_recent_completions(board, flow_metrics.rolling_range(30, now=now), columns=columns)
         )
 
         # Blocked active cards per swimlane (#1149), manual or
@@ -764,11 +691,10 @@ class BoardAnalyticsMixin:
         col_id_to_name = {c.id: c.name for c in columns}
         # Current and completed dwell come from the flow service (#448), so the
         # heatmap's Age and Throughput modes agree with the flow charts.
-        flow = flow_metrics.load_board_flow(board, now=now, columns=columns)
+        flow_range = flow_metrics.rolling_range(days, now=now)
+        flow = flow_metrics.load_recent_dwell(board, flow_range, columns=columns)
         current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
-        completed_dwell = flow_metrics.completed_dwell_by_swimlane(
-            flow, flow_metrics.rolling_range(days, now=now),
-        )
+        completed_dwell = flow_metrics.completed_dwell_by_swimlane(flow, flow_range)
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
@@ -811,7 +737,8 @@ class BoardAnalyticsMixin:
                     # Scope the prefetch to a 2× analysis-window buffer: all the frozen
                     # clamped-dwell logic reads (movements entering just before
                     # period_cutoff). This no longer bounds the request's memory
-                    # (#654/#646): load_board_flow above holds the board's full history.
+                    # (#654/#646) on its own: load_recent_dwell above also holds the
+                    # whole history of every card still relevant to the window.
                     # Stall detection and velocity use card-level annotations above
                     # instead of the prefetch, so no historical data is lost.
                     # Load only the fields the algorithm reads; order at the DB level so
@@ -989,7 +916,7 @@ class BoardAnalyticsMixin:
             "staleness_threshold_days": board.staleness_threshold_days,
             "stale_warning_pct": board.stale_warning_pct,
             # Additive (#1149): blocked time per column and top reasons.
-            "blocked": _blocked_time_summary(board, columns, period_cutoff, now),
+            "blocked": flow_metrics.blocked_time(flow, flow_range),
         })
 
     @extend_schema(

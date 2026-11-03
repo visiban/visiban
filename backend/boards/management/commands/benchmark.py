@@ -8,11 +8,19 @@ What it measures:
                                              a subset of the CardViewSet list, no viewset)
     - GET /api/boards/{id}/full/            (BoardFullSerializer)
     - GET /api/boards/{id}/summary/         (per-swimlane aggregation)
+    - GET /api/boards/{id}/analytics/       (heatmap, stalled cards, blocked time)
+    - GET /api/boards/{id}/metrics/*/       (the four flow metrics, #448)
 
 For each endpoint the command reports the number of SQL queries issued and
 a ≤-budget verdict.  It creates a throw-away board, drives full/ and summary/
 through DRF's ``APIClient`` (cards/ serializes the queryset directly), then
 deletes the board.
+
+The summary, analytics and flow endpoints replay movement history, so the
+fixture gives every card a real one: a creation row, then transitions, and for
+some cards a completion and a reopen. A query count still cannot see the replay's
+latency (that is nightly-load-test's job), but it does catch per-card queries
+that only appear once a card has history.
 
 Budgets are set conservatively — a regression that adds an N+1 will immediately
 exceed the budget and the command exits non-zero (with ``--fail-on-budget``). CI runs it
@@ -53,6 +61,20 @@ SWIMLANES = 10
 CARDS_PER_CELL = 2   # cards per (column × swimlane) cell → 5×10×2 = 100 cards
 
 
+# Replay endpoints. Measured on Postgres (2026-11-03, #448) on this fixture, where
+# no card has an assignee: 8, 4, 4, 4, 6. A board with assignees adds one query to
+# the responses with a card directory. Budgets are that plus 4 for framework
+# overhead. Whether the count stays flat as history grows is
+# EndpointQueryCountTests' job (test_flow_metrics.py).
+_HISTORY_ENDPOINTS = (
+    ("GET /api/boards/{id}/analytics/", "analytics/", 12),
+    ("GET /api/boards/{id}/metrics/cycle-time/", "metrics/cycle-time/", 9),
+    ("GET /api/boards/{id}/metrics/throughput/", "metrics/throughput/", 9),
+    ("GET /api/boards/{id}/metrics/cumulative-flow/", "metrics/cumulative-flow/", 8),
+    ("GET /api/boards/{id}/metrics/wip-age/", "metrics/wip-age/", 11),
+)
+
+
 class Command(BaseCommand):
     help = "Measure SQL query counts for key endpoints and report budgets."
 
@@ -86,6 +108,8 @@ class Command(BaseCommand):
             results.append(self._bench_cards(factory, user, board))
             results.append(self._bench_full(factory, user, board))
             results.append(self._bench_summary(factory, user, board))
+            for name, path, budget in _HISTORY_ENDPOINTS:
+                results.append(self._bench_history_endpoint(user, board, name, path, budget))
         finally:
             board.delete()
             if not User.objects.filter(pk=user.pk).first() or user.username.startswith("bench_"):
@@ -189,6 +213,26 @@ class Command(BaseCommand):
         self._dump_queries(name, count, budget)
         return name, count, budget
 
+    def _bench_history_endpoint(self, user, board, name, path, budget):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        reset_queries()
+        with override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, _BENCH_HOST]):
+            response = client.get(f"/api/v1/boards/{board.pk}/{path}")
+        count = len(connection.queries)
+
+        if not (200 <= response.status_code < 300):
+            # See _bench_full: a non-2xx makes the query count meaningless (#1330).
+            raise CommandError(
+                f"{name} returned HTTP {response.status_code} (expected 2xx) — "
+                f"query count is not meaningful. Body: {response.content[:500]!r}"
+            )
+
+        self._dump_queries(name, count, budget)
+        return name, count, budget
+
     # ── helpers ───────────────────────────────────────────────────────────────
 
     def _dump_queries(self, name, count, budget):
@@ -212,8 +256,9 @@ class Command(BaseCommand):
         board = Board.objects.create(name="__benchmark__", owner=user)
         BoardMembership.objects.create(board=board, user=user, role="admin")
 
+        # The last column is a done column, so completions and cycle times exist.
         columns = [
-            Column.objects.create(board=board, name=f"Col {i}", position=i)
+            Column.objects.create(board=board, name=f"Col {i}", position=i, is_done=i == COLUMNS - 1)
             for i in range(COLUMNS)
         ]
         swimlanes = [
@@ -232,14 +277,7 @@ class Command(BaseCommand):
                         created_by=user, position=n,
                     )
                     card.labels.add(label)
-                    CardMovement.objects.create(
-                        card=card,
-                        to_column=col, to_column_name=col.name, to_column_uid=col.uid,
-                        to_swimlane=sw, to_swimlane_name=sw.name, to_swimlane_uid=sw.uid,
-                        from_column=None, from_column_name="", from_column_uid="",
-                        from_swimlane=None, from_swimlane_name="", from_swimlane_uid="",
-                        moved_by=user,
-                    )
+                    self._seed_history(card, columns, col, sw, user, reopen=n == 1)
                     CardAttachment.objects.create(
                         card=card, uploaded_by=user,
                         filename="file.txt", file="attachments/file.txt", size=100,
@@ -253,3 +291,23 @@ class Command(BaseCommand):
             f"= {len(cards)} cards\n"
         )
         return user, board
+
+    def _seed_history(self, card, columns, current, swimlane, user, *, reopen):
+        """Created in the first column, then walked to ``current``, through done if ``reopen``."""
+        path = [columns[0], *columns[1:columns.index(current) + 1]]
+        if reopen and not current.is_done and len(path) > 1:
+            path = [columns[0], columns[-1], current]
+        source = None
+        for target in path:
+            CardMovement.objects.create(
+                card=card,
+                to_column=target, to_column_name=target.name, to_column_uid=target.uid,
+                to_swimlane=swimlane, to_swimlane_name=swimlane.name, to_swimlane_uid=swimlane.uid,
+                from_column=source, from_column_name=source.name if source else "",
+                from_column_uid=source.uid if source else "",
+                from_swimlane=swimlane if source else None,
+                from_swimlane_name=swimlane.name if source else "",
+                from_swimlane_uid=swimlane.uid if source else "",
+                moved_by=user,
+            )
+            source = target

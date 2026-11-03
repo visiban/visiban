@@ -274,7 +274,7 @@ Available templates: **Sales Pipeline**, **Customer Support**, **Customer Succes
 **Registering additional templates.** Any installed package (not just enterprise) can register templates, with no OSS code change or migration, via `boards.hooks.TEMPLATE_PROVIDERS` — see that module for the callable signature and conflict policy (new slugs only; the sync never overwrites an existing built-in or provider-registered row). See [`docs/architecture/open-core-boundary.md`](../architecture/open-core-boundary.md) for the OSS extension-point conventions.
 
 ### `GET /api/v1/boards/{id}/summary/`
-Board health summary: per-swimlane card counts, stage distribution, and velocity. Uses 1–4 aggregate queries regardless of board size (1 always, plus up to 3 more only when the board has a done column).
+Board health summary: per-swimlane card counts, stage distribution, and velocity. Uses a fixed number of queries regardless of board size. *Changed in 1.3* (#448): velocity and cycle time replay the history of the cards that entered a done column in the last 30 days, so the cost grows with recent completions rather than with the board's whole history (before, this was SQL aggregates only).
 
 **Response shape:**
 

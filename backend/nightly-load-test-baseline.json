@@ -80,6 +80,20 @@
       "budget_p95_ms": 40,
       "note": "Companion to notifications_list -- polled at the same interval; unlike the list it is uncapped (counts all accessible unread rows)."
     },
+    "board_summary": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/summary/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Per-swimlane counts plus a replay of the cards that entered a done column in the last 30 days (#448). Before #448 this was SQL aggregates only."
+    },
+    "board_analytics": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/analytics/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Heatmap, stalled cards and blocked time, with a replay of the cards relevant to the default 30-day window plus the frozen avg_days_per_column prefetch (#448)."
+    },
     "flow_cycle_time": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/cycle-time/",

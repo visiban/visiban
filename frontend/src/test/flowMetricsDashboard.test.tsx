@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import FlowMetricsDashboard from '../components/Board/flowMetrics/FlowMetricsDashboard'
 import {
-  ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, sparseNote, throughputSummary, wipAgeSummary,
+  ageMarkLabel, cumulativeFlowSummary, cycleTimeSummary, excludedNote, percentileLines, sparseNote, throughputSummary, wipAgeSummary,
 } from '../components/Board/flowMetrics/flowFormat'
 import type {
   FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowThroughput, FlowWipAge,
@@ -284,6 +284,34 @@ describe('the panels', () => {
     expect(within(panel).getByRole('img')).toHaveTextContent('Fix the l…')
   })
 
+  it('rings only the cards past P85, in the image layer', async () => {
+    const under = { ...age.samples[0], card_uid: cardB.uid, value_days: 3, is_blocked: false }
+    mockAll({ age: { ...age, sample_size: 2, samples: [age.samples[0], under], cards: [cardA, cardB] } })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-wip-age')).getByRole('img')
+    const rings = image.querySelectorAll('circle[r="8"]')
+    expect(rings).toHaveLength(1)
+    // The blocked card past P85 is the one ringed: its square sits at the ring's center.
+    const square = image.querySelector('[data-blocked="true"] rect') as SVGRectElement
+    expect(Number(rings[0].getAttribute('cx'))).toBe(Number(square.getAttribute('x')) + 4)
+  })
+
+  it('rings nothing and draws no zones without a P85', async () => {
+    mockAll({ age: { ...age, cycle_time_percentiles: { p50: null, p85: null, p95: null } } })
+    await renderLoaded()
+    const image = within(screen.getByTestId('flow-wip-age')).getByRole('img')
+    expect(image.querySelectorAll('circle[r="8"]')).toHaveLength(0)
+    expect(screen.getByTestId('flow-wip-age')).not.toHaveTextContent('Ringed cards')
+  })
+
+  it('draws the percentile lines in their shared encoding, in the chart itself', async () => {
+    mockAll({ cycle: { ...cycle, percentiles: { p50: 4, p85: 8, p95: 12 } } })
+    await renderLoaded()
+    const lines = [...within(screen.getByTestId('flow-cycle-time')).getByRole('img').querySelectorAll('line[stroke*="primary-emphasis"]')]
+    const encodings = lines.map((line) => [line.getAttribute('stroke-width'), line.getAttribute('stroke-dasharray')])
+    expect(encodings).toEqual([['1.5', '6 4'], ['2.5', null], ['1.5', '1.5 3.5']])
+  })
+
   it('keeps only aging dots in the tab order: other marks are reached through the table', async () => {
     await renderLoaded()
     for (const id of ['flow-cycle-time', 'flow-throughput', 'flow-cumulative']) {
@@ -397,6 +425,14 @@ describe('the drill-down drawer', () => {
     expect(await screen.findByRole('dialog', { name: /^Finished the week of/ })).toBeInTheDocument()
   })
 
+  it('opens the same list from the throughput table', async () => {
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-throughput')).getByRole('button', { name: 'table' }))
+    await userEvent.click(screen.getByRole('button', { name: /2 cards the week of/ }))
+    const list = within(await screen.findByRole('dialog', { name: /^Finished the week of/ }))
+    expect(list.getByRole('button', { name: /Fix the login/ })).toBeInTheDocument()
+  })
+
   it('fetches a cumulative-flow day with the current filters and groups its cards by column', async () => {
     dayMock.mockResolvedValue({
       definition: 'd',
@@ -505,6 +541,15 @@ describe('flow summaries', () => {
     expect(sparseNote({ p50: null, p85: null, p95: null })).toBe('Too few cards to draw percentile lines.')
     expect(excludedNote(0)).toBeNull()
     expect(excludedNote(1)).toBe('1 card left out for missing or broken history.')
+  })
+
+  it('encodes each percentile line differently, and P85 heaviest', () => {
+    const lines = percentileLines({ p50: 4, p85: 8, p95: 12 }, (days) => days * 10)
+    expect(lines.map((line) => line.y)).toEqual([40, 80, 120])
+    expect(lines[1].strokeWidth).toBeGreaterThan(lines[0].strokeWidth ?? 1.5)
+    expect(lines[1].dash).toBeUndefined()
+    expect(lines[0].dash).not.toBe(lines[2].dash)
+    expect(percentileLines({ p50: 4, p85: null, p95: null }, (days) => days)).toHaveLength(1)
   })
 
   it('names a mark by its zone', () => {

@@ -1564,4 +1564,4 @@ Every chart is hand-rolled SVG on the shared primitive, `components/Common/Chart
 - **Every chart has a table.** Pinned first column, `font-mono` numerics, `—` for null and zero per § Summary and analytics table layout, scrolling in a focusable `role="region"`. Each drill-down mark has a button in its row.
 - **Layout.** Two columns from `lg` (1024px), one below; a frame never grows past 760px.
 
-The Analytics tab scrolls as one page since #448: it no longer pins the heatmap, so § Analytics / split-panel scroll layout does not apply to it. Dropdowns on that page pass `portalMenu`, because the page is a scrolling ancestor.
+The Analytics tab scrolls as one page since #448: it no longer pins the heatmap, so § Analytics / split-panel scroll layout does not apply to it. Dropdowns on that page pass `portalMenu`, because the page is a scrolling ancestor. `AnalyticsView` has one return, with the heatmap's states inside one slot: a child that fetches on mount must not change position when a sibling changes state, or React remounts it. Here a remount was four history replays and lost every filter.
