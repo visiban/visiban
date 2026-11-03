@@ -5207,8 +5207,8 @@ one surface only leaves the same field readable through another.</p>
 </tr>
 <tr>
 <td>Change feed</td>
-<td><code>boards/views/boards.py</code> <code>BoardViewSet.events</code>; <code>boards/serializers.py</code> <code>BoardEventSerializer.to_representation</code></td>
-<td>The view excludes other users' <code>PER_USER_EVENTS</code> rows, and <code>ADMIN_ONLY_EVENTS</code> rows for a reader below admin (<code>admin_only_event_visible</code>), in the page query; the serializer applies the three member-field helpers with the reader's role, <code>without_admin_only_board_fields</code>, <code>without_actor_scoped_fields</code> against the row's <code>actor_id</code>, and the swimlane re-filter (<code>shareable_swimlane_field_ids</code>). <code>group.created</code> / <code>group.updated</code> aren't persisted, so the feed has no group rows</td>
+<td><code>boards/views/boards.py</code> <code>BoardViewSet.events</code>; <code>boards/services/feed.py</code> <code>feed_queryset</code>, <code>prune_marks</code>; <code>boards/serializers.py</code> <code>BoardEventSerializer.to_representation</code></td>
+<td>The view excludes other users' <code>PER_USER_EVENTS</code> rows, and <code>ADMIN_ONLY_EVENTS</code> rows for a reader below admin (<code>admin_only_event_visible</code>), in the page query, and the <code>410</code> retention check reads the per-type prune record through that same rule (<code>_hidden_from</code>), so a per-type mark expires a cursor only for a pruned row the reader could have seen, while type-blind records (<code>BoardEventPruneMark</code>) still count; the serializer applies the three member-field helpers with the reader's role, <code>without_admin_only_board_fields</code>, <code>without_actor_scoped_fields</code> against the row's <code>actor_id</code>, and the swimlane re-filter (<code>shareable_swimlane_field_ids</code>). <code>group.created</code> / <code>group.updated</code> aren't persisted, so the feed has no group rows</td>
 </tr>
 <tr>
 <td>Broadcast and persist (write time)</td>
@@ -5228,7 +5228,7 @@ one surface only leaves the same field readable through another.</p>
 <tr>
 <td>Outbound webhooks</td>
 <td><code>webhooks/dispatch.py</code> <code>_deliver</code></td>
-<td>Reads through <code>boards/services/feed.py</code> <code>feed_queryset</code> (row exclusions) and <code>serialize_feed_rows</code> (<code>BoardEventSerializer</code>, per-field stripping), the same two functions as the change feed, at the fixed reader <code>role="viewer", reader_id=None</code>, never the owner's role: no per-user row, no admin-only row, and every per-recipient field stripped. <code>event_types</code> cannot name a per-user or admin-only type (<code>webhooks/models.py</code> <code>SUBSCRIBABLE_EVENT_TYPES</code>). Pinned by <code>webhooks/tests/test_dispatch.py</code> <code>RedactionParityTests</code> (#863)</td>
+<td>Reads through <code>boards/services/feed.py</code> <code>feed_queryset</code> (row exclusions) and <code>serialize_feed_rows</code> (<code>BoardEventSerializer</code>, per-field stripping), the same two functions as the change feed, at the fixed reader <code>role="viewer", reader_id=None</code>, never the owner's role: no per-user row, no admin-only row, and every per-recipient field stripped. <code>cursor_expired</code> reads the prune record (<code>prune_marks</code>) as that same reader. <code>event_types</code> cannot name a per-user or admin-only type (<code>webhooks/models.py</code> <code>SUBSCRIBABLE_EVENT_TYPES</code>). Pinned by <code>webhooks/tests/test_dispatch.py</code> <code>RedactionParityTests</code> (#863)</td>
 </tr>
 </tbody>
 </table>

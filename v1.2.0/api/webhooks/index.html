@@ -4570,7 +4570,7 @@
 <tbody>
 <tr>
 <td><code>cursor</code> (default)</td>
-<td>Delivers what was missed since the webhook stopped. <code>409 {"code": "cursor_expired"}</code> if any event after <code>last_delivered_event_id</code> was pruned from the feed, including when every missed event was pruned and nothing newer exists.</td>
+<td>Delivers what was missed since the webhook stopped. <code>409 {"code": "cursor_expired"}</code> if an event after <code>last_delivered_event_id</code> that this webhook would have been sent was pruned from the feed, including when every missed event was pruned and nothing newer exists. A pruned event of a type outside its current <code>event_types</code>, or one no webhook receives (per-user and admin-only events), does not count.</td>
 </tr>
 <tr>
 <td><code>latest</code></td>

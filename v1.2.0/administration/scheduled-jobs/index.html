@@ -4273,7 +4273,8 @@ the Compose <code>webhooks</code> profile (<code>webhook-dispatcher</code> servi
 <code>webhooks.dispatcher.enabled</code> Deployment. On a host-cron install, run
 <code>python manage.py dispatch_webhooks</code> every minute; overlapping runs are safe.
 <code>prune_board_events</code> interacts with it: a webhook that falls further behind than
-<code>BOARD_EVENT_RETENTION_DAYS</code> is turned off rather than skipping events.</p>
+<code>BOARD_EVENT_RETENTION_DAYS</code>, and misses an event it would have been sent, is
+turned off rather than skipping events.</p>
 </div>
 <h2 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h2>
 <p><code>docker-compose.prod.yml</code> includes a <code>scheduler</code> service behind the <code>scheduler</code> <a href="https://docs.docker.com/compose/how-tos/profiles/">Compose profile</a>. It runs <code>python manage.py run_scheduler</code> in the backend image, with the backend's <code>.env</code>.</p>
