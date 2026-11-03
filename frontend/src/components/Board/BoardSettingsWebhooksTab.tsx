@@ -35,7 +35,7 @@ export const WEBHOOK_ESCAPE = {
 } as const;
 
 /** Said when a way out of the tab is refused because a one-time secret is on its way. */
-const SECRET_PENDING_COPY = "Wait for the new secret. It can only be shown once, so this stays open until it arrives.";
+const SECRET_PENDING_COPY = "Wait for the new secret. It can only be shown once, so you can't leave until it arrives.";
 
 const CLOCK_TICK_MS = 30_000;
 const HIGHLIGHT_MS = 1500;
@@ -86,8 +86,13 @@ export default function BoardSettingsWebhooksTab({
   const [now, setNow] = useState(() => Date.now());
   const [reloadKey, setReloadKey] = useState(0);
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
+  // How many ways out were refused during this request; 0 hides the banner. It
+  // keys the banner, so each refusal is a new alert and is announced again. The
+  // key is prefixed: its siblings include WebhookDetail, keyed by a bare webhook id.
+  const [refusals, setRefusals] = useState(0);
 
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const refusalRef = useRef<HTMLParagraphElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const revealRef = useRef<WebhookSecretRevealHandle>(null);
   // A create or rotate is running: its response is the only copy of a secret.
@@ -141,6 +146,11 @@ export default function BoardSettingsWebhooksTab({
     return () => { canceled = true; };
   }, [boardId, reloadKey]);
 
+  // The tab may be scrolled well past its top by the time something is refused.
+  useEffect(() => {
+    if (refusals > 0) refusalRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [refusals]);
+
   // Focus targets resolve after the render that mounts them.
   useEffect(() => {
     if (pendingFocus === null) return;
@@ -177,7 +187,7 @@ export default function BoardSettingsWebhooksTab({
     // leaving now would drop the response, and the server has already replaced
     // the secret, with nothing to tell anyone the new one was never seen.
     if (secretPendingRef.current) {
-      setLive(SECRET_PENDING_COPY);
+      setRefusals((n) => n + 1);
       return true;
     }
     const r = revealRefState.current;
@@ -234,7 +244,7 @@ export default function BoardSettingsWebhooksTab({
       return await guarded(fn);
     } finally {
       secretPendingRef.current = false;
-      setLive("");
+      setRefusals(0);
     }
   };
 
@@ -376,7 +386,15 @@ export default function BoardSettingsWebhooksTab({
               // so the "until" line is true before anyone retries: a retry retires
               // whatever that lost rotation left as the current secret.
               if (axiosResponse(err)?.data?.code !== "webhooks_disabled") {
-                await listWebhooks(boardId).then(setSubs).catch(() => undefined);
+                const list = await listWebhooks(boardId).catch(() => null);
+                if (list) {
+                  setSubs(list);
+                  // Deleted elsewhere: the detail view would render nothing.
+                  if (!list.some((s) => s.id === sub.id)) {
+                    setLive("This webhook no longer exists.");
+                    openList("list-heading");
+                  }
+                }
               }
               throw err;
             }
@@ -475,6 +493,11 @@ export default function BoardSettingsWebhooksTab({
 
   return (
     <div className="flex flex-col gap-3">
+      {refusals > 0 && (
+        <p key={`refusal-${refusals}`} ref={refusalRef} role="alert" className="rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+          {SECRET_PENDING_COPY}
+        </p>
+      )}
       {status.dispatcher_stale && <DispatcherStaleNotice lastRunLabel={lastRunLabel} />}
       {body}
       {/* The list status slot: created, deleted, turned off, turned on. */}

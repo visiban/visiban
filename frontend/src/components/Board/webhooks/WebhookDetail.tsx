@@ -217,6 +217,7 @@ export default function WebhookDetail(props: Props) {
 
   const rotate = (choice: "keep" | "revoke") => {
     if (inFlight === "rotate") return; // aria-disabled needs its own guard
+    setConfirmError(null);
     setRotateChoice(choice);
     void handle(
       "rotate",

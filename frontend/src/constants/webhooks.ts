@@ -253,7 +253,7 @@ accept if any value == expected (constant time)
 
 /** A rotate that failed with no clear refusal: the commit may have landed and only the response been lost. */
 export const ROTATE_UNCONFIRMED_COPY =
-  "Couldn't confirm the rotation. It may have gone through, and its new secret can't be shown. To get a secret you can copy, rotate again and update your receiver right away.";
+  "Couldn't confirm the rotation. It may have gone through, in which case the new secret it made can't be shown. Rotate again to get a secret you can copy, and update your receiver right away: if the first rotation did go through, this one stops signing with the secret your receiver holds now.";
 
 /** How long "keep old" signs with the replaced secret: 24 hours (the API allows up to seven days). */
 export const ROTATE_OVERLAP_SECONDS = 86400;

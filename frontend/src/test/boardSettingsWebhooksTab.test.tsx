@@ -645,6 +645,33 @@ describe('Webhooks tab — detail', () => {
     expect(screen.getByText(/older secret from your last rotation stops being signed either way, so update your receiver/)).toBeInTheDocument()
   })
 
+  it('a retried rotate clears the old failure while it runs', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockRejectedValueOnce(axiosError(500)).mockReturnValueOnce(new Promise(() => {}))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    await screen.findByRole('alert')
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('a webhook deleted elsewhere returns to the list instead of a blank view', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockRejectedValue(axiosError(404))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    m.list.mockResolvedValue([])
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    expect(await screen.findByText('This webhook no longer exists.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Webhooks' })).toHaveFocus()
+  })
+
   it('a refetch that also fails leaves the message and the view alone', async () => {
     const user = setup()
     m.list.mockResolvedValue([sub()])
@@ -689,9 +716,14 @@ describe('Webhooks tab — detail', () => {
       const proceed = vi.fn()
       act(() => { expect(guard!(proceed)).toBe(true) })
       expect(proceed).not.toHaveBeenCalled()
-      expect(await screen.findByText(PENDING)).toBeInTheDocument()
+      const refusal = await screen.findByRole('alert')
+      expect(refusal).toHaveTextContent(PENDING)
 
-      await user.click(screen.getByRole('button', { name: '← All webhooks' }))
+      const back = screen.getByRole('button', { name: '← All webhooks' })
+      await user.click(back)
+      // A new alert each time, or a second refusal would be announced to nobody.
+      expect(screen.getByRole('alert')).not.toBe(refusal)
+      expect(back).toHaveFocus()
       fireEvent.keyDown(document, { key: 'Escape' })
       expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'hooks.zapier.com/…/k3f9' })).toBeInTheDocument()
