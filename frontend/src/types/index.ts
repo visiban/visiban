@@ -1756,6 +1756,102 @@ export interface BoardSummarySwimlane {
 }
 
 /**
+ * Flow metrics (`GET /boards/{id}/metrics/*`, #448). Every number comes from the
+ * server, including percentiles: a null percentile means the sample is below
+ * the sample-size rule, and the client draws nothing for it.
+ */
+export interface FlowPercentiles {
+  p50: number | null;
+  p85: number | null;
+  p95: number | null;
+}
+
+/** A card a metric response names by uid: the drill-down's cards and owners. */
+export interface FlowCard {
+  uid: string;
+  id: number;
+  title: string;
+  archived: boolean;
+  assignee: BoardUser | null;
+}
+
+export interface FlowCycleTimeSample {
+  card_uid: string;
+  value_days: number;
+  start: string;
+  end: string;
+  /** The card was reopened after this completion; the number does not change. */
+  reopened: boolean;
+}
+
+export interface FlowCycleTime {
+  definition: string;
+  sample_size: number;
+  excluded_incomplete_history: number;
+  percentiles: FlowPercentiles;
+  samples: FlowCycleTimeSample[];
+  cards: FlowCard[];
+}
+
+export interface FlowThroughputSample {
+  /** First UTC day of the period (`YYYY-MM-DD`). */
+  start: string;
+  count: number;
+  card_uids: string[];
+}
+
+export interface FlowThroughput {
+  definition: string;
+  period: "day" | "week";
+  total: number;
+  median: number | null;
+  samples: FlowThroughputSample[];
+  cards: FlowCard[];
+}
+
+export interface FlowCumulativeColumn {
+  /** Null is the one band for every deleted column. */
+  column_uid: string | null;
+  column_name: string | null;
+  is_done: boolean;
+}
+
+export interface FlowCumulativeFlow {
+  definition: string;
+  columns: FlowCumulativeColumn[];
+  /** `counts` is keyed by column uid; the deleted-columns band is under "null". */
+  days: { date: string; counts: Record<string, number> }[];
+  bottleneck_column_uid: string | null;
+}
+
+export interface FlowCumulativeDayCards {
+  definition: string;
+  date: string;
+  columns: { column_uid: string | null; card_uids: string[] }[];
+  cards: FlowCard[];
+}
+
+export interface FlowAgeSample {
+  card_uid: string;
+  column_uid: string;
+  value_days: number;
+  start: string;
+  dwell_by_column: { column_uid: string | null; value_days: number }[];
+  is_blocked: boolean;
+  blocked_days: number;
+}
+
+export interface FlowWipAge {
+  definition: string;
+  sample_size: number;
+  excluded_incomplete_history: number;
+  cycle_time_percentiles: FlowPercentiles;
+  columns: { column_uid: string; column_name: string }[];
+  samples: FlowAgeSample[];
+  cards: FlowCard[];
+}
+
+/**
  * `GET /boards/{id}/summary/` response. `extension_panels` is untrusted input
  * from enterprise `ANALYTICS_EXTENSIONS` producers: it is `unknown[]` on
  * purpose and must go through `parseExtensionPanels` before rendering (#1770).

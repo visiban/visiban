@@ -5,21 +5,27 @@ import json
 import logging
 import statistics
 
-from django.db.models import Count, Exists, Min, OuterRef, Prefetch, Q, Subquery, Window
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Subquery, Window
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiParameter, OpenApiResponse, PolymorphicProxySerializer, extend_schema, inline_serializer,
+)
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework import serializers, status
 
+from accounts.serializers import BoardUserSerializer
+
 from ..models import BoardExportLog, CardBlock, CardMovement, CardRelation
 from ..serializers import CardMovementSerializer
 from .. import hooks
 from ..permissions import analytics_extensions_for_role
-from visiban.request_shape import OFFSET_QUERY_PARAMETER, parse_offset, query_text
+from ..services import flow_metrics
+from visiban.exceptions import INVALID_QUERY_PARAM, CodedValidationError
+from visiban.request_shape import MAX_DB_INT, OFFSET_QUERY_PARAMETER, parse_offset, query_text
 from ._helpers import get_board_for_user
 
 _logger = logging.getLogger(__name__)
@@ -280,6 +286,286 @@ def _parse_id(value):
     return parsed if _MIN_ID <= parsed <= _MAX_ID else None
 
 
+# ── Flow metrics (#448, ADR #1532): query validation and response schemas ──
+
+# Bounds a day-loop and the size of a cumulative-flow response.
+_MAX_FLOW_RANGE_DAYS = 366
+# Far outside any real history, and far enough from date.min and date.max that
+# adding or subtracting a range can never overflow into a 500.
+_MIN_FLOW_DATE = datetime.date(1970, 1, 1)
+_MAX_FLOW_DATE = datetime.date(9000, 1, 1)
+
+
+class FlowMetricsQuerySerializer(serializers.Serializer):
+    """The filters every ``metrics/*`` endpoint accepts, validated at the boundary.
+
+    ``context["board"]`` is required: a swimlane or label id must belong to this
+    board, and one that does not gets the same answer as one that does not
+    exist, so ids on other boards cannot be probed through it.
+    """
+
+    days = serializers.IntegerField(required=False, min_value=1, max_value=365)
+    from_date = serializers.DateField(required=False)
+    to_date = serializers.DateField(required=False)
+    swimlane_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+    label_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+
+    def _in_bounds(self, value):
+        if not _MIN_FLOW_DATE <= value <= _MAX_FLOW_DATE:
+            raise serializers.ValidationError("Date is out of range.")
+        return value
+
+    validate_from_date = _in_bounds
+    validate_to_date = _in_bounds
+
+    def validate_swimlane_id(self, value):
+        if not self.context["board"].swimlanes.filter(pk=value).exists():
+            raise serializers.ValidationError("Not a swimlane on this board.")
+        return value
+
+    def validate_label_id(self, value):
+        if not self.context["board"].labels.filter(pk=value).exists():
+            raise serializers.ValidationError("Not a label on this board.")
+        return value
+
+    def validate(self, attrs):
+        from_date, to_date = attrs.get("from_date"), attrs.get("to_date")
+        if "days" in attrs and (from_date or to_date):
+            raise serializers.ValidationError("Send either days or from_date/to_date, not both.")
+        if from_date or to_date:
+            to_date = to_date or timezone.now().date()
+            from_date = from_date or to_date - datetime.timedelta(days=flow_metrics.DEFAULT_RANGE_DAYS - 1)
+            if from_date > to_date:
+                raise serializers.ValidationError("from_date must not be after to_date.")
+            if (to_date - from_date).days + 1 > _MAX_FLOW_RANGE_DAYS:
+                raise serializers.ValidationError(f"The date range must not exceed {_MAX_FLOW_RANGE_DAYS} days.")
+            attrs["from_date"], attrs["to_date"] = from_date, to_date
+        return attrs
+
+
+class ThroughputQuerySerializer(FlowMetricsQuerySerializer):
+    period = serializers.ChoiceField(choices=["day", "week"], required=False, default="week")
+
+
+class CumulativeFlowQuerySerializer(FlowMetricsQuerySerializer):
+    date = serializers.DateField(required=False)
+
+    validate_date = FlowMetricsQuerySerializer._in_bounds
+
+
+def _flow_query(serializer_class, request, board):
+    """Validated query params, or a 400 in the API-wide bad-parameter shape (#1825)."""
+    serializer = serializer_class(data=request.query_params, context={"board": board})
+    if not serializer.is_valid():
+        field, errors = next(iter(serializer.errors.items()))
+        prefix = "" if field == "non_field_errors" else f"{field}: "
+        raise CodedValidationError(INVALID_QUERY_PARAM, f"{prefix}{errors[0]}")
+    return serializer.validated_data
+
+
+def _flow_range(params, now):
+    if "from_date" in params:
+        return flow_metrics.date_range(params["from_date"], params["to_date"], now=now)
+    return flow_metrics.rolling_range(params.get("days", flow_metrics.DEFAULT_RANGE_DAYS), now=now)
+
+
+def _load_flow(board, params, now):
+    return flow_metrics.load_board_flow(
+        board, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"), now=now,
+    )
+
+
+_FLOW_FILTER_PARAMETERS = [
+    OpenApiParameter(
+        name="days", type={"type": "integer", "minimum": 1, "maximum": 365},
+        location=OpenApiParameter.QUERY, required=False,
+        description=(
+            f"Rolling range in days (default {flow_metrics.DEFAULT_RANGE_DAYS}). "
+            "Cannot be combined with `from_date` or `to_date`."
+        ),
+    ),
+    OpenApiParameter(
+        name="from_date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=False,
+        description="First UTC day of the range, inclusive (`YYYY-MM-DD`).",
+    ),
+    OpenApiParameter(
+        name="to_date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=False,
+        description=f"Last UTC day of the range, inclusive. A range holds at most {_MAX_FLOW_RANGE_DAYS} days.",
+    ),
+    OpenApiParameter(
+        name="swimlane_id", type={"type": "integer", "format": "int64", "minimum": 1},
+        location=OpenApiParameter.QUERY, required=False,
+        description="Only cards now in this swimlane of this board.",
+    ),
+    OpenApiParameter(
+        name="label_id", type={"type": "integer", "format": "int64", "minimum": 1},
+        location=OpenApiParameter.QUERY, required=False,
+        description="Only cards now carrying this label of this board.",
+    ),
+]
+
+_FLOW_400 = OpenApiResponse(
+    description=(
+        "A filter is malformed or out of range, or names a swimlane or label that is not on "
+        "this board (`code: invalid_query_param`)."
+    ),
+    response=_BAD_QUERY_PARAM_SERIALIZER,
+)
+
+_PERCENTILES_FIELD = inline_serializer(
+    name="FlowPercentiles",
+    help_text=(
+        "Nearest-rank percentiles in days. A value is null below the sample-size rule: "
+        "p50 needs 5 values, p85 needs 7, p95 needs 20."
+    ),
+    fields={
+        "p50": serializers.FloatField(allow_null=True),
+        "p85": serializers.FloatField(allow_null=True),
+        "p95": serializers.FloatField(allow_null=True),
+    },
+)
+
+_FLOW_CARD_FIELD = inline_serializer(
+    name="FlowCard",
+    many=True,
+    help_text="Every card the response names by uid: the drill-down's cards and owners.",
+    fields={
+        "uid": serializers.CharField(),
+        "id": serializers.IntegerField(),
+        "title": serializers.CharField(),
+        "archived": serializers.BooleanField(),
+        "assignee": BoardUserSerializer(allow_null=True),
+    },
+)
+
+_CYCLE_TIME_RESPONSE = inline_serializer(
+    name="FlowCycleTime",
+    fields={
+        "definition": serializers.CharField(),
+        "sample_size": serializers.IntegerField(),
+        "excluded_incomplete_history": serializers.IntegerField(),
+        "percentiles": _PERCENTILES_FIELD,
+        "samples": inline_serializer(
+            name="FlowCycleTimeSample",
+            many=True,
+            fields={
+                "card_uid": serializers.CharField(),
+                "value_days": serializers.FloatField(),
+                "start": serializers.DateTimeField(),
+                "end": serializers.DateTimeField(),
+                "reopened": serializers.BooleanField(),
+            },
+        ),
+        "cards": _FLOW_CARD_FIELD,
+    },
+)
+
+_THROUGHPUT_RESPONSE = inline_serializer(
+    name="FlowThroughput",
+    fields={
+        "definition": serializers.CharField(),
+        "period": serializers.ChoiceField(choices=["day", "week"]),
+        "total": serializers.IntegerField(),
+        "median": serializers.IntegerField(
+            allow_null=True, help_text="Nearest-rank p50 of the period counts; null under five whole periods.",
+        ),
+        "samples": inline_serializer(
+            name="FlowThroughputSample",
+            many=True,
+            fields={
+                "start": serializers.DateField(),
+                "count": serializers.IntegerField(),
+                "card_uids": serializers.ListField(child=serializers.CharField()),
+            },
+        ),
+        "cards": _FLOW_CARD_FIELD,
+    },
+)
+
+_CUMULATIVE_FLOW_RESPONSE = inline_serializer(
+    name="FlowCumulativeFlow",
+    fields={
+        "definition": serializers.CharField(),
+        "columns": inline_serializer(
+            name="FlowCumulativeFlowColumn",
+            many=True,
+            help_text="Position order; the last entry, column_uid null, is every deleted column.",
+            fields={
+                "column_uid": serializers.CharField(allow_null=True),
+                "column_name": serializers.CharField(allow_null=True),
+                "is_done": serializers.BooleanField(),
+            },
+        ),
+        "days": inline_serializer(
+            name="FlowCumulativeFlowDay",
+            many=True,
+            fields={
+                "date": serializers.DateField(),
+                "counts": serializers.DictField(
+                    child=serializers.IntegerField(),
+                    help_text='Cards per column_uid; the deleted-columns band is under the key "null".',
+                ),
+            },
+        ),
+        "bottleneck_column_uid": serializers.CharField(allow_null=True),
+    },
+)
+
+_CUMULATIVE_FLOW_DAY_RESPONSE = inline_serializer(
+    name="FlowCumulativeFlowCards",
+    fields={
+        "definition": serializers.CharField(),
+        "date": serializers.DateField(),
+        "columns": inline_serializer(
+            name="FlowCumulativeFlowCardsColumn",
+            many=True,
+            fields={
+                "column_uid": serializers.CharField(allow_null=True),
+                "card_uids": serializers.ListField(child=serializers.CharField()),
+            },
+        ),
+        "cards": _FLOW_CARD_FIELD,
+    },
+)
+
+_WIP_AGE_RESPONSE = inline_serializer(
+    name="FlowWipAge",
+    fields={
+        "definition": serializers.CharField(),
+        "sample_size": serializers.IntegerField(),
+        "excluded_incomplete_history": serializers.IntegerField(),
+        "cycle_time_percentiles": _PERCENTILES_FIELD,
+        "columns": inline_serializer(
+            name="FlowWipAgeColumn",
+            many=True,
+            help_text="The columns that are not done, in position order.",
+            fields={"column_uid": serializers.CharField(), "column_name": serializers.CharField()},
+        ),
+        "samples": inline_serializer(
+            name="FlowWipAgeSample",
+            many=True,
+            fields={
+                "card_uid": serializers.CharField(),
+                "column_uid": serializers.CharField(),
+                "value_days": serializers.FloatField(),
+                "start": serializers.DateTimeField(),
+                "dwell_by_column": inline_serializer(
+                    name="FlowWipAgeDwell",
+                    many=True,
+                    fields={
+                        "column_uid": serializers.CharField(allow_null=True),
+                        "value_days": serializers.FloatField(),
+                    },
+                ),
+                "is_blocked": serializers.BooleanField(),
+                "blocked_days": serializers.FloatField(),
+            },
+        ),
+        "cards": _FLOW_CARD_FIELD,
+    },
+)
+
+
 class BoardAnalyticsMixin:
     """Mixin providing summary and analytics @action methods for BoardViewSet."""
 
@@ -291,17 +577,15 @@ class BoardAnalyticsMixin:
         Uses aggregate queries regardless of board size instead of the
         previous S×(C+4) loop (one filter per swimlane×column cell).
 
-        New in #342: active_cards, done_30d, and avg_cycle_days are computed
-        with SQL aggregates keyed on swimlane, using Column.is_done to identify
-        completion columns. avg_cycle_days measures the time from a card's first
-        movement to its first entry into a done column.
+        Velocity, done_30d and avg_cycle_days come from the flow service (#448):
+        counts are cards by first completion, and avg_cycle_days is the mean cycle
+        time of the cards completed in the last 30 days, as the flow metric record
+        (ADR #1532) defines them.
         """
         # ``slim=True`` skips favorites/labels/memberships prefetches that this
         # aggregate endpoint never reads (#928).
         board, role = get_board_for_user(pk, request.user, slim=True)
         now = timezone.now()
-        cutoff_7d = now - datetime.timedelta(days=7)
-        cutoff_30d = now - datetime.timedelta(days=30)
 
         columns = list(board.columns.order_by("position"))
         swimlanes = list(board.swimlanes.order_by("position"))
@@ -317,21 +601,14 @@ class BoardAnalyticsMixin:
         for row in raw_counts:
             counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
 
-        # Query 2: velocity + done_30d per swimlane using is_done columns.
-        vel_by_swimlane: dict[int, dict] = {}
-        if done_column_ids:
-            vel_qs = (
-                CardMovement.objects
-                .filter(card__board=board, card__archived_at__isnull=True, to_column_id__in=done_column_ids, movement_type=CardMovement.MovementType.MOVE)
-                .values("card__swimlane_id")
-                .annotate(
-                    vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),
-                    vel_30d=Count("id", filter=Q(moved_at__gte=cutoff_30d)),
-                )
-            )
-            vel_by_swimlane = {r["card__swimlane_id"]: r for r in vel_qs}
+        # Queries 2-3: velocity, done_30d and avg_cycle_days, by first completion,
+        # from the flow service (ADR #1532, #448). A card that bounces between
+        # done columns counts once and stays counted after it is archived.
+        rollup = flow_metrics.swimlane_completion_rollup(
+            flow_metrics.load_board_flow(board, now=now, columns=columns)
+        )
 
-        # Query 2b: blocked active cards per swimlane (#1149), manual or
+        # Blocked active cards per swimlane (#1149), manual or
         # relation, the same union as CardSerializer.is_blocked. "Active" as
         # in active_cards: not archived and not in a done column, so
         # blocked_cards never exceeds active_cards.
@@ -349,47 +626,10 @@ class BoardAnalyticsMixin:
             .values_list("swimlane_id", "cnt")
         )
 
-        # Query 3: avg cycle time per swimlane — time from first movement to first
-        # done-column entry, averaged across cards completed in the last 30d.
-        avg_cycle_by_swimlane: dict[int, float | None] = {}
-        if done_column_ids:
-            # 3a: first done-column entry per card in the last 30d.
-            done_entries = {
-                r["card_id"]: r
-                for r in CardMovement.objects
-                .filter(
-                    card__board=board,
-                    card__archived_at__isnull=True,
-                    to_column_id__in=done_column_ids,
-                    moved_at__gte=cutoff_30d,
-                )
-                .values("card_id", "card__swimlane_id")
-                .annotate(done_at=Min("moved_at"))
-            }
-            if done_entries:
-                # 3b: first movement per card (proxy for work-start) — single query.
-                start_by_card = {
-                    r["card_id"]: r["start_at"]
-                    for r in CardMovement.objects
-                    .filter(card_id__in=done_entries.keys())
-                    .values("card_id")
-                    .annotate(start_at=Min("moved_at"))
-                }
-                buckets: dict[int, list[float]] = {}
-                for card_id, entry in done_entries.items():
-                    start = start_by_card.get(card_id)
-                    done_at = entry["done_at"]
-                    if start and done_at and done_at > start:
-                        days = (done_at - start).total_seconds() / 86400
-                        buckets.setdefault(entry["card__swimlane_id"], []).append(days)
-                avg_cycle_by_swimlane = {
-                    k: round(sum(v) / len(v), 1) for k, v in buckets.items()
-                }
-
         result = []
         for swimlane in swimlanes:
             col_counts = counts.get(swimlane.id, {})
-            vel = vel_by_swimlane.get(swimlane.id, {})
+            completions = rollup.get(swimlane.id, {})
             done_card_count = sum(col_counts.get(cid, 0) for cid in done_column_ids)
             active_cards = sum(col_counts.values()) - done_card_count
             result.append({
@@ -398,11 +638,11 @@ class BoardAnalyticsMixin:
                 "color": swimlane.color,
                 "total_cards": sum(col_counts.values()),
                 "stage_distribution": {col.name: col_counts.get(col.id, 0) for col in columns},
-                "velocity_7d": vel.get("vel_7d", 0),
-                "velocity_30d": vel.get("vel_30d", 0),
+                "velocity_7d": completions.get("velocity_7d", 0),
+                "velocity_30d": completions.get("velocity_30d", 0),
                 "active_cards": active_cards,
-                "done_30d": vel.get("vel_30d", 0),
-                "avg_cycle_days": avg_cycle_by_swimlane.get(swimlane.id),
+                "done_30d": completions.get("velocity_30d", 0),
+                "avg_cycle_days": completions.get("avg_cycle_days"),
                 "blocked_cards": blocked_by_swimlane.get(swimlane.id, 0),
             })
 
@@ -464,12 +704,12 @@ class BoardAnalyticsMixin:
           - ``stalled_days`` (int, optional): overrides ``board.staleness_threshold_days``
             for this request when explicitly provided; omit to use the board setting.
 
-        Dwell time is measured as the number of days a card spent in each column:
-        the gap between consecutive movement timestamps (or "now" for the current
-        position). Period-cutoff math uses ``effective_entry = max(mv.moved_at,
-        period_cutoff)`` so cards that entered a column before the selected window
-        correctly contribute only the in-window portion of their dwell time rather
-        than showing zero.
+        ``age_avg_days_per_column`` (current dwell) and
+        ``throughput_avg_days_per_column`` (completed dwell) are visits from the
+        flow service (#448, ADR #1532). The frozen ``avg_days_per_column`` is still
+        the gap between consecutive movements, with ``effective_entry =
+        max(mv.moved_at, period_cutoff)`` so a card that entered a column before
+        the window contributes only its in-window portion.
 
         ``is_outlier`` is ``True`` when a swimlane/column cell's average dwell time
         meets or exceeds ``staleness_threshold_days`` (previously used a 2x board
@@ -516,19 +756,22 @@ class BoardAnalyticsMixin:
         # prefetch cache because order_by() always creates a new queryset.
         swimlanes = list(board.swimlanes.order_by("position"))
         # Partition columns into active (dwell tracked) and done (terminal — clock stops
-        # on entry). col_id_to_name and col_name_set are built from ALL columns so the
-        # denormalized-name fallback for deleted/recreated columns continues to work.
+        # on entry). Columns match by identity, never by name (ADR #1532): a column
+        # deleted and recreated under the same name is a different column, so it does
+        # not inherit the old column's visits or done flag.
         done_col_ids = {c.id for c in columns if c.is_done}
-        done_col_names = {c.name for c in columns if c.is_done}
         active_columns = [c for c in columns if not c.is_done]
         col_id_to_name = {c.id: c.name for c in columns}
-        # Set of current column names for the denormalized-name fallback below.
-        col_name_set = {c.name for c in columns}
+        # Current and completed dwell come from the flow service (#448), so the
+        # heatmap's Age and Throughput modes agree with the flow charts.
+        flow = flow_metrics.load_board_flow(board, now=now, columns=columns)
+        current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
+        completed_dwell = flow_metrics.completed_dwell_by_swimlane(
+            flow, flow_metrics.rolling_range(days, now=now),
+        )
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
-        # Age aggregator: dwell for cards currently occupying each active column (all swimlanes).
-        all_age_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
 
         # Load cards within the analysis window and their movements in two
         # queries (cards + prefetch), then group by swimlane to avoid
@@ -536,13 +779,13 @@ class BoardAnalyticsMixin:
         # Include cards archived within the window so their dwell-time data
         # contributes to the heatmap.  Cards archived before the window would
         # inflate past-column counts without adding value to the selected view.
-        # Age mode needs all currently-active (non-archived) cards regardless of
-        # the period window, so we load the union.
+        # Stall detection needs all currently-active (non-archived) cards
+        # regardless of the period window, so we load the union.
         #
-        # Five per-card movement aggregates are annotated at the SQL level so
+        # Three per-card movement aggregates are annotated at the SQL level so
         # the movement prefetch can be scoped to a bounded window without losing
-        # age-mode, velocity, and stall-detection data that may predate the window.
-        # All five are correlated subqueries compiled into the main SELECT — no
+        # velocity and stall-detection data that may predate the window. All
+        # three are correlated subqueries compiled into the main SELECT — no
         # extra round-trips to the database (still 2 queries: cards + prefetch).
         _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
         _last_mv_qs = _mv_qs.order_by("-moved_at")
@@ -556,15 +799,6 @@ class BoardAnalyticsMixin:
                 # Most-recent movement destination — mirrors movements[-1].to_column_id
                 # so stall detection works even for cards stalled before the prefetch window.
                 _last_col_id=Subquery(_last_mv_qs.values("to_column_id")[:1]),
-                # Denormalized column name fallback for deleted/recreated columns.
-                _last_col_name=Subquery(_last_mv_qs.values("to_column_name")[:1]),
-                # Most-recent entry into the card's *current* column — used for age mode
-                # so cards that entered their column before the window are still represented.
-                _last_col_entry_at=Subquery(
-                    _mv_qs.filter(to_column_id=OuterRef("column_id"))
-                    .order_by("-moved_at")
-                    .values("moved_at")[:1]
-                ),
                 # First-ever movement timestamp — used for velocity so cycle time is
                 # measured from origin rather than from the window start.
                 _first_moved_at=Subquery(
@@ -578,14 +812,14 @@ class BoardAnalyticsMixin:
                     # clamped-dwell logic (movements entering just before period_cutoff)
                     # still has its data, while eliminating the O(cards × all-time
                     # movements) memory spike from loading full movement history (#654/#646).
-                    # Age mode, stall detection, and velocity use card-level annotations
-                    # above instead of the prefetch, so no historical data is lost.
+                    # Stall detection and velocity use card-level annotations above
+                    # instead of the prefetch, so no historical data is lost.
                     # Load only the fields the algorithm reads; order at the DB level so
                     # the per-card Python sort is eliminated.
                     queryset=CardMovement.objects.filter(
                         moved_at__gte=period_cutoff - datetime.timedelta(days=days)
                     ).only(
-                        "card_id", "to_column_id", "to_column_name", "moved_at"
+                        "card_id", "to_column_id", "moved_at"
                     ).order_by("moved_at"),
                 )
             )
@@ -599,10 +833,9 @@ class BoardAnalyticsMixin:
             cards = cards_by_swimlane.get(swimlane.id, [])
             # col_dwells: period-filtered, clamped entry — feeds avg_days_per_column (deprecated).
             col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
-            # throughput_dwells: period-filtered, actual entry — feeds throughput_avg_days_per_column.
-            throughput_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
-            # age_dwells: current dwell for non-archived, non-done cards — feeds age_avg_days_per_column.
-            age_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
+            # Measured visits from the flow service, by column uid.
+            throughput_dwells = completed_dwell.get(swimlane.id, {})
+            age_dwells = current_dwell.get(swimlane.id, {})
             stalled_cards = []
             deal_velocity_days = []
 
@@ -613,26 +846,15 @@ class BoardAnalyticsMixin:
                 # only entries from period_cutoff - days onward.
                 movements = list(card.movements.all())
 
-                # ── Throughput pass (period-filtered transitions) ───────────────
+                # ── Clamped dwell (the frozen avg_days_per_column) ──────────────
                 for i, mv in enumerate(movements):
                     col_name = col_id_to_name.get(mv.to_column_id)
-                    # Fall back to the denormalized name field when the FK no longer
-                    # resolves — this happens when a column was deleted and recreated
-                    # with a new PK while the name stayed the same.
-                    # Guard: only trigger when to_column_id is genuinely absent from
-                    # this board's column set (not just a None FK). If two active
-                    # columns share the same name the fallback is ambiguous and will
-                    # attribute dwell to whichever name appears in col_name_set; this
-                    # is a known limitation accepted because duplicate column names on
-                    # a single board are rare in practice.
-                    if mv.to_column_id not in col_id_to_name and mv.to_column_name in col_name_set:
-                        col_name = mv.to_column_name
                     if not col_name:
                         continue
                     # Done columns are terminal — dwell is not tracked here. The card's
                     # clock stops at entry into a done column; counting time spent there
                     # would inflate the heatmap with post-completion idle time.
-                    if mv.to_column_id in done_col_ids or col_name in done_col_names:
+                    if mv.to_column_id in done_col_ids:
                         continue
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
@@ -640,26 +862,17 @@ class BoardAnalyticsMixin:
                     # Skip movements that ended entirely before the analysis window.
                     if exit_ <= period_cutoff:
                         continue
-                    # avg_days_per_column (deprecated): clamped entry for backward compat.
                     effective_entry_clamped = max(mv.moved_at, period_cutoff)
                     col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
                     all_col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
-                    # throughput_avg_days_per_column: only cards that actually exited this
-                    # column during the period (next movement exists, or card was archived).
-                    # Currently-dwelling cards (exit_ == now, no next movement) are excluded —
-                    # they haven't left yet, so counting them would make throughput identical
-                    # to age mode and inflate averages with in-progress dwell time.
-                    card_exited = i + 1 < len(movements) or card.archived_at is not None
-                    if card_exited:
-                        throughput_dwells[col_name].append((exit_ - mv.moved_at).total_seconds() / 86400)
 
                 # ── Long-dwelling cards (no movements in the 2× buffer) ──────────
                 # Cards that have been sitting in their current column since before the
                 # buffer start have no entries in the prefetch but still need to
                 # contribute to col_dwells (deprecated avg_days_per_column).
                 # Their clamped dwell equals exactly `days` (entry clamped to
-                # period_cutoff, exit = now).  throughput_dwells is intentionally
-                # excluded — the card hasn't left the column during the period.
+                # period_cutoff, exit = now).  throughput_dwells is
+                # not affected — the card hasn't left the column during the period.
                 # The `_last_moved_at is not None` guard excludes newly-created cards
                 # that have never been moved (no movement record → dwell is not meaningful).
                 if (
@@ -669,23 +882,9 @@ class BoardAnalyticsMixin:
                     and card.column_id not in done_col_ids
                 ):
                     stale_col_name = col_id_to_name.get(card.column_id)
-                    if stale_col_name and stale_col_name not in done_col_names:
+                    if stale_col_name:
                         col_dwells[stale_col_name].append(float(days))
                         all_col_dwells[stale_col_name].append(float(days))
-
-                # ── Age pass (currently-dwelling cards, snapshot of "now") ────────
-                # Only for non-archived cards in non-done columns.
-                # Uses _last_col_entry_at annotation (compiled into the main card SELECT)
-                # so cards that entered their column before the analysis window are still
-                # represented without requiring all-time movement history in the prefetch.
-                if card.archived_at is None and card.column_id not in done_col_ids:
-                    current_col_name = col_id_to_name.get(card.column_id)
-                    if current_col_name and current_col_name not in done_col_names:
-                        last_col_entry_at = card._last_col_entry_at
-                        if last_col_entry_at is not None:
-                            age_days = (now - last_col_entry_at).total_seconds() / 86400
-                            age_dwells[current_col_name].append(age_days)
-                            all_age_dwells[current_col_name].append(age_days)
 
                 # ── Velocity ──────────────────────────────────────────────────────
                 # Only count cards whose last movement in the window fell at or after
@@ -704,15 +903,11 @@ class BoardAnalyticsMixin:
 
                 # ── Stalled detection ────────────────────────────────────────────
                 # Cards in done columns are excluded — they have completed the workflow.
-                # Uses _last_col_id / _last_col_name annotations (mirrors the original
-                # movements[-1].to_column_id / to_column_name logic) and _last_moved_at
-                # (covers all-time history) so cards stalled before the prefetch window
-                # are still detected correctly.
+                # Uses the _last_col_id annotation (mirrors movements[-1].to_column_id)
+                # and _last_moved_at (covers all-time history) so cards stalled before
+                # the prefetch window are still detected correctly.
                 if card.archived_at is None:
-                    last_col_is_done = (
-                        card._last_col_id in done_col_ids
-                        or card._last_col_name in done_col_names
-                    )
+                    last_col_is_done = card._last_col_id in done_col_ids or card.column_id in done_col_ids
                     last_moved_at = card._last_moved_at
                     if not last_col_is_done and last_moved_at is not None and last_moved_at < stall_cutoff:
                         stalled_cards.append({
@@ -726,9 +921,9 @@ class BoardAnalyticsMixin:
                 return round(sum(vals) / len(vals), 1) if vals else None
 
             avg_days = {col.name: _avg(col_dwells[col.name]) for col in active_columns}
-            throughput_avg = {col.name: _avg(throughput_dwells[col.name]) for col in active_columns}
-            throughput_count = {col.name: len(throughput_dwells[col.name]) for col in active_columns}
-            age_avg = {col.name: _avg(age_dwells[col.name]) for col in active_columns}
+            throughput_avg = {col.name: _avg(throughput_dwells.get(col.uid, [])) for col in active_columns}
+            throughput_count = {col.name: len(throughput_dwells.get(col.uid, [])) for col in active_columns}
+            age_avg = {col.name: _avg(age_dwells.get(col.uid, [])) for col in active_columns}
 
             swimlane_results.append({
                 "id": swimlane.id,
@@ -736,10 +931,10 @@ class BoardAnalyticsMixin:
                 # Deprecated field — kept for backward compatibility; use throughput_avg_days_per_column.
                 "avg_days_per_column": avg_days,
                 "is_outlier": {},  # populated below
-                # Age mode: current dwell snapshot (cards presently in each column).
+                # Age mode: current dwell, not age, whatever the field name says (ADR #1532).
                 "age_avg_days_per_column": age_avg,
                 "age_is_outlier": {},  # populated below
-                # Throughput mode: dwell for cards that exited each column in the period.
+                # Throughput mode: completed dwell, visits that closed in the period.
                 "throughput_avg_days_per_column": throughput_avg,
                 "throughput_card_count_per_column": throughput_count,
                 "throughput_is_outlier": {},  # populated below
@@ -796,6 +991,100 @@ class BoardAnalyticsMixin:
             # Additive (#1149): blocked time per column and top reasons.
             "blocked": _blocked_time_summary(board, columns, period_cutoff, now),
         })
+
+    @extend_schema(
+        summary="Cycle time per completed card, with percentiles",
+        parameters=_FLOW_FILTER_PARAMETERS,
+        responses={200: _CYCLE_TIME_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/cycle-time")
+    def metrics_cycle_time(self, request, pk=None):
+        """Cycle time of the cards whose first completion falls in the range."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        now = timezone.now()
+        flow = _load_flow(board, params, now)
+        payload = flow_metrics.cycle_time(flow, _flow_range(params, now))
+        payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
+        return Response(payload)
+
+    @extend_schema(
+        summary="Cards completed per whole ISO week or UTC day",
+        parameters=[
+            *_FLOW_FILTER_PARAMETERS,
+            OpenApiParameter(
+                name="period", type={"type": "string", "enum": ["day", "week"]},
+                location=OpenApiParameter.QUERY, required=False,
+                description="Bucket size (default `week`). Only whole periods inside the range are reported.",
+            ),
+        ],
+        responses={200: _THROUGHPUT_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/throughput")
+    def metrics_throughput(self, request, pk=None):
+        """Completed cards per whole period, with the median of the period counts."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(ThroughputQuerySerializer, request, board)
+        now = timezone.now()
+        flow = _load_flow(board, params, now)
+        payload = flow_metrics.throughput(flow, _flow_range(params, now), params["period"])
+        payload["cards"] = flow_metrics.card_directory(
+            flow, (uid for sample in payload["samples"] for uid in sample["card_uids"]),
+        )
+        return Response(payload)
+
+    @extend_schema(
+        summary="Cards per column at the end of each UTC day, or the cards behind one day",
+        parameters=[
+            *_FLOW_FILTER_PARAMETERS,
+            OpenApiParameter(
+                name="date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=False,
+                description=(
+                    "Return the cards behind this day's counts instead of the diagram. "
+                    "Must be a whole UTC day before today."
+                ),
+            ),
+        ],
+        responses={200: PolymorphicProxySerializer(
+            component_name="FlowCumulativeFlowResponse",
+            serializers=[_CUMULATIVE_FLOW_RESPONSE, _CUMULATIVE_FLOW_DAY_RESPONSE],
+            resource_type_field_name=None,
+        ), 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/cumulative-flow")
+    def metrics_cumulative_flow(self, request, pk=None):
+        """The cumulative flow diagram and its bottleneck, or one day's cards with ``date``."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(CumulativeFlowQuerySerializer, request, board)
+        now = timezone.now()
+        day = params.get("date")
+        if day is not None and day >= now.date():
+            # Today is still running, so it is never a bucket (ADR "Whole days").
+            raise CodedValidationError(INVALID_QUERY_PARAM, "date must be a whole UTC day before today.")
+        flow = _load_flow(board, params, now)
+        if day is None:
+            return Response(flow_metrics.cumulative_flow(flow, _flow_range(params, now)))
+        payload = flow_metrics.cumulative_flow_cards(flow, day)
+        payload["cards"] = flow_metrics.card_directory(
+            flow, (uid for column in payload["columns"] for uid in column["card_uids"]),
+        )
+        return Response(payload)
+
+    @extend_schema(
+        summary="Age of the cards in progress, with the cycle-time percentiles for the aging zones",
+        parameters=_FLOW_FILTER_PARAMETERS,
+        responses={200: _WIP_AGE_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/wip-age")
+    def metrics_wip_age(self, request, pk=None):
+        """WIP age. A snapshot: the range moves only ``cycle_time_percentiles``."""
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        now = timezone.now()
+        flow = _load_flow(board, params, now)
+        payload = flow_metrics.age(flow, _flow_range(params, now))
+        payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
+        return Response(payload)
 
     @extend_schema(
         summary="List board-level movement history with filtering and offset pagination",

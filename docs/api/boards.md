@@ -304,11 +304,11 @@ Board health summary: per-swimlane card counts, stage distribution, and velocity
 | `id`, `name`, `color` | — | Swimlane identifier, name, and color |
 | `total_cards` | integer | Total active (non-archived) cards in this swimlane |
 | `active_cards` | integer | Cards in this swimlane that are not in a done column |
-| `done_30d` | integer | Moves into any column with `is_done: true` in the last 30 days, for cards that are not archived; the same value as `velocity_30d`. Counts moves, not cards: a card that enters a done column twice counts twice |
-| `avg_cycle_days` | float\|null | Average number of days from a card's first movement of any kind to its earliest entry into a done column within the last 30 days, over cards that are not archived, rounded to one decimal; `null` if there are none. This starts at the creation movement, so it is closer to lead time than to cycle time as the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) define them |
+| `done_30d` | integer | Cards whose first entry into a done column fell in the last 30 days, archived since or not; the same value as `velocity_30d`. *Changed in 1.3* (#448): before, this counted moves, so a card entering a done column twice counted twice, and a card archived since left the count |
+| `avg_cycle_days` | float\|null | Mean [cycle time](../architecture/decisions.md#flow-metric-definitions) in days of the cards whose first entry into a done column fell in the last 30 days, archived since or not, rounded to one decimal; `null` if there are none. *Changed in 1.3* (#448): before, it started at a card's first movement of any kind, so it measured lead time, and it left out archived cards |
 | `stage_distribution` | object | Card count per column for this swimlane (all columns, including zero counts) |
-| `velocity_7d` | integer | Moves into any column with `is_done: true` in the last 7 days, for cards that are not archived (counts moves, not cards) |
-| `velocity_30d` | integer | Moves into any column with `is_done: true` in the last 30 days, for cards that are not archived (counts moves, not cards) |
+| `velocity_7d` | integer | Cards whose first entry into a done column fell in the last 7 days, archived since or not (counts cards, not moves; *changed in 1.3*, #448) |
+| `velocity_30d` | integer | The same over the last 30 days |
 | `blocked_cards` | integer | *Added in 1.3* (#1149). Active cards in this swimlane (not archived and not in a done column, the cards `active_cards` counts) that are blocked now, manually or by an active `blocks` relation (the card's [`is_blocked`](cards.md#block-and-unblock-since-13)). One more aggregate query |
 | `extension_panels` | array | `[]` in OSS. Panels registered through the `ANALYTICS_EXTENSIONS` hook, limited to those whose `min_role` the caller meets (see [Panel visibility by role](#panel-visibility-by-role)); the web UI renders them in the Summary tab below the swimlane table. See [Extension panel payload](#extension-panel-payload) |
 
@@ -451,10 +451,10 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
 | `stale_warning_pct` | integer | The board's warning percentage (0–100). Controls the yellow/green boundary in the heatmap. |
 | `swimlanes[].avg_days_per_column` | object | **Deprecated.** Period-filtered average dwell time per active column (clamped entry). Kept for backward compatibility — prefer `throughput_avg_days_per_column` instead. |
 | `swimlanes[].is_outlier` | object | Whether `avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. Done columns are omitted. |
-| `swimlanes[].age_avg_days_per_column` | object | Snapshot of current dwell time for cards **presently sitting** in each active column (i.e. how long each currently-dwelling card has been in its column, averaged per column). Cards in done columns are excluded. `null` when the column has no currently-dwelling cards. |
+| `swimlanes[].age_avg_days_per_column` | object | Current dwell, not age, whatever the field name says: how long the cards **presently sitting** in each active column have been in their open [visit](../architecture/decisions.md#flow-metric-definitions), averaged per column. Cards in done columns are excluded. `null` when the column has no currently-dwelling cards. *Changed in 1.3* (#448): a swimlane-only move no longer resets a card's time, and a card whose column changed without a movement is left out. A restore still starts a new visit. |
 | `swimlanes[].age_is_outlier` | object | Whether `age_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
-| `swimlanes[].throughput_avg_days_per_column` | object | Average dwell time for cards that **exited** each active column during the period window. Cards still dwelling (not yet moved out) are excluded. `null` when no cards exited during the window. |
-| `swimlanes[].throughput_card_count_per_column` | object | Number of cards that exited each active column during the period window. `0` means no cards exited. |
+| `swimlanes[].throughput_avg_days_per_column` | object | Average completed dwell: visits to each active column that **closed** during the period window, at their full length. Cards still dwelling are excluded. `null` when no visit closed during the window. *Changed in 1.3* (#448): a swimlane-only move no longer splits a visit, an archive closes one and a restore opens a new one (so the archived period is not dwell), and a visit keeps its true start however long ago it began. |
+| `swimlanes[].throughput_card_count_per_column` | object | Number of visits behind that average. `0` means no visit closed. |
 | `swimlanes[].throughput_is_outlier` | object | Whether `throughput_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
 | `swimlanes[].deal_velocity_days` | number or null | Average days from a card's first movement ever to its most recent movement, over this swimlane's cards whose most recent movement falls in the period. Cards count whether or not they reached a done column. `null` when there is no velocity data. |
 | `blocked` | object | *Added in 1.3* (#1149). Manual blocked time inside the `days` window, by the column each block started in. A block counts for the part of it inside the window; an open block runs to now, or to the card's archive time while the card is archived (after a restore it runs to now again, archived period included). Every end is clipped to now, so an imported block with future timestamps adds nothing beyond now. An open block whose card was hard-deleted is left out; a closed block of a hard-deleted card still counts, as its movements do. Relation blocks are not timed. |
@@ -464,11 +464,143 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
 | `blocked.top_reasons` | array | Up to 10 `{reason, count, total_days, total_seconds}`, most frequent first (ties: more blocked time first). Reasons that differ only in case or spacing are one entry, shown with the newest spelling. Includes blocks in a column that no longer exists. |
 | `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "uid", "title", "days_since_move" }`. |
 
+*Changed in 1.3* (#448): columns are matched by identity, never by name. A column deleted and recreated under the same name no longer inherits the old column's visits or done flag.
+
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
 
 CSV export (`Export CSV` button) is available to any board member whose role meets the board's `export_min_role` threshold. Owners and site admins always bypass.
 
 ---
+
+### Flow metrics
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/` and `.../wip-age/` return the charts on the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`.
+
+**Query parameters, on all four:**
+
+| Parameter | Type | Default | Constraint |
+|---|---|---|---|
+| `days` | integer | `90` | Rolling range, `1`-`365`. Cannot be combined with `from_date` or `to_date`. |
+| `from_date` | date | 90 days ending at `to_date` | First UTC day of the range, inclusive. |
+| `to_date` | date | Today (UTC) | Last UTC day, inclusive. A range holds at most 366 days. |
+| `swimlane_id` | integer | none | Cards now in this swimlane of this board. |
+| `label_id` | integer | none | Cards now carrying this label of this board. |
+
+A bad value, or a swimlane or label that is not on this board, returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. A board you cannot access returns `404`.
+
+**How a range applies.** A duration sample belongs to the range its completion falls in. Bucketed outputs (throughput, cumulative flow) report only whole UTC days and whole ISO weeks, and today, which is still running, is never a bucket. WIP age is a snapshot: the range moves only its `cycle_time_percentiles`.
+
+**Percentiles** are nearest-rank, in days at full precision (round for display). A percentile is `null` when its sample is too small: `p50` needs 5 values, `p85` needs 7 and `p95` needs 20. Clients draw nothing for a `null`, and never recompute it.
+
+**`cards`.** The responses name cards by `uid`. `cards` lists each one they name, as `{uid, id, title, archived, assignee}`, so a client can show a card's title and owner, including an archived card's, without another request. For its transitions, use [`GET /api/v1/boards/{board_id}/cards/{id}/movements/`](cards.md) with that `id`.
+
+#### `GET /api/v1/boards/{id}/metrics/cycle-time/`
+
+```json
+{
+  "definition": "the time from a card's first move out of ...",
+  "sample_size": 34,
+  "excluded_incomplete_history": 2,
+  "percentiles": { "p50": 4.21, "p85": 8.14, "p95": 12.6 },
+  "samples": [
+    {
+      "card_uid": "3a9f1c2d7e4b8a05",
+      "value_days": 8.14,
+      "start": "2026-06-01T09:00:00Z",
+      "end": "2026-06-09T12:21:36Z",
+      "reopened": false
+    }
+  ],
+  "cards": [
+    { "uid": "3a9f1c2d7e4b8a05", "id": 42, "title": "Fix login", "archived": false, "assignee": null }
+  ]
+}
+```
+
+`excluded_incomplete_history` counts the cards left out only because their history is missing, broken or misdated. `reopened` is `true` when the card was reopened after this completion; its number does not change.
+
+#### `GET /api/v1/boards/{id}/metrics/throughput/`
+
+Adds an optional `period`, `week` (the default) or `day`.
+
+```json
+{
+  "definition": "the number of cards whose first entry into a done column falls in a period.",
+  "period": "week",
+  "total": 9,
+  "median": 2,
+  "samples": [
+    { "start": "2026-06-01", "count": 3, "card_uids": ["3a9f1c2d7e4b8a05"] }
+  ],
+  "cards": []
+}
+```
+
+`median` is the nearest-rank p50 of the period counts, zero periods included, and `null` under five whole periods. `start` is the period's first UTC day.
+
+#### `GET /api/v1/boards/{id}/metrics/cumulative-flow/`
+
+```json
+{
+  "definition": "for each day, the number of cards in each column at the end of that day.",
+  "columns": [
+    { "column_uid": "col0000001", "column_name": "Doing", "is_done": false },
+    { "column_uid": "col0000002", "column_name": "Done", "is_done": true },
+    { "column_uid": null, "column_name": null, "is_done": false }
+  ],
+  "days": [
+    { "date": "2026-06-01", "counts": { "col0000001": 4, "col0000002": 7, "null": 0 } }
+  ],
+  "bottleneck_column_uid": "col0000001"
+}
+```
+
+The last column, `column_uid: null`, is one band for every deleted column; in `counts` it is the key `"null"`. `bottleneck_column_uid` is the current column that is not done whose count grew the most from the first day to the last (the earlier column wins a tie), or `null` when none grew.
+
+Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's counts instead:
+
+```json
+{
+  "definition": "for each day, the number of cards in each column at the end of that day.",
+  "date": "2026-06-01",
+  "columns": [
+    { "column_uid": "col0000001", "card_uids": ["3a9f1c2d7e4b8a05"] },
+    { "column_uid": null, "card_uids": [] }
+  ],
+  "cards": []
+}
+```
+
+#### `GET /api/v1/boards/{id}/metrics/wip-age/`
+
+```json
+{
+  "definition": "how long an in-progress card has been in progress: ...",
+  "sample_size": 12,
+  "excluded_incomplete_history": 1,
+  "cycle_time_percentiles": { "p50": 4.21, "p85": 8.14, "p95": null },
+  "columns": [{ "column_uid": "col0000001", "column_name": "Doing" }],
+  "samples": [
+    {
+      "card_uid": "3a9f1c2d7e4b8a05",
+      "column_uid": "col0000001",
+      "value_days": 15.4,
+      "start": "2026-06-01T09:00:00Z",
+      "dwell_by_column": [
+        { "column_uid": "col0000001", "value_days": 12.2 },
+        { "column_uid": null, "value_days": 3.2 }
+      ],
+      "is_blocked": true,
+      "blocked_days": 1.5
+    }
+  ],
+  "cards": []
+}
+```
+
+`columns` lists the columns that are not done, in position order. `samples` run in that order, oldest first within a column. `dwell_by_column` sums the card's measured visits per column, in order of first entry, with deleted columns as `column_uid: null`. `is_blocked` is the card's state now, manual or by a relation. `blocked_days` is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in `excluded_incomplete_history`.
 
 ### `GET /api/v1/boards/{id}/movements/`
 Board-level movement history for all cards, sorted newest first.

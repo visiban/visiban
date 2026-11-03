@@ -1,0 +1,1 @@
+`summary`: `velocity_7d`, `velocity_30d` and `done_30d` now count cards by first completion, archived since or not, instead of counting movement rows into done columns. A card that bounces between done columns counts once, and one archived later stays counted. Boards with those patterns see different numbers.

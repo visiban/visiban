@@ -433,8 +433,12 @@ class AnalyticsDwellTimeTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _movement(self, card, col, swim, moved_at):
+        # A card's first row is its creation movement (no source column); every
+        # later row leaves the column the card is in, as move_card writes it.
+        first = not CardMovement.objects.filter(card=card).exists()
         mv = CardMovement.objects.create(
-            card=card, to_column=col, to_swimlane=swim, moved_by=self.user
+            card=card, from_column=None if first else card.column,
+            to_column=col, to_swimlane=swim, moved_by=self.user,
         )
         # Queryset update: CardMovement.save() refuses an existing row (#1469).
         CardMovement.objects.filter(pk=mv.pk).update(moved_at=moved_at)
@@ -537,10 +541,11 @@ class AnalyticsDwellTimeTests(TestCase):
             "is_outlier must use board threshold (20d), not stalled_days param (5d)",
         )
 
-    def test_dwell_falls_back_to_column_name_when_fk_broken(self):
-        """If a column is deleted and recreated (new PK, same name), movements
-        that reference the old FK still contribute dwell time via the
-        denormalized to_column_name field."""
+    def test_dwell_does_not_match_a_recreated_column_by_name(self):
+        """If a column is deleted and recreated (new PK, same name), the new
+        column does not inherit the old column's visits: columns are matched by
+        identity, never by name (ADR #1532, #448). Before #448 this fell back to
+        the denormalized to_column_name."""
         card = _make_card(self.board, self.col, self.swim, self.user)
         now = timezone.now()
         mv = self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
@@ -554,8 +559,7 @@ class AnalyticsDwellTimeTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
-        # Dwell should be non-null because to_column_name resolves the column
-        self.assertIsNotNone(sw["avg_days_per_column"].get(self.col.name))
+        self.assertIsNone(sw["avg_days_per_column"].get(self.col.name))
 
     # ── Age mode tests ────────────────────────────────────────────────────────
 
