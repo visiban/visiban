@@ -38,6 +38,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from accounts.models import User
+from visiban.colors import normalize_hex_color
 from groups.models import GroupMembership
 
 from ..models import (
@@ -106,7 +107,6 @@ TRELLO_COLOR_HEX = {
     "black": "#8590A2", "black_light": "#DCDFE4", "black_dark": "#626F86",
 }
 
-_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 _OBJECT_ID_RE = re.compile(r"^[0-9a-fA-F]{24}$")
 
 MAPPING_KEYS = frozenset({
@@ -1093,14 +1093,14 @@ def execute_plan(plan: ImportPlan, user, *, group=None, board_name: str | None =
 
         sw_objs = Swimlane.objects.bulk_create([
             Swimlane(board=board, name=s["name"], position=s["position"],
-                     color=s["color"] if _HEX_RE.match(s["color"]) else DEFAULT_COLUMN_COLOR)
+                     color=normalize_hex_color(s["color"]) or DEFAULT_COLUMN_COLOR)
             for s in plan.swimlanes
         ])
         swimlane_by_key = {s["key"]: obj for s, obj in zip(plan.swimlanes, sw_objs)}
 
         lbl_objs = Label.objects.bulk_create([
             Label(board=board, name=lb["name"],
-                  color=lb["color"] if _HEX_RE.match(lb["color"]) else DEFAULT_LABEL_COLOR)
+                  color=normalize_hex_color(lb["color"]) or DEFAULT_LABEL_COLOR)
             for lb in plan.labels
         ])
         label_by_key = {lb["key"]: obj for lb, obj in zip(plan.labels, lbl_objs)}

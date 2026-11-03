@@ -48,6 +48,7 @@ class ImportSkippedCountsSerializer(serializers.Serializer):
     label_refs = serializers.IntegerField()
     movements = serializers.IntegerField()
     activities = serializers.IntegerField()
+    colors = serializers.IntegerField(help_text="Colors replaced with the default because they were not hex (#2093).")
 
 
 class ImportSummarySerializer(serializers.Serializer):

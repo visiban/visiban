@@ -25,7 +25,7 @@ _URL = "/api/v1/boards/import/"
 _ALL_ON = {"labels": True, "cards": True, "comments": True, "checklist": True, "history": True}
 _NO_SKIPS = {
     "cards": 0, "comments": 0, "checklist_items": 0, "label_refs": 0,
-    "movements": 0, "activities": 0,
+    "movements": 0, "activities": 0, "colors": 0,
 }
 
 
@@ -209,7 +209,7 @@ class ImportOptionsFlagTests(_ImportOptionsBase):
         })
         self.assertEqual(summary["skipped"], {
             "cards": 2, "comments": 4, "checklist_items": 6, "label_refs": 3,
-            "movements": 2, "activities": 2,
+            "movements": 2, "activities": 2, "colors": 0,
         })
         self.assertEqual(resp.data["card_count"], 0)
 
