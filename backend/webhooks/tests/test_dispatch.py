@@ -19,6 +19,7 @@ from rest_framework.test import APIClient
 from boards.notifications_email import EMAIL_THREAD_NAME, wait_for_pending_email
 from boards.models import BoardEvent, BoardMembership, Notification, Swimlane, SwimlaneCustomFieldDefinition
 from groups.models import Group, GroupMembership
+from visiban import crypto
 from visiban.egress import EgressError
 from webhooks import dispatch, signing
 from webhooks.models import WebhookSubscription
@@ -493,11 +494,16 @@ class FailureTests(DispatcherBase):
 
     def test_logs_and_error_fields_never_carry_url_or_secret(self):
         self.event()
+        previous = crypto.encrypt_secret("whsec_previous", info=crypto.WEBHOOK_SECRET_INFO)
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(
+            previous_secret_encrypted=previous,
+            previous_secret_expires_at=timezone.now() + timedelta(hours=1),
+        )
         with self.assertLogs("webhooks", level=logging.DEBUG) as logs, override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1):
             logging.getLogger("webhooks.dispatch").info("marker")
             self.run_with(EgressError("connection_failed"))
         text = "\n".join(logs.output)
-        for leak in ("hooks.example.com", "s3cr3tpath", "token=abc", GOLDEN_SECRET):
+        for leak in ("hooks.example.com", "s3cr3tpath", "token=abc", GOLDEN_SECRET, "whsec_previous", previous):
             self.assertNotIn(leak, text)
         self.assertIn(f"subscription_id={self.sub.pk}", text)
         self.assertEqual(self.sub.last_error_code, "connection_failed")

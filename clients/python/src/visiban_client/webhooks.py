@@ -4,7 +4,9 @@ Scheme, from docs/api/webhooks.md "Verifying signatures"::
 
     X-Visiban-Signature = "v1=" + hex(HMAC-SHA256(secret, f"{timestamp}.{raw body}"))
 
-``timestamp`` is the ``X-Visiban-Timestamp`` header (unix seconds).
+``timestamp`` is the ``X-Visiban-Timestamp`` header (unix seconds). During a
+secret rotation the header lists two comma-separated values, ``v1=<new>,v1=<old>``;
+a request is accepted when any listed value matches.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ import time
 from typing import Mapping
 
 TOLERANCE_SECONDS = 300
+MAX_SIGNATURE_VALUES = 8
 SIGNATURE_HEADER = "X-Visiban-Signature"
 TIMESTAMP_HEADER = "X-Visiban-Timestamp"
 
@@ -43,7 +46,8 @@ def verify_signature(
 
     ``raw_body`` must be the exact bytes received, before any JSON parsing:
     re-serialized JSON will not match. Returns False (never raises) for a
-    missing or malformed header, a stale or future timestamp, or a mismatch.
+    missing or malformed header, a stale or future timestamp, a mismatch, or
+    more than ``MAX_SIGNATURE_VALUES`` values in the signature header.
     """
     if not secret:
         # An empty key would let anyone forge a valid signature.
@@ -63,5 +67,13 @@ def verify_signature(
         return False
     key = secret.encode() if isinstance(secret, str) else secret
     message = timestamp.encode() + b"." + bytes(raw_body)
-    expected = "v1=" + hmac.new(key, message, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected.encode(), signature.encode())
+    expected = ("v1=" + hmac.new(key, message, hashlib.sha256).hexdigest()).encode()
+    values = signature.split(",")
+    if len(values) > MAX_SIGNATURE_VALUES:
+        return False
+    # Every value is compared, with no early exit, so the time taken does not say
+    # which one matched. An unknown scheme is just a value that does not match.
+    matched = False
+    for value in values:
+        matched |= hmac.compare_digest(expected, value.strip().encode())
+    return matched

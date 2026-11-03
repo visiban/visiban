@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { verifySignature } from "../src/webhooks.js";
+import { MAX_SIGNATURE_VALUES, verifySignature } from "../src/webhooks.js";
 import { fixtures } from "./helpers.js";
 
 const sig = fixtures.signature;
@@ -26,6 +26,17 @@ describe("verifySignature", () => {
   it("reads array-valued Node headers", () => {
     const headers = { "x-visiban-timestamp": [sig.timestamp], "x-visiban-signature": [sig.signature] };
     expect(verifySignature(sig.secret, headers, enc(sig.body), { now: 1700000000 })).toBe(true);
+  });
+
+  it("reads several signature header lines as one list", () => {
+    const headers = { "x-visiban-timestamp": sig.timestamp, "x-visiban-signature": ["v1=" + "0".repeat(64), sig.signature] };
+    expect(verifySignature(sig.secret, headers, enc(sig.body), { now: 1700000000 })).toBe(true);
+  });
+
+  it("refuses a signature header over the value cap", () => {
+    const signature = [...Array(MAX_SIGNATURE_VALUES).fill("v2=x"), sig.signature].join(",");
+    const headers = { "X-Visiban-Timestamp": sig.timestamp, "X-Visiban-Signature": signature };
+    expect(verifySignature(sig.secret, headers, enc(sig.body), { now: 1700000000 })).toBe(false);
   });
 
   it("honors a custom tolerance and the default clock", () => {

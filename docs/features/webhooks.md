@@ -68,6 +68,18 @@ An event's `data` can also gain fields in a later version, so receivers should i
 
 After you save, Visiban shows the address only as `host/…/last4`, because webhook addresses often carry a token. To change it, enter the full new address.
 
+### Rotate a signing secret
+
+Open the webhook with **Manage**, choose **Rotate secret…**, then one of:
+
+- **Keep old secret for 24 hours.** Visiban signs each delivery with both secrets for 24 hours, so your receiver keeps working while you give it the new one. The webhook shows **Old secret still signed until…** while this lasts. Your receiver's check must accept any signature the header lists ([how to verify](../api/webhooks.md#verifying-signatures)); one that compares the whole header rejects every delivery during those 24 hours. The API allows up to seven days.
+- **Revoke old secret now.** Only the new secret signs from now on, and your receiver rejects deliveries until you update it.
+
+Either way the new secret is shown once. Rotating again during the 24 hours keeps only the secret you just replaced. Changing the webhook's address ends the overlap too.
+
+!!! warning "If the secret leaked, revoke it and replace it on your receiver"
+    Visiban can't revoke a secret for you. Anyone holding it can forge requests that your receiver accepts until your receiver stops accepting it. **Revoke old secret now** only stops Visiban's own signatures with it, so replace the secret on your receiver as well.
+
 Creating a webhook, changing its address, turning it back on and rotating its secret need a signed-in browser session; a personal access token cannot do them. Listing, changing the event types, turning off and deleting work with a token too.
 
 ### Who owns a webhook

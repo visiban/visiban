@@ -11,8 +11,10 @@ import time
 from unittest import skipUnless
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.db import connection, connections
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
+from rest_framework.test import APIClient
 
 from boards.models import BoardEvent
 from webhooks import dispatch
@@ -75,3 +77,49 @@ class OverlappingDispatchersTests(TransactionTestCase):
         self.assertFalse(dispatch._advance(sub.pk, "00000000-0000-0000-0000-000000000002", 0, 5))
         self.assertTrue(dispatch._advance(sub.pk, "00000000-0000-0000-0000-000000000001", 0, 5))
         self.assertFalse(dispatch._advance(sub.pk, "00000000-0000-0000-0000-000000000001", 0, 6))
+
+
+@ENABLED
+class ConcurrentRotationTests(TransactionTestCase):
+    """Rotate is read-modify-write: the current secret becomes the previous one (#2054)."""
+
+    @skipUnless(connection.vendor == "postgresql", "select_for_update is a no-op on SQLite")
+    @override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+    def test_concurrent_rotations_leave_a_consistent_row(self):
+        cache.clear()
+        admin, board = admin_and_board()
+        sub = make_subscription(board, admin, secret="whsec_start")
+        start = threading.Barrier(2)
+        lock = threading.Lock()
+        answers = []
+        errors = []
+
+        def worker():
+            try:
+                client = APIClient()
+                client.force_login(admin)
+                start.wait(5)
+                r = client.post(
+                    f"/api/v1/boards/{board.pk}/webhooks/{sub.pk}/rotate/", {"overlap_seconds": 3600}, format="json"
+                )
+                with lock:
+                    answers.append((r.status_code, r.data.get("secret")))
+            except Exception as exc:  # surfaced below
+                errors.append(exc)
+            finally:
+                connections.close_all()
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(30)
+
+        self.assertEqual(errors, [])
+        self.assertEqual([a[0] for a in answers], [200, 200])
+        secrets = {a[1] for a in answers}
+        self.assertEqual(len(secrets), 2)
+        sub.refresh_from_db()
+        # Serialized: one rotation ran after the other, so the survivor's previous
+        # secret is the other caller's new one, never the secret both started from.
+        self.assertEqual({sub.get_secret(), sub.get_previous_secret()}, secrets)

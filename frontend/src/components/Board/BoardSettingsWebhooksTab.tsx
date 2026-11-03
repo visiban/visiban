@@ -323,8 +323,8 @@ export default function BoardSettingsWebhooksTab({
             setLive(`${webhookPosition(subs, sub.id)} is on.`);
             setPendingFocus("detail-heading");
           }}
-          onRotate={async () => {
-            const { secret, ...updated } = await guarded(() => rotateWebhookSecret(boardId, sub.id));
+          onRotate={async (overlapSeconds) => {
+            const { secret, ...updated } = await guarded(() => rotateWebhookSecret(boardId, sub.id, overlapSeconds));
             replaceSub(updated);
             setConfirm(null);
             setReveal({ subId: sub.id, host: sub.url_host, secret, origin: "rotate", acknowledged: false, guardOpen: false });

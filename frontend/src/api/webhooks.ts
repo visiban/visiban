@@ -64,9 +64,14 @@ export const reenableWebhook = (
     })
     .then((r) => r.data);
 
-/** The new secret, shown once. The old one stops working at once. */
-export const rotateWebhookSecret = (boardId: number, id: number) =>
-  client.post<WebhookRotateResponse>(`${base(boardId)}${id}/rotate/`).then((r) => r.data);
+/**
+ * The new secret, shown once. With `overlapSeconds` above 0 the old one keeps
+ * signing beside it for that long; at 0 it stops at once.
+ */
+export const rotateWebhookSecret = (boardId: number, id: number, overlapSeconds = 0) =>
+  client
+    .post<WebhookRotateResponse>(`${base(boardId)}${id}/rotate/`, { overlap_seconds: overlapSeconds })
+    .then((r) => r.data);
 
 export const testWebhook = (boardId: number, id: number) =>
   client.post<WebhookTestResult>(`${base(boardId)}${id}/test/`).then((r) => r.data);

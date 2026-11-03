@@ -52,8 +52,11 @@ describe('api/webhooks (#863)', () => {
     expect(c.post).toHaveBeenLastCalledWith('/api/v1/boards/3/webhooks/9/reenable/', { resume_from: 'latest' })
     await reenableWebhook(3, 9, 'cursor', 'pw')
     expect(c.post).toHaveBeenLastCalledWith('/api/v1/boards/3/webhooks/9/reenable/', { resume_from: 'cursor', current_password: 'pw' })
+    // Bare means revoke: the safe answer for a caller that names no overlap.
     await rotateWebhookSecret(3, 9)
-    expect(c.post).toHaveBeenLastCalledWith('/api/v1/boards/3/webhooks/9/rotate/')
+    expect(c.post).toHaveBeenLastCalledWith('/api/v1/boards/3/webhooks/9/rotate/', { overlap_seconds: 0 })
+    await rotateWebhookSecret(3, 9, 86400)
+    expect(c.post).toHaveBeenLastCalledWith('/api/v1/boards/3/webhooks/9/rotate/', { overlap_seconds: 86400 })
     expect(await testWebhook(3, 9)).toEqual({ ok: true })
     expect(c.post).toHaveBeenLastCalledWith('/api/v1/boards/3/webhooks/9/test/')
   })

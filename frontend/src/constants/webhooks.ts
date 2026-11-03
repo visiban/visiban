@@ -166,7 +166,7 @@ export function testResultCopy(result: WebhookTestResult | "rate_limited", timeo
         remedy: redirect
           ? "Visiban doesn't follow redirects. Use the address the receiver redirects to."
           : result.status_code === 401 || result.status_code === 403
-            ? "Check that the receiver verifies X-Visiban-Signature with the current secret."
+            ? "Check that the receiver verifies X-Visiban-Signature with the current secret and accepts any value the header lists."
             : "Check the receiver's logs; it must answer with a 2xx status.",
       };
     }
@@ -246,9 +246,13 @@ export const SAMPLE_PAYLOAD = `{
 }`;
 
 export const VERIFY_STEPS = `signed   = timestamp + "." + raw request body
-expected = hex(HMAC_SHA256(secret, signed))
-accept if X-Visiban-Signature == "v1=" + expected
+expected = "v1=" + hex(HMAC_SHA256(secret, signed))
+values   = X-Visiban-Signature split on ",", each trimmed
+accept if any value == expected (constant time)
      and |now - X-Visiban-Timestamp| <= 300 seconds`;
+
+/** How long "keep old" signs with the replaced secret: 24 hours (the API allows up to seven days). */
+export const ROTATE_OVERLAP_SECONDS = 86400;
 
 export const WEBHOOKS_DOCS_URL = "https://docs.visiban.com/features/webhooks/";
 export const WEBHOOKS_VERIFY_URL = "https://docs.visiban.com/api/webhooks/#verifying-signatures";

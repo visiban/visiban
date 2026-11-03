@@ -74,6 +74,12 @@ from visiban_client import verify_signature
 ok = verify_signature(secret, request.headers, raw_body_bytes)  # False on any failure
 ```
 
+During a secret rotation the signature header can list two values
+(`v1=<new>,v1=<old>`); the check accepts a request when any value matches, so a
+receiver holds one secret and needs no second setting. Earlier copies of this
+package compared the whole header and reject those requests: upgrade before
+rotating with an overlap.
+
 Pass the unparsed request body. Experimental until the webhooks API is stable
 ([#2070](https://gitlab.com/visiban/visiban/-/issues/2070)).
 

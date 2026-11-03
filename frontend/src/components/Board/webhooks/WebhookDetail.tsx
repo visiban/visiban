@@ -4,6 +4,7 @@ import type { WebhookStatus, WebhookSubscription, WebhookTestResult } from "../.
 import { useConfirmFocusReturn } from "../../../hooks/useConfirmFocusReturn";
 import { relativeTime } from "../../../utils/relativeTime";
 import {
+  ROTATE_OVERLAP_SECONDS,
   SAMPLE_PAYLOAD,
   SESSION_REQUIRED_COPY,
   URL_ERROR_COPY,
@@ -37,7 +38,8 @@ interface Props {
   onTest: () => Promise<WebhookTestResult>;
   onDisable: () => Promise<void>;
   onReenable: (resumeFrom: WebhookResumeFrom, password?: string) => Promise<void>;
-  onRotate: () => Promise<void>;
+  /** `overlapSeconds`: how long the replaced secret keeps signing; 0 stops it now. */
+  onRotate: (overlapSeconds: number) => Promise<void>;
   onDelete: () => Promise<void>;
   onChangeAddress: (url: string) => Promise<void>;
 }
@@ -46,6 +48,8 @@ const SECONDARY_BTN =
   "text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40";
 const PRIMARY_BTN =
   "text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium disabled:opacity-40";
+const DANGER_BTN =
+  "text-xs bg-danger-bg text-on-danger px-3 py-1.5 rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis font-medium aria-disabled:opacity-40";
 const CONFIRM_BTN = "min-h-6 px-1 text-danger hover:text-danger font-medium transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis";
 const CANCEL_BTN = "min-h-6 px-1 text-fg-tertiary hover:text-fg transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 
@@ -59,6 +63,16 @@ function dateLabel(iso: string | null): string {
   if (!iso) return "";
   const t = new Date(iso);
   return Number.isNaN(t.getTime()) ? "" : t.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function dateTimeLabel(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+/** The end of an open rotation overlap, or null. The server says null once past; so does this between refetches. */
+function overlapEnd(sub: WebhookSubscription, now: number): number | null {
+  const end = sub.previous_secret_expires_at ? Date.parse(sub.previous_secret_expires_at) : NaN;
+  return end > now ? end : null;
 }
 
 function lastErrorLine(sub: WebhookSubscription, now: number): string | null {
@@ -80,10 +94,12 @@ export default function WebhookDetail(props: Props) {
   const turnOnRef = useRef<HTMLButtonElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const turnOnConfirmRef = useRef<HTMLButtonElement>(null);
+  const keepOldRef = useRef<HTMLButtonElement>(null);
   const changeAddressRef = useRef<HTMLButtonElement>(null);
   const [focusChangeAddress, setFocusChangeAddress] = useState(false);
   const triggerRef = useConfirmFocusReturn<WebhookConfirm>(confirm);
   const [inFlight, setInFlight] = useState<WebhookConfirm | "test" | "address" | null>(null);
+  const [rotateChoice, setRotateChoice] = useState<"keep" | "revoke" | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -104,6 +120,7 @@ export default function WebhookDetail(props: Props) {
     // The confirm replaced its trigger: move focus into it (the password
     // field when there is one, else the confirm's own button).
     if (confirm === "reenable") (passwordRef.current ?? turnOnConfirmRef.current)?.focus();
+    if (confirm === "rotate") keepOldRef.current?.focus();
     setConfirmError(null);
     setPasswordError(null);
     if (confirm !== "reenable") {
@@ -196,6 +213,16 @@ export default function WebhookDetail(props: Props) {
     );
   };
 
+  const rotate = (choice: "keep" | "revoke") => {
+    if (inFlight === "rotate") return; // aria-disabled needs its own guard
+    setRotateChoice(choice);
+    void handle(
+      "rotate",
+      () => props.onRotate(choice === "keep" ? ROTATE_OVERLAP_SECONDS : 0),
+      () => setConfirmError("Couldn't rotate the secret. Try again."),
+    );
+  };
+
   const saveAddress = (e: React.FormEvent) => {
     e.preventDefault();
     const shape = urlShapeError(address);
@@ -234,6 +261,8 @@ export default function WebhookDetail(props: Props) {
   );
 
   const errLine = lastErrorLine(sub, now);
+  const oldSecretUntil = overlapEnd(sub, now);
+  const rotating = inFlight === "rotate";
 
   return (
     <section aria-labelledby={`${uid}-heading`} className="flex flex-col gap-3.5">
@@ -345,7 +374,7 @@ export default function WebhookDetail(props: Props) {
                 className={urlInputClass(Boolean(addressError))}
               />
               <p id={`${uid}-addr-help`} role="status" aria-live="polite" aria-atomic="true" className={`text-xs min-h-4 ${addressError ? "text-danger" : "text-fg-tertiary"}`}>
-                {addressError ?? `${URL_HELPER_COPY} Changing it makes you this webhook's owner; the secret stays the same.`}
+                {addressError ?? `${URL_HELPER_COPY} Changing it makes you this webhook's owner; the secret stays the same${oldSecretUntil ? ", and the old secret stops being signed" : ""}.`}
               </p>
               <div className="flex gap-2">
                 <button type="submit" disabled={inFlight === "address"} className={PRIMARY_BTN}>Save address</button>
@@ -390,13 +419,43 @@ export default function WebhookDetail(props: Props) {
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-fg-tertiary">Signing secret</span>
         <p className="text-xs text-fg-secondary">Set. It can't be shown again.</p>
+        {oldSecretUntil !== null && (
+          <p className="text-xs text-fg-secondary">Old secret still signed until {dateTimeLabel(oldSecretUntil)}.</p>
+        )}
         <div className="ml-6 border-l-2 border-line pl-4 flex flex-col gap-2">
           <p id={`${uid}-rotate-help`} className="text-xs text-fg-tertiary">
-            Rotating issues a new secret, shown once. The current one stops working right away.
+            Rotating issues a new secret, shown once. You choose whether the current one keeps signing for 24 hours or stops right away.
           </p>
           {confirm === "rotate"
-            ? inlineConfirm("rotate", "Rotate the secret? Update your receiver right after, or its signature checks will fail.", () =>
-                void handle("rotate", props.onRotate, () => setConfirmError("Couldn't rotate the secret. Try again.")))
+            ? (
+              <div role="group" aria-labelledby={`${uid}-rotate`} className="flex flex-col gap-2 py-1">
+                <p id={`${uid}-rotate`} role="status" aria-live="polite" aria-atomic="true" className="text-xs text-fg">
+                  Rotate the secret? Choose what happens to the current one.
+                </p>
+                <p id={`${uid}-rotate-keep`} className="text-xs text-fg-secondary">
+                  <span className="font-medium text-fg">Keep old:</span> Visiban signs each delivery with both secrets for 24 hours, so your receiver keeps working while you update it. Its check must accept any signature the header lists; see Verify the signature below.
+                  {oldSecretUntil !== null && " The older secret from your last rotation stops being signed either way."}
+                </p>
+                <p id={`${uid}-rotate-revoke`} className="text-xs text-fg-secondary">
+                  <span className="font-medium text-fg">Revoke old:</span> only the new secret signs from now on, and your receiver rejects deliveries until you update it.
+                </p>
+                <p id={`${uid}-rotate-leak`} className="text-xs text-fg-secondary">
+                  If the secret leaked, revoke old and replace the secret on your receiver. Visiban can't revoke it for you: anyone holding the old secret can forge requests until your receiver stops accepting it.
+                </p>
+                {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${SECONDARY_BTN} aria-disabled:opacity-40`}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={() => rotate("revoke")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-revoke ${uid}-rotate-leak`} className={DANGER_BTN}>
+                    {rotating && rotateChoice === "revoke" ? "Rotating…" : "Revoke old secret now"}
+                  </button>
+                  <button ref={keepOldRef} type="button" onClick={() => rotate("keep")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-keep`} className={`${PRIMARY_BTN} aria-disabled:opacity-40`}>
+                    {rotating && rotateChoice === "keep" ? "Rotating…" : "Keep old secret for 24 hours"}
+                  </button>
+                </div>
+              </div>
+            )
             : sub.disabled_reason !== "secret_unavailable" && !revealOpen && (
               <div>
                 <button ref={triggerRef("rotate")} type="button" onClick={() => onConfirmChange("rotate")} aria-describedby={`${uid}-rotate-help`} className={SECONDARY_BTN}>
