@@ -1,4 +1,27 @@
-"""DRF form parsers whose upload-limit errors are a JSON 400 (#2072).
+"""DRF parsers that turn bodies PostgreSQL cannot store into a JSON 400.
+
+``StrictJSONParser`` (#2085)
+----------------------------
+``"\\ud800"`` is valid JSON but decodes to a ``str`` UTF-8 cannot encode, so
+psycopg raises ``UnicodeEncodeError`` (a ``str`` column) or ``DataError`` (a
+``jsonb`` value) and the request is an unhandled 500. DRF 3.18's ``CharField``
+already refuses a surrogate, so every plain text field is a field-keyed 400;
+what it does not cover is a ``JSONField`` value (saved-filter ``state_json``,
+custom-field ``choices``), a ``dict`` key, and any view that reads
+``request.data`` directly. Guarding the parsed JSON body once, here, covers all
+of them and any field added later. A lone surrogate in an object body answers
+``{"<field>": ["Surrogate characters are not allowed: U+D800."]}``, the body
+``CharField`` already gives that field (unchanged); a surrogate in a key, or in
+a non-object body, answers ``{"detail": "JSON parse error - ..."}``, as a
+malformed JSON document does. A valid surrogate *pair* (an emoji written ``\\ud83d\\ude00``)
+is decoded by ``json`` into one code point and is never touched.
+
+Cost: a bytes-level regex scan for the six-character ``\\ud[89a-f]`` escape,
+which a normal body never contains; the walk of the parsed value runs only when
+the scan matches.
+
+Upload limits (#2072)
+---------------------
 
 Django enforces three limits while it parses a form body:
 
@@ -39,11 +62,13 @@ action that pins ``parser_classes``; a new pin must use these classes, not
 DRF's.
 """
 
+import io
 import logging
+import re
 
 from django.core.exceptions import RequestDataTooBig, TooManyFieldsSent, TooManyFilesSent
-from rest_framework.exceptions import ParseError
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.exceptions import ParseError, ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 # The Django exceptions raised for a body over an upload limit. Each message
 # names the setting that was exceeded and nothing from the request itself, so
@@ -91,3 +116,70 @@ class LimitedFormParser(FormParser):
             return super().parse(stream, media_type, parser_context)
         except UPLOAD_LIMIT_ERRORS as exc:
             raise _parse_error(exc, "Form parse error", parser_context) from exc
+
+
+# A JSON ``\\uD800``..``\\uDFFF`` escape (either case). Present in any body that
+# carries a surrogate, lone or paired, so it is a cheap necessary condition.
+_SURROGATE_ESCAPE = re.compile(rb"\\[uU][dD][89a-fA-F]")
+_LONE_SURROGATE = re.compile("[\ud800-\udfff]")
+_ASCII_SAFE_ENCODINGS = frozenset({"utf-8", "utf8", "ascii", "us-ascii"})
+
+
+def first_lone_surrogate(value):
+    """Return the code point of the first surrogate in a parsed JSON ``value``, else ``None``.
+
+    Looks at every string and every dict key. ``json`` joins a valid pair into
+    one code point, so a surrogate left in the decoded value is necessarily
+    unpaired. Iterative: the body depth is client-controlled.
+    """
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            found = _LONE_SURROGATE.search(item)
+            if found:
+                return ord(found.group())
+        elif isinstance(item, dict):
+            stack.extend(item.keys())
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return None
+
+
+def _surrogate_message(code_point):
+    # The same text DRF's ProhibitSurrogateCharactersValidator uses for a
+    # CharField, so a plain text field's 400 body is unchanged by this parser.
+    return f"Surrogate characters are not allowed: U+{code_point:X}."
+
+
+class StrictJSONParser(JSONParser):
+    """``JSONParser`` that answers a lone UTF-16 surrogate with a 400 (#2085).
+
+    For a JSON object body the 400 is field-keyed, ``{"<field>": ["Surrogate
+    characters are not allowed: U+D800."]}``, byte-for-byte what DRF's
+    ``CharField`` already returns for that field, so the guard changes no
+    existing response. It is a ``ParseError`` (``{"detail": ...}``) only when
+    the body is not an object, or the surrogate is in an object *key* (echoing
+    that key would put the unencodable string in the response).
+    """
+
+    def parse(self, stream, media_type=None, parser_context=None):
+        raw = stream.read()
+        data = super().parse(io.BytesIO(raw), media_type, parser_context)
+        encoding = ((parser_context or {}).get("encoding") or "utf-8").lower()
+        # The bytes-level scan only means something for an ASCII-compatible
+        # encoding; for any other, fall through to the (correct) walk.
+        if encoding in _ASCII_SAFE_ENCODINGS and not _SURROGATE_ESCAPE.search(raw):
+            return data
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if first_lone_surrogate(key) is not None:
+                    break
+                code_point = first_lone_surrogate(value)
+                if code_point is not None:
+                    raise ValidationError({key: [_surrogate_message(code_point)]})
+        code_point = first_lone_surrogate(data)
+        if code_point is not None:
+            raise ParseError(f"JSON parse error - {_surrogate_message(code_point)}")
+        return data

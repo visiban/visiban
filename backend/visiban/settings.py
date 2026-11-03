@@ -629,10 +629,11 @@ REST_FRAMEWORK = {
     # JSON stays the schema's first request content type), with the form
     # parsers swapped for subclasses that turn Django's upload-limit errors
     # (DATA_UPLOAD_MAX_NUMBER_FILES/_FIELDS, DATA_UPLOAD_MAX_MEMORY_SIZE) into
-    # a JSON ParseError rather than Django's HTML 400 (#2072). A view that pins
+    # a JSON ParseError rather than Django's HTML 400 (#2072), and the JSON parser
+    # swapped for one that refuses a lone UTF-16 surrogate (#2085). A view that pins
     # parser_classes must use visiban.parsers too.
     "DEFAULT_PARSER_CLASSES": [
-        "rest_framework.parsers.JSONParser",
+        "visiban.parsers.StrictJSONParser",
         "visiban.parsers.LimitedFormParser",
         "visiban.parsers.LimitedMultiPartParser",
     ],

@@ -197,7 +197,11 @@ Django raises those as a `SuspiciousOperation`, which DRF does not catch and Dja
 an HTML page, so `visiban/parsers.py` re-raises them as DRF's `ParseError` from the form parsers
 in `DEFAULT_PARSER_CLASSES` ([#2072](https://gitlab.com/visiban/visiban/-/issues/2072)). A
 view that pins `parser_classes` must use those classes, not DRF's, or its oversize bodies go
-back to HTML. Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
+back to HTML. A JSON body holding a lone UTF-16 surrogate (`"\ud800"`, valid JSON that PostgreSQL cannot
+store) is a `400` too ([#2085](https://gitlab.com/visiban/visiban/-/issues/2085)), from
+`StrictJSONParser`: `{"<field>": ["Surrogate characters are not allowed: U+D800."]}` for an
+object body, `{"detail": "JSON parse error - ..."}` for a surrogate in a key or in a non-object
+body. A valid pair such as an emoji (`"\ud83d\ude00"`) is accepted unchanged. Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),
 and a query string over `DATA_UPLOAD_MAX_NUMBER_FIELDS`. Both are tracked in
 [#2073](https://gitlab.com/visiban/visiban/-/issues/2073).

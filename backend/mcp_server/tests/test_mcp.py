@@ -73,6 +73,9 @@ class McpRequest:
         self.app = app
 
     async def _call(self, payload, token=None, path="/mcp", raw_authorization=None):
+        # ``payload`` is serialized with ASCII escapes (``json.dumps`` default), so a
+        # lone surrogate travels as the valid-JSON text ``\\ud800`` the way a real
+        # client sends it; httpx's own ``json=`` would fail encoding it client-side.
         headers = {
             "content-type": "application/json",
             "accept": "application/json, text/event-stream",
@@ -88,7 +91,7 @@ class McpRequest:
             # DNS-rebinding protection to Django's own host allowlist.
             base_url="http://localhost",
         ) as client:
-            response = await client.post(path, json=payload, headers=headers)
+            response = await client.post(path, content=json.dumps(payload).encode(), headers=headers)
         return response.status_code, response.content
 
     def post(self, payload, token=None, path="/mcp", raw_authorization=None):
