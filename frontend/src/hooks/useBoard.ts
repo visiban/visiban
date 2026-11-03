@@ -228,8 +228,12 @@ export function useBoard() {
   // later move locks the cell's card rows before it inserts its feed row, so
   // ids follow commit order for any two moves that touch the same card. Kept
   // per card, not per board, because moves in unrelated cells are not ordered
-  // against each other. Cleared whenever a `/full/` response replaces the
-  // cards, which carries newer positions than any frame before it.
+  // against each other. Kept across `/full/` responses on purpose: a frame
+  // applied while the fetch was in flight can be newer than a frame for the
+  // same card that is delivered after the response lands, and clearing here
+  // would let that late frame move the card back. event_id is the global feed
+  // PK and card ids are unique across boards, so an entry is never wrong for a
+  // later board; the map is bounded by the cards moved in this session.
   const positionEventIds = useRef(new Map<number, number>());
 
   // When the latest `/full/` response was applied (Date.now()), or null before
@@ -251,7 +255,6 @@ export function useBoard() {
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
         lastFullAtRef.current = Date.now();
-        positionEventIds.current.clear();
         setUnavailable(false);
         setBoard(b);
       })
@@ -294,7 +297,6 @@ export function useBoard() {
         loadPendingRef.current = false;
         archivedCountGen.current += 1;
         lastFullAtRef.current = Date.now();
-        positionEventIds.current.clear();
         setUnavailable(false);
         setBoard(b);
       })

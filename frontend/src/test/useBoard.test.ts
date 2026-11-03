@@ -1909,15 +1909,27 @@ describe('useBoard — stale card versions (#1969)', () => {
       expect(result.current.board!.cards.find((c) => c.id === 3)).toMatchObject({ column: 11, position: 1, version: 5 })
     })
 
-    it('a full reload resets the ordering, so later frames are compared afresh', async () => {
-      const { result } = await renderCards([cell(1, 0), cell(2, 1), cell(3, 2, 4)])
-      act(() => { result.current.updateCard(cell(2, 0, 2), [{ id: 3, position: 2, version: 4 }], 11) })
-      mockGetBoardFull.mockResolvedValue(makeBoard({ cards: [cell(1, 0), cell(2, 1), cell(3, 4, 4)] }))
-      act(() => { result.current.silentReload() })
-      await waitFor(() => expect(positionOf(result.current.board!.cards, 3)).toBe(4))
-      act(() => { result.current.updateCard(cell(1, 1, 2), [{ id: 3, position: 6, version: 4 }], 5) })
-      expect(positionOf(result.current.board!.cards, 3)).toBe(6)
-    })
+    // The real /full/ race: frame N lands while the fetch is in flight, the
+    // snapshot (taken after N committed) is applied, and only then is an
+    // older frame M < N for the same card delivered. M must not move it back.
+    for (const via of ['load', 'silentReload'] as const) {
+      it(`keeps the ordering across a /full/ response (${via})`, async () => {
+        const { result } = await renderCards([cell(1, 0), cell(2, 1), cell(3, 2, 4)])
+        let resolveFull!: (b: BoardFull) => void
+        mockGetBoardFull.mockReturnValueOnce(new Promise((r) => { resolveFull = r }))
+        act(() => { (via === 'load' ? result.current.reload : result.current.silentReload)() })
+        // Frame N (move of card 2, event 11) arrives during the fetch.
+        act(() => { result.current.updateCard(cell(2, 0, 2), [{ id: 3, position: 2, version: 4 }], 11) })
+        await act(async () => {
+          resolveFull(makeBoard({ cards: [cell(1, 1), cell(2, 0, 2), cell(3, 2, 4)] }))
+        })
+        await waitFor(() => expect(result.current.loading).toBe(false))
+        expect(positionOf(result.current.board!.cards, 3)).toBe(2)
+        // Frame M (move of card 1, event 10) is delivered after the response.
+        act(() => { result.current.updateCard(cell(1, 1, 2), [{ id: 3, position: 3, version: 4 }], 10) })
+        expect(positionOf(result.current.board!.cards, 3)).toBe(2)
+      })
+    }
 
     it('applies the pairs when the moved card is not on this board copy', async () => {
       const { result } = await renderCards([cell(2, 1)])

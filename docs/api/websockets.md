@@ -320,9 +320,13 @@ Since 1.3 the frame also carries `sibling_positions`: one entry for every
   card), and skip a sibling entry, or the moved card's `position`, from a
   frame with a lower `event_id`. Keep it per card: moves in unrelated cells
   are not ordered against each other, so a frame for one cell must not block
-  another cell's entries. Clear it when you replace the board from `/full/`.
-  A frame with no `event_id` (from a server before the change feed) cannot be
-  compared, so apply it.
+  another cell's entries. Keep it when you replace the board from `/full/`: a
+  frame you applied while that request was in flight can be newer than a
+  frame for the same card delivered after the response, and clearing would
+  let the late frame move the card back. `event_id` only grows and card ids
+  are not reused, so a kept entry never blocks a newer frame. A frame with no
+  `event_id` (from a server before the change feed) cannot be compared, so
+  apply it.
 
 The Visiban web app applies these rules (since 1.3). An HTTP response has no
 `event_id`, so a response that lands after a later frame can still put an
