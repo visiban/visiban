@@ -4393,7 +4393,7 @@ which match what the WebSocket sends that reader.</p>
 <tr>
 <td><code>actor_id</code></td>
 <td>integer / null</td>
-<td>The user who caused the event, or <code>null</code> when there was no authenticated actor. A plain column, not a foreign key: it keeps its value even after the account is deleted.</td>
+<td>The user the row attributes the event to, or <code>null</code> when the row records no actor: there was no authenticated actor, or the event is a system record not attributed to a user (for example <code>share_link.updated</code> and the <code>board.updated</code> recorded with a share-link change). A plain column, not a foreign key: it keeps its value even after the account is deleted.</td>
 </tr>
 <tr>
 <td><code>actor</code></td>

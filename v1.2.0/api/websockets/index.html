@@ -4655,7 +4655,7 @@ build. If you are adding an event, see
 <tr>
 <td><code>board.updated</code></td>
 <td>Board name, description, or settings changed</td>
-<td>Full <code>BoardSerializer</code> object. <code>is_starred</code> is sent only to the sockets of the user who made the change, with that user's value; every other subscriber gets the payload without the <code>is_starred</code> key (since 1.2, #1705). On a board changed in the Django admin there is no request, so the value that user receives is a constant <code>false</code>. A client merging the payload keeps its own value. Use <code>board.star_changed</code> for per-user star state (#1559).</td>
+<td>Full <code>BoardSerializer</code> object. <code>is_starred</code> is sent only to the sockets of the user who made the change, with that user's value; every other subscriber gets the payload without the <code>is_starred</code> key (since 1.2, #1705). A share link's enable, rotate, revoke or server-side clear has no acting user, so <code>is_starred</code> is omitted for every subscriber (see <a href="#share-link-events-since-13">Share link events</a>). On a board changed in the Django admin there is no request, so the value that user receives is a constant <code>false</code>. A client merging the payload keeps its own value. Use <code>board.star_changed</code> for per-user star state (#1559).</td>
 </tr>
 <tr>
 <td><code>board.deleted</code></td>
@@ -5106,7 +5106,12 @@ action response, once. Nor does it carry the admin who enabled the link.
 actor, so their <code>actor_id</code> and <code>actor</code> are <code>null</code>.</p>
 <p>Each of these changes also sends <code>board.updated</code>, as before 1.3. That frame
 cannot carry the share state, so clients should read it from
-<code>share_link.updated</code>. The Visiban web app merges this event into the open
+<code>share_link.updated</code>. On an enable, rotate, revoke or server-side clear, that
+<code>board.updated</code> has no acting user: its row in the change feed has a <code>null</code>
+<code>actor_id</code> and <code>actor</code>, and its payload omits <code>is_starred</code> for every subscriber,
+so a client merging it keeps its own value. A change to a board's group or owner
+that also clears a link sends its own ordinary <code>board.updated</code> as well, which
+keeps its actor. The Visiban web app merges this event into the open
 board, so the <strong>Sharing</strong> tab follows another admin's change without a reload,
 even while it is open. If the tab is still showing a link that was then
 revoked or rotated elsewhere, it removes that link and says why.</p>

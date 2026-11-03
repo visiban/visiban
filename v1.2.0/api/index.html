@@ -4428,7 +4428,7 @@ deliberate, and none will be removed or renamed in 1.x:</p>
 <tr>
 <td>Nested <code>BoardUser</code> — <code>{ id, username, display_name, avatar_url }</code>, or <code>null</code></td>
 <td><code>CardTimelineEntry.actor</code>, <code>CardActivity.actor</code>, <code>CardMovement.moved_by</code>, <code>BoardExportLog.actor</code>, <code>LensConnection.created_by</code>, and <code>BoardEvent.actor</code> on the <a href="events/">change feed</a></td>
-<td>The default for every board-scoped resource except invite links (see the username row below). <code>null</code> means there was no authenticated actor, or the account has since been deleted.</td>
+<td>The default for every board-scoped resource except invite links (see the username row below). <code>null</code> means there was no authenticated actor, the event is not attributed to a user, or the account has since been deleted.</td>
 </tr>
 <tr>
 <td>Integer id — <code>actor_id</code> / <code>created_by_id</code></td>
