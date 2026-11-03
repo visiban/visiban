@@ -16,7 +16,7 @@ from boards.models import BoardEvent
 from webhooks import dispatch, signing
 from webhooks.models import MAX_SECRET_OVERLAP_SECONDS, WebhookSubscription
 
-from .base import ENABLED, admin_and_board, make_subscription, resolving
+from .base import ENABLED, _make_membership, _make_user, admin_and_board, make_subscription, resolving
 from .test_dispatch import GOLDEN_BODY, GOLDEN_SECRET, GOLDEN_SIGNATURE, Recorder
 
 DAY = 86400
@@ -405,6 +405,52 @@ class RotateApiTests(OverlapBase):
         self.assertEqual((r.status_code, r.data["code"]), (403, "session_required"))
         self.sub.refresh_from_db()
         self.assertEqual(self.sub.previous_secret_encrypted, "")
+
+    def test_a_bad_body_never_outranks_the_access_gates(self):
+        """Validation runs last, so a 400 can't confirm a board or webhook exists."""
+        outsider, member = _make_user(), _make_user()
+        _make_membership(self.board, member, "member")
+        other_admin, other_board = admin_and_board("Other board")
+        foreign = make_subscription(other_board, other_admin)
+        _, raw = PersonalAccessToken.generate(self.admin, "t-2054-gates")
+        pat = APIClient()
+        pat.credentials(HTTP_AUTHORIZATION=f"Token {raw}")
+        as_outsider, as_member = APIClient(), APIClient()
+        as_outsider.force_login(outsider)
+        as_member.force_login(member)
+        own = self.sub.pk
+        for body in ({"overlap_seconds": -1}, [1]):
+            cases = [
+                ("non-member", as_outsider, own, 404, None),
+                ("below admin", as_member, own, 403, None),
+                ("token", pat, own, 403, "session_required"),
+                ("another board's webhook", self.client, foreign.pk, 404, None),
+            ]
+            for label, client, sub_id, status, code in cases:
+                with self.subTest(who=label, body=body):
+                    r = client.post(_url(self.board.pk, f"{sub_id}/rotate/"), body, format="json")
+                    self.assertEqual(r.status_code, status, r.content)
+                    if code:
+                        self.assertEqual(r.data["code"], code)
+            with self.subTest(who="feature off", body=body), override_settings(WEBHOOKS_ENABLED=False):
+                r = self.client.post(_url(self.board.pk, f"{own}/rotate/"), body, format="json")
+                self.assertEqual((r.status_code, r.data["code"]), (403, "webhooks_disabled"))
+            with self.subTest(who="admin session", body=body):
+                r = self.client.post(_url(self.board.pk, f"{own}/rotate/"), body, format="json")
+                self.assertEqual(r.status_code, 400, r.content)
+
+    def test_a_token_rename_keeps_the_window(self):
+        self.rotate(overlap_seconds=DAY)
+        self.sub.refresh_from_db()
+        stored = (self.sub.previous_secret_encrypted, self.sub.previous_secret_expires_at)
+        _, raw = PersonalAccessToken.generate(self.admin, "t-2054-rename")
+        pat = APIClient()
+        pat.credentials(HTTP_AUTHORIZATION=f"Token {raw}")
+        r = pat.patch(_url(self.board.pk, f"{self.sub.pk}/"), {"name": "renamed"}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertIsNotNone(r.data["previous_secret_expires_at"])
+        self.sub.refresh_from_db()
+        self.assertEqual((self.sub.previous_secret_encrypted, self.sub.previous_secret_expires_at), stored)
 
     def test_url_change_clears_both_columns(self):
         self.rotate(overlap_seconds=DAY)

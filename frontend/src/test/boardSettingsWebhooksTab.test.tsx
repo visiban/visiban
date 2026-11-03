@@ -691,6 +691,23 @@ describe('Webhooks tab — detail', () => {
     await screen.findByTestId('webhook-secret-reveal')
   })
 
+  it('Escape is swallowed while a rotation runs, and works again after it fails', async () => {
+    const user = setup()
+    let fail: (reason: unknown) => void = () => {}
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockReturnValue(new Promise((_, reject) => { fail = reject }))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('button', { name: 'Rotating…' })).toBeInTheDocument()
+    fail(axiosError(500))
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't rotate the secret. Try again.")
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('button', { name: KEEP_OLD })).not.toBeInTheDocument())
+  })
+
   it('revoke old shows its own progress label', async () => {
     const user = setup()
     m.list.mockResolvedValue([sub()])

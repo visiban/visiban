@@ -49,7 +49,8 @@ const SECONDARY_BTN =
 const PRIMARY_BTN =
   "text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium disabled:opacity-40";
 const DANGER_BTN =
-  "text-xs bg-danger-bg text-on-danger px-3 py-1.5 rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis font-medium aria-disabled:opacity-40";
+  "text-xs bg-danger-bg text-on-danger px-3 py-1.5 rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis font-medium aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
+const INERT_WHEN_ARIA_DISABLED = "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 const CONFIRM_BTN = "min-h-6 px-1 text-danger hover:text-danger font-medium transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis";
 const CANCEL_BTN = "min-h-6 px-1 text-fg-tertiary hover:text-fg transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 
@@ -433,24 +434,24 @@ export default function WebhookDetail(props: Props) {
                   Rotate the secret? Choose what happens to the current one.
                 </p>
                 <p id={`${uid}-rotate-keep`} className="text-xs text-fg-secondary">
-                  <span className="font-medium text-fg">Keep old:</span> Visiban signs each delivery with both secrets for 24 hours, so your receiver keeps working while you update it. Its check must accept any signature the header lists; see Verify the signature below.
+                  <span className="font-medium text-fg">Keep old secret for 24 hours:</span> Visiban signs each delivery with both secrets, so your receiver keeps working while you update it. Your receiver's check must accept any signature the header lists; see Verify the signature below.
                   {oldSecretUntil !== null && " The older secret from your last rotation stops being signed either way."}
                 </p>
                 <p id={`${uid}-rotate-revoke`} className="text-xs text-fg-secondary">
-                  <span className="font-medium text-fg">Revoke old:</span> only the new secret signs from now on, and your receiver rejects deliveries until you update it.
+                  <span className="font-medium text-fg">Revoke old secret now:</span> only the new secret signs from now on, and your receiver rejects deliveries until you update it.
                 </p>
                 <p id={`${uid}-rotate-leak`} className="text-xs text-fg-secondary">
-                  If the secret leaked, revoke old and replace the secret on your receiver. Visiban can't revoke it for you: anyone holding the old secret can forge requests until your receiver stops accepting it.
+                  If the secret leaked, choose Revoke old secret now, then replace the secret on your receiver. Visiban can't revoke the old secret on your receiver, so anyone who holds it can forge requests until your receiver stops accepting it.
                 </p>
                 {confirmError && <p role="alert" className="text-xs text-danger">{confirmError}</p>}
                 <div className="flex flex-wrap justify-end gap-3">
-                  <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${SECONDARY_BTN} aria-disabled:opacity-40`}>
+                  <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${SECONDARY_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
                     Cancel
                   </button>
                   <button type="button" onClick={() => rotate("revoke")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-revoke ${uid}-rotate-leak`} className={DANGER_BTN}>
                     {rotating && rotateChoice === "revoke" ? "Rotating…" : "Revoke old secret now"}
                   </button>
-                  <button ref={keepOldRef} type="button" onClick={() => rotate("keep")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-keep`} className={`${PRIMARY_BTN} aria-disabled:opacity-40`}>
+                  <button ref={keepOldRef} type="button" onClick={() => rotate("keep")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-keep`} className={`${PRIMARY_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
                     {rotating && rotateChoice === "keep" ? "Rotating…" : "Keep old secret for 24 hours"}
                   </button>
                 </div>

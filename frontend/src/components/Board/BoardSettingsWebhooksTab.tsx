@@ -87,6 +87,7 @@ export default function BoardSettingsWebhooksTab({
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const revealRef = useRef<WebhookSecretRevealHandle>(null);
+  const rotatingRef = useRef(false);
   const manageRefs = useRef(new Map<number, HTMLButtonElement>());
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deepLinkDoneRef = useRef(false);
@@ -188,7 +189,12 @@ export default function BoardSettingsWebhooksTab({
       guard(() => onRequestClose?.());
     }
   }, WEBHOOK_ESCAPE.secretGuard);
-  useEscapeStack(() => (confirm === "rotate" ? setConfirm(null) : false), WEBHOOK_ESCAPE.rotateConfirm);
+  useEscapeStack(() => {
+    if (confirm !== "rotate") return false;
+    // Swallowed while the request runs. Closing would read as a cancel, hide any
+    // failure, and a rotation can't be taken back.
+    if (!rotatingRef.current) setConfirm(null);
+  }, WEBHOOK_ESCAPE.rotateConfirm);
   useEscapeStack(() => (confirm === "reenable" ? setConfirm(null) : false), WEBHOOK_ESCAPE.reenableConfirm);
   useEscapeStack(() => (confirm === "disable" ? setConfirm(null) : false), WEBHOOK_ESCAPE.disableConfirm);
   useEscapeStack(() => (confirm === "delete" ? setConfirm(null) : false), WEBHOOK_ESCAPE.deleteConfirm);
@@ -324,10 +330,15 @@ export default function BoardSettingsWebhooksTab({
             setPendingFocus("detail-heading");
           }}
           onRotate={async (overlapSeconds) => {
-            const { secret, ...updated } = await guarded(() => rotateWebhookSecret(boardId, sub.id, overlapSeconds));
-            replaceSub(updated);
-            setConfirm(null);
-            setReveal({ subId: sub.id, host: sub.url_host, secret, origin: "rotate", acknowledged: false, guardOpen: false });
+            rotatingRef.current = true;
+            try {
+              const { secret, ...updated } = await guarded(() => rotateWebhookSecret(boardId, sub.id, overlapSeconds));
+              replaceSub(updated);
+              setConfirm(null);
+              setReveal({ subId: sub.id, host: sub.url_host, secret, origin: "rotate", acknowledged: false, guardOpen: false });
+            } finally {
+              rotatingRef.current = false;
+            }
           }}
           onDelete={async () => {
             await guarded(() => deleteWebhook(boardId, sub.id));
