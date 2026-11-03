@@ -188,7 +188,8 @@ def get_accessible_group_ids(user):
     Ancestors are listed for navigation only, so that the chain from the
     member's group up has at most _GROUP_TRAVERSAL_MAX_DEPTH groups, the same
     chain ``user_has_group_access`` walks (#2080).
-    Descendant discovery is capped at _GROUP_TRAVERSAL_MAX_DEPTH iterations.
+    Descendants are listed up to _GROUP_TRAVERSAL_MAX_DEPTH - 1 levels below a
+    membership, the reach of ``user_has_group_access``.
     Groups nested deeper than this limit will not appear in the result set.
 
     Membership is read through ``_access_memberships``, the filter
@@ -240,7 +241,11 @@ def get_accessible_group_ids(user):
     # Walk DOWN: include descendant sub-groups.
     seen = set(direct_ids)
     frontier = set(direct_ids)
-    for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+    # One level fewer than the cap: the access chain (group plus ancestors) is
+    # at most _GROUP_TRAVERSAL_MAX_DEPTH groups, so a member reaches
+    # descendants at most MAX_DEPTH - 1 levels down, as in
+    # ``get_group_ids_for_board_access``.
+    for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH - 1):
         if not frontier:
             break
         children = set(

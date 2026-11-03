@@ -346,3 +346,33 @@ class DeepAncestorWalkTests(TestCase):
         # user_has_group_access.
         expected = {g.id for g in chain[-_GROUP_TRAVERSAL_MAX_DEPTH:]}
         self.assertEqual(ids, expected)
+
+    def test_descendant_walk_matches_access_chain_cap(self):
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, get_accessible_group_ids
+
+        # Group creation caps a tree at MAX_DEPTH levels, so well-formed data
+        # cannot go deeper; force a longer chain directly in the ORM.
+        chain = [self.root]
+        for i in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+            chain.append(_group(self.admin, f"Down{i}", parent=chain[-1]))
+        user = User.objects.create_user(username="downuser", password="pass")
+        GroupMembership.objects.create(
+            group=self.root, user=user, role=GroupMembership.Role.MEMBER,
+        )
+        ids = get_accessible_group_ids(user)
+        fifth = chain[_GROUP_TRAVERSAL_MAX_DEPTH - 1]  # five levels below root
+        sixth = chain[_GROUP_TRAVERSAL_MAX_DEPTH]  # six levels below root
+        self.assertIn(fifth.id, ids)
+        self.assertNotIn(sixth.id, ids)
+        from groups.models import user_has_group_access
+        self.assertTrue(user_has_group_access(user, fifth))
+        self.assertFalse(user_has_group_access(user, sixth))
+        self.client.force_authenticate(user)
+        self.assertEqual(self.client.get(f"/api/v1/groups/{fifth.id}/").status_code, 200)
+        self.assertEqual(self.client.get(f"/api/v1/groups/{fifth.id}/members/").status_code, 200)
+
+    def test_traversal_depth_constants_agree(self):
+        from boards.permissions import _GROUP_TRAVERSAL_MAX_DEPTH as board_depth
+        from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH as group_depth
+
+        self.assertEqual(group_depth, board_depth)
