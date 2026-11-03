@@ -141,6 +141,8 @@ describe('FlowMetricsDashboard states', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByTestId('flow-cycle-time')).toBeInTheDocument()
     expect(cycleMock).toHaveBeenCalledTimes(2)
+    // The Retry button is gone; focus must not have dropped to <body>.
+    expect(screen.getByRole('heading', { name: 'Flow metrics' })).toHaveFocus()
   })
 
   it('shows the empty state, and Go to board calls back', async () => {

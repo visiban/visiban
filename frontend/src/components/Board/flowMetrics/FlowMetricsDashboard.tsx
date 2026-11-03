@@ -96,6 +96,7 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
   const [dayCards, setDayCards] = useState<FlowCard[]>([]);
   // A filter changed while the day's list was loading: drop that late answer.
   const drillRequest = useRef(0);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const filters: FlowFilters = useMemo(() => ({ days, swimlaneId, labelId }), [days, swimlaneId, labelId]);
 
@@ -202,7 +203,9 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
   return (
     <section aria-labelledby="flow-metrics-heading" className="flex flex-col gap-4 px-4 py-4" data-testid="flow-metrics">
       <div className="flex flex-col gap-2">
-        <h2 id="flow-metrics-heading" className="text-xl font-semibold text-fg">Flow metrics</h2>
+        <h2 id="flow-metrics-heading" ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">
+          Flow metrics
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           {/* The default is not an active filter: it keeps the neutral trigger. */}
           <SingleSelectDropdown
@@ -240,7 +243,11 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
           <p className="text-sm text-danger" role="alert">Failed to load flow metrics.</p>
           <button
             type="button"
-            onClick={() => setAttempt((n) => n + 1)}
+            onClick={() => {
+              // The button unmounts with the error state, which would drop focus to <body>.
+              headingRef.current?.focus();
+              setAttempt((n) => n + 1);
+            }}
             className="px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry
@@ -262,7 +269,7 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
                 <button
                   type="button"
                   onClick={onGoToBoard}
-                  className="px-3 py-1.5 text-sm rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Go to board
                 </button>

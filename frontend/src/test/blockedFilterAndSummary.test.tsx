@@ -8,6 +8,9 @@ import { filterCards, hasActiveClientFilters } from '../utils/filterCards'
 import { useSavedFilters } from '../hooks/useSavedFilters'
 import type { BoardFull, Card, SavedFilter, User } from '../types'
 
+// AnalyticsView mounts the flow dashboard (#448), covered by flowMetricsDashboard.test.tsx.
+vi.mock('../components/Board/flowMetrics/FlowMetricsDashboard', () => ({ default: () => null }))
+
 vi.mock('../api/boards', () => ({
   getBoardSummary: vi.fn(),
   getBoardAnalytics: vi.fn(),

@@ -262,7 +262,7 @@ export function ChartTable<Row>({ label, columns, rows, rowKey, emptyText = "No 
   return (
     // tabIndex: a scrollable region must be keyboard-focusable (WCAG 2.1.1).
     <div role="region" aria-label={label} tabIndex={0} className="overflow-auto max-h-72 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">
-      <table className="w-full text-sm border-collapse" aria-label={label}>
+      <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="text-left text-xs text-fg-tertiary uppercase tracking-wide">
             {columns.map((column, index) => (

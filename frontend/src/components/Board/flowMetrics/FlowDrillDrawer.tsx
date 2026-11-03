@@ -142,7 +142,7 @@ function CardBody({
           <button
             type="button"
             onClick={() => { onClose(); onOpenCard(card.id); }}
-            className="px-3 py-1.5 text-sm rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Open card
           </button>

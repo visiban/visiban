@@ -808,10 +808,10 @@ class BoardAnalyticsMixin:
             .prefetch_related(
                 Prefetch(
                     "movements",
-                    # Scope the prefetch to a 2× analysis-window buffer so the
-                    # clamped-dwell logic (movements entering just before period_cutoff)
-                    # still has its data, while eliminating the O(cards × all-time
-                    # movements) memory spike from loading full movement history (#654/#646).
+                    # Scope the prefetch to a 2× analysis-window buffer: all the frozen
+                    # clamped-dwell logic reads (movements entering just before
+                    # period_cutoff). This no longer bounds the request's memory
+                    # (#654/#646): load_board_flow above holds the board's full history.
                     # Stall detection and velocity use card-level annotations above
                     # instead of the prefetch, so no historical data is lost.
                     # Load only the fields the algorithm reads; order at the DB level so
