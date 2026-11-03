@@ -1262,6 +1262,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notifications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#right-click-to-add" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5236,6 +5247,15 @@
 <ul>
 <li>When some cards fail, a message in the toolbar says how many failed and why, and the selection stays so you can retry. This applies to Move, Assign, Priority, Archive, and Delete.</li>
 <li>Assign, Priority, Archive, and Delete fire their requests concurrently via <code>Promise.allSettled</code>. <strong>Move to...</strong> runs sequentially instead, to avoid database deadlocks from concurrent position-reorder transactions.</li>
+</ul>
+<h2 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h2>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>Short notices about what just happened appear at the bottom center of the screen: a refused move, the result of an import, an archived or unblocked card, or (on the shared demo) a change that cannot be saved. Up to three show at once, stacked upward, with the most important one nearest the bottom. When the bulk action toolbar is showing, notices sit just above it so they never cover its buttons or its result message.</p>
+<ul>
+<li><strong>How long they stay.</strong> A success notice stays 4 seconds (5 for "Card archived"), other information 6 seconds (8 for the import notice), and a warning 8 seconds (the shared demo's "can't be saved" notice keeps 5 seconds for now). A refused move stays until you dismiss it or make another move. Moving the pointer over a notice, tabbing into it, or switching to another browser tab pauses the countdown, which starts over when you come back.</li>
+<li><strong>When more than three arrive</strong>, a less important notice makes room, and a refused move is never pushed out. Notices that cannot fit yet wait, and a <strong>+N waiting</strong> line shows how many.</li>
+<li><strong>Dismissing.</strong> Every notice has a <strong>×</strong>. With the keyboard, press <strong>Tab</strong> from the board to reach the notices, and <strong>Escape</strong> dismisses the one that has focus; focus then returns to where you were.</li>
+<li><strong>Screen readers</strong> hear each notice once, politely, except refused moves and failures, which are announced right away. A notice raised from inside the card detail panel (for example after <strong>Unblock card</strong>) is announced by the panel itself, so it is not read twice.</li>
 </ul>
 <h2 id="right-click-to-add">Right-click to add<a class="headerlink" href="#right-click-to-add" title="Permanent link">&para;</a></h2>
 <p>Right-click any board cell to open an inline card creation input directly in that column + swimlane.</p>
