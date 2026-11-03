@@ -133,7 +133,7 @@ A button pair in the analytics toolbar toggles the heatmap mode. The choice pers
 | **Age** | Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now. | Find current bottlenecks |
 | **Throughput** | Average time cards that **left** a stage during the selected period spent there, each stay at its full length. Reflects historical flow efficiency, not current queue depth. | View historical flow over a chosen 7, 30 or 90-day window |
 
-In **Throughput** mode the column footer row shows how many cards contributed to each average (for example "5 cards"), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
+In **Throughput** mode each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
 
 ### Dwell time and archived cards
 
@@ -146,7 +146,7 @@ Analytics includes archived cards as part of the historical record.
 
 > **Changed in 1.3** (#448)
 
-**Age** and **Throughput** follow the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions). Before, a swimlane-only move reset a card's **Age** and split its stay in **Throughput**, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history or done flag.
+**Age** and **Throughput** follow the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions). Before, a swimlane-only move reset a card's **Age** and split its stay in **Throughput**, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.
 
 ### Stalled cards
 
@@ -162,7 +162,7 @@ At the end of the page, a paginated table (25 rows per page) lists cards that ha
 
 Below the heatmap, **Blocked time (last N days)** shows how long cards were [manually blocked](blocked-cards.md) during the selected period, and why:
 
-- **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed.
+- **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed. A block in a column that was since deleted has no line here, even if a new column has the same name; it still counts toward the reasons below.
 - **Top reasons:** the ten most common reasons, with how many blocks and how many days each one cost. Reasons that differ only in capitals or spacing count as one.
 
 A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { ChartBandHit, ChartFrame, ChartPointHit, ChartReferenceLines, ChartTable } from '../components/Common/Chart'
+import { ChartBandHit, ChartFrame, ChartPanel, ChartPointHit, ChartReferenceLines, ChartTable } from '../components/Common/Chart'
 
 const noTicks = () => []
 
@@ -87,5 +87,30 @@ describe('ChartTable', () => {
     render(<ChartTable label="T" columns={[]} rows={[]} rowKey={String} emptyText="Nothing here." />)
     expect(screen.getByText('Nothing here.')).toBeInTheDocument()
     expect(screen.queryByRole('region')).not.toBeInTheDocument()
+  })
+})
+
+describe('ChartPanel', () => {
+  const panel = (extra = {}) => (
+    <ChartPanel title="T" summary="S" table={<p>the table</p>} {...extra}>
+      {() => <p>the chart</p>}
+    </ChartPanel>
+  )
+
+  it('keeps its own Chart | Table choice when no parent controls it', () => {
+    render(panel())
+    expect(screen.getByText('the chart')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'table' }))
+    expect(screen.getByText('the table')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'table' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('follows a parent that controls it, and reports the choice', () => {
+    const onViewChange = vi.fn()
+    render(panel({ view: 'table', onViewChange }))
+    expect(screen.getByText('the table')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'chart' }))
+    expect(onViewChange).toHaveBeenCalledWith('chart')
+    expect(screen.getByText('the table')).toBeInTheDocument()
   })
 })

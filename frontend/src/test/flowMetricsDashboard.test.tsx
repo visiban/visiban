@@ -191,6 +191,35 @@ describe('FlowMetricsDashboard states', () => {
     expect(screen.getByTestId('flow-cycle-time')).not.toHaveTextContent('99 cards')
   })
 
+  it('ignores a failure of a superseded request', async () => {
+    mockAll()
+    let fail: (reason: Error) => void = () => {}
+    cycleMock.mockReturnValueOnce(new Promise((_, reject) => { fail = reject }))
+    render(<FlowMetricsDashboard {...props} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Label/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Urgent' }))
+    await screen.findByTestId('flow-cycle-time')
+    fail(new Error('late'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByText('Failed to load flow metrics.')).not.toBeInTheDocument()
+    expect(screen.getByTestId('flow-cycle-time')).toBeInTheDocument()
+  })
+
+  it('keeps each panel on Table across a filter change, and only that panel', async () => {
+    mockAll()
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-throughput')).getByRole('button', { name: 'table' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Label/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Urgent' }))
+    await waitFor(() => expect(cycleMock).toHaveBeenLastCalledWith(9, { days: 90, swimlaneId: null, labelId: 4 }))
+    const throughputPanel = within(await screen.findByTestId('flow-throughput'))
+    expect(throughputPanel.getByRole('button', { name: 'table' })).toHaveAttribute('aria-pressed', 'true')
+    expect(throughputPanel.getByRole('region', { name: 'Cards finished per week' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('flow-cycle-time')).getByRole('button', { name: 'chart' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(throughputPanel.getByRole('button', { name: 'chart' }))
+    expect(within(screen.getByTestId('flow-throughput')).getByRole('img')).toBeInTheDocument()
+  })
+
   it('refetches with each filter, and the default range does not read as an active filter', async () => {
     mockAll()
     await renderLoaded()
@@ -452,6 +481,30 @@ describe('the drill-down drawer', () => {
     expect(dayMock).toHaveBeenCalledWith(9, { days: 90, swimlaneId: null, labelId: null }, '2026-06-02')
     expect(dialog.getByRole('region', { name: 'Deleted columns' })).toHaveTextContent('Old archived job')
     expect(dialog.queryByRole('region', { name: 'Done' })).not.toBeInTheDocument()
+  })
+
+  it('does not reopen the drawer when a closed day list answers late', async () => {
+    let answer: (value: Awaited<ReturnType<typeof getFlowCumulativeDay>>) => void = () => {}
+    dayMock.mockReturnValueOnce(new Promise((resolve) => { answer = resolve }))
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
+    await screen.findByRole('dialog', { name: /^Cards on/ })
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    answer({ definition: 'd', date: '2026-06-01', columns: [], cards: [] })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('does not reopen the drawer when a closed day list fails late', async () => {
+    let fail: (reason: Error) => void = () => {}
+    dayMock.mockReturnValueOnce(new Promise((_, reject) => { fail = reject }))
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
+    await screen.findByRole('dialog', { name: /^Cards on/ })
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fail(new Error('late'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('reports a failed day list and retries it', async () => {

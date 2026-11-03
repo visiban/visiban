@@ -7,7 +7,7 @@ import type {
   FlowAgeSample, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowCycleTimeSample, FlowThroughput, FlowThroughputSample, FlowWipAge,
 } from "../../../types";
 import { ChartNullValue, ChartPanel, ChartTable } from "../../Common/Chart";
-import type { ChartTableColumn } from "../../Common/Chart";
+import type { ChartPanelView, ChartTableColumn } from "../../Common/Chart";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import CumulativeFlowChart from "./CumulativeFlowChart";
 import CycleTimeChart from "./CycleTimeChart";
@@ -94,6 +94,9 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
   const [attempt, setAttempt] = useState(0);
   const [drill, setDrill] = useState<DrillSelection | null>(null);
   const [dayCards, setDayCards] = useState<FlowCard[]>([]);
+  // Lives here, not in the panels: a filter change replaces them with skeletons,
+  // and it must not throw a keyboard user off the table they were reading.
+  const [views, setViews] = useState<Record<string, ChartPanelView>>({});
   // A filter changed while the day's list was loading: drop that late answer.
   const drillRequest = useRef(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -134,6 +137,11 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
     drillRequest.current += 1;
     setDrill(null);
   }, []);
+
+  const panelView = (panel: string) => ({
+    view: views[panel] ?? ("chart" as ChartPanelView),
+    onViewChange: (view: ChartPanelView) => setViews((current) => ({ ...current, [panel]: view })),
+  });
 
   const selectCycleSample = (sample: FlowCycleTimeSample) =>
     setDrill({
@@ -280,10 +288,10 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
       )}
       {data && !isEmpty(data) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <CycleTimePanel data={data.cycle} cards={cards} days={days} onSelect={selectCycleSample} />
-          <ThroughputPanel data={data.throughput} onSelect={selectThroughputSample} />
-          <CumulativeFlowPanel data={data.cumulative} onSelectDay={selectDay} />
-          <WipAgePanel data={data.age} cards={cards} onSelect={selectAgeSample} />
+          <CycleTimePanel {...panelView("cycle")} data={data.cycle} cards={cards} days={days} onSelect={selectCycleSample} />
+          <ThroughputPanel {...panelView("throughput")} data={data.throughput} onSelect={selectThroughputSample} />
+          <CumulativeFlowPanel {...panelView("cumulative")} data={data.cumulative} onSelectDay={selectDay} />
+          <WipAgePanel {...panelView("age")} data={data.age} cards={cards} onSelect={selectAgeSample} />
         </div>
       )}
       {drill && (
@@ -300,11 +308,16 @@ export default function FlowMetricsDashboard({ boardId, swimlanes, labels, onOpe
   );
 }
 
+interface PanelViewProps {
+  view: ChartPanelView;
+  onViewChange: (view: ChartPanelView) => void;
+}
+
 const compact = (notes: (string | null)[]) => notes.filter((note): note is string => note !== null);
 
 function CycleTimePanel({
-  data, cards, days, onSelect,
-}: { data: FlowCycleTime; cards: Map<string, FlowCard>; days: number; onSelect: (s: FlowCycleTimeSample) => void }) {
+  data, cards, days, onSelect, view, onViewChange,
+}: PanelViewProps & { data: FlowCycleTime; cards: Map<string, FlowCard>; days: number; onSelect: (s: FlowCycleTimeSample) => void }) {
   const columns: ChartTableColumn<FlowCycleTimeSample>[] = [
     {
       key: "card",
@@ -326,6 +339,8 @@ function CycleTimePanel({
   const hasReopened = data.samples.some((s) => s.reopened);
   return (
     <ChartPanel
+      view={view}
+      onViewChange={onViewChange}
       title="Cycle time"
       summary={cycleTimeSummary(data)}
       definition={`Cycle time: ${data.definition}`}
@@ -343,7 +358,9 @@ function CycleTimePanel({
   );
 }
 
-function ThroughputPanel({ data, onSelect }: { data: FlowThroughput; onSelect: (s: FlowThroughputSample) => void }) {
+function ThroughputPanel({
+  data, onSelect, view, onViewChange,
+}: PanelViewProps & { data: FlowThroughput; onSelect: (s: FlowThroughputSample) => void }) {
   const columns: ChartTableColumn<FlowThroughputSample>[] = [
     { key: "start", header: "Week of", render: (s) => formatDate(s.start) },
     {
@@ -364,6 +381,8 @@ function ThroughputPanel({ data, onSelect }: { data: FlowThroughput; onSelect: (
   ];
   return (
     <ChartPanel
+      view={view}
+      onViewChange={onViewChange}
       title="Throughput"
       summary={throughputSummary(data)}
       definition={`Throughput: ${data.definition}`}
@@ -376,7 +395,9 @@ function ThroughputPanel({ data, onSelect }: { data: FlowThroughput; onSelect: (
   );
 }
 
-function CumulativeFlowPanel({ data, onSelectDay }: { data: FlowCumulativeFlow; onSelectDay: (date: string) => void }) {
+function CumulativeFlowPanel({
+  data, onSelectDay, view, onViewChange,
+}: PanelViewProps & { data: FlowCumulativeFlow; onSelectDay: (date: string) => void }) {
   type Day = FlowCumulativeFlow["days"][number];
   const shown = data.columns.filter(
     (column) => column.column_uid !== null || data.days.some((day) => (day.counts[bandKey(column)] ?? 0) > 0),
@@ -396,6 +417,8 @@ function CumulativeFlowPanel({ data, onSelectDay }: { data: FlowCumulativeFlow; 
   ];
   return (
     <ChartPanel
+      view={view}
+      onViewChange={onViewChange}
       title="Cumulative flow"
       summary={cumulativeFlowSummary(data)}
       definition={`Cumulative flow: ${data.definition}`}
@@ -409,8 +432,8 @@ function CumulativeFlowPanel({ data, onSelectDay }: { data: FlowCumulativeFlow; 
 }
 
 function WipAgePanel({
-  data, cards, onSelect,
-}: { data: FlowWipAge; cards: Map<string, FlowCard>; onSelect: (s: FlowAgeSample) => void }) {
+  data, cards, onSelect, view, onViewChange,
+}: PanelViewProps & { data: FlowWipAge; cards: Map<string, FlowCard>; onSelect: (s: FlowAgeSample) => void }) {
   const zones = data.cycle_time_percentiles;
   const names = new Map(data.columns.map((c) => [c.column_uid, c.column_name]));
   const columns: ChartTableColumn<FlowAgeSample>[] = [
@@ -438,6 +461,8 @@ function WipAgePanel({
   const hasRinged = zones.p85 !== null && data.samples.some((s) => s.value_days > (zones.p85 as number));
   return (
     <ChartPanel
+      view={view}
+      onViewChange={onViewChange}
       title="WIP aging"
       summary={wipAgeSummary(data)}
       definition={`Age: ${data.definition}`}

@@ -312,11 +312,24 @@ interface ChartPanelProps {
   table: ReactNode;
   children: (labelledBy: string) => ReactNode;
   testId?: string;
+  /**
+   * The Chart | Table choice, for a parent that remounts panels and must keep it
+   * (a refetch replaces them with skeletons). Uncontrolled when omitted.
+   */
+  view?: ChartPanelView;
+  onViewChange?: (view: ChartPanelView) => void;
 }
 
 /** One chart with its heading, Chart | Table toggle and finding sentence. */
-export function ChartPanel({ title, summary, notes = [], definition, table, children, testId }: ChartPanelProps) {
-  const [view, setView] = useState<ChartPanelView>("chart");
+export function ChartPanel({
+  title, summary, notes = [], definition, table, children, testId, view: controlledView, onViewChange,
+}: ChartPanelProps) {
+  const [localView, setLocalView] = useState<ChartPanelView>("chart");
+  const view = controlledView ?? localView;
+  const setView = (next: ChartPanelView) => {
+    setLocalView(next);
+    onViewChange?.(next);
+  };
   const id = useId();
   const headingId = `${id}-heading`;
   const summaryId = `${id}-summary`;

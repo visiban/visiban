@@ -123,6 +123,15 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                 "block started in. Additive."
             ),
             fields={
+                "total": inline_serializer(
+                    name="BoardAnalyticsBlockedTotal",
+                    help_text="Every block in the window, including blocks in deleted columns.",
+                    fields={
+                        "days": serializers.FloatField(),
+                        "seconds": serializers.IntegerField(),
+                        "blocks": serializers.IntegerField(),
+                    },
+                ),
                 "days_per_column": serializers.DictField(
                     child=serializers.FloatField(),
                     help_text="Blocked days inside the window per column, keyed by column name (every column, zeros included).",
@@ -736,9 +745,11 @@ class BoardAnalyticsMixin:
                     "movements",
                     # Scope the prefetch to a 2× analysis-window buffer: all the frozen
                     # clamped-dwell logic reads (movements entering just before
-                    # period_cutoff). This no longer bounds the request's memory
-                    # (#654/#646) on its own: load_recent_dwell above also holds the
-                    # whole history of every card still relevant to the window.
+                    # period_cutoff). This does NOT bound the request's memory, as it
+                    # did for #654/#646: load_recent_dwell above holds the whole
+                    # history of every card relevant to the window, about 17.6 MB per
+                    # 37,500 movements, in memory until the response is built. Accepted
+                    # for #448; nightly-load-test measures it under #2110.
                     # Stall detection and velocity use card-level annotations above
                     # instead of the prefetch, so no historical data is lost.
                     # Load only the fields the algorithm reads; order at the DB level so

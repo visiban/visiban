@@ -77,7 +77,7 @@ Key rules:
 - The `archived` action
 - The `unarchive` action
 
-**Step 4 — Check `summary` endpoint** — this endpoint must use aggregate queries (`Count` with `.values()`) rather than per-swimlane loops. The pattern:
+**Step 4 — Check `summary` endpoint** — its card counts must use aggregate queries (`Count` with `.values()`) rather than per-swimlane loops, as below. Its velocity and cycle-time fields do not: since #448 they replay, in Python, the history of the cards that entered a done column in the last 30 days (`flow_metrics.load_recent_completions`). That replay must stay narrowed, and a query count cannot see its cost; `nightly-load-test`'s `board_summary` does. The aggregate pattern:
 
 ```python
 # ✅ Correct: 2 queries total regardless of board size

@@ -344,38 +344,48 @@ def _replay_visits(flow, live, creation, now):
 
 
 def _replay_placements(flow, live, creation, done_uids, now):
-    """The card's column over time, for cumulative flow: ``[(moment, key or off-diagram)]``."""
+    """The card's column over time, for cumulative flow: ``[(moment, key or off-diagram)]``.
+
+    Stops are in time order, whatever produced them, so the diagram's segments and
+    a day's card list read the same position. An imported ``created_at`` or an
+    admin's ``archived_at`` can fall anywhere among the movements.
+    """
     if creation is not None:
-        placements = [(creation.moved_at, creation.to_key)]
+        start, position = creation.moved_at, creation.to_key
     else:
         # No creation movement: placed from created_at, in the source of its
-        # earliest movement, or in its current column if there is none.
+        # earliest movement, or in its current column if there is none. An
+        # imported created_at later than that movement cannot place the card
+        # after it, or the card would go back to the source.
         source = live[0].from_key if live else None
-        placements = [(flow.created_at, source if source is not None else flow.column_uid)]
-    position = placements[0][1]
-    archived = False
+        start = min(flow.created_at, live[0].moved_at) if live else flow.created_at
+        position = source if source is not None else flow.column_uid
+
+    changes = [(start, _MOVE, position)]
     last_archive_event = None
-
-    def placed():
-        # Finished work is cumulative: archiving a done card must not shrink
-        # the done band. Any other archived card leaves the diagram.
-        return position if (not archived or position in done_uids) else _OFF_DIAGRAM
-
     for mv in live:
         if mv is creation:
             continue
         if mv.is_transition:
-            position = mv.to_key
-        elif mv.movement_type == _ARCHIVED:
-            archived, last_archive_event = True, _ARCHIVED
-        elif mv.movement_type == _UNARCHIVED:
-            archived, last_archive_event = False, _UNARCHIVED
-        else:
-            continue
-        placements.append((mv.moved_at, placed()))
+            changes.append((mv.moved_at, _MOVE, mv.to_key))
+        elif mv.movement_type in (_ARCHIVED, _UNARCHIVED):
+            changes.append((mv.moved_at, mv.movement_type, None))
+            last_archive_event = mv.movement_type
     if flow.archived_at is not None and last_archive_event != _ARCHIVED and flow.archived_at <= now:
-        archived = True
-        placements.append((flow.archived_at, placed()))
+        changes.append((flow.archived_at, _ARCHIVED, None))
+    # A stable sort: rows that tie on moved_at keep their movement order.
+    changes.sort(key=lambda change: change[0])
+
+    placements = []
+    archived = False
+    for moment, kind, key in changes:
+        if kind == _MOVE:
+            position = key
+        else:
+            archived = kind == _ARCHIVED
+        # Finished work is cumulative: archiving a done card must not shrink the
+        # done band. Any other archived card leaves the diagram.
+        placements.append((moment, position if (not archived or position in done_uids) else _OFF_DIAGRAM))
     return placements
 
 
@@ -810,9 +820,10 @@ def blocked_time(flow, flow_range):
     observe, so it is left out rather than accruing time forever.
 
     Time is attributed to the column the card was in when it was blocked
-    (``CardBlock.column``), falling back to the stored name for a column that was
-    deleted and recreated. A block in a column that no longer exists still counts
-    toward ``top_reasons``.
+    (``CardBlock.column``), by identity and never by name: a column deleted and
+    recreated under the same name is a different column (ADR "Current column"). A
+    block in a column that no longer exists has no per-column line, but it counts
+    toward ``total`` and ``top_reasons``.
 
     Reasons are grouped case- and whitespace-insensitively, since the same cause
     typed twice ("Waiting on customer" / "waiting on customer ") is one cluster;
@@ -829,10 +840,11 @@ def blocked_time(flow, flow_range):
     now = flow.now
     start = flow_range.start
     col_id_to_name = {c.id: c.name for c in flow.columns}
-    col_names = set(col_id_to_name.values())
     seconds_per_column = {c.name: 0.0 for c in flow.columns}
     blocks_per_column = {c.name: 0 for c in flow.columns}
     reasons: dict[str, dict] = {}
+    total_seconds = 0.0
+    total_blocks = 0
     rows = (
         CardBlock.objects.filter(board=flow.board, blocked_at__lte=now)
         .filter(Q(unblocked_at__isnull=True) | Q(unblocked_at__gte=start))
@@ -841,16 +853,16 @@ def blocked_time(flow, flow_range):
     if flow.swimlane_id is not None or flow.label_id is not None:
         rows = rows.filter(card__in=_base_cards(flow.board, flow.swimlane_id, flow.label_id).order_by().values("id"))
     for row in rows.order_by("-blocked_at", "-id").values(
-        "column_id", "column_name", "reason", "blocked_at", "unblocked_at", "card__archived_at",
+        "column_id", "reason", "blocked_at", "unblocked_at", "card__archived_at",
     ):
         end = min(row["unblocked_at"] or row["card__archived_at"] or now, now)
         begin = max(row["blocked_at"], start)
         if end <= begin:
             continue
         seconds = (end - begin).total_seconds()
+        total_seconds += seconds
+        total_blocks += 1
         name = col_id_to_name.get(row["column_id"])
-        if name is None and row["column_name"] in col_names:
-            name = row["column_name"]
         if name is not None:
             seconds_per_column[name] += seconds
             blocks_per_column[name] += 1
@@ -860,6 +872,13 @@ def blocked_time(flow, flow_range):
         bucket["seconds"] += seconds
     top = sorted(reasons.values(), key=lambda r: (-r["count"], -r["seconds"], r["reason"]))
     return {
+        # Every block in the range, including those in deleted columns, which no
+        # per-column line holds and which top_reasons may have capped away.
+        "total": {
+            "days": round(total_seconds / SECONDS_PER_DAY, 1),
+            "seconds": int(total_seconds),
+            "blocks": total_blocks,
+        },
         "days_per_column": {k: round(v / SECONDS_PER_DAY, 1) for k, v in seconds_per_column.items()},
         "seconds_per_column": {k: int(v) for k, v in seconds_per_column.items()},
         "blocks_per_column": blocks_per_column,

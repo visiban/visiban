@@ -36,6 +36,8 @@ interface BlockedSummary {
   /** Same time in seconds; absent from a server older than this field. */
   seconds_per_column?: Record<string, number>;
   blocks_per_column: Record<string, number>;
+  /** Every block in the window, deleted columns included; absent from a server older than this field. */
+  total?: { days: number; seconds: number; blocks: number };
   top_reasons: { reason: string; count: number; total_days: number; total_seconds?: number }[];
 }
 
@@ -279,8 +281,8 @@ function HeatmapSection({ data, days, onDaysChange, mode, onModeChange, currentU
     const count = sw.throughput_card_count_per_column?.[col] ?? 0;
     const avg = getAvg(sw, col);
     return count > 0 && avg !== null
-      ? `Avg ${avg}d — ${count} card${count !== 1 ? "s" : ""} exited ${col} in the last ${days} days`
-      : `No cards exited ${col} in the last ${days} days`;
+      ? `Avg ${avg}d — ${count} stay${count !== 1 ? "s" : ""} in ${col} ended in the last ${days} days`
+      : `No stay in ${col} ended in the last ${days} days`;
   };
 
   return (

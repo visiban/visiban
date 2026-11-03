@@ -106,6 +106,7 @@ Many errors carry a machine-readable `code` next to the human-readable `detail`:
 This covers:
 
 - `GET /boards/{id}/analytics/`: `days` and `stalled_days`
+- `GET /boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/` and `.../wip-age/`: `days`, `from_date`, `to_date`, `swimlane_id` and `label_id`, including a swimlane or label that is not on this board; `period` on `throughput`; `date` on `cumulative-flow`
 - `GET /boards/{id}/cards/`: `limit`
 - `GET /boards/{id}/movements/`: `moved_after`, `moved_before`, `swimlane_id`, `to_column_id` and `moved_by_id`
 - `GET /boards/{id}/events/`: `after` and `limit`

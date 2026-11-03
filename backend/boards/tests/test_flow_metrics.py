@@ -5,6 +5,7 @@ The edge-case and missing-history tests follow the tables in
 change to the record has one obvious place to land.
 """
 import datetime
+import random
 from pathlib import Path
 
 import jsonschema
@@ -20,6 +21,7 @@ from accounts.models import User
 from boards.models import (
     Board, BoardMembership, Card, CardBlock, CardMovement, CardRelation, Column, Label, Swimlane,
 )
+from boards.serializers import _annotate_column_entered_at
 from boards.services import flow_metrics as fm
 from boards.tests.test_move_schema_contract import _openapi3_nullable_to_jsonschema
 
@@ -598,6 +600,47 @@ class CumulativeFlowTests(FlowFixture):
         self.assertEqual(payload["days"], [])
         self.assertIsNone(payload["bottleneck_column_uid"])
 
+    def test_archived_at_before_a_later_movement_keeps_the_stops_in_time_order(self):
+        """An admin's archived_at can predate a movement the card still has."""
+        card = self.path(self.backlog, 10, self.doing, 2)
+        Card.objects.filter(pk=card.pk).update(archived_at=self.ago(6))
+        flow = self.flow()
+        moments = [moment for moment, _ in flow.cards[0].placements]
+        self.assertEqual(moments, sorted(moments))
+        payload = fm.cumulative_flow(flow, self.last(12))
+        # Archived in Backlog on 07-09, so off the diagram from then on, moved or not.
+        self.assertEqual(self.counts(payload, "2026-07-08")[self.backlog.uid], 1)
+        self.assertEqual(self.counts(payload, "2026-07-09")[self.backlog.uid], 0)
+        self.assertEqual(self.counts(payload, "2026-07-14")[self.doing.uid], 0)
+
+    def test_created_at_after_the_first_movement_does_not_send_a_card_back(self):
+        card = self.card(self.done, created=1)
+        self.row(card, self.doing, self.done, 5)
+        payload = fm.cumulative_flow(self.flow(), self.last(12))
+        self.assertEqual(self.counts(payload, "2026-07-14")[self.done.uid], 1)
+        self.assertEqual(self.counts(payload, "2026-07-14")[self.doing.uid], 0)
+
+    def test_day_cards_match_the_day_counts_on_random_histories(self):
+        """Seeded. Rows, created_at and archived_at land in any order, as imports allow."""
+        rnd = random.Random(1532)
+        columns = [self.backlog, self.doing, self.review, self.done]
+        for _ in range(60):
+            card = self.card(rnd.choice(columns), created=rnd.randint(0, 12))
+            at = rnd.choice([None, *columns])
+            for _ in range(rnd.randint(0, 4)):
+                target = rnd.choice(columns)
+                self.row(card, at, target, rnd.randint(0, 12), rnd.choices([MOVE, ARCHIVED, UNARCHIVED], [6, 1, 1])[0])
+                at = target
+            if rnd.random() < 0.4:
+                Card.objects.filter(pk=card.pk).update(archived_at=self.ago(rnd.randint(0, 12)))
+        flow = self.flow()
+        payload = fm.cumulative_flow(flow, self.last(12))
+        for day in payload["days"]:
+            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]))
+            for column in cards["columns"]:
+                key = column["column_uid"] or fm.NULL_BAND_KEY
+                self.assertEqual(len(column["card_uids"]), day["counts"][key], (day["date"], key))
+
     def test_day_cards_match_the_day_counts(self):
         gone = Column.objects.create(board=self.board, name="Gone", position=9)
         self.path(self.backlog, 10, self.doing, 5, self.done, 2)
@@ -703,6 +746,105 @@ class ColumnEnteredAtTests(FlowFixture):
             self.assertNotIn(card.id, entered)
 
 
+class ColumnEnteredAtParityTests(FlowFixture):
+    """The two implementations of "the start of the open visit" must agree (#459's ADR note).
+
+    A card read needs it as a subquery in the main SELECT (``_annotate_column_entered_at``),
+    and the service computes visits from loaded rows. Same movement histories, same
+    answer, or the overlay and the dashboard disagree about one card.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # The annotation reads the wall clock, so history is relative to it here.
+        self.now = timezone.now()
+
+    def assert_agree(self, minimum_entered=1):
+        from_sql = {
+            card.id: card._column_entered_at
+            for card in _annotate_column_entered_at(Card.objects.filter(board=self.board))
+        }
+        from_service = fm.column_entered_at(fm.load_board_flow(self.board, now=timezone.now()))
+        differences = {
+            card_id: (value, from_service.get(card_id))
+            for card_id, value in from_sql.items()
+            if value != from_service.get(card_id)
+        }
+        self.assertEqual(differences, {})
+        self.assertGreaterEqual(len(from_service), minimum_entered, "no card exercised the agreement")
+
+    def test_adversarial_histories_agree(self):
+        # Reopens.
+        self.path(self.backlog, 20, self.doing, 15, self.done, 10, self.review, 5)
+        self.path(self.done, 10, self.doing, 5)
+        self.path(self.backlog, 20, self.done, 15, self.doing, 5, self.done, 1)
+        # Swimlane-only moves do not reset it.
+        lane_move = self.path(self.backlog, 20, self.doing, 15)
+        self.row(lane_move, self.doing, self.doing, 3)
+        # Archive and restore, with and without events.
+        self.path(self.backlog, 20, self.doing, 15, archived=2)
+        restored = self.path(self.backlog, 20, self.doing, 15)
+        self.row(restored, self.doing, self.doing, 8, ARCHIVED)
+        self.row(restored, self.doing, self.doing, 4, UNARCHIVED)
+        restore_only = self.path(self.backlog, 20, self.doing, 15)
+        self.row(restore_only, self.doing, self.doing, 4, UNARCHIVED)
+        archived_quietly = self.path(self.backlog, 20, self.doing, 15)
+        Card.objects.filter(pk=archived_quietly.pk).update(archived_at=self.ago(1))
+        unarchived_quietly = self.path(self.backlog, 20, self.doing, 15)
+        self.row(unarchived_quietly, self.doing, self.doing, 4, ARCHIVED)
+        # Ties on moved_at: id breaks them, in both directions.
+        tied = self.path(self.backlog, 20, self.doing, 5, self.review, 5)
+        back_again = self.path(self.backlog, 20, self.doing, 5, self.backlog, 5)
+        self.assertTrue(tied and back_again)
+        # A column deleted and recreated under one name is a different column.
+        old = Column.objects.create(board=self.board, name="Old", position=9)
+        passed_through = self.path(self.backlog, 20, old, 10, self.doing, 5)
+        stranded = self.path(self.backlog, 20, old, 10)
+        Card.objects.filter(pk=stranded.pk).update(column=self.backlog)
+        old.delete()
+        recreated = Column.objects.create(board=self.board, name="Old", position=9)
+        Card.objects.filter(pk=stranded.pk).update(column=recreated)
+        self.assertTrue(passed_through)
+        name_only = self.card(recreated, created=20)
+        mv = self.row(name_only, None, recreated, 10)
+        CardMovement.objects.filter(pk=mv.pk).update(to_column=None, to_column_uid="", to_column_name="Old")
+        # Changed without a movement, no creation row, unknown source, misdated.
+        edited = self.path(self.backlog, 20, self.doing, 15)
+        Card.objects.filter(pk=edited.pk).update(column=self.review)
+        self.card(self.doing, created=20)
+        no_creation = self.card(self.doing, created=20)
+        self.row(no_creation, self.backlog, self.doing, 5)
+        unknown_source = self.card(self.doing, created=20)
+        self.row(unknown_source, None, self.backlog, 10)
+        self.row(unknown_source, None, self.doing, 5)
+        misdated = self.path(self.backlog, 20, self.doing, 10)
+        self.row(misdated, self.doing, self.review, -3)
+        Card.objects.filter(pk=misdated.pk).update(column=self.review)
+        self.assert_agree(minimum_entered=5)
+
+    def test_random_histories_agree(self):
+        """Seeded, so a failure reproduces. Rows are often inconsistent on purpose."""
+        rnd = random.Random(448)
+        columns = [self.backlog, self.doing, self.review, self.done, self.released]
+        for _ in range(120):
+            current = rnd.choice(columns)
+            card = self.card(current, created=rnd.randint(1, 40))
+            at = None
+            for _ in range(rnd.randint(0, 6)):
+                target = rnd.choice(columns) if rnd.random() < 0.9 else None
+                source = at if rnd.random() < 0.9 else rnd.choice(columns)
+                kind = rnd.choices([MOVE, ARCHIVED, UNARCHIVED], [8, 1, 1])[0]
+                day = rnd.choice([1, 2, 3, 3, 5, 8, 13, 21, -1])  # repeats tie; -1 is misdated
+                self.row(card, source, target, day, kind)
+                if target is not None:
+                    at = target
+            if at is not None and rnd.random() < 0.8:
+                Card.objects.filter(pk=card.pk).update(column=at)
+            if rnd.random() < 0.15:
+                Card.objects.filter(pk=card.pk).update(archived_at=self.ago(rnd.randint(1, 30)))
+        self.assert_agree()
+
+
 class NarrowedLoadTests(FlowFixture):
     """summary and analytics skip cards that cannot change their answer, and only those."""
 
@@ -729,6 +871,11 @@ class NarrowedLoadTests(FlowFixture):
         self.row(broken, None, self.backlog, 40)
         self.row(broken, self.review, self.done, 3)
         cards["broken"] = broken
+        # Archived with no event row (the Django admin, or an import): its visit
+        # closes at archived_at, the only sign of it in the window.
+        quiet = self.path(self.backlog, 200, self.doing, 150)
+        Card.objects.filter(pk=quiet.pk).update(archived_at=self.ago(2))
+        cards["archived_no_event"] = quiet
         return cards
 
     def test_completion_rollup_matches_the_full_replay(self):
@@ -777,7 +924,7 @@ class NarrowedLoadTests(FlowFixture):
         loaded = {card.uid for card in fm.load_recent_dwell(self.board, self.last(30), columns=columns).cards}
         self.assertNotIn(cards["old"].uid, loaded)
         self.assertNotIn(cards["archived_old"].uid, loaded)
-        for name in ("wip", "untouched", "archived_recent", "recent", "old_then_released"):
+        for name in ("wip", "untouched", "archived_recent", "recent", "old_then_released", "archived_no_event"):
             self.assertIn(cards[name].uid, loaded, name)
 
 
@@ -819,6 +966,43 @@ class BlockedMetricTests(FlowFixture):
         self.assertEqual(result["days_per_column"]["Doing"], 27)
         self.assertEqual(result["blocks_per_column"]["Doing"], 2)
         self.assertEqual(result["top_reasons"][0]["count"], 2)
+
+    def test_a_recreated_column_does_not_inherit_blocked_time_by_name(self):
+        """A name never matches a current column (ADR "Current column")."""
+        old = Column.objects.create(board=self.board, name="Old", position=9)
+        card = self.path(self.backlog, 20, self.doing, 15)
+        CardBlock.objects.create(
+            card=card, board=self.board, column=old, column_name="Old", column_uid=old.uid,
+            reason="Vendor", blocked_at=self.ago(5), unblocked_at=self.ago(3),
+        )
+        old.delete()
+        Column.objects.create(board=self.board, name="Old", position=9)
+        result = fm.blocked_time(self.flow(), self.last(30))
+        self.assertEqual(result["days_per_column"]["Old"], 0)
+        self.assertEqual(result["seconds_per_column"]["Old"], 0)
+        self.assertEqual(result["blocks_per_column"]["Old"], 0)
+        # Still real time: it counts in the total and under its reason.
+        self.assertEqual(result["top_reasons"][0]["reason"], "Vendor")
+        self.assertEqual(result["total"], {"days": 2, "seconds": 172800, "blocks": 1})
+
+    def test_total_holds_what_columns_and_capped_reasons_cannot(self):
+        gone = Column.objects.create(board=self.board, name="Gone", position=9)
+        card = self.path(self.backlog, 20, self.doing, 15)
+        for n in range(fm.TOP_BLOCK_REASONS + 2):
+            self.block(card, f"Reason {n}", 10, 9)
+        CardBlock.objects.create(
+            card=card, board=self.board, column=gone, column_name="Gone", column_uid=gone.uid,
+            reason="In a column that goes away", blocked_at=self.ago(9), unblocked_at=self.ago(8),
+        )
+        gone.delete()
+        result = fm.blocked_time(self.flow(), self.last(30))
+        self.assertEqual(len(result["top_reasons"]), fm.TOP_BLOCK_REASONS)
+        self.assertEqual(result["blocks_per_column"]["Doing"], fm.TOP_BLOCK_REASONS + 2)
+        self.assertEqual(result["total"]["blocks"], fm.TOP_BLOCK_REASONS + 3)
+        self.assertEqual(result["total"]["days"], fm.TOP_BLOCK_REASONS + 3)
+
+    def test_the_total_is_zero_with_no_blocks(self):
+        self.assertEqual(fm.blocked_time(self.flow(), self.last(30))["total"], {"days": 0, "seconds": 0, "blocks": 0})
 
     def test_a_swimlane_or_label_filter_reaches_blocked_time(self):
         label = Label.objects.create(board=self.board, name="T")
