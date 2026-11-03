@@ -34,14 +34,6 @@ export const COLOR_NAMES: Record<string, string> = {
   "#14B8A6": "Teal",
 };
 
-/** Canonical uppercase `#RRGGBB` for a 3- or 6-digit hex, with or without `#`; null for anything else. */
-export function normalizeHex(value: string | null | undefined): string | null {
-  const digits = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value ?? "")?.[1];
-  if (!digits) return null;
-  const full = digits.length === 3 ? digits.replace(/./g, "$&$&") : digits;
-  return `#${full.toUpperCase()}`;
-}
-
 /** Name for a swatch hex; falls back to "Custom color" for a value outside the palette. */
 export function colorName(hex: string): string {
   return COLOR_NAMES[hex.toUpperCase()] ?? "Custom color";

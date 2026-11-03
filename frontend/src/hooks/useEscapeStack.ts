@@ -31,7 +31,7 @@ function dispatch(e: KeyboardEvent): void {
  * handler to run. Any other return value (including void) consumes the event.
  *
  * Priority conventions (the authoritative, fuller list is in frontend/CLAUDE.md):
- *   59 — custom color popover (ColorSwatchPicker, #2095)
+ *   59.5 — custom color popover (ColorSwatchPicker, #2095); between the Activity filter's 59 and the palette's 60
  *   58 — Board Settings member search (BoardSettingsModal, #2036)
  *   57 — inline confirm removing an all-content member's board role (BoardSettingsModal, #1301)
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)

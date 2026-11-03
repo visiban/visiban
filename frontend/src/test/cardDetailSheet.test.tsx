@@ -408,6 +408,55 @@ describe('CardDetail sheet — click-catcher (#1914)', () => {
     expect(opened).toHaveBeenCalledOnce()
   })
 
+  describe('with the custom color picker open (#2095)', () => {
+    const openPicker = () => {
+      fireEvent.click(screen.getByRole('button', { name: '+ New label' }))
+      fireEvent.change(screen.getByRole('textbox', { name: 'New label name' }), { target: { value: 'Half typed' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Choose custom color' }))
+      expect(screen.getByRole('dialog', { name: 'Custom color' })).toBeInTheDocument()
+    }
+
+    it('the first press on board space closes only the picker, still consumed; the second closes the sheet', () => {
+      const { scroll } = mountBoard()
+      const behind = vi.fn()
+      scroll.addEventListener('click', behind)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      openPicker()
+
+      press(scroll)
+      fireEvent.mouseDown(scroll)
+      click(scroll)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(props.onClose).not.toHaveBeenCalled()
+      expect(behind).not.toHaveBeenCalled()
+      expect(screen.getByRole('textbox', { name: 'New label name' })).toHaveValue('Half typed')
+
+      press(scroll)
+      fireEvent.mouseDown(scroll)
+      click(scroll)
+      expect(props.onClose).toHaveBeenCalledOnce()
+    })
+
+    it('a control outside the sheet still works, and the sheet survives that press', () => {
+      mountBoard()
+      const filters = document.createElement('button')
+      const opened = vi.fn()
+      filters.addEventListener('click', opened)
+      document.querySelector('nav[aria-label="Board toolbar"]')!.appendChild(filters)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      openPicker()
+
+      press(filters)
+      fireEvent.mouseDown(filters)
+      click(filters)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(opened).toHaveBeenCalledOnce()
+      expect(props.onClose).not.toHaveBeenCalled()
+    })
+  })
+
   it('consumes the click on a control inside the board, such as an empty cell', () => {
     const { content } = mountBoard()
     const emptyCell = document.createElement('div')

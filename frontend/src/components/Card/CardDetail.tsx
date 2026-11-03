@@ -19,6 +19,7 @@ import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
+import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 import ActivityTabPanel from "./ActivityTabPanel";
 import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
@@ -241,7 +242,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // also fire) and for anything that is not a control. A control elsewhere
     // in the app (toolbar, sidebar, navbar) closes the sheet AND works, in one
     // click, and takes focus as it normally would.
-    let pending: { x: number; y: number; consume: boolean } | null = null;
+    // `closes`: false while a popover in the sheet is open: this press dismisses it
+    // alone, as Escape would, and still behaves as a press outside otherwise.
+    let pending: { x: number; y: number; consume: boolean; closes: boolean } | null = null;
     // A press on the open card's own face: its click re-selects the same card,
     // so keep focus in the sheet instead of letting the press move it there.
     let keepFocus = false;
@@ -263,7 +266,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       // A press on a scrollbar targets the scroll container itself.
       if (t instanceof HTMLElement && t.clientWidth > 0 && (e.offsetX > t.clientWidth || e.offsetY > t.clientHeight)) return;
       const control = t.closest(OUTSIDE_CONTROL_SELECTOR);
-      pending = { x: e.clientX, y: e.clientY, consume: !control || !!t.closest(BOARD_SCROLL_SELECTOR) };
+      pending = {
+        x: e.clientX,
+        y: e.clientY,
+        consume: !control || !!t.closest(BOARD_SCROLL_SELECTOR),
+        closes: !hasOpenDismissLayer(panelRef.current),
+      };
     };
     const onClick = (e: MouseEvent) => {
       const p = pending;
@@ -273,6 +281,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         e.preventDefault();
         e.stopPropagation();
       }
+      if (!p.closes) return;
       // The press kept focus in the sheet, so a save-on-blur field (the title)
       // has not blurred, and React runs no onBlur on a node it unmounts: blur
       // it now so its edit is saved before the sheet closes.

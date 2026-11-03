@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import { normalizeHex } from "../../constants/colors";
+import { normalizeHex } from "../../utils/colorContrast";
 
 const HEX_MESSAGE = "Use 3 or 6 hex digits.";
 const RGB_MESSAGE = "R, G and B go from 0 to 255.";
@@ -75,7 +75,7 @@ export default function CustomColorPanel({
   const rootRef = useRef<HTMLDivElement>(null);
   const messageId = useId();
 
-  const parsedHex = normalizeHex(hexText);
+  const parsedHex = normalizeHex(`#${hexText}`);
   const hexInvalid = parsedHex === null;
   const anyOver = channels.some(channelOver);
   const anyEmpty = channels.some((v) => v === "");
@@ -114,7 +114,7 @@ export default function CustomColorPanel({
   const onHexInput = (raw: string) => {
     const digits = raw.replace(/[^0-9a-f]/gi, "").slice(0, 6);
     setHexText(digits);
-    const hex = normalizeHex(digits);
+    const hex = normalizeHex(`#${digits}`);
     if (hex) syncFromValidHex(hex);
   };
 

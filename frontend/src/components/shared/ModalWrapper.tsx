@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 
 interface ModalWrapperProps {
   open: boolean;
@@ -74,10 +75,11 @@ export default function ModalWrapper({
 
   // A press that starts inside the panel and ends on the backdrop (a color picker drag
   // released past the panel's edge, a text selection) fires its click on the backdrop,
-  // their common ancestor. Only a press that began on the backdrop may dismiss.
+  // their common ancestor. Only a press that began on the backdrop may dismiss, and
+  // not while a popover inside the panel is open: that press dismisses the popover alone.
   const pressedBackdropRef = useRef(false);
   const handleBackdropMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    pressedBackdropRef.current = e.target === e.currentTarget;
+    pressedBackdropRef.current = e.target === e.currentTarget && !hasOpenDismissLayer(panelRef.current);
   }, []);
 
   const handleBackdropClick = useCallback(

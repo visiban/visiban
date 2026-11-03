@@ -2,10 +2,12 @@ import { version as reactVersion, useState } from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { act, render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ColorSwatchPicker from '../components/Common/ColorSwatchPicker'
+import ColorSwatchPicker, { CUSTOM_COLOR_ESCAPE_PRIORITY } from '../components/Common/ColorSwatchPicker'
 import CustomColorPanel from '../components/Common/CustomColorPanel'
 import ModalWrapper from '../components/shared/ModalWrapper'
-import { COLUMN_COLORS, normalizeHex } from '../constants/colors'
+import { COLUMN_COLORS } from '../constants/colors'
+import ActivityFilterDropdown from '../components/Card/ActivityFilterDropdown'
+import { useEscapeStack } from '../hooks/useEscapeStack'
 import { shouldIgnoreShortcut } from '../utils/keyboard'
 
 const square = () => screen.getByRole('slider', { name: 'Saturation and brightness' })
@@ -25,17 +27,6 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof CustomColorP
 function setHex(value: string) {
   fireEvent.input(hexField(), { target: { value } })
 }
-
-describe('normalizeHex', () => {
-  it('canonicalizes 3- and 6-digit hex and rejects anything else', () => {
-    expect(normalizeHex('#abc')).toBe('#AABBCC')
-    expect(normalizeHex('a1b2c3')).toBe('#A1B2C3')
-    expect(normalizeHex('#ABCD')).toBeNull()
-    expect(normalizeHex('red')).toBeNull()
-    expect(normalizeHex('')).toBeNull()
-    expect(normalizeHex(null)).toBeNull()
-  })
-})
 
 describe('shouldIgnoreShortcut', () => {
   it('treats a role="slider" as owning its keys', () => {
@@ -295,15 +286,14 @@ describe('ColorSwatchPicker allowCustom', () => {
     expect(trigger).toHaveAttribute('title', 'Custom color')
     expect(trigger.className).toContain('border-dashed')
     expect(trigger.className).toContain('w-7')
-    expect(trigger.className).toContain('[@media(pointer:coarse)]:before:-inset-x-2.5')
-    expect(trigger.className).toContain('[@media(pointer:coarse)]:before:-inset-y-2.5')
+    expect(trigger.className).toContain('[@media(pointer:coarse)]:before:-inset-2.5')
     expect(trigger.querySelector('svg')).not.toBeNull()
   })
 
   it('sizes the trigger with the row', () => {
     render(<ColorSwatchPicker colors={COLUMN_COLORS} value={null} onChange={vi.fn()} size="sm" allowCustom />)
     expect(emptyTrigger().className).toContain('w-5')
-    expect(emptyTrigger().className).toContain('[@media(pointer:coarse)]:before:-inset-y-3.5')
+    expect(emptyTrigger().className).toContain('[@media(pointer:coarse)]:before:-right-2')
   })
 
   it('a persisted custom value fills the trigger, selected, with no glyph', () => {
@@ -314,6 +304,21 @@ describe('ColorSwatchPicker allowCustom', () => {
     expect(trigger.className).not.toContain('border-dashed')
     expect(trigger.querySelector('svg')).toBeNull()
     screen.getAllByRole('button', { pressed: false }).forEach(b => expect(b).toHaveAttribute('aria-pressed', 'false'))
+  })
+
+  it('a legacy non-hex value paints nothing: empty trigger, no preset, seeded from colors[0]', () => {
+    render(<ColorSwatchPicker colors={COLUMN_COLORS} value="red" onChange={vi.fn()} allowCustom />)
+    const trigger = emptyTrigger()
+    expect(trigger.style.backgroundColor).toBe('')
+    expect(trigger.querySelector('svg')).not.toBeNull()
+    screen.getAllByRole('button', { name: /Select color/ }).forEach(b => expect(b).toHaveAttribute('aria-pressed', 'false'))
+    fireEvent.click(trigger)
+    expect(hexField().value).toBe(COLUMN_COLORS[0])
+  })
+
+  it('paints a 3-digit persisted value in its canonical form', () => {
+    render(<ColorSwatchPicker colors={COLUMN_COLORS} value="#abc" onChange={vi.fn()} allowCustom />)
+    expect(filledTrigger().style.backgroundColor).toBe('rgb(170, 187, 204)')
   })
 
   it('selects a preset case-insensitively and leaves the trigger empty', () => {
@@ -374,6 +379,15 @@ describe('ColorSwatchPicker allowCustom', () => {
     expect(spy).toHaveBeenCalledWith('#3B82F6')
     expect(screen.getByRole('button', { name: 'Select color Blue' })).toHaveAttribute('aria-pressed', 'true')
     expect(emptyTrigger()).toHaveFocus()
+  })
+
+  it('emits the literal spelling of a lowercase palette preset', () => {
+    const onChange = vi.fn()
+    render(<ColorSwatchPicker colors={['#3b82f6', '#ef4444']} value={null} onChange={onChange} allowCustom />)
+    fireEvent.click(emptyTrigger())
+    setHex('#3B82F6')
+    fireEvent.click(applyButton())
+    expect(onChange).toHaveBeenCalledWith('#3b82f6')
   })
 
   it('seeds from colors[0] when there is no valid value', () => {
@@ -463,6 +477,55 @@ describe('ColorSwatchPicker allowCustom', () => {
     expect(panel.querySelector('.bg-gradient-to-t')).not.toBeNull()
   })
 
+  describe('Escape priority', () => {
+    function Stack({ priority, handler }: { priority: number; handler: () => void }) {
+      useEscapeStack(handler, priority)
+      return null
+    }
+
+    it('sits between the Activity filter at 59 and the command palette at 60', () => {
+      expect(CUSTOM_COLOR_ESCAPE_PRIORITY).toBeGreaterThan(59)
+      expect(CUSTOM_COLOR_ESCAPE_PRIORITY).toBeLessThan(60)
+    })
+
+    // The filter opened first registers first, so an equal priority would close it instead.
+    // The other order cannot happen: opening the filter takes focus and closes the picker.
+    it('Escape closes the picker, not an open Activity filter', () => {
+      render(
+        <>
+          <ActivityFilterDropdown label="Filter" options={[{ value: 'a', label: 'A' }]} selected={[]} onChange={vi.fn()} />
+          <Host />
+        </>
+      )
+      const filter = () => screen.getByRole('button', { name: /Filter/ })
+      fireEvent.click(filter())
+      fireEvent.click(emptyTrigger())
+      expect(filter()).toHaveAttribute('aria-expanded', 'true')
+      expect(dialog()).toBeInTheDocument()
+
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(filter()).toHaveAttribute('aria-expanded', 'true')
+
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(filter()).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('leaves the command palette at 60 on top', () => {
+      const palette = vi.fn()
+      render(
+        <>
+          <Host />
+          <Stack priority={60} handler={palette} />
+        </>
+      )
+      fireEvent.click(emptyTrigger())
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(palette).toHaveBeenCalledTimes(1)
+      expect(dialog()).toBeInTheDocument()
+    })
+  })
+
   describe('inside a ModalWrapper', () => {
     function ModalHost({ onClose = vi.fn(), onSpy = vi.fn() as (c: string) => void }) {
       const [name, setName] = useState('Draft name')
@@ -516,6 +579,35 @@ describe('ColorSwatchPicker allowCustom', () => {
       expect(filledTrigger()).toHaveFocus()
       expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Draft name')
       expect(screen.getByRole('dialog', { name: 'Add Column' })).toBeInTheDocument()
+    })
+
+    it('the first press on the backdrop closes only the picker; the second closes the modal', () => {
+      const onClose = vi.fn()
+      const { container } = render(<ModalHost onClose={onClose} />)
+      const backdrop = container.firstChild as HTMLElement
+      fireEvent.click(emptyTrigger())
+      fireEvent.mouseDown(backdrop)
+      fireEvent.mouseUp(backdrop)
+      fireEvent.click(backdrop)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(onClose).not.toHaveBeenCalled()
+      expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Draft name')
+
+      fireEvent.mouseDown(backdrop)
+      fireEvent.mouseUp(backdrop)
+      fireEvent.click(backdrop)
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('a press on a preset swatch closes the picker and still selects the swatch', () => {
+      const onSpy = vi.fn()
+      render(<ModalHost onSpy={onSpy} />)
+      fireEvent.click(emptyTrigger())
+      const red = screen.getByRole('button', { name: 'Select color Red' })
+      fireEvent.mouseDown(red)
+      fireEvent.click(red)
+      expect(screen.queryByRole('dialog', { name: 'Custom color' })).toBeNull()
+      expect(onSpy).toHaveBeenCalledWith('#EF4444')
     })
 
     it('a drag from the square released on the backdrop keeps the modal open', () => {

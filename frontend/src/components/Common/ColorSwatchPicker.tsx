@@ -1,19 +1,39 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { colorName, normalizeHex } from "../../constants/colors";
+import { colorName } from "../../constants/colors";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
+import { normalizeHex } from "../../utils/colorContrast";
+import { DISMISS_LAYER_ATTR } from "../../utils/dismissLayer";
 import CustomColorPanel from "./CustomColorPanel";
 
 /**
  * Escape priority of the open custom color popover. It renders inside modals (40) and
- * inside `CardDetail`, so it must clear both; see the allocation list in frontend/CLAUDE.md.
+ * inside `CardDetail`, so it must clear both. Not an integer on purpose: 59 is the card
+ * panel's Activity filter, equal priorities resolve by registration order rather than by
+ * what is on top, and the command palette at 60 must stay above this. See the allocation
+ * list in frontend/CLAUDE.md.
  */
-export const CUSTOM_COLOR_ESCAPE_PRIORITY = 59;
+export const CUSTOM_COLOR_ESCAPE_PRIORITY = 59.5;
 
 const SWATCH_FOCUS =
   "transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-2 focus:ring-offset-surface";
 const SWATCH_SELECTED = "border-fg scale-110 ring-2 ring-fg ring-offset-2 ring-offset-surface";
+
+/**
+ * Touch hit area of the trigger, 44px tall. It is last in the DOM, so it paints over its
+ * neighbors and must stop at their edges or it takes their taps. Insets measure from the
+ * padding box, so each reaches 2px less past the button than it says.
+ * `md` (44x44): 8px every way, the row's `gap-2`, which can also wrap.
+ * `sm` (34x44): 8px left to the swatch; 6px right, since the `CardDetail` row puts the
+ * cancel button a `gap-1.5` away; 10px up to the chips above; 14px down to nothing.
+ */
+const TRIGGER_HIT_AREA = {
+  md: "[@media(pointer:coarse)]:before:-inset-2.5",
+  sm: "[@media(pointer:coarse)]:before:-left-2.5 [@media(pointer:coarse)]:before:-right-2 [@media(pointer:coarse)]:before:-top-3 [@media(pointer:coarse)]:before:-bottom-4",
+} as const;
+/** Cancels the selected `scale-110` on the hit area, which would push it back over a neighbor. */
+const HIT_AREA_UNSCALED = "[@media(pointer:coarse)]:before:scale-[0.909]";
 
 interface Props {
   /** Palette to render, one swatch per entry (hex strings). */
@@ -142,11 +162,8 @@ function CustomColorControl({ colors, value, size, dim, onChange, applyLabel }: 
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Custom color"
-        // The touch hit area is 44px tall and stops at the row's gap-2 sideways: this button is
-        // last in the DOM, so a wider one paints over the neighboring swatch and steals its
-        // taps. Insets are from the padding box, hence 2.5 (10px) for 8px past the 2px border.
-        className={`relative ${dim} rounded-full border-2 flex items-center justify-center [@media(pointer:coarse)]:before:absolute [@media(pointer:coarse)]:before:-inset-x-2.5 ${size === "sm" ? "[@media(pointer:coarse)]:before:-inset-y-3.5" : "[@media(pointer:coarse)]:before:-inset-y-2.5"} ${SWATCH_FOCUS} ${
-          custom ? SWATCH_SELECTED : "border-dashed border-line-strong text-fg-tertiary hover:text-fg"
+        className={`relative ${dim} rounded-full border-2 flex items-center justify-center [@media(pointer:coarse)]:before:absolute ${TRIGGER_HIT_AREA[size]} ${SWATCH_FOCUS} ${
+          custom ? `${SWATCH_SELECTED} ${HIT_AREA_UNSCALED}` : "border-dashed border-line-strong text-fg-tertiary hover:text-fg"
         }`}
         style={custom ? { backgroundColor: custom } : undefined}
       >
@@ -234,16 +251,18 @@ function CustomColorPopover({ anchor, triggerRef, value, fallbackColor, applyLab
       ref={panelRef}
       role="dialog"
       aria-label="Custom color"
+      {...{ [DISMISS_LAYER_ATTR]: "" }}
       onScroll={onScroll}
       // Every control in here is its own Tab stop, so focus scrolls the region and it
-      // needs no tabIndex of its own.
+      // needs no tabIndex of its own. scroll-pb-8 is the fade's height: focus clears the
+      // fade, and on the last button reaches the true end, so the fade goes away.
       onBlur={(e) => {
         // relatedTarget is null when the window loses focus and on a Safari button
         // click. Neither is the user leaving: an outside click has its own listener.
         const next = e.relatedTarget as Node | null;
         if (next && !e.currentTarget.contains(next)) onClose(false);
       }}
-      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 max-h-[calc(100dvh-1rem)] overflow-y-auto"
+      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-3 max-h-[calc(100dvh-1rem)] overflow-y-auto scroll-pb-8"
       style={{ top: top ?? 0, left, visibility: top === null ? "hidden" : undefined }}
     >
       <CustomColorPanel
