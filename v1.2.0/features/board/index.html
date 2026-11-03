@@ -1407,6 +1407,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#dwell-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dwell time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#notes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5669,34 +5680,86 @@
 <td><strong>Card count</strong></td>
 <td>How many visible cards sit in each cell, relative to the busiest cell on the board</td>
 </tr>
+<tr>
+<td><strong>Dwell time</strong> <em>(1.3+)</em></td>
+<td>The median time the visible cards in each cell have been in their column, to show where work is stuck. See <a href="#dwell-time">Dwell time</a></td>
+</tr>
 </tbody>
 </table>
 <p>The choice is remembered per board in <code>localStorage</code> under <code>board:{boardId}:grid-overlay</code>, so it survives a reload but never follows you to another board. A <a href="#board-presets">board preset</a> also sets it. It is a personal reading preference available to every role, including viewers: turning an overlay on changes nothing for your teammates and writes nothing to the server.</p>
 <h3 id="how-a-cell-is-shaded">How a cell is shaded<a class="headerlink" href="#how-a-cell-is-shaded" title="Permanent link">&para;</a></h3>
-<p>Every overlay shares one scale with four steps, measured against the largest value currently visible on the board.</p>
+<p>Every overlay shades on the same four levels. By default they are measured against the largest value currently visible on the board; <a href="#dwell-time">Dwell time</a> uses fixed steps in days instead.</p>
+<p>On the default scale:</p>
 <ul>
 <li>A cell whose value is zero is left completely untouched.</li>
 <li>When every cell with a value has the <em>same</em> value, the whole board is drawn at the quietest step, because a board where nothing stands out should not look alarming.</li>
 </ul>
+<p>Neither applies to fixed steps, where a value keeps its meaning whatever the other cells hold: a card that has just arrived reads <code>0.0d</code>, and equal values stay on the step they belong to.</p>
 <p>Each step is encoded <strong>three</strong> ways, so the ordering never depends on telling colors apart:</p>
 <ol>
 <li><strong>Tint</strong> — a single-hue blue wash that deepens with the value. It is deliberately not a green→amber→red gradient: a busy cell is not a problem, and the board already uses amber and red for card aging and over-limit columns.</li>
 <li><strong>A bar along the cell's bottom edge</strong> — 1px, 2px, 3px, or 4px tall. Height, not hue.</li>
-<li><strong>The value itself</strong>, in the cell's top-right corner. While an overlay is on it replaces the usual card-count badge, so the corner never shows two different numbers.</li>
+<li><strong>The value itself</strong>, in a small tab at the cell's top-right corner, clear of the cards' words. While an overlay is on it replaces the usual card-count badge, so the corner never shows two different numbers.</li>
 </ol>
 <p>Screen readers get the reading in words — for example "Card count: 4 cards, level 3 of 4" — and selecting an overlay is announced ("Overlay: Card count" / "Overlay off").</p>
-<p>A legend floats in the bottom-right corner of the grid whenever an overlay is active. It names the overlay, describes it in one line, and lists the four steps with the range of values actually observed in each; a step no cell landed in shows <code>—</code>.</p>
+<p>A legend floats in the bottom-right corner of the grid whenever an overlay is active. It names the overlay, describes it briefly, and lists each step with the range of values actually observed in it; a step no cell landed in shows <code>—</code>.</p>
 <ul>
 <li>When the active overlay has nothing to show, the legend says so instead of showing an empty ramp. If a filter is what left it with nothing to scale, it says that rather than claiming the board is empty.</li>
 <li>The legend is passive: it never intercepts a click, and it fades out while you drag.</li>
 </ul>
 <p>Because the overlay reads the cards that are currently <em>visible</em>, narrowing the filter bar re-scales it and the labels switch to "matching cards", so the shading always agrees with what is on screen. Hidden columns and swimlanes are excluded from the scale, so a card parked out of sight cannot wash out every tint on the board.</p>
+<h3 id="dwell-time">Dwell time<a class="headerlink" href="#dwell-time" title="Permanent link">&para;</a></h3>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>The <strong>Dwell time</strong> overlay shows where work has stopped moving while you are looking at the board. Each cell shows the median of how long its visible cards have been in their current column, for example <code>4.0d</code>. It answers "where is the queue?" without opening a report, and it uses the median so that one forgotten card does not repaint a whole cell.</p>
+<p>The steps are fixed, so the same shade means the same thing on every board:</p>
+<table>
+<thead>
+<tr>
+<th>Median in the cell</th>
+<th>Tint and bottom bar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Under 1 day</td>
+<td>None, just the value</td>
+</tr>
+<tr>
+<td>1 to 3 days</td>
+<td>Lightest, 1px bar</td>
+</tr>
+<tr>
+<td>3 to 5 days</td>
+<td>2px bar</td>
+</tr>
+<tr>
+<td>5 to 8 days</td>
+<td>3px bar</td>
+</tr>
+<tr>
+<td>8 days or more</td>
+<td>Darkest, 4px bar</td>
+</tr>
+</tbody>
+</table>
+<p>A step includes its lower bound, and the step follows the number shown, so a cell reading <code>3.0d</code> is always in "3 to 5 days". The shade is one color that deepens, not a warning color: a long dwell is something to look at, not a verdict, and a column of waiting work can be doing its job.</p>
+<p>What counts:</p>
+<ul>
+<li><strong>Time in the column, not in the cell.</strong> Moving a card to another swimlane does not restart its time, and neither does reordering it. Moving it to another column does.</li>
+<li><strong>Archiving ends the time, and restoring starts it again.</strong> Reopening a card out of a done column also starts it again.</li>
+<li><strong>Done columns and empty cells show nothing.</strong> Time spent in a done column is not waiting. No shade there means no value, not "all clear".</li>
+<li><strong>Cards with no usable history are left out.</strong> A card imported without history, or moved by a direct admin edit, has no measured time in its column. The legend counts them, for example "2 cards with no recorded time in this column left out", and a cell's screen-reader reading says so too: "median dwell 3.0 days, 2 of 3 cards measured". If no card on the board can be measured, the legend says there are no values yet.</li>
+<li><strong>One card is enough.</strong> A cell with a single card shows that card's time. The overlay describes what is on screen, so it does not need the minimum sample a chart's percentile does.</li>
+</ul>
+<p>The overlay is live and follows the filter bar. It updates when a card moves, on your screen or anyone else's, and it keeps counting while the board stays open: values refresh every few minutes, and at once when you return to the tab. With a filter on, each median covers only the cards that match.</p>
+<p>Dwell time here is the same definition the rest of Visiban uses: see <a href="../../architecture/decisions/#flow-metric-definitions">Flow metric definitions</a>. This overlay shows <em>current</em> dwell, the cards still in the column. It has no date range, because it describes the board as it is now.</p>
 <h3 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Overlays are <strong>stackable with views, not a replacement for them</strong> — Analytics is a tab, an overlay is a layer, and both can be on at once</li>
-<li>The <strong>Card count</strong> overlay is computed from the cards the board already loaded. It issues no extra requests and no per-cell queries</li>
+<li>The <strong>Card count</strong> and <strong>Dwell time</strong> overlays are computed from the cards the board already loaded. They issue no extra requests and no per-cell queries</li>
 <li>Collapsed columns and collapsed swimlanes render their compact count stubs rather than full cells, so they carry no shading — but they still count toward the scale, so folding a lane never silently re-shades the rest of the board</li>
 <li>The cell being dragged over is never shaded, so the drop-target highlight stays unambiguous</li>
+<li>A cell's value fades while a keyboard user is on a control inside one of its cards, so it never covers the focus ring. Screen readers can still reach it</li>
 </ul>
 <h2 id="board-presets">Board presets<a class="headerlink" href="#board-presets" title="Permanent link">&para;</a></h2>
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
