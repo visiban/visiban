@@ -28,7 +28,7 @@ While the card is blocked, a red banner at the top of *Details* shows:
 - who blocked it and when
 - **Total blocked time** across every block the card has had, for example *5d 10h across 2 blocks*
 
-To unblock, click **Unblock** in the banner. Optionally note how it was resolved under **Resolution**, then click **Unblock card**. A card that was blocked before, and is not now, shows its total blocked time in a single line instead of the banner.
+To unblock, click **Unblock** in the banner. Optionally note how it was resolved under **Resolution**, then click **Unblock card**. A notice at the bottom of the screen confirms it for a few seconds, for example *Unblocked "Payment flow" after 3d 5h* (see [Notifications](board.md#notifications)). A card that was blocked before, and is not now, shows its total blocked time in a single line instead of the banner.
 
 Both events appear in the card's *Activity* tab ("Blocked: Waiting on customer", "Unblocked: Customer signed off"), and that history cannot be edited.
 

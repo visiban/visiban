@@ -103,6 +103,24 @@ describe('BulkActionToolbar', () => {
     expect(screen.getByText('To Do').parentElement?.querySelector('.color-dot')).not.toBeNull()
   })
 
+  it('publishes its height for the toast region and outranks it while a menu is open (#2060)', async () => {
+    const { container } = render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    const bar = container.querySelector('div.fixed') as HTMLElement
+    expect(document.documentElement.style.getPropertyValue('--bulk-toolbar-h')).toMatch(/px$/)
+    expect(bar.className).toContain('z-40')
+    await userEvent.setup().click(screen.getByText('Move to...'))
+    expect(bar.className).toContain('z-[56]')
+  })
+
   it('shows assign dropdown with members', async () => {
     render(
       <BulkActionToolbar
