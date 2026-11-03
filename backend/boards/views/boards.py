@@ -38,7 +38,7 @@ from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
 )
-from ..services.feed import feed_queryset, pruned_through, resume_cursor, serialize_feed_rows
+from ..services.feed import feed_queryset, prune_marks, resume_cursor, serialize_feed_rows
 from ..services.notifications import create_notifications
 from ..utils import create_template_columns, resolve_board_template
 from ._helpers import (
@@ -134,16 +134,23 @@ def _parse_events_limit(raw):
     return limit
 
 
-def _events_cursor_expired(board_id, after, page_has_rows):
-    """Whether a nonzero ``after`` cursor skips past events retention pruned (#2058).
+def _events_cursor_expired(board_id, after, page_has_rows, *, role, reader_id):
+    """Whether a nonzero ``after`` cursor skips past events retention pruned (#2058, #2079).
 
-    A cursor is expired iff an event of this board *after* it was pruned, and
-    ``BoardEventPruneMark`` records the highest pruned id, so for a cursor at
-    or below the mark the answer is exact: below it, something after the
-    cursor is gone (410 even on an empty page, because the events it missed
-    may have been the newest ones); equal to it, the cursor row is the last
-    pruned row and nothing after it was lost (an idle consumer on a quiet
-    board keeps reading).
+    Per event type, a cursor is expired only if an event of this board *after*
+    it, that this reader could have seen, was pruned; a record with no type
+    counts as well. For a cursor at or below the board's prune record: below the
+    reader's visible mark, something it could have read may be gone (410 even on
+    an empty page, because the events it missed may have been the newest ones);
+    otherwise nothing it could have read was lost, whatever else was pruned (an
+    idle consumer on a quiet board keeps reading). ``prune_marks`` says how
+    visibility is settled.
+
+    The limit: a cursor that was never this board's, between the reader's visible
+    mark and the board-wide one, reads on rather than getting a 410. It cannot be
+    told from a position the reader really held, so nothing the reader could have
+    read is skipped past the cursor it sent; this is a lost warning about a bad
+    cursor, not a lost event.
 
     Everywhere else the previous inference stands — a missing cursor row with
     newer rows behind it is 410 — for two reasons:
@@ -152,18 +159,14 @@ def _events_cursor_expired(board_id, after, page_has_rows):
       before #2058 recorded nothing. Treating "no record" as "nothing lost"
       would turn a known-unknown into a silent skip, so such a board keeps
       the old behavior until its next prune writes a mark.
-    * A cursor above the mark was never pruned from this board, so if its row
+    * A cursor above the record was never pruned from this board, so if its row
       is missing it is not this board's cursor (another board's id, or a
       made-up number). That stays a loud 410 rather than a page that starts
       somewhere the consumer never was.
-
-    The mark is board-wide, not per reader, so a reader can get a 410 for a
-    pruned row it would not have been shown (another user's per-user event,
-    or an admin-only one). That errs toward a re-sync, never toward a skip.
     """
-    mark = pruned_through(board_id)
-    if mark is not None and after <= mark:
-        return after < mark
+    marks = prune_marks(board_id, role=role, reader_id=reader_id)
+    if marks.board_wide is not None and after <= marks.board_wide:
+        return after < marks.visible
     return page_has_rows and not BoardEvent.objects.filter(board_id=board_id, pk=after).exists()
 
 
@@ -922,16 +925,19 @@ class BoardViewSet(
             qs = qs.filter(pk__gt=after)
         rows = list(qs.order_by("id")[:limit])
 
-        # Retention check: a cursor is expired iff an event after it was
-        # pruned. See _events_cursor_expired for the per-board prune mark it
-        # reads (#2058) and the boards that fall back to the older inference.
+        # Retention check: a cursor is expired iff an event after it that this
+        # reader could have seen was pruned. See _events_cursor_expired for the
+        # prune record it reads (#2058, #2079) and the boards that fall back to
+        # the older inference.
         #
         # Deliberately ordered AFTER the page fetch. Read the mark first and a
         # prune committing in between could delete events this page then
         # skips, with the stale mark saying nothing was lost: a silent gap.
         # Read it after, and a prune landing in between can only make the mark
         # newer than the page, which errs toward a 410, never toward a skip.
-        if after and _events_cursor_expired(board.id, after, bool(rows)):
+        if after and _events_cursor_expired(
+            board.id, after, bool(rows), role=role, reader_id=request.user.id
+        ):
             return Response(
                 {
                     "detail": (

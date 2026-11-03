@@ -131,7 +131,7 @@ Resets the failure state and makes the caller the owner. On a webhook that is al
 
 | `resume_from` | Result |
 |---|---|
-| `cursor` (default) | Delivers what was missed since the webhook stopped. `409 {"code": "cursor_expired"}` if any event after `last_delivered_event_id` was pruned from the feed, including when every missed event was pruned and nothing newer exists. |
+| `cursor` (default) | Delivers what was missed since the webhook stopped. `409 {"code": "cursor_expired"}` if an event after `last_delivered_event_id` that this webhook would have been sent was pruned from the feed, including when every missed event was pruned and nothing newer exists. A pruned event of a type outside its current `event_types`, or one no webhook receives (per-user and admin-only events), does not count. |
 | `latest` | Skips to new events: `last_delivered_event_id` becomes the board's newest event id or its highest pruned id, whichever is greater. |
 
 `409 {"code": "secret_unavailable"}` when the stored URL or secret can no longer be decrypted (the instance encryption key changed). Delete the webhook and create a new one.

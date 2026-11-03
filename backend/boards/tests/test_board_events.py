@@ -32,9 +32,11 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from boards.broadcast import record_board_event
-from boards.management.commands.prune_board_events import record_pruned
-from boards.models import BoardEvent, BoardEventPruneMark, BoardMembership, Card
+from boards.management.commands.prune_board_events import _MARK_CHUNK, record_pruned
+from boards.models import BoardEvent, BoardEventPruneMark, BoardEventPruneTypeMark, BoardMembership, Card
+from boards.permissions import PER_USER_EVENTS
 from boards.services import cards as svc
+from boards.services.feed import pruned_through
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
     _make_user,
@@ -952,11 +954,340 @@ class RetentionAndGoneTests(BoardEventTestBase):
         self.assertEqual(resp.status_code, 410)
 
 
+class ReaderScopedPruneMarkTests(BoardEventTestBase):
+    """A cursor is expired only by a pruned event its reader could have seen (#2079).
+
+    Every prune here goes through ``prune_board_events``. The cursor row is aged
+    with the rows after it, as retention does in practice: ids and timestamps
+    move together, so a pruned row's predecessors are pruned with it.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.url = f"/api/v1/boards/{self.board.pk}/events/"
+        self.site_admin = _make_user("evt_site_admin", is_superuser=True, is_staff=True)
+
+    def _record(self, event="card.created", *, actor=None, aged=True):
+        pk = record_board_event(
+            self.board.id, event, {"user_id": actor.pk} if actor else {}, actor_id=actor.pk if actor else None
+        )
+        if aged:
+            BoardEvent.objects.filter(pk=pk).update(created_at=timezone.now() - datetime.timedelta(days=45))
+        return pk
+
+    def _get(self, user, cursor):
+        return self.client_for(user).get(f"{self.url}?after={cursor}")
+
+    def assertNotExpired(self, user, cursor, ids=()):
+        resp = self._get(user, cursor)
+        self.assertEqual(resp.status_code, 200, user.username)
+        self.assertEqual([e["id"] for e in resp.data["results"]], list(ids), user.username)
+
+    def assertExpired(self, user, cursor):
+        resp = self._get(user, cursor)
+        self.assertEqual(resp.status_code, 410, user.username)
+        self.assertEqual(resp.data["code"], "cursor_expired")
+        return resp
+
+    # -- per-user events ----------------------------------------------------
+
+    def test_another_users_pruned_per_user_events_do_not_expire_a_reader(self):
+        cursor = self._record()
+        for event in sorted(PER_USER_EVENTS):
+            self._record(event, actor=self.member)
+        call_command("prune_board_events")
+
+        self.assertNotExpired(self.owner, cursor)
+        self.assertNotExpired(self.viewer, cursor)
+
+    def test_a_users_own_pruned_per_user_event_expires_that_user(self):
+        cursor = self._record()
+        self._record("board.star_changed", actor=self.member)
+        call_command("prune_board_events")
+
+        self.assertExpired(self.member, cursor)
+
+    def test_each_owner_is_marked_separately(self):
+        """The owner's id, not the highest per-user id, decides."""
+        cursor = self._record()
+        member_star = self._record("board.star_changed", actor=self.member)
+        viewer_star = self._record("board.star_changed", actor=self.viewer)
+        call_command("prune_board_events")
+        self.assertLess(member_star, viewer_star)
+
+        # At the member's star, the member has missed nothing of their own, and
+        # the viewer has missed their star.
+        self.assertNotExpired(self.member, member_star)
+        self.assertExpired(self.viewer, member_star)
+        self.assertExpired(self.member, cursor)
+
+    def test_a_per_user_row_with_no_actor_expires_nobody(self):
+        """No reader matches such a row in the feed, so none is expired by it."""
+        cursor = self._record()
+        self._record("board.star_changed")
+        call_command("prune_board_events")
+
+        self.assertNotExpired(self.owner, cursor)
+        self.assertNotExpired(self.member, cursor)
+
+    # -- admin-only events --------------------------------------------------
+
+    def test_pruned_admin_only_event_does_not_expire_a_reader_below_admin(self):
+        cursor = self._record()
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+
+        self.assertNotExpired(self.member, cursor)
+        self.assertNotExpired(self.viewer, cursor)
+
+    def test_pruned_admin_only_event_expires_admins(self):
+        admin = _make_user("evt_board_admin")
+        _make_membership(self.board, admin, BoardMembership.Role.ADMIN)
+        cursor = self._record()
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+
+        self.assertExpired(self.owner, cursor)
+        self.assertExpired(admin, cursor)
+        self.assertExpired(self.site_admin, cursor)
+
+    # -- a real miss still expires everyone ---------------------------------
+
+    def test_a_pruned_shared_event_expires_every_reader(self):
+        cursor = self._record()
+        self._record("card.updated")
+        call_command("prune_board_events")
+
+        for user in (self.owner, self.member, self.viewer, self.site_admin):
+            self.assertExpired(user, cursor)
+
+    def test_a_shared_event_pruned_before_an_invisible_one_still_expires(self):
+        """A visible mark below the board-wide one is the case a single mark misses."""
+        cursor = self._record()
+        self._record("card.updated")
+        invisible = self._record("share_link.updated")
+        call_command("prune_board_events")
+
+        self.assertExpired(self.member, cursor)
+        # Past the visible one, only the invisible one is left to have missed.
+        self.assertEqual(pruned_through(self.board.id), invisible)
+        self.assertNotExpired(self.member, invisible - 1)
+
+    def test_a_later_prune_of_a_visible_event_expires_a_reader_spared_earlier(self):
+        cursor = self._record()
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+        self.assertNotExpired(self.member, cursor)
+
+        self._record("card.updated")
+        call_command("prune_board_events")
+        self.assertExpired(self.member, cursor)
+
+    def test_marks_survive_batches(self):
+        cursor = self._record()
+        visible = self._record("card.updated")
+        self._record("share_link.updated")
+        call_command("prune_board_events", "--batch-size", "1")
+
+        self.assertExpired(self.member, cursor)
+        self.assertNotExpired(self.member, visible)
+        self.assertExpired(self.owner, visible)
+
+    # -- a role that changes over time --------------------------------------
+
+    def test_visibility_is_the_readers_role_now(self):
+        cursor = self._record()
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+        self.assertNotExpired(self.member, cursor)
+
+        # Promoted: the feed now shows admin-only rows, and this one is gone.
+        BoardMembership.objects.filter(board=self.board, user=self.member).update(role=BoardMembership.Role.ADMIN)
+        self.assertExpired(self.member, cursor)
+
+        # Demoted again: the feed would no longer show that row.
+        BoardMembership.objects.filter(board=self.board, user=self.member).update(role=BoardMembership.Role.VIEWER)
+        self.assertNotExpired(self.member, cursor)
+
+    # -- the record from before the per-type marks ---------------------------
+
+    def test_a_mark_with_no_type_detail_expires_every_reader(self):
+        """A #2058 mark does not say what was pruned, so it is assumed visible."""
+        cursor = self._record(aged=False)
+        BoardEventPruneMark.objects.create(board_id=self.board.id, max_pruned_id=cursor + 10)
+        for user in (self.owner, self.member, self.viewer):
+            self.assertExpired(user, cursor)
+
+    def test_a_legacy_mark_keeps_expiring_after_later_typed_prunes(self):
+        cursor = self._record()
+        legacy = self._record()
+        BoardEvent.objects.filter(pk__in=[cursor, legacy]).delete()
+        BoardEventPruneMark.objects.create(board_id=self.board.id, max_pruned_id=legacy)
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+
+        self.assertEqual(BoardEventPruneMark.objects.get(board_id=self.board.id).max_pruned_id, legacy)
+        self.assertExpired(self.member, cursor)
+        self.assertNotExpired(self.member, legacy)
+
+    def test_a_2058_pruner_raising_the_mark_stays_conservative(self):
+        """A pruner from a main build between #2058 and #2079 writes only this column."""
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+        cursor = self._record(aged=False)
+        BoardEventPruneMark.objects.filter(board_id=self.board.id).update(max_pruned_id=cursor + 10)
+        self.assertExpired(self.member, cursor)
+
+    def test_a_gap_from_an_unrecorded_prune_still_expires_after_the_first_typed_prune(self):
+        """A pre-#2058 pruner left no record, and a later prune may remove only invisible rows.
+
+        The rows it removed are of unknown type and sit below the new prune, so
+        without a floor a reader whose cursor predates them would read on past
+        the gap as soon as the board has a mark.
+        """
+        cursor = self._record()
+        unrecorded = self._record("card.updated")
+        BoardEvent.objects.filter(pk__in=[cursor, unrecorded]).delete()  # pre-#2058 run
+        invisible = self._record("share_link.updated")
+        call_command("prune_board_events")
+
+        self.assertExpired(self.member, cursor)
+        row = BoardEventPruneMark.objects.get(board_id=self.board.id)
+        self.assertEqual((row.max_pruned_id, row.unrecorded_floor), (0, invisible - 1))
+        self.assertNotExpired(self.member, invisible - 1)
+
+    # -- 410 shape and fallback ---------------------------------------------
+
+    def test_the_410_resume_point_survives_a_later_promotion(self):
+        cursor = self._record()
+        self._record("card.updated")
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+
+        gone = self.assertExpired(self.member, cursor)
+        self.assertEqual(set(gone.data), {"detail", "code", "resync_url", "next_cursor"})
+        resume = gone.data["next_cursor"]
+        # `after=0` never expires, so a resume point of 0 would pass everything below.
+        self.assertGreater(resume, cursor)
+        self.assertNotExpired(self.member, resume)
+        BoardMembership.objects.filter(board=self.board, user=self.member).update(role=BoardMembership.Role.ADMIN)
+        self.assertNotExpired(self.member, resume)
+
+    def test_a_reader_spared_by_the_marks_pages_new_events(self):
+        cursor = self._record()
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+        new = self._record(aged=False)
+        self.assertNotExpired(self.member, cursor, ids=[new])
+
+    def test_foreign_cursor_above_the_whole_record_still_410s(self):
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+        other = _make_board(_make_user("evt_type_other"), name="Other")
+        foreign = record_board_event(other.id, "card.created", {})
+        self._record(aged=False)
+        self.assertExpired(self.member, foreign)
+
+    def test_foreign_cursor_below_the_record_cannot_be_told_from_a_real_position(self):
+        """The documented limit: between the reader's visible mark and the board-wide one.
+
+        The member reads on. The owner could have read the admin-only row, so the
+        owner is told. Nothing the member could have read after the cursor is
+        skipped.
+        """
+        self._record("card.updated")
+        other = _make_board(_make_user("evt_type_below"), name="Other")
+        foreign = record_board_event(other.id, "card.created", {})
+        self._record("share_link.updated")
+        call_command("prune_board_events")
+        new = self._record(aged=False)
+
+        self.assertNotExpired(self.member, foreign, ids=[new])
+        self.assertExpired(self.owner, foreign)
+
+    def test_foreign_cursor_below_a_visible_pruned_event_still_410s(self):
+        other = _make_board(_make_user("evt_type_visible"), name="Other")
+        foreign = record_board_event(other.id, "card.created", {})
+        self._record("card.updated")
+        call_command("prune_board_events")
+        self._record(aged=False)
+
+        self.assertExpired(self.member, foreign)
+
+    def test_a_resume_point_keeps_reading_once_its_row_is_pruned(self):
+        cursor = self._record()
+        self._record("card.updated")
+        row = self._record("share_link.updated", aged=False)
+        call_command("prune_board_events")
+
+        resume = self.assertExpired(self.member, cursor).data["next_cursor"]
+
+        BoardEvent.objects.filter(pk=row).update(created_at=timezone.now() - datetime.timedelta(days=45))
+        call_command("prune_board_events")
+        new = self._record(aged=False)
+        self.assertNotExpired(self.member, resume, ids=[new])
+
+    # -- what the pruner writes ---------------------------------------------
+
+    def test_one_mark_per_type_and_per_user_owner(self):
+        low = self._record("card.created", actor=self.owner)
+        high = self._record("card.created", actor=self.member)
+        star = self._record("board.star_changed", actor=self.member)
+        nobody = self._record("saved_filter.created")
+        call_command("prune_board_events")
+
+        self.assertLess(low, high)
+        self.assertEqual(
+            set(BoardEventPruneTypeMark.objects.filter(board_id=self.board.id).values_list(
+                "event", "actor_id", "max_pruned_id",
+            )),
+            {
+                # A shared event's actor is not kept: it says nothing about readers.
+                ("card.created", 0, high),
+                ("board.star_changed", self.member.pk, star),
+                ("saved_filter.created", 0, nobody),
+            },
+        )
+
+    def test_type_marks_are_monotonic(self):
+        first = self._record("card.updated")
+        call_command("prune_board_events")
+        second = self._record("card.updated")
+        call_command("prune_board_events")
+        self.assertEqual(BoardEventPruneTypeMark.objects.get(event="card.updated").max_pruned_id, second)
+
+        # An overlapping run that commits a lower id never moves it back.
+        record_pruned([(first, self.board.id, "card.updated", None)])
+        self.assertEqual(BoardEventPruneTypeMark.objects.get(event="card.updated").max_pruned_id, second)
+
+    def test_marks_are_written_in_bounded_statements(self):
+        """More marks than one statement holds, each raised exactly, in few queries."""
+        rows = [(1000 + n, self.board.id, f"evt.{n}", None) for n in range(_MARK_CHUNK + 3)]
+        record_pruned(rows)
+        with CaptureQueriesContext(connection) as ctx:
+            record_pruned([(pk + 5, b, e, a) for pk, b, e, a in rows])
+        # One floor insert, then an insert and an update per chunk of marks.
+        self.assertEqual(len(ctx.captured_queries), 1 + 2 * 2)
+        self.assertEqual(
+            dict(BoardEventPruneTypeMark.objects.filter(board_id=self.board.id).values_list("event", "max_pruned_id")),
+            {e: pk + 5 for pk, _, e, _ in rows},
+        )
+
+    def test_the_prune_batch_reads_no_payload_column(self):
+        self._record()
+        with CaptureQueriesContext(connection) as ctx:
+            call_command("prune_board_events")
+        selects = [q["sql"] for q in ctx.captured_queries if q["sql"].startswith("SELECT") and "board_events" in q["sql"]]
+        self.assertTrue(selects)
+        for sql in selects:
+            self.assertNotIn('"data"', sql)
+
+
 class PruneMarkTests(BoardEventTestBase):
     """A cursor is expired iff an event after it was pruned (#2058).
 
-    ``prune_board_events`` records each board's highest pruned id
-    (``BoardEventPruneMark``) and the feed compares the cursor against it, so an
+    ``prune_board_events`` records each board's highest pruned id (per type, see
+    ``ReaderScopedPruneMarkTests``) and the feed compares the cursor against it, so an
     idle consumer whose cursor row aged out keeps reading, while one that really
     missed a pruned event gets a 410 even when nothing newer exists yet. A board
     with no mark (pruned before the upgrade) keeps the older inference, which
@@ -976,11 +1307,7 @@ class PruneMarkTests(BoardEventTestBase):
         return pk
 
     def _mark(self, board=None):
-        return (
-            BoardEventPruneMark.objects.filter(board_id=(board or self.board).id)
-            .values_list("max_pruned_id", flat=True)
-            .first()
-        )
+        return pruned_through((board or self.board).id)
 
     def test_cursor_row_pruned_with_nothing_missed_reads_the_new_event(self):
         """The reported bug: quiet board, cursor aged out, then a new event."""
@@ -1107,13 +1434,14 @@ class PruneMarkTests(BoardEventTestBase):
         self.assertEqual(self._mark(), second)
 
         # An overlapping run that commits a lower id never moves it back.
-        record_pruned({self.board.id: first})
+        record_pruned([(first, self.board.id, "card.created", None)])
         self.assertEqual(self._mark(), second)
 
     def test_dry_run_writes_no_mark(self):
         self._record(aged_days=45)
         call_command("prune_board_events", "--dry-run")
         self.assertFalse(BoardEventPruneMark.objects.exists())
+        self.assertFalse(BoardEventPruneTypeMark.objects.exists())
 
     def test_marks_are_per_board_across_batches(self):
         other = _make_board(self.owner, name="Other Mark Board")
@@ -1143,7 +1471,7 @@ class PruneMarkTests(BoardEventTestBase):
         sqls = [q["sql"] for q in ctx.captured_queries]
         return (
             resp.status_code,
-            sum("board_event_prune_marks" in s for s in sqls),
+            sum("board_event_prune_" in s for s in sqls),
             sum("board_events" in s for s in sqls),
         )
 
@@ -1153,14 +1481,15 @@ class PruneMarkTests(BoardEventTestBase):
         self._record()
         self.assertEqual(self._retention_queries(f"{self.url}?after=0"), (200, 0, 1))
 
-    def test_cursor_at_or_below_the_mark_costs_one_pk_lookup(self):
+    def test_cursor_at_or_below_the_mark_costs_two_indexed_reads(self):
         cursor = self._record(aged_days=45)
         missed = self._record(aged_days=44)
         call_command("prune_board_events")
         self._record()
-        self.assertEqual(self._retention_queries(f"{self.url}?after={missed}"), (200, 1, 1))
-        # The 410 adds its resume point: one more mark read, one Max(id).
-        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 2, 2))
+        # The floor by primary key, then the type marks by board.
+        self.assertEqual(self._retention_queries(f"{self.url}?after={missed}"), (200, 2, 1))
+        # The 410 adds its resume point: those two reads again, one Max(id).
+        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 4, 2))
 
     def test_board_with_no_mark_adds_the_old_exists_check(self):
         cursor = self._record()
@@ -1182,6 +1511,7 @@ class PruneMarkTests(BoardEventTestBase):
                 call_command("prune_board_events")
         self.assertTrue(BoardEvent.objects.filter(pk=old).exists())
         self.assertFalse(BoardEventPruneMark.objects.exists())
+        self.assertFalse(BoardEventPruneTypeMark.objects.exists())
 
     # -- the 410's resume point ---------------------------------------------
 
