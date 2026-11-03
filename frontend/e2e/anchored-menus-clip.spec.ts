@@ -94,5 +94,38 @@ test.describe('anchored filter menus (#1482)', () => {
     await expect(empty).toBeVisible()
     expect(await topmostAtCenter(empty)).toBe(true)
     await expectInViewport(empty)
+    // Structural check that fails on the old in-flow menu: the panel is a
+    // `fixed` child of <body>, so no scroll region can clip it.
+    const panel = page.getByRole('group', { name: 'Saved filters' })
+    expect(await panel.evaluate((n) => getComputedStyle(n).position)).toBe('fixed')
+    expect(await panel.evaluate((n) => n.parentElement === document.body)).toBe(true)
+  })
+
+  test('Tab off a portaled menu continues to the next toolbar control; Shift+Tab returns to the trigger', async ({ page }) => {
+    await openBoard(page)
+    await page.getByRole('button', { name: /^filters/i }).click()
+    // An active filter enables "Save current filters", the panel's first control.
+    await page.locator('[data-board-search="true"]').fill('task')
+    const trigger = page.getByRole('button', { name: 'Saved filters' })
+    await trigger.click()
+    const panel = page.getByRole('group', { name: 'Saved filters' })
+    await expect(panel).toBeVisible()
+    await expect(page.getByRole('button', { name: /save current filters/i })).toBeFocused()
+    // Shift+Tab off the first control lands on the trigger, menu closed.
+    await page.keyboard.press('Shift+Tab')
+    await expect(panel).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+    // Forward: tab through the panel's last control, then on from the trigger.
+    await trigger.click()
+    await expect(panel).toBeVisible()
+    const lastTabbable = await panel.evaluate((n) => {
+      const els = n.querySelectorAll('button:not([disabled]),input')
+      return els.length
+    })
+    for (let i = 0; i < lastTabbable; i++) await page.keyboard.press('Tab')
+    await expect(panel).toHaveCount(0)
+    const focusedIsTrigger = await trigger.evaluate((n) => n === document.activeElement)
+    expect(focusedIsTrigger).toBe(false)
+    expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true)
   })
 })

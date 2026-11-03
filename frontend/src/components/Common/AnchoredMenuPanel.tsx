@@ -24,6 +24,13 @@ interface Props {
   mode?: "portal" | "inline";
   /** Re-measure when content that changes the panel's height changes. */
   deps?: readonly unknown[];
+  /**
+   * Portal mode only: the trigger. The panel sits at the end of `<body>`, so
+   * Tab off its last control (or Shift+Tab off its first) would leave the
+   * toolbar. Those two keys close the menu and hand focus to the trigger, so
+   * the order stays trigger -> panel -> next control (#1478 precedent).
+   */
+  returnFocusRef?: RefObject<HTMLElement | null>;
   /** Called once the panel has been measured and is visible: the moment focus may move into it. */
   onPlaced?: () => void;
   className?: string;
@@ -44,7 +51,7 @@ interface Props {
  */
 export default function AnchoredMenuPanel({
   anchor, panelRef, onDismiss, align = "left", minWidth, mode = "portal",
-  deps = [], onPlaced, className = "", children, ...aria
+  deps = [], onPlaced, returnFocusRef, className = "", children, ...aria
 }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
   const top = useAnchoredPlacement(panelRef, {
@@ -74,9 +81,25 @@ export default function AnchoredMenuPanel({
         ),
       };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (mode !== "portal" || e.key !== "Tab" || !returnFocusRef) return;
+    const tabbables = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    const edge = e.shiftKey ? tabbables[0] : tabbables[tabbables.length - 1];
+    if (tabbables.length > 0 && document.activeElement !== edge) return;
+    onDismiss();
+    returnFocusRef.current?.focus();
+    // Forward Tab then moves on from the trigger; Shift+Tab stays on it.
+    if (e.shiftKey) e.preventDefault();
+  };
+
   const panel = (
     <div
       ref={panelRef}
+      onKeyDown={handleKeyDown}
       {...aria}
       style={{
         position: "fixed",

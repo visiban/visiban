@@ -181,6 +181,7 @@ export default function SavedFiltersDropdown({
           onDismiss={dismiss}
           minWidth={256}
           onPlaced={focusFirst}
+          returnFocusRef={triggerRef}
           role="group"
           aria-label="Saved filters"
           deps={[saveMode, saveError, loading, savedFilters.length]}

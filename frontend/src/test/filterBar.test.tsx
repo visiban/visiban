@@ -414,10 +414,10 @@ describe('FilterBar — dropdown ARIA attributes', () => {
     return user
   }
 
-  it('"+ Filter" trigger has aria-haspopup and aria-expanded', () => {
+  it('"+ Filter" trigger has aria-expanded and no aria-haspopup (its panel is a group, #1482)', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     const trigger = screen.getByText('+ Filter').closest('button') as HTMLButtonElement
-    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).not.toHaveAttribute('aria-haspopup')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
@@ -437,11 +437,11 @@ describe('FilterBar — dropdown ARIA attributes', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('CheckboxDropdown trigger (Assignee) has aria-haspopup and aria-expanded once revealed', async () => {
+  it('CheckboxDropdown trigger (Assignee) has aria-expanded and no aria-haspopup once revealed', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     await revealFacet('Assignee')
     const trigger = screen.getByRole('button', { name: /^Assignee/ }) as HTMLButtonElement
-    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).not.toHaveAttribute('aria-haspopup')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 

@@ -79,6 +79,34 @@ describe("CheckboxDropdown menu (#1482)", () => {
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("Tab off the last control and Shift+Tab off the first close the menu and refocus the trigger", async () => {
+    render(
+      <div>
+        <CheckboxDropdown label="Label" options={OPTIONS} selected={[]} onChange={() => {}} />
+        <button type="button">next</button>
+      </div>,
+    );
+    const user = userEvent.setup();
+    const trigger = screen.getByRole("button", { name: /label/i });
+    await user.click(trigger);
+    expect(screen.getByRole("checkbox", { name: /alpha/i })).toHaveFocus();
+    // Within the panel Tab is untouched.
+    await user.tab();
+    expect(screen.getByRole("checkbox", { name: /beta/i })).toHaveFocus();
+    // fireEvent, not user.tab(): jsdom's default Tab action resolves from the
+    // (now unmounted) checkbox. In a browser the default continues from the
+    // trigger; e2e/anchored-menus-clip.spec.ts asserts that for real.
+    fireEvent.keyDown(screen.getByRole("checkbox", { name: /beta/i }), { key: "Tab" });
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+
+    await user.click(trigger);
+    expect(screen.getByRole("checkbox", { name: /alpha/i })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("checkbox", { name: /alpha/i }), { key: "Tab", shiftKey: true });
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it("caps the panel at the viewport so a long list scrolls", async () => {
     render(<CheckboxDropdown label="Label" options={OPTIONS} selected={[]} onChange={() => {}} />);
     await userEvent.setup().click(screen.getByRole("button", { name: /label/i }));
@@ -153,6 +181,28 @@ describe("SavedFiltersDropdown menu (#1482)", () => {
     expect(screen.getByPlaceholderText(/filter name/i)).toBeInTheDocument();
     fireEvent.scroll(document.body);
     expect(screen.queryByPlaceholderText(/filter name/i)).not.toBeInTheDocument();
+  });
+
+  it("Tab off the last control closes the Saved filters menu and Shift+Tab off the first refocuses the trigger", async () => {
+    render(
+      <div>
+        <SavedFiltersDropdown {...props} savedFilters={[{ id: 1, name: "One" } as never]} filters={{ ...EMPTY_FILTER, search: "x" }} />
+        <button type="button">next</button>
+      </div>,
+    );
+    const user = userEvent.setup();
+    const trigger = screen.getByRole("button", { name: /saved filters/i });
+    await user.click(trigger);
+    fireEvent.keyDown(screen.getByText(/save current filters/i), { key: "Tab", shiftKey: true });
+    expect(screen.queryByRole("group", { name: "Saved filters" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    await user.click(trigger);
+    // The last tabbable is the (opacity-0 until hover) delete button.
+    const del = screen.getByRole("button", { name: /delete saved filter/i });
+    del.focus();
+    fireEvent.keyDown(del, { key: "Tab" });
+    expect(screen.queryByRole("group", { name: "Saved filters" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it("a click on the portaled panel does not count as an outside click", async () => {

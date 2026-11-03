@@ -125,7 +125,6 @@ function CheckboxDropdownInner<T extends string | number>(
           if (!open) setAnchor(captureMenuAnchor(triggerRef.current));
           setOpen(!open);
         }}
-        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={showBadge ? `${label}, ${badge} active` : undefined}
@@ -165,6 +164,7 @@ function CheckboxDropdownInner<T extends string | number>(
           panelRef={menuRef}
           onDismiss={dismiss}
           onPlaced={focusFirst}
+          returnFocusRef={triggerRef}
           minWidth={140}
           deps={[options.length]}
           role="group"

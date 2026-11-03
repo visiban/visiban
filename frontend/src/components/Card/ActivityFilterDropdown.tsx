@@ -123,7 +123,6 @@ export default function ActivityFilterDropdown({
             ? "border-info text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         }`}
-        aria-haspopup="true"
         aria-expanded={open}
       >
         <span className="truncate max-w-[10rem]">{displayLabel}</span>
