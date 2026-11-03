@@ -12,12 +12,21 @@ from unittest.mock import patch
 from allauth.account.models import EmailAddress
 from django.core import mail
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from boards.notifications_email import EMAIL_THREAD_NAME, wait_for_pending_email
-from boards.models import BoardEvent, BoardMembership, Notification, Swimlane, SwimlaneCustomFieldDefinition
+from boards.models import (
+    BoardEvent,
+    BoardEventPruneMark,
+    BoardMembership,
+    Notification,
+    Swimlane,
+    SwimlaneCustomFieldDefinition,
+)
 from groups.models import Group, GroupMembership
 from visiban import crypto
 from visiban.egress import EgressError
@@ -231,10 +240,9 @@ class FairnessAndCostTests(DispatcherBase):
     def test_idle_subscription_skips_the_feed(self):
         self.event()
         self.run_with()  # catch up
-        with patch("webhooks.dispatch.feed_queryset") as fq, patch("webhooks.dispatch.cursor_expired") as ce:
+        with patch("webhooks.dispatch.feed_queryset") as fq:
             rec, _ = self.run_with()
         fq.assert_not_called()
-        ce.assert_not_called()
         self.assertEqual(rec.calls, [])
         self.assertIsNotNone(self.sub.last_scanned_at)
 
@@ -661,6 +669,194 @@ class CursorExpiryTests(DispatcherBase):
         self.assertEqual(dispatch.latest_event_id(self.board.pk), e2.pk)
         e3 = self.event()
         self.assertEqual(dispatch.latest_event_id(self.board.pk), e3.pk)
+
+    # -- only a pruned event the webhook would have been sent expires it (#2079) --
+
+    def caught_up(self, **fields):
+        """A webhook caught up at a delivered row, which retention will take too."""
+        e1 = self.event()
+        self.run_with()
+        self.assertEqual(self.sub.cursor, e1.pk)
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(**fields)
+        self.sub.refresh_from_db()
+        return e1
+
+    def assertStaysOnAndDelivers(self, *pruned):
+        prune(*pruned)
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual(rec.calls, [])
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+        self.assertEqual(self.sub.cursor, new.pk)
+
+    def test_pruned_per_user_event_does_not_expire(self):
+        e1 = self.caught_up()
+        star = self.event("board.star_changed", data={"user_id": self.admin.pk}, actor_id=self.admin.pk)
+        saved = self.event("saved_filter.created", data={"user_id": self.admin.pk}, actor_id=self.admin.pk)
+        self.assertStaysOnAndDelivers(e1, star, saved)
+
+    def test_pruned_admin_only_event_does_not_expire(self):
+        e1 = self.caught_up()
+        self.assertStaysOnAndDelivers(e1, self.event("share_link.updated", data={"enabled": True}))
+
+    def test_pruned_type_outside_the_subscription_does_not_expire(self):
+        e1 = self.caught_up(event_types=["card.created"])
+        self.assertStaysOnAndDelivers(e1, self.event("card.moved"))
+
+    def test_pruned_type_no_webhook_can_take_does_not_expire_an_all_types_webhook(self):
+        e1 = self.caught_up()
+        self.assertStaysOnAndDelivers(e1, self.event("board.deleted"))
+
+    def test_pruned_subscribed_type_expires(self):
+        e1 = self.caught_up(event_types=["card.created"])
+        missed = self.event("card.created")
+        prune(e1, missed)
+        self.event("card.created")
+        rec, _ = self.run_with()
+        self.assertExpired(rec)
+
+    def test_pruned_event_on_an_all_types_webhook_expires(self):
+        e1 = self.caught_up()
+        missed = self.event("card.moved")
+        prune(e1, missed)
+        rec, _ = self.run_with()
+        self.assertExpired(rec)
+
+    def test_subscribed_miss_below_an_unsubscribed_one_expires(self):
+        # A single board-wide mark says nothing of the order; the types' do.
+        e1 = self.caught_up(event_types=["card.created"])
+        missed = self.event("card.created")
+        unwanted = self.event("card.moved")
+        prune(e1, missed, unwanted)
+        self.assertTrue(dispatch.cursor_expired(self.sub))
+        self.set_cursor(missed.pk)
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+
+    def test_a_type_subscribed_after_it_was_pruned_expires(self):
+        # Today's subscription decides, as for delivery. The webhook now takes
+        # card.moved, and rows of it are gone after the cursor: reported.
+        e1 = self.caught_up(event_types=["card.created"])
+        prune(e1, self.event("card.moved"))
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+        WebhookSubscription.objects.filter(pk=self.sub.pk).update(event_types=["card.created", "card.moved"])
+        self.sub.refresh_from_db()
+        self.assertTrue(dispatch.cursor_expired(self.sub))
+
+    def test_a_stored_type_no_longer_subscribable_is_not_read(self):
+        # wants() refuses it, so it is never sent, so it is never missed; and a
+        # subscription left with no usable type must not error.
+        e1 = self.caught_up(event_types=["board.deleted"])
+        prune(e1, self.event("board.deleted"))
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+
+    def another_boards_event(self):
+        # An empty table can hand out id 1, whose floor is 0: the test would
+        # then pass whether or not the webhook path counts the floor.
+        _, other = admin_and_board("Other floor board")
+        return BoardEvent.objects.create(board_id=other.pk, event="card.created", data={})
+
+    def test_cursor_zero_not_expired_by_a_type_outside_the_subscription(self):
+        # Created on an empty board and never scanned: the first prune's floor
+        # is above the cursor, and only events it could never receive went.
+        self.set_cursor(0, last_scanned_at=None, event_types=["card.created"])
+        self.another_boards_event()
+        prune(self.event("card.moved"))
+        self.assertGreater(BoardEventPruneMark.objects.get(board_id=self.board.pk).unrecorded_floor, 0)
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+        new = self.event("card.created")
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_cursor_zero_not_expired_by_per_user_or_admin_only_rows(self):
+        self.set_cursor(0, last_scanned_at=None)
+        self.another_boards_event()
+        star = self.event("board.star_changed", data={"user_id": self.admin.pk}, actor_id=self.admin.pk)
+        prune(star, self.event("share_link.updated", data={"enabled": True}))
+        self.assertGreater(BoardEventPruneMark.objects.get(board_id=self.board.pk).unrecorded_floor, 0)
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+        new = self.event()
+        rec, _ = self.run_with()
+        self.assertTrue(self.sub.enabled)
+        self.assertEqual([c["row"]["id"] for c in rec.calls], [new.pk])
+
+    def test_cursor_zero_expired_by_a_subscribed_type(self):
+        # The same first prune, with one event it could have received in it.
+        self.set_cursor(0, last_scanned_at=None, event_types=["card.created"])
+        prune(self.event("card.moved"), self.event("card.created"))
+        self.assertTrue(dispatch.cursor_expired(self.sub))
+        rec, _ = self.run_with()
+        self.assertExpired(rec)
+
+    def test_a_mark_with_no_type_detail_expires_a_cursor_zero_webhook(self):
+        self.set_cursor(0, last_scanned_at=None, event_types=["card.created"])
+        BoardEventPruneMark.objects.create(board_id=self.board.pk, max_pruned_id=5)
+        self.assertTrue(dispatch.cursor_expired(self.sub))
+
+    def test_a_2058_pruner_raising_the_mark_still_expires_after_a_first_recorded_prune(self):
+        # A pruner from a main build between #2058 and #2079 writes only
+        # max_pruned_id, on the row the current pruner created with 0 in it.
+        self.set_cursor(0, last_scanned_at=None, event_types=["card.created"])
+        prune(self.event("card.moved"))
+        self.assertFalse(dispatch.cursor_expired(self.sub))
+        BoardEventPruneMark.objects.filter(board_id=self.board.pk).update(max_pruned_id=5)
+        self.assertTrue(dispatch.cursor_expired(self.sub))
+
+    def test_a_mark_with_no_type_detail_expires_whatever_the_subscription(self):
+        e1 = self.caught_up(event_types=["card.created"])
+        BoardEventPruneMark.objects.create(board_id=self.board.pk, max_pruned_id=e1.pk + 10)
+        self.assertTrue(dispatch.cursor_expired(self.sub))
+        rec, _ = self.run_with()
+        self.assertExpired(rec)
+
+    def test_a_cursor_below_only_unwanted_marks_stays_on_the_idle_path(self):
+        # The board-wide resume point is above this cursor for as long as
+        # nothing newer arrives; the run must still not read the feed.
+        e1 = self.caught_up(event_types=["card.created"])
+        prune(e1, self.event("card.moved"))
+        self.assertGreater(dispatch.latest_event_id(self.board.pk), self.sub.cursor)
+        with patch("webhooks.dispatch.feed_queryset") as fq:
+            rec, _ = self.run_with()
+        fq.assert_not_called()
+        self.assertEqual((rec.calls, self.sub.enabled), ([], True))
+
+    def test_idle_path_still_reports_an_expired_cursor(self):
+        # Newest row at or below the cursor, and a wanted row gone above it.
+        e1 = self.caught_up()
+        e2 = self.event()
+        self.set_cursor(e1.pk)
+        prune(e1, e2)
+        self.assertEqual(dispatch.newest_event_id(self.board.pk), 0)
+        rec, _ = self.run_with()
+        self.assertExpired(rec)
+
+    def test_expiry_costs_the_floor_and_type_marks_only(self):
+        e1 = self.caught_up()
+        with self.assertNumQueries(1):  # never pruned: the floor row is absent
+            self.assertFalse(dispatch.cursor_expired(self.sub))
+        prune(e1)
+        with self.assertNumQueries(2):
+            self.assertFalse(dispatch.cursor_expired(self.sub))
+
+    def _idle_run_queries(self):
+        """(board_events queries, prune-record queries) one idle dispatcher run makes."""
+        with CaptureQueriesContext(connection) as ctx:
+            rec, _ = self.run_with()
+        self.assertEqual((rec.calls, self.sub.enabled), ([], True))
+        sqls = [q["sql"] for q in ctx.captured_queries]
+        return sum("board_events" in s for s in sqls), sum("board_event_prune_" in s for s in sqls)
+
+    def test_idle_run_cost(self):
+        # Every due subscription pays this on every run, so a board-wide resume
+        # point creeping back in here would show: one MAX, then the marks.
+        e1 = self.caught_up()
+        self.assertEqual(self._idle_run_queries(), (1, 1))  # never pruned: no floor row
+        prune(e1)
+        self.assertEqual(self._idle_run_queries(), (1, 2))
 
     def test_caught_up_cursor_moves_to_newest_row(self):
         tail = self.event("board.star_changed", data={"user_id": self.admin.pk}, actor_id=self.admin.pk)

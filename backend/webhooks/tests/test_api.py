@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import PersonalAccessToken
-from boards.models import BoardEvent
+from boards.models import BoardEvent, BoardEventPruneMark
 from groups.models import Group, GroupMembership
 from visiban import crypto
 from webhooks import dispatch
@@ -431,6 +431,86 @@ class RotateReenableTestActionTests(WebhookApiBase):
         self.assertFalse(sub.enabled)
         r = self._reenable(sub, "latest")
         self.assertEqual((r.status_code, r.data["last_delivered_event_id"]), (200, e3.pk))
+
+    def test_reenable_from_cursor_is_200_when_only_events_it_would_not_get_were_pruned(self):
+        # #2079: an unsubscribed type, another user's star and an admin-only
+        # row. Nothing it could have delivered is gone, so `cursor` still works
+        # and nobody is pushed to `latest`, which would skip the retained e3.
+        e1 = self._event()
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk, event_types=["card.created"])
+        dispatch.disable(sub.pk, "manual", notify=False)
+        rows = [
+            BoardEvent.objects.create(board_id=self.board.pk, event="card.moved", data={}),
+            BoardEvent.objects.create(board_id=self.board.pk, event="board.star_changed", data={}, actor_id=self.admin.pk),
+            BoardEvent.objects.create(board_id=self.board.pk, event="share_link.updated", data={}),
+        ]
+        prune(e1, *rows)
+        e3 = self._event()
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["enabled"], r.data["last_delivered_event_id"]), (200, True, e1.pk))
+        self.assertGreater(e3.pk, e1.pk)
+
+    def _assert_floor_above_cursor_zero(self):
+        # An empty table can hand out id 1, whose floor is 0: the test would
+        # then pass whether or not the webhook path counts the floor.
+        self.assertGreater(BoardEventPruneMark.objects.get(board_id=self.board.pk).unrecorded_floor, 0)
+
+    def _another_boards_event(self):
+        _, other = admin_and_board("Other reenable board")
+        return BoardEvent.objects.create(board_id=other.pk, event="card.created", data={})
+
+    def test_reenable_cursor_zero_is_200_when_only_an_unsubscribed_type_was_pruned(self):
+        # #2079: the first prune's floor is above cursor 0, and must not push an
+        # admin to `latest` for an event this webhook could never have received.
+        sub = make_subscription(self.board, self.admin, cursor=0, event_types=["card.created"])
+        dispatch.disable(sub.pk, "manual", notify=False)
+        self._another_boards_event()
+        prune(BoardEvent.objects.create(board_id=self.board.pk, event="card.moved", data={}))
+        self._assert_floor_above_cursor_zero()
+        self._event()
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["enabled"], r.data["last_delivered_event_id"]), (200, True, 0))
+
+    def test_reenable_cursor_zero_is_200_when_only_per_user_and_admin_only_rows_were_pruned(self):
+        sub = make_subscription(self.board, self.admin, cursor=0)
+        dispatch.disable(sub.pk, "manual", notify=False)
+        self._another_boards_event()
+        prune(
+            BoardEvent.objects.create(board_id=self.board.pk, event="board.star_changed", data={}, actor_id=self.admin.pk),
+            BoardEvent.objects.create(board_id=self.board.pk, event="share_link.updated", data={}),
+        )
+        self._assert_floor_above_cursor_zero()
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["enabled"], r.data["last_delivered_event_id"]), (200, True, 0))
+
+    def test_reenable_cursor_zero_is_409_when_a_subscribed_type_was_pruned(self):
+        sub = make_subscription(self.board, self.admin, cursor=0, event_types=["card.created"])
+        dispatch.disable(sub.pk, "manual", notify=False)
+        prune(self._event())
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["code"]), (409, "cursor_expired"))
+
+    def test_reenable_from_cursor_is_409_when_a_subscribed_type_was_pruned(self):
+        e1 = self._event()
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk, event_types=["card.created"])
+        dispatch.disable(sub.pk, "manual", notify=False)
+        prune(e1, self._event())
+        r = self._reenable(sub, "cursor")
+        self.assertEqual((r.status_code, r.data["code"]), (409, "cursor_expired"))
+
+    def test_latest_starts_past_marks_of_every_type(self):
+        # Board-wide on purpose: a later widening of event_types must not find
+        # an old mark above a new webhook's cursor.
+        e1 = BoardEvent.objects.create(board_id=self.board.pk, event="card.moved", data={})
+        prune(e1)
+        sub = make_subscription(self.board, self.admin, cursor=e1.pk - 1, event_types=["card.created"])
+        dispatch.disable(sub.pk, "manual", notify=False)
+        r = self._reenable(sub, "latest")
+        self.assertEqual((r.status_code, r.data["last_delivered_event_id"]), (200, e1.pk))
+        sub.refresh_from_db()
+        WebhookSubscription.objects.filter(pk=sub.pk).update(event_types=["card.moved"])
+        sub.refresh_from_db()
+        self.assertFalse(dispatch.cursor_expired(sub))
 
     def test_reenable_from_cursor_is_409_when_every_missed_event_was_pruned(self):
         # No newer row to reveal the gap: the old rule answered 200 here and

@@ -36,7 +36,8 @@ Enable the shipped scheduler (Compose `scheduler` profile or Helm `scheduledJobs
     `webhooks.dispatcher.enabled` Deployment. On a host-cron install, run
     `python manage.py dispatch_webhooks` every minute; overlapping runs are safe.
     `prune_board_events` interacts with it: a webhook that falls further behind than
-    `BOARD_EVENT_RETENTION_DAYS` is turned off rather than skipping events.
+    `BOARD_EVENT_RETENTION_DAYS`, and misses an event it would have been sent, is
+    turned off rather than skipping events.
 
 ## Docker Compose
 

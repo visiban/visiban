@@ -1687,7 +1687,7 @@ class BoardEvent(models.Model):
 
 
 class BoardEventPruneMark(models.Model):
-    """The highest change-feed event id that retention pruning removed from one board (#2058).
+    """The prune record's type-blind part for one board (#2058, #2079).
 
     Why this exists
     ---------------
@@ -1699,20 +1699,38 @@ class BoardEventPruneMark(models.Model):
     and a consumer whose missed events were all pruned, with nothing newer yet,
     got an empty 200 and never learned it had lost events.
 
-    With this mark the check is exact: a cursor is expired iff
-    ``max_pruned_id > cursor``. A cursor equal to the mark is the last pruned
-    row itself, so nothing after it was lost.
+    #2058 recorded the highest pruned id per board here. #2079 moved the exact
+    record to ``BoardEventPruneTypeMark``, per event type, so that a reader is
+    not expired by a pruned row it could never have seen. This row keeps what
+    has no type detail, in two columns that differ in who they count for:
+
+    * ``max_pruned_id`` counts for **every reader and every webhook**, the
+      conservative direction. It holds a mark a #2058 pruner wrote before the
+      per-type marks existed, kept as is with no data migration. That pruner
+      only ever ran on builds from main, and if one is still running it raises
+      this too. The current pruner never raises it, and writes 0 on a new row.
+    * ``unrecorded_floor`` counts for **change-feed readers only**. A board's
+      first prune by the current pruner sets it one below the lowest id that
+      batch deleted: a pre-#2058 pruner recorded nothing, can only have removed
+      ids below that, and without this those gaps would go unreported once the
+      board has a record. A webhook does not count it, because webhooks ship in
+      the same release as the record, so no released install has a webhook older
+      than it; counting it would expire a webhook at cursor 0 for events it
+      could never have received. The exposure is a build from main that ran
+      webhooks before #2058, or a pre-#2058 pruner still scheduled on 1.3, which
+      the upgrade guide tells operators not to do.
 
     Invariants
     ----------
-    * Written only by ``manage.py prune_board_events``, in the same transaction
-      as the batch delete it describes, so a reader never sees a pruned row
-      gone without the mark covering it.
-    * Monotonic: the write takes ``GREATEST(stored, new)``, so a repeated or
-      concurrent prune run can never move it backwards.
+    * Only ``manage.py prune_board_events`` writes it, in the same transaction
+      as the batch delete it describes.
+    * Monotonic: the current pruner only inserts a missing row, and a #2058
+      pruner takes ``GREATEST(stored, new)`` on ``max_pruned_id``.
     * It is only correct while that command is the sole thing that deletes
       ``BoardEvent`` rows. ``purge_card_history`` redacts rather than deletes
       for exactly this reason (see ``BoardEvent``).
+    * Every recording prune leaves a row here, so a board with no row has no
+      type marks either.
 
     No row means "never pruned since this table existed", not "never pruned":
     an install that pruned before #2058 has no mark, and the feed keeps its
@@ -1729,7 +1747,18 @@ class BoardEventPruneMark(models.Model):
         help_text="Board whose change feed was pruned. Deliberately not a ForeignKey — see the model docstring.",
     )
     max_pruned_id = models.BigIntegerField(
-        help_text="Highest BoardEvent id that prune_board_events deleted for this board. Never decreases.",
+        help_text=(
+            "Events of this board at or below this id were deleted with no type recorded, "
+            "so it counts for every reader and webhook. 0 if none. Never decreases."
+        ),
+    )
+    unrecorded_floor = models.BigIntegerField(
+        default=0,
+        db_default=0,
+        help_text=(
+            "One below the lowest id of this board's first recorded prune: anything a "
+            "pre-#2058 pruner removed is below it. Counts for change-feed readers only."
+        ),
     )
 
     class Meta:
@@ -1737,6 +1766,51 @@ class BoardEventPruneMark(models.Model):
 
     def __str__(self):
         return f"board {self.board_id} pruned through {self.max_pruned_id}"
+
+
+class BoardEventPruneTypeMark(models.Model):
+    """The highest event id pruned from one board, per event type and owner (#2079).
+
+    These rows expire a cursor only for a pruned event *its reader could have
+    seen*; the type-blind ``BoardEventPruneMark`` still counts on top of them.
+    ``boards.services.feed.prune_marks`` filters these rows with the same
+    rule the feed filters ``BoardEvent`` rows with, which is why ``event`` and
+    ``actor_id`` have the same names here, and a webhook narrows further to the
+    types it subscribes to. One row per type, rather than one per visibility
+    class, because a webhook's subscription can name any subset of types.
+
+    ``actor_id`` is the owner of a per-user event (``PER_USER_EVENTS``) and 0 for
+    every other row, so that the uniqueness below holds (NULLs would not
+    collide). Size is bounded by the board's distinct event types plus three per
+    user with a pruned star or saved filter, and a row is a few integers.
+
+    Same invariants as ``BoardEventPruneMark``: written only by
+    ``prune_board_events`` in the delete's transaction, monotonic, not a
+    ForeignKey, never serialized.
+    """
+
+    board_id = models.BigIntegerField(
+        help_text="Board whose change feed was pruned. Deliberately not a ForeignKey — see BoardEventPruneMark.",
+    )
+    event = models.CharField(max_length=64, help_text="Event type of the pruned rows.")
+    actor_id = models.BigIntegerField(
+        default=0,
+        db_default=0,
+        help_text="Owner of a per-user event; 0 for every other event type.",
+    )
+    max_pruned_id = models.BigIntegerField(
+        help_text="Highest BoardEvent id of this board, type and owner that was deleted. Never decreases.",
+    )
+
+    class Meta:
+        db_table = "board_event_prune_type_marks"
+        constraints = [
+            # Also the index every read uses: board_id is its leading column.
+            models.UniqueConstraint(fields=["board_id", "event", "actor_id"], name="bev_prune_type_mark_uniq"),
+        ]
+
+    def __str__(self):
+        return f"board {self.board_id} {self.event} pruned through {self.max_pruned_id}"
 
 
 class CustomFieldDefinition(models.Model):

@@ -369,9 +369,9 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         summary="Re-enable a webhook",
         description=(
             "Requires an interactive session and makes the caller the owner. "
-            "`resume_from: cursor` (default) delivers what was missed; if any "
-            "event after the webhook's position was pruned the response is 409 "
-            "`cursor_expired`, and "
+            "`resume_from: cursor` (default) delivers what was missed; if an "
+            "event after the webhook's position that it would have been sent was "
+            "pruned the response is 409 `cursor_expired`, and "
             "`resume_from: latest` skips to new events. Taking over a webhook "
             "turned off with `creator_lost_access` also needs `current_password` "
             "(400 `password_required` / `password_incorrect`), or, for an account "
