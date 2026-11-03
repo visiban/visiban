@@ -36,7 +36,7 @@ Only board Admins (and site admins) can do this.
 
 1. Open the board and click the **Settings** button (gear icon) in the toolbar.
 2. Go to the **Members** tab.
-3. To add a member: type their username or email in the invite field, choose a role, and click **Invite**.
+3. To add a member: type their username or email in the invite field, choose a role, and click **Invite**. When you add several people at once, each add is sent independently: people who are added leave the "To be added" list, and any add that is refused stays in the list with the reason shown next to that person so you can fix the role or remove them.
 4. To change a member's role: click the role badge next to their name and select a new one.
 5. To remove a member: click the trash icon next to their name.
 

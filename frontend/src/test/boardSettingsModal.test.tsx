@@ -1031,6 +1031,78 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     await waitFor(() => { expect(screen.getByText(/added 1 member to the board/i)).toBeInTheDocument() })
   })
 
+  describe('independent staged adds (#1299)', () => {
+    const bobUser: User = { ...aliceUser, id: 98, username: 'bobby', email: 'bobby@example.com', first_name: 'Bobby', last_name: 'Tables', display_name: 'Bobby Tables' }
+    const membership = (u: User) => ({ id: u.id, user: u, role: 'member', is_moderator: false, joined_at: '' })
+
+    async function stageBoth() {
+      mockSearchUsers.mockResolvedValue([aliceUser, bobUser])
+      render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+      const input = screen.getByPlaceholderText(/search by name or email/i)
+      for (const name of ['Alice Wonder', 'Bobby Tables']) {
+        await act(async () => {
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+          setter?.call(input, 'a' + name.length)
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+        })
+        await act(async () => { vi.advanceTimersByTime(350) })
+        await waitFor(() => screen.getByText(name))
+        await act(async () => {
+          screen.getByText(name).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+        })
+      }
+      await waitFor(() => screen.getByRole('button', { name: /add 2 members to board/i }))
+    }
+    const submit = async () => {
+      await act(async () => { screen.getByRole('button', { name: /add 2 members to board/i }).click() })
+    }
+
+    it('applies every add when all succeed', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        Promise.resolve(membership(id === 99 ? aliceUser : bobUser)))
+      await stageBoth()
+      await submit()
+      expect(await screen.findByText(/added 2 members to the board/i)).toBeInTheDocument()
+      expect(screen.queryByText(/to be added/i)).toBeNull()
+    })
+
+    it('applies the others and shows the reason beside the refused user', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99
+          ? Promise.reject({ response: { data: { detail: 'You cannot add this user.' } } })
+          : Promise.resolve(membership(bobUser)))
+      await stageBoth()
+      await submit()
+      expect(await screen.findByText('You cannot add this user.')).toBeInTheDocument()
+      expect(screen.getByText(/added 1 member\. 1 could not be added/i)).toBeInTheDocument()
+      // Refused row stays staged; the applied one left the staged list.
+      expect(screen.getByText(/to be added/i)).toBeInTheDocument()
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(1)
+      // Clearing the refused row removes its message.
+      await act(async () => { screen.getByTitle('Remove from invite list').click() })
+      expect(screen.queryByText('You cannot add this user.')).toBeNull()
+    })
+
+    it('keeps every row and each reason when all are refused', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        Promise.reject({ response: { data: { detail: `Refused ${id}` } } }))
+      await stageBoth()
+      await submit()
+      expect(await screen.findByText('Refused 99')).toBeInTheDocument()
+      expect(screen.getByText('Refused 98')).toBeInTheDocument()
+      expect(screen.getByText(/none of those members could be added/i)).toBeInTheDocument()
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
+    })
+
+    it('falls back to generic copy on a network error and keeps the row staged', async () => {
+      mockSetBoardMember.mockRejectedValue(new Error('Network Error'))
+      await stageBoth()
+      await submit()
+      expect((await screen.findAllByText("Couldn't add this member. Try again.")).length).toBe(2)
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
+    })
+  })
+
   describe('site-admin lock after an add (#1706)', () => {
     // The add response carries no site-admin flag for a caller who is not a
     // site admin, so the lock must come from the re-read board.
@@ -1076,7 +1148,8 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     const submitBtn = screen.getByRole('button', { name: /add 1 member to board/i })
     await act(async () => { submitBtn.click() })
 
-    await waitFor(() => { expect(screen.getByText(/failed to add some members/i)).toBeInTheDocument() })
+    await waitFor(() => { expect(screen.getByText(/that member could not be added/i)).toBeInTheDocument() })
+    expect(screen.getByText("Couldn't add this member. Try again.")).toBeInTheDocument()
   })
 })
 
