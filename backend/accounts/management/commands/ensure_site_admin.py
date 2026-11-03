@@ -4,9 +4,10 @@ import secrets
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.contrib.sites.models import Site
+from accounts.admin_views import access_state
 from accounts.credentials import lock_user_row, require_password_change_after_admin_set
 from accounts.management._secure_file import write_secret_file
-from accounts.models import AdminActionLog, User
+from accounts.models import AdminActionLog, User, record_access_flag_changes
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class Command(BaseCommand):
                 defaults={"email": email},
             )
             user = lock_user_row(user)
+            prior_access = access_state(user)
             user.set_password(password)
             user.is_site_admin = True
             user.can_access_all_content = True
@@ -61,6 +63,9 @@ class Command(BaseCommand):
                 action=AdminActionLog.Action.USER_PASSWORD_SET,
                 source=AdminActionLog.Source.CLI,
                 metadata={"target_id": user.pk, "target_username": user.username},
+            )
+            record_access_flag_changes(
+                prior=prior_access, target=user, source=AdminActionLog.Source.CLI
             )
 
         action = "Created" if created else "Promoted existing"

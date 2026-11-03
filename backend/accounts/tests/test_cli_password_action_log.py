@@ -197,12 +197,13 @@ class CreateSuperuserLogTests(TestCase):
         entry = AdminActionLog.objects.get(action=SET)
         _assert_entry_is_secret_free(self, entry, user)
 
-    def test_unusable_password_records_nothing(self):
-        # No password was set, so there is no password set to record.
+    def test_unusable_password_records_no_password_set(self):
+        # No password was set, so there is no password set to record. The access
+        # flags superuser status gives the account are still recorded (#1830).
         self._noinput(password=None)
         user = User.objects.get(username="root1801")
         self.assertFalse(user.has_usable_password())
-        self.assertFalse(AdminActionLog.objects.exists())
+        self.assertFalse(AdminActionLog.objects.filter(action=SET).exists())
 
     def test_log_failure_leaves_no_account(self):
         with patch.object(AdminActionLog, "record", side_effect=RuntimeError("log down")):

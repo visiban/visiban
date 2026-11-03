@@ -189,6 +189,10 @@ class FlagClearRevokesLinksTests(TestCase):
 
     def test_granting_can_access_all_content_revokes_nothing(self):
         User.objects.filter(pk=self.user.pk).update(can_access_all_content=False)
+        # Granting takes a superuser (#1830).
+        self.client.force_authenticate(
+            User.objects.create_superuser(username="root_1510", password="pw")
+        )
         r = self.client.patch(
             f"/api/v1/admin/users/{self.user.pk}/",
             {"can_access_all_content": True}, format="json",

@@ -1,7 +1,7 @@
 """Django admin user routes and admin API: who may change or delete which accounts.
 
-A non-superuser actor leaves every other staff, superuser or site-admin
-account to superusers (password, email, username, activation, delete), and a
+A non-superuser actor leaves every other staff, superuser, site-admin or
+all-content account to superusers (password, email, username, activation, delete), and a
 user who owns groups is deleted only after ownership is transferred. The admin
 API keeps a superuser's activation, all-content access and password-change
 flag with superusers.
@@ -30,11 +30,12 @@ _PLAIN_STATIC = override_settings(
 )
 
 
-def _user(name, *, staff=False, superuser=False, site_admin=False, perms=()):
+def _user(name, *, staff=False, superuser=False, site_admin=False, all_content=False, perms=()):
     user = User.objects.create_user(username=name, email=f"{name}@example.com", password=PW)
     user.is_staff = staff
     user.is_superuser = superuser
     user.is_site_admin = site_admin
+    user.can_access_all_content = all_content
     user.save()
     if perms:
         user.user_permissions.add(
@@ -87,6 +88,40 @@ class StaffTargetFormTests(TestCase):
         self.change(target, is_active="")
         target.refresh_from_db()
         self.assertTrue(target.is_active)
+
+    def test_all_content_target_identity_and_activation_are_not_writable(self):
+        holder = _user("holder_s", all_content=True)
+        r = self.change(holder, email="new@example.com", username="renamed_h", is_active="",
+                        first_name="Ada")
+        self.assertEqual(r.status_code, 302)
+        holder.refresh_from_db()
+        self.assertEqual(holder.username, "holder_s")
+        self.assertEqual(holder.email, "holder_s@example.com")
+        self.assertEqual(holder.first_name, "")
+        self.assertTrue(holder.is_active)
+
+    def test_all_content_target_password_form_refused(self):
+        holder = _user("holder_pw_s", all_content=True)
+        url = reverse("admin:auth_user_password_change", args=[holder.pk])
+        before = User.objects.get(pk=holder.pk).password
+        self.assertEqual(self.client.get(url).status_code, 403)
+        r = self.client.post(url, {"password1": "Str0ng-new-pass-1830", "password2": "Str0ng-new-pass-1830"})
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(User.objects.get(pk=holder.pk).password, before)
+
+    def test_all_content_target_is_writable_by_a_superuser(self):
+        holder = _user("holder_root_s", all_content=True)
+        self.client.force_login(_user("root_s", staff=True, superuser=True))
+        self.assertEqual(self.change(holder, first_name="Ada").status_code, 302)
+        holder.refresh_from_db()
+        self.assertEqual(holder.first_name, "Ada")
+
+    def test_all_content_actor_keeps_their_own_account(self):
+        own = _user("own_s", staff=True, all_content=True, perms=_PERMS)
+        self.client.force_login(own)
+        self.assertEqual(self.change(own, first_name="Ada").status_code, 302)
+        own.refresh_from_db()
+        self.assertEqual(own.first_name, "Ada")
 
     def test_staff_target_password_form_refused(self):
         url = reverse("admin:auth_user_password_change", args=[self.peer.pk])
@@ -183,6 +218,21 @@ class StaffTargetDeleteTests(TestCase):
                     any("Only a superuser can delete" in m for m in _msgs(r)), _msgs(r)
                 )
             self.assertTrue(User.objects.filter(pk=target.pk).exists())
+
+    def test_delete_refused_for_all_content_target(self):
+        holder = _user("holder_d", all_content=True)
+        r = self.client.post(self.delete_url(holder), {"post": "yes"}, follow=True)
+        self.assertTrue(any("Only a superuser can delete" in m for m in _msgs(r)), _msgs(r))
+        r = self.bulk([holder], post="yes")
+        self.assertTrue(any("Only a superuser can delete" in m for m in _msgs(r)), _msgs(r))
+        self.assertTrue(User.objects.filter(pk=holder.pk).exists())
+
+    def test_all_content_target_refused_by_locked_actor_row_check(self):
+        # Only the scope check on the locked rows decides here.
+        holder = _user("holder_lock_d", all_content=True)
+        with mock.patch("accounts.admin.user_deletion_refusals", return_value=[]):
+            self.client.post(self.delete_url(holder), {"post": "yes"}, follow=True)
+        self.assertTrue(User.objects.filter(pk=holder.pk).exists())
 
     def test_delete_selected_refused_whole_action(self):
         for extra in ({}, {"post": "yes"}):

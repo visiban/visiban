@@ -776,7 +776,7 @@ describe('AdminPage — Users tab', () => {
     })
 
     it('leaves an ordinary row untouched', async () => {
-      const row = await openUsersTab(adminUser, { ...fakeAdminUsers[1] })
+      const row = await openUsersTab(superuserActor, { ...fakeAdminUsers[1] })
       expect(within(row).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
       expect(within(row).queryByText(EXPLANATION)).not.toBeInTheDocument()
 
@@ -813,6 +813,72 @@ describe('AdminPage — Users tab', () => {
     })
   })
 
+  describe('granting all-content access is superuser-only (#1830)', () => {
+    const openAliceMenu = async (actor: User, row: AdminUser) => {
+      mockGetAdminUsers.mockResolvedValue({
+        count: 2, offset: 0, page_size: 50, results: [fakeAdminUsers[0], row],
+      })
+      await renderAdminPageSettled(actor)
+      fireEvent.click(screen.getByText('Users'))
+      await waitFor(() => screen.getByText('@alice'))
+      await openRowMenu('Alice')
+    }
+
+    it('hides Grant from a site admin who is not a superuser and keeps the row\'s other actions', async () => {
+      await openAliceMenu(adminUser, { ...fakeAdminUsers[1] })
+      expect(screen.queryByRole('menuitem', { name: 'Grant all-content' })).not.toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Force reset' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Clear lockout' })).toBeInTheDocument()
+    })
+
+    it('hides Grant on the actor\'s own row too', async () => {
+      await openAliceMenu(adminUser, { ...fakeAdminUsers[1] })
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+      await openRowMenu('Admin User')
+      expect(screen.queryByRole('menuitem', { name: 'Grant all-content' })).not.toBeInTheDocument()
+    })
+
+    it('keeps Revoke for a site admin who is not a superuser, and it still sends the revoke', async () => {
+      const holder: AdminUser = { ...fakeAdminUsers[1], can_access_all_content: true }
+      mockPatchAdminUser.mockResolvedValue({ ...holder, can_access_all_content: false })
+      await openAliceMenu(adminUser, holder)
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Revoke all-content' }))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByText('Confirm'))
+      await waitFor(() => {
+        expect(mockPatchAdminUser).toHaveBeenCalledWith(3, { can_access_all_content: false })
+      })
+    })
+
+    it('offers Grant to a superuser, and it sends the grant', async () => {
+      const row: AdminUser = { ...fakeAdminUsers[1] }
+      mockPatchAdminUser.mockResolvedValue({ ...row, can_access_all_content: true })
+      await openAliceMenu(superuserActor, row)
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Grant all-content' }))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByText('Confirm'))
+      await waitFor(() => {
+        expect(mockPatchAdminUser).toHaveBeenCalledWith(3, { can_access_all_content: true })
+      })
+    })
+
+    it('keeps Grant when the actor\'s status is unknown and shows the server\'s refusal', async () => {
+      const message = 'Only a superuser can grant all-content access.'
+      const unknownActor: User = { ...adminUser }
+      delete unknownActor.is_superuser
+      mockPatchAdminUser.mockRejectedValue(
+        Object.assign(new Error('refused'), { response: { data: { detail: message } } }),
+      )
+      await openAliceMenu(unknownActor, { ...fakeAdminUsers[1] })
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Grant all-content' }))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByText('Confirm'))
+      await waitFor(() => {
+        expect(screen.getByText(message)).toBeInTheDocument()
+      })
+    })
+  })
+
   it('falls back to a generic error message when clearAdminUserLockout fails without detail (#1203)', async () => {
     mockClearAdminUserLockout.mockRejectedValue(new Error('network error'))
     await renderAdminPageSettled()
@@ -834,7 +900,8 @@ describe('AdminPage — Users tab', () => {
     // must_change_password, tour not completed) exercises the full inline
     // set (Deactivate, Make admin) plus the overflow trigger — three
     // controls total — with the remaining actions folded into its menu.
-    await renderAdminPageSettled()
+    // A superuser actor: only a superuser is offered Grant all-content (#1830).
+    await renderAdminPageSettled(superuserActor)
     fireEvent.click(screen.getByText('Users'))
     await waitFor(() => screen.getByText('@alice'))
 

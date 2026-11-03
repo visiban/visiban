@@ -3,7 +3,7 @@ from django.db import transaction
 
 from accounts.admin_views import access_state, lock_user_row
 from accounts.invite_utils import revoke_site_invite_links
-from accounts.models import User
+from accounts.models import AdminActionLog, User, record_access_flag_changes
 
 
 class Command(BaseCommand):
@@ -56,9 +56,21 @@ class Command(BaseCommand):
                 from boards.services.share_links import revoke_lapsed_share_links
 
                 revoke_lapsed_share_links(enabler=user)
+                # Same transaction as the change; no actor, like the other
+                # operator commands that write this log.
+                record_access_flag_changes(
+                    prior=prior, target=user, source=AdminActionLog.Source.CLI
+                )
             self.stdout.write(self.style.WARNING(f'Revoked site admin from "{username}"'))
         else:
-            user.is_site_admin = True
-            user.can_access_all_content = True
-            user.save(update_fields=["is_site_admin", "can_access_all_content"])
+            with transaction.atomic():
+                # Locked so the log records what actually changed; granting a
+                # flag the account already holds writes no entry.
+                prior = access_state(lock_user_row(user.pk))
+                user.is_site_admin = True
+                user.can_access_all_content = True
+                user.save(update_fields=["is_site_admin", "can_access_all_content"])
+                record_access_flag_changes(
+                    prior=prior, target=user, source=AdminActionLog.Source.CLI
+                )
             self.stdout.write(self.style.SUCCESS(f'Granted site admin to "{username}"'))

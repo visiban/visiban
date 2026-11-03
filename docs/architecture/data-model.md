@@ -230,6 +230,7 @@ Append-only record of a fixed set of instance-wide admin actions (#1126):
 - outbound-email configuration changes
 - password events: set or disabled for another account in the Django admin, and passwords set by the `ensure_site_admin`, `changepassword` and `provision_fuzz_token` management commands (source `cli`)
 - card-history purges (`card_history.purged`, written by the `purge_card_history` management command with the `--actor` superuser as actor; #1797)
+- *(1.3+)* grants and revokes of `is_site_admin` and `can_access_all_content`, from the admin API, the Django admin and the `set_site_admin`, `ensure_site_admin` and `createsuperuser` commands (#1830)
 
 `actor_id` and `actor_username` are plain columns, not a foreign key. A FK's `on_delete=SET_NULL` would let deleting a user erase who performed a privileged action, the one thing this table exists to answer. There is deliberately no retention pruner; volume is a handful of rows a month. See [Open-core boundary § Audit log](open-core-boundary.md#audit-log-split) for why this stays in OSS rather than the enterprise compliance audit log.
 

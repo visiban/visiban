@@ -1,4 +1,4 @@
-"""Operator account creation that records a password set in the admin action log.
+"""Operator account creation that records itself in the admin action log.
 
 Replaces Django's ``createsuperuser`` with the same arguments, prompts and
 validation. The one difference is the final step: the ``create_superuser`` call
@@ -12,7 +12,9 @@ and creation, so the creation call is wrapped rather than the method copied;
 that keeps the prompts, ``--noinput`` handling and validation Django's own.
 No entry is written when the account is created with an unusable password
 (``--noinput`` without ``DJANGO_SUPERUSER_PASSWORD``): no password was set,
-which matches the Django admin add-user path.
+which matches the Django admin add-user path. The two access flags the account
+gets from superuser status are always recorded, as ``user.site_admin_granted``
+and ``user.all_content_granted`` (#1830).
 """
 
 from django.contrib.auth.management.commands import (
@@ -20,7 +22,7 @@ from django.contrib.auth.management.commands import (
 )
 from django.db import transaction
 
-from accounts.models import AdminActionLog
+from accounts.models import AdminActionLog, record_access_flag_changes
 
 
 class _RecordingManager:
@@ -44,6 +46,12 @@ class _RecordingManager:
                     source=AdminActionLog.Source.CLI,
                     metadata={"target_id": user.pk, "target_username": user.username},
                 )
+            # A new account held neither flag before superuser status gave it both.
+            record_access_flag_changes(
+                prior={"is_site_admin": False, "can_access_all_content": False},
+                target=user,
+                source=AdminActionLog.Source.CLI,
+            )
             return user
 
 
@@ -78,7 +86,7 @@ class _ManagerShim:
 
 
 class Command(django_createsuperuser.Command):
-    help = "Create a superuser account and record the password set in the admin action log."
+    help = "Create a superuser account and record it in the admin action log."
 
     def handle(self, *args, **options):
         real_model = self.UserModel
