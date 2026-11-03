@@ -57,6 +57,11 @@ describe('CardDeleteConfirm', () => {
     expect(onClose).toHaveBeenCalledWith(null)
   })
 
+  it('says none will be deleted when every one of several cards is someone else\u2019s', () => {
+    render(<CardDeleteConfirm boardId={3} cards={[makeCard(2, 9), makeCard(3, 8)]} canModifyAll={false} currentUserId={1} onDeleted={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByText('You can only delete cards you created. None of these cards will be deleted.')).toBeInTheDocument()
+  })
+
   it('an admin sees no ownership note', () => {
     render(<CardDeleteConfirm boardId={3} cards={[makeCard(2, 9), makeCard(3, 9)]} canModifyAll currentUserId={1} onDeleted={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getByRole('dialog', { name: 'Delete 2 cards?' })).toHaveTextContent('all 2 cards')

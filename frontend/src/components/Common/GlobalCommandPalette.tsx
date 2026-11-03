@@ -4,7 +4,7 @@ import { useOptionalBoardContext } from "../../contexts/BoardContext";
 import CommandPalette from "./CommandPalette";
 import type { Card } from "../../types";
 import {
-  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, cardIdFromElement,
+  CARD_ACTION_EVENT, CARD_TARGET_QUERY_EVENT, focusedCardFaceId,
   type CardActionDetail, type CardTargetInfo, type CardTargetQueryDetail,
 } from "../../utils/cardActions";
 
@@ -45,7 +45,7 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
   // search box or editor is intentional. shouldIgnoreShortcut is reserved
   // for bare-key shortcuts like `f` / `/` / `?`.
   const openPalette = useCallback(() => {
-    const focusedCardId = cardIdFromElement(document.activeElement);
+    const focusedCardId = focusedCardFaceId(document.activeElement);
     setCardTarget(inBoardRoute ? queryCardTarget({ focusedCardId }) : null);
     setOpen(true);
   }, [inBoardRoute]);

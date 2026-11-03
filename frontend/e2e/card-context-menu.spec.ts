@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD } from './fixtures/board'
+import { BOARD_DENSE, BOARD_FULL, CARD, CARD_BUSY } from './fixtures/board'
 
 // Card context menu and ⌘K card actions (#2059, 1.3 UI spec Part 9 § 2).
 
@@ -87,7 +87,8 @@ test.describe('card context menu', () => {
     await expect(page.getByTestId('palette-card-target')).toHaveText(`Acting on ${CARD.title}`)
     await page.getByRole('combobox', { name: 'Command palette search' }).fill('bl')
     const results = page.getByRole('listbox', { name: 'Results' })
-    await expect(results.getByRole('option', { name: 'Block card…' })).toBeVisible()
+    // Each command names its target in its secondary text.
+    await expect(results.getByRole('option', { name: /^Block card…/ })).toContainText(CARD.title)
     await expect(results.getByRole('option', { name: /Delete/ })).toHaveCount(0)
     await page.keyboard.press('Enter')
 
@@ -114,5 +115,37 @@ test.describe('card context menu', () => {
     await input.fill('arch')
     await page.keyboard.press('Enter')
     await expect.poll(() => archived).toBe(true)
+  })
+})
+
+// Completeness BLOCKER: toggling a selection checkbox leaves focus inside the
+// card face, which must not make ⌘K act on that one card.
+test.describe('card context menu — ⌘K target with a selection', () => {
+  test.use({ viewport: { width: 1600, height: 900 } })
+
+  test('⌘K acts on the selection after a checkbox toggle, and never on a card just deselected', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page, BOARD_DENSE as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_DENSE.id}`)
+    const first = page.locator(`[data-card-id="${CARD.id}"]`)
+    const busy = page.locator(`[data-card-id="${CARD_BUSY.id}"]`)
+    await expect(first).toBeVisible({ timeout: 10_000 })
+
+    for (const face of [first, busy]) {
+      await face.hover()
+      await face.getByRole('checkbox').click()
+    }
+    await expect(busy.getByRole('checkbox')).toBeFocused()
+    await page.keyboard.press(`${modifier}+k`)
+    await expect(page.getByTestId('palette-card-target')).toHaveText('Acting on 2 selected cards')
+    await page.keyboard.press('Escape')
+
+    // Deselect the first card: focus stays on its checkbox, but the target is
+    // what is still selected, not the card just deselected.
+    await first.hover()
+    await first.getByRole('checkbox').click()
+    await expect(first.getByRole('checkbox')).toBeFocused()
+    await page.keyboard.press(`${modifier}+k`)
+    await expect(page.getByTestId('palette-card-target')).toHaveText(`Acting on ${CARD_BUSY.title}`)
   })
 })

@@ -1294,7 +1294,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[] | null>(null);
   // Outcome of a menu/palette action. Failures are shown (warning row) and
   // announced; success is announced only. Placeholder until the shared toast
-  // region (#2060) exists: single-card results move there.
+  // region (#2060) exists: single-card results move there (#2107).
   // `shown`: a success whose effect is not visible on the board (Copy link, a
   // delete that removes the card) is also shown, briefly. `announced`: the
   // board itself changed in view (Move, Assign, Priority, Archive).
@@ -1304,7 +1304,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
   }, []);
-  const reportCardAction = useCallback((text: string, kind: "failed" | "shown" | "announced") => {
+  const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced") => {
+    // Announce-only is for a change visible on the board grid; from Summary,
+    // History, Analytics or Lens the grid is not in view, so show it too.
+    const kind = requested === "announced" && viewRef.current !== "board" ? "shown" : requested;
     setCardActionStatus({ text, kind });
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
     cardActionStatusTimerRef.current = null;
@@ -1364,7 +1367,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       case "unblock": {
         clearSelection();
         setSelectedCard(cards[0]);
-        if (viewRef.current === "lens") setView("board");
+        // Only the board and analytics views render the card sheet.
+        if (viewRef.current !== "board" && viewRef.current !== "analytics") setView("board");
         if (action !== "open") setBlockFormRequest({ mode: action, seq: Date.now() });
         return;
       }
@@ -2266,6 +2270,41 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     replayTour,
   ]);
 
+  // Card-action outcome region (#2059), rendered by EVERY view branch below:
+  // the palette's card commands and a carried-over selection work from
+  // Summary, History, Analytics and Lens too, so their results must not be
+  // silent there.
+  const cardActionNotice = (
+    <>
+      {/* Outcome of a context-menu or palette card action (#2059), in the
+          same in-flow notice slot and warning shell as the card-not-found
+          notice. Always mounted so the text swap is announced. A failure is
+          shown in the warning shell with its dismiss button beside the region,
+          never inside it (#1772); a `shown` success uses the archive notice's
+          neutral shell; an `announced` success is screen-reader only. */}
+      <div className={
+        cardActionStatus?.kind === "failed"
+          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-warning/10 border border-warning/30 rounded-lg text-sm"
+          : cardActionStatus?.kind === "shown"
+          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-surface-hover/80 border border-line-strong rounded-lg text-sm"
+          : "sr-only"
+      }>
+        <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status" className={cardActionStatus?.kind === "failed" ? "text-warning-on-tint" : "text-fg"}>
+          {cardActionStatus?.kind === "failed" && <span aria-hidden="true" className="mr-1.5">⚠</span>}
+          {cardActionStatus?.text}
+        </p>
+        {cardActionStatus?.kind === "failed" && (
+          <button
+            type="button"
+            onClick={() => setCardActionStatus(null)}
+            aria-label="Dismiss card action message"
+            className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >×</button>
+        )}
+      </div>
+    </>
+  );
+
   // Lens view — read-only GitHub/GitLab issue mirror. If the tab disappears
   // while it's active (flag flipped off, or connection removed), fall back to
   // the board view rather than rendering a dead tab.
@@ -2301,6 +2340,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </div>
           </div>
         </nav>
+        {cardActionNotice}
         <SectionErrorBoundary section="Lens">
           <LensView
             boardId={board.id}
@@ -2319,6 +2359,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
+        {cardActionNotice}
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
         </SectionErrorBoundary>
@@ -2332,6 +2373,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
+        {cardActionNotice}
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
         </SectionErrorBoundary>
@@ -2354,6 +2396,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
         {cardNotFoundNotice}
+        {cardActionNotice}
         <SectionErrorBoundary section="Analytics">
           <AnalyticsView
             boardId={board.id}
@@ -2733,32 +2776,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
       {cardNotFoundNotice}
-      {/* Outcome of a context-menu or palette card action (#2059), in the
-          same in-flow notice slot and warning shell as the card-not-found
-          notice. Always mounted so the text swap is announced. A failure is
-          shown in the warning shell with its dismiss button beside the region,
-          never inside it (#1772); a `shown` success uses the archive notice's
-          neutral shell; an `announced` success is screen-reader only. */}
-      <div className={
-        cardActionStatus?.kind === "failed"
-          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-warning/10 border border-warning/30 rounded-lg text-sm"
-          : cardActionStatus?.kind === "shown"
-          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-surface-hover/80 border border-line-strong rounded-lg text-sm"
-          : "sr-only"
-      }>
-        <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status" className={cardActionStatus?.kind === "failed" ? "text-warning-on-tint" : "text-fg"}>
-          {cardActionStatus?.kind === "failed" && <span aria-hidden="true" className="mr-1.5">⚠</span>}
-          {cardActionStatus?.text}
-        </p>
-        {cardActionStatus?.kind === "failed" && (
-          <button
-            type="button"
-            onClick={() => setCardActionStatus(null)}
-            aria-label="Dismiss card action message"
-            className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >×</button>
-        )}
-      </div>
+      {cardActionNotice}
       {archiveToast && (
         <div className="flex items-center justify-between gap-3 mx-4 mt-2 px-4 py-2 bg-surface-hover/80 border border-line-strong rounded-lg text-fg text-sm">
           <span>Card archived — view in <button onClick={() => { setShowArchived(true); setArchiveToast(false); }} className="text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Archived panel</button></span>

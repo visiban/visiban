@@ -1691,7 +1691,7 @@ describe('BoardView', () => {
 
       expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
       expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent('The card you had open was deleted or archived, so it was closed.')
+      expect(screen.getByText('The card you had open was deleted or archived, so it was closed.')).toHaveTextContent('The card you had open was deleted or archived, so it was closed.')
     })
 
     it('the notice clears itself after 4 seconds', () => {
@@ -2785,5 +2785,49 @@ describe('BoardView card actions (#2059)', () => {
     })
     await act(async () => {})
     expect(archiveCard).not.toHaveBeenCalled()
+  })
+})
+
+// #2059 completeness: card commands run from the palette in every view, so
+// their results must be visible there, and Block must reach a view that
+// renders the card sheet.
+describe('BoardView card actions outside the board grid (#2059)', () => {
+  const card = {
+    id: 2, uid: 'carduid00002', column: 10, swimlane: 20, title: 'Second card',
+    description: '', priority: 'medium' as const, assignee: null,
+    labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    last_moved_at: null, attachment_count: 0, checklist_total: 0,
+    checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+    custom_field_values: [],
+    blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '',
+  }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    vi.mocked(getCardStatus).mockResolvedValue(null)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+  })
+
+  it.each(['summary', 'history', 'analytics'])('shows a palette action result in the %s view', async (view) => {
+    mockSearchParams = new URLSearchParams(`view=${view}`)
+    vi.mocked(updateCard).mockResolvedValue({ ...card, priority: 'high' } as never)
+    render(<BoardView currentUser={fakeUser} />)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
+    })
+    const status = await screen.findByText('Set “Second card” to high priority.')
+    // The grid is not in view, so the success is shown, not only announced.
+    expect(status.closest('div')).not.toHaveClass('sr-only')
+  })
+
+  it('Block card… from the Summary view switches to the board and opens the sheet with the form', async () => {
+    mockSearchParams = new URLSearchParams('view=summary')
+    render(<BoardView currentUser={fakeUser} />)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'block' } }))
+    })
+    expect(await screen.findByTestId('card-detail')).toHaveAttribute('data-block-form', 'block')
+    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
   })
 })

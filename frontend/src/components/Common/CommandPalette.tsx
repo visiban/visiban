@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useId } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -128,6 +128,7 @@ export default function CommandPalette({
   const [sub, setSub] = useState<ChoiceKind | null>(null);
   const [announce, setAnnounce] = useState("");
   const target = drill ?? (boardMode ? cardTarget : null);
+  const targetHeaderId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -154,6 +155,14 @@ export default function CommandPalette({
   // pruneByIds is stable across renders via the hook's closure scope.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- pruneByIds intentionally excluded, see comment above
   }, [open]);
+
+  // Announce the card target on open (#2059), one tick after the reset above
+  // so the always-mounted region sees a text change.
+  useEffect(() => {
+    if (!open || !boardMode || !cardTarget) return;
+    const t = setTimeout(() => setAnnounce(`Acting on ${cardTarget.summary}`), 0);
+    return () => clearTimeout(t);
+  }, [open, boardMode, cardTarget]);
 
   // #1732 — the palette is modal-like: trap Tab and restore focus on close.
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -402,6 +411,7 @@ export default function CommandPalette({
             placeholder={sub === "move" ? "Choose a column…" : sub === "assign" ? "Choose a person…" : sub === "priority" ? "Choose a priority…" : drill ? "Search card actions…" : placeholder}
             className="bg-transparent flex-1 text-sm text-fg placeholder-fg-muted outline-none"
             aria-label="Command palette search"
+            aria-describedby={target ? targetHeaderId : undefined}
             aria-autocomplete="list"
             aria-activedescendant={results[activeIndex] ? `palette-item-${results[activeIndex].key}` : undefined}
             role="combobox"
@@ -414,7 +424,7 @@ export default function CommandPalette({
 
         {/* The card the card commands act on (#2059). */}
         {target && (
-          <div className="px-3 py-1.5 border-b border-line text-xs text-fg-tertiary flex items-center gap-2 shrink-0" data-testid="palette-card-target">
+          <div id={targetHeaderId} className="px-3 py-1.5 border-b border-line text-xs text-fg-tertiary flex items-center gap-2 shrink-0" data-testid="palette-card-target">
             {(drill || sub) && <span aria-hidden="true">←</span>}
             <span className="truncate">
               Acting on <span className="text-fg-secondary">{target.summary}</span>
@@ -453,7 +463,10 @@ export default function CommandPalette({
             const entry = item.kind === "card-action" ? item.action!.entry : undefined;
             const disabled = entry !== undefined && !entry.enabled;
             const sublabel =
-              item.kind === "card"
+              // Each card command names its target, so the choice is explicit.
+              item.kind === "card-action" && target
+                ? target.summary
+                : item.kind === "card"
                 ? item.columnName
                 : item.kind === "board"
                 ? (item.board!.group_name ?? "No group")

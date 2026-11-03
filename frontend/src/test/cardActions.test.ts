@@ -3,7 +3,7 @@ import { AxiosError, AxiosHeaders } from 'axios'
 import {
   DEMO_BLOCK_REASON, MAINTENANCE_REASON, OWNER_ONLY_REASON, PALETTE_COMMAND_LABELS, SELECT_ONE_REASON,
   archiveCards, assignCards, cardActionEntries, cardIdFromElement, cardLink, cardTargetSummary,
-  contextMenuTargetIds, moveCardsToColumn, paletteCardActions, resolveCardTarget, setCardsPriority, successMessage,
+  contextMenuTargetIds, focusedCardFaceId, moveCardsToColumn, paletteCardActions, resolveCardTarget, setCardsPriority, successMessage,
   type CardActionContext,
 } from '../utils/cardActions'
 import { DEMO_CARD_FOOTER_NOTE } from '../constants/demoCopy'
@@ -44,6 +44,17 @@ describe('target resolution', () => {
   it('a card inside the selection targets the selection; outside, only itself', () => {
     expect(contextMenuTargetIds(2, new Set([1, 2, 3]))).toEqual([1, 2, 3])
     expect(contextMenuTargetIds(9, new Set([1, 2]))).toEqual([9])
+  })
+
+  it('counts only the card face itself as focused, never a control inside it', () => {
+    const face = document.createElement('div')
+    face.setAttribute('data-card-id', '42')
+    const checkbox = document.createElement('div')
+    checkbox.setAttribute('role', 'checkbox')
+    face.appendChild(checkbox)
+    expect(focusedCardFaceId(face)).toBe(42)
+    expect(focusedCardFaceId(checkbox)).toBeNull()
+    expect(focusedCardFaceId(null)).toBeNull()
   })
 
   it('reads the card id off any element inside a card face', () => {
@@ -104,6 +115,12 @@ describe('cardActionEntries', () => {
     expect(e.assign.reason).toBe(OWNER_ONLY_REASON)
     // Unknown creator: leave enabled, the server decides.
     expect(byId([makeCard({ created_by: null })], member).archive.enabled).toBe(true)
+    // …except Block / Unblock, which open the sheet's form and must match
+    // CardDetail's canBlock exactly (known owner, or moderator/admin).
+    expect(byId([makeCard({ created_by: null })], member).block.reason).toBe(OWNER_ONLY_REASON)
+    expect(byId([makeCard()], { ...member, currentUserId: null }).block.reason).toBe(OWNER_ONLY_REASON)
+    expect(byId([makeCard({ created_by: null })], { ...member, isModerator: true }).block.enabled).toBe(true)
+    expect(byId([makeCard({ created_by: null, blocked_at: '2026-10-01T00:00:00Z' })], member).unblock.reason).toBe(OWNER_ONLY_REASON)
     // A moderator or admin may act on others' cards.
     expect(byId([other], { ...member, isModerator: true }).delete.enabled).toBe(true)
     expect(byId([other], { ...member, role: 'admin' }).archive.enabled).toBe(true)

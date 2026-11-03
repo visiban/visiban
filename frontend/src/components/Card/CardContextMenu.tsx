@@ -12,10 +12,13 @@ import { CARD_MENU_GROUPS, PRIORITY_CHOICES, type CardActionEntry, type CardActi
  * Escape priority of the card context menu (#2059). The 1.3 UI spec proposed
  * 43 (menu) / 44 (submenu); both are taken in the card-panel list (#2036).
  * 59 sits above every board-page surface that can be open beside the menu
- * (dropdowns 25, the card-face quick-edit popover 32, the block form 42) and
- * below the command palette (60). One entry serves both levels: an open
- * submenu closes first, the same way the palette backs out of its drill-in
- * levels from its single 60. Recorded in frontend/CLAUDE.md § Card context menu.
+ * (dropdowns 25, the card-face quick-edit popover 32) and below the command
+ * palette (60). The menu is never open over the card sheet, so nothing in the
+ * card-panel tiers (30-44) is open beside it. 59 is a shared slot with the
+ * card sheet's ActivityFilterDropdown (#1482): the two are never open
+ * together. One entry serves both levels: an open submenu closes first, the
+ * same way the palette backs out of its drill-in levels from its single 60.
+ * Recorded in frontend/CLAUDE.md (modal Escape list, § Card context menu).
  */
 export const CARD_MENU_ESCAPE_PRIORITY = 59;
 

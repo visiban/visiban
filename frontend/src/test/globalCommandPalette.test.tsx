@@ -324,7 +324,7 @@ describe("GlobalCommandPalette — board mode (inside BoardProvider)", () => {
       fireEvent.keyDown(face, { key: "k", metaKey: true });
       expect(queries[0]).toEqual({ focusedCardId: 100 });
       expect(screen.getByTestId("palette-card-target")).toHaveTextContent("Acting on Fix login redirect loop");
-      fireEvent.click(screen.getByRole("option", { name: "Archive card" }));
+      fireEvent.click(screen.getByRole("option", { name: /^Archive card/ }));
       expect(onAction).toHaveBeenCalledTimes(1);
       expect((onAction.mock.calls[0][0] as CustomEvent).detail).toEqual({ cardIds: [100], action: "archive" });
 
@@ -338,6 +338,37 @@ describe("GlobalCommandPalette — board mode (inside BoardProvider)", () => {
     } finally {
       window.removeEventListener("visiban:card-target-query", onQuery);
       window.removeEventListener("visiban:card-action", onAction);
+      face.remove();
+    }
+  });
+
+  it("a focused control inside a card face (its selection checkbox) is not a focused-card target", async () => {
+    const { useBoard } = await import("../hooks/useBoard");
+    vi.mocked(useBoard).mockReturnValue({ ...emptyBoardContext(), unavailable: false, board: boardFixture, getLastFullFetchAt: () => null });
+    const face = document.createElement("div");
+    face.setAttribute("data-card-id", "100");
+    const checkbox = document.createElement("div");
+    checkbox.setAttribute("role", "checkbox");
+    checkbox.tabIndex = 0;
+    face.appendChild(checkbox);
+    document.body.appendChild(face);
+    checkbox.focus();
+    const queries: unknown[] = [];
+    const onQuery = (ev: Event) => { queries.push({ ...(ev as CustomEvent).detail }); };
+    window.addEventListener("visiban:card-target-query", onQuery);
+    try {
+      render(
+        <MemoryRouter initialEntries={["/boards/5"]}>
+          <BoardProvider>
+            <GlobalCommandPalette />
+          </BoardProvider>
+        </MemoryRouter>
+      );
+      fireEvent.keyDown(checkbox, { key: "k", metaKey: true });
+      // The board then falls back to the selection.
+      expect(queries[0]).toEqual({ focusedCardId: null });
+    } finally {
+      window.removeEventListener("visiban:card-target-query", onQuery);
       face.remove();
     }
   });

@@ -97,6 +97,18 @@ export function contextMenuTargetIds(cardId: number, selectedIds: Set<number>): 
   return selectedIds.has(cardId) ? [...selectedIds] : [cardId];
 }
 
+/**
+ * The card whose face itself has keyboard focus, for the palette's "focused"
+ * target. Focus on a control inside the face (the selection checkbox, a
+ * quick-edit chip, the ⋯ button) does not count: toggling a card's checkbox
+ * leaves focus there, and treating that as "focused" would make ⌘K act on one
+ * card instead of the selection, or on a card the user just deselected.
+ */
+export function focusedCardFaceId(el: Element | null | undefined): number | null {
+  if (!el?.matches?.("[data-card-id]")) return null;
+  return cardIdFromElement(el);
+}
+
 /** The id of the card a DOM node belongs to, from the card face's `data-card-id`. */
 export function cardIdFromElement(el: Element | null | undefined): number | null {
   const face = el?.closest?.("[data-card-id]");
@@ -157,9 +169,15 @@ export function cardActionEntries(cards: Card[], ctx: CardActionContext): CardAc
 
   const blocked = single ? isManuallyBlocked(single) : false;
   const blockId: CardActionId = blocked ? "unblock" : "block";
+  // Block / Unblock run through the card sheet's form, so they take
+  // CardDetail's exact gate (`canBlock`): the user must be KNOWN to be the
+  // creator, or a moderator / admin. The lenient "unknown creator stays
+  // enabled" rule below suits writes the server reports back on; here an
+  // enabled item would open a sheet with no form and no message.
+  const ownsSingle = !!single && ctx.currentUserId != null && single.created_by?.id === ctx.currentUserId;
   const blockReason = !single
     ? SELECT_ONE_REASON
-    : writeGate(blockId) ?? (ctx.demoMode ? DEMO_BLOCK_REASON : ownsAny(canModifyOthers) ? undefined : OWNER_ONLY_REASON);
+    : writeGate(blockId) ?? (ctx.demoMode ? DEMO_BLOCK_REASON : canModifyOthers || ownsSingle ? undefined : OWNER_ONLY_REASON);
 
   return [
     entry("open", "Open card", single ? undefined : SELECT_ONE_REASON),

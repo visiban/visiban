@@ -23,8 +23,8 @@ const plural = (n: number) => `card${n !== 1 ? "s" : ""}`;
  * runs from a single click. In flight the action is `aria-disabled` with a
  * progress label and Escape/backdrop dismissal is swallowed (#1437).
  *
- * Follow-up: the toolbar's inline confirm should adopt this component once
- * #1482's toolbar changes land, so the two cannot drift.
+ * The bulk toolbar's inline confirm should adopt this component so the two
+ * cannot drift: tracked in #2103.
  */
 export default function CardDeleteConfirm({ boardId, cards, canModifyAll, currentUserId, onDeleted, onClose }: Props) {
   const [busy, setBusy] = useState(false);
@@ -63,7 +63,7 @@ export default function CardDeleteConfirm({ boardId, cards, canModifyAll, curren
       {!canModifyAll && othersCards.length > 0 && (
         <p className="text-xs text-warning-on-tint mb-4">
           {othersCards.length === count
-            ? `You can only delete cards you created. ${count === 1 ? "This card" : "None of these cards"} will not be deleted.`
+            ? `You can only delete cards you created. ${count === 1 ? "This card will not be deleted." : "None of these cards will be deleted."}`
             : `${othersCards.length} ${plural(othersCards.length)} created by others will be skipped.`}
         </p>
       )}

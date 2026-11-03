@@ -329,11 +329,18 @@ describe("CommandPalette — card actions (#2059)", () => {
     { id: 2, user: { id: 8, username: "vic", display_name: "Vic Viewer", avatar_url: "" }, role: "viewer" },
   ] as never
   const input = () => screen.getByLabelText("Command palette search");
-  const options = () => screen.getAllByRole("option").map((o) => o.textContent);
+  // Card-command rows end with their target's summary (secondary text); strip it to compare labels.
+  const options = () => screen.getAllByRole("option").map((o) => (o.textContent ?? "").replace(/(Fix login redirect loop · Blocked 3d|Add SSO login button)$/, ""));
 
-  it("lists the target's commands first, state-aware, with no Delete and no Open", () => {
+  it("lists the target's commands first, state-aware, with no Delete and no Open", async () => {
     renderPalette({ cardTarget: target() });
     expect(screen.getByTestId("palette-card-target")).toHaveTextContent("Acting on Fix login redirect loop · Blocked 3d");
+    // The search box is described by the target header, and the target is announced on open.
+    expect(input()).toHaveAccessibleDescription("Acting on Fix login redirect loop · Blocked 3d");
+    await waitFor(() => expect(screen.getAllByRole("status").some((s) => s.textContent === "Acting on Fix login redirect loop · Blocked 3d")).toBe(true));
+    // Each command names its target.
+    const unblock = screen.getByRole("option", { name: /Unblock card/ });
+    expect(unblock).toHaveTextContent("Fix login redirect loop · Blocked 3d");
     expect(options().slice(0, 6)).toEqual(["Unblock card", "Move card to…", "Assign card to…", "Set priority…", "Copy link to card", "Archive card"]);
     expect(screen.queryByText("Delete card…")).not.toBeInTheDocument();
     expect(screen.queryByText("Open card")).not.toBeInTheDocument();
@@ -377,7 +384,7 @@ describe("CommandPalette — card actions (#2059)", () => {
   it("a … command drills into its choices; a choice dispatches with its value", () => {
     const onCardAction = vi.fn();
     renderPalette({ cardTarget: target(), onCardAction, members });
-    fireEvent.click(screen.getByRole("option", { name: "Assign card to…" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Assign card to…/ }));
     expect(input()).toHaveAttribute("placeholder", "Choose a person…");
     // The level change is announced, not only shown in the header.
     expect(screen.getAllByRole("status").some((s) => s.textContent === "Choose a person")).toBe(true);
@@ -389,7 +396,7 @@ describe("CommandPalette — card actions (#2059)", () => {
   it("move lists columns and priority lists the four priorities", () => {
     const onCardAction = vi.fn();
     renderPalette({ cardTarget: target(), onCardAction });
-    fireEvent.click(screen.getByRole("option", { name: "Move card to…" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Move card to…/ }));
     expect(input()).toHaveAttribute("placeholder", "Choose a column…");
     expect(options()).toEqual(["In progress"]);
     fireEvent.keyDown(input(), { key: "Enter" });
@@ -399,19 +406,19 @@ describe("CommandPalette — card actions (#2059)", () => {
   it("Escape, ← and Backspace on an empty query back out one level; Escape then closes", () => {
     const onClose = vi.fn();
     renderPalette({ cardTarget: target(), onClose });
-    fireEvent.click(screen.getByRole("option", { name: "Set priority…" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Set priority…/ }));
     expect(input()).toHaveAttribute("placeholder", "Choose a priority…");
     expect(options()).toEqual(["Low", "Medium", "High", "Urgent"]);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole("option", { name: "Set priority…" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /^Set priority…/ })).toBeInTheDocument();
     expect(screen.getAllByRole("status").some((s) => s.textContent === "Card actions for Fix login redirect loop · Blocked 3d")).toBe(true);
-    fireEvent.click(screen.getByRole("option", { name: "Set priority…" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Set priority…/ }));
     fireEvent.keyDown(input(), { key: "ArrowLeft" });
-    expect(screen.getByRole("option", { name: "Set priority…" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("option", { name: "Set priority…" }));
+    expect(screen.getByRole("option", { name: /^Set priority…/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: /^Set priority…/ }));
     fireEvent.keyDown(input(), { key: "Backspace" });
-    expect(screen.getByRole("option", { name: "Set priority…" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /^Set priority…/ })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
   });

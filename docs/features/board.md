@@ -363,7 +363,7 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | **Archive card** | Archives the card | Same, for each card |
 | **Delete card…** | Asks first, then deletes | Same, for each card |
 
-- Items you cannot use stay in the menu, dimmed, with the reason underneath (for example *Viewers can't block cards*, *Select one card*, or the maintenance or shared-demo notice), so you know why. On the shared demo, **Block card…**, **Archive card** and **Delete card…** are dimmed, as they are in the card detail panel.
+- Items you cannot use stay in the menu, dimmed, with the reason underneath (for example *Viewers can't block cards*, *Select one card*, or the maintenance or shared-demo notice), so you know why. On the shared demo, **Block card…**, **Archive card** and **Delete card…** are dimmed with the demo notice; the card detail panel does not offer them there at all.
 - Copy link and Delete confirm what they did in a short notice under the toolbar, because nothing else on the board shows it.
 - Use <kbd>↑</kbd> / <kbd>↓</kbd> to move, <kbd>→</kbd> to open a submenu, <kbd>←</kbd> to close it, and a letter to jump to the item that starts with it. <kbd>Esc</kbd> closes a submenu, then the menu, and returns you to the card.
 - The menu is not offered while a card detail panel is open; use the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette) to act on the open card.

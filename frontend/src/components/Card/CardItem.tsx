@@ -548,7 +548,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         e.preventDefault();
         if (isDragging) return;
         // A touch long-press is the drag start (#1287); release-without-movement
-        // is unverified on device, so the touch path is the ⋯ button only.
+        // is unverified on device (#2104), so the touch path is the ⋯ button only.
         const native = e.nativeEvent as MouseEvent & { pointerType?: string };
         if (native.pointerType === "touch" || lastPointerType.current === "touch") return;
         if (Date.now() - keyboardMenuAt.current < 500) return;
