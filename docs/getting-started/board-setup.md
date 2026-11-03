@@ -43,7 +43,7 @@ Mark every column where work finishes as **done** (for example "Done", "Closed",
 **How it works:** Marking a column done tells Visiban to:
 
 - **Exclude it from the dwell-time heatmap**, so completed work doesn't inflate time-in-stage figures for active stages
-- **Count movements into it as completed work**, which powers the 7-day and 30-day velocity figures in the Summary view
+- **Count a card's first entry into it as completion**, which powers the 7-day and 30-day velocity figures in the Summary view and the [flow metric](../features/analytics.md#flow-metrics) charts
 
 Archived cards use their archive timestamp as the exit time, so they don't accumulate dwell time after archiving.
 

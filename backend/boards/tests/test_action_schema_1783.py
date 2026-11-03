@@ -396,9 +396,9 @@ class ActionSchemaDeclarationTests(TestCase):
         """One card stalled in To Do, one completed: reaches every nullable branch."""
         now = timezone.now()
 
-        def move(card, to, days_ago):
+        def move(card, to, days_ago, source=None):
             mv = CardMovement.objects.create(
-                card=card, to_column=to, to_column_name=to.name,
+                card=card, from_column=source, to_column=to, to_column_name=to.name,
                 to_swimlane=self.lane, to_swimlane_name=self.lane.name,
                 moved_by=self.owner, movement_type=CardMovement.MovementType.MOVE,
             )
@@ -409,5 +409,7 @@ class ActionSchemaDeclarationTests(TestCase):
             board=self.board, column=self.done, swimlane=self.lane,
             title="Finished", created_by=self.owner, position=1,
         )
+        doing = Column.objects.create(board=self.board, name="Doing", position=2)
         move(finished, self.todo, 4)
-        move(finished, self.done, 1)
+        move(finished, doing, 3, source=self.todo)
+        move(finished, self.done, 1, source=doing)

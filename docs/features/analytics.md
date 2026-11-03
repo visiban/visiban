@@ -11,7 +11,7 @@ Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where c
 
     To mark a column as done: **Board → Column header overflow menu → Edit → "Mark as done column" checkbox**.
 
-    The Summary view's velocity counts rely on this flag too: only movements into marked-done columns are counted as completed work. See [Board Setup](../getting-started/board-setup.md) for a step-by-step walkthrough.
+    The Summary view's velocity counts and the flow charts rely on this flag too: a card counts as finished the first time it enters a marked-done column. See [Board Setup](../getting-started/board-setup.md) for a step-by-step walkthrough.
 
 ## Flow metric definitions
 
@@ -25,21 +25,22 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 - **WIP:** the number of cards, not archived, currently in each column that is not done.
 - **Cumulative flow:** for each day, the number of cards in each column at the end of that day.
 
-!!! note "Decided in 1.3 (#1532)"
-    The Summary and Analytics views below were built before these definitions, and some of their numbers differ. For example, the Summary view's `avg_cycle_days` starts at a card's first movement, and the heatmap's **Age** mode shows current dwell time. The decision record lists each difference. The 1.3 metrics dashboard (#448) brings them in line.
-
 ## Summary view
 
 A table of all swimlanes with:
 
 - the total card count and an inline proportional bar
-- **7-day velocity:** moves into any column marked `is_done = true` in the last 7 days, for cards that are not archived. It counts moves, not cards: a card that enters a done column twice counts twice, and a card archived since leaves the count.
+- **7-day velocity:** cards that first entered a column marked `is_done = true` in the last 7 days, archived since or not. A card counts once, even if it later moves between done columns or is reopened.
 - **30-day velocity:** the same over 30 days
 - **Blocked** *(1.3+)*: how many active cards in the swimlane (not in a done column) are [blocked](blocked-cards.md) right now, manually or by a relation
 
-Mark columns as done in the **Edit Column** modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts movements into either as completed. See [Board & Cards — Columns](board.md#columns).
+Mark columns as done in the **Edit Column** modal ("Mark as done column"). Multiple done columns are supported: a board with both "Done" and "Released" counts the first entry into either as completion. See [Board & Cards — Columns](board.md#columns).
 
 Use it for a quick health check across all active pipelines.
+
+> **Changed in 1.3** (#448)
+
+The velocity columns count cards by first completion. Before, they counted moves into done columns, so a card that bounced between done columns counted more than once and a card archived since left the count. Boards with either pattern see different numbers. `avg_cycle_days` in the API is now the mean [cycle time](#flow-metric-definitions), so it starts at a card's first move out of its creation column rather than at its creation.
 
 **API:** `GET /api/v1/boards/{id}/summary/`
 
@@ -59,7 +60,30 @@ Each panel declares the lowest board role that may see it. A member below that r
 
 ## Analytics view
 
-Time-in-stage data derived from `CardMovement` records. The heatmap is pinned at the top and always visible. The stalled cards list scrolls independently below it, separated by an engraved divider.
+Time-in-stage and flow data derived from `CardMovement` records, on one scrolling page: the heatmap, then the [flow metrics](#flow-metrics), then the stalled cards, separated by engraved dividers.
+
+### Flow metrics
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a **Chart | Table** toggle.
+
+**Filters.** **Date range** (the last 30, 90, 180 or 365 days; 90 by default, because a weekly median needs five whole weeks and percentiles need enough finished cards), **Swimlane** and **Label**. Filters use each card's current swimlane and labels. All dates are UTC, and weekends count.
+
+| Chart | Read it as | Marks |
+|---|---|---|
+| **Cycle time** | How long finished work took. "85th · 8.1d" means 85% of these cards took 8.1 days or less. | One point per finished card. 50th percentile dashed, 85th solid and heavier, 95th dotted. A hollow point was reopened after finishing, and keeps its first finish. |
+| **Throughput** | How many cards finish per week. | One point per whole week, its count printed on it, the median dashed. Today's unfinished week is left out, so a partial week never reads as a slow one. |
+| **Cumulative flow** | Whether work arrives faster than it finishes. A widening band is a queue. | One band per column, labelled at its right edge, finished work at the bottom. The hatched band is the bottleneck: the column that is not done and grew the most across the range. |
+| **WIP aging** | Which unfinished cards are in trouble now. | One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. A ringed card is past the 85th percentile, a square is blocked. |
+
+**Too few cards.** A percentile line appears only with enough cards behind it: the 50th needs 5, the 85th needs 7 and the 95th needs 20. Until then the chart leaves that line out and says so, rather than presenting one card's time as a trend. The throughput median needs five whole weeks.
+
+**What is left out.** A card with missing or broken history (for example, imported without its history) has no cycle time or age, and the chart says how many were left out. It still counts toward throughput once it reaches a done column. Blocked time is part of cycle time and age, never subtracted, because the wait is real.
+
+**See the cards behind a number.** Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column. **Open card** opens the card; an archived card has no **Open card**.
+
+**Keyboard.** Tab reaches the filters, each chart's toggle, then the aging dots in column order, and Enter opens the drawer. The table view is the complete keyboard path: every point of every chart is a row there, with a button to open it.
 
 ### Dwell time heatmap
 
@@ -107,9 +131,9 @@ A button pair in the analytics toolbar toggles the heatmap mode. The choice pers
 | Mode | What the heatmap shows | Use it to |
 |---|---|---|
 | **Age** | Average time (days) cards have currently been sitting in each stage: a snapshot of in-flight work. High values mean cards blocked or idle right now. | Find current bottlenecks |
-| **Throughput** | Average time cards that **exited** a stage during the selected period spent there before moving on. Reflects historical flow efficiency, not current queue depth. | View historical flow over a chosen 7, 30 or 90-day window |
+| **Throughput** | Average time cards that **left** a stage during the selected period spent there, each stay at its full length. Reflects historical flow efficiency, not current queue depth. | View historical flow over a chosen 7, 30 or 90-day window |
 
-In **Throughput** mode the column footer row shows how many cards contributed to each average (for example "5 cards"), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
+In **Throughput** mode each cell's tooltip shows how many stays are behind its average (for example "5 stays"; a card that visits a stage twice is two stays), and stages with zero throughput show a dash (`—`). The green/yellow/red thresholds apply to both modes, using the same `staleness_threshold_days`.
 
 ### Dwell time and archived cards
 
@@ -117,11 +141,16 @@ Analytics includes archived cards as part of the historical record.
 
 - **Archived card:** dwell time in its most recent stage uses the **archive timestamp** as the exit time, not the current date. Dwell stops accumulating when the card is archived.
 - **Active card:** keeps accumulating dwell time in its current stage until it moves again.
-- **Archive and restore events:** these are recorded as movements in the card's current column, and the heatmap does not skip them yet. A restored card's archived period is counted as time in its stage, and an archived card adds a near-zero stay to **Throughput** mode. The [flow metric definitions](../architecture/decisions.md#flow-metric-definitions) treat archiving as the end of a stay and restoring as the start of a new one. The 1.3 metrics dashboard (#448) applies them.
+- **Archive and restore events:** archiving ends a stay and restoring starts a new one, so the archived period is not counted as time in the stage, in either mode.
+- **Swimlane moves:** moving a card to another swimlane does not end its stay, in either mode.
+
+> **Changed in 1.3** (#448)
+
+**Age** and **Throughput** follow the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions). Before, a swimlane-only move reset a card's **Age** and split its stay in **Throughput**, a restored card's archived period counted as time in its stage, an archived card added a near-zero stay, and a stay that began long before the selected period was lost. A column deleted and recreated under the same name no longer inherits the old column's history, done flag or blocked time.
 
 ### Stalled cards
 
-Below the heatmap, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.
+At the end of the page, a paginated table (25 rows per page) lists cards that haven't moved in more than the effective stalled-days threshold: **Swimlane**, **Card** (title), and **Days Stalled**. A count badge on the section header (for example "3 cards stalled") shows the total. Click a row to open the card detail panel directly.
 
 - **Default threshold:** the board's `staleness_threshold_days`.
 - **Override:** pass the `stalled_days` query parameter. It affects only the stalled list, not the heatmap coloring.
@@ -133,7 +162,7 @@ Below the heatmap, a paginated table (25 rows per page) lists cards that haven't
 
 Below the heatmap, **Blocked time (last N days)** shows how long cards were [manually blocked](blocked-cards.md) during the selected period, and why:
 
-- **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed.
+- **Per column:** blocked days and number of blocks, by the column each card was in when it was blocked. Only columns with a block in the period are listed. A block in a column that was since deleted has no line here, even if a new column has the same name; it still counts toward the reasons below.
 - **Top reasons:** the ten most common reasons, with how many blocks and how many days each one cost. Reasons that differ only in capitals or spacing count as one.
 
 A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
@@ -148,7 +177,7 @@ Click **Export CSV** to download the heatmap data for spreadsheets. It includes 
 
 ### API reference
 
-**API:** `GET /api/v1/boards/{id}/analytics/?days=30`
+**API:** `GET /api/v1/boards/{id}/analytics/?days=30`. The charts use the [flow metrics endpoints](../api/boards.md#flow-metrics).
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|

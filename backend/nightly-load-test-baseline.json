@@ -79,6 +79,48 @@
       "measured_p99_ms": 29.4,
       "budget_p95_ms": 40,
       "note": "Companion to notifications_list -- polled at the same interval; unlike the list it is uncapped (counts all accessible unread rows)."
+    },
+    "board_summary": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/summary/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Per-swimlane counts plus a replay of the cards that entered a done column in the last 30 days (#448). Before #448 this was SQL aggregates only."
+    },
+    "board_analytics": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/analytics/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Heatmap, stalled cards and blocked time, with a replay of the cards relevant to the default 30-day window plus the frozen avg_days_per_column prefetch (#448)."
+    },
+    "flow_cycle_time": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/cycle-time/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Replays every movement of the fixture board in Python (one query), then samples completions in the default 90-day range (#448)."
+    },
+    "flow_throughput": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/throughput/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Same replay as flow_cycle_time, bucketed into whole ISO weeks (#448)."
+    },
+    "flow_cumulative_flow": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/cumulative-flow/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Same replay; 90 days x columns from a difference array, never a per-day query (#448)."
+    },
+    "flow_wip_age": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/wip-age/",
+      "budget_p95_ms": null,
+      "pending_budget": "#2110",
+      "note": "Same replay plus one query each for block rows and blocking relations (#448)."
     }
   }
 }

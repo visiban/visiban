@@ -9,6 +9,11 @@ vi.mock('../api/boards', () => ({
   getBoardAnalytics: vi.fn(),
 }))
 
+// AnalyticsView mounts the flow dashboard (#448), covered by flowMetricsDashboard.test.tsx.
+vi.mock('../components/Board/flowMetrics/FlowMetricsDashboard', () => ({
+  default: () => <div data-testid="flow-dashboard" />,
+}))
+
 import { getBoardSummary, getBoardAnalytics } from '../api/boards'
 
 const mockGetBoardSummary = getBoardSummary as ReturnType<typeof vi.fn>
@@ -977,5 +982,27 @@ describe('AnalyticsView', () => {
     await screen.findByRole('button', { name: 'Age' })
     expect(screen.getByText('Beta')).toBeInTheDocument()
     expect(screen.getByText(/Analytics data may be incomplete in some configurations/)).toBeInTheDocument()
+  })
+})
+
+describe('AnalyticsView hosts the flow dashboard (#448)', () => {
+  it('keeps it mounted while the heatmap is loading or failed', async () => {
+    mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
+    const { unmount } = render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    expect(screen.getByText(/Loading analytics/)).toBeInTheDocument()
+    expect(screen.getByTestId('flow-dashboard')).toBeInTheDocument()
+    unmount()
+
+    mockGetBoardAnalytics.mockRejectedValue(new Error('fail'))
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    expect(await screen.findByText('Failed to load analytics.')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-dashboard')).toBeInTheDocument()
+  })
+
+  it('still offers it when the analytics payload has no swimlanes', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({} as never)
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    expect(await screen.findByText('No analytics data')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-dashboard')).toBeInTheDocument()
   })
 })

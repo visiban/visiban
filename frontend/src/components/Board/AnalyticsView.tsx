@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getBoardAnalytics } from "../../api/boards";
 import { agingStage } from "../../utils/agingTint";
 import { formatBlockedDuration } from "../../utils/blockedState";
+import FlowMetricsDashboard from "./flowMetrics/FlowMetricsDashboard";
 
 interface StalledCard {
   id: number;
@@ -35,6 +36,8 @@ interface BlockedSummary {
   /** Same time in seconds; absent from a server older than this field. */
   seconds_per_column?: Record<string, number>;
   blocks_per_column: Record<string, number>;
+  /** Every block in the window, deleted columns included; absent from a server older than this field. */
+  total?: { days: number; seconds: number; blocks: number };
   top_reasons: { reason: string; count: number; total_days: number; total_seconds?: number }[];
 }
 
@@ -117,6 +120,21 @@ interface Props {
   currentUserRole: string | null;
   /** Called with a card ID when the user clicks a stalled card row. */
   onOpenCard?: (cardId: number) => void;
+  /** The flow dashboard's filter options (#448). */
+  swimlanes?: { id: number; name: string }[];
+  labels?: { id: number; name: string }[];
+  /** The flow dashboard's empty state links back to the board. */
+  onGoToBoard?: () => void;
+}
+
+/** The engraved divider between dashboard sections (§ Analytics / split-panel scroll layout). */
+function SectionSeparator() {
+  return (
+    <div className="mx-4" role="separator">
+      <div className="h-px bg-sunken" />
+      <div className="h-px bg-surface-active/50" />
+    </div>
+  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -231,53 +249,22 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
 
 const STALLED_PAGE_SIZE = 25;
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Sections ──────────────────────────────────────────────────────────────────
 
-export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: Props) {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [days, setDays] = useState<DaysOption>(30);
-  const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stalledPage, setStalledPage] = useState(1);
+interface HeatmapSectionProps {
+  data: AnalyticsData;
+  days: DaysOption;
+  onDaysChange: (days: DaysOption) => void;
+  mode: ViewMode;
+  onModeChange: (mode: ViewMode) => void;
+  currentUserRole: string | null;
+}
 
-  const setMode = (m: ViewMode) => {
-    saveViewMode(boardId, m);
-    setModeState(m);
-  };
-
-  useEffect(() => {
-    setLoading(true);
-    getBoardAnalytics(boardId, days)
-      .then((d: AnalyticsData) => { setData(d); setLoading(false); })
-      .catch(() => { setError("Failed to load analytics."); setLoading(false); });
-  }, [boardId, days]);
-
-  if (loading) return (
-    <div className="flex-1 flex items-center justify-center bg-sunken gap-2">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      <span className="text-sm text-fg-tertiary">Loading analytics…</span>
-    </div>
-  );
-  if (error) return <div className="flex-1 flex items-center justify-center bg-sunken text-danger">{error}</div>;
-  if (!data || !data.swimlanes) return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-sunken">
-      <svg className="w-10 h-10 text-fg-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h18v18H3V3zm0 4.5h18M7.5 3v18" />
-      </svg>
-      <p className="text-fg-tertiary text-sm font-medium">No analytics data</p>
-      <p className="text-fg-muted text-xs">Move cards between columns to start generating heatmap data.</p>
-    </div>
-  );
-
+function HeatmapSection({ data, days, onDaysChange, mode, onModeChange, currentUserRole }: HeatmapSectionProps) {
   const { staleness_threshold_days: threshold, stale_warning_pct: warningPct } = data;
 
   const doneCols = new Set(data.done_columns ?? []);
   const activeCols = data.columns.filter(c => !doneCols.has(c));
-
-  const allStalled = data.swimlanes.flatMap(sw =>
-    sw.stalled_cards.map(c => ({ ...c, swimlane: sw.name }))
-  );
 
   const getAvg = (sw: SwimlaneStat, col: string): number | null => {
     if (mode === "age") return sw.age_avg_days_per_column?.[col] ?? null;
@@ -294,31 +281,21 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
     const count = sw.throughput_card_count_per_column?.[col] ?? 0;
     const avg = getAvg(sw, col);
     return count > 0 && avg !== null
-      ? `Avg ${avg}d — ${count} card${count !== 1 ? "s" : ""} exited ${col} in the last ${days} days`
-      : `No cards exited ${col} in the last ${days} days`;
+      ? `Avg ${avg}d — ${count} stay${count !== 1 ? "s" : ""} in ${col} ended in the last ${days} days`
+      : `No stay in ${col} ended in the last ${days} days`;
   };
 
   return (
-    <div className="flex-1 overflow-hidden flex flex-col bg-sunken">
-      {/* Beta notice — remove when analytics is declared stable */}
-      <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-line bg-surface">
-        <span className="text-xs text-warning font-medium">Beta</span>
-        <span className="text-fg-faint select-none">·</span>
-        <span className="text-xs text-fg-tertiary">
-          Analytics data may be incomplete in some configurations. Results are best used as directional guidance.
-        </span>
-      </div>
-      {/* Pinned top: toolbar + heatmap — always visible */}
       <div className="shrink-0 flex flex-col gap-4 px-4 pt-4">
         {/* Toolbar */}
         <div className="flex items-center gap-3 flex-wrap">
-          <ViewModeToggle mode={mode} onChange={setMode} />
+          <ViewModeToggle mode={mode} onChange={onModeChange} />
           {mode === "throughput" && (
             <>
               {(([7, 30, 90] as DaysOption[]).map(d => (
                 <button
                   key={d}
-                  onClick={() => setDays(d)}
+                  onClick={() => onDaysChange(d)}
                   aria-pressed={days === d}
                   className={`text-xs px-3 py-1 rounded-full border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                     days === d
@@ -409,20 +386,28 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
         )}
         {data.blocked && <BlockedTimeSection blocked={data.blocked} columns={data.columns} days={data.days} />}
       </div>
+  );
+}
 
-      {/* Stalled cards — independently scrollable below the pinned heatmap */}
-      {allStalled.length > 0 && (() => {
+function StalledCardsSection({ data, page: requestedPage, onPageChange, onOpenCard }: {
+  data: AnalyticsData;
+  page: number;
+  onPageChange: (update: (page: number) => number) => void;
+  onOpenCard?: (cardId: number) => void;
+}) {
+  const allStalled = data.swimlanes.flatMap(sw =>
+    sw.stalled_cards.map(c => ({ ...c, swimlane: sw.name }))
+  );
+  if (allStalled.length === 0) return null;
+
         const sorted = [...allStalled].sort((a, b) => b.days_since_move - a.days_since_move);
         const totalPages = Math.ceil(sorted.length / STALLED_PAGE_SIZE);
-        const page = Math.min(stalledPage, totalPages);
+        const page = Math.min(requestedPage, totalPages);
         const pageRows = sorted.slice((page - 1) * STALLED_PAGE_SIZE, page * STALLED_PAGE_SIZE);
         return (
           <>
-            <div className="mx-4 mt-4">
-              <div className="h-px bg-sunken" />
-              <div className="h-px bg-surface-active/50" />
-            </div>
-            <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-3 pb-4 flex flex-col gap-2" style={{ minHeight: "8rem" }}>
+            <SectionSeparator />
+            <div className="px-4 pt-3 pb-4 flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-fg-secondary">
                   Stalled cards (&gt;{data.stalled_threshold_days} days without movement)
@@ -477,7 +462,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                   </span>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => setStalledPage(p => Math.max(1, p - 1))}
+                      onClick={() => onPageChange(p => Math.max(1, p - 1))}
                       disabled={page === 1}
                       className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
@@ -485,7 +470,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                     </button>
                     <span className="text-xs text-fg-muted px-2">{page} / {totalPages}</span>
                     <button
-                      onClick={() => setStalledPage(p => Math.min(totalPages, p + 1))}
+                      onClick={() => onPageChange(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
                       className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
@@ -497,7 +482,83 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
             </div>
           </>
         );
-      })()}
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function AnalyticsView({
+  boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], onGoToBoard,
+}: Props) {
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [days, setDays] = useState<DaysOption>(30);
+  const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stalledPage, setStalledPage] = useState(1);
+
+  const setMode = (m: ViewMode) => {
+    saveViewMode(boardId, m);
+    setModeState(m);
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    getBoardAnalytics(boardId, days)
+      .then((d: AnalyticsData) => { setData(d); setLoading(false); })
+      .catch(() => { setError("Failed to load analytics."); setLoading(false); });
+  }, [boardId, days]);
+
+  const ready = !loading && !error && data?.swimlanes ? data : null;
+
+  // One tree whatever the heatmap's state: FlowMetricsDashboard keeps its position
+  // in it, so a change of heatmap period neither remounts it (four full history
+  // replays) nor resets its filters.
+  return (
+    <div className="flex-1 overflow-y-auto flex flex-col bg-sunken">
+      {/* Beta notice — remove when analytics is declared stable */}
+      <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-line bg-surface">
+        <span className="text-xs text-warning font-medium">Beta</span>
+        <span className="text-fg-faint select-none">·</span>
+        <span className="text-xs text-fg-tertiary">
+          Analytics data may be incomplete in some configurations. Results are best used as directional guidance.
+        </span>
+      </div>
+      {ready ? (
+        <HeatmapSection
+          data={ready}
+          days={days}
+          onDaysChange={setDays}
+          mode={mode}
+          onModeChange={setMode}
+          currentUserRole={currentUserRole}
+        />
+      ) : loading ? (
+        <div className="flex items-center justify-center py-12 gap-2">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-fg-tertiary">Loading analytics…</span>
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center py-12 text-danger">{error}</div>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-2 py-12">
+          <svg className="w-10 h-10 text-fg-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h18v18H3V3zm0 4.5h18M7.5 3v18" />
+          </svg>
+          <p className="text-fg-tertiary text-sm font-medium">No analytics data</p>
+          <p className="text-fg-muted text-xs">Move cards between columns to start generating heatmap data.</p>
+        </div>
+      )}
+      <div className="mt-4"><SectionSeparator /></div>
+      <FlowMetricsDashboard
+        boardId={boardId}
+        swimlanes={swimlanes}
+        labels={labels}
+        onOpenCard={onOpenCard}
+        onGoToBoard={onGoToBoard}
+      />
+      {ready && (
+        <StalledCardsSection data={ready} page={stalledPage} onPageChange={setStalledPage} onOpenCard={onOpenCard} />
+      )}
     </div>
   );
 }

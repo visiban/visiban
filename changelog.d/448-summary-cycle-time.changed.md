@@ -1,0 +1,1 @@
+`summary.avg_cycle_days` is now the mean cycle time of the cards whose first completion falls in the last 30 days, archived since or not. It starts at a card's first move out of its creation column; before, it started at the creation movement, so it measured lead time.

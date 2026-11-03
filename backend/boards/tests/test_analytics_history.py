@@ -133,39 +133,69 @@ class TestSummaryMetrics(AnalyticsHistorySetup):
         resp = c.get(self._summary_url())
         self.assertEqual(resp.data["swimlanes"][0]["done_30d"], 0)
 
-    def test_avg_cycle_days_computed(self):
-        """avg_cycle_days should reflect time from first move to first done move."""
-        now = timezone.now()
-        # First movement 2 days ago
-        first_move = CardMovement.objects.create(
+    def _move(self, from_column, to_column, moved_at):
+        """A movement of self.card at moved_at; from_column=None makes it the creation row."""
+        mv = CardMovement.objects.create(
             card=self.card,
-            from_column=None, from_column_name="",
-            to_column=self.col_todo, to_column_name="To Do",
+            from_column=from_column, from_column_name=from_column.name if from_column else "",
+            to_column=to_column, to_column_name=to_column.name,
             from_swimlane=self.swimlane, from_swimlane_name="Customer A",
             to_swimlane=self.swimlane, to_swimlane_name="Customer A",
             moved_by=self.admin,
             movement_type=CardMovement.MovementType.MOVE,
         )
-        # Backdate the first movement
-        CardMovement.objects.filter(pk=first_move.pk).update(moved_at=now - datetime.timedelta(days=2))
+        # Queryset update: CardMovement.save() refuses an existing row (#1469).
+        CardMovement.objects.filter(pk=mv.pk).update(moved_at=moved_at)
 
-        # Done movement now
-        CardMovement.objects.create(
-            card=self.card,
-            from_column=self.col_todo, from_column_name="To Do",
-            to_column=self.col_done, to_column_name="Done",
-            from_swimlane=self.swimlane, from_swimlane_name="Customer A",
-            to_swimlane=self.swimlane, to_swimlane_name="Customer A",
-            moved_by=self.admin,
-            movement_type=CardMovement.MovementType.MOVE,
-        )
+    def test_avg_cycle_days_computed(self):
+        """avg_cycle_days runs from the first pull out of the creation column to
+        the first done entry (#448); before it started at the creation movement."""
+        now = timezone.now()
+        col_doing = Column.objects.create(board=self.board, name="Doing", position=2)
+        self._move(None, self.col_todo, now - datetime.timedelta(days=9))
+        self._move(self.col_todo, col_doing, now - datetime.timedelta(days=2))
+        self._move(col_doing, self.col_done, now - datetime.timedelta(hours=1))
+        Card.objects.filter(pk=self.card.pk).update(column=self.col_done)
 
         c = self._client_for(self.admin)
         resp = c.get(self._summary_url())
         avg = resp.data["swimlanes"][0]["avg_cycle_days"]
         # Should be approximately 2 days (may differ by seconds in CI)
         self.assertIsNotNone(avg)
-        self.assertAlmostEqual(avg, 2.0, delta=0.1)
+        self.assertAlmostEqual(avg, 1.96, delta=0.1)
+
+    def test_avg_cycle_days_null_for_a_card_moved_straight_to_done(self):
+        """A zero-length cycle is bookkeeping: the card counts toward velocity, not cycle time."""
+        now = timezone.now()
+        self._move(None, self.col_todo, now - datetime.timedelta(days=9))
+        self._move(self.col_todo, self.col_done, now - datetime.timedelta(hours=1))
+        Card.objects.filter(pk=self.card.pk).update(column=self.col_done)
+
+        row = self._client_for(self.admin).get(self._summary_url()).data["swimlanes"][0]
+        self.assertIsNone(row["avg_cycle_days"])
+        self.assertEqual(row["velocity_7d"], 1)
+
+    def test_velocity_counts_a_card_once_when_it_moves_between_done_columns(self):
+        """Done → Released is not a new completion; before #448 it counted twice."""
+        now = timezone.now()
+        col_released = Column.objects.create(board=self.board, name="Released", position=2, is_done=True)
+        self._move(None, self.col_todo, now - datetime.timedelta(days=9))
+        self._move(self.col_todo, self.col_done, now - datetime.timedelta(days=3))
+        self._move(self.col_done, col_released, now - datetime.timedelta(days=1))
+        Card.objects.filter(pk=self.card.pk).update(column=col_released)
+
+        row = self._client_for(self.admin).get(self._summary_url()).data["swimlanes"][0]
+        self.assertEqual((row["velocity_7d"], row["velocity_30d"], row["done_30d"]), (1, 1, 1))
+
+    def test_velocity_keeps_a_card_archived_after_its_completion(self):
+        """Archiving finished work does not unfinish it; before #448 it left the count."""
+        now = timezone.now()
+        self._move(None, self.col_todo, now - datetime.timedelta(days=9))
+        self._move(self.col_todo, self.col_done, now - datetime.timedelta(days=3))
+        Card.objects.filter(pk=self.card.pk).update(column=self.col_done, archived_at=now)
+
+        row = self._client_for(self.admin).get(self._summary_url()).data["swimlanes"][0]
+        self.assertEqual(row["velocity_7d"], 1)
 
     def test_avg_cycle_days_null_when_no_done_moves(self):
         """avg_cycle_days must be null when no cards have reached a done column."""

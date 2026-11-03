@@ -2537,6 +2537,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               const card = board.cards.find((c) => c.id === cardId);
               if (card) { clearSelection(); setSelectedCard(card); }
             }}
+            swimlanes={board.swimlanes}
+            labels={board.labels}
+            onGoToBoard={() => setView("board")}
           />
         </SectionErrorBoundary>
         {selectedCard && (

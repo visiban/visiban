@@ -33,7 +33,7 @@ Visiban is an open-source, self-hosted Kanban board where every row is an entity
 **The record:**
 
 - **Movement history.** Every drag logs from/to column, from/to swimlane, who moved it, and when. A board-level History tab has search and filters.
-- **Analytics** *(beta)*. A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards).
+- **Analytics** *(beta)*. A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards, and flow charts for cycle time, throughput, cumulative flow and WIP aging).
 
 **The team:**
 

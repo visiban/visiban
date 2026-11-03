@@ -25,6 +25,7 @@ This measures query counts for:
 - `GET /api/boards/{id}/cards/` — budget ≤ 12
 - `GET /api/boards/{id}/full/` — budget ≤ 20
 - `GET /api/boards/{id}/summary/` — budget ≤ 10
+- `GET /api/boards/{id}/analytics/` and the four `metrics/*` flow endpoints — budgets in `_HISTORY_ENDPOINTS` (the fixture has real movement history, #448)
 
 If any endpoint **exceeds its budget**, that is a confirmed N+1. Do not proceed to the next step until you understand why.
 
@@ -76,7 +77,7 @@ Key rules:
 - The `archived` action
 - The `unarchive` action
 
-**Step 4 — Check `summary` endpoint** — this endpoint must use aggregate queries (`Count` with `.values()`) rather than per-swimlane loops. The pattern:
+**Step 4 — Check `summary` endpoint** — its card counts must use aggregate queries (`Count` with `.values()`) rather than per-swimlane loops, as below. Its velocity and cycle-time fields do not: since #448 they replay, in Python, the history of the cards that entered a done column in the last 30 days (`flow_metrics.load_recent_completions`). That replay must stay narrowed, and a query count cannot see its cost; `nightly-load-test`'s `board_summary` does. The aggregate pattern:
 
 ```python
 # ✅ Correct: 2 queries total regardless of board size

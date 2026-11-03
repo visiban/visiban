@@ -36,7 +36,7 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | Movement history delivery report export (CSV/PDF) | Enterprise | Formatted compliance/client reporting artifact | #342 note |
 | Per-swimlane analytics (basic) | OSS | Teams managing work per client/swimlane need row-level visibility | #341 |
 | Analytics: heatmap, stalled cards, per-swimlane velocity, heatmap CSV export | OSS | Shipped. Seeing where work piles up passes the small-team test. See [Analytics (split)](#analytics-split) | #1750, #341 |
-| Flow charts (cycle time, throughput and weekly run chart, cumulative flow diagram, WIP age, CFD bottleneck highlight) | OSS | Same reasoning; ruled 2026-11-02. Planned in #448, not yet shipped. See [Analytics (split)](#analytics-split) | #1750, #448 |
+| Flow charts (cycle time, throughput and weekly run chart, cumulative flow diagram, WIP age, CFD bottleneck highlight) | OSS | Same reasoning; ruled 2026-11-02. Shipped in 1.3 (#448). See [Analytics (split)](#analytics-split) | #1750, #448 |
 | Cross-period comparison, scheduled analytics reports, `ANALYTICS_EXTENSIONS` panels | Enterprise | Reporting and extension layer beyond what a team needs to see its own flow. See [Analytics (split)](#analytics-split) | #1750 |
 | Single-swimlane focus mode | OSS | Core navigation for boards with many swimlanes | #340 |
 | Read-only board share / guest link (basic) | OSS | Sharing status with external stakeholders is a basic collaboration need | #348 |
@@ -168,7 +168,7 @@ Enterprise keeps three things: cross-period comparison, scheduled analytics repo
 
 **Cost accepted.** Under the project's backward compatibility rules, a shipped OSS feature cannot practically move back to Enterprise. Enterprise #12 is the open tracking issue for rescoping the enterprise side to the three items above; a note was posted there on 2026-11-02.
 
-**Not decided here.** Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. Neither are MCP analytics tools. The #448 charts are planned, not shipped; the [flow metric definitions](decisions.md) apply wherever they ship.
+**Not decided here.** Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. Neither are MCP analytics tools. The [flow metric definitions](decisions.md) apply wherever the #448 charts ship.
 
 The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (`boards/hooks.py`) so enterprise can add panels without modifying OSS view files. The summary returns the panels in `extension_panels`, and the Summary tab renders `stats` and `table` panels below the swimlane table (see the [payload contract](../api/boards.md#extension-panel-payload)).
 

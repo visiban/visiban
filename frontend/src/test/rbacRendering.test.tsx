@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 
 // Single consolidated mock for all boards API functions used in this file.
+// AnalyticsView mounts the flow dashboard (#448), covered by flowMetricsDashboard.test.tsx.
+vi.mock('../components/Board/flowMetrics/FlowMetricsDashboard', () => ({ default: () => null }))
+
 vi.mock('../api/boards', () => ({
   getBoardAnalytics: vi.fn(),
   createLabel: vi.fn(),
