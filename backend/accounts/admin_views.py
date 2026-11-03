@@ -1066,7 +1066,7 @@ def apply_access_loss_revocations(target, actor, prior):
         # (#1865). Standing is re-derived per board, so a link on a board the
         # account still administers by membership or ownership is kept.
         from boards.services.share_links import revoke_lapsed_share_links
-        revoke_lapsed_share_links(enabler=target, actor_id=getattr(actor, "pk", None))
+        revoke_lapsed_share_links(enabler=target)
     if prior["is_site_admin"] and not target.is_site_admin:
         # Only an active site admin may admit accounts through a site invite
         # (registry Rule 2). Redemption re-checks the creator regardless;
@@ -1864,7 +1864,7 @@ class AdminUserDeactivateView(APIView):
         # And the public share links they enabled (#1865), announced on each
         # board channel.
         from boards.services.share_links import revoke_lapsed_share_links
-        revoke_lapsed_share_links(enabler=target, actor_id=getattr(actor, "pk", None))
+        revoke_lapsed_share_links(enabler=target)
 
     @staticmethod
     def _revoke_group_invite_links(target):

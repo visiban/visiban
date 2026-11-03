@@ -242,6 +242,16 @@ class BoardEventSerializer(serializers.ModelSerializer):
         model = BoardEvent
         fields = ["id", "event", "data", "actor_id", "actor", "created_at", "redacted_at"]
         read_only_fields = fields
+        # Set here, not on the model, so the wording needs no migration.
+        extra_kwargs = {
+            "actor_id": {
+                "help_text": (
+                    "User the row attributes the event to; null when the row records "
+                    "no actor: there was no authenticated actor, or the event is not "
+                    "attributed to a user."
+                ),
+            },
+        }
 
     @staticmethod
     def actor_map(rows) -> dict:

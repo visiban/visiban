@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 # user. It stays in the payload (1.x contract, no field removal) but only the
 # acting user's sockets and feed reads carry it; every other recipient gets the
 # payload without the key (boards.permissions.without_actor_scoped_fields).
-# Callers pass ``actor_id`` to the broadcast helpers for that reason. Clients
-# read per-user star state from board.star_changed.
+# Callers pass ``actor_id`` to the broadcast helpers for that reason, except
+# ``services.share_links.record_share_state_board_updated``, which records no
+# actor. Clients read per-user star state from board.star_changed.
 EVT_BOARD_CREATED = "board.created"
 EVT_BOARD_UPDATED = "board.updated"
 EVT_BOARD_DELETED = "board.deleted"

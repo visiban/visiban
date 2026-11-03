@@ -194,7 +194,8 @@ class ConsumerActorScopedFieldTests(TestCase):
 
 
 class WritePathBase(TestCase):
-    """Every write path that publishes a scoped event names its actor.
+    """Every write path that publishes a scoped event names its actor, except a
+    change to a board's share state, which has none (#2043).
 
     Each action runs against a recording channel layer; every scoped frame it
     publishes is then delivered to the actor's socket (which keeps
@@ -270,9 +271,16 @@ class WritePathActorTests(WritePathBase):
         ))
         self._assert_scoped(sent, [("board", "board.updated"), ("group", "board.created")], starred=True)
 
-    def test_board_share(self):
+    def test_board_share_frame_has_no_actor_and_omits_the_field_for_everyone(self):
+        """The exception to this class's rule: a share-state frame has no actor (#2043)."""
         sent = self._run(lambda: self.client.post(f"/api/v1/boards/{self.board.id}/share/"))
-        self._assert_scoped(sent, [("board", "board.updated")], starred=True)
+        ((group_name, message),) = sent
+        self.assertEqual(group_name, f"board_{self.board.id}")
+        self.assertEqual(message["payload"]["event"], "board.updated")
+        self.assertNotIn("actor_id", message)
+        for user in (self.actor, self.other):
+            frame = _deliver(_board_consumer(self.board, user, "admin"), "board_event", message)
+            self.assertNotIn("is_starred", frame["data"])
 
     def test_group_boards_create(self):
         sent = self._run(lambda: self.client.post(f"/api/v1/groups/{self.group.id}/boards/", {"name": "GB"}))

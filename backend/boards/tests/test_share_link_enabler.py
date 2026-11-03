@@ -586,7 +586,7 @@ class HelperTests(_ShareFixtures):
         User.objects.filter(pk=self.enabler.pk).update(is_active=False)
         judged = Board.objects.get(pk=self.board.pk)
         Board.objects.filter(pk=self.board.pk).update(**change)
-        return _clear_lapsed([judged], None)
+        return _clear_lapsed([judged])
 
     def test_clear_skips_a_link_now_held_by_another_enabler(self):
         """Same token, different enabler: the enabler match keeps the link."""
@@ -638,7 +638,7 @@ class HelperTests(_ShareFixtures):
         Board.objects.filter(pk=self.board.pk).update(share_enabled_by=None)
         judged = Board.objects.get(pk=self.board.pk)
         Board.objects.filter(pk=self.board.pk).update(share_enabled_by=self.owner)
-        self.assertEqual(_clear_lapsed([judged], None), [])
+        self.assertEqual(_clear_lapsed([judged]), [])
         self.board.refresh_from_db()
         self.assertEqual(self.board.share_enabled_by_id, self.owner.pk)
         self.assertIsNotNone(self.board.share_token)

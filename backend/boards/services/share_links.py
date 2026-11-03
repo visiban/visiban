@@ -103,7 +103,31 @@ def record_share_link_updated(board, *, issued_at=None):
     )
 
 
-def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, include_unrecorded=False):
+def record_share_state_board_updated(board_id, payload):
+    """Persist ``board.updated`` for a share link's enable, rotate, revoke or clear (#2043).
+
+    Published on commit. Every write that enables, rotates or clears a share
+    link records this row beside ``share_link.updated``. The row is kept for the
+    clients that treat it as a "board changed" signal.
+
+    Recorded with no actor, the same as ``share_link.updated``: ``actor_id``
+    and ``actor`` are null in the change feed and in webhook deliveries, and
+    the channel-layer message has no ``actor_id``. With no actor, no user's
+    per-user fields (``ACTOR_SCOPED_FIELDS``) belong in the payload, so they
+    are left out of the stored row too. A change to a board's group or owner
+    that clears a link also records its own ordinary ``board.updated``, and
+    that one keeps its actor.
+    """
+    from .. import broadcast as _broadcast
+    from ..permissions import without_actor_scoped_fields
+
+    event = _broadcast.EVT_BOARD_UPDATED
+    return _broadcast.record_board_event(
+        board_id, event, without_actor_scoped_fields(event, payload, None, None),
+    )
+
+
+def revoke_lapsed_share_links(*, enabler=None, board_ids=None, include_unrecorded=False):
     """Clear the share links whose enabler no longer has standing on the board.
 
     Scope the check with *enabler* (a user or user pk: every board whose link
@@ -121,9 +145,10 @@ def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, in
     carries the link that was judged (same enabler, same token), so a link an
     admin re-enabled meanwhile is never cleared by mistake. Each cleared board
     records ``board.updated`` and ``share_link.updated`` (persisted, published
-    on commit), the same pair the share action records. The share fields are
-    admin-only and stripped from ``board.updated``, so admin clients learn the
-    link is off from ``share_link.updated``, which only admins receive (#1967).
+    on commit, no actor), the same pair the share action records. The share
+    fields are admin-only and stripped from ``board.updated``, so admin clients
+    learn the link is off from ``share_link.updated``, which only admins receive
+    (#1967).
     """
     from django.db import transaction
 
@@ -166,20 +191,19 @@ def revoke_lapsed_share_links(*, enabler=None, board_ids=None, actor_id=None, in
     # Atomic on its own too (free when nested): each clear and its event row
     # commit together even for a caller outside a transaction.
     with transaction.atomic():
-        return _clear_lapsed(lapsed, actor_id)
+        return _clear_lapsed(lapsed)
 
 
-def _clear_lapsed(lapsed, actor_id):
+def _clear_lapsed(lapsed):
     """Clear each judged link that is still in place; record the events per clear.
 
     Each clear records ``board.updated`` (kept for the clients that treat it
     as a "board changed" signal) and the admin-only ``share_link.updated``
-    that carries the new share state (#1967).
+    that carries the new share state (#1967), both with no actor (#2043).
 
     ``share_enabled_by_id=None`` in the match below is an IS NULL test, so an
     unrecorded link is cleared only while it is still unrecorded.
     """
-    from .. import broadcast as _broadcast
     from ..serializers import BoardSerializer
 
     revoked = []
@@ -199,9 +223,6 @@ def _clear_lapsed(lapsed, actor_id):
             continue
         board.clear_share_link()
         revoked.append(board.pk)
-        _broadcast.record_board_event(
-            board.pk, _broadcast.EVT_BOARD_UPDATED, BoardSerializer(board).data,
-            actor_id=actor_id,
-        )
+        record_share_state_board_updated(board.pk, BoardSerializer(board).data)
         record_share_link_updated(board)
     return revoked
