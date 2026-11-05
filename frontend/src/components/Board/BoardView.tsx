@@ -1420,6 +1420,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
   }, []);
+  // These two toasts belong to this board's view: they must not follow the user to
+  // the next board or the dashboard (a danger toast never times out).
+  useEffect(() => () => {
+    dismissToast(CARD_ACTION_TOAST_KEY);
+    dismissToast(CARD_NOT_FOUND_TOAST_KEY);
+  }, [dismissToast]);
   const reportCardAction = useCallback((text: string, requested: "failed" | "shown" | "announced") => {
     // Announce-only is for a change visible on the board grid; from Summary,
     // History, Analytics or Lens the grid is not in view, so show it too.
@@ -1482,9 +1488,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const isWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
     const finish = (failure: string | null, success: string, alreadyShown = false) => {
       if (failure) { reportCardAction(failure, "failed"); return; }
-      // Outside the board view an announce-only result is promoted to a toast; skip it
-      // when another toast already reported the same outcome ("Card archived").
-      if (!(alreadyShown && viewRef.current !== "board")) reportCardAction(success, "announced");
+      // Skip the result when another toast already reported and announced the same
+      // outcome ("Card archived"), on the board view (a second live announcement) and
+      // off it (a second toast).
+      if (!alreadyShown) reportCardAction(success, "announced");
       // § Bulk operations rule 1: a selection clears only on full success.
       if (isWholeSelection) clearSelection();
     };

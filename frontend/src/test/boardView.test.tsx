@@ -2822,6 +2822,28 @@ describe('BoardView card actions (#2059)', () => {
     expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
   })
 
+  it('archiving on the board view raises the archive toast and no second announcement', async () => {
+    vi.mocked(archiveCard).mockResolvedValue(undefined as never)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive card' }))
+    expect(await screen.findByTestId('archive-toast')).toHaveTextContent('Card archived')
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(screen.getByTestId('card-action-status')).toHaveTextContent('')
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
+  })
+
+  it('a card-action failure toast does not outlive BoardView (provider stays mounted)', async () => {
+    vi.mocked(archiveCard).mockRejectedValue(new Error('offline'))
+    const ui = (on: boolean) => <ToastProvider>{on && <BoardView currentUser={fakeUser} />}</ToastProvider>
+    const { rerender } = render(ui(true))
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive card' }))
+    expect(await screen.findByTestId('card-action-toast')).toHaveAttribute('data-variant', 'danger')
+    rerender(ui(false))
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
+  })
+
   it('Block card… opens the card sheet with the block form requested', () => {
     render(<BoardView currentUser={fakeUser} />)
     fireEvent.click(screen.getByTestId('open-menu-2'))

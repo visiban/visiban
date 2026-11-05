@@ -387,7 +387,7 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | **Delete card…** | Asks first, then deletes | Same, for each card |
 
 - Items you cannot use stay in the menu, dimmed, with the reason underneath (for example *Viewers can't block cards*, *Select one card*, or the maintenance or shared-demo notice), so you know why. On the shared demo, **Block card…**, **Archive card** and **Delete card…** are dimmed with the demo notice; the card detail panel does not offer them there at all.
-- Copy link and Delete confirm what they did in a notification, because nothing else on the board shows it. Move, Assign, Priority and Archive change the board in view, so they are announced to screen readers without a notification.
+- Copy link and Delete confirm what they did in a notification, because nothing else on the board shows it. Move, Assign and Priority change the board in view, so on the board they are only announced to screen readers; from the Summary, History, Analytics or Lens views they show a notification too. Archive shows the "Card archived" notification.
 - Use <kbd>↑</kbd> / <kbd>↓</kbd> to move, <kbd>→</kbd> to open a submenu, <kbd>←</kbd> to close it, and a letter to jump to the item that starts with it. <kbd>Esc</kbd> closes a submenu, then the menu, and returns you to the card.
 - The menu is not offered while a card detail panel is open; use the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette) to act on the open card.
 - When some cards in a multi-card action fail, a notification says how many failed and why and stays until you dismiss it, and the selection stays so you can retry, as in [bulk card operations](#bulk-card-operations).
