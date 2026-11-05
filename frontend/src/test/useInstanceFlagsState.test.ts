@@ -169,7 +169,8 @@ describe('useInstanceFlagsState (#1913)', () => {
   it('stashes the next demo reset instant while signed in, and clears it outside demo mode', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...baseConfig, demo_mode: true, demo_next_reset_at: '2026-09-27T13:00:00Z' })
     const first = renderHook(() => useInstanceFlagsState(true))
-    await waitFor(() => expect(sessionStorage.getItem('demo_next_reset_at')).toBe('2026-09-27T13:00:00Z'))
+    // stashDemoNextReset re-serializes to canonical ISO, so the stored form has milliseconds.
+    await waitFor(() => expect(sessionStorage.getItem('demo_next_reset_at')).toBe('2026-09-27T13:00:00.000Z'))
     first.unmount()
 
     mockGetSiteConfig.mockResolvedValue(baseConfig)

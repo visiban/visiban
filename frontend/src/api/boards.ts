@@ -61,10 +61,10 @@ export interface BoardJoinResult {
 }
 
 export const resolveBoardJoinToken = (token: string) =>
-  client.get<BoardJoinPreview>(`/api/v1/boards/join/${token}/`).then((r) => r.data);
+  client.get<BoardJoinPreview>(`/api/v1/boards/join/${encodeURIComponent(token)}/`).then((r) => r.data);
 
 export const joinBoard = (token: string) =>
-  client.post<BoardJoinResult>(`/api/v1/boards/join/${token}/`).then((r) => r.data);
+  client.post<BoardJoinResult>(`/api/v1/boards/join/${encodeURIComponent(token)}/`).then((r) => r.data);
 
 export const listBoards = () =>
   client.get<{ results: Board[] }>("/api/v1/boards/").then((r) => r.data.results);
