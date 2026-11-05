@@ -162,7 +162,6 @@ The Inspector should list the server and its tools/resources exactly as describe
 The tools, resources, and Bearer-token authentication above are the full OSS (Phase 1) surface. [Visiban Enterprise](https://visiban.com/enterprise) is planned to add:
 
 - OAuth 2.1, so connecting a client no longer means managing a long-lived Bearer token by hand
-- analytics tools
 - prompt templates
 - RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning `permission_denied` when they're called)
 
