@@ -15,7 +15,7 @@ import { useBoardSocket } from '../hooks/useBoardSocket'
 import client from '../api/client'
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
-const RESET = '2026-09-27T13:00:00Z'
+const RESET = '2026-09-27T13:00:00.000Z'
 
 beforeEach(() => sessionStorage.clear())
 afterEach(() => sessionStorage.clear())
@@ -38,6 +38,17 @@ describe('demoReset helper', () => {
     expect(sessionStorage.getItem(DEMO_NEXT_RESET_KEY)).toBeNull()
     expect(consumeDemoResetNotice()).toBe(RESET)
     expect(consumeDemoResetNotice()).toBeNull()
+  })
+
+  it('normalizes a non-canonical instant to ISO before storing it', () => {
+    stashDemoNextReset('2026-09-27T13:00:00Z')
+    expect(sessionStorage.getItem(DEMO_NEXT_RESET_KEY)).toBe(RESET)
+  })
+
+  it('refuses to store an unparseable value and clears any earlier one', () => {
+    stashDemoNextReset(RESET)
+    stashDemoNextReset('<script>not-a-date</script>')
+    expect(sessionStorage.getItem(DEMO_NEXT_RESET_KEY)).toBeNull()
   })
 
   it('stashing null forgets the instant (sign-out, non-demo user)', () => {

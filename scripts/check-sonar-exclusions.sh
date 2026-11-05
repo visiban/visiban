@@ -113,6 +113,7 @@ python:S6418|Secrets should not be hard-coded
 pythonenterprise:S8443|Django Command classes should inherit from BaseCommand
 pythonsecurity:S2083|I/O function calls should not be vulnerable to path injection attacks
 pythonsecurity:S8705|Argument injection
+secrets:S2068|Credentials should not be hard-coded
 pythonsecurity:S8707|Agentic workflows should not be vulnerable to path injection attacks
 shell:S5332|Using clear-text protocols is security-sensitive
 '

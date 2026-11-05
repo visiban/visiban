@@ -19,8 +19,12 @@ export const DEMO_RESET_NOTICE_KEY = "demo_reset_notice_at";
 /** Remember (or forget) the next reset instant for the signed-in session. */
 export function stashDemoNextReset(nextResetAt: string | null | undefined): void {
   try {
-    if (nextResetAt) sessionStorage.setItem(DEMO_NEXT_RESET_KEY, nextResetAt);
-    else sessionStorage.removeItem(DEMO_NEXT_RESET_KEY);
+    // Re-serialize through Date so only a canonical ISO instant is ever stored:
+    // the value comes from the server, and an unparseable string is dropped
+    // rather than persisted (Sonar S8475, browser storage poisoning).
+    const at = nextResetAt ? Date.parse(nextResetAt) : Number.NaN;
+    if (Number.isNaN(at)) sessionStorage.removeItem(DEMO_NEXT_RESET_KEY);
+    else sessionStorage.setItem(DEMO_NEXT_RESET_KEY, new Date(at).toISOString());
   } catch {
     /* storage unavailable (private mode) — the notice is a nicety */
   }

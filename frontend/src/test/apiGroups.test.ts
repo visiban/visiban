@@ -155,6 +155,15 @@ describe('groups API', () => {
     expect(result.role).toBe('viewer')
   })
 
+  it('percent-encodes the group join token in both calls', async () => {
+    mockClient.get.mockResolvedValue({ data: {} })
+    mockClient.post.mockResolvedValue({ data: {} })
+    await resolveJoinToken('../x?y=1')
+    await joinGroup('../x?y=1')
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/groups/join/..%2Fx%3Fy%3D1/')
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/groups/join/..%2Fx%3Fy%3D1/')
+  })
+
   it('joinGroup posts to join endpoint', async () => {
     const group = { id: 1, name: 'Test' }
     mockClient.post.mockResolvedValue({ data: group })

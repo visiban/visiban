@@ -76,10 +76,10 @@ export interface JoinTokenPreview {
 }
 
 export const resolveJoinToken = (token: string) =>
-  client.get<JoinTokenPreview>(`/api/v1/groups/join/${token}/`).then((r) => r.data);
+  client.get<JoinTokenPreview>(`/api/v1/groups/join/${encodeURIComponent(token)}/`).then((r) => r.data);
 
 export const joinGroup = (token: string) =>
-  client.post<Group>(`/api/v1/groups/join/${token}/`).then((r) => r.data);
+  client.post<Group>(`/api/v1/groups/join/${encodeURIComponent(token)}/`).then((r) => r.data);
 
 export const transferGroupOwnership = (groupId: number, newOwnerId: number, confirmation: string) =>
   client.post(`/api/v1/groups/${groupId}/transfer-ownership/`, { new_owner_id: newOwnerId, confirmation }).then((r) => r.data);

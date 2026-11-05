@@ -594,4 +594,13 @@ describe('board invite API (#1444)', () => {
     expect((await joinBoard('vbnb_x')).created).toBe(true)
     expect(api.post).toHaveBeenCalledWith('/api/v1/boards/join/vbnb_x/')
   })
+
+  it('percent-encodes the join token so it cannot rewrite the request path', async () => {
+    api.get.mockResolvedValue({ data: {} })
+    api.post.mockResolvedValue({ data: {} })
+    await resolveBoardJoinToken('../x?y=1')
+    await joinBoard('../x?y=1')
+    expect(api.get).toHaveBeenCalledWith('/api/v1/boards/join/..%2Fx%3Fy%3D1/')
+    expect(api.post).toHaveBeenCalledWith('/api/v1/boards/join/..%2Fx%3Fy%3D1/')
+  })
 })
