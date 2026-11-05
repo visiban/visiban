@@ -16,7 +16,13 @@ import { BOARD_FULL, CARD } from './fixtures/board'
 
 const LONG_COLUMN = 'Done and awaiting the quarterly stakeholder sign-off review across every regional office and partner team '.repeat(4).trim()
 
+const SAFE_AREA_BOTTOM = 34 // a notched phone's home-indicator inset
+
 async function raiseBlockedToast(page: Page) {
+  // Headless Chrome has no notch, so env(safe-area-inset-bottom) is 0 and the
+  // pb class would be unobservable. Emulate one before the app loads.
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 0, bottom: SAFE_AREA_BOTTOM, right: 0 } })
   await routeAuth(page)
   await routeBoard(page)
   await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/move/`, (route) =>
@@ -78,7 +84,10 @@ test.describe('toast region viewport rules (#2123)', () => {
     expect(closeBox.width).toBeGreaterThanOrEqual(44)
     expect(closeBox.height).toBeGreaterThanOrEqual(44)
 
-    // The phone-only line clamp is off.
+    // The phone-only rules are off: no safe-area padding, no clamp, and the
+    // action is not forced to a 44px target (that starts at <=820px).
+    expect(await css(region, 'padding-bottom')).toBe('0px')
+    expect(await css(toast.getByRole('button', { name: 'Move anyway (admin override)' }), 'min-height')).not.toBe('44px')
     expect(await css(toast.locator('p').first(), '-webkit-line-clamp')).toBe('none')
   })
 
@@ -97,22 +106,9 @@ test.describe('toast region viewport rules (#2123)', () => {
     expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
     expect(left).toBeGreaterThanOrEqual(16)
 
-    // Safe-area padding: headless Chrome resolves env() to 0, so the computed
-    // value cannot differ. Pin that the shipped stylesheet carries the rule
-    // for the class the region actually has.
-    const hasSafeAreaRule = await region.evaluate((el) => {
-      if (!el.classList.contains('max-[820px]:pb-[env(safe-area-inset-bottom)]')) return false
-      const scan = (rules: CSSRuleList): boolean =>
-        Array.from(rules).some((r) => {
-          const nested = (r as CSSGroupingRule).cssRules
-          if (nested && scan(nested)) return true
-          return r.cssText.includes('safe-area-inset-bottom') && r.cssText.includes('padding-bottom')
-        })
-      return Array.from(document.styleSheets).some((s) => {
-        try { return scan(s.cssRules) } catch { return false }
-      })
-    })
-    expect(hasSafeAreaRule).toBe(true)
+    // Safe-area padding: env(safe-area-inset-bottom) resolves to the emulated
+    // inset (see raiseBlockedToast), so the pb class is observable.
+    expect(await css(region, 'padding-bottom')).toBe(`${SAFE_AREA_BOTTOM}px`)
 
     // Action: 44px tap target, label centered in it.
     const action = toast.getByRole('button', { name: 'Move anyway (admin override)' })
@@ -133,6 +129,8 @@ test.describe('toast region viewport rules (#2123)', () => {
     await page.setViewportSize({ width: 640, height: 800 })
     const region = await raiseBlockedToast(page)
     const toast = region.locator('[data-toast-id]').first()
+
+    expect(await css(region, 'padding-bottom')).toBe(`${SAFE_AREA_BOTTOM}px`)
 
     // max-w-none: the region spans the viewport minus left-4/right-4.
     expect(await css(region, 'max-width')).toBe('none')
