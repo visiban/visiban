@@ -348,9 +348,9 @@ Press **Escape** or click the **×** button to clear the selection. Selection is
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Short notices about what just happened appear at the bottom center of the screen: a refused move, the result of an import, an archived or unblocked card, or (on the shared demo) a change that cannot be saved. Up to three show at once, stacked upward, with the most important one nearest the bottom. When the bulk action toolbar is showing, notices sit just above it so they never cover its buttons or its result message.
+Short notices about what just happened appear at the bottom center of the screen: a refused move, the result of an import, an archived or unblocked card, a preset you just applied (with **Undo**), a card link that no longer points to a card on the board, the result of a card action, the confirmation after you join a board or group from an invite, or (on the shared demo) a change that cannot be saved. Up to three show at once, stacked upward, with the most important one nearest the bottom. When the bulk action toolbar is showing, notices sit just above it so they never cover its buttons or its result message.
 
-- **How long they stay.** A success notice stays 4 seconds (5 for "Card archived"), other information 6 seconds (8 for the import notice), and a warning 8 seconds (the shared demo's "can't be saved" notice keeps 5 seconds for now). A refused move stays until you dismiss it or make another move. Moving the pointer over a notice, tabbing into it, or switching to another browser tab pauses the countdown, which starts over when you come back.
+- **How long they stay.** A success notice stays 4 seconds (5 for "Card archived"), other information 6 seconds (8 for the import and preset notices, 20 for a preset applied from a link), and a warning 8 seconds (4 for a card that is no longer on the board) (the shared demo's "can't be saved" notice keeps 5 seconds for now). A refused move stays until you dismiss it or make another move, a failed card action stays until you dismiss it, and so does the "You've joined" confirmation. Moving the pointer over a notice, tabbing into it, or switching to another browser tab pauses the countdown, which starts over when you come back.
 - **When more than three arrive**, a less important notice makes room, and a refused move is never pushed out. Notices that cannot fit yet wait, and a **+N waiting** line shows how many.
 - **Dismissing.** Every notice has a **×**. With the keyboard, press **Tab** from the board to reach the notices, and **Escape** dismisses the one that has focus; focus then returns to where you were.
 - **Screen readers** hear each notice once, politely, except refused moves and failures, which are announced right away. A notice raised from inside the card detail panel (for example after **Unblock card**) is announced by the panel itself, so it is not read twice.
@@ -387,10 +387,10 @@ Right-click a card to act on it without opening it: move it, assign it, set its 
 | **Delete card…** | Asks first, then deletes | Same, for each card |
 
 - Items you cannot use stay in the menu, dimmed, with the reason underneath (for example *Viewers can't block cards*, *Select one card*, or the maintenance or shared-demo notice), so you know why. On the shared demo, **Block card…**, **Archive card** and **Delete card…** are dimmed with the demo notice; the card detail panel does not offer them there at all.
-- Copy link and Delete confirm what they did in a short notice under the toolbar, because nothing else on the board shows it.
+- Copy link and Delete confirm what they did in a notification, because nothing else on the board shows it. Move, Assign, Priority and Archive change the board in view, so they are announced to screen readers without a notification.
 - Use <kbd>↑</kbd> / <kbd>↓</kbd> to move, <kbd>→</kbd> to open a submenu, <kbd>←</kbd> to close it, and a letter to jump to the item that starts with it. <kbd>Esc</kbd> closes a submenu, then the menu, and returns you to the card.
 - The menu is not offered while a card detail panel is open; use the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette) to act on the open card.
-- When some cards in a multi-card action fail, a notice under the toolbar says how many failed and why, and the selection stays so you can retry, as in [bulk card operations](#bulk-card-operations).
+- When some cards in a multi-card action fail, a notification says how many failed and why and stays until you dismiss it, and the selection stays so you can retry, as in [bulk card operations](#bulk-card-operations).
 
 ## Keyboard shortcuts
 

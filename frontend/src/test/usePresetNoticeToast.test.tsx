@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { ToastProvider } from '../contexts/ToastContext'
+import { useToast } from '../contexts/useToast'
 import {
   usePresetNoticeToast,
   PRESET_LINK_NOTICE_MS,
@@ -98,9 +99,30 @@ describe('usePresetNoticeToast', () => {
     expect(props.onDismiss).not.toHaveBeenCalled()
   })
 
-  it('removes the toast on unmount', () => {
-    const { unmount } = setup()
-    unmount()
+  it('removes only its own toast when the consumer unmounts, with the provider still mounted', () => {
+    const props = { onUndo: vi.fn(), onDismiss: vi.fn() }
+    const ui = (on: boolean) => (
+      <ToastProvider>{on && <Harness notice={{ id: 1, message: 'Applied “Default”' }} {...props} />}</ToastProvider>
+    )
+    const { rerender } = render(ui(true))
+    expect(screen.getByTestId('preset-notice')).toBeInTheDocument()
+    rerender(ui(false))
     expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+  })
+
+  it('tells the owner when the toast is evicted, so the menu Undo ends with it', () => {
+    const props = { onUndo: vi.fn(), onDismiss: vi.fn() }
+    function Raise() {
+      const { notify } = useToast()
+      return (
+        <button onClick={() => {
+          for (const key of ['a', 'b', 'c']) notify({ key, variant: 'warning', title: `Warn ${key}`, action: { label: 'Do', onAction: () => {} } })
+        }}>raise</button>
+      )
+    }
+    render(<ToastProvider><Raise /><Harness notice={{ id: 1, message: 'Applied “Default”' }} {...props} /></ToastProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'raise' }))
+    expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+    expect(props.onDismiss).toHaveBeenCalledTimes(1)
   })
 })

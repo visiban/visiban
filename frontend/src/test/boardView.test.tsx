@@ -2968,6 +2968,18 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     expect(screen.getByTestId('lens-view')).toBeInTheDocument()
   })
 
+  it('archiving from the palette outside the board view raises the archive toast only', async () => {
+    mockSearchParams = new URLSearchParams('view=summary')
+    vi.mocked(archiveCard).mockResolvedValue(undefined as never)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'archive' } }))
+    })
+    expect(await screen.findByTestId('archive-toast')).toHaveTextContent('Card archived')
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
+  })
+
   it('Block card… from the Summary view switches to the board and opens the sheet with the form', async () => {
     mockSearchParams = new URLSearchParams('view=summary')
     render(<BoardView currentUser={fakeUser} />)

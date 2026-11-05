@@ -53,9 +53,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const joinedGroupName: string | null = (location.state as { joinedGroup?: string } | null)?.joinedGroup ?? null;
+  // Captured once: a tab click (setSearchParams) navigates without location.state,
+  // and a title rebuilt each render would become null and dismiss the toast (#2107).
+  const [joinedTitle] = useState<string | null>(() => {
+    const name = (location.state as { joinedGroup?: string } | null)?.joinedGroup;
+    return name ? `You've joined ${name}. Welcome!` : null;
+  });
   // A persistent `success` toast in the shared region (#2107).
-  useJoinedToast(joinedGroupName ? `You've joined ${joinedGroupName}. Welcome!` : null);
+  useJoinedToast(joinedTitle);
 
   useEscapeStack(() => {
     if (showTransferModal) { setShowTransferModal(false); return; }

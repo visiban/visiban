@@ -66,8 +66,9 @@ export function usePresetNoticeToast({ notice, onUndo, onDismiss, onReturnFocus 
       },
       announceText: `${message}. ${PRESET_NOTICE_UNDO_HINT}`,
       onDismiss: (reason) => {
-        // An evicted toast was never seen to expire: keep the notice so the Preset menu still offers Undo.
-        if (reason !== "evicted") latest.current.onDismiss();
+        // Any removal ends the notice, eviction included: the menu's Undo has the toast's
+        // lifetime, so a late Undo cannot restore a stale snapshot over newer changes.
+        latest.current.onDismiss();
         if (reason === "user") latest.current.onReturnFocus?.();
       },
       testId: "preset-notice",

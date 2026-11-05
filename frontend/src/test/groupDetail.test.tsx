@@ -872,6 +872,13 @@ describe('GroupDetail', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
+  it('keeps the join toast after a tab click navigates without location state', async () => {
+    renderGroupDetail({ joinedGroup: 'Engineering' }, fakeUser, true)
+    expect(await screen.findByTestId('joined-notice')).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: 'Boards' }))
+    expect(screen.getByTestId('joined-notice')).toHaveTextContent("You've joined Engineering. Welcome!")
+  })
+
   it('dismisses join banner when × is clicked', async () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([])

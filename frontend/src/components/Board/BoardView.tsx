@@ -1480,9 +1480,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (!entry?.enabled) return;
     const selected = cardActionStateRef.current.selectedCardIds;
     const isWholeSelection = cards.length === selected.size && cards.every((c) => selected.has(c.id));
-    const finish = (failure: string | null, success: string) => {
+    const finish = (failure: string | null, success: string, alreadyShown = false) => {
       if (failure) { reportCardAction(failure, "failed"); return; }
-      reportCardAction(success, "announced");
+      // Outside the board view an announce-only result is promoted to a toast; skip it
+      // when another toast already reported the same outcome ("Card archived").
+      if (!(alreadyShown && viewRef.current !== "board")) reportCardAction(success, "announced");
       // § Bulk operations rule 1: a selection clears only on full success.
       if (isWholeSelection) clearSelection();
     };
@@ -1539,7 +1541,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             if (document.activeElement === document.body) document.querySelector<HTMLElement>(BOARD_SCROLL_SELECTOR)?.focus();
           }, 0);
         }
-        finish(r.failureMessage, successMessage("archive", cards));
+        finish(r.failureMessage, successMessage("archive", cards), r.done.length > 0);
         return;
       }
       case "delete":

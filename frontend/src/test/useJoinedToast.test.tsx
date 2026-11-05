@@ -30,13 +30,23 @@ describe('useJoinedToast', () => {
     }
   })
 
-  it('raises nothing without a title, and leaves with the page', () => {
-    const { unmount } = render(<ToastProvider><Harness title={null} /></ToastProvider>)
+  it('raises nothing without a title', () => {
+    render(<ToastProvider><Harness title={null} /></ToastProvider>)
     expect(screen.queryByTestId('joined-notice')).not.toBeInTheDocument()
-    const second = render(<ToastProvider><Harness title="Joined" /></ToastProvider>)
+  })
+
+  it('leaves with the page: only the consumer unmounts, the provider stays', () => {
+    const ui = (on: boolean) => <ToastProvider>{on && <Harness title="Joined" />}</ToastProvider>
+    const { rerender } = render(ui(true))
     expect(screen.getByTestId('joined-notice')).toBeInTheDocument()
-    second.unmount()
-    unmount()
+    rerender(ui(false))
     expect(screen.queryByTestId('joined-notice')).not.toBeInTheDocument()
+  })
+
+  it('survives the title staying the same across re-renders', () => {
+    const ui = () => <ToastProvider><Harness title="Joined" /></ToastProvider>
+    const { rerender } = render(ui())
+    rerender(ui())
+    expect(screen.getByTestId('joined-notice')).toBeInTheDocument()
   })
 })
