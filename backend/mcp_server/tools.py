@@ -42,6 +42,7 @@ major version bump.
 import logging
 
 from django.db.models import Count, Q, Window
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError as _DRFValidationError
 
 from accounts.models import User
@@ -56,6 +57,7 @@ from boards.serializers import (
     _card_checklist_items, _card_queryset,
 )
 from boards.services import cards as card_services
+from boards.services import flow_metrics
 from boards.services.errors import (
     BoardNotFound, CardNotFound, CardServiceError,
 )
@@ -65,7 +67,7 @@ from boards.views._helpers import (
     render_card_payloads,
 )
 from visiban.parsers import first_lone_surrogate
-from visiban.request_shape import MAX_OFFSET
+from visiban.request_shape import MAX_DB_INT, MAX_OFFSET
 
 from .context import get_current_user
 
@@ -1269,3 +1271,202 @@ def card_detail(*, card_id):
         for c in card.comments.select_related("author").order_by("created_at")
     ]
     return data
+
+
+# ---------------------------------------------------------------------------
+# Flow-metrics tools (#1151)
+#
+# Read-only questions an agent asks about how work moves, answered by the
+# #448 flow service (ADR #1532) and nothing else: these functions validate
+# arguments, call ``flow_metrics`` exactly as the REST analytics endpoints do
+# (``boards/views/analytics.py``: ``load_board_flow`` + ``rolling_range``), and
+# trim the result. There is deliberately no aggregation over ``CardMovement``
+# here, so MCP and REST give identical numbers for identical inputs.
+# ---------------------------------------------------------------------------
+
+_FLOW_MAX_WINDOW_DAYS = 365  # REST's ``days`` bound (FlowMetricsQuerySerializer)
+_AGING_HISTORY_DAYS = flow_metrics.DEFAULT_RANGE_DAYS  # REST's default dwell range
+_AGING_MAX_ROWS = 100
+# One message for a swimlane that does not exist and one that belongs to
+# another board: a distinct message would confirm that a guessed id exists.
+_SWIMLANE_NOT_ON_BOARD = "No swimlane with this id on this board."
+
+
+def _is_int(value):
+    # bool is an int subclass; ``true`` is not a window size.
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _flow_args_errors(board, *, window_days=None, swimlane_id=None, percentile=None):
+    """``{argument: [message]}`` for out-of-range flow arguments, bounded like REST."""
+    errors = {}
+    if window_days is not None and not (
+        _is_int(window_days) and 1 <= window_days <= _FLOW_MAX_WINDOW_DAYS
+    ):
+        errors["window_days"] = [f"Must be a whole number from 1 to {_FLOW_MAX_WINDOW_DAYS}."]
+    if percentile is not None and not (_is_int(percentile) and 1 <= percentile <= 99):
+        errors["percentile"] = ["Must be a whole number from 1 to 99."]
+    if swimlane_id is not None:
+        # Bounded before the ORM sees it: an oversized int is a 500 on PostgreSQL.
+        if not (_is_int(swimlane_id) and 1 <= swimlane_id <= MAX_DB_INT) or not (
+            board.swimlanes.filter(pk=swimlane_id).exists()
+        ):
+            errors["swimlane_id"] = [_SWIMLANE_NOT_ON_BOARD]
+    return errors
+
+
+def board_flow_metrics(*, board_id, window_days=30, swimlane_id=None):
+    """Cycle time, weekly throughput, WIP per column and blocked time for a board.
+
+    Every board role may call it. Shapes are the REST ``metrics/cycle-time``,
+    ``metrics/throughput`` and WIP/blocked-time responses minus their per-card
+    lists (``samples``, ``card_uids``), which would make the payload scale with
+    the board. Percentiles stay ``null`` below the service's sample-size rule,
+    and throughput counts whole ISO weeks only, so a short window yields few or
+    no weeks; both are passed through unchanged.
+    """
+    user = get_current_user()
+    try:
+        board, _role = _resolve_board(user, board_id)
+        errors = _flow_args_errors(board, window_days=window_days, swimlane_id=swimlane_id)
+        if errors:
+            raise ValidationFailed(errors)
+    except (CardServiceError, ValidationFailed) as exc:
+        return _error_payload(exc)
+
+    # One ``now`` so the range and the flow agree, as in the REST views.
+    now = timezone.now()
+    flow_range = flow_metrics.rolling_range(window_days, now=now)
+    flow = flow_metrics.load_board_flow(board, swimlane_id=swimlane_id, now=now)
+
+    cycle = flow_metrics.cycle_time(flow, flow_range)
+    throughput = flow_metrics.throughput(flow, flow_range, "week")
+    wip = flow_metrics.wip(flow)
+    column_ids = {c.uid: c.id for c in flow.columns}
+    return {
+        "window_days": window_days,
+        "swimlane_id": swimlane_id,
+        "window": {"start": flow_range.start.isoformat(), "end": flow_range.end.isoformat()},
+        "cycle_time": {
+            "definition": cycle["definition"],
+            "sample_size": cycle["sample_size"],
+            "excluded_incomplete_history": cycle["excluded_incomplete_history"],
+            "percentiles": cycle["percentiles"],
+        },
+        "throughput": {
+            "definition": throughput["definition"],
+            "period": throughput["period"],
+            "total": throughput["total"],
+            "median": throughput["median"],
+            "weeks": [{"start": w["start"], "count": w["count"]} for w in throughput["samples"]],
+        },
+        "wip": {
+            "definition": wip["definition"],
+            "columns": [
+                {
+                    "column_id": column_ids[c["column_uid"]],
+                    "column_uid": c["column_uid"],
+                    "column_name": c["column_name"],
+                    "count": c["count"],
+                }
+                for c in wip["columns"]
+            ],
+        },
+        "blocked": flow_metrics.blocked_time(flow, flow_range),
+    }
+
+
+def aging_cards(*, board_id, percentile=85):
+    """Cards that have sat in their current column longer than its historical *percentile* dwell.
+
+    The threshold per column is the nearest-rank *percentile* of the dwell of
+    visits that closed in the last 90 days (``completed_dwell``, REST's default
+    dwell range), board-wide. A column under the service's sample-size rule has
+    ``threshold_days: null`` and flags nothing, so an empty ``cards`` list is not
+    proof that nothing is aging: read ``columns``. Done columns and archived
+    cards never appear.
+    """
+    user = get_current_user()
+    try:
+        board, _role = _resolve_board(user, board_id)
+        errors = _flow_args_errors(board, percentile=percentile)
+        if errors:
+            raise ValidationFailed(errors)
+    except (CardServiceError, ValidationFailed) as exc:
+        return _error_payload(exc)
+
+    now = timezone.now()
+    flow = flow_metrics.load_board_flow(board, now=now)
+    history = flow_metrics.completed_dwell(
+        flow, flow_metrics.rolling_range(_AGING_HISTORY_DAYS, now=now),
+    )
+    by_column: dict[str, list] = {}
+    for sample in history["samples"]:
+        if sample["column_uid"] is not None:
+            by_column.setdefault(sample["column_uid"], []).append(sample["value_days"])
+    columns = {c.uid: c for c in flow.columns if not c.is_done}
+    thresholds = {
+        uid: flow_metrics.percentile(sorted(by_column.get(uid, [])), percentile) for uid in columns
+    }
+
+    cards_by_uid = {card.uid: card for card in flow.cards}
+    flagged = []
+    for sample in flow_metrics.current_dwell(flow)["samples"]:
+        threshold = thresholds.get(sample["column_uid"])
+        card = cards_by_uid[sample["card_uid"]]
+        if threshold is None or card.archived_at is not None or sample["value_days"] <= threshold:
+            continue
+        ratio = sample["value_days"] / threshold if threshold > 0 else float("inf")
+        flagged.append((ratio, card, sample, threshold))
+    flagged.sort(key=lambda row: (-row[0], row[1].id))
+    page = flagged[:_AGING_MAX_ROWS]
+
+    # Enrichment only for the rows returned: two queries, however many cards.
+    assignee_ids = {card.assignee_id for _, card, _, _ in page if card.assignee_id is not None}
+    assignees = (
+        {u.id: _serialize_user(u) for u in User.objects.filter(pk__in=assignee_ids)}
+        if assignee_ids else {}
+    )
+    swimlane_ids = {card.swimlane_id for _, card, _, _ in page}
+    swimlanes = (
+        dict(Swimlane.objects.filter(board=board, pk__in=swimlane_ids).values_list("id", "name"))
+        if swimlane_ids else {}
+    )
+    return {
+        "percentile": percentile,
+        "history_days": _AGING_HISTORY_DAYS,
+        "columns": [
+            {
+                "column_id": col.id,
+                "column_uid": uid,
+                "column_name": col.name,
+                "sample_size": len(by_column.get(uid, [])),
+                "threshold_days": thresholds[uid],
+            }
+            for uid, col in columns.items()
+        ],
+        "total": len(flagged),
+        "truncated": len(flagged) > len(page),
+        "limit": _AGING_MAX_ROWS,
+        "cards": [
+            {
+                "id": card.id,
+                "uid": card.uid,
+                "title": card.title,
+                "column": {
+                    "id": columns[sample["column_uid"]].id,
+                    "uid": sample["column_uid"],
+                    "name": columns[sample["column_uid"]].name,
+                },
+                "swimlane": (
+                    {"id": card.swimlane_id, "name": swimlanes[card.swimlane_id]}
+                    if card.swimlane_id in swimlanes else None
+                ),
+                "assignee": assignees.get(card.assignee_id),
+                "age_days": sample["value_days"],
+                "threshold_days": threshold,
+                "blocked": sample["is_blocked"],
+            }
+            for _, card, sample, threshold in page
+        ],
+    }

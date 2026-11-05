@@ -365,7 +365,7 @@ An optional, read-only board view that mirrors a public GitHub or GitLab reposit
 
 Visiban exposes a Model Context Protocol server (`/mcp`) so an MCP-compatible AI agent can read and act on boards under the same role-based permissions as a human user — no bypass of board membership or role checks.
 
-- Tools: `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`
+- Tools: `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and the read-only flow tools `board_flow_metrics` (cycle time, throughput, WIP, blocked time) and `aging_cards` (cards past their column's historical dwell percentile)
 - Every token needs `mcp:read` just to open a session; write tools (create/move/update/archive) additionally require the `mcp:write` scope
 
 ---

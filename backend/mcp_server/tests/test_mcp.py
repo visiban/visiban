@@ -362,6 +362,8 @@ class ToolDiscoveryTests(McpTestCase):
                 "create_card", "move_card", "update_card", "archive_card",
                 # #1149
                 "block_card", "unblock_card",
+                # #1151
+                "board_flow_metrics", "aging_cards",
             },
         )
 

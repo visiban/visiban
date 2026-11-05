@@ -80,7 +80,7 @@ Replace `<your-visiban-host>` with your instance's hostname and `<your-token>` w
 
 Once connected, Claude Desktop shows Visiban as an active MCP server with a green status indicator. The server's details list:
 
-- **Tools** — `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, and, if your token carries `mcp:write`, `create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`
+- **Tools** — `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`, and, if your token carries `mcp:write`, `create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`
 - **Resources** — the `board` and `card` resource templates (`board://{board_id}`, `card://{card_id}`)
 
 **Watch out:** if the server doesn't appear, check that the URL includes `/mcp`, the token is prefixed `Bearer ` (not `Token `), and `MCP_SERVER_ENABLED` is set on the backend.
@@ -93,12 +93,16 @@ Once connected, Claude Desktop shows Visiban as an active MCP server with a gree
 | `list_columns` | List a board's columns | any (admin, member, collaborator, viewer) | `mcp:read` |
 | `list_swimlanes` | List a board's swimlanes (`contact_email` included for admin/site_admin only) | any | `mcp:read` |
 | `list_cards` | List a board's cards, with optional filters | any | `mcp:read` |
+| `board_flow_metrics` | Cycle time p50/p85/p95, weekly throughput, WIP per column and blocked time over a window, optionally for one swimlane (*1.3*) | any | `mcp:read` |
+| `aging_cards` | Cards sitting in their current column longer than a percentile of that column's historical dwell time (*1.3*) | any | `mcp:read` |
 | `create_card` | Create a card in a column/swimlane cell | admin, member | `mcp:read` + `mcp:write` |
 | `move_card` | Move a card to a new column/swimlane/position; enforces WIP/weight limits | admin, member | `mcp:read` + `mcp:write` |
 | `update_card` | Update title/description/priority/assignee/labels/due date | admin, member | `mcp:read` + `mcp:write` |
 | `archive_card` | Soft-delete a card (idempotent) | admin, member | `mcp:read` + `mcp:write` |
 | `block_card` | Mark a card blocked with a reason (*1.3*, see [Blocked cards](blocked-cards.md)) | admin, member | `mcp:read` + `mcp:write` |
 | `unblock_card` | Clear a card's manual block, with an optional resolution (*1.3*) | admin, member | `mcp:read` + `mcp:write` |
+
+The two flow tools answer "how is work moving?" with the same numbers as the [flow metrics](analytics.md) the web app and the REST `metrics/*` endpoints show (definitions in the [flow metric decision record](../architecture/decisions.md)). A percentile is `null` when there are too few samples (p50 needs 5, p85 7, p95 20), and throughput counts whole Monday-to-Sunday weeks only, so the default 30-day window can return a `null` median. `null` means "not enough data", never zero. Block reasons and card titles in the results are free text written by board members.
 
 `collaborator` and `viewer` roles can read but not write. A write tool called with either role returns a structured `permission_denied` error, not a `500`. Full argument/return shapes and error codes are in [API Reference — MCP Server — Tools](../api/mcp.md#tools).
 
@@ -115,7 +119,7 @@ Both resources are read-only and require only the `mcp:read` scope. See [API Ref
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Every tool call and resource read counts against a per-token limit (`300/min` by default, configurable via `MCP_THROTTLE_READ_RATE`). `list_cards`/`board://{board_id}` also count against a tighter, second limit for expensive reads (`30/min` by default, `MCP_THROTTLE_COMPUTE_RATE`).
+Every tool call and resource read counts against a per-token limit (`300/min` by default, configurable via `MCP_THROTTLE_READ_RATE`). `list_cards`, `board_flow_metrics`, `aging_cards` and `board://{board_id}` also count against a tighter, second limit for expensive reads (`30/min` by default, `MCP_THROTTLE_COMPUTE_RATE`).
 
 - Limits are per token, not per IP. A separate per-IP cap, `MCP_THROTTLE_PREAUTH_RATE`, applies only to failed authentication attempts.
 - Limits hold across every backend replica.

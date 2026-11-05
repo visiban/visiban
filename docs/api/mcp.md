@@ -182,9 +182,9 @@ Two limits stack on every call:
 | Bucket | Applies to | Default | Setting |
 |---|---|---|---|
 | Baseline (read) | Every tool call and every resource read | `300/min` per token | `MCP_THROTTLE_READ_RATE` |
-| Compute | `list_cards` and `board://{board_id}` only, **in addition to** the baseline limit above | `30/min` per token | `MCP_THROTTLE_COMPUTE_RATE` |
+| Compute | `list_cards`, `board_flow_metrics`, `aging_cards` and `board://{board_id}` only, **in addition to** the baseline limit above | `30/min` per token | `MCP_THROTTLE_COMPUTE_RATE` |
 
-A call to `list_cards` or `board://{board_id}` spends a unit from **both** buckets; every other tool/resource spends only the baseline unit. There is no `DEBUG`-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.
+A call to `list_cards`, `board_flow_metrics`, `aging_cards` or `board://{board_id}` spends a unit from **both** buckets; every other tool/resource spends only the baseline unit. There is no `DEBUG`-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.
 
 This applies uniformly to every token, including a site admin's — there is no admin exemption from the throttle, unlike maintenance mode.
 
@@ -372,7 +372,7 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `internal_error` | A tool error with no registered code. Should not occur; report it as a bug. |
 | `demo_read_only` | The instance is a shared demo (`DEMO_MODE`) and every MCP write is refused. |
 | `missing_scope` | Your token lacks the `mcp:write` scope required for this tool — see above. |
-| `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`) keep working regardless. Added in 1.2. |
+| `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`) keep working regardless. Added in 1.2. |
 | `throttled` | Your token has exceeded its per-token rate limit. Carries a `retry_after` (seconds) — see [Rate limiting](#rate-limiting). Added in 1.2. |
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee` username or label name that does not resolve to an assignable board member/label, or an `assignee`, `labels`, `label` or `priority` argument that contains a NUL (0x00) character (refused before any lookup, #2033), or any string argument of any tool that contains an unpaired UTF-16 surrogate such as `"\ud800"` (valid JSON that PostgreSQL cannot store; refused before the tool runs, with `errors` keyed by the argument, #2085). On the legacy transport a surrogate escape written directly in the request body is refused earlier by the MCP SDK, as a JSON-RPC parse error (`-32700`, HTTP 400). Every unresolved `assignee` returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a `viewer` (who cannot be assigned). |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.2 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
@@ -444,6 +444,43 @@ Lists a board's cards, ordered by column position, then swimlane position, then 
 **Returns:** by default, an array of `{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason}`. `assignee` is a `{username, display_name}` object or `null` (see [User fields](#user-fields)); `labels` is an array of names; `column`/`swimlane` are `{id, uid, name}` objects so a result can be fed straight into `move_card`. `uid`, `version`, and the `uid` inside `column`/`swimlane` are new in 1.3 (#1974; see [Stable identifiers](#stable-identifiers-uid) and [Optimistic concurrency](#optimistic-concurrency)). `blocked_at` (ISO 8601, or `null`) and `blocked_reason` (`""` when not blocked) are the card's manual blocked state, *added in 1.3* (#1149; see [`block_card`](#block_card)).
 
 With `include_meta: true`, an object instead (and no in-band notice, since the data carries the signal): `{cards, total, truncated, limit, offset}`. `cards` is the same array described above; `total` is the number of cards matching the filters, ignoring `limit`/`offset`; `truncated` is `true` when more matching cards exist after the returned ones (fetch them with a larger `offset`); `limit` and `offset` echo the values applied.
+
+### `board_flow_metrics`
+
+> **Added in 1.3** (#1151)
+
+Flow metrics for one board over a rolling window, from the same service as the REST [`metrics/*` endpoints](../features/analytics.md) (ADR #1532): the numbers equal `GET /boards/{id}/metrics/cycle-time`, `/throughput` and `/wip-age` for the same `days` and `swimlane_id`. All board roles may call it; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
+
+**Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `30`); `swimlane_id` (integer, optional, must belong to the board). Anything else is a `validation_error` keyed by the argument. A swimlane of another board and a nonexistent swimlane get the same message.
+
+**Returns:**
+
+| Key | Shape |
+|---|---|
+| `window_days`, `swimlane_id` | The arguments applied. |
+| `window` | `{start, end}`, ISO 8601. |
+| `cycle_time` | `{definition, sample_size, excluded_incomplete_history, percentiles: {p50, p85, p95}}`. Days; cards that completed in the window. Each percentile is `null` below its sample-size floor (5, 7, 20). |
+| `throughput` | `{definition, period: "week", total, median, weeks: [{start, count}]}`. Whole Monday-to-Sunday weeks inside the window, so a 30-day window holds three or four and `median` (needs five) is `null`; raise `window_days` for a median. `total` counts the completions in those weeks. |
+| `wip` | `{definition, columns: [{column_id, column_uid, column_name, count}]}`: cards, not archived, currently in each not-done column. |
+| `blocked` | `{total: {days, seconds, blocks}, days_per_column, seconds_per_column, blocks_per_column, top_reasons: [{reason, count, total_days, total_seconds}]}`, keyed by column name; the same object as the REST blocked-time block (#1149). |
+
+The per-card `samples` and `card_uids` lists REST returns are left out so the result does not grow with the board; use `list_cards` for the cards behind a count. Archived cards count toward cycle time and throughput once completed, and never toward WIP, as in REST.
+
+### `aging_cards`
+
+> **Added in 1.3** (#1151)
+
+Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (`history_days`, REST's default dwell range), board-wide. Done columns and archived cards never appear. All board roles; `mcp:read`; compute bucket.
+
+**Arguments:** `board_id` (integer, required); `percentile` (integer 1 to 99, default `85`). A high percentile needs many samples: above 95 a column almost always has a `null` threshold.
+
+**Returns:** `{percentile, history_days, columns, total, truncated, limit, cards}`.
+
+- `columns`: one row per not-done column, `{column_id, column_uid, column_name, sample_size, threshold_days}`. `threshold_days` is `null` when the column has too few finished stays (fewer than 5, or too few for that percentile), and such a column flags nothing. An empty `cards` array therefore does not prove nothing is aging; read `columns`.
+- `cards`: worst first (age divided by threshold, then card id), at most `limit` (100). Each is `{id, uid, title, column: {id, uid, name}, swimlane: {id, name} | null, assignee: {username, display_name} | null, age_days, threshold_days, blocked}`. `blocked` is the card's current blocked state, manual or by relation.
+- `total` is the number flagged before the cap; `truncated` is `true` when `total` exceeds `limit`.
+
+Both flow tools follow the [stability rules](#stability-and-versioning): names and existing result keys are never removed. Result keys may be added.
 
 ### `create_card`
 
@@ -569,7 +606,7 @@ The same "raise, don't return" rule applies to a throttled resource read — see
 
 The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
 
-- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and since 1.3 `block_card`, `unblock_card`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
+- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and since 1.3 `block_card`, `unblock_card`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
 - **Argument schemas** change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.
 - **Results and error payloads** only gain fields; existing fields keep their name and type. The error `code` values listed under [Tool errors](#tool-errors) are never removed.
 - A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
@@ -581,4 +618,4 @@ The MCP surface is a public contract from 1.2 and follows the same compatibility
 
 ## Roadmap
 
-Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the `board://`/`card://` resources (this release). A full setup guide is tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.
+Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the `board://`/`card://` resources (this release). A full setup guide is tracked separately. The read-only flow-metrics tools (`board_flow_metrics`, `aging_cards`) are part of the OSS core since 1.3; OAuth 2.1 is planned for the Enterprise edition.
