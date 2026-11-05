@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act, screen } from '@testing-library/react'
 import BoardView from '../components/Board/BoardView'
+import { ToastProvider } from '../contexts/ToastContext'
 import type { BoardEvent } from '../hooks/useBoardSocket'
 import type { BoardFull, Card, Column, Label, BoardMembership, Swimlane, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
@@ -946,18 +947,18 @@ describe('BoardView — board invites (#1444)', () => {
 
   it('shows the joined notice from navigation state, and dismisses it', async () => {
     mockLocationState.current = { joinedBoard: 'Launch Plan', joinedRole: 'collaborator', created: true }
-    render(<BoardView />)
+    render(<ToastProvider><BoardView /></ToastProvider>)
     await act(async () => {})
-    expect(screen.getByText(/You've joined/)).toHaveTextContent("You've joined Launch Plan as a collaborator. Welcome!")
+    expect(screen.getByTestId('joined-notice')).toHaveTextContent("You've joined Launch Plan as a collaborator. Welcome!")
     act(() => { screen.getByRole('button', { name: 'Dismiss notification' }).click() })
-    expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('joined-notice')).not.toBeInTheDocument()
   })
 
   it('says "already have access" when the invite created nothing', async () => {
     mockLocationState.current = { joinedBoard: 'Launch Plan', joinedRole: 'viewer', created: false }
-    render(<BoardView />)
+    render(<ToastProvider><BoardView /></ToastProvider>)
     await act(async () => {})
-    expect(screen.getByText(/You already have access to/)).toHaveTextContent('You already have access to Launch Plan.')
+    expect(screen.getByTestId('joined-notice')).toHaveTextContent('You already have access to Launch Plan.')
   })
 
   it('no notice without navigation state', async () => {

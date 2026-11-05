@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
+import { ToastProvider } from '../contexts/ToastContext'
 import type { User, Group } from '../types'
 import type { BoardEvent } from '../hooks/useBoardSocket'
 
@@ -149,17 +150,20 @@ const fakeGroup: Group = {
   is_starred: false, navigation_only: false, can_place_boards: false,
 }
 
-function renderGroupDetail(locationState?: Record<string, unknown>, user: User = fakeUser) {
+// `withToasts` mounts the shared toast region (#2107); omitted elsewhere because its always-mounted
+// assertive region would make every `getByRole('alert')` below ambiguous.
+function renderGroupDetail(locationState?: Record<string, unknown>, user: User = fakeUser, withToasts = false) {
   const initialEntries = locationState
     ? [{ pathname: '/groups/1', state: locationState }]
     : ['/groups/1']
-  return render(
+  const page = (
     <MemoryRouter initialEntries={initialEntries}>
       <Routes>
         <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
       </Routes>
     </MemoryRouter>
   )
+  return render(withToasts ? <ToastProvider>{page}</ToastProvider> : page)
 }
 
 describe('GroupDetail', () => {
@@ -658,10 +662,12 @@ describe('GroupDetail', () => {
     mockGetGroupMembers.mockResolvedValue([])
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
-    renderGroupDetail({ joinedGroup: 'Engineering' })
+    renderGroupDetail({ joinedGroup: 'Engineering' }, fakeUser, true)
 
-    expect(await screen.findByText(/You've joined/)).toBeInTheDocument()
-    expect(screen.getByText(/You've joined/).closest('span')).toHaveTextContent("You've joined Engineering. Welcome!")
+    // A persistent success toast in the shared region (#2107).
+    const toast = await screen.findByTestId('joined-notice')
+    expect(toast).toHaveTextContent("You've joined Engineering. Welcome!")
+    expect(toast).toHaveAttribute('data-variant', 'success')
   })
 
   it('does not show join banner when navigating directly to group page', async () => {
@@ -871,11 +877,11 @@ describe('GroupDetail', () => {
     mockGetGroupMembers.mockResolvedValue([])
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
-    renderGroupDetail({ joinedGroup: 'Engineering' })
+    renderGroupDetail({ joinedGroup: 'Engineering' }, fakeUser, true)
 
-    expect(await screen.findByText(/You've joined/)).toBeInTheDocument()
+    expect(await screen.findByTestId('joined-notice')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
-    expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('joined-notice')).not.toBeInTheDocument()
   })
 
   it('toggling showSubgroupBoards calls getGroupDescendantBoards with the group ID', async () => {

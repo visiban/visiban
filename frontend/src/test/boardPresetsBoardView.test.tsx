@@ -8,6 +8,7 @@
  * renders, and a double that only echoes props could not see a change there.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ToastProvider } from '../contexts/ToastContext'
 import React from 'react'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -212,7 +213,7 @@ function gridHtml(): string {
 function renderBoard(board: BoardFull = makeBoard(), search = '', currentUser: User | null = null) {
   mockSearchParams = new URLSearchParams(search)
   mockBoardContextValue = context(board)
-  return render(<BoardView currentUser={currentUser} />)
+  return render(<ToastProvider><BoardView currentUser={currentUser} /></ToastProvider>)
 }
 
 function presetTrigger(): HTMLElement {
@@ -532,7 +533,7 @@ describe('BoardView — board presets (#1146)', () => {
       // App keys BoardView by board id (app.test.tsx); this proves the hook is safe
       // even if a board switch ever reuses the mounted instance.
       act(() => { mockBoardContextValue = context(makeBoard({ id: 2, uid: 'boarduid0002' })) })
-      view.rerender(<BoardView />)
+      view.rerender(<ToastProvider><BoardView /></ToastProvider>)
       expect(presetTrigger()).toHaveAccessibleName('Preset')
       expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
       await user.click(presetTrigger())
@@ -548,7 +549,7 @@ describe('BoardView — board presets (#1146)', () => {
       localStorage.setItem('board:2:preset', 'classic')
       const view = renderBoard()
       act(() => { mockBoardContextValue = context(makeBoard({ id: 2, uid: 'boarduid0002' })) })
-      view.rerender(<BoardView />)
+      view.rerender(<ToastProvider><BoardView /></ToastProvider>)
       expect(presetTrigger()).toHaveAccessibleName(/^Preset: Classic/)
     })
   })
@@ -561,7 +562,7 @@ describe('BoardView — board presets (#1146)', () => {
       await choosePreset(user, 'Default')
       expect(localStorage.getItem(MARKER_KEY)).toBeNull()
       act(() => { mockBoardContextValue = context(makeBoard({ default_preset: 'classic' })) })
-      view.rerender(<BoardView />)
+      view.rerender(<ToastProvider><BoardView /></ToastProvider>)
       expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
       view.unmount()
       renderBoard(makeBoard({ default_preset: 'classic' }))
@@ -573,10 +574,10 @@ describe('BoardView — board presets (#1146)', () => {
       const view = renderBoard(makeBoard({ default_preset: 'default' }))
       await choosePreset(user, 'Classic')
       act(() => { mockBoardContextValue = context(makeBoard({ default_preset: 'classic' })) })
-      view.rerender(<BoardView />)
+      view.rerender(<ToastProvider><BoardView /></ToastProvider>)
       expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
       act(() => { mockBoardContextValue = context(makeBoard({ default_preset: null })) })
-      view.rerender(<BoardView />)
+      view.rerender(<ToastProvider><BoardView /></ToastProvider>)
       expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
     })
   })
@@ -716,7 +717,7 @@ describe('BoardView — board presets (#1146)', () => {
       act(() => {
         mockBoardContextValue = context(makeBoard({ default_preset: 'default' }))
       })
-      view.rerender(<BoardView />)
+      view.rerender(<ToastProvider><BoardView /></ToastProvider>)
       expect(presetTrigger()).toHaveAccessibleName('Preset: Default')
     })
   })

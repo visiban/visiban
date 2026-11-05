@@ -5,7 +5,7 @@ import { getCardStatus } from "../../api/cards";
 import { resetTour } from "../../api/auth";
 import { useLocation, useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
-import JoinedNotice from "../Common/JoinedNotice";
+import { useJoinedToast } from "../Common/useJoinedToast";
 import AnalyticsView from "./AnalyticsView";
 import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
@@ -93,7 +93,7 @@ import { useBoardPreset } from "../../hooks/useBoardPreset";
 import { formatPresetDifference, getBoardPreset, listBoardPresets, presetSummary } from "../../boardPresets/registry";
 import { PRESET_COMMAND_EVENT, type PresetCommand } from "../../boardPresets/activePresetStore";
 import type { BoardPresetId } from "../../types";
-import PresetNoticeToast, { PRESET_LINK_NOTICE_MS, PRESET_NOTICE_MS } from "./PresetNoticeToast";
+import { usePresetNoticeToast } from "./usePresetNoticeToast";
 import { useOverlayClock } from "../../hooks/useOverlayClock";
 import { dwellOverlay } from "../../gridOverlays/builtin/dwell";
 import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
@@ -297,6 +297,8 @@ const FIRST_OPEN_RESYNC_MS = 1000;
 
 /** Coalescing key of the "Card archived" toast. */
 const ARCHIVE_TOAST_KEY = "archive";
+const CARD_NOT_FOUND_TOAST_KEY = "card-not-found";
+const CARD_ACTION_TOAST_KEY = "card-action";
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   // #1913: instance flags come from site-config, not the deprecated User copies.
   const { maintenance_mode: maintenanceMode, demo_mode: demoMode } = useInstanceFlags();
@@ -411,10 +413,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // #1444 — arriving from a board invite (JoinPage / the OAuth return in
   // App.tsx) carries what happened in navigation state.
   const location = useLocation();
-  const [joinNotice, setJoinNotice] = useState<{ board: string; role: string; created: boolean } | null>(() => {
+  // Raised once as a persistent `success` toast in the shared region (#2107).
+  const [joinedTitle] = useState<string | null>(() => {
     const st = location.state as { joinedBoard?: string; joinedRole?: string; created?: boolean } | null;
-    return st?.joinedBoard ? { board: st.joinedBoard, role: st.joinedRole ?? "member", created: st.created !== false } : null;
+    if (!st?.joinedBoard) return null;
+    return st.created !== false
+      ? `You've joined ${st.joinedBoard} as a ${st.joinedRole ?? "member"}. Welcome!`
+      : `You already have access to ${st.joinedBoard}.`;
   });
+  useJoinedToast(joinedTitle);
 
   // Delete and archive both remove the card from local state, but archive also
   // moves it into archived_card_count, which the settings modal's delete gate
@@ -514,20 +521,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       : []),
     ...(presetNotice ? [{ key: "undo", label: `Undo: ${presetNotice.message}`, onSelect: boardPreset.undoNotice }] : []),
   ];
-  // The preset notice (#1146) renders in every view, not only the board grid: a ⌘K
-  // command or a ?preset= link can apply a preset while Summary, History,
-  // Analytics or the Lens is showing, and its Undo must be offered there too.
-  // Each view's root is `relative` so the notice anchors bottom-center in it.
-  const presetNoticeNode = boardPreset.notice ? (
-    <PresetNoticeToast
-      noticeId={boardPreset.notice.id}
-      message={boardPreset.notice.message}
-      onUndo={boardPreset.undoNotice}
-      onDismiss={boardPreset.dismissNotice}
-      onReturnFocus={focusPresetTrigger}
-      durationMs={boardPreset.notice.reason === "link" ? PRESET_LINK_NOTICE_MS : PRESET_NOTICE_MS}
-    />
-  ) : null;
+  // The preset notice (#1146) is an `info` toast in the shared region (#2107). The
+  // hook lives here, not in a view branch, so it survives switching between
+  // Board, Summary, History, Analytics and the Lens: a ⌘K command or a
+  // ?preset= link can apply a preset in any of them, and its Undo must be offered.
+  usePresetNoticeToast({
+    notice: boardPreset.notice,
+    onUndo: boardPreset.undoNotice,
+    onDismiss: boardPreset.dismissNotice,
+    onReturnFocus: focusPresetTrigger,
+  });
 
   // ⌘K "Apply preset: …" / "Reset to preset: …" (#1146) arrive from the shell-level
   // palette as a window event and take the picker's own apply path, so they raise
@@ -921,30 +924,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Refs for the two card-lookup timers (fade + not-found banner). Cleaned up on
   // unmount so setState never runs after teardown (#870).
   const highlightedCardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cardNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // null = no message; non-null string = message to show in the not-found toast.
-  const [cardNotFound, setCardNotFound] = useState<string | null>(null);
-  // Shows the card notice for 4 s. Used for a deep link to a card that is not
-  // on the board, and when the open card leaves the board (#1615).
+  const { notify: notifyToast, dismiss: dismissToast } = useToast();
+  // A `warning` toast for 4 s (#2107, was an in-flow notice). Used for a deep link
+  // to a card that is not on the board, and when the open card leaves the board
+  // (#1615). Keyed so a second one replaces the first.
   const showCardNotFound = useCallback((msg: string) => {
-    setCardNotFound(msg);
-    if (cardNotFoundTimerRef.current !== null) {
-      clearTimeout(cardNotFoundTimerRef.current);
-    }
-    cardNotFoundTimerRef.current = setTimeout(() => {
-      setCardNotFound(null);
-      cardNotFoundTimerRef.current = null;
-    }, 4000);
-  }, []);
+    notifyToast({ key: CARD_NOT_FOUND_TOAST_KEY, variant: "warning", title: msg, durationMs: 4000, testId: "card-not-found-toast" });
+  }, [notifyToast]);
   useEffect(() => {
     return () => {
       if (highlightedCardTimerRef.current !== null) {
         clearTimeout(highlightedCardTimerRef.current);
         highlightedCardTimerRef.current = null;
-      }
-      if (cardNotFoundTimerRef.current !== null) {
-        clearTimeout(cardNotFoundTimerRef.current);
-        cardNotFoundTimerRef.current = null;
       }
       // #1305 — found via the timer-ref audit: this one's callback only nulls
       // itself out (no setState), so it was never a setState-after-unmount
@@ -1359,7 +1350,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // frontend/CLAUDE.md § Toasts), keyed so a second archive replaces it. It
   // keeps its shipped 5 s rather than the 4 s success default, since it
   // carries an action to read and reach.
-  const { notify: notifyToast, dismiss: dismissToast } = useToast();
   const showArchiveToast = useCallback(() => {
     notifyToast({
       key: ARCHIVE_TOAST_KEY,
@@ -1419,14 +1409,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [cardMenu, setCardMenu] = useState<{ cardIds: number[]; originId: number; anchor: CardMenuAnchor } | null>(null);
   const [blockFormRequest, setBlockFormRequest] = useState<{ mode: "block" | "unblock"; seq: number } | null>(null);
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[] | null>(null);
-  // Outcome of a menu/palette action. Failures are shown (warning row) and
-  // announced; success is announced only. Placeholder until the shared toast
-  // region (#2060) exists: single-card results move there (#2107).
-  // `shown`: a success whose effect is not visible on the board (Copy link, a
-  // delete that removes the card) is also shown, briefly. `announced`: the
-  // board itself changed in view (Move, Assign, Priority, Archive).
-  // `failed`: shown in the warning shell until dismissed or replaced.
-  const [cardActionStatus, setCardActionStatus] = useState<{ text: string; kind: "failed" | "shown" | "announced" } | null>(null);
+  // Outcome of a menu/palette action (#2059, #2107). A failure is a `danger`
+  // toast (persists until dismissed, WCAG 2.2.1); a `shown` success is a
+  // `success` toast, for an effect not visible on the board (Copy link, a delete
+  // that removes the card). An `announced` success (Move, Assign, Priority,
+  // Archive: the board itself changed in view) raises no toast, only the sr-only
+  // status below. One key, so a later result replaces an earlier one.
+  const [cardActionAnnouncement, setCardActionAnnouncement] = useState("");
   const cardActionStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
@@ -1435,16 +1424,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // Announce-only is for a change visible on the board grid; from Summary,
     // History, Analytics or Lens the grid is not in view, so show it too.
     const kind = requested === "announced" && viewRef.current !== "board" ? "shown" : requested;
-    setCardActionStatus({ text, kind });
     if (cardActionStatusTimerRef.current !== null) clearTimeout(cardActionStatusTimerRef.current);
     cardActionStatusTimerRef.current = null;
-    // A failure persists until dismissed or replaced (WCAG 2.2.1); only successes clear.
-    if (kind === "failed") return;
-    cardActionStatusTimerRef.current = setTimeout(() => {
-      setCardActionStatus(null);
-      cardActionStatusTimerRef.current = null;
-    }, 4000);
-  }, []);
+    if (kind === "announced") {
+      dismissToast(CARD_ACTION_TOAST_KEY);
+      setCardActionAnnouncement(text);
+      cardActionStatusTimerRef.current = setTimeout(() => {
+        setCardActionAnnouncement("");
+        cardActionStatusTimerRef.current = null;
+      }, 4000);
+      return;
+    }
+    setCardActionAnnouncement("");
+    notifyToast({
+      key: CARD_ACTION_TOAST_KEY,
+      variant: kind === "failed" ? "danger" : "success",
+      title: text,
+      testId: "card-action-toast",
+    });
+  }, [notifyToast, dismissToast]);
 
   const isBoardModerator = board.members.some(
     (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
@@ -2399,39 +2397,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     replayTour,
   ]);
 
-  // Card-action outcome region (#2059), rendered by EVERY view branch below:
-  // the palette's card commands and a carried-over selection work from
-  // Summary, History, Analytics and Lens too, so their results must not be
-  // silent there.
+  // Screen-reader-only announcement for card-action results that change the
+  // board in view (#2059); every other result is a toast (#2107). Rendered by
+  // EVERY view branch below. Always mounted so the text swap is announced.
   const cardActionNotice = (
-    <>
-      {/* Outcome of a context-menu or palette card action (#2059), in the
-          same in-flow notice slot and warning shell as the card-not-found
-          notice. Always mounted so the text swap is announced. A failure is
-          shown in the warning shell with its dismiss button beside the region,
-          never inside it (#1772); a `shown` success uses the archive notice's
-          neutral shell; an `announced` success is screen-reader only. */}
-      <div className={
-        cardActionStatus?.kind === "failed"
-          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-warning/10 border border-warning/30 rounded-lg text-sm"
-          : cardActionStatus?.kind === "shown"
-          ? "mx-4 mt-2 px-4 py-2 flex items-start justify-between gap-3 bg-surface-hover/80 border border-line-strong rounded-lg text-sm"
-          : "sr-only"
-      }>
-        <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status" className={cardActionStatus?.kind === "failed" ? "text-warning-on-tint" : "text-fg"}>
-          {cardActionStatus?.kind === "failed" && <span aria-hidden="true" className="mr-1.5">⚠</span>}
-          {cardActionStatus?.text}
-        </p>
-        {cardActionStatus?.kind === "failed" && (
-          <button
-            type="button"
-            onClick={() => setCardActionStatus(null)}
-            aria-label="Dismiss card action message"
-            className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >×</button>
-        )}
-      </div>
-    </>
+    <div className="sr-only">
+      <p role="status" aria-live="polite" aria-atomic="true" data-testid="card-action-status">{cardActionAnnouncement}</p>
+    </div>
   );
 
   // Lens view — read-only GitHub/GitLab issue mirror. If the tab disappears
@@ -2478,7 +2450,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             showFilters={lensShowFilters}
           />
         </SectionErrorBoundary>
-        {presetNoticeNode}
       </div>
     );
   }
@@ -2493,7 +2464,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
         </SectionErrorBoundary>
-        {presetNoticeNode}
       </div>
     );
   }
@@ -2508,18 +2478,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
         </SectionErrorBoundary>
-        {presetNoticeNode}
       </div>
     );
   }
-
-  // Shared by the board view and the analytics view, the two views that
-  // render CardDetail: either can lose its open card to another user (#1615).
-  const cardNotFoundNotice = cardNotFound !== null && (
-    <div role="status" className="mx-4 mt-2 px-4 py-2 bg-warning/10 border border-warning/30 rounded-lg text-warning-on-tint text-sm">
-      {cardNotFound}
-    </div>
-  );
 
   if (view === "analytics") {
     return (
@@ -2527,7 +2488,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
-        {cardNotFoundNotice}
         {cardActionNotice}
         <SectionErrorBoundary section="Analytics">
           <AnalyticsView
@@ -2568,7 +2528,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             blockFormRequest={blockFormRequest}
           />
         )}
-        {presetNoticeNode}
       </div>
     );
   }
@@ -2957,7 +2916,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           No cards match the active filters.
         </div>
       )}
-      {cardNotFoundNotice}
       {cardActionNotice}
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
@@ -2981,18 +2939,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             Expand all swimlanes
           </button>
         </div>
-      )}
-
-      {/* #1444 — joined from a board invite. Mode-banner placement: between the
-          filter row and the scroll container; stays until dismissed. */}
-      {joinNotice && (
-        <JoinedNotice onDismiss={() => setJoinNotice(null)}>
-          {joinNotice.created ? (
-            <>You've joined <strong className="text-success-on-tint">{joinNotice.board}</strong> as a {joinNotice.role}. Welcome!</>
-          ) : (
-            <>You already have access to <strong className="text-success-on-tint">{joinNotice.board}</strong>.</>
-          )}
-        </JoinedNotice>
       )}
 
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
@@ -3243,7 +3189,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         )}
         {/* #1146 — bottom-centered in the same anchor as the legend, above it
             (z-50 vs z-30), so it never covers the activity drawer. */}
-        {presetNoticeNode}
         </div>{/* end legend anchor */}
 
         {drawerOpen && (
