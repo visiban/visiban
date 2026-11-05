@@ -449,7 +449,7 @@ With `include_meta: true`, an object instead (and no in-band notice, since the d
 
 > **Added in 1.3** (#1151)
 
-Flow metrics for one board over a rolling window, from the same service as the REST [`metrics/*` endpoints](../features/analytics.md) (ADR #1532): the numbers equal `GET /boards/{id}/metrics/cycle-time`, `/throughput` and `/wip-age` for the same `days` and `swimlane_id`. All board roles may call it; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
+Flow metrics for one board over a rolling window, from the same service as the REST [`metrics/*` endpoints](../features/analytics.md) (ADR #1532): cycle time and throughput equal `GET /boards/{id}/metrics/cycle-time` and `/throughput` for the same `days` and `swimlane_id`; WIP counts and blocked time come from the same service (REST has no per-column WIP count endpoint, and its blocked-time block is not cut by swimlane). All board roles may call it; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
 
 **Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `30`); `swimlane_id` (integer, optional, must belong to the board). Anything else is a `validation_error` keyed by the argument. A swimlane of another board and a nonexistent swimlane get the same message.
 

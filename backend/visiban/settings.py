@@ -779,7 +779,8 @@ REST_FRAMEWORK = {
 # buckets:
 #   - MCP_THROTTLE_READ_RATE: the baseline applied to EVERY tool/resource call.
 #   - MCP_THROTTLE_COMPUTE_RATE: an ADDITIONAL, tighter cap opted into per-tool
-#     for expensive reads (list_cards, board_snapshot) — a call to one of
+#     for expensive reads (list_cards, board_snapshot, board_flow_metrics,
+#     aging_cards) — a call to one of
 #     those spends a unit from both buckets, not one or the other.
 # Deliberately no DEBUG-time bypass (unlike DEFAULT_THROTTLE_RATES above): a
 # runaway loop in an agent under local development is exactly the case the

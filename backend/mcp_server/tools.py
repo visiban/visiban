@@ -1318,8 +1318,9 @@ def _flow_args_errors(board, *, window_days=None, swimlane_id=None, percentile=N
 def board_flow_metrics(*, board_id, window_days=30, swimlane_id=None):
     """Cycle time, weekly throughput, WIP per column and blocked time for a board.
 
-    Every board role may call it. Shapes are the REST ``metrics/cycle-time``,
-    ``metrics/throughput`` and WIP/blocked-time responses minus their per-card
+    Every board role may call it. Cycle time and throughput are the REST
+    ``metrics/cycle-time`` and ``metrics/throughput`` responses, WIP and blocked
+    time come from the same service, all minus their per-card
     lists (``samples``, ``card_uids``), which would make the payload scale with
     the board. Percentiles stay ``null`` below the service's sample-size rule,
     and throughput counts whole ISO weeks only, so a short window yields few or
@@ -1396,10 +1397,13 @@ def aging_cards(*, board_id, percentile=85):
         return _error_payload(exc)
 
     now = timezone.now()
-    flow = flow_metrics.load_board_flow(board, now=now)
-    history = flow_metrics.completed_dwell(
-        flow, flow_metrics.rolling_range(_AGING_HISTORY_DAYS, now=now),
+    history_range = flow_metrics.rolling_range(_AGING_HISTORY_DAYS, now=now)
+    # The REST heatmap's loader (analytics.py): only the cards that have an open
+    # visit or a visit closing in the history range, not the whole board's past.
+    flow = flow_metrics.load_recent_dwell(
+        board, history_range, columns=list(Column.objects.filter(board=board).order_by("position")),
     )
+    history = flow_metrics.completed_dwell(flow, history_range)
     by_column: dict[str, list] = {}
     for sample in history["samples"]:
         if sample["column_uid"] is not None:
@@ -1414,7 +1418,8 @@ def aging_cards(*, board_id, percentile=85):
     for sample in flow_metrics.current_dwell(flow)["samples"]:
         threshold = thresholds.get(sample["column_uid"])
         card = cards_by_uid[sample["card_uid"]]
-        if threshold is None or card.archived_at is not None or sample["value_days"] <= threshold:
+        # No archived guard: archiving closes a card's visit, so current_dwell never emits it.
+        if threshold is None or sample["value_days"] <= threshold:
             continue
         ratio = sample["value_days"] / threshold if threshold > 0 else float("inf")
         flagged.append((ratio, card, sample, threshold))

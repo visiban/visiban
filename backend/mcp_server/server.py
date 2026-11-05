@@ -469,7 +469,7 @@ def build_mcp_server():
             "blocked (blocked days in total, per column, and top reasons). A percentile is null "
             "below the sample-size rule (p50 needs 5 samples, p85 7, p95 20) and throughput counts "
             "whole Mon-Sun weeks only, so a short window can have a null median or no weeks: null "
-            "means too little data, not zero. Same numbers as the REST metrics endpoints. "
+            "means too little data, not zero. Cycle time and throughput match the REST metrics endpoints; WIP and blocked time come from the same flow service. "
             "Any board role; requires mcp:read."
         ),
     )
