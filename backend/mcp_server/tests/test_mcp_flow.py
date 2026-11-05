@@ -82,7 +82,7 @@ class BoardFlowMetricsTests(McpFlowFixture):
         result = self.call("board_flow_metrics", board_id=self.board.id)
 
         self.assertNotIn("error", result)
-        self.assertEqual((result["window_days"], result["swimlane_id"]), (30, None))
+        self.assertEqual((result["window_days"], result["swimlane_id"]), (90, None))
         cycle = result["cycle_time"]
         self.assertEqual(cycle["sample_size"], 7)
         self.assertEqual(cycle["percentiles"]["p50"], 4)
@@ -159,12 +159,36 @@ class BoardFlowMetricsTests(McpFlowFixture):
             self.call("board_flow_metrics", board_id=self.board.id, window_days=1)["cycle_time"]["sample_size"], 0,
         )
 
+    def test_blocked_time_uses_the_requested_window(self):
+        card = self.path(self.backlog, 30, self.doing, 25)
+        CardBlock.objects.create(
+            card=card, board=self.board, column=self.doing, reason="Old",
+            blocked_at=self.ago(20), unblocked_at=self.ago(15),
+        )
+        short = self.call("board_flow_metrics", board_id=self.board.id, window_days=10)
+        longer = self.call("board_flow_metrics", board_id=self.board.id, window_days=30)
+        self.assertEqual(short["blocked"]["total"]["blocks"], 0)
+        self.assertEqual(longer["blocked"]["total"]["blocks"], 1)
+        self.assertAlmostEqual(longer["blocked"]["total"]["days"], 5)
+
+    def test_default_window_is_ninety_days(self):
+        self.seed_completed()
+        # A completion 60 days ago is inside the default window and outside 30 days.
+        self.path(self.backlog, 70, self.doing, 65, self.done, 60)
+        default = self.call("board_flow_metrics", board_id=self.board.id)
+        self.assertEqual(default["window_days"], 90)
+        self.assertEqual(default["cycle_time"]["sample_size"], 8)
+        self.assertEqual(
+            self.call("board_flow_metrics", board_id=self.board.id, window_days=30)["cycle_time"]["sample_size"], 7,
+        )
+        self.assertIsNotNone(default["throughput"]["median"])  # twelve whole weeks
+
     def test_empty_board_is_all_nulls_and_zeros(self):
         result = self.call("board_flow_metrics", board_id=self.board.id)
         self.assertEqual(result["cycle_time"]["sample_size"], 0)
         self.assertEqual(result["cycle_time"]["percentiles"], {"p50": None, "p85": None, "p95": None})
         self.assertEqual(result["throughput"]["total"], 0)
-        self.assertIsNone(result["throughput"]["median"])
+        self.assertEqual(result["throughput"]["median"], 0)  # twelve whole weeks of zero
         self.assertTrue(all(c["count"] == 0 for c in result["wip"]["columns"]))
         self.assertEqual(result["blocked"]["total"]["blocks"], 0)
 
@@ -260,7 +284,8 @@ class AgingCardsTests(McpFlowFixture):
         self.assertEqual([c["id"] for c in result["cards"]], [self.stuck_backlog.id, self.slow.id, self.blocked.id])
         self.assertEqual((result["total"], result["truncated"]), (3, False))
         first = result["cards"][1]
-        self.assertAlmostEqual(first["age_days"], 10)
+        self.assertAlmostEqual(first["value_days"], 10)
+        self.assertNotIn("age_days", first)  # ADR #1532: never a field called age
         self.assertAlmostEqual(first["threshold_days"], 7)
         self.assertEqual(first["uid"], self.slow.uid)
         self.assertEqual(first["column"], {"id": self.doing.id, "uid": self.doing.uid, "name": "Doing"})
@@ -271,6 +296,24 @@ class AgingCardsTests(McpFlowFixture):
         self.assertTrue(by_id[self.blocked.id]["blocked"])
         self.assertEqual(by_id[self.blocked.id]["swimlane"]["name"], "Other")
         self.assertIsNone(by_id[self.blocked.id]["assignee"])
+
+    def test_worst_first_is_by_ratio_to_threshold_not_by_absolute_age(self):
+        self.seed_completed()  # Doing p85 is 6 days, Backlog p85 is 21
+        older = self.path(self.backlog, 22)  # 22 days, ratio ~1.05
+        relatively_worse = self.path(self.backlog, 12, self.doing, 9)  # 9 days, ratio 1.5
+        result = self.call("aging_cards", board_id=self.board.id)
+        self.assertEqual([c["id"] for c in result["cards"]], [relatively_worse.id, older.id])
+
+    def test_history_covers_ninety_days_not_thirty(self):
+        self.seed_completed()
+        # Five 20-day Doing stays that closed 60 days ago: only a 90-day history sees them.
+        for _ in range(5):
+            self.path(self.backlog, 85, self.doing, 80, self.done, 60)
+        doing = next(
+            c for c in self.call("aging_cards", board_id=self.board.id)["columns"] if c["column_name"] == "Doing"
+        )
+        self.assertEqual(doing["sample_size"], 12)
+        self.assertAlmostEqual(doing["threshold_days"], 20)
 
     def test_columns_explain_a_null_threshold(self):
         self.seed_aging()

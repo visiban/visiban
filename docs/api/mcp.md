@@ -449,9 +449,9 @@ With `include_meta: true`, an object instead (and no in-band notice, since the d
 
 > **Added in 1.3** (#1151)
 
-Flow metrics for one board over a rolling window, from the same service as the REST [`metrics/*` endpoints](../features/analytics.md) (ADR #1532): cycle time and throughput equal `GET /boards/{id}/metrics/cycle-time` and `/throughput` for the same `days` and `swimlane_id`; WIP counts and blocked time come from the same service (REST has no per-column WIP count endpoint, and its blocked-time block is not cut by swimlane). All board roles may call it; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
+Flow metrics for one board over a rolling window, from the same service as the REST [`metrics/*` endpoints](../features/analytics.md) (ADR #1532; both default to 90 days): cycle time and throughput equal `GET /boards/{id}/metrics/cycle-time` and `/throughput` for the same `days` and `swimlane_id`; WIP counts and blocked time come from the same service (REST has no per-column WIP count endpoint, and its blocked-time block is not cut by swimlane). All board roles may call it; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
 
-**Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `30`); `swimlane_id` (integer, optional, must belong to the board). Anything else is a `validation_error` keyed by the argument. A swimlane of another board and a nonexistent swimlane get the same message.
+**Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `90`, the REST `days` default); `swimlane_id` (integer, optional, must belong to the board). A value that reaches the tool out of range, or a swimlane that is not on the board, is a `validation_error` keyed by the argument. Type coercion and the rejection of non-integers (`30.5`, `"abc"`) are done by the MCP SDK's input schema, as for every tool. A swimlane of another board and a nonexistent swimlane get the same message.
 
 **Returns:**
 
@@ -460,7 +460,7 @@ Flow metrics for one board over a rolling window, from the same service as the R
 | `window_days`, `swimlane_id` | The arguments applied. |
 | `window` | `{start, end}`, ISO 8601. |
 | `cycle_time` | `{definition, sample_size, excluded_incomplete_history, percentiles: {p50, p85, p95}}`. Days; cards that completed in the window. Each percentile is `null` below its sample-size floor (5, 7, 20). |
-| `throughput` | `{definition, period: "week", total, median, weeks: [{start, count}]}`. Whole Monday-to-Sunday weeks inside the window, so a 30-day window holds three or four and `median` (needs five) is `null`; raise `window_days` for a median. `total` counts the completions in those weeks. |
+| `throughput` | `{definition, period: "week", total, median, weeks: [{start, count}]}`. Whole Monday-to-Sunday weeks inside the window, so the default 90-day window holds twelve or thirteen. `median` needs five whole weeks and is `null` below that (always under 35 days, possibly up to 41); raise `window_days` for a median. `total` counts the completions in those weeks. |
 | `wip` | `{definition, columns: [{column_id, column_uid, column_name, count}]}`: cards, not archived, currently in each not-done column. |
 | `blocked` | `{total: {days, seconds, blocks}, days_per_column, seconds_per_column, blocks_per_column, top_reasons: [{reason, count, total_days, total_seconds}]}`, keyed by column name; the same object as the REST blocked-time block (#1149). |
 
@@ -477,7 +477,7 @@ Cards that have been in their current column longer than the given percentile of
 **Returns:** `{percentile, history_days, columns, total, truncated, limit, cards}`.
 
 - `columns`: one row per not-done column, `{column_id, column_uid, column_name, sample_size, threshold_days}`. `threshold_days` is `null` when the column has too few finished stays (fewer than 5, or too few for that percentile), and such a column flags nothing. An empty `cards` array therefore does not prove nothing is aging; read `columns`.
-- `cards`: worst first (age divided by threshold, then card id), at most `limit` (100). Each is `{id, uid, title, column: {id, uid, name}, swimlane: {id, name} | null, assignee: {username, display_name} | null, age_days, threshold_days, blocked}`. `blocked` is the card's current blocked state, manual or by relation.
+- `cards`: worst first (`value_days` divided by threshold, then card id), at most `limit` (100). Each is `{id, uid, title, column: {id, uid, name}, swimlane: {id, name} | null, assignee: {username, display_name} | null, value_days, threshold_days, blocked}`. `value_days` is the time in the card's current column, in days (ADR #1532 current dwell). `blocked` is the card's current blocked state, manual or by relation.
 - `total` is the number flagged before the cap; `truncated` is `true` when `total` exceeds `limit`.
 
 Both flow tools follow the [stability rules](#stability-and-versioning): names and existing result keys are never removed. Result keys may be added.
@@ -606,7 +606,7 @@ The same "raise, don't return" rule applies to a throttled resource read — see
 
 The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
 
-- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and since 1.3 `block_card`, `unblock_card`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
+- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and since 1.3 `block_card`, `unblock_card`, `board_flow_metrics`, `aging_cards`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
 - **Argument schemas** change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.
 - **Results and error payloads** only gain fields; existing fields keep their name and type. The error `code` values listed under [Tool errors](#tool-errors) are never removed.
 - A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.

@@ -1315,7 +1315,7 @@ def _flow_args_errors(board, *, window_days=None, swimlane_id=None, percentile=N
     return errors
 
 
-def board_flow_metrics(*, board_id, window_days=30, swimlane_id=None):
+def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
     """Cycle time, weekly throughput, WIP per column and blocked time for a board.
 
     Every board role may call it. Cycle time and throughput are the REST
@@ -1324,7 +1324,7 @@ def board_flow_metrics(*, board_id, window_days=30, swimlane_id=None):
     lists (``samples``, ``card_uids``), which would make the payload scale with
     the board. Percentiles stay ``null`` below the service's sample-size rule,
     and throughput counts whole ISO weeks only, so a short window yields few or
-    no weeks; both are passed through unchanged.
+    no weeks (under five, the weekly median is null); both are passed through unchanged.
     """
     user = get_current_user()
     try:
@@ -1468,7 +1468,7 @@ def aging_cards(*, board_id, percentile=85):
                     if card.swimlane_id in swimlanes else None
                 ),
                 "assignee": assignees.get(card.assignee_id),
-                "age_days": sample["value_days"],
+                "value_days": sample["value_days"],
                 "threshold_days": threshold,
                 "blocked": sample["is_blocked"],
             }
