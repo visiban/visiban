@@ -228,7 +228,11 @@ interface FetchTouches {
  * A different board (the hook is reused across /boards/:id), no previous
  * board, or no writes during the fetch: the snapshot is returned unchanged.
  * Columns, swimlanes, labels and members are not merged; the snapshot replaces
- * them as before.
+ * them as before. So a column or swimlane deleted during the fetch can come
+ * back with its cards, because the cascade does not record them, and a label
+ * edit can revert (#2130). An equal-version change the snapshot predates (a
+ * comment, attachment, checklist or relation) still reverts until the next
+ * event; telling those apart needs an event cursor on `/full/` (#2089).
  */
 function mergeFullSnapshot(prev: BoardFull | null, snapshot: BoardFull, touches: FetchTouches): BoardFull {
   if (!prev || prev.id !== snapshot.id) return snapshot;
@@ -400,7 +404,11 @@ export function useBoard() {
     return touches;
   }, []);
   // Applies a /full/ response that won the sequence guard. Closing the set
-  // first stops later writers from recording into it.
+  // first stops later writers from recording into it. Like the close on a
+  // failed fetch, this is hygiene rather than correctness: a later writer's
+  // updater runs after the merge, and the next fetch opens a fresh set, so a
+  // write into a closed set is never read. It only stops a set that is no
+  // longer needed from collecting ids.
   const applyFullSnapshot = useCallback((snapshot: BoardFull, touches: FetchTouches) => {
     if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
     setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches));

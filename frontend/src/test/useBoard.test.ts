@@ -2156,44 +2156,56 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     expect(byId(result.current.board, 1)).toMatchObject({ title: 'Later still', version: 3 })
   })
 
+  // In each case below a frame for a DIFFERENT card (2) lands during the fetch,
+  // so the merge runs instead of short-circuiting, and card 1 must still take
+  // the lower snapshot version: only cards written during the fetch are merged.
   it('stays authoritative for a card nothing wrote during the fetch, even at a lower version', async () => {
     // A server-side correction (a restore, a demo reset) can lower a version;
     // a write that landed before the fetch started does not protect the card.
-    const { result } = await renderBoard([card(1, 1)])
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
     act(() => { result.current.updateCard(card(1, 5, { title: 'Before the fetch' })) })
     const fetch = startFetch(result)
-    await fetch.resolve(makeBoard({ cards: [card(1, 3, { title: 'Corrected' })] }))
+    act(() => { result.current.updateCard(card(2, 2, { title: 'Frame for card 2' })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 3, { title: 'Corrected' }), card(2, 1)] }))
     expect(byId(result.current.board, 1)).toMatchObject({ title: 'Corrected', version: 3 })
+    expect(byId(result.current.board, 2)).toMatchObject({ title: 'Frame for card 2', version: 2 })
   })
 
   it('a newer fetch does not inherit the writes of the one it superseded', async () => {
-    const { result } = await renderBoard([card(1, 1)])
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
     const first = startFetch(result)
     act(() => { result.current.updateCard(card(1, 5, { title: 'During the first fetch' })) })
     const second = startFetch(result)
-    await second.resolve(makeBoard({ cards: [card(1, 3, { title: 'Second snapshot' })] }))
-    await first.resolve(makeBoard({ cards: [card(1, 1)] }))
+    act(() => { result.current.updateCard(card(2, 2)) })
+    await second.resolve(makeBoard({ cards: [card(1, 3, { title: 'Second snapshot' }), card(2, 1)] }))
+    await first.resolve(makeBoard({ cards: [card(1, 1), card(2, 1)] }))
     expect(byId(result.current.board, 1)).toMatchObject({ title: 'Second snapshot', version: 3 })
+    expect(byId(result.current.board, 2)?.version).toBe(2)
   })
 
-  it('a write after the response landed is not carried into the next fetch', async () => {
-    const { result } = await renderBoard([card(1, 1)])
+  it('a write between two fetches does not protect a card in the second', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
     const first = startFetch(result)
-    await first.resolve(makeBoard({ cards: [card(1, 1)] }))
+    await first.resolve(makeBoard({ cards: [card(1, 1), card(2, 1)] }))
     act(() => { result.current.updateCard(card(1, 5)) })
     const second = startFetch(result)
-    await second.resolve(makeBoard({ cards: [card(1, 3, { title: 'Authoritative' })] }))
+    act(() => { result.current.updateCard(card(2, 2)) })
+    await second.resolve(makeBoard({ cards: [card(1, 3, { title: 'Authoritative' }), card(2, 1)] }))
     expect(byId(result.current.board, 1)).toMatchObject({ title: 'Authoritative', version: 3 })
+    expect(byId(result.current.board, 2)?.version).toBe(2)
   })
 
-  it('a failed fetch closes its set, so a later fetch starts clean', async () => {
-    const { result } = await renderBoard([card(1, 1)])
+  it('after a failed fetch, the next fetch merges only the writes made during it', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
     const failed = startFetch(result)
+    act(() => { result.current.updateCard(card(1, 4)) }) // during the failed fetch
     await failed.reject({ response: { status: 500 } })
-    act(() => { result.current.updateCard(card(1, 5)) })
+    act(() => { result.current.updateCard(card(1, 5)) }) // between fetches
     const next = startFetch(result)
-    await next.resolve(makeBoard({ cards: [card(1, 3, { title: 'Authoritative' })] }))
+    act(() => { result.current.updateCard(card(2, 2)) })
+    await next.resolve(makeBoard({ cards: [card(1, 3, { title: 'Authoritative' }), card(2, 1)] }))
     expect(byId(result.current.board, 1)?.version).toBe(3)
+    expect(byId(result.current.board, 2)?.version).toBe(2)
   })
 
   it('keeps a card created during the fetch that the snapshot predates', async () => {
