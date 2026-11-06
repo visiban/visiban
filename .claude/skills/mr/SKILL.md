@@ -274,21 +274,24 @@ CI runs automatically on push. To watch the pipeline and auto-fix failures to gr
   /fix-mr !<NNN>
 ```
 
-**Check the cost comment.** When `python3 scripts/cost-ledger enabled` exits 0 AND the description
-carries measured cost lines (`subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:`),
-confirm record 1 exists: `python3 scripts/cost-table.py --next-since --mr <NNN>` exits 0 only when
-a readable record does. If it exits 1, post it, with the description saved in the git dir as in
-`/wave` Step 6 (`D="$(git rev-parse --git-dir)/wave-cost-desc.md"`, and the split file
-`wave-cost-split.txt` beside it):
+**Check the cost comment (a hand-run `/mr` only).** When an agent opens the MR under `/wave`, skip
+this: `/wave` Step 6 posts record 1 and owns the check, and the implementer has no window end or
+split file to post with. For a person-typed `/mr`: when `python3 scripts/cost-ledger enabled` exits 0
+AND the description carries measured cost lines (`subagent-tokens:`, `orchestrator-tokens:` or
+`est-cost-usd:`), run `python3 scripts/cost-table.py --next-since --mr <NNN>`.
 
-```bash
-python3 scripts/cost-table.py --comment --file "$D" --issue <N> --until <T> --split "$COST_SPLIT" --post --mr <NNN>
-```
+- Exit 0: this user has a record 1 (or later) with a window end. Nothing to do.
+- Exit 1: no such record (none, one that does not parse, or one with no window end). Report it
+  plainly with the exit code, and do not call the MR complete.
+- Exit 4: the notes could not be read. Report the state as unknown; never treat it as missing.
+- Exit 3: ledger off, so no comment is expected.
 
-Then re-run the `--next-since` check. Report a failure plainly (the exit code and what was tried);
-do not call the MR complete. Exempt, and no comment expected (`docs/development/cost-ledger.md`
-says this "isn't a gap"): a plain `/mr` with no cost lines, ledger off, or a description with
-`cost-ledger: off`.
+This check reports only; it does not post. Posting needs `--until`, the go-ahead-to-push time that
+bounds record 1's window, and a split file from the measuring run. A hand-run `/mr` has neither,
+and a made-up `--until` renders `Window end: n/a`, which then fails this same check forever. Post
+through `/wave` Step 6 (its exact commands) from the session that holds the window and split.
+Exempt, and no comment expected (`docs/development/cost-ledger.md` says this "isn't a gap"): a
+plain `/mr` with no cost lines, ledger off, or a description with `cost-ledger: off`.
 
 Always emit the `/fix-mr !<NNN>` follow-up line — it is a one-keystroke handoff to
 the pipeline-watch loop. Do **not** invoke `/fix-mr` yourself; both skills are

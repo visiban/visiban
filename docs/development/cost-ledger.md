@@ -181,10 +181,10 @@ Exit codes: **0** rendered (printed or posted); **1** no `## Gates` section; **2
 ### Checks that the comment exists
 <a id="checks-that-the-comment-exists"></a>
 
-The check is `python3 scripts/cost-table.py --next-since --mr <iid>`: it exits 0 only when this user has a readable record on the MR, and 1 when none does.
+The check is `python3 scripts/cost-table.py --next-since --mr <iid>`: it reads only the token user's own records. Exit 0: a record with a window end exists. Exit 1: no such record (none, one that doesn't parse, or one with no window end). Exit 3: the ledger is off, so nothing is expected. Exit 4: the notes couldn't be read, which is unknown, never missing. Exit 2: usage.
 
-- **`/wave` Step 6** posts record 1, then runs the check. A missing comment is treated like a missing `completeness-check` ledger line: the MR isn't reported done.
-- **`/mr` Step 4** runs it when `scripts/cost-ledger enabled` exits 0 and the description carries measured cost lines (`subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:`). If it fails, `/mr` posts record 1 with `--comment --file <description.md> --issue <N> --until <T> --split <file> --post --mr <iid>`, using the same git-dir files as `/wave`, and reports a failure plainly.
+- **`/wave` Step 6** posts record 1, then runs the check. A missing comment is treated like a missing `completeness-check` ledger line: the MR isn't reported done. On exit 1 it re-posts once, because a record posted without a valid `--until` fails the same check again.
+- **`/mr` Step 4** runs it only for a hand-run `/mr` (a person typing it), when `scripts/cost-ledger enabled` exits 0 and the description carries measured cost lines (`subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:`). It checks and reports; it doesn't post, because posting needs `--until` (the go-ahead-to-push time) and a split file that only the `/wave` session holds. When an agent opens the MR under `/wave`, the implementer skips this check and Step 6 owns it.
 - **`/fix-mr`** posts a record K for its pass when the MR already has record 1 and the ledger is on; it runs no existence check, because there is nothing to create without a record 1.
 - **Exempt:** ledger off, a description with `cost-ledger: off`, or a plain `/mr` with no cost lines. No comment is expected, and its absence isn't a gap.
 
