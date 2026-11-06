@@ -168,7 +168,9 @@ Enterprise keeps three things: cross-period comparison, scheduled analytics repo
 
 **Cost accepted.** Under the project's backward compatibility rules, a shipped OSS feature cannot practically move back to Enterprise. Enterprise #12 is the open tracking issue for rescoping the enterprise side to the three items above; a note was posted there on 2026-11-02.
 
-**Not decided here.** Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. Neither are MCP analytics tools. The [flow metric definitions](decisions.md) apply wherever the #448 charts ship.
+**Not decided here.** Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. The [flow metric definitions](decisions.md) apply wherever the #448 charts ship.
+
+**MCP flow-metrics tools: OSS (decided 2026-11-05, #1151).** The read-only `board_flow_metrics` and `aging_cards` MCP tools are OSS. They are thin readers over the OSS flow service (#448) and answer the same "where does work pile up?" question the OSS charts do, so a small team's own agents need them. *Superseded:* this replaces the earlier "not decided here" note above and the planned-enterprise "analytics tools" entry in the MCP section below. The ruling covers only these two read-only tools; forecasting (#1100) and any other analytics surface are not widened by it.
 
 The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (`boards/hooks.py`) so enterprise can add panels without modifying OSS view files. The summary returns the panels in `extension_panels`, and the Summary tab renders `stats` and `table` panels below the swimlane table (see the [payload contract](../api/boards.md#extension-panel-payload)).
 
@@ -249,7 +251,7 @@ The [Issue Board Lens](../features/issue-board-lens.md) (a read-only kanban view
 
 The [MCP server](../features/mcp-server.md) — exposing boards, columns, swimlanes, cards, and the movement audit trail to an MCP-compatible AI agent over Bearer-token auth — is OSS. Letting a team's own agents and automations read and act on its boards, scoped by the same PATs the team already issues for CI/CD, is as core a day-to-day workflow concern as the human UI; withholding it would mean shipping an OSS feature (scoped PATs, #1110) that can only be used safely with a client enterprise alone provides.
 
-The feature doc's ["Upgrade path to enterprise"](../features/mcp-server.md#upgrade-path-to-enterprise) section names the planned enterprise differentiators: OAuth 2.1 (so a client no longer needs a long-lived Bearer token managed by hand), analytics tools, prompt templates, and RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning `permission_denied` when they're called). **None of this is implemented yet** — it is a planned boundary, not a shipped one. Revisit this ruling's enterprise half once any part of it lands.
+The feature doc's ["Upgrade path to enterprise"](../features/mcp-server.md#upgrade-path-to-enterprise) section names the planned enterprise differentiators: OAuth 2.1 (so a client no longer needs a long-lived Bearer token managed by hand), prompt templates, and RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning `permission_denied` when they're called). *Superseded 2026-11-05 (#1151): "analytics tools" was listed here as an Enterprise differentiator; the read-only flow-metrics tools `board_flow_metrics` and `aging_cards` ship in OSS (see the flow-metrics ruling in the analytics section above).* **None of the remaining items is implemented yet** — it is a planned boundary, not a shipped one. Revisit this ruling's enterprise half once any part of it lands.
 
 **Issue:** #511 (MCP server OSS scaffold). The planned enterprise upgrade path has no enterprise issue recorded yet.
 

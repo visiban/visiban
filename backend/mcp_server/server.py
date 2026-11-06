@@ -247,7 +247,8 @@ def _throttled(*, compute=False, as_resource=False):
     query on those. The baseline bucket (``throttling.check_read``) applies to
     every wrapped call; the compute bucket (``throttling.check_compute``) is
     ADDITIONAL and only checked when ``compute=True``, for the calls #1177
-    names as expensive (``list_cards``, ``board_snapshot``). A compute-bucket
+    names as expensive (``list_cards``, ``board_snapshot``, ``board_flow_metrics``,
+    ``aging_cards``). A compute-bucket
     call spends a unit from both buckets, never one or the other.
 
     For a tool, the wrapper also passes every result (the denial included)
@@ -457,6 +458,44 @@ def build_mcp_server():
             content=content,
             structured_content={"result": rows},
             meta={"visiban/total": total, "visiban/truncated": True},
+        )
+
+    @mcp.tool(
+        name="board_flow_metrics",
+        description=(
+            "Flow metrics for a board over the last window_days (1-365, default 90, the REST default), optionally cut "
+            "to one swimlane_id: cycle_time (sample_size, percentiles p50/p85/p95 in days), "
+            "throughput (completions per whole ISO week), wip (cards per not-done column) and "
+            "blocked (blocked days in total, per column, and top reasons). A percentile is null "
+            "below the sample-size rule (p50 needs 5 samples, p85 7, p95 20) and throughput counts "
+            "whole Mon-Sun weeks only, so a short window can have a null median or no weeks: null "
+            "means too little data, not zero. Cycle time and throughput equal the REST metrics endpoints for the same days and swimlane; WIP and blocked time come from the same flow service (no REST twin for per-column WIP). "
+            "Any board role; requires mcp:read."
+        ),
+    )
+    @_throttled(compute=True)
+    async def board_flow_metrics(
+        board_id: int, window_days: int = 90, swimlane_id: int | None = None,
+    ) -> _TOOL_RESULT:
+        return await sync_to_async(tools.board_flow_metrics, thread_sensitive=True)(
+            board_id=board_id, window_days=window_days, swimlane_id=swimlane_id,
+        )
+
+    @mcp.tool(
+        name="aging_cards",
+        description=(
+            "Cards whose time in their current column exceeds the given percentile (1-99, default "
+            "85) of that column's dwell time over the last 90 days, worst first, at most 100 "
+            "(total/truncated say if more). Each card has value_days (time in its column), threshold_days, column, "
+            "swimlane, assignee (username) and blocked. A column with too few finished stays has "
+            "threshold_days null and flags nothing, so an empty list does not prove nothing is "
+            "aging: check columns. Any board role; requires mcp:read."
+        ),
+    )
+    @_throttled(compute=True)
+    async def aging_cards(board_id: int, percentile: int = 85) -> _TOOL_RESULT:
+        return await sync_to_async(tools.aging_cards, thread_sensitive=True)(
+            board_id=board_id, percentile=percentile,
         )
 
     # ── Resources (#513) — board:// and card://, all board roles ──

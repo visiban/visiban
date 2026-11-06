@@ -174,7 +174,7 @@ Three features are dormant until an operator opts in. Set these in your `.env` f
 | `MCP_SERVER_ENABLED` | `false` | Mounts the [MCP server](../features/mcp-server.md) at `/mcp` so AI agents can reach boards with a personal access token. While off, `/mcp` returns `404 Not Found` and the MCP SDK is never imported. *(new in 1.2)* |
 | `MCP_ALLOWED_HOSTS` | empty (falls back to `ALLOWED_HOSTS`) | Comma-separated hostnames clients use to reach `/mcp`, checked against the `Host` header as DNS-rebinding protection. Set it explicitly when `ALLOWED_HOSTS` is `*`, because a wildcard cannot serve as the allowlist. When set, it takes precedence over `ALLOWED_HOSTS`. See [MCP Server API](../api/mcp.md). |
 | `MCP_THROTTLE_READ_RATE` | `300/min` | Baseline per-token limit applied to every MCP tool call and resource read. |
-| `MCP_THROTTLE_COMPUTE_RATE` | `30/min` | Additional, tighter per-token limit for expensive reads (`list_cards` and `board://{board_id}`), spent on top of the baseline. |
+| `MCP_THROTTLE_COMPUTE_RATE` | `30/min` | Additional, tighter per-token limit for expensive reads (`list_cards`, `board_flow_metrics`, `aging_cards` and `board://{board_id}`), spent on top of the baseline. |
 | `MCP_THROTTLE_PREAUTH_RATE` | `30/min` | Per-client-IP limit on failed MCP authentication attempts. Once an IP is over budget, all of its requests (valid ones too) are refused until the window slides. See [Failed authentication limit](../api/mcp.md#failed-authentication-limit-per-ip). |
 | `WEBHOOKS_ENABLED` | `false` | Lets board admins register [outbound webhooks](../features/webhooks.md). The dispatcher must also run. Tuning is in [Webhooks](#webhooks) below. *(new in 1.3)* |
 

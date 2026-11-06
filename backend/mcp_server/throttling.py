@@ -19,8 +19,8 @@ precedent — ``McpTokenReadThrottle`` + ``McpTokenComputeThrottle``):
   with it.
 - ``compute_bucket`` — an ADDITIONAL, tighter cap opted into per-tool via
   ``_throttled(compute=True)``, for the calls #1177 names as expensive
-  (``list_cards``, ``board_snapshot``, and the flow-metrics tools from #1151
-  when they land). A compute-bucket call spends a unit from BOTH buckets —
+  (``list_cards``, ``board_snapshot``, and the flow-metrics tools
+  ``board_flow_metrics`` and ``aging_cards`` from #1151). A compute-bucket call spends a unit from BOTH buckets —
   they stack, they are not alternatives.
 
 Both are keyed on the presented PAT's primary key

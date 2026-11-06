@@ -271,6 +271,8 @@ class ThrottleCoverageTests(ThrottleIntegrationTestCase):
         "archive_card": {"card_id": 1},
         "block_card": {"card_id": 1, "reason": "x"},
         "unblock_card": {"card_id": 1},
+        "board_flow_metrics": {"board_id": 1},
+        "aging_cards": {"board_id": 1},
     }
 
     def _tool_names(self, token):
