@@ -73,6 +73,24 @@ describe('BoardSelector', () => {
     expect(screen.getByRole('button', { name: 'Delete My Board' })).toBeInTheDocument()
   })
 
+  it('offers delete to a site admin (can_access_all_content) on a board they do not own (#2034)', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'b', name: 'Other Board', description: '', owner: { ...fakeUser, id: 99 }, group: null, group_name: null, member_count: 1, card_count: 0, created_at: '', updated_at: '' },
+    ])
+    render(<BoardSelector user={{ ...fakeUser, can_access_all_content: true }} onSelect={vi.fn()} />)
+    await screen.findByText('Other Board')
+    expect(screen.getByRole('button', { name: 'Delete Other Board' })).toBeInTheDocument()
+  })
+
+  it('hides delete from a non-owner without all-content access, even with is_site_admin (#2034)', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'b', name: 'Other Board', description: '', owner: { ...fakeUser, id: 99 }, group: null, group_name: null, member_count: 1, card_count: 0, created_at: '', updated_at: '' },
+    ])
+    render(<BoardSelector user={{ ...fakeUser, is_site_admin: true }} onSelect={vi.fn()} />)
+    await screen.findByText('Other Board')
+    expect(screen.queryByRole('button', { name: 'Delete Other Board' })).not.toBeInTheDocument()
+  })
+
   it('shows delete confirmation dialog', async () => {
     mockListBoards.mockResolvedValue([
       { id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 5, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },

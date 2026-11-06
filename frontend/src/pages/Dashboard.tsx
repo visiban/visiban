@@ -9,6 +9,7 @@ import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
+import { canDeleteBoard } from "../utils/canDeleteBoard";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
 import ModalWrapper from "../components/shared/ModalWrapper";
@@ -138,7 +139,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <path d="M12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
           </svg>
         </button>
-        {b.owner.id === user.id && (
+        {canDeleteBoard({ ownerId: b.owner.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true }) && (
           <button
             onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
             className="text-fg-muted hover:text-danger p-1 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"

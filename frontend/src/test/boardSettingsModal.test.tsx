@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
+import { ToastContext } from '../contexts/useToast'
 import type { BoardFull, User } from '../types'
 
 const FULL_ACCESS = "Full access to all boards. This account's board role doesn't apply."
@@ -135,14 +136,14 @@ describe('BoardSettingsModal — modal basics', () => {
   })
 
   it('renders "Board Settings" heading', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText('Board Settings')).toBeInTheDocument()
   })
 
   it('close button calls onClose', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -151,7 +152,7 @@ describe('BoardSettingsModal — modal basics', () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
     const { container } = render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />
     )
     // The outer fixed div is the backdrop; it has class "fixed inset-0"
     const backdrop = container.firstChild as HTMLElement
@@ -162,18 +163,18 @@ describe('BoardSettingsModal — modal basics', () => {
   it('Escape key calls onClose', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledOnce()
   })
 
   it('Invite tab button does NOT appear in the tab bar', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Invite' })).toBeNull()
   })
 
   it('Invite tab button does NOT appear for non-admins either', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Invite' })).toBeNull()
   })
 })
@@ -186,13 +187,13 @@ describe('BoardSettingsModal — Members tab', () => {
   })
 
   it('shows all member names', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText('Admin User')).toBeInTheDocument()
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
   })
 
   it('shows role selects for each member when isAdmin=true', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     // Custom dropdown triggers (role="combobox") show the current role label for each member
     const combos = screen.getAllByRole('combobox')
     expect(combos.some((c) => c.textContent?.includes('Admin'))).toBe(true)
@@ -200,7 +201,7 @@ describe('BoardSettingsModal — Members tab', () => {
   })
 
   it('shows role badges (not selects) when isAdmin=false', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     // No dropdown triggers when user is not admin — roles shown as text badges
     expect(screen.queryByRole('combobox')).toBeNull()
     expect(screen.getByText('admin')).toBeInTheDocument()
@@ -210,7 +211,7 @@ describe('BoardSettingsModal — Members tab', () => {
   it('changing role select calls setBoardMember with correct args', async () => {
     const user = userEvent.setup()
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', is_moderator: false, joined_at: '' })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     // Open Bob's dropdown (currently showing 'Member') and select 'Viewer'
     const memberCombo = screen.getAllByRole('combobox').find((c) => c.textContent?.includes('Member'))!
@@ -223,7 +224,7 @@ describe('BoardSettingsModal — Members tab', () => {
   it('role change updates the displayed role after API resolves', async () => {
     const user = userEvent.setup()
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', is_moderator: false, joined_at: '' })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const memberCombo2 = screen.getAllByRole('combobox').find((c) => c.textContent?.includes('Member'))!
     await user.click(memberCombo2)
@@ -242,7 +243,7 @@ describe('BoardSettingsModal — Members tab', () => {
   it('shows an error and keeps the previous role when setBoardMember rejects', async () => {
     const user = userEvent.setup()
     mockSetBoardMember.mockRejectedValueOnce(new Error('network error'))
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const memberCombo = screen.getAllByRole('combobox').find((c) => c.textContent?.includes('Member'))!
     await user.click(memberCombo)
@@ -255,7 +256,7 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('clicking ✕ shows inline remove confirmation for that member', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     // Find the ✕ button next to Bob
     const removeButtons = screen.getAllByTitle('Remove direct board role')
@@ -269,7 +270,7 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('announces the remove-member prompt through a polite live region (#1421)', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     await user.click(removeButtons[removeButtons.length - 1])
     const region = screen.getByText(/from this board\?/).closest('[aria-live]')
@@ -280,7 +281,7 @@ describe('BoardSettingsModal — Members tab', () => {
   it('confirm remove calls removeBoardMember and removes the member from the list', async () => {
     const user = userEvent.setup()
     mockRemoveBoardMember.mockResolvedValue(undefined)
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     await user.click(removeButtons[removeButtons.length - 1])
@@ -301,7 +302,7 @@ describe('BoardSettingsModal — Members tab', () => {
   it('shows an error and keeps the member when removeBoardMember rejects', async () => {
     const user = userEvent.setup()
     mockRemoveBoardMember.mockRejectedValueOnce(new Error('network error'))
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     await user.click(removeButtons[removeButtons.length - 1])
@@ -313,7 +314,7 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('cancel on remove confirmation hides the confirmation', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     await user.click(removeButtons[removeButtons.length - 1])
@@ -326,7 +327,7 @@ describe('BoardSettingsModal — Members tab', () => {
   // #1367 — focus returns to the ✕ trigger when the inline confirm is dismissed.
   it('Cancel on remove confirmation returns focus to that member\'s trigger (#1367)', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     const bobTrigger = removeButtons[removeButtons.length - 1]
@@ -341,7 +342,7 @@ describe('BoardSettingsModal — Members tab', () => {
   it('Confirm stays disabled while the remove request is in flight (#1367)', async () => {
     const user = userEvent.setup()
     mockRemoveBoardMember.mockReturnValue(new Promise(() => {}))
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     await user.click(removeButtons[removeButtons.length - 1])
@@ -357,7 +358,7 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('Cancel on the hard WIP confirm returns focus to the hard mode toggle (#1367)', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={vi.fn()} />)
 
     await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -368,29 +369,29 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('shows empty state "No members yet." when members=[]', () => {
     const emptyBoard: BoardFull = { ...fakeBoard, members: [] }
-    render(<BoardSettingsModal board={emptyBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={emptyBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText('No members yet.')).toBeInTheDocument()
   })
 
   it('footer note about inherited members is visible', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText(/inherited from group membership/i)).toBeInTheDocument()
   })
 
   // ── Add-member section (merged from Invite tab) ──
 
   it('Members tab shows add-member search input for admins', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByPlaceholderText(/search by name or email/i)).toBeInTheDocument()
   })
 
   it('Members tab does NOT show add-member section for non-admins', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByPlaceholderText(/search by name or email/i)).toBeNull()
   })
 
   it('Members tab shows "Add member" section heading for admins', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText(/add member/i)).toBeInTheDocument()
   })
 })
@@ -430,7 +431,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   })
 
   it('locks a site-admin member with an explicit membership for a non-site-admin caller', () => {
-    render(<BoardSettingsModal board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
     // One dropdown: the caller's own row. The site-admin member's row is
     // static text, and the all-content row has no picker either (#1301).
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
@@ -447,7 +448,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   // #1301 — all-content access resolves to full access before any membership,
   // so the panel shows the resolved role, explains it, and offers no picker.
   it('shows the Full access chip and no secondary line for a row without a membership (#1301)', () => {
-    render(<BoardSettingsModal board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={lockBoard} isAdmin={true} onClose={vi.fn()} />)
     const chip = screen.getByText('Full access')
     expect(chip.closest('button')).toBeNull()
     expect(chip).toHaveAttribute('aria-disabled', 'true')
@@ -476,7 +477,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   }
 
   it('never shows a stored role that differs from effective access without saying so (#1301)', () => {
-    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
     // Only the caller's row has a picker; the stored "viewer" is not offered.
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
     expect(screen.getByText('Full access')).toBeInTheDocument()
@@ -488,14 +489,14 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   })
 
   it('links site admins to Admin → Users from an all-content row (#1301)', () => {
-    render(<BoardSettingsModal board={storedBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByRole('link', { name: 'Manage in Admin → Users' })).toHaveAttribute('href', '/admin?tab=users')
   })
 
   it('removes an explicit role through the inline confirm and focuses the chip, keeping the user listed (#1301)', async () => {
     const user = userEvent.setup()
     mockRemoveBoardMember.mockResolvedValue(undefined)
-    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' }))
     const prompt = screen.getByText('Remove this board role? Full access is not affected.')
     expect(prompt.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
@@ -515,7 +516,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   it('Cancel and Escape dismiss the all-content confirm without removing, focus back on the trigger (#1301)', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} onClose={onClose} />)
     const trigger = () => screen.getByRole('button', { name: 'Remove board role for Viewer Ish' })
     await user.click(trigger())
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -532,7 +533,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   it('keeps the chip and a visible stored role on a failed remove (#1301)', async () => {
     const user = userEvent.setup()
     mockRemoveBoardMember.mockRejectedValue(new Error('nope'))
-    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' }))
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     // Announced through an always-mounted polite region, with role-accurate copy.
@@ -552,7 +553,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
         both,
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     // The server refuses to change a site-admin membership (#1706).
     expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
     expect(screen.queryByRole('button', { name: /Remove board role/ })).toBeNull()
@@ -574,7 +575,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
         { id: null, user: { id: 31, username: 'inh', display_name: 'Inherited AC', avatar_url: '' }, role: 'member', is_moderator: false, has_all_content_access: true, joined_at: '' },
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText('Full access')).toBeInTheDocument()
     expect(screen.queryByText(/Board role:/)).toBeNull()
   })
@@ -587,7 +588,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
         { id: 32, user: { id: 32, username: 'leg', display_name: 'Legacy AC', avatar_url: '' }, role: 'legacy' as unknown as 'viewer', is_moderator: false, has_all_content_access: true, joined_at: '' },
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText('Full access')).toBeInTheDocument()
     expect(screen.queryByText(/Board role:/)).toBeNull()
   })
@@ -597,7 +598,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
     const onClose = vi.fn()
     let resolve!: () => void
     mockRemoveBoardMember.mockReturnValue(new Promise<void>((r) => { resolve = r }))
-    render(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} onClose={onClose} />)
     await user.click(screen.getByRole('button', { name: 'Remove board role for Viewer Ish' }))
     const confirm = screen.getByRole('button', { name: 'Confirm' })
     await user.click(confirm)
@@ -614,10 +615,10 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   it('picks up the all-content signal from a re-read board for an already-listed row (#1301)', async () => {
     const plain = { ...storedViewerAllContent, has_all_content_access: undefined }
     const { rerender } = render(
-      <BoardSettingsModal board={{ ...storedBoard, members: [storedBoard.members[0], plain] }} isAdmin={true} onClose={vi.fn()} />,
+      <BoardSettingsModal currentUserId={null} board={{ ...storedBoard, members: [storedBoard.members[0], plain] }} isAdmin={true} onClose={vi.fn()} />,
     )
     expect(screen.getAllByRole('combobox')).toHaveLength(2)
-    rerender(<BoardSettingsModal board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
+    rerender(<BoardSettingsModal currentUserId={null} board={storedBoard} isAdmin={true} onClose={vi.fn()} />)
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(1)
     })
@@ -632,7 +633,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
         { ...storedViewerAllContent, has_all_content_access: false },
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getAllByRole('combobox')).toHaveLength(2)
     expect(screen.queryByText('Full access')).toBeNull()
     expect(screen.queryByText(/Board role:/)).toBeNull()
@@ -658,7 +659,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
         inherited,
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
     await user.click(screen.getAllByRole('combobox')[1])
     await user.click(screen.getByRole('option', { name: 'Viewer' }))
@@ -675,7 +676,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
         { id: 11, user: { id: 5, username: 'legacy', display_name: 'Legacy Admin', avatar_url: '' }, role: 'site_admin', is_moderator: false, joined_at: '' },
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
     expect(screen.getByText('Full access')).toBeInTheDocument()
   })
@@ -701,7 +702,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   }
 
   it('leaves a site-admin row without a membership (id null) editable for a non-site-admin admin (#1717)', () => {
-    render(<BoardSettingsModal board={synthBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={synthBoard} isAdmin={true} onClose={vi.fn()} />)
     // Caller's own row + the synthesized row are editable; only the
     // membership-backed site-admin row (id 12) is static text.
     expect(screen.getAllByRole('combobox')).toHaveLength(2)
@@ -709,7 +710,7 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
   })
 
   it('locks a membership-backed site-admin row (numeric id) for a non-site-admin admin (#1717)', () => {
-    render(<BoardSettingsModal board={synthBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={synthBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByTitle('Site administrator — role managed at the instance level')).toHaveTextContent('member')
   })
 
@@ -721,20 +722,20 @@ describe('BoardSettingsModal — site-admin member lock (#1290)', () => {
         { id: null, user: { id: 7, username: 'auditor2', display_name: 'Auditor Two', avatar_url: '' }, role: 'site_admin', is_moderator: false, joined_at: '' },
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getAllByRole('combobox')).toHaveLength(1)
     expect(screen.queryByTitle('Site administrator — role managed at the instance level')).toBeNull()
     expect(screen.getByText('Full access')).toBeInTheDocument()
   })
 
   it('shows neither site-admin row locked to a site-admin viewer (#1717)', () => {
-    render(<BoardSettingsModal board={synthBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={synthBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
     expect(screen.getAllByRole('combobox')).toHaveLength(3)
     expect(screen.queryByTitle('Site administrator — role managed at the instance level')).toBeNull()
   })
 
   it('unlocks a site-admin member when the caller is a site admin', () => {
-    render(<BoardSettingsModal board={lockBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={lockBoard} isAdmin={true} currentUserIsSiteAdmin={true} onClose={vi.fn()} />)
     // The all-content row has no picker even for a site admin (#1301).
     expect(screen.getAllByRole('combobox')).toHaveLength(2)
     expect(screen.queryByTitle('Site administrator — role managed at the instance level')).toBeNull()
@@ -799,7 +800,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   })
 
   it('typing <2 chars shows no suggestions', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const input = screen.getByPlaceholderText(/search by name or email/i)
     await act(async () => {
@@ -814,7 +815,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
 
   it('typing ≥2 chars calls searchUsers after debounce', async () => {
     mockSearchUsers.mockResolvedValue([])
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const input = screen.getByPlaceholderText(/search by name or email/i)
     await act(async () => {
@@ -831,7 +832,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   // unmount cleanup. Closing the modal mid-debounce must clear the timer,
   // not fire setSuggestions/setDropdownAnchor against a torn-down component.
   it('clears the pending invite-search debounce timer on unmount, without throwing', async () => {
-    const { unmount } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const input = screen.getByPlaceholderText(/search by name or email/i)
     await act(async () => {
@@ -860,7 +861,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   it('Escape clears the member search without closing the modal; the next Escape closes it', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
     const input = screen.getByPlaceholderText(/search by name or email/i)
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
@@ -880,7 +881,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
 
   it('Escape in an empty member search still closes the modal', async () => {
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
     await act(async () => { fireEvent.keyDown(screen.getByPlaceholderText(/search by name or email/i), { key: 'Escape' }) })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
@@ -889,7 +890,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   async function showSuggestionsAt(top: number, bottom: number, height: number) {
     mockSearchUsers.mockResolvedValue([aliceUser])
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(height)
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const input = screen.getByPlaceholderText(/search by name or email/i)
     input.getBoundingClientRect = () =>
       ({ top, bottom, left: 40, right: 440, width: 400, height: bottom - top, x: 40, y: top, toJSON: () => ({}) }) as DOMRect
@@ -926,7 +927,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.dataset.testid === 'member-suggestions' ? 20 + 52 * this.querySelectorAll('button').length : 0
     })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const input = screen.getByPlaceholderText(/search by name or email/i)
     input.getBoundingClientRect = () =>
       ({ top: 638, bottom: 668, left: 40, right: 440, width: 400, height: 30, x: 40, y: 638, toJSON: () => ({}) }) as DOMRect
@@ -962,14 +963,14 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
 
   it('clicking a suggestion adds it to the staged list', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
     expect(screen.getByText(/to be added/i)).toBeInTheDocument()
   })
 
   it('staged invite shows the user name and a role select', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
     expect(screen.getAllByText('Alice Wonder').length).toBeGreaterThanOrEqual(1)
@@ -981,7 +982,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
 
   it('can change the staged user role', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
     // Two 'Member' comboboxes exist: Bob Smith's row + Alice's staged entry.
@@ -1001,7 +1002,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
 
   it('can remove a staged user via ✕ button', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
     const removeBtn = screen.getByTitle('Remove from invite list')
@@ -1011,7 +1012,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   })
 
   it('submit button is disabled when staged list is empty', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const submitBtn = screen.getByRole('button', { name: /add to board/i })
     expect(submitBtn).toBeDisabled()
@@ -1020,7 +1021,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   it('submit calls setBoardMember for each staged user and shows success message', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
     mockSetBoardMember.mockResolvedValue({ id: 99, user: aliceUser, role: 'member', is_moderator: false, joined_at: '' })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
     const submitBtn = screen.getByRole('button', { name: /add 1 member to board/i })
@@ -1039,7 +1040,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
       mockSearchUsers.mockResolvedValue([aliceUser])
       mockSetBoardMember.mockResolvedValue(addedRow)
       const view = render(
-        <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} onMembersAdded={onMembersAdded} />,
+        <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} onMembersAdded={onMembersAdded} />,
       )
       await stageAlice()
       const submitBtn = screen.getByRole('button', { name: /add 1 member to board/i })
@@ -1051,7 +1052,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     it('locks an added site admin once the re-read board carries the flag', async () => {
       const view = await addAlice(vi.fn())
       const reread: BoardFull = { ...fakeBoard, members: [...fakeBoard.members, { ...addedRow, is_site_admin: true }] }
-      view.rerender(<BoardSettingsModal board={reread} isAdmin={true} onClose={vi.fn()} />)
+      view.rerender(<BoardSettingsModal currentUserId={null} board={reread} isAdmin={true} onClose={vi.fn()} />)
       await waitFor(() => {
         expect(screen.getByTitle('Site administrator — role managed at the instance level')).toBeInTheDocument()
       })
@@ -1060,7 +1061,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     it('leaves an added ordinary user editable', async () => {
       const view = await addAlice(vi.fn())
       const reread: BoardFull = { ...fakeBoard, members: [...fakeBoard.members, { ...addedRow, is_site_admin: false }] }
-      view.rerender(<BoardSettingsModal board={reread} isAdmin={true} onClose={vi.fn()} />)
+      view.rerender(<BoardSettingsModal currentUserId={null} board={reread} isAdmin={true} onClose={vi.fn()} />)
       await waitFor(() => { expect(screen.getByText('Alice Wonder')).toBeInTheDocument() })
       expect(screen.queryByTitle('Site administrator — role managed at the instance level')).toBeNull()
     })
@@ -1069,7 +1070,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   it('submit shows error message on failure', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
     mockSetBoardMember.mockRejectedValue(new Error('Server error'))
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
     const submitBtn = screen.getByRole('button', { name: /add 1 member to board/i })
@@ -1088,7 +1089,7 @@ describe('BoardSettingsModal — Data tab', () => {
 
   it('clicking Data tab shows format radio options and Export button', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     await user.click(screen.getByRole('button', { name: 'Data' }))
     expect(screen.getByRole('radio', { name: /JSON/i })).toBeInTheDocument()
@@ -1099,7 +1100,7 @@ describe('BoardSettingsModal — Data tab', () => {
   it('JSON is pre-selected and Export JSON calls exportBoardJson and onClose', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
 
     await user.click(screen.getByRole('button', { name: 'Data' }))
     expect(screen.getByRole('radio', { name: /JSON/i })).toBeChecked()
@@ -1112,7 +1113,7 @@ describe('BoardSettingsModal — Data tab', () => {
   it('selecting CSV and clicking Export CSV calls exportBoardCsv and onClose', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
 
     await user.click(screen.getByRole('button', { name: 'Data' }))
     await user.click(screen.getByRole('radio', { name: /CSV/i }))
@@ -1134,7 +1135,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
 
   it('shows staleness threshold input for admins in Rules tab', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
@@ -1144,7 +1145,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
 
   it('staleness threshold input is editable for admins', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
@@ -1154,7 +1155,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
 
   it('calls patchBoard on blur with updated staleness value', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
@@ -1173,7 +1174,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('reverts the staleness threshold and shows an error when patchBoard rejects', async () => {
     mockPatchBoard.mockRejectedValueOnce(new Error('network error'))
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
@@ -1190,7 +1191,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   // persisted, instead of always re-saving on every blur.
   it('does not call patchBoard when the staleness threshold is blurred without a change', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
@@ -1202,7 +1203,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
 
   it('does not call patchBoard when the warning percentage is blurred without a change', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
@@ -1214,7 +1215,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
 
   it('shows read-only staleness text for non-admins in Rules tab', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     // Should show the values as plain text, not inputs
@@ -1224,7 +1225,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
 
   it('calls patchBoard on blur with updated stale_warning_pct value', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
@@ -1243,7 +1244,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('reverts the warning percentage and shows an error when patchBoard rejects', async () => {
     mockPatchBoard.mockRejectedValueOnce(new Error('network error'))
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
@@ -1258,7 +1259,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('falls back to 14 days when staleness_threshold_days is null', async () => {
     const user = userEvent.setup()
     const boardNoThreshold: BoardFull = { ...fakeBoard, staleness_threshold_days: null as unknown as number }
-    render(<BoardSettingsModal board={boardNoThreshold} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={boardNoThreshold} isAdmin={false} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     expect(screen.getByText(/14 days/i)).toBeInTheDocument()
@@ -1274,7 +1275,7 @@ describe('BoardSettingsModal — initialTab prop', () => {
 
   it('renders with initialTab="data" starting on the data tab', () => {
     render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />
     )
     expect(screen.getByRole('radio', { name: /JSON/i })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /CSV/i })).toBeInTheDocument()
@@ -1283,7 +1284,7 @@ describe('BoardSettingsModal — initialTab prop', () => {
 
   it('renders with an explicit initialTab="members" starting on the members tab', () => {
     render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="members" />
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="members" />
     )
     expect(screen.getByText('Admin User')).toBeInTheDocument()
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
@@ -1291,21 +1292,21 @@ describe('BoardSettingsModal — initialTab prop', () => {
 
   it('opens on Swimlane fields and focuses that tab button when deep-linked (#1458)', async () => {
     render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />
     )
     const tab = screen.getByRole('button', { name: 'Swimlane fields' })
     await waitFor(() => expect(document.activeElement).toBe(tab))
   })
 
   it('marks only the active tab with aria-current (#1458)', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />)
     expect(screen.getByRole('button', { name: 'Swimlane fields' })).toHaveAttribute('aria-current', 'true')
     expect(screen.getByRole('button', { name: 'Card fields' })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('button', { name: /^Members/ })).not.toHaveAttribute('aria-current')
   })
 
   it('does not steal focus from a control inside the modal that already has it (#1458)', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     const radio = screen.getByRole('radio', { name: /CSV/i })
     radio.focus()
     await new Promise((r) => requestAnimationFrame(() => r(null)))
@@ -1313,7 +1314,7 @@ describe('BoardSettingsModal — initialTab prop', () => {
   })
 
   it('opens on Members by default without moving focus to a tab button (#1458)', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await new Promise((r) => requestAnimationFrame(() => r(null)))
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^Members/ }))
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
@@ -1329,7 +1330,7 @@ describe('BoardSettingsModal — Card density radio', () => {
 
   it('admin sees three density radios with the current selection checked', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'standard' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1352,7 +1353,7 @@ describe('BoardSettingsModal — Card density radio', () => {
     const onUpdate = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1366,7 +1367,7 @@ describe('BoardSettingsModal — Card density radio', () => {
 
   it('non-admin sees a read-only line stating the current density', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'dense', current_user_role: 'viewer' }}
         isAdmin={false}
         onClose={vi.fn()}
@@ -1389,7 +1390,7 @@ describe('BoardSettingsModal — personal density override', () => {
 
   it('does not render the "Use my own density" toggle when onSetCardDensityOverride is omitted', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1402,7 +1403,7 @@ describe('BoardSettingsModal — personal density override', () => {
 
   it('shows the toggle for non-admins too, without the admin radio group', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'dense', current_user_role: 'viewer' }}
         isAdmin={false}
         onClose={vi.fn()}
@@ -1417,7 +1418,7 @@ describe('BoardSettingsModal — personal density override', () => {
 
   it('personal radio group is hidden until the toggle is switched on, and follows the board default copy when off', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'standard' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1437,7 +1438,7 @@ describe('BoardSettingsModal — personal density override', () => {
     const onSetOverride = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'standard' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1453,7 +1454,7 @@ describe('BoardSettingsModal — personal density override', () => {
 
   it('renders the personal radio group with the override selected and reflects the overriding copy', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'dense' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1473,7 +1474,7 @@ describe('BoardSettingsModal — personal density override', () => {
     const onSetOverride = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'dense' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1493,7 +1494,7 @@ describe('BoardSettingsModal — personal density override', () => {
     const onSetOverride = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'dense' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1512,7 +1513,7 @@ describe('BoardSettingsModal — personal density override', () => {
     const onSetOverride = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'standard' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1539,7 +1540,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
   it('renders as a peer of Enforce weight limits, unchecked by default', async () => {
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1557,7 +1558,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
     const onUpdate = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1573,7 +1574,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
     const onUpdate = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1588,7 +1589,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
   it('reflects checked state when the setting is already on', async () => {
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, show_wip_at_limit: true }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -1603,7 +1604,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
   it('non-admins see a read-only line instead of the toggle', async () => {
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, show_wip_at_limit: true, current_user_role: 'viewer' }}
         isAdmin={false}
         onClose={vi.fn()}
@@ -1626,17 +1627,17 @@ describe('BoardSettingsModal — Sharing tab', () => {
   })
 
   it('Sharing tab is visible for admins', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'Sharing' })).toBeInTheDocument()
   })
 
   it('Sharing tab is NOT visible for non-admins', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Sharing' })).toBeNull()
   })
 
   it('Sharing tab shows toggle and explanatory copy', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     expect(screen.getByText('Public sharing')).toBeInTheDocument()
     expect(screen.getByText('Enable public share link')).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: 'Enable public share link' })).toBeInTheDocument()
@@ -1644,7 +1645,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('enabling share calls enableBoardSharing and shows URL', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     const toggle = screen.getByRole('switch', { name: 'Enable public share link' })
     expect(toggle).toHaveAttribute('aria-checked', 'false')
@@ -1661,7 +1662,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
   })
 
   it('pre-selects a 30-day expiry for a new share link (#1865)', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     const ttl = screen.getByRole('combobox', { name: /Expires in/ })
     expect(ttl).toHaveTextContent('30 days')
     expect(ttl).toHaveAccessibleDescription('The link turns off automatically if you lose admin access to this board.')
@@ -1674,7 +1675,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
       share_token_expires_at: null,
     })
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: 'Never' }))
@@ -1692,7 +1693,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
       share_token_expires_at: '2999-04-28T00:00:00Z',
     })
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     // Open the TTL select and choose "7 days"
     const ttlTrigger = screen.getByRole('combobox')
@@ -1708,14 +1709,14 @@ describe('BoardSettingsModal — Sharing tab', () => {
   })
 
   it('shows "Never expires" when sharing is enabled with no TTL (#804)', () => {
-    render(<BoardSettingsModal board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     expect(screen.getByTestId('share-expiry-line').textContent).toBe('Never expires')
   })
 
   // ── #1935: the link is shown once, never read back from the board ──
 
   it('an existing link shows as active without ever rendering the token', () => {
-    render(<BoardSettingsModal board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('A public share link is active.')).toBeInTheDocument()
     expect(screen.queryByText(/existing-token-xyz/)).toBeNull()
@@ -1735,7 +1736,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('enabling moves focus to Copy, which announces the one-time warning', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
 
@@ -1748,7 +1749,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('reads link state from share_link_active, not from the deprecated share_token', () => {
     // A token with share_link_active false: the toggle follows share_link_active.
-    render(<BoardSettingsModal board={{ ...fakeBoard, share_token: 'stale-token' }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, share_token: 'stale-token' }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'false')
     expect(screen.queryByText('A public share link is active.')).toBeNull()
     expect(document.body.innerHTML).not.toContain('stale-token')
@@ -1756,7 +1757,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('shows the expiry of an existing link, and "Expired" once it has passed', () => {
     const { unmount } = render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...boardWithActiveLink, share_token_expires_at: '2999-01-01T00:00:00Z' }}
         isAdmin={true} onClose={vi.fn()} initialTab="sharing"
       />,
@@ -1765,7 +1766,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
     expect(screen.getByTestId('share-expiry-line')).toHaveClass('text-fg-muted')
     unmount()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...boardWithActiveLink, share_token_expires_at: '2000-01-01T00:00:00Z' }}
         isAdmin={true} onClose={vi.fn()} initialTab="sharing"
       />,
@@ -1782,7 +1783,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
       share_token_expires_at: '2999-01-01T00:00:00Z',
     })
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: '7 days' }))
@@ -1800,7 +1801,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
   it('shows an error when rotating fails, and keeps the link active', async () => {
     mockEnableBoardSharing.mockRejectedValueOnce(new Error('network error'))
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('button', { name: 'Rotate link' }))
 
@@ -1813,7 +1814,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('Done hides the link for good and moves focus to Rotate link', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
     expect(await screen.findByText(/abc-token-123/)).toBeInTheDocument()
@@ -1830,7 +1831,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
     const user = (await import('@testing-library/user-event')).default.setup()
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true, writable: true })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
     await user.click(await screen.findByRole('button', { name: 'Copy' }))
@@ -1843,7 +1844,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('disabling share calls disableBoardSharing and clears the active state', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     expect(screen.getByText('A public share link is active.')).toBeInTheDocument()
 
@@ -1860,7 +1861,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('disabling right after enabling drops the revealed link', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
     expect(await screen.findByText(/abc-token-123/)).toBeInTheDocument()
@@ -1877,7 +1878,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
   it('shows an error when enabling sharing fails', async () => {
     mockEnableBoardSharing.mockRejectedValueOnce(new Error('network error'))
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
 
@@ -1888,7 +1889,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
   it('shows an error when disabling sharing fails', async () => {
     mockDisableBoardSharing.mockRejectedValueOnce(new Error('network error'))
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithActiveLink} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
 
@@ -1911,7 +1912,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
       configurable: true,
       writable: true,
     })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     // The link (and its Copy button) only exists in the reveal after enabling (#1935).
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
 
@@ -1933,7 +1934,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
         <button type="button" onClick={() => setOpen((o) => !o)}>toggle-settings-1935</button>
         <pre data-testid="board-state-1935">{JSON.stringify(board)}</pre>
         {open && (
-          <BoardSettingsModal
+          <BoardSettingsModal currentUserId={null}
             board={board} isAdmin={true} onClose={() => setOpen(false)} initialTab="sharing"
             onShareChanged={(patch) => setBoard((b) => ({ ...b, ...patch }))}
           />
@@ -1989,7 +1990,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
     const onShareChanged = vi.fn()
     mockEnableBoardSharing.mockRejectedValueOnce(new Error('network error'))
     const user = (await import('@testing-library/user-event')).default.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" onShareChanged={onShareChanged} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" onShareChanged={onShareChanged} />)
 
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
     expect(await screen.findByText('Failed to enable sharing. Please try again.')).toBeInTheDocument()
@@ -2006,12 +2007,12 @@ describe('BoardSettingsModal — Sharing tab', () => {
   it('an open Sharing tab shows sharing off when the board state says the link was revoked', () => {
     const active = { ...boardWithActiveLink, share_token_expires_at: '2999-01-01T00:00:00Z' }
     const { rerender } = render(
-      <BoardSettingsModal board={active} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={active} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     expect(screen.getByText('A public share link is active.')).toBeInTheDocument()
 
     rerender(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...active, share_link_active: false, share_token_expires_at: null }}
         isAdmin={true} onClose={vi.fn()} initialTab="sharing"
       />,
@@ -2026,12 +2027,12 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('an open Sharing tab picks up a link enabled or rotated elsewhere, with its new expiry', () => {
     const { rerender } = render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     expect(screen.getByRole('switch', { name: 'Enable public share link' })).toHaveAttribute('aria-checked', 'false')
 
     rerender(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, share_link_active: true, share_token_expires_at: '2999-01-01T00:00:00Z' }}
         isAdmin={true} onClose={vi.fn()} initialTab="sharing"
       />,
@@ -2041,7 +2042,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
     expect(screen.getByTestId('share-expiry-line').textContent).toMatch(/^Expires /)
 
     rerender(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, share_link_active: true, share_token_expires_at: null }}
         isAdmin={true} onClose={vi.fn()} initialTab="sharing"
       />,
@@ -2052,14 +2053,14 @@ describe('BoardSettingsModal — Sharing tab', () => {
   it('a revoke elsewhere also withdraws this tab\'s one-time reveal, since that link is dead', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
     const { rerender } = render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
     expect(await screen.findByTestId('share-link-reveal')).toBeInTheDocument()
 
     // BoardView merged this tab's own enable first, then another admin's revoke.
     const enabled = { ...fakeBoard, share_link_active: true }
-    rerender(<BoardSettingsModal board={enabled} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    rerender(<BoardSettingsModal currentUserId={null} board={enabled} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     // The tab's own echo does not disturb the reveal.
     expect(screen.getByTestId('share-link-reveal')).toBeInTheDocument()
 
@@ -2067,7 +2068,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
     // move it to a control that is still mounted, not drop it to <body>.
     expect(screen.getByRole('button', { name: 'Copy' })).toHaveFocus()
     rerender(
-      <BoardSettingsModal board={{ ...enabled, share_link_active: false }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={{ ...enabled, share_link_active: false }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     expect(screen.queryByTestId('share-link-reveal')).toBeNull()
     expect(document.body.innerHTML).not.toContain('abc-token-123')
@@ -2082,7 +2083,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
     // Discriminating step: if the link comes back on (a later enable
     // elsewhere), the dead token must not reappear. Without the withdrawal the
     // reveal only hid because sharing was off, and would render again here.
-    rerender(<BoardSettingsModal board={enabled} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    rerender(<BoardSettingsModal currentUserId={null} board={enabled} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     expect(screen.queryByTestId('share-link-reveal')).toBeNull()
     expect(document.body.innerHTML).not.toContain('abc-token-123')
     expect(screen.getByText('A public share link is active.')).toBeInTheDocument()
@@ -2095,17 +2096,17 @@ describe('BoardSettingsModal — Sharing tab', () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true, writable: true })
     const { rerender } = render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
     // BoardView merges this tab's own enable into the board first.
     rerender(
-      <BoardSettingsModal board={{ ...fakeBoard, share_link_active: true }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, share_link_active: true }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     await user.click(await screen.findByRole('button', { name: 'Copy' }))
     expect(await screen.findByText('Failed to copy link. Please copy it manually.')).toBeInTheDocument()
     rerender(
-      <BoardSettingsModal board={{ ...fakeBoard, share_link_active: false }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, share_link_active: false }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     expect(screen.queryByText('Failed to copy link. Please copy it manually.')).toBeNull()
     expect(screen.getByRole('status')).toHaveTextContent('Sharing was turned off elsewhere')
@@ -2117,16 +2118,16 @@ describe('BoardSettingsModal — Sharing tab', () => {
     const writeText = vi.fn(() => new Promise<void>((r) => { resolveCopy = r }))
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true, writable: true })
     const { rerender } = render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
     // BoardView merges this tab's own enable into the board first.
     rerender(
-      <BoardSettingsModal board={{ ...fakeBoard, share_link_active: true }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, share_link_active: true }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     await user.click(await screen.findByRole('button', { name: 'Copy' }))
     rerender(
-      <BoardSettingsModal board={{ ...fakeBoard, share_link_active: false }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
+      <BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, share_link_active: false }} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />,
     )
     await act(async () => { resolveCopy() })
     expect(screen.queryByText('Link copied.')).toBeNull()
@@ -2136,7 +2137,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
   describe('rotation elsewhere (#1967)', () => {
     const enabled = { ...fakeBoard, share_link_active: true }
     const modal = (issuedAt: string | null, board: BoardFull = enabled) => (
-      <BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} initialTab="sharing" shareLinkIssuedAt={issuedAt} />
+      <BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} initialTab="sharing" shareLinkIssuedAt={issuedAt} />
     )
 
     beforeEach(() => {
@@ -2197,7 +2198,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
       const onShareChanged = vi.fn()
       const user = (await import('@testing-library/user-event')).default.setup()
       const view = (issuedAt: string | null) => (
-        <BoardSettingsModal
+        <BoardSettingsModal currentUserId={null}
           board={enabled} isAdmin={true} onClose={vi.fn()} initialTab="sharing"
           shareLinkIssuedAt={issuedAt} onShareChanged={onShareChanged}
         />
@@ -2284,7 +2285,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('does not show Sharing tab content for non-admin even if navigated directly', () => {
     // Non-admin cannot select "sharing" tab — it won't exist in DOM
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByText('Public sharing')).toBeNull()
   })
 })
@@ -2297,13 +2298,13 @@ describe('BoardSettingsModal — Moderator toggle', () => {
   })
 
   it('shows moderator checkbox for all non-site-admin members when isAdmin', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     // Both admin and member rows now show a Moderator checkbox (#574)
     expect(screen.getAllByText('Moderator').length).toBeGreaterThanOrEqual(2)
   })
 
   it('admin-role moderator checkbox is checked and disabled (#574)', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     // All checkboxes: admin row is first (checked+disabled), member row is second (editable)
     const checkboxes = screen.getAllByRole('checkbox')
     const adminCheckbox = checkboxes[0]
@@ -2312,7 +2313,7 @@ describe('BoardSettingsModal — Moderator toggle', () => {
   })
 
   it('member-role moderator checkbox is enabled and reflects is_moderator value', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const checkboxes = screen.getAllByRole('checkbox')
     // Member checkbox is the second one (admin's disabled checkbox is first)
     const memberCheckbox = checkboxes[1]
@@ -2321,14 +2322,14 @@ describe('BoardSettingsModal — Moderator toggle', () => {
   })
 
   it('hides moderator checkbox when isAdmin is false', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByText('Moderator')).toBeNull()
   })
 
   it('toggling moderator calls setBoardMember with is_moderator', async () => {
     const user = userEvent.setup()
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'member', is_moderator: true, joined_at: '' })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     // Member's checkbox is the second one; the first (admin) is disabled
     const checkboxes = screen.getAllByRole('checkbox')
@@ -2349,7 +2350,7 @@ describe('BoardSettingsModal — Moderator toggle', () => {
         { id: null, user: fakeMember2, role: 'member', is_moderator: false, is_site_admin: false, joined_at: '' },
       ],
     }
-    render(<BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getAllByTitle('Remove direct board role')).toHaveLength(1)
     await user.click(screen.getAllByRole('checkbox')[1])
     await waitFor(() => {
@@ -2363,7 +2364,7 @@ describe('BoardSettingsModal — Moderator toggle', () => {
   it('shows an error and leaves the checkbox unchanged when setBoardMember rejects', async () => {
     const user = userEvent.setup()
     mockSetBoardMember.mockRejectedValueOnce(new Error('network error'))
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     const checkboxes = screen.getAllByRole('checkbox')
     await user.click(checkboxes[1])
@@ -2379,7 +2380,7 @@ describe('BoardSettingsModal — Moderator toggle', () => {
         { id: 12, user: fakeMember2, role: 'collaborator' as const, is_moderator: false, joined_at: '' },
       ],
     }
-    render(<BoardSettingsModal board={boardWithCollab} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithCollab} isAdmin={true} onClose={vi.fn()} />)
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).not.toBeChecked()
     expect(checkbox).toBeDisabled()
@@ -2392,7 +2393,7 @@ describe('BoardSettingsModal — Moderator toggle', () => {
         { id: 13, user: fakeMember2, role: 'viewer' as const, is_moderator: false, joined_at: '' },
       ],
     }
-    render(<BoardSettingsModal board={boardWithViewer} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={boardWithViewer} isAdmin={true} onClose={vi.fn()} />)
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).not.toBeChecked()
     expect(checkbox).toBeDisabled()
@@ -2408,7 +2409,7 @@ describe('BoardSettingsModal — Export permission (#843)', () => {
   })
 
   it('admin sees the threshold dropdown on the Data tab', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByText('Export permission')).toBeInTheDocument()
     // SelectDropdown renders its trigger as role="combobox"; the selected
     // option label is rendered as child text inside the button.
@@ -2417,42 +2418,42 @@ describe('BoardSettingsModal — Export permission (#843)', () => {
 
   it('non-admin sees a plain-English read-only sentence (no dropdown)', () => {
     const boardAdminOnly = { ...fakeBoard, export_min_role: 'admin' as const, current_user_role: 'member' as const }
-    render(<BoardSettingsModal board={boardAdminOnly} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardAdminOnly} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByText('Only admins can export this board.')).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).toBeNull()
   })
 
   it('Export section is hidden when role is below threshold', () => {
     const boardAdminOnly = { ...fakeBoard, export_min_role: 'admin' as const, current_user_role: 'member' as const }
-    render(<BoardSettingsModal board={boardAdminOnly} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardAdminOnly} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.queryByRole('button', { name: /Export JSON|Export CSV/i })).toBeNull()
   })
 
   it('treats an unrecognized export_min_role as admin-only (#1725)', () => {
     const unknown = 'bogus' as unknown as 'viewer'
     const asMember = { ...fakeBoard, export_min_role: unknown, current_user_role: 'member' as const }
-    const { unmount } = render(<BoardSettingsModal board={asMember} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={asMember} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.queryByRole('button', { name: /Export JSON|Export CSV/i })).toBeNull()
     unmount()
     const asAdmin = { ...fakeBoard, export_min_role: unknown, current_user_role: 'admin' as const }
-    render(<BoardSettingsModal board={asAdmin} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={asAdmin} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByRole('button', { name: /Export JSON/i })).toBeInTheDocument()
   })
 
   it('shows an unrecognized export_min_role as admin-only and a blank one as the default (#1725)', () => {
     const unknown = { ...fakeBoard, export_min_role: 'bogus' as unknown as 'viewer', current_user_role: 'member' as const }
-    const { unmount } = render(<BoardSettingsModal board={unknown} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={unknown} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByText('Only admins can export this board.')).toBeInTheDocument()
     unmount()
     const blank = { ...fakeBoard, export_min_role: '' as unknown as 'viewer', current_user_role: 'viewer' as const }
-    render(<BoardSettingsModal board={blank} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={blank} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByText('Anyone with read access can export this board.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Export JSON/i })).toBeInTheDocument()
   })
 
   it('Export section is visible when role meets threshold', () => {
     const boardMember = { ...fakeBoard, export_min_role: 'member' as const, current_user_role: 'member' as const }
-    render(<BoardSettingsModal board={boardMember} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={boardMember} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByRole('button', { name: /Export JSON/i })).toBeInTheDocument()
   })
 })
@@ -2464,12 +2465,12 @@ describe('BoardSettingsModal — Export history (#842)', () => {
   })
 
   it('admin sees Export history section on the Data tab', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
   })
 
   it('non-admin does not see Export history section', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.queryByText('Export history')).toBeNull()
   })
 
@@ -2487,7 +2488,7 @@ describe('BoardSettingsModal — Export history (#842)', () => {
       ],
       count: 1, next: null, previous: null,
     })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
     // Match the full body line so we hit only the history entry, not the
     // generic "Export CSV" button elsewhere on the tab.
@@ -2512,7 +2513,7 @@ describe('BoardSettingsModal — Export history (#842)', () => {
       ],
       count: 1, next: null, previous: null,
     })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     await waitFor(() =>
       expect(screen.getByText(/admin — Movements \(CSV\) · 5 movements/)).toBeInTheDocument()
     )
@@ -2533,7 +2534,7 @@ describe('BoardSettingsModal — Export history (#842)', () => {
       ],
       count: 1, next: null, previous: null,
     })
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByText('(deactivated user)')).toBeInTheDocument())
     // Singular form for row_count of 1.
@@ -2542,7 +2543,7 @@ describe('BoardSettingsModal — Export history (#842)', () => {
 
   it('renders an error message when getBoardExportHistory rejects (#1014)', async () => {
     mockGetBoardExportHistory.mockRejectedValue(new Error('Network down'))
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByText(/Could not load export history/i)).toBeInTheDocument())
   })
@@ -2558,7 +2559,7 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
 
   it('shows ONE shared notice and makes admin controls inert but focusable', async () => {
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} demoMode onClose={vi.fn()} />)
     const notice = document.getElementById('board-settings-demo-notice')
     expect(notice).toHaveTextContent("This is a shared demo — settings can't be changed here.")
     expect(notice).toHaveAttribute('role', 'note')
@@ -2584,7 +2585,7 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
     const user = userEvent.setup()
     const onUpdateBoardSettings = vi.fn()
     render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode onClose={vi.fn()} onUpdateBoardSettings={onUpdateBoardSettings} />,
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} demoMode onClose={vi.fn()} onUpdateBoardSettings={onUpdateBoardSettings} />,
     )
     await user.click(screen.getByRole('button', { name: 'Rules' }))
     for (const sw of screen.getAllByRole('switch')) {
@@ -2597,20 +2598,20 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
   it('tabs and Close still work in demo mode', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode onClose={onClose} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} demoMode onClose={onClose} />)
     await user.click(screen.getByRole('button', { name: 'Data' }))
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalled()
   })
 
   it('a non-admin visitor sees no notice and no inert region (nothing admin to explain)', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} demoMode onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} demoMode onClose={vi.fn()} />)
     expect(document.getElementById('board-settings-demo-notice')).toBeNull()
     expect(screen.queryByTestId('demo-inert')).not.toBeInTheDocument()
   })
 
   it('renders no demo notice or wrapper outside demo mode', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(document.getElementById('board-settings-demo-notice')).toBeNull()
     expect(screen.queryByTestId('demo-inert')).not.toBeInTheDocument()
   })
@@ -2625,7 +2626,7 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
 
   function renderDangerZone(board: BoardFull) {
     return render(
-      <BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="data" />
+      <BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="data" />
     )
   }
 
@@ -2634,9 +2635,9 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
     renderDangerZone({ ...fakeBoard, cards: [], archived_card_count: 2 })
     expect(screen.getByText('This board has 2 archived cards, which will also be permanently deleted.')).toBeInTheDocument()
     const deleteButton = screen.getByRole('button', { name: 'Delete board' })
-    expect(deleteButton).toBeDisabled()
+    expect(deleteButton).toHaveAttribute('aria-disabled', 'true')
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
-    expect(deleteButton).toBeEnabled()
+    expect(deleteButton).toHaveAttribute('aria-disabled', 'false')
   })
 
   it('uses the singular for one archived card', () => {
@@ -2649,7 +2650,7 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
     expect(screen.getByText(/all its cards \(including archived cards\), columns, and history/)).toBeInTheDocument()
     expect(screen.queryByText(/archived cards?, which will also be permanently deleted/)).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Sprint Board')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delete board' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Delete board' })).toHaveAttribute('aria-disabled', 'false')
   })
 })
 
@@ -2666,7 +2667,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleted = vi.fn(() => { order.push('deleted') })
     render(
       <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
-        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="data" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
@@ -2683,15 +2684,22 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const user = userEvent.setup()
     render(
       <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()}
-        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
     )
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
     expect(order).toEqual(['deleting', 'request', 'deleted'])
 
+    // A successful delete leaves the modal in "Deleting…" until the host navigates away.
+    cleanup()
     vi.mocked(deleteBoard).mockRejectedValueOnce(new Error('boom'))
     onBoardDeleted.mockClear()
+    render(
+      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()} currentUserId={fakeUser.id}
+        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+    )
+    await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleteFailed).toHaveBeenCalledTimes(1))
     expect(onBoardDeleted).not.toHaveBeenCalled()
@@ -2704,11 +2712,139 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleted = vi.fn()
     render(
       <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
-        onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleteFailed).toHaveBeenCalled())
     expect(onBoardDeleted).not.toHaveBeenCalled()
+  })
+})
+
+describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  const owned = { ...fakeBoard, cards: [], archived_card_count: 0 } as BoardFull
+  const renderDz = (board: BoardFull, extra: Partial<React.ComponentProps<typeof BoardSettingsModal>> = {}) =>
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="data" {...extra} />)
+
+  it('offers delete to the board owner', () => {
+    renderDz(owned, { currentUserId: fakeUser.id })
+    expect(screen.getByRole('button', { name: 'Delete board' })).toBeInTheDocument()
+  })
+
+  it('keeps the section for a non-owner admin but removes the delete control and says why', () => {
+    renderDz({ ...owned, current_user_role: 'admin' }, { currentUserId: 999 })
+    expect(screen.getByText('Danger Zone')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Delete board/ })).not.toBeInTheDocument()
+    expect(screen.getByText(`Only the board owner (${fakeUser.display_name}) or a site administrator can delete this board.`)).toBeInTheDocument()
+  })
+
+  it('offers delete to a site_admin who is not the owner', () => {
+    renderDz({ ...owned, current_user_role: 'site_admin' }, { currentUserId: 999 })
+    expect(screen.getByRole('button', { name: 'Delete board' })).toBeInTheDocument()
+  })
+
+  it('does not navigate or announce success while the name does not match', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    const user = userEvent.setup()
+    renderDz({ ...owned, archived_card_count: 1 }, { currentUserId: fakeUser.id })
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(deleteBoard).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['403', { response: { status: 403 } }, "You can't delete this board. Only its owner or a site administrator can."],
+    ['network', { request: {} }, "Couldn't delete the board. Check your connection and try again."],
+    ['other', { response: { status: 500 } }, "Couldn't delete the board. Try again."],
+  ])('%s failure shows an inline alert, keeps the modal open and the typed name', async (kind, err, text) => {
+    const { deleteBoard } = await import('../api/boards')
+    vi.mocked(deleteBoard).mockRejectedValueOnce(err)
+    const onBoardDeleted = vi.fn()
+    const onBoardDeleteFailed = vi.fn()
+    const onDeleteForbidden = vi.fn()
+    const onClose = vi.fn()
+    const notify = vi.fn(() => 1)
+    const user = userEvent.setup()
+    render(
+      <ToastContext.Provider value={{ notify, dismiss: vi.fn() }}>
+        <BoardSettingsModal board={{ ...owned, archived_card_count: 2 }} isAdmin onClose={onClose} currentUserId={fakeUser.id}
+          onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} onDeleteForbidden={onDeleteForbidden} initialTab="data" />
+      </ToastContext.Provider>
+    )
+    const field = screen.getByPlaceholderText('Sprint Board')
+    await user.type(field, 'Sprint Board')
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(text)
+    expect(onBoardDeleted).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(onBoardDeleteFailed).toHaveBeenCalledTimes(1)
+    expect(field).toHaveValue('Sprint Board')
+    expect(onDeleteForbidden).toHaveBeenCalledTimes(kind === '403' ? 1 : 0)
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({
+      key: 'board-delete', variant: 'danger', announce: false,
+      title: text.split('. ')[0], message: text.split('. ')[1],
+    }))
+    expect(screen.getByRole('button', { name: 'Delete board' })).toHaveAttribute('aria-disabled', 'false')
+  })
+
+  it('shows Deleting… and swallows a second click and Escape while in flight', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    let resolve!: () => void
+    vi.mocked(deleteBoard).mockImplementation(() => new Promise((r) => { resolve = () => r({} as never) }))
+    const onClose = vi.fn()
+    const onBoardDeleted = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal board={owned} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} initialTab="data" />
+    )
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    const busy = await screen.findByRole('button', { name: 'Deleting…' })
+    expect(busy).toHaveAttribute('aria-disabled', 'true')
+    await user.click(busy)
+    await user.keyboard('{Escape}')
+    expect(deleteBoard).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
+    resolve()
+    await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
+  })
+
+  it('a 403 that flips the owner to a non-owner keeps the alert and moves focus to the note', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    vi.mocked(deleteBoard).mockRejectedValueOnce({ response: { status: 403 } })
+    const user = userEvent.setup()
+    const Host = () => {
+      const [b, setB] = useState<BoardFull>(owned)
+      return <BoardSettingsModal board={b} isAdmin onClose={vi.fn()} currentUserId={fakeUser.id}
+        onBoardDeleted={vi.fn()} onDeleteForbidden={() => setB({ ...owned, owner: fakeMember2 })} initialTab="data" />
+    }
+    render(<Host />)
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("You can't delete this board")
+    expect(screen.queryByRole('button', { name: /Delete board/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/Only the board owner/)).toHaveFocus()
+  })
+
+  it('clicking a blocked Delete focuses the typed-name field', async () => {
+    const user = userEvent.setup()
+    renderDz({ ...owned, archived_card_count: 1 }, { currentUserId: fakeUser.id })
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(screen.getByPlaceholderText('Sprint Board')).toHaveFocus()
+  })
+
+  it('Escape collapses a typed confirmation before it closes the modal', async () => {
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal board={{ ...owned, archived_card_count: 1 }} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={vi.fn()} initialTab="data" />
+    )
+    const field = screen.getByPlaceholderText('Sprint Board')
+    await user.type(field, 'Spr')
+    await user.keyboard('{Escape}')
+    expect(field).toHaveValue('')
+    expect(onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalled()
   })
 })
 
@@ -2720,17 +2856,17 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
   })
 
   it('admins get the invite section with the pending list; non-admins do not', async () => {
-    const { unmount } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(await screen.findByText('Invite by email')).toBeInTheDocument()
     expect(screen.getByText('Pending invites')).toBeInTheDocument()
     unmount()
-    render(<BoardSettingsModal board={{ ...fakeBoard, current_user_role: 'member' }} isAdmin={false} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, current_user_role: 'member' }} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByText('Pending invites')).not.toBeInTheDocument()
     expect(screen.queryByText('Invite by email')).not.toBeInTheDocument()
   })
 
   it('admins can create shareable invite links from the Members tab (#439)', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(await screen.findByRole('button', { name: 'New link' })).toBeInTheDocument()
     expect(await screen.findByText('or create a shareable link')).toBeInTheDocument()
     expect(
@@ -2741,7 +2877,7 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
   it('an email-shaped query with no addable match offers "Invite by email", which prefills the form', async () => {
     mockSearchUsers.mockResolvedValue([])
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await screen.findByText('Invite by email')
     await user.type(screen.getByPlaceholderText(/search by name or email/i), 'new.person@example.com')
     const bridge = await screen.findByRole('button', { name: 'Invite by email' }, { timeout: 2000 })
@@ -2755,7 +2891,7 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
   it('no bridge for a non-email query, or when someone addable matched', async () => {
     const user = userEvent.setup()
     mockSearchUsers.mockResolvedValue([])
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await screen.findByText('Invite by email')
     await user.type(screen.getByPlaceholderText(/search by name or email/i), 'nobody')
     await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('nobody'))
@@ -2773,7 +2909,7 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
     // The raw result is Bob, already a member: nothing addable, but an
     // account does match — so no invite is offered.
     mockSearchUsers.mockResolvedValue([{ ...fakeMember2, email: 'bob@example.com' }])
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await screen.findByText('Invite by email')
     await user.type(screen.getByPlaceholderText(/search by name or email/i), 'bob@example.com')
     await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('bob@example.com'))
@@ -2790,18 +2926,18 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
     })
     mockSearchUsers.mockResolvedValue([])
     const user = userEvent.setup()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await user.type(screen.getByPlaceholderText(/search by name or email/i), 'x@example.com')
     await waitFor(() => expect(mockSearchUsers).toHaveBeenCalledWith('x@example.com'))
     expect(screen.queryByRole('button', { name: 'Invite by email' })).not.toBeInTheDocument()
   })
 
   it('a member who joins while open is appended without replacing in-progress rows', async () => {
-    const { rerender } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const { rerender } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
     const carol: User = { ...fakeMember2, id: 3, username: 'carol', display_name: 'Carol Jones', email: 'carol@example.com' }
     rerender(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{
           ...fakeBoard,
           // Bob's row arrives with a different role — the modal's own row wins.
@@ -2822,9 +2958,9 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
   it('passes inviteReloadSignal through to the invite list', async () => {
     const { listBoardInviteLinks } = await import('../api/boards')
     const mockList = listBoardInviteLinks as ReturnType<typeof vi.fn>
-    const { rerender } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={0} />)
+    const { rerender } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={0} />)
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1))
-    rerender(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={1} />)
+    rerender(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} inviteReloadSignal={1} />)
     await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
   })
 })
@@ -2833,7 +2969,7 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
   const tabNames = () => screen.getAllByRole('button').map((b) => b.textContent ?? '')
 
   it('board admins get a Webhooks tab between Sharing and Data', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const names = tabNames()
     const sharing = names.indexOf('Sharing')
     const webhooks = names.indexOf('Webhooks')
@@ -2842,15 +2978,15 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
   })
 
   it('non-admins and the hosted demo get no Webhooks tab at all', () => {
-    const { unmount } = render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
     unmount()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode={true} onClose={vi.fn()} />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} demoMode={true} onClose={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
   })
 
   it('initialTab="webhooks" opens the tab and loads it', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" focusFirstStoppedWebhook />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" focusFirstStoppedWebhook />)
     expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
     expect(await screen.findByText('No webhooks yet')).toBeInTheDocument()
     expect(screen.getByText(/has never run on this server/)).toBeInTheDocument()
@@ -2868,7 +3004,7 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
     })
     const user = userEvent.setup()
     const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
     await user.click(await screen.findByRole('button', { name: 'Add webhook' }))
     await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
     await user.click(screen.getByRole('button', { name: 'Create webhook' }))
@@ -2919,7 +3055,7 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
       ;(rotateWebhookSecret as ReturnType<typeof vi.fn>).mockReturnValue(new Promise((resolve) => { finish = resolve }))
       const user = userEvent.setup()
       const onClose = vi.fn()
-      const { container } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
+      const { container } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
       await user.click(await screen.findByRole('button', { name: /^Manage webhook/ }))
       await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
       await user.click(screen.getByRole('button', { name: 'Keep old secret for 24 hours' }))
@@ -2937,7 +3073,7 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
       ;(createWebhook as ReturnType<typeof vi.fn>).mockReturnValue(new Promise((resolve) => { finish = resolve }))
       const user = userEvent.setup()
       const onClose = vi.fn()
-      const { container } = render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
+      const { container } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="webhooks" />)
       await user.click(await screen.findByRole('button', { name: 'Add webhook' }))
       await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
       await user.click(screen.getByRole('button', { name: 'Create webhook' }))
@@ -2960,7 +3096,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 
   it('admin sees None / Classic / Default with the board default checked', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, default_preset: 'default' }}
         isAdmin={true}
         onClose={vi.fn()}
@@ -2981,7 +3117,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 
   it('None is checked on a board without a default', () => {
     render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display" onUpdateBoardSettings={vi.fn()} />,
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display" onUpdateBoardSettings={vi.fn()} />,
     )
     expect(within(screen.getByRole('group', { name: 'Board default preset' })).getByRole('radio', { name: /^None/ })).toBeChecked()
   })
@@ -2990,13 +3126,13 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
     const onUpdate = vi.fn()
     const user = userEvent.setup()
     const { rerender } = render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display" onUpdateBoardSettings={onUpdate} />,
+      <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display" onUpdateBoardSettings={onUpdate} />,
     )
     const group = () => within(screen.getByRole('group', { name: 'Board default preset' }))
     await user.click(group().getByRole('radio', { name: /^Classic/ }))
     expect(onUpdate).toHaveBeenCalledWith({ default_preset: 'classic' })
     rerender(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, default_preset: 'classic' }} isAdmin={true} onClose={vi.fn()} initialTab="display" onUpdateBoardSettings={onUpdate}
       />,
     )
@@ -3006,7 +3142,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 
   it('non-admin sees a read-only line naming the default preset', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, default_preset: 'default', current_user_role: 'viewer' }}
         isAdmin={false}
         onClose={vi.fn()}
@@ -3020,7 +3156,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 
   it('non-admin on a board without a default is told so', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, current_user_role: 'viewer' }} isAdmin={false} onClose={vi.fn()} initialTab="display"
       />,
     )
@@ -3029,7 +3165,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 
   it('the personal toggle names the preset that wrote the density key', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard}
         isAdmin={false}
         onClose={vi.fn()}
@@ -3048,7 +3184,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 
   it('says which preset set the density when a board default preset did', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard}
         isAdmin={false}
         onClose={vi.fn()}
@@ -3066,7 +3202,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 
   it('shows no preset line when no preset set the density', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display" onUpdateBoardSettings={vi.fn()}
         densityPresetSource={null} effectiveCardDensity="comfortable"
       />,
@@ -3078,7 +3214,7 @@ describe('BoardSettingsModal — board presets on the Display tab (#1146)', () =
 describe('BoardSettingsModal — a member\'s own density is never attributed to a preset (#1146)', () => {
   it('keeps the plain override copy when no preset wrote the key', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
         cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
         densityPresetSource={null} effectiveCardDensity="standard"
@@ -3090,7 +3226,7 @@ describe('BoardSettingsModal — a member\'s own density is never attributed to 
 
   it('never shows the board-default line while the member has their own key', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
         cardDensityOverride="dense" onSetCardDensityOverride={vi.fn()}
         densityPresetSource={{ presetName: 'Default', via: 'own-key' }} effectiveCardDensity="dense"
@@ -3102,7 +3238,7 @@ describe('BoardSettingsModal — a member\'s own density is never attributed to 
 
 it('BoardSettingsModal — the toggle predicts Modified only when turning it off changes the density (#1146)', () => {
   render(
-    <BoardSettingsModal
+    <BoardSettingsModal currentUserId={null}
       board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
       cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
       densityPresetSource={{ presetName: 'Default', via: 'own-key', offChangesDensity: false }} effectiveCardDensity="standard"
@@ -3117,7 +3253,7 @@ describe('BoardSettingsModal — density under a board default preset (#1146 rou
     const onSet = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'comfortable', default_preset: 'default' }}
         isAdmin={false} onClose={vi.fn()} initialTab="display"
         cardDensityOverride={null} onSetCardDensityOverride={onSet}
@@ -3130,7 +3266,7 @@ describe('BoardSettingsModal — density under a board default preset (#1146 rou
 
   it('names the board default preset as what turning the override off returns to', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, card_density: 'comfortable', default_preset: 'default' }}
         isAdmin={false} onClose={vi.fn()} initialTab="display"
         cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
@@ -3144,7 +3280,7 @@ describe('BoardSettingsModal — density under a board default preset (#1146 rou
 
   it('describes the admin density group with the board-default "Set by preset" line', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={{ ...fakeBoard, default_preset: 'default' }} isAdmin={true} onClose={vi.fn()} initialTab="display"
         onUpdateBoardSettings={vi.fn()} cardDensityOverride={null} onSetCardDensityOverride={vi.fn()}
         densityPresetSource={{ presetName: 'Default', via: 'board-default' }} effectiveCardDensity="standard"
@@ -3157,7 +3293,7 @@ describe('BoardSettingsModal — density under a board default preset (#1146 rou
 
   it('leaves the admin density group undescribed when no preset supplies the density', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="display"
         onUpdateBoardSettings={vi.fn()} densityPresetSource={null} effectiveCardDensity="comfortable"
       />,
@@ -3167,7 +3303,7 @@ describe('BoardSettingsModal — density under a board default preset (#1146 rou
 
   it('describes the override switch and, when a preset wrote the key, the personal group, with the source text', () => {
     render(
-      <BoardSettingsModal
+      <BoardSettingsModal currentUserId={null}
         board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="display"
         cardDensityOverride="standard" onSetCardDensityOverride={vi.fn()}
         densityPresetSource={{ presetName: 'Default', via: 'own-key', offChangesDensity: true, offFallsBackTo: 'board' }}

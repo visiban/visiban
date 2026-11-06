@@ -194,6 +194,23 @@ describe('Dashboard', () => {
     expect(screen.getByText('New Group')).toBeInTheDocument()
   })
 
+  it('hides delete from a non-owner and shows it to an all-content user (#2034)', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, name: 'Other Board', description: '', owner: { ...fakeUser, id: 99 }, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+    ])
+    const { unmount } = renderDashboard()
+    await screen.findByText('Other Board')
+    expect(screen.queryByTitle('Delete board')).not.toBeInTheDocument()
+    unmount()
+    render(
+      <MemoryRouter>
+        <Dashboard user={{ ...fakeUser, can_access_all_content: true }} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>
+    )
+    await screen.findByText('Other Board')
+    expect(screen.getByTitle('Delete board')).toBeInTheDocument()
+  })
+
   it('shows delete button on board hover', async () => {
     mockListBoards.mockResolvedValue([
       { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
