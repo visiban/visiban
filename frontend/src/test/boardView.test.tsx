@@ -207,9 +207,18 @@ vi.mock('../components/Board/BulkActionToolbar', () => ({
     <div data-testid="bulk-toolbar">Bulk Actions<button type="button" onClick={() => onCardsArchived?.([1])}>ArchiveMock</button></div>
   ),
 }))
-vi.mock('../components/Board/ArchivedCardsPanel', () => ({
-  default: () => <div data-testid="archived-panel">Archived</div>,
-}))
+const archivedPanelCalls: string[] = []
+vi.mock('../components/Board/ArchivedCardsPanel', async () => {
+  const { useEffect } = await import('react')
+  function ArchivedPanelMock({ subscribeCardEvents }: { subscribeCardEvents?: (l: (e: { event: string }) => void) => () => void }) {
+    useEffect(
+      () => subscribeCardEvents?.((e) => { archivedPanelCalls.push(`panel:${e.event}`) }),
+      [subscribeCardEvents],
+    )
+    return <div data-testid="archived-panel">Archived</div>
+  }
+  return { default: ArchivedPanelMock }
+})
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({
     savedFilters: [],
@@ -337,6 +346,17 @@ describe('BoardView', () => {
     mockBoardContextValue = defaultContext()
     // Default: getCardStatus returns null (card deleted/unknown)
     mockedGetCardStatus.mockResolvedValue(null)
+  })
+
+  it('notifies the archived panel before the board evicts a deleted card (#2062)', () => {
+    archivedPanelCalls.length = 0
+    const evictCardByUid = vi.fn((uid: string) => { archivedPanelCalls.push(`evict:${uid}`) })
+    mockBoardContextValue = defaultContext({ evictCardByUid })
+    render(<BoardView {...defaultProps()} />)
+    fireEvent.click(screen.getByLabelText('Show archived cards'))
+    act(() => { capturedSocketEvent!({ event: 'card.deleted', data: { card_uid: 'abc' } }) })
+    // The panel's active-card guard needs board.cards before the eviction.
+    expect(archivedPanelCalls).toEqual(['panel:card.deleted', 'evict:abc'])
   })
 
   it('re-reads the board when the socket fails (access revoked, #2041)', () => {

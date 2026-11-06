@@ -140,11 +140,28 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
     totalSeq.current += 1;
     pullSeq.current += 1;
     const seq = pullSeq.current;
-    getArchivedCards(board.id, 0)
-      .then((page) => {
-        if (seq !== pullSeq.current) return;
-        const known = new Set(loadedRef.current.map((c) => c.id));
-        const fresh = page.results.filter((c) => !known.has(c.id));
+    // New archives sort to the top, so walk down from row 0 until a page
+    // reaches a card already loaded (or the list ends). One page is not enough
+    // when a bulk archive added more than a page of cards (#2062).
+    const known = new Set(loadedRef.current.map((c) => c.id));
+    const fresh: Card[] = [];
+    const walk = async (): Promise<number> => {
+      let at = 0;
+      for (;;) {
+        const page = await getArchivedCards(board.id, at);
+        if (seq !== pullSeq.current) return -1;
+        let hitKnown = false;
+        for (const c of page.results) {
+          if (known.has(c.id)) hitKnown = true;
+          else if (!fresh.some((f) => f.id === c.id)) fresh.push(c);
+        }
+        at += page.results.length;
+        if (hitKnown || page.results.length === 0 || at >= page.count) return page.count;
+      }
+    };
+    walk()
+      .then((count) => {
+        if (count < 0) return;
         if (fresh.length > 0) {
           loadedRef.current = [...fresh, ...loadedRef.current];
           setCards((prev) => {
@@ -153,7 +170,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
           });
           setOffset((prev) => prev + fresh.length);
         }
-        setTotal(page.count + prunedRef.current);
+        setTotal(count + prunedRef.current);
       })
       .catch(() => {
         // Keep the local view; the next Load more re-syncs from the server.

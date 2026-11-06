@@ -584,6 +584,26 @@ describe('ArchivedCardsPanel follows other clients (#2062)', () => {
     expect(screen.getByText('Old feature')).toBeInTheDocument()
   })
 
+  it('pages past one page of remote archives so no card is skipped', async () => {
+    const { subscribe, emit } = setup()
+    const mk = (id: number): Card => ({ ...archivedCard, id, uid: `bulk${id}`, title: `Bulk ${id}` })
+    const bulk = [1, 2, 3, 4].map(mk)
+    // Server list after a bulk archive of 4 (page size 2): bulk, then the old card.
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    mockGetArchivedCards.mockImplementation((_id: number, at = 0) => {
+      const all = [...bulk, archivedCard]
+      return Promise.resolve({ count: 5, offset: at, page_size: 2, results: all.slice(at, at + 2) })
+    })
+    emit('card.archived', { card_uid: 'bulk1' })
+    await screen.findByText('Bulk 4')
+    for (const c of bulk) expect(screen.getByText(c.title)).toBeInTheDocument()
+    expect(screen.getAllByText('Old feature')).toHaveLength(1)
+    expect(screen.getByText('(5)')).toBeInTheDocument()
+    expect(screen.queryByText(/Load more/)).not.toBeInTheDocument()
+  })
+
   it('unsubscribes on unmount', async () => {
     const { subscribe, listeners } = setup()
     mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
