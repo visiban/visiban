@@ -423,6 +423,8 @@ describe('BoardView — board presets (#1146)', () => {
       await choosePreset(user, 'Classic')
       expect(localStorage.getItem(OVERLAY_KEY)).toBe('none')
       expect(screen.getByTestId('preset-notice')).toHaveTextContent('Reset to “Classic”')
+      // A modified preset is reset, not "already applied".
+      expect(screen.queryByTestId('preset-already-active')).not.toBeInTheDocument()
     })
 
     it('the Reset menu item is keyboard reachable with the arrow keys', async () => {
@@ -524,10 +526,12 @@ describe('BoardView — board presets (#1146)', () => {
 
     it('ignores re-applying the active unmodified preset and unknown ids', () => {
       renderBoard(makeBoard({ default_preset: 'default' }))
-      command({ kind: 'apply', presetId: 'default' })
+      // An unknown id first: it must raise nothing at all.
       command({ kind: 'apply', presetId: 'standup' })
+      expect(screen.queryByTestId('preset-already-active')).not.toBeInTheDocument()
+      command({ kind: 'apply', presetId: 'default' })
       expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
-      expect(screen.getAllByTestId('preset-already-active')).toHaveLength(1)
+      expect(screen.getByTestId('preset-already-active')).toHaveTextContent('\u201cDefault\u201d is already applied')
     })
   })
 
