@@ -364,6 +364,17 @@ describe('BoardView — board presets (#1146)', () => {
       await choosePreset(user, 'Default')
       expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
       expect(localStorage.getItem(DENSITY_KEY)).toBeNull()
+      // #2124: no state change, but the choice is acknowledged and announced.
+      expect(screen.getByTestId('preset-already-active')).toHaveTextContent('\u201cDefault\u201d is already applied')
+      expect(screen.getByTestId('toast-announcer-polite')).toHaveTextContent('is already applied')
+    })
+
+    it('the trigger carries the full preset name as its title, and none at rest (#2124)', async () => {
+      const user = userEvent.setup()
+      renderBoard()
+      expect(presetTrigger()).not.toHaveAttribute('title')
+      await choosePreset(user, 'Classic')
+      expect(presetTrigger()).toHaveAttribute('title', 'Classic')
     })
 
     it('the notice can be dismissed', async () => {
@@ -516,6 +527,7 @@ describe('BoardView — board presets (#1146)', () => {
       command({ kind: 'apply', presetId: 'default' })
       command({ kind: 'apply', presetId: 'standup' })
       expect(screen.queryByTestId('preset-notice')).not.toBeInTheDocument()
+      expect(screen.getAllByTestId('preset-already-active')).toHaveLength(1)
     })
   })
 

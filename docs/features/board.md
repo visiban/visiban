@@ -602,6 +602,8 @@ Choosing a preset saves its density as your [personal density override](#persona
 
 You can also apply a preset from the [command palette](keyboard-shortcuts.md) (⌘K / Ctrl+K): type **Apply preset: Classic** or **Apply preset: Default**, or **Reset to preset: …** when the active preset is modified. These work exactly like the dropdown, including the Undo notice, in every view of the board (Board, Summary, History, Analytics and the Lens).
 
+Choosing the preset that is already active, and unmodified, changes nothing and shows a short notice, **“Default” is already applied**, so you know the choice registered. A long preset name is shortened on the trigger; hover it to see the full name.
+
 The trigger names a preset only when one is actually in use: one you chose, or the board's default preset. A density or overlay you set yourself, including settings from before 1.3, is not shown as a preset even when its values match one.
 
 ### Modified and Reset
