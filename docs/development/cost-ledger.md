@@ -70,7 +70,17 @@ Blueprint recorded this decision as its ADR 0011; Visiban has no ADR directory, 
 - **One committed file, one reader, one precedence line.** The project layer is reviewable and versioned. Only `scripts/cost-ledger` reads either layer, so the precedence can't drift between callers.
 - **The local layer is git config, not a file in the checkout,** because recording happens inside `scripts/wt` worktrees and git config is the one per-person store every worktree of a clone shares.
 - **Toggling is switchable at any time, both ways.** The project layer changes through a chore MR (a branch made before it merges still has the old file). The local layer takes effect at once.
-- **Known debt, stated rather than tracked:** nothing in CI checks that an MR's `cost-ledger: off` line matches the project file at the MR's base; the transcript layout the scripts read is undocumented and can change without notice; and a stale price table only omits the estimate, it doesn't warn anyone.
+- **The transcript layout the scripts read is undocumented** and can change without notice. That's a property of Claude Code, not work this repo can schedule; see [The layout dependency](#the-layout-dependency).
+
+### Known debt
+
+Each item below is tracked in #2131.
+
+- **The off marker isn't checked against the project file.** Nothing in CI checks that an MR's `cost-ledger: off` line matches `.claude/cost-ledger.json` at the MR's base.
+- **A stale price table warns nobody.** It only omits the estimate. The shipped table (`checked` 2026-11-03) lapses on 2027-02-01, 90 days later; see [The price table](#the-price-table).
+- **No CI lint reads MR descriptions.** The cost-line rules run by hand; see [What isn't ported](#what-isnt-ported).
+- **The record K window guard is prose only.** Nothing checks that a record K names only agents spawned fresh in its window; see [The cost comments](#the-cost-records).
+- **SonarCloud hasn't scanned the new scripts yet.** The first nightly scan after merge may raise path-traversal or argv findings on them (`pythonsecurity:S8707`, `S2083`, `S8705`); Sonar doesn't treat `scripts/_paths.py` `resolve_within` as a sanitizer. Each finding gets an ignore entry with its reason, or the flagged line is restructured.
 
 ## What off records
 <a id="what-off-records"></a>
@@ -135,7 +145,7 @@ It prices the orchestrating session's own usage over `--since`/`--until` plus th
 
 **Watch out:** Visiban's table was **copied from Blueprint's table** (`checked` 2026-11-03, `source` the platform.claude.com pricing page), not re-copied from the source page. Prices are copied from that page by a person and checked in review, never invented.
 
-**Refresh it** (re-copy the source table and update `checked`) when `/kaizen` reports `subagent-tokens:` lines but no `est-cost-usd:` line in its window: a stale table only omits the estimate, it warns nobody.
+**Refresh it** (re-copy the source table and update `checked`) before it lapses on 2027-02-01, or when `/kaizen` reports `subagent-tokens:` lines but no `est-cost-usd:` line in its window: a stale table only omits the estimate, it warns nobody (#2131).
 
 ## The cost comments
 <a id="the-cost-records"></a>
@@ -148,7 +158,7 @@ Work on an MR after its first comment is a further comment, never an edit:
 - **Record K** (2, 3, ...) covers one later window: a fix round after the MR opened, or a re-measure. Its heading is `## Cost of this MR (#<issue>) — record K`, it states its window start and end, its figures come from the measuring scripts' own stdout for that window (not from the description), and it adds a running-total row across records 1..K.
 - **The `## Gates` lines stay record 1's figures.** No reader sums the later records: `/kaizen` sees the branch up to the go-ahead.
 - **One record per window.** A re-run for the same window (same start and end) updates that window's record, which must be the latest; a different window posts a new one. An earlier record is never edited: record 1 is refused (exit 5) once a record 2 exists, and so is a window that matches any record but the latest.
-- **A subagent still running after a record's window end is counted in no record.** The subagent scripts have no per-window cut: they count an agent's usage up to `--until`. Name only agents spawned fresh in a record K's window; a resumed agent makes the subagent cells `n/a` (post the record without a `subagent-tokens:` / `est-cost-usd:` line). Nothing checks this but the prose (upstream's guard is `macrodream/blueprint#385`).
+- **A subagent still running after a record's window end is counted in no record.** The subagent scripts have no per-window cut: they count an agent's usage up to `--until`. Name only agents spawned fresh in a record K's window; a resumed agent makes the subagent cells `n/a` (post the record without a `subagent-tokens:` / `est-cost-usd:` line). Nothing checks this but the prose (#2131; upstream's guard is `macrodream/blueprint#385`).
 - **A window with no subagent** shows a **measured 0** for the Subagents row, only from the explicit `--no-agents`, given to both `subagent-tokens.py` (prints `subagent-tokens: 0`) and `est-cost.py` (prices the orchestrator alone). A forgotten `--agent` isn't a 0: without `--agent` and without `--no-agents` both exit 2, and the two together are a usage error.
 
 ### Running it
@@ -214,5 +224,5 @@ The amount is written `1.57 USD`, not with a dollar sign, so GitLab never reads 
 
 ## What isn't ported
 
-- **No MR-description CI lint.** Upstream's `mr-gate-ledger` job checks every MR description; Visiban has no gate-ledger lint job, and this port didn't add one. The cost rules live in `scripts/cost_ledger_lines.py`, run by hand before `glab mr create` (the `/mr` and `/wave` skills say when).
+- **No MR-description CI lint.** Upstream's `mr-gate-ledger` job checks every MR description; Visiban has no gate-ledger lint job, and this port didn't add one (#2131). The cost rules live in `scripts/cost_ledger_lines.py`, run by hand before `glab mr create` (the `/mr` and `/wave` skills say when).
 - **Not ported:** upstream's `gate-yield.py` and `mr-verdict.py` (the `/kaizen` adaptation above replaces the cost sections of `gate-yield.py`), its `change-class:` ledger line (Visiban classifies by branch prefix), and its context-nudge Stop hook.
