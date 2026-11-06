@@ -385,7 +385,8 @@ Every agent finishes by, in order:
 6. **Push, then open the MR itself**, reproducing the `mr` skill's format by running
    `glab mr create` directly. `/mr` is `disable-model-invocation` — an agent
    cannot call it and must not try. `.claude/skills/mr/SKILL.md` is the
-   canonical format for both paths.
+   canonical format for both paths. The implementer skips `/mr` Step 4's cost-comment check:
+   Step 6 posts and checks record 1, because only the orchestrator holds the window end and split.
 7. Include `Closes #NNN` in the MR description, the `completeness-check`
    `## Requirements` table, and a `## Gates` section with one
    `gate: <name> — <N> findings` line per gate run (including
@@ -449,6 +450,18 @@ Sonnet vs Opus table, as an MR comment; without `--post` it prints the body. Exi
 or the description says `cost-ledger: off`): nothing is posted. Exit 4 (the notes could not be
 read or written) or 5 (refused: a later record exists, or record 1 is doubled or hand-written):
 say so in the Step 7 report.
+
+**Check that record 1 landed.** With the ledger on and the description carrying measured cost
+lines, a missing cost comment is treated like a missing `completeness-check` ledger line: the MR
+is not reported done. After the post, run `python3 scripts/cost-table.py --next-since --mr <iid>`.
+Exit 0: this user has a record with a window end. Exit 1: no such record (none, one that does not
+parse, or one with no window end). On exit 1, re-post once (re-brief first if the description
+needs a fix) and re-check; a record posted without a valid `--until` fails the same check again,
+so after that one retry the MR goes in the Step 7 report as not landed, with the exit code.
+Exit 4 (notes unreadable): report the state as unknown, never as missing. Exit 3 (ledger off):
+nothing is expected. Exempt: ledger off (`scripts/cost-ledger enabled` exits non-zero) or
+a description with `cost-ledger: off` (the post exits 3), where no comment is expected
+(`docs/development/cost-ledger.md` § *Checks that the comment exists*).
 
 **Work on the MR after record 1** (a fix round after the MR opened, a re-measure) gets its own
 record, `— record K`, never an edit of record 1, and the `## Gates` lines stay record 1's figures.
