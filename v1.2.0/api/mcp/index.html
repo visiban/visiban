@@ -2503,6 +2503,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#board_flow_metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        board_flow_metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aging_cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        aging_cards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#create_card" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4817,13 +4839,13 @@
 </tr>
 <tr>
 <td>Compute</td>
-<td><code>list_cards</code> and <code>board://{board_id}</code> only, <strong>in addition to</strong> the baseline limit above</td>
+<td><code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code> and <code>board://{board_id}</code> only, <strong>in addition to</strong> the baseline limit above</td>
 <td><code>30/min</code> per token</td>
 <td><code>MCP_THROTTLE_COMPUTE_RATE</code></td>
 </tr>
 </tbody>
 </table>
-<p>A call to <code>list_cards</code> or <code>board://{board_id}</code> spends a unit from <strong>both</strong> buckets; every other tool/resource spends only the baseline unit. There is no <code>DEBUG</code>-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.</p>
+<p>A call to <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code> or <code>board://{board_id}</code> spends a unit from <strong>both</strong> buckets; every other tool/resource spends only the baseline unit. There is no <code>DEBUG</code>-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.</p>
 <p>This applies uniformly to every token, including a site admin's — there is no admin exemption from the throttle, unlike maintenance mode.</p>
 <p>Both settings accept the same <code>&lt;count&gt;/&lt;period&gt;</code> syntax as DRF's throttle rates (<code>m</code>/<code>min</code>, <code>h</code>/<code>hour</code>, <code>s</code>/<code>sec</code>, <code>d</code>/<code>day</code> — e.g. <code>"300/min"</code>, <code>"20/hour"</code>). Leaving both unset still gives the defaults above, not an unlimited server. A rate string that fails to parse raises <code>ImproperlyConfigured</code> at startup rather than silently disabling the limit.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">MCP_THROTTLE_READ_RATE</span><span class="o">=</span><span class="m">300</span>/min
@@ -5109,7 +5131,7 @@
 </tr>
 <tr>
 <td><code>maintenance_mode</code></td>
-<td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>) keep working regardless. Added in 1.2.</td>
+<td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>) keep working regardless. Added in 1.2.</td>
 </tr>
 <tr>
 <td><code>throttled</code></td>
@@ -5177,6 +5199,61 @@
 <p><em>Changed in 1.2: <code>limit</code>, <code>offset</code> and <code>include_meta</code> are new and optional, and the card fields are unchanged. A call that omits them returns the same array as before; the only difference is the in-band notice and <code>_meta</code> on a call that was truncated (#1762).</em></p>
 <p><strong>Returns:</strong> by default, an array of <code>{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason}</code>. <code>assignee</code> is a <code>{username, display_name}</code> object or <code>null</code> (see <a href="#user-fields">User fields</a>); <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, uid, name}</code> objects so a result can be fed straight into <code>move_card</code>. <code>uid</code>, <code>version</code>, and the <code>uid</code> inside <code>column</code>/<code>swimlane</code> are new in 1.3 (#1974; see <a href="#stable-identifiers-uid">Stable identifiers</a> and <a href="#optimistic-concurrency">Optimistic concurrency</a>). <code>blocked_at</code> (ISO 8601, or <code>null</code>) and <code>blocked_reason</code> (<code>""</code> when not blocked) are the card's manual blocked state, <em>added in 1.3</em> (#1149; see <a href="#block_card"><code>block_card</code></a>).</p>
 <p>With <code>include_meta: true</code>, an object instead (and no in-band notice, since the data carries the signal): <code>{cards, total, truncated, limit, offset}</code>. <code>cards</code> is the same array described above; <code>total</code> is the number of cards matching the filters, ignoring <code>limit</code>/<code>offset</code>; <code>truncated</code> is <code>true</code> when more matching cards exist after the returned ones (fetch them with a larger <code>offset</code>); <code>limit</code> and <code>offset</code> echo the values applied.</p>
+<h3 id="board_flow_metrics"><code>board_flow_metrics</code><a class="headerlink" href="#board_flow_metrics" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1151)</p>
+</blockquote>
+<p>Flow metrics for one board over a rolling window, from the same service as the REST <a href="../../features/analytics/"><code>metrics/*</code> endpoints</a> (ADR #1532; both default to 90 days): cycle time and throughput equal <code>GET /boards/{id}/metrics/cycle-time</code> and <code>/throughput</code> for the same <code>days</code> and <code>swimlane_id</code>; WIP counts and blocked time come from the same service (REST has no per-column WIP count endpoint, and its blocked-time block is not cut by swimlane). All board roles may call it; it needs only <code>mcp:read</code> and spends from the <a href="#rate-limiting">compute bucket</a>.</p>
+<p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>window_days</code> (integer 1 to 365, default <code>90</code>, the REST <code>days</code> default); <code>swimlane_id</code> (integer, optional, must belong to the board). A value that reaches the tool out of range, or a swimlane that is not on the board, is a <code>validation_error</code> keyed by the argument. Type coercion and the rejection of non-integers (<code>30.5</code>, <code>"abc"</code>) are done by the MCP SDK's input schema, as for every tool. A swimlane of another board and a nonexistent swimlane get the same message.</p>
+<p><strong>Returns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>window_days</code>, <code>swimlane_id</code></td>
+<td>The arguments applied.</td>
+</tr>
+<tr>
+<td><code>window</code></td>
+<td><code>{start, end}</code>, ISO 8601.</td>
+</tr>
+<tr>
+<td><code>cycle_time</code></td>
+<td><code>{definition, sample_size, excluded_incomplete_history, percentiles: {p50, p85, p95}}</code>. Days; cards that completed in the window. Each percentile is <code>null</code> below its sample-size floor (5, 7, 20).</td>
+</tr>
+<tr>
+<td><code>throughput</code></td>
+<td><code>{definition, period: "week", total, median, weeks: [{start, count}]}</code>. Whole Monday-to-Sunday weeks inside the window, so the default 90-day window holds twelve or thirteen. <code>median</code> needs five whole weeks and is <code>null</code> below that (always under 35 days, possibly up to 41); raise <code>window_days</code> for a median. <code>total</code> counts the completions in those weeks.</td>
+</tr>
+<tr>
+<td><code>wip</code></td>
+<td><code>{definition, columns: [{column_id, column_uid, column_name, count}]}</code>: cards, not archived, currently in each not-done column.</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td><code>{total: {days, seconds, blocks}, days_per_column, seconds_per_column, blocks_per_column, top_reasons: [{reason, count, total_days, total_seconds}]}</code>, keyed by column name; the same object as the REST blocked-time block (#1149).</td>
+</tr>
+</tbody>
+</table>
+<p>The per-card <code>samples</code> and <code>card_uids</code> lists REST returns are left out so the result does not grow with the board; use <code>list_cards</code> for the cards behind a count. Archived cards count toward cycle time and throughput once completed, and never toward WIP, as in REST.</p>
+<h3 id="aging_cards"><code>aging_cards</code><a class="headerlink" href="#aging_cards" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1151)</p>
+</blockquote>
+<p>Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (<code>history_days</code>, REST's default dwell range), board-wide. Done columns and archived cards never appear. All board roles; <code>mcp:read</code>; compute bucket.</p>
+<p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>percentile</code> (integer 1 to 99, default <code>85</code>). A high percentile needs many samples: above 95 a column almost always has a <code>null</code> threshold.</p>
+<p><strong>Returns:</strong> <code>{percentile, history_days, columns, total, truncated, limit, cards}</code>.</p>
+<ul>
+<li><code>columns</code>: one row per not-done column, <code>{column_id, column_uid, column_name, sample_size, threshold_days}</code>. <code>threshold_days</code> is <code>null</code> when the column has too few finished stays (fewer than 5, or too few for that percentile), and such a column flags nothing. An empty <code>cards</code> array therefore does not prove nothing is aging; read <code>columns</code>.</li>
+<li><code>cards</code>: worst first (<code>value_days</code> divided by threshold, then card id), at most <code>limit</code> (100). Each is <code>{id, uid, title, column: {id, uid, name}, swimlane: {id, name} | null, assignee: {username, display_name} | null, value_days, threshold_days, blocked}</code>. <code>value_days</code> is the time in the card's current column, in days (ADR #1532 current dwell). <code>blocked</code> is the card's current blocked state, manual or by relation.</li>
+<li><code>total</code> is the number flagged before the cap; <code>truncated</code> is <code>true</code> when <code>total</code> exceeds <code>limit</code>.</li>
+</ul>
+<p>Both flow tools follow the <a href="#stability-and-versioning">stability rules</a>: names and existing result keys are never removed. Result keys may be added.</p>
 <h3 id="create_card"><code>create_card</code><a class="headerlink" href="#create_card" title="Permanent link">&para;</a></h3>
 <p>Creates a card, appended to the end of its column/swimlane cell (or inserted at <code>position</code> if given). Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>board_id</code>, <code>column_id</code>, <code>swimlane_id</code>, <code>title</code> (required); <code>description</code>, <code>priority</code> (default <code>"medium"</code>), <code>assignee</code> (username of any board member whose role is not <code>viewer</code>), <code>labels</code> (array of names), <code>due_date</code> (<code>YYYY-MM-DD</code>), <code>position</code> — all optional.</p>
@@ -5346,7 +5423,7 @@
 </blockquote>
 <p>The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
 <ul>
-<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, and since 1.3 <code>block_card</code>, <code>unblock_card</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
+<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, and since 1.3 <code>block_card</code>, <code>unblock_card</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
 <li><strong>Argument schemas</strong> change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.</li>
 <li><strong>Results and error payloads</strong> only gain fields; existing fields keep their name and type. The error <code>code</code> values listed under <a href="#tool-errors">Tool errors</a> are never removed.</li>
 <li>A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
@@ -5356,7 +5433,7 @@
 </ul>
 <hr />
 <h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
-<p>Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the <code>board://</code>/<code>card://</code> resources (this release). A full setup guide is tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>
+<p>Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the <code>board://</code>/<code>card://</code> resources (this release). A full setup guide is tracked separately. The read-only flow-metrics tools (<code>board_flow_metrics</code>, <code>aging_cards</code>) are part of the OSS core since 1.3; OAuth 2.1 is planned for the Enterprise edition.</p>
 
 
 

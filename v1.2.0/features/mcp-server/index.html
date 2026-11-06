@@ -4325,7 +4325,7 @@
 <p>Replace <code>&lt;your-visiban-host&gt;</code> with your instance's hostname and <code>&lt;your-token&gt;</code> with the token you copied. Restart Claude Desktop after saving the file.</p>
 <p>Once connected, Claude Desktop shows Visiban as an active MCP server with a green status indicator. The server's details list:</p>
 <ul>
-<li><strong>Tools</strong> — <code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, and, if your token carries <code>mcp:write</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code></li>
+<li><strong>Tools</strong> — <code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>, and, if your token carries <code>mcp:write</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code></li>
 <li><strong>Resources</strong> — the <code>board</code> and <code>card</code> resource templates (<code>board://{board_id}</code>, <code>card://{card_id}</code>)</li>
 </ul>
 <p><strong>Watch out:</strong> if the server doesn't appear, check that the URL includes <code>/mcp</code>, the token is prefixed <code>Bearer</code> (not <code>Token</code>), and <code>MCP_SERVER_ENABLED</code> is set on the backend.</p>
@@ -4361,6 +4361,18 @@
 <tr>
 <td><code>list_cards</code></td>
 <td>List a board's cards, with optional filters</td>
+<td>any</td>
+<td><code>mcp:read</code></td>
+</tr>
+<tr>
+<td><code>board_flow_metrics</code></td>
+<td>Cycle time p50/p85/p95, weekly throughput, WIP per column and blocked time over a window, optionally for one swimlane (<em>1.3</em>)</td>
+<td>any</td>
+<td><code>mcp:read</code></td>
+</tr>
+<tr>
+<td><code>aging_cards</code></td>
+<td>Cards sitting in their current column longer than a percentile of that column's historical dwell time (<em>1.3</em>)</td>
 <td>any</td>
 <td><code>mcp:read</code></td>
 </tr>
@@ -4402,6 +4414,7 @@
 </tr>
 </tbody>
 </table>
+<p>The two flow tools answer "how is work moving?" from the flow service behind the <a href="../analytics/">flow metrics</a> (definitions in the <a href="../../architecture/decisions/">flow metric decision record</a>). <code>board_flow_metrics</code> cycle time and throughput equal the REST <code>metrics/cycle-time</code> and <code>metrics/throughput</code> endpoints for the same <code>days</code> and swimlane (both default to 90); WIP and blocked time come from the same service with no REST twin for per-column WIP. <code>aging_cards</code> has no REST or web counterpart; it uses the same dwell service as the heatmap. A percentile is <code>null</code> when there are too few samples (p50 needs 5, p85 7, p95 20), and throughput counts whole Monday-to-Sunday weeks only, so a window under 35 days always has a <code>null</code> weekly median. <code>null</code> means "not enough data", never zero. Block reasons and card titles in the results are free text written by board members.</p>
 <p><code>collaborator</code> and <code>viewer</code> roles can read but not write. A write tool called with either role returns a structured <code>permission_denied</code> error, not a <code>500</code>. Full argument/return shapes and error codes are in <a href="../../api/mcp/#tools">API Reference — MCP Server — Tools</a>.</p>
 <h2 id="available-resources-oss">Available resources (OSS)<a class="headerlink" href="#available-resources-oss" title="Permanent link">&para;</a></h2>
 <table>
@@ -4428,7 +4441,7 @@
 <p>Both resources are read-only and require only the <code>mcp:read</code> scope. See <a href="../../api/mcp/#resources">API Reference — MCP Server — Resources</a> for the exact response shape.</p>
 <h2 id="rate-limiting">Rate limiting<a class="headerlink" href="#rate-limiting" title="Permanent link">&para;</a></h2>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
-<p>Every tool call and resource read counts against a per-token limit (<code>300/min</code> by default, configurable via <code>MCP_THROTTLE_READ_RATE</code>). <code>list_cards</code>/<code>board://{board_id}</code> also count against a tighter, second limit for expensive reads (<code>30/min</code> by default, <code>MCP_THROTTLE_COMPUTE_RATE</code>).</p>
+<p>Every tool call and resource read counts against a per-token limit (<code>300/min</code> by default, configurable via <code>MCP_THROTTLE_READ_RATE</code>). <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code> and <code>board://{board_id}</code> also count against a tighter, second limit for expensive reads (<code>30/min</code> by default, <code>MCP_THROTTLE_COMPUTE_RATE</code>).</p>
 <ul>
 <li>Limits are per token, not per IP. A separate per-IP cap, <code>MCP_THROTTLE_PREAUTH_RATE</code>, applies only to failed authentication attempts.</li>
 <li>Limits hold across every backend replica.</li>
@@ -4462,7 +4475,6 @@
 <p>The tools, resources, and Bearer-token authentication above are the full OSS (Phase 1) surface. <a href="https://visiban.com/enterprise">Visiban Enterprise</a> is planned to add:</p>
 <ul>
 <li>OAuth 2.1, so connecting a client no longer means managing a long-lived Bearer token by hand</li>
-<li>analytics tools</li>
 <li>prompt templates</li>
 <li>RBAC-scoped tool visibility (hiding tools a caller's role could never use, rather than returning <code>permission_denied</code> when they're called)</li>
 </ul>
