@@ -121,7 +121,8 @@ function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership): 
  * board's identity. Every single-card replacement in this hook (socket frames
  * and HTTP card responses) goes through here; see isStaleCard for why an equal
  * version still replaces. The full-board fetches in `load` / `silentReload`
- * still replace every card with whatever the server returned (#2038).
+ * apply the same rule, but only to cards written while they were in flight;
+ * see mergeFullSnapshot (#2038).
  */
 function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card) => Card = (c) => c): Card[] {
   const i = cards.findIndex((c) => c.id === incoming.id);
@@ -161,6 +162,129 @@ function applySiblingPositions(cards: Card[], pairs: readonly CardSiblingPositio
     next[i] = { ...cards[i], position: pair.position };
   }
   return next ?? cards;
+}
+
+/**
+ * The card writes this client applied while one `/full/` fetch was in flight
+ * (#2038). One set exists per fetch, created when the fetch starts and closed
+ * when its response arrives, so it holds only what happened after the start.
+ */
+interface FetchTouches {
+  /**
+   * Ids of cards a frame or an HTTP response wrote onto the board. A copy the
+   * #1969 guard dropped as older than the one on screen is not a write.
+   */
+  written: Set<number>;
+  /** Ids of cards whose position a `card.moved` sibling pair set (#1890). */
+  siblingPositions: Set<number>;
+  /** Uids of cards that left the board; `true` when they left by archiving. */
+  removed: Map<string, boolean>;
+}
+
+/**
+ * Apply a `/full/` response over the board on screen (#2038).
+ *
+ * The server serializes the snapshot at some point while the request is in
+ * flight. A frame that arrives during the fetch may have been committed after
+ * that point, so applying the snapshot wholesale would undo it until the next
+ * event for that card: an edit reverts, a card created meanwhile vanishes, a
+ * deleted or archived one comes back.
+ *
+ * Design choice: the snapshot stays authoritative, except for the cards that
+ * this client wrote while the fetch was in flight. A blanket merge by version
+ * (keep the newer card for every id) was rejected for three reasons:
+ * - A reload exists to recover from drift: a frame lost while the socket was
+ *   down or before it joined the board group (#1463, #1968), or a counter
+ *   change that never sent a frame. For a card nothing touched during the
+ *   fetch, the snapshot is the best state the client can get, whatever its
+ *   version, so it replaces the local copy. That includes a lower version,
+ *   which is how a deliberate server-side correction (a database restore, a
+ *   demo reset) reaches the screen.
+ * - Versions cannot answer "is this card still on the board". A card missing
+ *   from the snapshot was either removed before it was read or created after;
+ *   only the knowledge that a frame created it during the fetch tells the two
+ *   apart. Removals are the same in reverse.
+ * - The local copy of an untouched card carries no information the snapshot
+ *   lacks, so there is nothing for a merge to protect.
+ *
+ * For a written card, the newer copy wins by `version`, with the #1969 rule:
+ * only a strictly lower snapshot version loses, and an equal version still
+ * replaces, because comments, attachments, checklists, relations and
+ * archive/unarchive change a card without bumping `version`. A card whose
+ * position a sibling pair set during the fetch keeps that position when the
+ * versions are equal: a position shift does not bump the sibling's version, so
+ * the version cannot tell an older snapshot from a newer one, and the pair is
+ * at least as new as the snapshot read (a later move in that cell sends a
+ * later frame, ordered by event_id in updateCard). Keeping the local copy is
+ * safe whenever a frame for a later change is still on its way: it lands on
+ * top, as it would without the reload.
+ *
+ * Presence: a card written during the fetch and missing from the snapshot is
+ * kept (it was created or restored after the read; a later delete or archive
+ * sends its own frame). A card that left the board during the fetch is dropped
+ * from the snapshot. One archived meanwhile also raises the snapshot's
+ * `archived_card_count`, which was read while the card was still on the board;
+ * without that, the count would drop below the truth, the unsafe direction
+ * (#1289). A card restored meanwhile and kept is not subtracted: over-counting
+ * is the safe direction, and the next full read corrects it.
+ *
+ * A different board (the hook is reused across /boards/:id), no previous
+ * board, or no writes during the fetch: the snapshot is returned unchanged.
+ * Only cards are merged. Columns, swimlanes, labels, members, custom field
+ * definitions and board-level fields are replaced by the snapshot as before
+ * (#2130). A column or swimlane deleted during the fetch can therefore come
+ * back with its cards, because the cascade does not record them, and it stays
+ * until the next full read, since no later event removes it again. An equal-version change the snapshot predates (a
+ * comment, attachment, checklist or relation) still reverts until the next
+ * event; telling those apart needs an event cursor on `/full/` (#2089).
+ */
+function mergeFullSnapshot(prev: BoardFull | null, snapshot: BoardFull, touches: FetchTouches): BoardFull {
+  if (!prev || prev.id !== snapshot.id) return snapshot;
+  if (touches.written.size === 0 && touches.siblingPositions.size === 0 && touches.removed.size === 0) return snapshot;
+  const local = new Map(prev.cards.map((c) => [c.id, c]));
+  const inSnapshot = new Set<number>();
+  const cards: Card[] = [];
+  let changed = false;
+  let archivedMeanwhile = 0;
+  for (const card of snapshot.cards) {
+    inSnapshot.add(card.id);
+    const mine = local.get(card.id);
+    if (!mine) {
+      // Gone from the screen. Dropped only when it left during the fetch;
+      // otherwise this is the drift a reload recovers (a card the client
+      // never received).
+      const archived = touches.removed.get(card.uid);
+      if (archived === undefined) {
+        cards.push(card);
+      } else {
+        changed = true;
+        if (archived) archivedMeanwhile += 1;
+      }
+      continue;
+    }
+    if (touches.written.has(card.id) && isStaleCard(card, mine)) {
+      cards.push(mine);
+      changed = true;
+    } else if (
+      touches.siblingPositions.has(card.id) && card.version === mine.version && card.position !== mine.position
+    ) {
+      cards.push({ ...card, position: mine.position });
+      changed = true;
+    } else {
+      cards.push(card);
+    }
+  }
+  for (const mine of prev.cards) {
+    if (!inSnapshot.has(mine.id) && touches.written.has(mine.id)) {
+      cards.push(mine);
+      changed = true;
+    }
+  }
+  if (!changed) return snapshot;
+  const archivedCount = typeof snapshot.archived_card_count === "number"
+    ? snapshot.archived_card_count + archivedMeanwhile
+    : snapshot.archived_card_count;
+  return { ...snapshot, cards, archived_card_count: archivedCount };
 }
 
 /**
@@ -268,9 +392,36 @@ export function useBoard() {
   const lastFullAtRef = useRef<number | null>(null);
   const getLastFullFetchAt = useCallback(() => lastFullAtRef.current, []);
 
+  // The card writes applied while the latest `/full/` fetch is in flight, or
+  // null when none is (#2038); see mergeFullSnapshot. Each writer reads the
+  // ref when it is called and records into that set from inside its setBoard
+  // updater, where it knows whether the card is on the board. Reading it at
+  // call time matters: React may run an updater queued before the response
+  // arrived only after the response's own updater was queued, but always
+  // before it, so the write still lands in the set the response merges with.
+  // A writer called after the response captures null (or a newer fetch's set)
+  // and its updater runs after the merge, on top of it.
+  const fetchTouchesRef = useRef<FetchTouches | null>(null);
+  const startFetchTouches = useCallback((): FetchTouches => {
+    const touches: FetchTouches = { written: new Set(), siblingPositions: new Set(), removed: new Map() };
+    fetchTouchesRef.current = touches;
+    return touches;
+  }, []);
+  // Applies a /full/ response that won the sequence guard. Closing the set
+  // first stops later writers from recording into it. Like the close on a
+  // failed fetch, this is hygiene rather than correctness: a later writer's
+  // updater runs after the merge, and the next fetch opens a fresh set, so a
+  // write into a closed set is never read. It only stops a set that is no
+  // longer needed from collecting ids.
+  const applyFullSnapshot = useCallback((snapshot: BoardFull, touches: FetchTouches) => {
+    if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
+    setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches));
+  }, []);
+
   const load = useCallback(() => {
     setLoading(true);
     const seq = ++fetchSeqRef.current;
+    const touches = startFetchTouches();
     loadPendingRef.current = true;
     archivedCountGen.current += 1;
     getBoardFull(boardId)
@@ -280,11 +431,12 @@ export function useBoard() {
         archivedCountGen.current += 1;
         lastFullAtRef.current = Date.now();
         setUnavailable(false);
-        setBoard(b);
+        applyFullSnapshot(b, touches);
       })
       .catch((err) => {
         // A superseded failure must not surface: the newer request owns state.
         if (seq !== fetchSeqRef.current) return;
+        if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
         loadPendingRef.current = false;
         if (err?.response?.status === 404 || err?.response?.status === 403) {
           // Board doesn't exist or user lost access. The API answers both the
@@ -298,7 +450,7 @@ export function useBoard() {
       // and its superseder (load or silentReload) clears it when it settles, so
       // loading can never stay stuck true.
       .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
-  }, [boardId]);
+  }, [boardId, startFetchTouches, applyFullSnapshot]);
 
   // `load` changes only with boardId. /boards/:id reuses this instance across
   // boards, so a previous board's unavailable/error state must not carry over
@@ -312,8 +464,11 @@ export function useBoard() {
   // Silent reload — re-fetches the full board without flashing the loading
   // skeleton.  Used by tab-focus reconciliation so the resync is invisible
   // to the user unless the board no longer exists or access was revoked.
+  // Like `load`, it keeps the card writes that landed while it was in flight
+  // (#2038, mergeFullSnapshot).
   const silentReload = useCallback(() => {
     const seq = ++fetchSeqRef.current;
+    const touches = startFetchTouches();
     archivedCountGen.current += 1;
     getBoardFull(boardId)
       .then((b) => {
@@ -322,10 +477,11 @@ export function useBoard() {
         archivedCountGen.current += 1;
         lastFullAtRef.current = Date.now();
         setUnavailable(false);
-        setBoard(b);
+        applyFullSnapshot(b, touches);
       })
       .catch((err) => {
         if (seq !== fetchSeqRef.current) return;
+        if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
         if (err?.response?.status === 404 || err?.response?.status === 403) {
           // Lost mid-session: same state as the initial load (#2041).
           setUnavailable(true);
@@ -338,7 +494,7 @@ export function useBoard() {
         // worth surfacing to the user; the WS connection will recover it.
       })
       .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
-  }, [boardId, load]);
+  }, [boardId, load, startFetchTouches, applyFullSnapshot]);
 
   const clearMoveError = useCallback(() => {
     setMoveError(null);
@@ -378,10 +534,15 @@ export function useBoard() {
       const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position, version: cardVersion });
       // A socket frame for a later change (a remote edit, or another move) can
       // arrive before this response; keep that newer copy (#1969).
+      const touches = fetchTouchesRef.current;
       setBoard((b) => {
         if (!b) return b;
         const cards = replaceCardUnlessStale(b.cards, card);
-        return cards === b.cards ? b : { ...b, cards };
+        if (cards === b.cards) return b;
+        // Recorded only when applied: a copy #1969 dropped as stale must not
+        // protect the card from the snapshot (#2038).
+        touches?.written.add(card.id);
+        return { ...b, cards };
       });
       // A stale "Move failed" / limit toast must not outlive a later success (#1761).
       clearMoveError();
@@ -468,10 +629,15 @@ export function useBoard() {
       const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position }, true);
       // A socket frame for a later change (a remote edit, or another move) can
       // arrive before this response; keep that newer copy (#1969).
+      const touches = fetchTouchesRef.current;
       setBoard((b) => {
         if (!b) return b;
         const cards = replaceCardUnlessStale(b.cards, card);
-        return cards === b.cards ? b : { ...b, cards };
+        if (cards === b.cards) return b;
+        // Recorded only when applied: a copy #1969 dropped as stale must not
+        // protect the card from the snapshot (#2038).
+        touches?.written.add(card.id);
+        return { ...b, cards };
       });
       return { ok: true };
     } catch (err: unknown) {
@@ -514,19 +680,34 @@ export function useBoard() {
     [runForcedMove],
   );
 
+  // Every card writer below records into the in-flight fetch's set, read at
+  // call time (#2038; see fetchTouchesRef).
   const addCard = useCallback((card: Card) => {
+    const touches = fetchTouchesRef.current;
     setBoard((b) => {
       if (!b) return b;
-      if (!b.cards.some((c) => c.id === card.id)) return { ...b, cards: [...b.cards, card] };
+      if (!b.cards.some((c) => c.id === card.id)) {
+        touches?.written.add(card.id);
+        return { ...b, cards: [...b.cards, card] };
+      }
       // Already present (the create response and the card.created echo both
-      // land here): an older copy must not replace a newer one (#1969).
+      // land here): an older copy must not replace a newer one (#1969), nor
+      // count as a write for an in-flight fetch.
       const cards = replaceCardUnlessStale(b.cards, card);
-      return cards === b.cards ? b : { ...b, cards };
+      if (cards === b.cards) return b;
+      touches?.written.add(card.id);
+      return { ...b, cards };
     });
   }, []);
 
   const removeCard = useCallback((cardId: number) => {
-    setBoard((b) => b ? { ...b, cards: b.cards.filter((c) => c.id !== cardId) } : b);
+    const touches = fetchTouchesRef.current;
+    setBoard((b) => {
+      if (!b) return b;
+      const gone = b.cards.find((c) => c.id === cardId);
+      if (gone) touches?.removed.set(gone.uid, false);
+      return { ...b, cards: b.cards.filter((c) => c.id !== cardId) };
+    });
   }, []);
 
   // Deleting a column or swimlane cascades to its archived cards, which the
@@ -558,10 +739,20 @@ export function useBoard() {
   // the count when the card actually leaves or enters `cards`, so the local
   // handler and the echoed card.archived / card.unarchived socket event for
   // the same action never double-count, whichever lands first.
-  const archiveCardWhere = useCallback((match: (c: Card) => boolean) => {
+  //
+  // `uid` is the frame's card_uid when the caller has one. A card.archived
+  // frame for a card not on screen is still recorded for an in-flight fetch
+  // (#2038): the snapshot may hold the card from before the archive, and must
+  // not bring it back.
+  const archiveCardWhere = useCallback((match: (c: Card) => boolean, uid?: string) => {
     archivedCountGen.current += 1;
+    const touches = fetchTouchesRef.current;
     setBoard((b) => {
-      if (!b || !b.cards.some(match)) return b;
+      if (!b) return b;
+      if (uid !== undefined) touches?.removed.set(uid, true);
+      const gone = b.cards.filter(match);
+      if (gone.length === 0) return b;
+      for (const c of gone) touches?.removed.set(c.uid, true);
       return {
         ...b,
         cards: b.cards.filter((c) => !match(c)),
@@ -570,16 +761,21 @@ export function useBoard() {
     });
   }, []);
   const archiveCard = useCallback((cardId: number) => archiveCardWhere((c) => c.id === cardId), [archiveCardWhere]);
-  const archiveCardByUid = useCallback((cardUid: string) => archiveCardWhere((c) => c.uid === cardUid), [archiveCardWhere]);
+  const archiveCardByUid = useCallback((cardUid: string) => archiveCardWhere((c) => c.uid === cardUid, cardUid), [archiveCardWhere]);
 
   const unarchiveCard = useCallback((card: Card) => {
     archivedCountGen.current += 1;
+    const touches = fetchTouchesRef.current;
     setBoard((b) => {
       if (!b) return b;
       if (b.cards.some((c) => c.id === card.id)) {
+        // A stale copy is dropped and, like everywhere, not recorded (#2038).
         const cards = replaceCardUnlessStale(b.cards, card);
-        return cards === b.cards ? b : { ...b, cards };
+        if (cards === b.cards) return b;
+        touches?.written.add(card.id);
+        return { ...b, cards };
       }
+      touches?.written.add(card.id);
       return {
         ...b,
         cards: [...b.cards, card],
@@ -651,7 +847,11 @@ export function useBoard() {
     // The updater reads and writes positionEventIds. It stays idempotent (it
     // only raises entries to the frame's own id, and compares with a strict
     // >), so React running it twice gives the same result.
+    //
+    // For an in-flight `/full/` fetch (#2038) it records the card when it is on
+    // the board, and each sibling whose position this frame set.
     const ordered = typeof eventId === "number" && Number.isFinite(eventId);
+    const touches = fetchTouchesRef.current;
     setBoard((b) => {
       if (!b) return b;
       const seen = positionEventIds.current;
@@ -667,10 +867,19 @@ export function useBoard() {
         return keepPosition && stored ? { ...prepared, position: stored.position } : prepared;
       });
       if (!cardStale) record(card.id);
+      // Only a copy that was applied counts as a write: a frame #1969 dropped
+      // as stale must not protect a pre-fetch copy from the snapshot (#2038).
+      if (stored && !cardStale) touches?.written.add(card.id);
       if (Array.isArray(siblingPositions) && siblingPositions.length > 0 && !cardStale) {
         const fresh = siblingPositions.filter((p) => typeof p?.id === "number" && !newerThanFrame(p.id));
+        const before = cards;
         cards = applySiblingPositions(cards, fresh);
         for (const p of fresh) record(p.id);
+        if (touches && cards !== before) {
+          for (let i = 0; i < cards.length; i++) {
+            if (cards[i] !== before[i]) touches.siblingPositions.add(cards[i].id);
+          }
+        }
       }
       return cards === b.cards ? b : { ...b, cards };
     });
@@ -862,8 +1071,15 @@ export function useBoard() {
     refreshArchivedCount();
   }, [refreshArchivedCount]);
 
+  // card.deleted. Recorded for an in-flight fetch even when the card is not on
+  // screen, so a snapshot read before the delete cannot bring it back (#2038).
   const evictCardByUid = useCallback((cardUid: string) => {
-    setBoard((b) => b ? { ...b, cards: b.cards.filter((c) => c.uid !== cardUid) } : b);
+    const touches = fetchTouchesRef.current;
+    setBoard((b) => {
+      if (!b) return b;
+      touches?.removed.set(cardUid, false);
+      return { ...b, cards: b.cards.filter((c) => c.uid !== cardUid) };
+    });
   }, []);
 
   const mergeBoardState = useCallback((patch: Partial<BoardFull>) => {
