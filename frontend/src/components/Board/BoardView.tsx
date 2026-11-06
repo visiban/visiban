@@ -3392,6 +3392,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onBoardDeleted={onBoardDeleted}
           onBoardDeleting={() => { selfDeletingRef.current = true; }}
           onBoardDeleteFailed={() => { selfDeletingRef.current = false; }}
+          currentUserId={currentUser?.id ?? null}
+          onDeleteForbidden={silentReload}
           onUpdateBoardSettings={onUpdateBoardSettings}
           cardDensityOverride={cardDensityOverride}
           onSetCardDensityOverride={setCardDensityOverride}

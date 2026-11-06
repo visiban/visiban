@@ -40,6 +40,7 @@ function dispatch(e: KeyboardEvent): void {
  *   57 — inline confirm removing an all-content member's board role (BoardSettingsModal, #1301)
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   42 — card-detail block/unblock reason form (CardBlockSection, #1149)
+ *   40.5 — Board Settings Danger Zone delete confirmation (BoardSettingsModal, #2034): swallowed while the request runs, clears a typed name, else false
  *   40 — modals and overlays
  *   35-39 — card-detail overlays: 35 archive/delete and comment-delete confirms, 36 move popover,
  *           37 relation picker (and bulk-add overlay), 38 MR/PR link editor, 39 multi-select value menu

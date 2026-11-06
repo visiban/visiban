@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
@@ -2625,7 +2625,7 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
 
   function renderDangerZone(board: BoardFull) {
     return render(
-      <BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="data" />
+      <BoardSettingsModal board={board} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="data" />
     )
   }
 
@@ -2634,9 +2634,9 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
     renderDangerZone({ ...fakeBoard, cards: [], archived_card_count: 2 })
     expect(screen.getByText('This board has 2 archived cards, which will also be permanently deleted.')).toBeInTheDocument()
     const deleteButton = screen.getByRole('button', { name: 'Delete board' })
-    expect(deleteButton).toBeDisabled()
+    expect(deleteButton).toHaveAttribute('aria-disabled', 'true')
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
-    expect(deleteButton).toBeEnabled()
+    expect(deleteButton).toHaveAttribute('aria-disabled', 'false')
   })
 
   it('uses the singular for one archived card', () => {
@@ -2649,7 +2649,7 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
     expect(screen.getByText(/all its cards \(including archived cards\), columns, and history/)).toBeInTheDocument()
     expect(screen.queryByText(/archived cards?, which will also be permanently deleted/)).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Sprint Board')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delete board' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Delete board' })).toHaveAttribute('aria-disabled', 'false')
   })
 })
 
@@ -2666,7 +2666,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleted = vi.fn(() => { order.push('deleted') })
     render(
       <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
-        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="data" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
@@ -2683,15 +2683,22 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const user = userEvent.setup()
     render(
       <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()}
-        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
     )
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
     expect(order).toEqual(['deleting', 'request', 'deleted'])
 
+    // A successful delete leaves the modal in "Deleting…" until the host navigates away.
+    cleanup()
     vi.mocked(deleteBoard).mockRejectedValueOnce(new Error('boom'))
     onBoardDeleted.mockClear()
+    render(
+      <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()} currentUserId={fakeUser.id}
+        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+    )
+    await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleteFailed).toHaveBeenCalledTimes(1))
     expect(onBoardDeleted).not.toHaveBeenCalled()
@@ -2704,11 +2711,131 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleted = vi.fn()
     render(
       <BoardSettingsModal board={{ ...fakeBoard, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
-        onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleteFailed).toHaveBeenCalled())
     expect(onBoardDeleted).not.toHaveBeenCalled()
+  })
+})
+
+describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  const owned = { ...fakeBoard, cards: [], archived_card_count: 0 } as BoardFull
+  const renderDz = (board: BoardFull, extra: Partial<React.ComponentProps<typeof BoardSettingsModal>> = {}) =>
+    render(<BoardSettingsModal board={board} isAdmin onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="data" {...extra} />)
+
+  it('offers delete to the board owner', () => {
+    renderDz(owned, { currentUserId: fakeUser.id })
+    expect(screen.getByRole('button', { name: 'Delete board' })).toBeInTheDocument()
+  })
+
+  it('keeps the section for a non-owner admin but removes the delete control and says why', () => {
+    renderDz({ ...owned, current_user_role: 'admin' }, { currentUserId: 999 })
+    expect(screen.getByText('Danger Zone')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Delete board/ })).not.toBeInTheDocument()
+    expect(screen.getByText(`Only the board owner (${fakeUser.display_name}) or a site administrator can delete this board.`)).toBeInTheDocument()
+  })
+
+  it('offers delete to a site_admin who is not the owner', () => {
+    renderDz({ ...owned, current_user_role: 'site_admin' }, { currentUserId: 999 })
+    expect(screen.getByRole('button', { name: 'Delete board' })).toBeInTheDocument()
+  })
+
+  it('does not navigate or announce success while the name does not match', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    const user = userEvent.setup()
+    renderDz({ ...owned, archived_card_count: 1 }, { currentUserId: fakeUser.id })
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(deleteBoard).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['403', { response: { status: 403 } }, "You can't delete this board. Only its owner or a site administrator can."],
+    ['network', { request: {} }, "Couldn't delete the board. Check your connection and try again."],
+    ['other', { response: { status: 500 } }, "Couldn't delete the board. Try again."],
+  ])('%s failure shows an inline alert, keeps the modal open and the typed name', async (kind, err, text) => {
+    const { deleteBoard } = await import('../api/boards')
+    vi.mocked(deleteBoard).mockRejectedValueOnce(err)
+    const onBoardDeleted = vi.fn()
+    const onBoardDeleteFailed = vi.fn()
+    const onDeleteForbidden = vi.fn()
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal board={{ ...owned, archived_card_count: 2 }} isAdmin onClose={onClose} currentUserId={fakeUser.id}
+        onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} onDeleteForbidden={onDeleteForbidden} initialTab="data" />
+    )
+    const field = screen.getByPlaceholderText('Sprint Board')
+    await user.type(field, 'Sprint Board')
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(text)
+    expect(onBoardDeleted).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(onBoardDeleteFailed).toHaveBeenCalledTimes(1)
+    expect(field).toHaveValue('Sprint Board')
+    expect(onDeleteForbidden).toHaveBeenCalledTimes(kind === '403' ? 1 : 0)
+    expect(screen.getByRole('button', { name: 'Delete board' })).toHaveAttribute('aria-disabled', 'false')
+  })
+
+  it('shows Deleting… and swallows a second click and Escape while in flight', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    let resolve!: () => void
+    vi.mocked(deleteBoard).mockImplementation(() => new Promise((r) => { resolve = () => r({} as never) }))
+    const onClose = vi.fn()
+    const onBoardDeleted = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal board={owned} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} initialTab="data" />
+    )
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    const busy = await screen.findByRole('button', { name: 'Deleting…' })
+    expect(busy).toHaveAttribute('aria-disabled', 'true')
+    await user.click(busy)
+    await user.keyboard('{Escape}')
+    expect(deleteBoard).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
+    resolve()
+    await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
+  })
+
+  it('a 403 that flips the owner to a non-owner keeps the alert and moves focus to the note', async () => {
+    const { deleteBoard } = await import('../api/boards')
+    vi.mocked(deleteBoard).mockRejectedValueOnce({ response: { status: 403 } })
+    const user = userEvent.setup()
+    const Host = () => {
+      const [b, setB] = useState<BoardFull>(owned)
+      return <BoardSettingsModal board={b} isAdmin onClose={vi.fn()} currentUserId={fakeUser.id}
+        onBoardDeleted={vi.fn()} onDeleteForbidden={() => setB({ ...owned, owner: fakeMember2 })} initialTab="data" />
+    }
+    render(<Host />)
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("You can't delete this board")
+    expect(screen.queryByRole('button', { name: /Delete board/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/Only the board owner/)).toHaveFocus()
+  })
+
+  it('clicking a blocked Delete focuses the typed-name field', async () => {
+    const user = userEvent.setup()
+    renderDz({ ...owned, archived_card_count: 1 }, { currentUserId: fakeUser.id })
+    await user.click(screen.getByRole('button', { name: 'Delete board' }))
+    expect(screen.getByPlaceholderText('Sprint Board')).toHaveFocus()
+  })
+
+  it('Escape collapses a typed confirmation before it closes the modal', async () => {
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal board={{ ...owned, archived_card_count: 1 }} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={vi.fn()} initialTab="data" />
+    )
+    const field = screen.getByPlaceholderText('Sprint Board')
+    await user.type(field, 'Spr')
+    await user.keyboard('{Escape}')
+    expect(field).toHaveValue('')
+    expect(onClose).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalled()
   })
 })
 

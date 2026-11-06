@@ -3,6 +3,7 @@ import { listBoards, createBoard, deleteBoard } from "../../api/boards";
 import type { Board, User } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
 import CreateBoardModal from "../Board/CreateBoardModal";
+import { canDeleteBoard } from "../../utils/canDeleteBoard";
 
 interface Props {
   user: User;
@@ -110,7 +111,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                   <p className="font-medium">{b.name}</p>
                   {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
                 </button>
-                {b.owner.id === user.id && (
+                {canDeleteBoard({ ownerId: b.owner.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true }) && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); setDeleteError(null); }}
                     disabled={deletingIds.size > 0}

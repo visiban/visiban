@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useToast } from "../../contexts/useToast";
+import { canDeleteBoard } from "../../utils/canDeleteBoard";
 import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement } from "../../hooks/useAnchoredPlacement";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
@@ -59,6 +61,10 @@ interface Props {
   onBoardDeleting?: () => void;
   /** Fired if the delete request fails, undoing onBoardDeleting. */
   onBoardDeleteFailed?: () => void;
+  /** Signed-in user's id, for the owner half of the delete gate (#2034). */
+  currentUserId?: number | null;
+  /** A 403 on delete: the viewer's role is stale, so the host refetches the board (#2034). */
+  onDeleteForbidden?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
@@ -168,7 +174,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId = null, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -258,6 +264,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const fullAccessChips = useRef(new Map<number, HTMLElement>());
   const [chipFocusUser, setChipFocusUser] = useState<number | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
+  // #2034 — Danger Zone delete: in-flight flag (ref mirrors it for the Escape
+  // handler and the re-entry guard) and the inline failure text.
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const { notify } = useToast();
   // #1373 — role/moderator/remove mutations used to have no catch at all (not
   // just an unsurfaced error — a genuine unhandled promise rejection). Shared
   // across the three Members-tab row actions since they all mutate the same
@@ -664,6 +676,67 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // Escape 57 (frontend/CLAUDE.md): dismisses only the all-content row's
   // "Remove this board role?" prompt, above ModalWrapper's 40, and returns false
   // otherwise so Escape still closes the modal or reaches other handlers.
+  // #2034 — Danger Zone delete. Offered only to the owner or a site
+  // administrator, the same predicate the board switcher uses; the server
+  // (BoardViewSet.destroy) is still the authority. The role comes from the
+  // board, so a 403's refetch (onDeleteForbidden) flips a stale owner into the
+  // non-owner note without any local bookkeeping.
+  const userCanDeleteBoard = canDeleteBoard({
+    ownerId: board.owner?.id,
+    userId: currentUserId,
+    hasAllContentAccess: board.current_user_role === "site_admin",
+  });
+  const deleteArmed = board.cards.length > 0 || (board.archived_card_count ?? 0) > 0;
+  const deleteReady = !deleteArmed || deleteInput === board.name;
+  const deleteInputRef = useRef<HTMLInputElement>(null);
+  const deleteNoteRef = useRef<HTMLParagraphElement>(null);
+  // A 403 refetch can flip the delete control into the non-owner note while the
+  // failure text is showing; the focused button unmounts, so land on the note.
+  useEffect(() => {
+    if (!userCanDeleteBoard && deleteError !== null) deleteNoteRef.current?.focus();
+  }, [userCanDeleteBoard, deleteError]);
+  const deleteBoardNow = async () => {
+    if (!deleteReady) { deleteInputRef.current?.focus(); return; }
+    if (deletingRef.current || !onBoardDeleted) return;
+    deletingRef.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    onBoardDeleting?.();
+    try {
+      await deleteBoard(board.id);
+    } catch (err) {
+      // A failed delete leaves the board in place; undo the announcement.
+      onBoardDeleteFailed?.();
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const forbidden = status === 403;
+      const offline = (err as { response?: unknown })?.response == null;
+      const title = forbidden ? "You can't delete this board" : "Couldn't delete the board";
+      const message = forbidden
+        ? "Only its owner or a site administrator can."
+        : offline
+          ? "Check your connection and try again."
+          : "Try again.";
+      // Inline first (this modal traps focus), then a toast that does not
+      // announce a second time (frontend/CLAUDE.md § Toasts, #1732).
+      setDeleteError(`${title}. ${message}`);
+      notify({ key: "board-delete", variant: "danger", title, message, announce: false });
+      deletingRef.current = false;
+      setDeleting(false);
+      if (forbidden) onDeleteForbidden?.();
+      return;
+    }
+    onBoardDeleted();
+  };
+  // Escape: swallowed while the request runs; otherwise collapses a typed
+  // confirmation (priority 41, above the modal's 40) before it can close the modal.
+  useEscapeStack(() => {
+    if (deletingRef.current) return true;
+    if (tab !== "data" || !userCanDeleteBoard || (deleteInput === "" && deleteError === null)) return false;
+    setDeleteInput("");
+    setDeleteError(null);
+    deleteInputRef.current?.focus();
+  }, 40.5);
+
   useEscapeStack(() => {
     const target = pendingRemove === null ? undefined : members.find((m) => m.user.id === pendingRemove);
     if (!target || !(target.role === "site_admin" || target.has_all_content_access === true)) return false;
@@ -1731,54 +1804,55 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                 <section className="border-t border-line pt-5">
                   <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">Danger Zone</h3>
+                  {deleteError && (
+                    <p role="alert" className="text-xs text-danger mb-2">{deleteError}</p>
+                  )}
+                  {!userCanDeleteBoard ? (
+                    <p ref={deleteNoteRef} tabIndex={-1} className="text-sm text-fg-tertiary focus:outline-none">
+                      Only the board owner ({board.owner?.display_name || board.owner?.username || "unknown"}) or a site administrator can delete this board.
+                    </p>
+                  ) : (
+                  <>
                   <p className="text-sm text-fg-tertiary mb-3">
                     Permanently delete <span className="text-fg font-medium">{board.name}</span> and all its cards (including archived cards), columns, and history. This cannot be undone.
                   </p>
                   {/* Archived cards are not in board.cards but cascade with the
                       board, so they count toward the typed-confirmation gate
                       exactly like active cards (#1289). */}
-                  {board.cards.length > 0 || (board.archived_card_count ?? 0) > 0 ? (
-                    <div className="flex flex-col gap-2">
-                      {(board.archived_card_count ?? 0) > 0 && (
-                        <p className="text-xs text-danger">
-                          This board has {board.archived_card_count} archived card{board.archived_card_count !== 1 ? "s" : ""}, which will also be permanently deleted.
+                  <div className="flex flex-col gap-2">
+                    {deleteArmed && (
+                      <>
+                        {(board.archived_card_count ?? 0) > 0 && (
+                          <p className="text-xs text-danger">
+                            This board has {board.archived_card_count} archived card{board.archived_card_count !== 1 ? "s" : ""}, which will also be permanently deleted.
+                          </p>
+                        )}
+                        <p id="board-delete-confirm-hint" className="text-xs text-fg-muted">
+                          Type <span className="text-fg-secondary font-mono">{board.name}</span> to confirm deletion.
                         </p>
-                      )}
-                      <p className="text-xs text-fg-muted">
-                        Type <span className="text-fg-secondary font-mono">{board.name}</span> to confirm deletion.
-                      </p>
-                      <input
-                        type="text"
-                        value={deleteInput}
-                        onChange={(e) => setDeleteInput(e.target.value)}
-                        placeholder={board.name}
-                        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
-                      />
-                      <button
-                        disabled={deleteInput !== board.name}
-                        onClick={async () => {
-                        onBoardDeleting?.();
-                        // A failed delete leaves the board in place; undo the announcement.
-                        try { await deleteBoard(board.id); } catch { onBoardDeleteFailed?.(); return; }
-                        onBoardDeleted();
-                      }}
-                        className="w-full bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-danger text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                      >
-                        Delete board
-                      </button>
-                    </div>
-                  ) : (
+                        <input
+                          type="text"
+                          ref={deleteInputRef}
+                          value={deleteInput}
+                          onChange={(e) => { if (!deleting) setDeleteInput(e.target.value); }}
+                          readOnly={deleting}
+                          aria-label="Type the board name to confirm deletion"
+                          placeholder={board.name}
+                          className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+                        />
+                      </>
+                    )}
                     <button
-                      onClick={async () => {
-                        onBoardDeleting?.();
-                        // A failed delete leaves the board in place; undo the announcement.
-                        try { await deleteBoard(board.id); } catch { onBoardDeleteFailed?.(); return; }
-                        onBoardDeleted();
-                      }}
-                      className="w-full bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                      type="button"
+                      aria-disabled={deleting || !deleteReady}
+                      aria-describedby={deleteArmed ? "board-delete-confirm-hint" : undefined}
+                      onClick={deleteBoardNow}
+                      className={`w-full bg-danger-bg text-on-danger text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis ${deleting || !deleteReady ? "opacity-40 cursor-not-allowed" : "hover:bg-danger-bg-hover"}`}
                     >
-                      Delete board
+                      {deleting ? "Deleting…" : "Delete board"}
                     </button>
+                  </div>
+                  </>
                   )}
                 </section>
                 </DemoInert>
