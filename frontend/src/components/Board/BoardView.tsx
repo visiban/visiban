@@ -503,11 +503,26 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const presetModified = boardPreset.differences.length > 0;
   // The primitive reports a click on the selected option as null. For a preset
   // that means "this one again": a reset when modified, nothing when not.
+  // Re-choosing the active, unmodified preset changes nothing, but a silent menu close
+  // reads as a dropped click (#2124). Say so in the shared toast region, which also
+  // announces it. A separate key from the apply notice so it never replaces that Undo.
+  const notifyPresetAlreadyActive = (name: string) => {
+    notifyToast({
+      key: "preset-already-active",
+      variant: "info",
+      title: `\u201c${name}\u201d is already applied`,
+      durationMs: 4000,
+      testId: "preset-already-active",
+    });
+  };
   const handlePresetChange = (next: BoardPresetId | null) => {
     const id = next ?? activePreset?.id ?? null;
     if (id === null) return;
     const same = id === activePreset?.id;
-    if (same && !presetModified) return;
+    if (same && !presetModified) {
+      if (activePreset) notifyPresetAlreadyActive(activePreset.name);
+      return;
+    }
     boardPreset.applyPreset(id, same ? "reset" : "apply");
   };
   const presetPickerRef = useRef<HTMLSpanElement>(null);
@@ -537,6 +552,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // the same Undo notice. Read through a ref so the listener subscribes once.
   const presetCommandRef = useRef({ boardPreset, activePreset, presetModified });
   presetCommandRef.current = { boardPreset, activePreset, presetModified };
+  const notifyPresetAlreadyActiveRef = useRef(notifyPresetAlreadyActive);
+  notifyPresetAlreadyActiveRef.current = notifyPresetAlreadyActive;
   useEffect(() => {
     const onPresetCommand = (e: Event) => {
       const command = (e as CustomEvent<PresetCommand>).detail;
@@ -545,7 +562,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         if (active && modified) bp.applyPreset(active.id, "reset");
       } else if (command?.kind === "apply" && getBoardPreset(command.presetId)) {
         const same = command.presetId === active?.id;
-        if (same && !modified) return;
+        if (same && !modified) {
+          if (active) notifyPresetAlreadyActiveRef.current(active.name);
+          return;
+        }
         bp.applyPreset(command.presetId, same ? "reset" : "apply");
       }
     };
@@ -2621,6 +2641,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             portalMenu
             className="!text-xs max-w-[10rem]"
             labelClassName="truncate min-w-0"
+            triggerTitle={activePreset?.name}
             options={presetOptions}
             selected={activePreset?.id ?? null}
             onChange={handlePresetChange}

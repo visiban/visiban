@@ -87,6 +87,11 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    */
   labelClassName?: string;
   /**
+   * #2124 — native `title` on the trigger, so a name truncated by `labelClassName`
+   * is reachable by hover. Omitted, no title is rendered.
+   */
+  triggerTitle?: string;
+  /**
    * #1146 — non-interactive content at the top of the menu (e.g. what a
    * modified preset changed). Not a menu item, so arrow keys skip it.
    */
@@ -122,6 +127,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   ariaLabelDetail,
   triggerSuffix,
   labelClassName,
+  triggerTitle,
   menuHeader,
   menuActions,
   optionRole = "menuitem",
@@ -360,6 +366,7 @@ export default function SingleSelectDropdown<T extends string | number>({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
+        title={triggerTitle}
         aria-label={
           ariaLabel !== undefined
             ? `${ariaLabel}: ${displayLabel}${ariaLabelDetail ? `, ${ariaLabelDetail}` : ""}`
