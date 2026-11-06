@@ -157,7 +157,7 @@ vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
 }))
 // Captures the props BoardView hands the settings modal (#1290).
 let capturedSettingsProps: {
-  currentUserIsSiteAdmin?: boolean; initialTab?: string; focusFirstStoppedWebhook?: boolean
+  currentUserIsSiteAdmin?: boolean; currentUserId?: number | null; onDeleteForbidden?: () => void; initialTab?: string; focusFirstStoppedWebhook?: boolean
   onShareChanged?: (patch: { share_link_active: boolean | null; share_token_expires_at: string | null }) => void
 } = {}
 vi.mock('../components/Board/BoardSettingsModal', () => ({
@@ -622,6 +622,17 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByLabelText('Board settings'))
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+  })
+
+  it('hands the settings modal the signed-in user id and a role-refetching onDeleteForbidden (#2034)', async () => {
+    const silentReload = vi.fn()
+    mockBoardContextValue = defaultContext({ board: makeBoard(), silentReload })
+    render(<BoardView {...defaultProps()} currentUser={{ id: 77 } as never} />)
+    await userEvent.setup().click(screen.getByLabelText('Board settings'))
+    // Without the id the modal fails closed and hides Delete from the owner.
+    expect(capturedSettingsProps.currentUserId).toBe(77)
+    capturedSettingsProps.onDeleteForbidden?.()
+    expect(silentReload).toHaveBeenCalledTimes(1)
   })
 
   it('merges the Sharing tab share-link state into board state (#1935)', async () => {

@@ -1,6 +1,6 @@
 /**
  * Who may delete a board (#2034). One predicate for every surface that offers
- * a board delete (the board switcher and Board Settings' Danger Zone), so they
+ * a board delete (the Dashboard, the BoardSelector and Board Settings' Danger Zone), so they
  * cannot drift apart.
  *
  * It mirrors `BoardViewSet.destroy`: only the board's owner or a user holding

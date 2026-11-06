@@ -673,11 +673,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     }
   };
 
-  // Escape 57 (frontend/CLAUDE.md): dismisses only the all-content row's
-  // "Remove this board role?" prompt, above ModalWrapper's 40, and returns false
-  // otherwise so Escape still closes the modal or reaches other handlers.
   // #2034 — Danger Zone delete. Offered only to the owner or a site
-  // administrator, the same predicate the board switcher uses; the server
+  // administrator, the same predicate the Dashboard and BoardSelector use; the server
   // (BoardViewSet.destroy) is still the authority. The role comes from the
   // board, so a 403's refetch (onDeleteForbidden) flips a stale owner into the
   // non-owner note without any local bookkeeping.
@@ -739,6 +736,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     deleteInputRef.current?.focus();
   }, 40.5);
 
+  // Escape 57 (frontend/CLAUDE.md): dismisses only the all-content row's
+  // "Remove this board role?" prompt, above ModalWrapper's 40, and returns false
+  // otherwise so Escape still closes the modal or reaches other handlers.
   useEscapeStack(() => {
     const target = pendingRemove === null ? undefined : members.find((m) => m.user.id === pendingRemove);
     if (!target || !(target.role === "site_admin" || target.has_all_content_access === true)) return false;
