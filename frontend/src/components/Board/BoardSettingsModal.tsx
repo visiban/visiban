@@ -730,7 +730,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     onBoardDeleted();
   };
   // Escape: swallowed while the request runs; otherwise collapses a typed
-  // confirmation (priority 41, above the modal's 40) before it can close the modal.
+  // confirmation (priority 40.5, above the modal's 40) before it can close the modal.
   useEscapeStack(() => {
     if (deletingRef.current) return true;
     if (tab !== "data" || !userCanDeleteBoard || (deleteInput === "" && deleteError === null)) return false;
