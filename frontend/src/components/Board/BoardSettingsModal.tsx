@@ -62,7 +62,7 @@ interface Props {
   /** Fired if the delete request fails, undoing onBoardDeleting. */
   onBoardDeleteFailed?: () => void;
   /** Signed-in user's id, for the owner half of the delete gate (#2034). */
-  currentUserId?: number | null;
+  currentUserId: number | null;
   /** A 403 on delete: the viewer's role is stale, so the host refetches the board (#2034). */
   onDeleteForbidden?: () => void;
   viewPrefs?: ViewPrefs;
@@ -174,7 +174,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId = null, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -708,6 +708,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       // A failed delete leaves the board in place; undo the announcement.
       onBoardDeleteFailed?.();
       const status = (err as { response?: { status?: number } })?.response?.status;
+      // 403 copy is the 1.3 UI spec's (Part 9) for every cause; demo or
+      // maintenance gating could also 403 and gets the same words by design.
       const forbidden = status === 403;
       const offline = (err as { response?: unknown })?.response == null;
       const title = forbidden ? "You can't delete this board" : "Couldn't delete the board";
