@@ -35,6 +35,8 @@ Archive and unarchive events are broadcast to all board members over WebSockets:
 | `card.archived` | Card is removed from the active board view |
 | `card.unarchived` | Card is added back to the board in its column/swimlane |
 
+While the **Archived** panel is open, it follows these events too: a card archived by someone else appears at the top, and a card someone else unarchives or deletes disappears from the list. The count and **Load more** stay accurate.
+
 ## Analytics and dwell time
 
 Archived cards are included in analytics for the period they were active. Dwell time in the final stage is calculated up to the archive timestamp, not the current date. See [Analytics & Summary](analytics.md#dwell-time-and-archived-cards).
