@@ -1,0 +1,4714 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.2.0/development/cost-ledger/">
+      
+      
+        <link rel="prev" href="../kaizen-fastpath-proposal/">
+      
+      
+        <link rel="next" href="../websocket-event-contract/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>MR Cost Ledger - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/version-badge.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#record-what-each-merge-request-cost" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              MR Cost Ledger
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../maintainers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Maintainers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/custom-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/blocked-cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blocked Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/column-policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/health-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/mcp-demo-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ask Your Agent About the Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_29" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_29" id="__nav_3_29_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_29_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_29">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/webhooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/field-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mutation-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mutation Testing Baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency-lock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Dependency Lock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-compat-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Compatibility Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authorization-entry-points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authorization Entry Points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaizen-fastpath-proposal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Fast-Path Proposal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MR Cost Ledger
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MR Cost Ledger
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-pieces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pieces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#check-it-and-turn-it-on-or-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check it, and turn it on or off
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Check it, and turn it on or off">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-it-lives-and-which-layer-wins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where it lives, and which layer wins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-a-setting-and-why-these-two-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a setting, and why these two layers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-debt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known debt
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-off-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What off records
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-lines-in-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The lines in ## Gates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The lines in ## Gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-layout-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The layout dependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-est-cost-usd-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The est-cost-usd: line
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The est-cost-usd: line">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-price-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The price table
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-cost-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The cost comments
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The cost comments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-a-record-shows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a record shows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-earlier-records-back" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading earlier records back
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#an-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        An example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-kaizen-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What /kaizen reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-isnt-ported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What isn't ported
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../load-test-version-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Test Version Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs-style-smart-brevity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs Style (Smart Brevity)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/card-history-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/image-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Release Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../maintainers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintainers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Maintainers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/sonarcloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarCloud Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-deferred-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deferred Security Follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/security-scanners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Scanners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="record-what-each-merge-request-cost">Record what each merge request cost<a class="headerlink" href="#record-what-each-merge-request-cost" title="Permanent link">&para;</a></h1>
+<p><a id="cost-ledger"></a></p>
+<p><code>/wave</code> writes each MR's measured token usage and a list-price USD estimate in its <code>## Gates</code> section, and posts a readable cost table as an MR comment (#2128).</p>
+<p><strong>Why it matters:</strong> <code>## Gates</code> already records each gate's <em>yield</em>. Without its cost beside it, <code>/kaizen</code> can't ask the question that decides whether a gate or a rework round earns its slot: findings per dollar, by gate and by change class.</p>
+<p><strong>The big picture:</strong> One setting, <code>cost-ledger</code>, turns all of it on or off. It's <strong>on by default</strong>. Three scripts measure, one renders the comment, one checks the lines, and <code>/kaizen</code> reads them.</p>
+<p><strong>Watch out:</strong> <code>est-cost-usd:</code> is a <strong>list-price equivalent</strong>: what the same tokens would cost at the public API rates, not what a subscription charged.</p>
+<p>This is a port of Blueprint's cost ledger (macrodream/blueprint#235, macrodream/blueprint#340, macrodream/blueprint#348, macrodream/blueprint#364, macrodream/blueprint#365, macrodream/blueprint#381, macrodream/blueprint#383, macrodream/blueprint#384 and macrodream/blueprint#386). Upstream references are always written <code>macrodream/blueprint#N</code>, in the scripts too, so they never link a Visiban issue.</p>
+<h2 id="the-pieces">The pieces<a class="headerlink" href="#the-pieces" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/cost-ledger</code></td>
+<td>The only reader of the setting: <code>status</code>, <code>enabled</code>, <code>on</code>, <code>off</code>, <code>--local</code></td>
+</tr>
+<tr>
+<td><code>.claude/cost-ledger.json</code></td>
+<td>The project layer of the setting, committed</td>
+</tr>
+<tr>
+<td><code>scripts/subagent-tokens.py</code></td>
+<td>Prints <code>subagent-tokens: &lt;N&gt;</code>, measured from subagent transcripts</td>
+</tr>
+<tr>
+<td><code>scripts/orchestrator-tokens.py</code></td>
+<td>Prints <code>orchestrator-tokens: &lt;N&gt;</code>, measured from the orchestrating session's transcript</td>
+</tr>
+<tr>
+<td><code>scripts/est-cost.py</code></td>
+<td>Prints <code>est-cost-usd: &lt;N.NN&gt; (prices YYYY-MM-DD)</code>, the one estimate</td>
+</tr>
+<tr>
+<td><code>.claude/model-prices.json</code></td>
+<td>The price table <code>est-cost.py</code> reads</td>
+</tr>
+<tr>
+<td><code>scripts/lib/transcript_usage.py</code></td>
+<td>The transcript usage parser the three measuring scripts share</td>
+</tr>
+<tr>
+<td><code>scripts/cost-table.py</code></td>
+<td>Renders and posts the <code>## Cost of this MR</code> comment</td>
+</tr>
+<tr>
+<td><code>scripts/cost_ledger_lines.py</code></td>
+<td>Reads and checks the cost lines in a description; shared by <code>cost-table.py</code> and <code>/kaizen</code></td>
+</tr>
+<tr>
+<td><code>scripts/kaizen_gate_ledger.py</code></td>
+<td><code>/kaizen</code>'s reader; reports cost by change class and by gate</td>
+</tr>
+</tbody>
+</table>
+<p>Every script has a <code>--self-test</code>. The <code>cost-ledger-selftest</code> CI job runs them all, plus <code>scripts/tests/kaizen_gate_ledger.test.sh</code>, on MRs that touch any of them.</p>
+<h2 id="check-it-and-turn-it-on-or-off">Check it, and turn it on or off<a class="headerlink" href="#check-it-and-turn-it-on-or-off" title="Permanent link">&para;</a></h2>
+<p><a id="the-setting"></a></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python3<span class="w"> </span>scripts/cost-ledger<span class="w"> </span>status<span class="w">          </span><span class="c1"># e.g. "cost-ledger: on (set by: project)"</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/cost-ledger<span class="w"> </span>off<span class="w">             </span><span class="c1"># project layer: edits .claude/cost-ledger.json</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python3<span class="w"> </span>scripts/cost-ledger<span class="w"> </span>on<span class="w">              </span><span class="c1">#   commit the file on a chore/ branch and open an MR</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python3<span class="w"> </span>scripts/cost-ledger<span class="w"> </span>off<span class="w"> </span>--local<span class="w">     </span><span class="c1"># you only, at once: git config --local visiban.costLedger false</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python3<span class="w"> </span>scripts/cost-ledger<span class="w"> </span>on<span class="w"> </span>--local<span class="w">      </span><span class="c1"># you only: unsets that key (warns if the project says off)</span>
+</code></pre></div>
+<ul>
+<li><strong>For the whole project,</strong> run <code>scripts/cost-ledger off</code> (or <code>on</code>) on a <code>chore/</code> branch, commit <code>.claude/cost-ledger.json</code> and open a chore MR. It takes effect for every branch made after the MR merges.</li>
+<li><strong>For yourself only,</strong> run <code>scripts/cost-ledger off --local</code>. It takes effect on your next <code>/mr</code> or <code>/wave</code> run, in every worktree of the clone, and is never committed. <code>on --local</code> only removes your opt-out; it can't turn the ledger on over a project that chose off.</li>
+<li><code>scripts/cost-ledger status</code> always says which layer decided.</li>
+</ul>
+<h3 id="where-it-lives-and-which-layer-wins">Where it lives, and which layer wins<a class="headerlink" href="#where-it-lives-and-which-layer-wins" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Where</th>
+<th>Who changes it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project</td>
+<td><code>.claude/cost-ledger.json</code>, committed: <code>{"_doc": ..., "schema": 1, "cost-ledger": "on"}</code></td>
+<td>the project, through a chore MR</td>
+</tr>
+<tr>
+<td>Local opt-out</td>
+<td><code>git config visiban.costLedger false</code> (local, or <code>--global</code>)</td>
+<td>one person, at once, untracked</td>
+</tr>
+</tbody>
+</table>
+<p>Effective value: <strong>off</strong> if <code>.claude/cost-ledger.json</code> says off; otherwise <strong>off</strong> if <code>git config visiban.costLedger</code> is false (local or global); otherwise <strong>on</strong>. A local setting can turn recording off, never on over a project that chose off. <strong>An unreadable layer counts as off</strong> (an unknown <code>schema</code>, any other value, or invalid JSON makes the file unreadable).</p>
+<p>Local git config lives in the clone's git common dir, so one <code>off --local</code> covers every <code>scripts/wt</code> worktree of that clone. A local <code>true</code> has no effect: it can never override a project <code>off</code>, and on a project that's on it's already the default.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/cost-ledger status</code></td>
+<td>Prints the effective value and the layer that set it, e.g. <code>cost-ledger: off (set by: git config, local; project: on)</code>. <code>--json</code> prints <code>effective</code>, <code>layer</code>, <code>project</code>, <code>local</code>, <code>global</code></td>
+</tr>
+<tr>
+<td><code>scripts/cost-ledger enabled</code></td>
+<td>Quiet. Exit 0 on, 1 off, 2 a layer is unreadable. Skills and scripts consult this</td>
+</tr>
+<tr>
+<td><code>scripts/cost-ledger off</code> / <code>on</code></td>
+<td>Edits <code>.claude/cost-ledger.json</code> in place (only the value changes, the file mode is kept)</td>
+</tr>
+<tr>
+<td><code>scripts/cost-ledger off --local</code> / <code>on --local</code></td>
+<td><code>off</code> writes <code>visiban.costLedger false</code> to the local git config; <code>on</code> only unsets it, and warns when the project still says off</td>
+</tr>
+</tbody>
+</table>
+<h3 id="why-a-setting-and-why-these-two-layers">Why a setting, and why these two layers<a class="headerlink" href="#why-a-setting-and-why-these-two-layers" title="Permanent link">&para;</a></h3>
+<p><a id="why-a-setting"></a></p>
+<p>Blueprint recorded this decision as its ADR 0011; Visiban has no ADR directory, so the rationale lives here.</p>
+<ul>
+<li><strong>Recording is a choice.</strong> <code>orchestrator-tokens:</code> reads the session transcript, which holds the conversation, to sum its usage fields. Some people won't want a tool reading transcripts at all, even for counts, and some won't want per-MR usage in a public MR description. Visiban's MRs mirror to a public GitHub repository.</li>
+<li><strong>One committed file, one reader, one precedence line.</strong> The project layer is reviewable and versioned. Only <code>scripts/cost-ledger</code> reads either layer, so the precedence can't drift between callers.</li>
+<li><strong>The local layer is git config, not a file in the checkout,</strong> because recording happens inside <code>scripts/wt</code> worktrees and git config is the one per-person store every worktree of a clone shares.</li>
+<li><strong>Toggling is switchable at any time, both ways.</strong> The project layer changes through a chore MR (a branch made before it merges still has the old file). The local layer takes effect at once.</li>
+<li><strong>The transcript layout the scripts read is undocumented</strong> and can change without notice. That's a property of Claude Code, not work this repo can schedule; see <a href="#the-layout-dependency">The layout dependency</a>.</li>
+</ul>
+<h3 id="known-debt">Known debt<a class="headerlink" href="#known-debt" title="Permanent link">&para;</a></h3>
+<p>Each item below is tracked in #2131.</p>
+<ul>
+<li><strong>The off marker isn't checked against the project file.</strong> Nothing in CI checks that an MR's <code>cost-ledger: off</code> line matches <code>.claude/cost-ledger.json</code> at the MR's base.</li>
+<li><strong>A stale price table warns nobody.</strong> It only omits the estimate. The shipped table (<code>checked</code> 2026-11-03) lapses on 2027-02-01, 90 days later; see <a href="#the-price-table">The price table</a>.</li>
+<li><strong>No CI lint reads MR descriptions.</strong> The cost-line rules run by hand; see <a href="#what-isnt-ported">What isn't ported</a>.</li>
+<li><strong>The record K window guard is prose only.</strong> Nothing checks that a record K names only agents spawned fresh in its window; see <a href="#the-cost-records">The cost comments</a>.</li>
+<li><strong>SonarCloud hasn't scanned the new scripts yet.</strong> The first nightly scan after merge may raise path-traversal or argv findings on them (<code>pythonsecurity:S8707</code>, <code>S2083</code>, <code>S8705</code>); Sonar doesn't treat <code>scripts/_paths.py</code> <code>resolve_within</code> as a sanitizer. Each finding gets an ignore entry with its reason, or the flagged line is restructured.</li>
+</ul>
+<h2 id="what-off-records">What off records<a class="headerlink" href="#what-off-records" title="Permanent link">&para;</a></h2>
+<p><a id="what-off-records"></a></p>
+<p>With the ledger off, <code>/mr</code> and <code>/wave</code> write one line at the end of <code>## Gates</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cost-ledger: off
+</code></pre></div>
+<p>There's no <code>subagent-tokens:</code>, <code>turns:</code>, <code>orchestrator-tokens:</code>, <code>est-cost-usd:</code> or <code>cost:</code> line, and no cost comment (<code>scripts/cost-table.py</code> exits 3 and posts nothing). <code>/wave</code> doesn't run the three measuring scripts, and each of them also asks the setting first: when it's off or unreadable they exit 3, print nothing on stdout and open no transcript. When the setting is unreadable, the MR also carries the <code>## Notes</code> line "cost ledger setting unreadable; nothing recorded".</p>
+<ul>
+<li><strong>The marker never names the layer,</strong> so a public MR doesn't say whether the project or one person turned recording off. It does show that recording was off for that MR.</li>
+<li><strong>It takes no other value.</strong> With the ledger on there's no <code>cost-ledger:</code> line at all.</li>
+<li><strong>Off doesn't change <code>/wave</code>'s control flow.</strong> A completion notification's <code>subagent_tokens</code> field is a context size that <code>/wave</code> may read to decide things; it's never recorded, so it applies either way.</li>
+</ul>
+<h2 id="the-lines-in-gates">The lines in <code>## Gates</code><a class="headerlink" href="#the-lines-in-gates" title="Permanent link">&para;</a></h2>
+<p><a id="the-lines"></a></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>subagent-tokens: 12186912
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>orchestrator-tokens: 1165345
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>est-cost-usd: 5.85 (prices 2026-11-03)
+</code></pre></div>
+<p>They go last in <code>## Gates</code>, after the <code>gate:</code> lines, unchanged from the scripts' stdout. They aren't in the <code>/mr</code> template: a template slot only invites an estimate. <code>/wave</code> is the one writer with real figures (<code>.claude/skills/wave/SKILL.md</code> Step 5.4); a plain <code>/mr</code> with no figures writes none of them, and that isn't a gap.</p>
+<ul>
+<li><strong><code>subagent-tokens:</code> and <code>orchestrator-tokens:</code> are measured,</strong> never estimates: digits only, summed per response (input + cache-write + cache-read + output), once per message id, so the two are in the same unit.</li>
+<li><strong><code>subagent-tokens:</code></strong> covers the agents the orchestrator named (<code>--agent &lt;id&gt;</code>, the <code>agentId:</code> the Agent tool result prints) and their descendants through <code>parentAgentId</code> (the implementer's own gate batch), up to the go-ahead to push.</li>
+<li><strong><code>orchestrator-tokens:</code> is session spend over the window, not attribution.</strong> On a multi-issue wave the branches' windows overlap in one orchestrating session, so each figure is the session's spend while that branch was open. <strong>Never add it to <code>subagent-tokens:</code> as the MR's cost, and never sum it across a wave's MRs.</strong></li>
+<li><strong><code>turns: &lt;N&gt;</code> and <code>cost: usd &lt;N&gt;</code></strong> are allowed only for a literally reported, measured figure, never computed from <code>.claude/model-prices.json</code>.</li>
+<li><strong><code>budget-exceeded: &lt;N&gt;</code></strong> is upstream's count of agents that reached their <code>/wave</code> budget. Visiban's <code>/wave</code> has no per-agent budget and doesn't write it; the readers accept it, and the cost comment shows it only when it's present.</li>
+<li><strong>The retired <code>tokens:</code> line</strong> (upstream, before <code>macrodream/blueprint#365</code>) summed the latest notification's <code>subagent_tokens</code>, which tracks about one context plus output: measured against transcripts it ran a median ~30x below cumulative usage. It's rejected.</li>
+<li><strong>A script that exits non-zero writes no line,</strong> and the reason goes in <code>## Notes</code>. A partial figure would read as a whole one.</li>
+</ul>
+<p><strong>Check a draft</strong> with <code>python3 scripts/cost_ledger_lines.py --file &lt;body.md&gt;</code>. It never requires a cost line. It rejects a malformed figure (<code>~5k</code>, <code>1,234</code>, <code>$1.00</code>, <code>1.2.3</code>, <code>.5</code>, non-ASCII digits), a second copy of any line, the bare <code>tokens:</code> line, a <code>cost-ledger:</code> line with any value but <code>off</code>, a second marker, and the marker together with any cost line. It reads only <code>## Gates</code>, outside code fences, with HTML comments stripped, and it never echoes the line it rejects: an MR description is written by whoever can edit it.</p>
+<h3 id="the-layout-dependency">The layout dependency<a class="headerlink" href="#the-layout-dependency" title="Permanent link">&para;</a></h3>
+<p>The scripts read <code>&lt;projects-dir&gt;/&lt;slug&gt;/&lt;session-id&gt;.jsonl</code> and <code>&lt;session-id&gt;/subagents/agent-&lt;id&gt;.jsonl</code> with its sibling <code>agent-&lt;id&gt;.meta.json</code> (default projects dir <code>~/.claude/projects</code>). That layout isn't documented by Claude Code (observed 2026-11-03), and transcripts are deleted after <code>cleanupPeriodDays</code> (30 days by default), so the lines are written at MR time or not at all.</p>
+<ul>
+<li><strong>The slug doesn't matter.</strong> A session is found by its id under any slug (<code>&lt;projects-dir&gt;/*/&lt;session-id&gt;.jsonl</code>), so a session started in the main checkout (<code>-Users-...-visiban</code>) and one started inside a <code>../visiban-wt/&lt;leaf&gt;</code> worktree resolve the same way.</li>
+<li><strong>It fails closed.</strong> An id with no transcript, or a session that doesn't resolve to exactly one directory, exits 1 and prints no line.</li>
+<li><strong>One gap remains:</strong> descendants are found only through <code>parentAgentId</code> in the meta files, so a nested agent whose transcript exists but whose meta file is missing isn't found, and the sum is partial.</li>
+<li><strong>A branch resumed from another session</strong> can't be read from this one: omit <code>subagent-tokens:</code> and say so; <code>orchestrator-tokens:</code> then covers the current session only.</li>
+</ul>
+<h2 id="the-est-cost-usd-line">The <code>est-cost-usd:</code> line<a class="headerlink" href="#the-est-cost-usd-line" title="Permanent link">&para;</a></h2>
+<p><a id="est-cost-usd"></a></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python3<span class="w"> </span>scripts/est-cost.py<span class="w"> </span>--agent<span class="w"> </span>&lt;id&gt;<span class="w"> </span><span class="o">[</span>--agent<span class="w"> </span>&lt;id&gt;<span class="w"> </span>...<span class="o">]</span><span class="w"> </span>--since<span class="w"> </span>&lt;T&gt;<span class="w"> </span>--until<span class="w"> </span>&lt;T&gt;
+</code></pre></div>
+<p>It prices the orchestrating session's own usage over <code>--since</code>/<code>--until</code> plus the named agents and their descendants up to <code>--until</code>, each response at its own <code>message.model</code> and four usage classes, once per message id. The line goes on stdout; the per-model figures, or the reason for an omission as a <code>note:</code> line for <code>## Notes</code>, go to stderr. <strong>Exit 0</strong> priced, <strong>1</strong> omitted, <strong>2</strong> usage, <strong>3</strong> ledger off.</p>
+<ul>
+<li><strong>It's omitted, never guessed,</strong> when the price table is older than 90 days, missing, malformed or has no row for a model used, or a response ran in fast mode (<code>speed</code> other than <code>standard</code>), with a non-global <code>inference_geo</code>, or a <code>service_tier</code> other than <code>standard</code> (the table has no multiplier for any).</li>
+<li><strong>Cache writes</strong> are split by <code>message.usage.cache_creation.ephemeral_1h_input_tokens</code> (1-hour rate) and the rest (5-minute rate). A response without a valid split is priced entirely at the cheaper 5-minute rate, so the estimate can understate on that field and never overstates.</li>
+</ul>
+<h3 id="the-price-table">The price table<a class="headerlink" href="#the-price-table" title="Permanent link">&para;</a></h3>
+<p><code>.claude/model-prices.json</code> holds full model ids as keys, USD per million tokens for <code>input</code>, <code>cache_write_5m</code>, <code>cache_write_1h</code>, <code>cache_read</code> and <code>output</code>, an optional <code>long_prompt</code> tier, a <code>checked</code> date and the <code>source</code> URL.</p>
+<p><strong>Watch out:</strong> Visiban's table was <strong>copied from Blueprint's table</strong> (<code>checked</code> 2026-11-03, <code>source</code> the platform.claude.com pricing page), not re-copied from the source page. Prices are copied from that page by a person and checked in review, never invented.</p>
+<p><strong>Refresh it</strong> (re-copy the source table and update <code>checked</code>) before it lapses on 2027-02-01, or when <code>/kaizen</code> reports <code>subagent-tokens:</code> lines but no <code>est-cost-usd:</code> line in its window: a stale table only omits the estimate, it warns nobody (#2131).</p>
+<h2 id="the-cost-comments">The cost comments<a class="headerlink" href="#the-cost-comments" title="Permanent link">&para;</a></h2>
+<p><a id="the-cost-records"></a></p>
+<p>GitLab renders the bare ledger lines run together as one paragraph, so the readable table is an MR comment, <code>## Cost of this MR (#&lt;issue&gt;)</code>, with a Sonnet vs Opus split. The description carries no <code>## Cost</code> section. The same setting governs it: ledger on, an MR carries the lines and the comment; off, neither.</p>
+<p>Work on an MR after its first comment is a further comment, never an edit:</p>
+<ul>
+<li><strong>Record 1</strong> covers the branch up to the go-ahead to push. Its figures are the description's ledger lines, and its heading has no record number.</li>
+<li><strong>Record K</strong> (2, 3, ...) covers one later window: a fix round after the MR opened, or a re-measure. Its heading is <code>## Cost of this MR (#&lt;issue&gt;) — record K</code>, it states its window start and end, its figures come from the measuring scripts' own stdout for that window (not from the description), and it adds a running-total row across records 1..K.</li>
+<li><strong>The <code>## Gates</code> lines stay record 1's figures.</strong> No reader sums the later records: <code>/kaizen</code> sees the branch up to the go-ahead.</li>
+<li><strong>One record per window.</strong> A re-run for the same window (same start and end) updates that window's record, which must be the latest; a different window posts a new one. An earlier record is never edited: record 1 is refused (exit 5) once a record 2 exists, and so is a window that matches any record but the latest.</li>
+<li><strong>A subagent still running after a record's window end is counted in no record.</strong> The subagent scripts have no per-window cut: they count an agent's usage up to <code>--until</code>. Name only agents spawned fresh in a record K's window; a resumed agent makes the subagent cells <code>n/a</code> (post the record without a <code>subagent-tokens:</code> / <code>est-cost-usd:</code> line). Nothing checks this but the prose (#2131; upstream's guard is <code>macrodream/blueprint#385</code>).</li>
+<li><strong>A window with no subagent</strong> shows a <strong>measured 0</strong> for the Subagents row, only from the explicit <code>--no-agents</code>, given to both <code>subagent-tokens.py</code> (prints <code>subagent-tokens: 0</code>) and <code>est-cost.py</code> (prices the orchestrator alone). A forgotten <code>--agent</code> isn't a 0: without <code>--agent</code> and without <code>--no-agents</code> both exit 2, and the two together are a usage error.</li>
+</ul>
+<h3 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h3>
+<p>All modes are <code>scripts/cost-table.py</code>. <code>/wave</code> Step 6 has the exact commands.</p>
+<ul>
+<li><strong>Record 1:</strong> <code>python3 scripts/cost-table.py --comment --file &lt;description.md&gt; --issue &lt;N&gt; --until &lt;T&gt; --split &lt;file&gt; --post --mr &lt;iid&gt;</code>. Without <code>--post</code> it prints the body.</li>
+<li><strong>The next window's start:</strong> <code>python3 scripts/cost-table.py --next-since --mr &lt;iid&gt;</code> prints the latest record's window end (exit 1 when this user has no readable record with a window end).</li>
+<li><strong>Record K:</strong> measure the window with the three scripts (<code>--since</code> the value above, <code>--until</code> now; <code>subagent-tokens.py</code> takes no <code>--since</code>), keeping their stdout in one file and their stderr in another, then <code>python3 scripts/cost-table.py --comment --ledger &lt;stdout lines&gt; --split &lt;stderr&gt; --since &lt;S&gt; --until &lt;T&gt; --issue &lt;N&gt; --mr &lt;iid&gt; --post</code>. Save the window as <code>&lt;iid&gt; &lt;S&gt; &lt;T&gt;</code> in <code>$(git rev-parse --git-dir)/wave-cost-window.txt</code>; a re-run of the same record reuses it only when the first field is this MR's iid, because <code>--next-since</code> returns the posted record's own end.</li>
+<li><strong>File arguments</strong> (<code>--file</code>, <code>--ledger</code>, <code>--split</code>) must resolve under the checkout, the current directory, the system temp directory or the clone's git common dir. <code>/wave</code> keeps them in the git dir (<code>wave-cost-desc.md</code>, <code>wave-cost-split.txt</code>, <code>wave-cost-lines.txt</code>), which for a worktree is outside the checkout and is never committed.</li>
+</ul>
+<p>Exit codes: <strong>0</strong> rendered (printed or posted); <strong>1</strong> no <code>## Gates</code> section; <strong>2</strong> usage, an unreadable file, or a file outside the allowed directories; <strong>3</strong> the ledger is off or unreadable, or the lines carry <code>cost-ledger: off</code>, so no record and no API call; <strong>4</strong> the notes or the token's user couldn't be read or written; <strong>5</strong> refused, the window belongs to an earlier record.</p>
+<h3 id="what-a-record-shows">What a record shows<a class="headerlink" href="#what-a-record-shows" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Sonnet vs Opus.</strong> A tokens and an estimated-cost column per model family, for subagents and for the orchestrator, plus the ledger lines' totals. The per-model figures come only from the exact <code>model</code> lines the measuring scripts print on stderr (<code>subagent-tokens: model &lt;id&gt; &lt;N&gt;</code>, <code>orchestrator-tokens: model &lt;id&gt; &lt;N&gt;</code>, <code>est-cost: subagent|orchestrator model &lt;id&gt; &lt;USD&gt; USD</code>); <code>--split &lt;file&gt;</code> is those stderr streams concatenated, and no other line in it is read. A third family gets an <code>Other</code> column.</li>
+<li><strong>n/a, never 0.</strong> No split file, a model with no estimate, a missing, doubled or malformed ledger line, or no window end shows <code>n/a</code> with a fixed reason; it never echoes the line's text. A family a side didn't use shows <code>none used</code>. If a side's split doesn't sum to its ledger line, the record says so; the line is the record. The Total tokens cell is <code>n/a</code> unless both token lines are present.</li>
+<li><strong>States</strong> the window, that the cost is a list-price estimate from <code>.claude/model-prices.json</code> with its price date, and that the orchestrator figure is shared by every branch of the same wave. A record K also states each stretch no record covers.</li>
+</ul>
+<h3 id="reading-earlier-records-back">Reading earlier records back<a class="headerlink" href="#reading-earlier-records-back" title="Permanent link">&para;</a></h3>
+<p>Earlier records are MR notes, which anyone who can comment can write, so the running total is built only from notes that pass every check:</p>
+<ul>
+<li><strong>Authored by the token's own user</strong> (<code>glab api user</code>). A note with the heading by anyone else is counted ("N note(s) with this heading by another user were not read") and never read, numbered from or edited.</li>
+<li><strong>The generated heading</strong> as the first line and <strong>the generated footer</strong> as the last.</li>
+<li><strong>At most 32 KB,</strong> ASCII apart from the heading's dash, exactly one header row, one <strong>Total</strong> row and one window line, every Total cell a bold figure of a fixed shape (<code>1,234</code>, <code>0.40 USD</code>) or <code>n/a (...)</code>, and valid UTC times.</li>
+</ul>
+<p>A failed check never becomes 0 or a guess: the running-total row reads <code>n/a</code> and the record states why, from a fixed list (an earlier record didn't parse; this user's earlier records aren't exactly records 1 to K-1; an earlier record states no window end; a window starts before the previous one ended). A time gap between windows isn't on the list: the total still adds up and the record states the uncovered stretch. No note text is echoed in any message or record, so a hostile note can't put text into the comment this script posts with your token.</p>
+<ul>
+<li><strong>It never overwrites a note it can't identify.</strong> Record 1 is updated only when this user has exactly one, and it parses (otherwise exit 5). Two notes with the latest record number are both left alone.</li>
+<li><strong>It reads at most 2,000 notes</strong> and exits 4 on an MR with more, so a flood of comments stops the records rather than skewing them.</li>
+<li><strong>Run one cost post per MR at a time.</strong> Two sessions posting at once can both take the same number; the next record then reads <code>n/a</code>.</li>
+<li><strong><code>glab api</code> paths</strong> are built only from constants and integers (the iid, a note id, a page number), and the JSON body goes through stdin.</li>
+</ul>
+<h3 id="an-example">An example<a class="headerlink" href="#an-example" title="Permanent link">&para;</a></h3>
+<p>A record 2 for an MR whose window used 1,500 Sonnet tokens (the self-test's case; the per-side rows are elided):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gu">## Cost of this MR (#383) — record 2</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>| | Sonnet tokens | Sonnet est. cost | Opus tokens | Opus est. cost | Total tokens | Est. cost |
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>|---|---|---|---|---|---|---|
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>| ... | ... |
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>| <span class="gs">**Total**</span> | <span class="gs">**1,500**</span> | <span class="gs">**0.40 USD**</span> | <span class="gs">**0**</span> | <span class="gs">**0.00 USD**</span> | <span class="gs">**1,500**</span> | <span class="gs">**0.40 USD**</span> |
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>| <span class="gs">**Running total, records 1-2**</span> | <span class="gs">**11,560,862**</span> | <span class="gs">**3.50 USD**</span> | <span class="gs">**0**</span> | <span class="gs">**0.00 USD**</span> | <span class="gs">**11,560,862**</span> | <span class="gs">**3.50 USD**</span> |
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">-</span><span class="w"> </span>Window: 2026-11-04T15:38:24Z to 2026-11-04T17:00:00Z. This record counts only the work in this window; the running-total row adds the earlier records.
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="k">-</span><span class="w"> </span>Running total: the last row, records 1-2.
+</code></pre></div>
+<p>The amount is written <code>1.57 USD</code>, not with a dollar sign, so GitLab never reads a pair of <code>$</code> as inline math.</p>
+<h2 id="what-kaizen-reports">What <code>/kaizen</code> reports<a class="headerlink" href="#what-kaizen-reports" title="Permanent link">&para;</a></h2>
+<p><a id="kaizen"></a></p>
+<p><code>scripts/kaizen_gate_ledger.py</code> reads the lines through <code>scripts/cost_ledger_lines.py</code>, the same reader <code>cost-table.py</code> uses, and adds a <code>## Cost</code> section to its report (<code>cost</code> in <code>--json</code>).</p>
+<ul>
+<li><strong>Each MR is in one state:</strong> <code>recorded</code> (a well-formed figure), <code>disabled</code> (<code>cost-ledger: off</code>: nothing recorded, by choice) or <code>none</code> (no figure yet). A disabled MR is never counted as 0 and never averaged. A window or change class whose MRs are all disabled reads "disabled", not a mean and not "not recorded yet". <strong>A window of disabled MRs isn't evidence that cost fell.</strong></li>
+<li><strong>By change class</strong> (the branch prefix <code>feat</code>, <code>fix</code>, <code>docs</code>, <code>chore</code>, else <code>other</code>, the same proxy as the <a href="../kaizen-yield-watch/">yield watch</a>): mean <code>est-cost-usd</code> and mean <code>subagent-tokens</code> over the class's recorded MRs. <code>orchestrator-tokens:</code> is never averaged.</li>
+<li><strong>By gate:</strong> the mean estimate of the MRs a gate ran on vs was <code>n/a</code> on, and findings per USD (the gate's findings on those MRs over their summed estimate). It's the MR-level cost, not the gate's own cost: the ledger records cost per MR, not per gate.</li>
+<li><strong>Malformed lines:</strong> MRs whose cost lines fail the checker are listed; their malformed figures are ignored, not read as 0.</li>
+</ul>
+<h2 id="what-isnt-ported">What isn't ported<a class="headerlink" href="#what-isnt-ported" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>No MR-description CI lint.</strong> Upstream's <code>mr-gate-ledger</code> job checks every MR description; Visiban has no gate-ledger lint job, and this port didn't add one (#2131). The cost rules live in <code>scripts/cost_ledger_lines.py</code>, run by hand before <code>glab mr create</code> (the <code>/mr</code> and <code>/wave</code> skills say when).</li>
+<li><strong>Not ported:</strong> upstream's <code>gate-yield.py</code> and <code>mr-verdict.py</code> (the <code>/kaizen</code> adaptation above replaces the cost sections of <code>gate-yield.py</code>), its <code>change-class:</code> ledger line (Visiban classifies by branch prefix), and its context-nudge Stop hook.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
