@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useGroupSocket } from '../hooks/useGroupSocket'
 import type { BoardEvent } from '../hooks/useBoardSocket'
+import { probeSession } from '../utils/sessionProbe'
+import { stashDemoNextReset, DEMO_RESET_NOTICE_KEY, DEMO_NEXT_RESET_KEY } from '../utils/demoReset'
+
+// A 4003 close probes the session (#2037, #2044); stub it so these tests make
+// no real network call. The probe itself is covered in demoReset.test.ts.
+vi.mock('../utils/sessionProbe', () => ({ probeSession: vi.fn().mockResolvedValue(undefined) }))
 
 type MockWSInstance = {
   url: string
@@ -30,6 +36,9 @@ beforeEach(() => {
   instances = []
   vi.stubGlobal('WebSocket', MockWebSocket)
   vi.useFakeTimers()
+  vi.mocked(probeSession).mockClear()
+  sessionStorage.removeItem(DEMO_RESET_NOTICE_KEY)
+  sessionStorage.removeItem(DEMO_NEXT_RESET_KEY)
 })
 
 afterEach(() => {
@@ -74,6 +83,60 @@ describe('useGroupSocket', () => {
     act(() => { vi.advanceTimersByTime(5000) })
     expect(result.current.status).toBe('failed')
     expect(instances).toHaveLength(1)
+  })
+
+  describe('auth close and session expiry (#2044)', () => {
+    const RESET = '2026-06-01T12:00:00.000Z'
+    const listen = () => {
+      const expired = vi.fn()
+      window.addEventListener('auth:sessionExpired', expired)
+      return { expired, stop: () => window.removeEventListener('auth:sessionExpired', expired) }
+    }
+
+    it('4001 signs out directly, with no probe and no reconnect', () => {
+      const { expired, stop } = listen()
+      const { result } = renderHook(() => useGroupSocket(1, vi.fn()))
+      act(() => { latestWS().onclose?.({ code: 4001 }) })
+      act(() => { vi.advanceTimersByTime(10_000) })
+      stop()
+      expect(expired).toHaveBeenCalledTimes(1)
+      expect(probeSession).not.toHaveBeenCalled()
+      expect(result.current.status).toBe('failed')
+      expect(instances).toHaveLength(1)
+    })
+
+    it('4003 probes the session once and dispatches nothing itself (live session = lost access stays signed in)', () => {
+      const { expired, stop } = listen()
+      const { result } = renderHook(() => useGroupSocket(1, vi.fn()))
+      act(() => { latestWS().onclose?.({ code: 4003 }) })
+      stop()
+      expect(probeSession).toHaveBeenCalledTimes(1)
+      expect(expired).not.toHaveBeenCalled()
+      expect(result.current.status).toBe('failed')
+    })
+
+    it.each([4001, 4003])('close %i after the demo reset time routes to the reset notice without probing', (code) => {
+      vi.setSystemTime(Date.parse(RESET) + 1_000)
+      stashDemoNextReset(RESET)
+      const { expired, stop } = listen()
+      renderHook(() => useGroupSocket(1, vi.fn()))
+      act(() => { latestWS().onclose?.({ code }) })
+      stop()
+      expect(expired).toHaveBeenCalledTimes(1)
+      expect(probeSession).not.toHaveBeenCalled()
+      expect(sessionStorage.getItem(DEMO_RESET_NOTICE_KEY)).toBe(RESET)
+    })
+
+    it('a close after unmount neither dispatches nor probes', () => {
+      const { expired, stop } = listen()
+      const { unmount } = renderHook(() => useGroupSocket(1, vi.fn()))
+      const ws = latestWS()
+      unmount()
+      act(() => { ws.onclose?.({ code: 4003 }) })
+      stop()
+      expect(probeSession).not.toHaveBeenCalled()
+      expect(expired).not.toHaveBeenCalled()
+    })
   })
 
   it('reconnects on a transient server re-check failure (code 1011), not failed (#2003)', () => {

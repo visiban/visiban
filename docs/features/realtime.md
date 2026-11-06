@@ -140,7 +140,7 @@ Since 1.3 the event also carries `sibling_positions`, the other cards whose posi
 Visiban also exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).
 
 - **Connection URL:** `ws://{host}/ws/groups/{group_id}/`
-- **Authentication:** same as the board channel; session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code.
+- **Authentication:** same as the board channel; session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code. As on the board channel, the web app treats a `4001`, or a `4003` where the session itself has ended, as a sign-out, so per-user preferences such as recent boards are cleared; a `4003` caused only by lost group access leaves you signed in.
 - **What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations.
 
 Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events; those remain on the per-board channel.
