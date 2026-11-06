@@ -12,6 +12,7 @@ import {
   DEMO_RESET_NOTICE_KEY,
 } from '../utils/demoReset'
 import { useBoardSocket } from '../hooks/useBoardSocket'
+import { useGroupSocket } from '../hooks/useGroupSocket'
 import client from '../api/client'
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
@@ -216,5 +217,52 @@ describe('useBoardSocket — idle visitor across a reset', () => {
       expect(probe).toHaveBeenCalledTimes(1)
       expect(expired).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('useGroupSocket — 4003 close with the real session probe (#2044)', () => {
+  let instances: Array<{ onclose: ((ev: { code: number }) => void) | null }> = []
+  class MockWebSocket {
+    onopen = null
+    onmessage = null
+    onclose: ((ev: { code: number }) => void) | null = null
+    close = vi.fn()
+    constructor() { instances.push(this) }
+  }
+  const origAdapter = client.defaults.adapter
+
+  beforeEach(() => {
+    instances = []
+    vi.stubGlobal('WebSocket', MockWebSocket)
+  })
+  afterEach(() => {
+    client.defaults.adapter = origAdapter
+    vi.unstubAllGlobals()
+  })
+
+  const closeWith4003 = async (adapter: (c: InternalAxiosRequestConfig) => Promise<unknown>) => {
+    const probe = vi.fn(adapter)
+    client.defaults.adapter = probe as never
+    const expired = vi.fn()
+    window.addEventListener('auth:sessionExpired', expired)
+    renderHook(() => useGroupSocket(1, vi.fn()))
+    await act(async () => { instances[instances.length - 1].onclose?.({ code: 4003 }) })
+    window.removeEventListener('auth:sessionExpired', expired)
+    return { probe, expired }
+  }
+
+  it('dead session: the probe 401s and the interceptor signs out exactly once', async () => {
+    const { probe, expired } = await closeWith4003((c) =>
+      Promise.reject(new AxiosError('x', 'ERR_BAD_REQUEST', c, null,
+        { status: 401, data: {}, statusText: '', headers: {}, config: c } as never)))
+    expect(probe).toHaveBeenCalledTimes(1)
+    expect(expired).toHaveBeenCalledTimes(1)
+  })
+
+  it('live session (lost group access): the probe succeeds and nothing signs out', async () => {
+    const { probe, expired } = await closeWith4003(async (c) =>
+      ({ data: {}, status: 200, statusText: 'OK', headers: {}, config: c }))
+    expect(probe).toHaveBeenCalledTimes(1)
+    expect(expired).not.toHaveBeenCalled()
   })
 })

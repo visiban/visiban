@@ -27,12 +27,13 @@ The top-right corner of the board toolbar shows the connection state via the **C
 - 🟡 **Reconnecting…** — connection dropped; client is retrying automatically; amber pill with label always shown
 - 🟡 **Stale** — connected but no event has arrived in over 60 seconds; amber pill indicates the feed may be lagging
 - 🟡 **Connecting…** — initial connection attempt in progress; amber pill
-- 🔴 **Offline** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect
+- 🔴 **Offline** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect, or sign in again if the session ended
 
 **Reconnect rules:**
 
 - The client reconnects automatically after 3 seconds if the connection drops.
 - If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted. The indicator switches directly to **Offline**.
+- **Session expiry** (since 1.3): a `4001`, or a `4003` where your session itself has ended (expired, revoked, or logged out elsewhere), signs you out of the web app just like any other expired-session response, even if you make no other request, so per-user preferences such as recent boards are cleared. A `4003` caused only by lost access to the board or group keeps you signed in: the web app checks your session first. Board and group pages behave the same way.
 - If the server cannot confirm your access because of a temporary server problem, such as the database being briefly unreachable, it closes the connection with code `1011` instead, and the client keeps reconnecting until the server recovers (since 1.2).
 
 After you log out or change your password, open board and group tabs show the connection indicator as **Offline** within about 30–40 seconds. Reload the page to reconnect. This includes the tab you changed your password in. Logging out in one browser does not affect tabs signed in through another session. See [Credential revocation](../api/websockets.md#credential-revocation-since-12).
@@ -140,7 +141,7 @@ Since 1.3 the event also carries `sibling_positions`, the other cards whose posi
 Visiban also exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).
 
 - **Connection URL:** `ws://{host}/ws/groups/{group_id}/`
-- **Authentication:** same as the board channel; session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code. As on the board channel, the web app treats a `4001`, or a `4003` where the session itself has ended, as a sign-out, so per-user preferences such as recent boards are cleared; a `4003` caused only by lost group access leaves you signed in.
+- **Authentication:** same as the board channel; session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership, or with a pending password or username change, are closed with code `4003`. No retry is attempted for either code. The web app handles both closes as described under [Reconnect rules](#connection-status).
 - **What it streams:** board lifecycle changes within the group (created, updated, deleted or moved out, starred/unstarred), group lifecycle changes (created, updated, deleted, starred/unstarred, including subgroups), group-level labels, group membership changes (removing the current user also closes their connection, mirroring the board channel), and invite link revocations.
 
 Each payload follows the standard `{"event": "...", "data": {...}}` envelope. The group channel does not emit card-level events; those remain on the per-board channel.
