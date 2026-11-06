@@ -178,6 +178,18 @@ Exit codes: **0** rendered (printed or posted); **1** no `## Gates` section; **2
 - **n/a, never 0.** No split file, a model with no estimate, a missing, doubled or malformed ledger line, or no window end shows `n/a` with a fixed reason; it never echoes the line's text. A family a side didn't use shows `none used`. If a side's split doesn't sum to its ledger line, the record says so; the line is the record. The Total tokens cell is `n/a` unless both token lines are present.
 - **States** the window, that the cost is a list-price estimate from `.claude/model-prices.json` with its price date, and that the orchestrator figure is shared by every branch of the same wave. A record K also states each stretch no record covers.
 
+### Checks that the comment exists
+<a id="checks-that-the-comment-exists"></a>
+
+The check is `python3 scripts/cost-table.py --next-since --mr <iid>`: it exits 0 only when this user has a readable record on the MR, and 1 when none does.
+
+- **`/wave` Step 6** posts record 1, then runs the check. A missing comment is treated like a missing `completeness-check` ledger line: the MR isn't reported done.
+- **`/mr` Step 4** runs it when `scripts/cost-ledger enabled` exits 0 and the description carries measured cost lines (`subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:`). If it fails, `/mr` posts record 1 with `--comment --file <description.md> --issue <N> --until <T> --split <file> --post --mr <iid>`, using the same git-dir files as `/wave`, and reports a failure plainly.
+- **`/fix-mr`** posts a record K for its pass when the MR already has record 1 and the ledger is on; it runs no existence check, because there is nothing to create without a record 1.
+- **Exempt:** ledger off, a description with `cost-ledger: off`, or a plain `/mr` with no cost lines. No comment is expected, and its absence isn't a gap.
+
+A CI lint of descriptions is out of scope here (#2131).
+
 ### Reading earlier records back
 
 Earlier records are MR notes, which anyone who can comment can write, so the running total is built only from notes that pass every check:

@@ -450,6 +450,15 @@ or the description says `cost-ledger: off`): nothing is posted. Exit 4 (the note
 read or written) or 5 (refused: a later record exists, or record 1 is doubled or hand-written):
 say so in the Step 7 report.
 
+**Check that record 1 landed.** With the ledger on and the description carrying measured cost
+lines, a missing cost comment is treated like a missing `completeness-check` ledger line: the MR
+is not reported done. After the post, run `python3 scripts/cost-table.py --next-since --mr <iid>`.
+It exits 0 only when a readable record exists; exit 1 means none does, so re-post (re-brief if the
+description needs a fix) and re-check, and if it still fails the MR goes in the Step 7 report as
+not done, with the exit code. Exempt: ledger off (`scripts/cost-ledger enabled` exits non-zero) or
+a description with `cost-ledger: off` (the post exits 3), where no comment is expected
+(`docs/development/cost-ledger.md` § *Checks that the comment exists*).
+
 **Work on the MR after record 1** (a fix round after the MR opened, a re-measure) gets its own
 record, `— record K`, never an edit of record 1, and the `## Gates` lines stay record 1's figures.
 In the worktree, once that work is pushed:

@@ -236,7 +236,8 @@ is the contract; this is what the description carries.
   The body file must be under the checkout, the temp dir or the git dir.
 - The human-readable cost table is an MR comment, `## Cost of this MR (#<N>)`, that
   `scripts/cost-table.py` posts after the MR opens (`/wave` Step 6). The description carries no
-  `## Cost` section.
+  `## Cost` section. Step 4 checks that the comment exists when the description carries measured
+  cost lines.
 
 ---
 
@@ -272,6 +273,22 @@ MR created: <URL>
 CI runs automatically on push. To watch the pipeline and auto-fix failures to green:
   /fix-mr !<NNN>
 ```
+
+**Check the cost comment.** When `python3 scripts/cost-ledger enabled` exits 0 AND the description
+carries measured cost lines (`subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:`),
+confirm record 1 exists: `python3 scripts/cost-table.py --next-since --mr <NNN>` exits 0 only when
+a readable record does. If it exits 1, post it, with the description saved in the git dir as in
+`/wave` Step 6 (`D="$(git rev-parse --git-dir)/wave-cost-desc.md"`, and the split file
+`wave-cost-split.txt` beside it):
+
+```bash
+python3 scripts/cost-table.py --comment --file "$D" --issue <N> --until <T> --split "$COST_SPLIT" --post --mr <NNN>
+```
+
+Then re-run the `--next-since` check. Report a failure plainly (the exit code and what was tried);
+do not call the MR complete. Exempt, and no comment expected (`docs/development/cost-ledger.md`
+says this "isn't a gap"): a plain `/mr` with no cost lines, ledger off, or a description with
+`cost-ledger: off`.
 
 Always emit the `/fix-mr !<NNN>` follow-up line — it is a one-keystroke handoff to
 the pipeline-watch loop. Do **not** invoke `/fix-mr` yourself; both skills are
