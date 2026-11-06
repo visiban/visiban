@@ -139,7 +139,7 @@ def figures(body):
     """{'off': bool, 'gates': bool, 'subagent'/'orchestrator'/'total'/'usd': (value, reason)}."""
     body = strip_comments(body or "")
     lines = list(cl.ledger_lines(body))
-    has_gates = any(cl.HEADING_RE.match(ln) and cl.HEADING_RE.match(ln).group(2).strip().lower() == "gates"
+    has_gates = any(cl.HEADING_RE.match(ln) and cl.heading_title(cl.HEADING_RE.match(ln)) == "gates"
                     for ln in _unfenced(body.splitlines()))
     out = {"off": any(cl.LEDGER_OFF_RE.match(ln) for ln in lines), "gates": has_gates}
     none = not any(cl.COSTISH_RE.match(ln) and cl.COSTISH_RE.match(ln).group(1).lower() in COST_KEYS

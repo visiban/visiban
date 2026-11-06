@@ -64,8 +64,16 @@ def file_roots():
     return cli_roots(*([extra] if extra else []))
 
 
-HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+# Linear on purpose: upstream's `^(#{1,6})\s+(.*?)\s*#*\s*$` backtracks cubically on a heading
+# line padded with spaces (2,000 spaces stalled it past 120s; an MR description is user-written).
+# The optional closing `#`s are stripped in heading_title() instead.
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
+
+
+def heading_title(m):
+    """The lowercased title of a HEADING_RE match, closing `#`s and spaces stripped."""
+    return m.group(2).rstrip(" \t#").strip().lower()
 GATE_PREFIX_RE = re.compile(r"^\s*(?:[-*]\s*)?gate:", re.I)
 
 COST_RE = re.compile(r"^\s*(?:[-*]\s*)?cost:\s*usd\s+(\d+(?:\.\d+)?)\s*$", re.I)
@@ -75,9 +83,10 @@ SUBAGENT_TOKENS_RE = re.compile(r"^\s*(?:[-*]\s*)?subagent-tokens:\s*(\d+)\s*$",
 EST_COST_RE = re.compile(r"^\s*(?:[-*]\s*)?est-cost-usd:\s*(\d+(?:\.\d+)?)(?:\s*\(prices\s+\d{4}-\d{2}-\d{2}\))?\s*$", re.I)
 ORCH_TOKENS_RE = re.compile(r"^\s*(?:[-*]\s*)?orchestrator-tokens:\s*(\d+)\s*$", re.I)
 _ROLE = r"(?:implementer|gate|completeness-check)"
-BUDGET_RE = re.compile(r"^\s*(?:[-*]\s*)?budget-exceeded:\s*(\d+)"
-                       r"(?:\s*\(\s*(" + _ROLE + r"\s+\d+(?:\s*,\s*" + _ROLE + r"\s+\d+)*)\s*\))?\s*$", re.I)
-BUDGET_ROLE_RE = re.compile(r"(" + _ROLE + r")\s+(\d+)", re.I)
+# ASCII digits, at most 18: `\d` also matches other scripts' digits, and int() raises past 4,300.
+BUDGET_RE = re.compile(r"^\s*(?:[-*]\s*)?budget-exceeded:\s*([0-9]{1,18})"
+                       r"(?:\s*\(\s*(" + _ROLE + r"\s+[0-9]{1,18}(?:\s*,\s*" + _ROLE + r"\s+[0-9]{1,18})*)\s*\))?\s*$", re.I)
+BUDGET_ROLE_RE = re.compile(r"(" + _ROLE + r")\s+([0-9]{1,18})", re.I)
 COSTISH_RE = re.compile(r"^\s*(?:[-*]\s*)?(cost|turns|tokens|subagent-tokens|orchestrator-tokens|est-cost-usd|"
                         r"budget-exceeded|cost-ledger):", re.I)
 # The cost-ledger off marker (macrodream/blueprint#348): the only value the line takes; an MR with the
@@ -119,11 +128,11 @@ def section_lines(body, title="gates"):
         if h:
             lvl = len(h.group(1))
             if level is None:
-                if h.group(2).strip().lower() == title:
+                if heading_title(h) == title:
                     level = lvl
                 continue
             if lvl <= level:
-                if h.group(2).strip().lower() == title:
+                if heading_title(h) == title:
                     level = lvl
                     continue
                 level = None
@@ -302,6 +311,9 @@ def self_test():
         ("role split not summing to the total", wrap("budget-exceeded: 3 (implementer 1)")),
         ("unknown role in the split", wrap("budget-exceeded: 1 (reviewer 1)")),
         ("duplicate budget-exceeded line", wrap("budget-exceeded: 1", "budget-exceeded: 2")),
+        ("budget-exceeded with 5000 digits", wrap("budget-exceeded: " + "9" * 5000)),
+        ("budget-exceeded role count with 5000 digits", wrap("budget-exceeded: 1 (gate " + "9" * 5000 + ")")),
+        ("budget-exceeded with non-ASCII digits", wrap("budget-exceeded: \u0663\u0663")),
         ("cost ledger off with est-cost-usd", wrap("cost-ledger: off", "est-cost-usd: 1.00")),
         ("cost ledger off with subagent-tokens", wrap("cost-ledger: off", "subagent-tokens: 5")),
         ("cost ledger off with orchestrator-tokens", wrap("cost-ledger: off", "orchestrator-tokens: 9")),
@@ -354,6 +366,14 @@ def self_test():
     t0 = time.time()
     check_body("## Gates\n" + "<!--" * 20000)
     check("20k unclosed comment openers check in under 1s", time.time() - t0 < 1)
+    t0 = time.time()
+    padded = "## Gates" + " " * 20000 + "x\n" + "# a" + " " * 20000 + "b\n" + "## Gates ##\nsubagent-tokens: 7\n"
+    check_body(padded)
+    check("a heading padded with 20k spaces checks in under 1s", time.time() - t0 < 1)
+    check("a closed ATX heading (`## Gates ##`) still opens the section", subagent_tokens(padded) == 7)
+    check("budget readers: huge or non-ASCII counts are None, never a crash",
+          budget_exceeded(wrap("budget-exceeded: " + "9" * 5000)) is None
+          and budget_exceeded(wrap("budget-exceeded: \u0663\u0663")) is None)
     # The CLI.
     import io
     import tempfile

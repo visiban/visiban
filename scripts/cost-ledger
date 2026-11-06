@@ -37,6 +37,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REL = os.path.join(".claude", "cost-ledger.json")
 KEY = "visiban.costLedger"
+GIT = shutil.which("git") or "git"  # resolved once; list-form argv everywhere
 SCHEMA = 1
 VALUE_RE = re.compile(r'("cost-ledger"\s*:\s*")(on|off)(")')
 FALSE = ("false", "no", "off", "0", "")
@@ -60,10 +61,10 @@ def read_git(root, scope):
     """'unset', 'false', 'true', or 'unreadable' for one git config scope. Outside a git
     repository there is no local config: 'unset'."""
     try:
-        if scope == "local" and subprocess.run(["git", "-C", root, "rev-parse", "--git-dir"],
+        if scope == "local" and subprocess.run([GIT, "-C", root, "rev-parse", "--git-dir"],
                                                capture_output=True, timeout=10).returncode != 0:
             return "unset"
-        p = subprocess.run(["git", "-C", root, "config", "--" + scope, "--get", KEY],
+        p = subprocess.run([GIT, "-C", root, "config", "--" + scope, "--get", KEY],
                            capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         return "unreadable"
@@ -132,7 +133,7 @@ def write_project(root, value, err):
 
 def git_local(root, args):
     try:
-        return subprocess.run(["git", "-C", root, "config", "--local"] + args,
+        return subprocess.run([GIT, "-C", root, "config", "--local"] + args,
                               capture_output=True, text=True, timeout=10).returncode
     except (OSError, subprocess.SubprocessError):
         return 2

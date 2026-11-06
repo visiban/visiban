@@ -65,9 +65,15 @@ SESSION_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z_-]{0,127}\Z")
 
 def resolve(arg, projects_dir):
     """A transcript path for a file path or a session id; raises ValueError."""
+    if not SESSION_RE.match(arg) or os.sep in arg:
+        # A path: contained before it is looked at, so a path outside the roots is never probed.
+        path = contained(arg)
+        if os.path.isfile(path):
+            return path
+        raise ValueError("not a readable file or a session id: %r" % arg)
+    projects_dir = contained(projects_dir)
     if os.path.isfile(arg):
         return contained(arg)
-    projects_dir = contained(projects_dir)
     if not SESSION_RE.match(arg):
         raise ValueError("not a readable file or a session id: %r" % arg)
     hits = sorted(glob.glob(os.path.join(glob.escape(projects_dir), "*", arg + ".jsonl")))
