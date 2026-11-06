@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { BoardFull, Card, User } from "../../types";
+import type { BoardEvent } from "../../hooks/useBoardSocket";
 import { getArchivedCards } from "../../api/cards";
 import { unarchiveCard } from "../../api/cards";
 import { formatDate } from "../../utils/date";
@@ -13,9 +14,11 @@ interface Props {
   onClose: () => void;
   onUnarchived: (card: Card) => void;
   currentUser?: User | null;
+  /** Subscribe to the board's card.* socket frames (#2062); returns the unsubscribe. */
+  subscribeCardEvents?: (listener: (event: BoardEvent) => void) => () => void;
 }
 
-export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser }: Props) {
+export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser, subscribeCardEvents }: Props) {
   const [loadedCards, setCards] = useState<Card[]>([]);
   const [loadedTotal, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -94,6 +97,92 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       });
   }, [containerKey, board.id]);
 
+  // Removes a loaded card and keeps offset/total in step with the server's
+  // list, which shrank by the same row. Idempotent through loadedRef, so the
+  // own-unarchive response and its socket echo cannot both decrement (#2062).
+  const loadedRef = useRef<Card[]>([]);
+  loadedRef.current = loadedCards;
+  const boardCardsRef = useRef(board.cards);
+  boardCardsRef.current = board.cards;
+  const removeLoaded = (match: (c: Card) => boolean): boolean => {
+    if (!loadedRef.current.some(match)) return false;
+    loadedRef.current = loadedRef.current.filter((c) => !match(c));
+    totalSeq.current += 1;
+    setCards((prev) => prev.filter((c) => !match(c)));
+    setTotal((prev) => Math.max(0, prev - 1));
+    setOffset((prev) => Math.max(0, prev - 1));
+    return true;
+  };
+
+  // Re-read the authoritative count after a change the panel cannot apply
+  // locally (an unloaded card left, or a new one arrived).
+  const resyncTotal = () => {
+    totalSeq.current += 1;
+    const seq = totalSeq.current;
+    getArchivedCards(board.id, 0)
+      .then((page) => {
+        if (seq !== totalSeq.current) return;
+        setTotal(page.count + prunedRef.current);
+      })
+      .catch(() => {
+        // Keep the local estimate; the next Load more re-syncs from the server.
+      });
+  };
+
+  // Another client archived a card: the frame carries only card_uid, so read
+  // the first page and prepend what is not loaded yet. New archives sort to
+  // the top, so the server's list grew by that many rows above the offset.
+  // It has its own sequence: a concurrent Load more or removal bumps totalSeq
+  // and must not discard the only read that carries the new card. Only the
+  // latest pull applies, since each page-0 read supersedes the earlier ones.
+  const pullSeq = useRef(0);
+  const pullNewlyArchived = () => {
+    totalSeq.current += 1;
+    pullSeq.current += 1;
+    const seq = pullSeq.current;
+    getArchivedCards(board.id, 0)
+      .then((page) => {
+        if (seq !== pullSeq.current) return;
+        const known = new Set(loadedRef.current.map((c) => c.id));
+        const fresh = page.results.filter((c) => !known.has(c.id));
+        if (fresh.length > 0) {
+          loadedRef.current = [...fresh, ...loadedRef.current];
+          setCards((prev) => {
+            const have = new Set(prev.map((c) => c.id));
+            return [...fresh.filter((c) => !have.has(c.id)), ...prev];
+          });
+          setOffset((prev) => prev + fresh.length);
+        }
+        setTotal(page.count + prunedRef.current);
+      })
+      .catch(() => {
+        // Keep the local view; the next Load more re-syncs from the server.
+      });
+  };
+
+  const eventHandlerRef = useRef<(event: BoardEvent) => void>(() => {});
+  eventHandlerRef.current = (event) => {
+    const d = (event.data ?? {}) as { card_uid?: string; id?: number };
+    if (event.event === "card.unarchived") {
+      // Full Card payload. Not loaded here means it sat beyond the loaded
+      // pages (or this panel's own unarchive already removed it).
+      if (typeof d.id === "number" && !removeLoaded((c) => c.id === d.id)) resyncTotal();
+    } else if (event.event === "card.deleted") {
+      const uid = d.card_uid;
+      if (!uid) return;
+      if (removeLoaded((c) => c.uid === uid)) return;
+      // A deleted active card never touches the archived list.
+      if (boardCardsRef.current.some((c) => c.uid === uid)) return;
+      resyncTotal();
+    } else if (event.event === "card.archived") {
+      pullNewlyArchived();
+    }
+  };
+  useEffect(() => {
+    if (!subscribeCardEvents) return;
+    return subscribeCardEvents((event) => eventHandlerRef.current(event));
+  }, [subscribeCardEvents]);
+
   const handleLoadMore = () => {
     totalSeq.current += 1;
     setLoadingMore(true);
@@ -103,7 +192,11 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
     getArchivedCards(board.id, Math.max(0, offset - pruned))
       .then((page) => {
         totalSeq.current += 1;
-        setCards((prev) => [...prev, ...page.results]);
+        // Dedupe by id: a remote archive can shift rows into this page.
+        setCards((prev) => {
+          const have = new Set(prev.map((c) => c.id));
+          return [...prev, ...page.results.filter((c) => !have.has(c.id))];
+        });
         setOffset((prev) => prev + page.results.length);
         // Re-sync with the server so an empty page can never leave a phantom
         // remainder behind (#1637).
@@ -122,11 +215,10 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       // Bump again: a count read begun while the request was in flight may have
       // been taken before the server applied it.
       totalSeq.current += 1;
-      setCards((prev) => prev.filter((c) => c.id !== card.id));
-      setTotal((prev) => Math.max(0, prev - 1));
-      // The server's list shrank by this card too; without this the next
-      // page would be requested one row too far and skip a card (#1637).
-      setOffset((prev) => Math.max(0, prev - 1));
+      // Also drops total and offset: the server's list shrank by this card,
+      // and without the offset step the next page would skip a card (#1637).
+      // A no-op if the socket echo already removed it (#2062).
+      removeLoaded((c) => c.id === card.id);
       onUnarchived(unarchived);
     } catch (err) {
       // Restoring into a full column is refused with the move path's limit

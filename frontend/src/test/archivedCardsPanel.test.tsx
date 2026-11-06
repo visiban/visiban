@@ -6,6 +6,7 @@ import OverflowMenu from '../components/Layout/OverflowMenu'
 import ArchivedCardsPanel from '../components/Board/ArchivedCardsPanel'
 import type { BoardFull, Card } from '../types'
 import type { ArchivedCardsPage } from '../api/cards'
+import type { BoardEvent } from '../hooks/useBoardSocket'
 
 vi.mock('../api/cards', () => ({
   getArchivedCards: vi.fn(),
@@ -444,6 +445,153 @@ describe('ArchivedCardsPanel — backdrop keyboard operation (#1376)', () => {
     await userEvent.click(screen.getByText(/Load more/))
     // Two were loaded, one restored: the server's list now starts one shorter.
     await waitFor(() => expect(mockGetArchivedCards).toHaveBeenLastCalledWith(1, 1))
+  })
+})
+
+describe('ArchivedCardsPanel follows other clients (#2062)', () => {
+  type Listener = (e: BoardEvent) => void
+  const second: Card = { ...archivedCard, id: 98, uid: 'carduid00098', title: 'Second' }
+  const fresh: Card = { ...archivedCard, id: 97, uid: 'carduid00097', title: 'Fresh' }
+
+  function setup() {
+    const listeners = new Set<Listener>()
+    const subscribe = (l: Listener) => { listeners.add(l); return () => { listeners.delete(l) } }
+    const emit = (event: string, data: unknown) =>
+      act(() => { listeners.forEach((l) => l({ event, data } as unknown as BoardEvent)) })
+    return { subscribe, emit, listeners }
+  }
+
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('removes a card another client unarchived and decrements the total', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, second], 2))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    emit('card.unarchived', archivedCard)
+    expect(screen.queryByText('Old feature')).not.toBeInTheDocument()
+    expect(screen.getByText('(1)')).toBeInTheDocument()
+  })
+
+  it('removes a card another client deleted', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, second], 2))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Second')
+    emit('card.deleted', { card_uid: 'carduid00098' })
+    expect(screen.queryByText('Second')).not.toBeInTheDocument()
+    expect(screen.getByText('(1)')).toBeInTheDocument()
+  })
+
+  it('prepends a card another client archived and bumps the total', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([fresh, archivedCard], 2))
+    emit('card.archived', { card_uid: 'carduid00097' })
+    await screen.findByText('Fresh')
+    expect(screen.getByText('(2)')).toBeInTheDocument()
+    expect(screen.getAllByText('Old feature')).toHaveLength(1)
+  })
+
+  it('keeps Load more offset right after remote removals and additions', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, second], 5))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Load more (3 remaining)')
+    emit('card.unarchived', archivedCard)
+    expect(screen.getByText('Load more (3 remaining)')).toBeInTheDocument()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([fresh, second], 5))
+    emit('card.archived', { card_uid: 'carduid00097' })
+    await screen.findByText('Fresh')
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([], 5))
+    await userEvent.click(screen.getByText(/Load more/))
+    // Two loaded after the removal and one prepended: offset 2 -> 1 -> 2.
+    await waitFor(() => expect(mockGetArchivedCards).toHaveBeenLastCalledWith(1, 2))
+  })
+
+  it('re-reads the count when an unloaded archived card leaves', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 3))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Load more (2 remaining)')
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 2))
+    emit('card.deleted', { card_uid: 'unloadedcard' })
+    await screen.findByText('Load more (1 remaining)')
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    emit('card.unarchived', { ...archivedCard, id: 500, uid: 'unloadedcard2' })
+    await waitFor(() => expect(screen.queryByText(/Load more/)).not.toBeInTheDocument())
+  })
+
+  it('ignores the deletion of an active card', async () => {
+    const { subscribe, emit } = setup()
+    const board = { ...fakeBoard, cards: [{ ...archivedCard, id: 5, uid: 'activecard01', archived_at: null }] }
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    render(<ArchivedCardsPanel board={board} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    emit('card.deleted', { card_uid: 'activecard01' })
+    expect(mockGetArchivedCards).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not double-decrement when the own-unarchive echo arrives', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, second], 2))
+    mockUnarchiveCard.mockResolvedValue({ ...archivedCard, archived_at: null })
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    await userEvent.click(screen.getAllByText('Unarchive')[0])
+    await waitFor(() => expect(screen.queryByText('Old feature')).not.toBeInTheDocument())
+    expect(screen.getByText('(1)')).toBeInTheDocument()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([second], 1))
+    emit('card.unarchived', archivedCard)
+    await waitFor(() => expect(mockGetArchivedCards).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('(1)')).toBeInTheDocument()
+  })
+
+  it('keeps a remote archive when Load more runs while the pull is in flight', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 3))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Load more (2 remaining)')
+    let resolvePull: (p: ArchivedCardsPage) => void = () => {}
+    mockGetArchivedCards.mockReturnValueOnce(new Promise<ArchivedCardsPage>((r) => { resolvePull = r }))
+    emit('card.archived', { card_uid: 'carduid00097' })
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([second], 4))
+    await userEvent.click(screen.getByText(/Load more/))
+    await screen.findByText('Second')
+    await act(async () => { resolvePull(makePage([fresh, archivedCard], 4)) })
+    await screen.findByText('Fresh')
+  })
+
+  it('does not duplicate rows a remote archive shifted into the next page', async () => {
+    const { subscribe } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 3))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Load more (2 remaining)')
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard, second], 3))
+    await userEvent.click(screen.getByText(/Load more/))
+    await screen.findByText('Second')
+    expect(screen.getAllByText('Old feature')).toHaveLength(1)
+  })
+
+  it('tolerates a frame with null data', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    emit('card.deleted', null)
+    expect(screen.getByText('Old feature')).toBeInTheDocument()
+  })
+
+  it('unsubscribes on unmount', async () => {
+    const { subscribe, listeners } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    const { unmount } = render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    expect(listeners.size).toBe(1)
+    unmount()
+    expect(listeners.size).toBe(0)
   })
 })
 

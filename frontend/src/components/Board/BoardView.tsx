@@ -633,8 +633,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     onColumnUpdated(column);
     if (wasDone && !column.is_done) onColumnLeftDoneRef.current();
   }, [onColumnUpdated]);
+  // The archived-cards panel is not backed by board.cards, so it listens to
+  // the card frames directly (#2062).
+  const cardEventListeners = useRef(new Set<(event: BoardEvent) => void>());
+  const subscribeCardEvents = useCallback((listener: (event: BoardEvent) => void) => {
+    cardEventListeners.current.add(listener);
+    return () => { cardEventListeners.current.delete(listener); };
+  }, []);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
+    if (event.event === "card.archived" || event.event === "card.unarchived" || event.event === "card.deleted") {
+      cardEventListeners.current.forEach((l) => l(event));
+    }
     if (event.event === "card.created") {
       onCardAdded(d as unknown as Card);
     } else if (event.event === "card.moved") {
@@ -3443,6 +3453,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onClose={() => setShowArchived(false)}
           onUnarchived={(card) => { onCardUnarchived(card); }}
           currentUser={currentUser}
+          subscribeCardEvents={subscribeCardEvents}
         />
       )}
 
