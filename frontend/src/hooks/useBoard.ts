@@ -170,7 +170,10 @@ function applySiblingPositions(cards: Card[], pairs: readonly CardSiblingPositio
  * when its response arrives, so it holds only what happened after the start.
  */
 interface FetchTouches {
-  /** Ids of cards a frame or an HTTP response wrote onto the board. */
+  /**
+   * Ids of cards a frame or an HTTP response wrote onto the board. A copy the
+   * #1969 guard dropped as older than the one on screen is not a write.
+   */
   written: Set<number>;
   /** Ids of cards whose position a `card.moved` sibling pair set (#1890). */
   siblingPositions: Set<number>;
@@ -227,10 +230,11 @@ interface FetchTouches {
  *
  * A different board (the hook is reused across /boards/:id), no previous
  * board, or no writes during the fetch: the snapshot is returned unchanged.
- * Columns, swimlanes, labels and members are not merged; the snapshot replaces
- * them as before. So a column or swimlane deleted during the fetch can come
- * back with its cards, because the cascade does not record them, and a label
- * edit can revert (#2130). An equal-version change the snapshot predates (a
+ * Only cards are merged. Columns, swimlanes, labels, members, custom field
+ * definitions and board-level fields are replaced by the snapshot as before
+ * (#2130). A column or swimlane deleted during the fetch can therefore come
+ * back with its cards, because the cascade does not record them, and it stays
+ * until the next full read, since no later event removes it again. An equal-version change the snapshot predates (a
  * comment, attachment, checklist or relation) still reverts until the next
  * event; telling those apart needs an event cursor on `/full/` (#2089).
  */
@@ -533,9 +537,12 @@ export function useBoard() {
       const touches = fetchTouchesRef.current;
       setBoard((b) => {
         if (!b) return b;
-        if (b.cards.some((c) => c.id === card.id)) touches?.written.add(card.id);
         const cards = replaceCardUnlessStale(b.cards, card);
-        return cards === b.cards ? b : { ...b, cards };
+        if (cards === b.cards) return b;
+        // Recorded only when applied: a copy #1969 dropped as stale must not
+        // protect the card from the snapshot (#2038).
+        touches?.written.add(card.id);
+        return { ...b, cards };
       });
       // A stale "Move failed" / limit toast must not outlive a later success (#1761).
       clearMoveError();
@@ -625,9 +632,12 @@ export function useBoard() {
       const touches = fetchTouchesRef.current;
       setBoard((b) => {
         if (!b) return b;
-        if (b.cards.some((c) => c.id === card.id)) touches?.written.add(card.id);
         const cards = replaceCardUnlessStale(b.cards, card);
-        return cards === b.cards ? b : { ...b, cards };
+        if (cards === b.cards) return b;
+        // Recorded only when applied: a copy #1969 dropped as stale must not
+        // protect the card from the snapshot (#2038).
+        touches?.written.add(card.id);
+        return { ...b, cards };
       });
       return { ok: true };
     } catch (err: unknown) {
@@ -676,12 +686,17 @@ export function useBoard() {
     const touches = fetchTouchesRef.current;
     setBoard((b) => {
       if (!b) return b;
-      touches?.written.add(card.id);
-      if (!b.cards.some((c) => c.id === card.id)) return { ...b, cards: [...b.cards, card] };
+      if (!b.cards.some((c) => c.id === card.id)) {
+        touches?.written.add(card.id);
+        return { ...b, cards: [...b.cards, card] };
+      }
       // Already present (the create response and the card.created echo both
-      // land here): an older copy must not replace a newer one (#1969).
+      // land here): an older copy must not replace a newer one (#1969), nor
+      // count as a write for an in-flight fetch.
       const cards = replaceCardUnlessStale(b.cards, card);
-      return cards === b.cards ? b : { ...b, cards };
+      if (cards === b.cards) return b;
+      touches?.written.add(card.id);
+      return { ...b, cards };
     });
   }, []);
 
@@ -753,11 +768,14 @@ export function useBoard() {
     const touches = fetchTouchesRef.current;
     setBoard((b) => {
       if (!b) return b;
-      touches?.written.add(card.id);
       if (b.cards.some((c) => c.id === card.id)) {
+        // A stale copy is dropped and, like everywhere, not recorded (#2038).
         const cards = replaceCardUnlessStale(b.cards, card);
-        return cards === b.cards ? b : { ...b, cards };
+        if (cards === b.cards) return b;
+        touches?.written.add(card.id);
+        return { ...b, cards };
       }
+      touches?.written.add(card.id);
       return {
         ...b,
         cards: [...b.cards, card],
@@ -849,7 +867,9 @@ export function useBoard() {
         return keepPosition && stored ? { ...prepared, position: stored.position } : prepared;
       });
       if (!cardStale) record(card.id);
-      if (stored) touches?.written.add(card.id);
+      // Only a copy that was applied counts as a write: a frame #1969 dropped
+      // as stale must not protect a pre-fetch copy from the snapshot (#2038).
+      if (stored && !cardStale) touches?.written.add(card.id);
       if (Array.isArray(siblingPositions) && siblingPositions.length > 0 && !cardStale) {
         const fresh = siblingPositions.filter((p) => typeof p?.id === "number" && !newerThanFrame(p.id));
         const before = cards;

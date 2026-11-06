@@ -2171,6 +2171,34 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     expect(byId(result.current.board, 2)).toMatchObject({ title: 'Frame for card 2', version: 2 })
   })
 
+  // A copy the #1969 guard drops as older than the one on screen is not a
+  // write: it must not protect a pre-fetch local copy from the snapshot.
+  const staleWriters: Array<[string, (r: Hook['result']) => Promise<void> | void]> = [
+    ['a stale card.updated frame', (r) => { act(() => { r.current.updateCard(card(1, 4, { title: 'Stale frame' })) }) }],
+    ['a stale card.created echo', (r) => { act(() => { r.current.addCard(card(1, 4, { title: 'Stale echo' })) }) }],
+    ['a stale card.unarchived frame', (r) => { act(() => { r.current.unarchiveCard(card(1, 4, { title: 'Stale restore' })) }) }],
+    ['a stale move response', async (r) => {
+      mockMoveCard.mockResolvedValueOnce({ card: card(1, 4, { title: 'Stale move' }) })
+      await act(async () => { await r.current.moveCard(1, 10, 20, 0) })
+    }],
+    ['a stale forced move response', async (r) => {
+      mockMoveCard.mockResolvedValueOnce({ card: card(1, 4, { title: 'Stale move' }) })
+      await act(async () => { await r.current.forceMoveCardTo(1, 10, 20, 0) })
+    }],
+  ]
+  for (const [label, write] of staleWriters) {
+    it(`${label} during the fetch does not protect the card from a lower snapshot version`, async () => {
+      const { result } = await renderBoard([card(1, 1), card(2, 1)])
+      act(() => { result.current.updateCard(card(1, 5, { title: 'Before the fetch' })) })
+      const fetch = startFetch(result)
+      await write(result)
+      expect(byId(result.current.board, 1)?.version).toBe(5) // the #1969 guard dropped it
+      act(() => { result.current.updateCard(card(2, 2)) }) // a real write, so the merge runs
+      await fetch.resolve(makeBoard({ cards: [card(1, 3, { title: 'Corrected' }), card(2, 1)] }))
+      expect(byId(result.current.board, 1)).toMatchObject({ title: 'Corrected', version: 3 })
+    })
+  }
+
   it('a newer fetch does not inherit the writes of the one it superseded', async () => {
     const { result } = await renderBoard([card(1, 1), card(2, 1)])
     const first = startFetch(result)
