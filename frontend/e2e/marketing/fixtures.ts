@@ -125,7 +125,7 @@ export const SITE_CONFIG: SiteConfig = {
 
 export const BOARD_ID = 101
 export const BOARD_UID = 'bd101onbrdng'
-export const SHARE_TOKEN = 'mkt-share-token-onboarding-pipeline'
+export const SHARE_TOKEN = '6f1d2c3a-5b4e-4a7d-9c8b-0e1f2a3b4c5d'
 
 const col = (
   id: number,
