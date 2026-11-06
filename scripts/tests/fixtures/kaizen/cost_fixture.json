@@ -1,0 +1,44 @@
+[
+  {
+    "iid": 10,
+    "title": "feat: a",
+    "source_branch": "feat/10-a",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 2 findings (sonnet)\n- gate: security-review — n/a (no view)\nsubagent-tokens: 1000\norchestrator-tokens: 500\nest-cost-usd: 2.00 (prices 2026-11-03)\n\n## Notes\n\nCloses #1\n"
+  },
+  {
+    "iid": 11,
+    "title": "feat: b",
+    "source_branch": "feat/11-b",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 0 findings (sonnet)\n- gate: security-review — 1 finding (sonnet)\nsubagent-tokens: 3000\nest-cost-usd: 4.00 (prices 2026-11-03)\n\n## Notes\n\nCloses #1\n"
+  },
+  {
+    "iid": 12,
+    "title": "fix: c",
+    "source_branch": "fix/12-c",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 1 finding (sonnet)\ncost-ledger: off\n\n## Notes\n\nCloses #1\n"
+  },
+  {
+    "iid": 13,
+    "title": "docs: d",
+    "source_branch": "docs/13-d",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 0 findings (sonnet)\n\n## Notes\n\nCloses #1\n"
+  },
+  {
+    "iid": 14,
+    "title": "chore: e",
+    "source_branch": "chore/14-e",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 0 findings (sonnet)\nsubagent-tokens: ~5k\n\n## Notes\n\nCloses #1\n"
+  },
+  {
+    "iid": 15,
+    "title": "fix: f",
+    "source_branch": "fix/15-f",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 0 findings (sonnet)\ncost-ledger: off\nsubagent-tokens: 5\n\n## Notes\n\nCloses #1\n"
+  },
+  {
+    "iid": 16,
+    "title": "feat: g",
+    "source_branch": "feat/16-g",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 3 findings (sonnet)\n```\nest-cost-usd: 99.00\n```\n<!-- subagent-tokens: 999 -->\n\n## Notes\nest-cost-usd: 50.00\n\nCloses #1\n"
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "_doc": "#2128, ported from macrodream/blueprint#348; docs/development/cost-ledger.md",
+  "schema": 1,
+  "cost-ledger": "on"
+}

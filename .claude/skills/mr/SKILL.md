@@ -203,6 +203,41 @@ Rules:
 - Omit the whole section only for MRs where no gate applied at all (a pure
   chore or CI config branch).
 
+### The cost lines (#2128)
+
+The cost ledger records what the branch cost, so `/kaizen` can ask "findings per dollar"
+by gate and change class. [`docs/development/cost-ledger.md`](../../../docs/development/cost-ledger.md)
+is the contract; this is what the description carries.
+
+- **Ask the setting first:** `python3 scripts/cost-ledger enabled`. Exit 0: write the cost
+  lines below when you hold them. Exit 1 (off): write the one line `cost-ledger: off` at the
+  end of `## Gates`, no cost line, and run none of the measuring scripts. Exit 2 (unreadable):
+  the same, plus the `## Notes` line "cost ledger setting unreadable; nothing recorded". The
+  marker never names the layer that turned it off.
+- **The lines are not in the template** (a template slot only invites an estimate). `/wave` is
+  the one writer with real figures: its go-ahead message carries them
+  (`.claude/skills/wave/SKILL.md` Step 5.4), and they go last in `## Gates`, unchanged:
+  ```
+  subagent-tokens: <N>
+  orchestrator-tokens: <N>
+  est-cost-usd: <N.NN> (prices YYYY-MM-DD)
+  ```
+  A plain `/mr` with no such figures writes none of them; that is not a gap.
+- `subagent-tokens:` and `orchestrator-tokens:` are **measured**, digits only (never `~5k` or
+  `1,234`), the stdout of `scripts/subagent-tokens.py` and `scripts/orchestrator-tokens.py`.
+  They are the same unit but different scopes: never add them up as the MR's cost.
+  `est-cost-usd:` is the **one estimate**, a list-price equivalent from
+  `.claude/model-prices.json`, not what a subscription charged. `turns: <N>` and
+  `cost: usd <N>` are allowed only for a literally reported, measured figure.
+- **Omit a line when its script exited non-zero** and say why in `## Notes`. A partial figure
+  would read as a whole one.
+- **Check the draft** before `glab mr create`: `python3 scripts/cost_ledger_lines.py --file
+  <body.md>` exits 1 on a malformed, doubled or contradictory cost line (it never requires one).
+  The body file must be under the checkout, the temp dir or the git dir.
+- The human-readable cost table is an MR comment, `## Cost of this MR (#<N>)`, that
+  `scripts/cost-table.py` posts after the MR opens (`/wave` Step 6). The description carries no
+  `## Cost` section.
+
 ---
 
 ## Step 3 — Create the MR

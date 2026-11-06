@@ -31,6 +31,18 @@ Usage:
 
     # Machine-readable output for the skill to reason over
     python3 scripts/kaizen_gate_ledger.py --window 30 --json
+
+    # Offline proof the readers still fire (CI: cost-ledger-selftest)
+    python3 scripts/kaizen_gate_ledger.py --self-test
+
+Cost (#2128). Beside yield, the report reads the cost ledger lines `/mr` and `/wave` write in
+`## Gates` (`subagent-tokens:`, `orchestrator-tokens:`, `est-cost-usd:`, or the one marker
+`cost-ledger: off`; docs/development/cost-ledger.md) through scripts/cost_ledger_lines.py, the
+same reader scripts/cost-table.py renders from. Each MR is in one cost state: `recorded` (a
+well-formed figure), `disabled` (the off marker: nothing recorded, by choice) or `none` (no
+figure yet). A disabled MR is never counted as 0 and never averaged; a window or change class
+whose MRs are all disabled says so instead of showing a mean. Change class is the branch prefix
+(feat/fix/docs/chore, else other), the same proxy scripts/kaizen_yield_watch.py uses.
 """
 from __future__ import annotations
 
@@ -47,6 +59,7 @@ from dataclasses import dataclass, field
 # Sibling import must work however the script is loaded (direct run, importlib).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _paths import cli_roots, resolve_within  # noqa: E402
+import cost_ledger_lines as cost_lines  # noqa: E402
 
 DEFAULT_PROJECT = "visiban/visiban"
 DEFAULT_WINDOW = 30
@@ -106,6 +119,100 @@ DELIVERABLE_GATES = {"changelog", "docs-writer", "test-scaffold"}
 # actionable"; ">50% yield is load-bearing").
 MIN_RUNS_FOR_VERDICT = 10
 LOAD_BEARING_YIELD_PCT = 50.0
+
+
+# Change class for the cost tables: the branch prefix, as scripts/kaizen_yield_watch.py's
+# diff_shape() buckets it (not imported: that module imports this one).
+COST_CLASSES = ("feat", "fix", "docs", "chore")
+
+
+def change_class(mr) -> str:
+    prefix = (mr.get("source_branch") or "").split("/", 1)[0].lower()
+    return prefix if prefix in COST_CLASSES else "other"
+
+
+def cost_figures(mr) -> dict:
+    """One MR's cost record: state `disabled` (the `cost-ledger: off` marker), `recorded` (at least
+    one well-formed figure) or `none`; the three figures (None when absent or malformed, never 0);
+    and whether any cost line in `## Gates` failed scripts/cost_ledger_lines.py's checks."""
+    desc = mr.get("description") or ""
+    fig = {
+        "iid": mr.get("iid"),
+        "class": change_class(mr),
+        "subagent_tokens": cost_lines.subagent_tokens(desc),
+        "orchestrator_tokens": cost_lines.orchestrator_tokens(desc),
+        "est_cost_usd": cost_lines.est_cost_usd(desc),
+        "malformed": bool(cost_lines.check_body(desc)),
+    }
+    if cost_lines.ledger_disabled(desc):
+        fig["state"] = "disabled"
+    elif any(fig[k] is not None for k in ("subagent_tokens", "orchestrator_tokens", "est_cost_usd")):
+        fig["state"] = "recorded"
+    else:
+        fig["state"] = "none"
+    return fig
+
+
+def _mean(values):
+    return round(sum(values) / len(values), 2) if values else None
+
+
+def _cost_state(figs) -> str:
+    """`recorded` if any MR recorded a figure, else `disabled` if any said `cost-ledger: off`, else
+    `none`. A disabled set is reported as its own state, never as 0 or as "not recorded yet"."""
+    if any(f["state"] == "recorded" for f in figs):
+        return "recorded"
+    if any(f["state"] == "disabled" for f in figs):
+        return "disabled"
+    return "none"
+
+
+def analyze_cost(figs, gate_runs) -> dict:
+    """Cost by change class and by gate. `gate_runs` maps gate -> {"ran": [(iid, findings)],
+    "na": [iid]}. Only `recorded` MRs feed a mean; `disabled` MRs are counted, never averaged.
+
+    The per-gate figures are the MR-level estimate of the MRs a gate ran on (or was n/a on), not
+    the gate's own cost: the ledger records cost per MR, not per gate. `findings_per_usd` is the
+    gate's findings on those MRs over their summed estimate."""
+    usd = {f["iid"]: f["est_cost_usd"] for f in figs if f["state"] == "recorded" and f["est_cost_usd"] is not None}
+    classes = {}
+    for cls in sorted({f["class"] for f in figs}):
+        rs = [f for f in figs if f["class"] == cls]
+        rec = [f for f in rs if f["state"] == "recorded"]
+        classes[cls] = {
+            "mrs": len(rs),
+            "recorded": len(rec),
+            "disabled": sum(1 for f in rs if f["state"] == "disabled"),
+            "state": _cost_state(rs),
+            "est_costed": sum(1 for f in rec if f["est_cost_usd"] is not None),
+            "mean_est_cost_usd": _mean([f["est_cost_usd"] for f in rec if f["est_cost_usd"] is not None]),
+            "mean_subagent_tokens": _mean([f["subagent_tokens"] for f in rec if f["subagent_tokens"] is not None]),
+        }
+    gates = {}
+    for name, runs in sorted(gate_runs.items()):
+        ran = [(iid, n) for iid, n in runs["ran"] if iid in usd]
+        na = [iid for iid in runs["na"] if iid in usd]
+        if not ran and not na:
+            continue
+        spent = sum(usd[iid] for iid, _ in ran)
+        gates[name] = {
+            "ran_costed": len(ran),
+            "mean_est_cost_usd_ran": _mean([usd[iid] for iid, _ in ran]),
+            "na_costed": len(na),
+            "mean_est_cost_usd_na": _mean([usd[iid] for iid in na]),
+            "findings_per_usd": round(sum(n for _, n in ran) / spent, 2) if spent > 0 else None,
+        }
+    return {
+        "mrs": len(figs),
+        "recorded": sum(1 for f in figs if f["state"] == "recorded"),
+        "disabled": sum(1 for f in figs if f["state"] == "disabled"),
+        "none": sum(1 for f in figs if f["state"] == "none"),
+        "malformed": sorted(f["iid"] for f in figs if f["malformed"] and f["iid"] is not None),
+        "state": _cost_state(figs),
+        "est_costed": len(usd),
+        "by_class": classes,
+        "by_gate": gates,
+    }
 
 
 @dataclass
@@ -206,12 +313,19 @@ def analyze(mrs):
     adopted = 0
     total = len(mrs)
     per_mr_malformed = []
+    figs = []
+    gate_runs: dict[str, dict] = {}
 
-    for mr in mrs:
+    for idx, mr in enumerate(mrs):
         desc = mr.get("description") or ""
         iid = mr.get("iid")
         if find_gates_section_present(desc):
             adopted += 1
+        fig = cost_figures(mr)
+        # A missing iid would collide in the cost join; key it by position instead.
+        fig["iid"] = iid if iid is not None else "#%d" % idx
+        figs.append(fig)
+        seen_ran, seen_na = set(), set()
         for name, outcome_text in extract_gate_lines(desc):
             if name == "completeness-check" and ROUND2_RE.search(outcome_text):
                 name += ROUND2_SUFFIX
@@ -221,6 +335,13 @@ def analyze(mrs):
                 per_mr_malformed.append((iid, name, outcome_text))
                 continue
             kind, value = parse_outcome(outcome_text)
+            runs = gate_runs.setdefault(name, {"ran": [], "na": []})
+            if kind == "findings" and name not in seen_ran:
+                seen_ran.add(name)
+                runs["ran"].append((fig["iid"], value))
+            elif kind == "na" and name not in seen_na and name not in seen_ran:
+                seen_na.add(name)
+                runs["na"].append(fig["iid"])
             if kind == "findings":
                 if value == 0:
                     gs.zero += 1
@@ -234,11 +355,16 @@ def analyze(mrs):
             else:
                 gs.unscored.append((iid, outcome_text))
 
+    for runs in gate_runs.values():
+        ran_iids = {iid for iid, _ in runs["ran"]}
+        runs["na"] = [iid for iid in runs["na"] if iid not in ran_iids]
+
     return {
         "window": total,
         "adopted": adopted,
         "gates": gates,
         "malformed": per_mr_malformed,
+        "cost": analyze_cost(figs, gate_runs),
     }
 
 
@@ -349,7 +475,67 @@ def render_text(result) -> str:
         for iid, name, text in result["malformed"][:10]:
             lines.append(f"  !{iid}: gate: {name} — {text!r}")
 
+    lines.append("")
+    lines.extend(render_cost(result["cost"]))
     return "\n".join(lines)
+
+
+def _fmt(v, kind):
+    """A cost cell: `-` for no figure (never 0), else USD, a token count, or a ratio."""
+    if v is None:
+        return "-"
+    if kind == "usd":
+        return "%.2f USD" % v
+    if kind == "tok":
+        return "{:,}".format(int(round(v)))
+    return "%.2f" % v
+
+
+def render_cost(cost) -> list:
+    """The cost section of the text report. A disabled ledger is its own state, never 0."""
+    out = ["## Cost — `est-cost-usd:` is a list-price estimate, not a billed amount (docs/development/cost-ledger.md)", ""]
+    out.append(
+        f"Cost ledger: {cost['recorded']} recorded, {cost['disabled']} disabled (`cost-ledger: off`), "
+        f"{cost['none']} with no cost line, of {cost['mrs']} MRs. Disabled MRs are left out of every mean, "
+        "never counted as 0."
+    )
+    if cost["malformed"]:
+        out.append("MRs with a malformed or contradictory cost line (malformed figures are ignored, not read as 0): "
+                   + ", ".join("!%s" % i for i in cost["malformed"][:10]))
+    if cost["state"] == "disabled":
+        out.append(f"(cost ledger disabled on {cost['disabled']} MR(s): nothing recorded, by choice)")
+        return out
+    if cost["state"] == "none":
+        out.append("No MR carries a `subagent-tokens:`, `orchestrator-tokens:` or `est-cost-usd:` line yet.")
+        return out
+    out.append("")
+    out.append("By change class (branch prefix; `orchestrator-tokens:` is session spend shared across a wave, so it is "
+               "never averaged here):")
+    header = f"{'class':<8} {'MRs':>4} {'recorded':>9} {'disabled':>9} {'mean est. cost':>15} {'mean subagent-tokens':>21}"
+    out.append(header)
+    out.append("-" * len(header))
+    for cls, c in cost["by_class"].items():
+        if c["state"] == "disabled":
+            usd, tok = "disabled", "disabled"
+        elif c["state"] == "none":
+            usd, tok = "not recorded", "not recorded"
+        else:
+            usd, tok = _fmt(c["mean_est_cost_usd"], "usd"), _fmt(c["mean_subagent_tokens"], "tok")
+        out.append(f"{cls:<8} {c['mrs']:>4} {c['recorded']:>9} {c['disabled']:>9} {usd:>15} {tok:>21}")
+    out.append("")
+    if not cost["by_gate"]:
+        out.append("By gate: no MR carries an `est-cost-usd:` line yet.")
+        return out
+    out.append("By gate (the MR-level estimate of the MRs it ran on vs was n/a on; not the gate's own cost):")
+    header = f"{'gate':<28} {'ran':>4} {'mean est. cost (ran)':>21} {'n/a':>4} {'mean est. cost (n/a)':>21} {'findings/USD':>13}"
+    out.append(header)
+    out.append("-" * len(header))
+    for name, g in cost["by_gate"].items():
+        out.append(
+            f"{name:<28} {g['ran_costed']:>4} {_fmt(g['mean_est_cost_usd_ran'], 'usd'):>21} {g['na_costed']:>4} "
+            f"{_fmt(g['mean_est_cost_usd_na'], 'usd'):>21} {_fmt(g['findings_per_usd'], 'ratio'):>13}"
+        )
+    return out
 
 
 def to_jsonable(result):
@@ -374,10 +560,62 @@ def to_jsonable(result):
         "adoption_pct": round(100.0 * result["adopted"] / result["window"], 1) if result["window"] else 0.0,
         "gates": gates_out,
         "malformed_count": len(result["malformed"]),
+        "cost": result["cost"],
     }
 
 
+def self_test() -> int:
+    """Offline proof that the ledger and cost readers still fire (#1093 house rule). The wider
+    regression suite is scripts/tests/kaizen_gate_ledger.test.sh, run in the same CI job."""
+    em = "\u2014"
+
+    def mr(iid, branch, *lines):
+        return {"iid": iid, "source_branch": branch,
+                "description": "## Gates\n" + "\n".join(lines) + "\n\n## Notes\nsubagent-tokens: 777\n"}
+
+    mrs = [
+        mr(1, "feat/1", f"- gate: regression-check {em} 2 findings (sonnet)", f"- gate: perf-check {em} n/a (no viewset)",
+           "subagent-tokens: 1000", "est-cost-usd: 2.00 (prices 2026-11-03)"),
+        mr(2, "feat/2", f"- gate: regression-check {em} 0 findings (sonnet)", f"- gate: perf-check {em} 1 finding (sonnet)",
+           "subagent-tokens: 3000", "est-cost-usd: 4.00"),
+        mr(3, "fix/3", f"- gate: regression-check {em} 1 finding (sonnet)", "cost-ledger: off"),
+        mr(4, "docs/4", f"- gate: regression-check {em} skipped (user said so)", "subagent-tokens: ~5k"),
+        {"iid": 5, "source_branch": "chore/5", "description": "## Summary\nno ledger\n"},
+    ]
+    r = analyze(mrs)
+    c = r["cost"]
+    rc = r["gates"]["regression-check"]
+    checks = [
+        ("adoption 4/5", r["adopted"] == 4 and r["window"] == 5),
+        ("regression-check: 3 runs, 2 positive, 1 skipped", (rc.runs, rc.positive, rc.skipped) == (3, 2, 1)),
+        ("perf-check: n/a is not a run", (r["gates"]["perf-check"].runs, r["gates"]["perf-check"].na) == (1, 1)),
+        ("cost states: 2 recorded, 1 disabled, 2 none", (c["recorded"], c["disabled"], c["none"]) == (2, 1, 2)),
+        ("a `## Notes` figure is not read", c["by_class"]["feat"]["mean_subagent_tokens"] == 2000.0),
+        ("feat mean est. cost 3.00", c["by_class"]["feat"]["mean_est_cost_usd"] == 3.0),
+        ("a disabled class is disabled, its mean None", c["by_class"]["fix"]["state"] == "disabled"
+         and c["by_class"]["fix"]["mean_est_cost_usd"] is None),
+        ("a malformed cost line is flagged, not read as 0", c["malformed"] == [4] and c["by_class"]["docs"]["state"] == "none"),
+        ("per gate: ran vs n/a and findings per USD", c["by_gate"]["perf-check"] == {
+            "ran_costed": 1, "mean_est_cost_usd_ran": 4.0, "na_costed": 1, "mean_est_cost_usd_na": 2.0, "findings_per_usd": 0.25}),
+        ("regression-check findings per USD = 2 / 6.00", c["by_gate"]["regression-check"]["findings_per_usd"] == 0.33),
+        ("an all-off window reads disabled", analyze([mrs[2]])["cost"]["state"] == "disabled"
+         and "nothing recorded, by choice" in "\n".join(render_cost(analyze([mrs[2]])["cost"]))),
+        ("an empty window reads not recorded yet, never 0", analyze([mrs[4]])["cost"]["state"] == "none"
+         and "line yet" in "\n".join(render_cost(analyze([mrs[4]])["cost"]))),
+        ("text and JSON render", "## Cost" in render_text(r) and json.dumps(to_jsonable(r))),
+    ]
+    fails = [name for name, ok in checks if not ok]
+    for name in fails:
+        print("self-test FAIL: " + name, file=sys.stderr)
+    if fails:
+        return 1
+    print("kaizen_gate_ledger self-test OK (%d checks)" % len(checks))
+    return 0
+
+
 def main():
+    if sys.argv[1:] == ["--self-test"]:
+        sys.exit(self_test())
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--project", type=validate_project, default=DEFAULT_PROJECT, help="GitLab project: visiban/visiban or visiban/visiban-enterprise (default: %(default)s)")
     parser.add_argument("--window", type=validate_window, default=DEFAULT_WINDOW, help="Number of most-recently-merged MRs to audit (default: %(default)s)")

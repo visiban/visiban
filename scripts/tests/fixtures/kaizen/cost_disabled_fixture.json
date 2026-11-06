@@ -1,0 +1,14 @@
+[
+  {
+    "iid": 20,
+    "title": "feat: x",
+    "source_branch": "feat/20-x",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 1 finding (sonnet)\ncost-ledger: off\n\n## Notes\n\nCloses #1\n"
+  },
+  {
+    "iid": 21,
+    "title": "fix: y",
+    "source_branch": "fix/21-y",
+    "description": "## Summary\n- x\n\n## Gates\n- gate: regression-check — 0 findings (sonnet)\n- cost-ledger: off\n\n## Notes\n\nCloses #1\n"
+  }
+]

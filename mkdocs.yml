@@ -140,6 +140,7 @@ nav:
     - SonarCloud: development/sonarcloud.md
     - Kaizen Yield Watch: development/kaizen-yield-watch.md
     - Kaizen Fast-Path Proposal: development/kaizen-fastpath-proposal.md
+    - MR Cost Ledger: development/cost-ledger.md
     - WebSocket Event Contract: development/websocket-event-contract.md
     - Nightly Load Test: development/nightly-load-test.md
     - Load Test Version Benchmarks: development/load-test-version-benchmarks.md
