@@ -628,6 +628,20 @@ describe('CSV import warnings (#1526)', () => {
     }
   })
 
+  // #2107: the toast's own controls are reachable from the keyboard, in visual order.
+  it('reaches the warnings list and then the dismiss button by Tab, and Escape dismisses', async () => {
+    const user = userEvent.setup()
+    const onDismiss = vi.fn()
+    renderNotice(<ImportSkippedToast summary={warned} onDismiss={onDismiss} />)
+    await user.tab()
+    expect(screen.getByLabelText('Import warnings')).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Dismiss notification' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('import-notice')).not.toBeInTheDocument()
+  })
+
   it('announces the headline and a count, never the list', () => {
     vi.useFakeTimers()
     try {

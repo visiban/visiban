@@ -461,16 +461,6 @@ describe('untinted card face text (#1862)', () => {
 describe('design-system leftovers (#1857)', () => {
   const read = (p: string) => readFileSync(p, 'utf8')
 
-  it.each(['src/components/Board/BoardView.tsx', 'src/pages/GroupDetail.tsx'])(
-    '%s passes on-tint text to JoinedNotice children',
-    (p) => {
-      const src = read(p)
-      expect(src).toContain('<JoinedNotice')
-      expect(src).not.toMatch(/<strong className="text-success">/)
-      expect(src).toContain('text-success-on-tint')
-    },
-  )
-
   it('RoleInfoTooltip trigger respects the 12px typography floor', () => {
     const src = read('src/components/Common/RoleInfoTooltip.tsx')
     expect(src).not.toMatch(/text-\[(\d|1[01])px\]/)

@@ -18,7 +18,7 @@ import Navbar from "../components/Layout/Navbar";
 import UnavailablePage from "./UnavailablePage";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
-import JoinedNotice from "../components/Common/JoinedNotice";
+import { useJoinedToast } from "../components/Common/useJoinedToast";
 import BoardGroupPath from "../components/Group/BoardGroupPath";
 import HealthStatusControl from "../components/Common/HealthStatusControl";
 import { HealthListingPill } from "../components/Common/HealthStatusPill";
@@ -53,8 +53,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const joinedGroupName: string | null = (location.state as { joinedGroup?: string } | null)?.joinedGroup ?? null;
-  const [joinToast, setJoinToast] = useState(joinedGroupName);
+  // Captured once: a tab click (setSearchParams) navigates without location.state,
+  // and a title rebuilt each render would become null and dismiss the toast (#2107).
+  const [joinedTitle] = useState<string | null>(() => {
+    const name = (location.state as { joinedGroup?: string } | null)?.joinedGroup;
+    return name ? `You've joined ${name}. Welcome!` : null;
+  });
+  // A persistent `success` toast in the shared region (#2107).
+  useJoinedToast(joinedTitle);
 
   useEscapeStack(() => {
     if (showTransferModal) { setShowTransferModal(false); return; }
@@ -753,12 +759,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   return (
     <div ref={rootRef} className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
-
-      {joinToast && (
-        <JoinedNotice onDismiss={() => setJoinToast(null)}>
-          You've joined <strong className="text-success-on-tint">{joinToast}</strong>. Welcome!
-        </JoinedNotice>
-      )}
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
         {/* Header */}

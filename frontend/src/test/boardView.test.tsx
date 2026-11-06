@@ -1172,11 +1172,11 @@ describe('BoardView', () => {
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
-  it('?card= param shows "Card not found" banner when card is deleted', async () => {
+  it('?card= param shows "Card not found" toast when card is deleted', async () => {
     mockedGetCardStatus.mockResolvedValue(null)
     mockSearchParams = new URLSearchParams('card=999')
-    render(<BoardView {...defaultProps()} />)
-    await waitFor(() => expect(screen.getByText(/Card not found/)).toBeInTheDocument())
+    render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+    await waitFor(() => expect(screen.getByTestId('card-not-found-toast')).toHaveTextContent(/Card not found/))
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
@@ -1186,32 +1186,35 @@ describe('BoardView', () => {
   it('?card= param falls back to the generic "not found" message when the status lookup itself fails', async () => {
     mockedGetCardStatus.mockRejectedValue(new Error('network error'))
     mockSearchParams = new URLSearchParams('card=999')
-    render(<BoardView {...defaultProps()} />)
-    await waitFor(() => expect(screen.getByText(/Card not found/)).toBeInTheDocument())
+    render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+    await waitFor(() => expect(screen.getByTestId('card-not-found-toast')).toHaveTextContent(/Card not found/))
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
   it('?card= param shows "This card has been archived" when card is archived', async () => {
     mockedGetCardStatus.mockResolvedValue({ archived: true })
     mockSearchParams = new URLSearchParams('card=999')
-    render(<BoardView {...defaultProps()} />)
+    render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
     await waitFor(() =>
       expect(screen.getByText('This card has been archived.')).toBeInTheDocument()
     )
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
-  it('"Card not found" banner auto-dismisses after 4s', async () => {
+  it('"Card not found" toast auto-dismisses after 4s', async () => {
     vi.useFakeTimers()
     mockedGetCardStatus.mockResolvedValue(null)
     mockSearchParams = new URLSearchParams('card=999')
-    render(<BoardView {...defaultProps()} />)
-    // Wait for the async getCardStatus to settle before checking for the banner
+    render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+    // Wait for the async getCardStatus to settle before checking for the toast
     await act(async () => { await Promise.resolve() })
-    expect(screen.getByText(/Card not found/)).toBeInTheDocument()
-    await act(async () => { vi.advanceTimersByTime(4000) })
-    expect(screen.queryByText(/Card not found/)).not.toBeInTheDocument()
-    vi.useRealTimers()
+    try {
+      expect(screen.getByTestId('card-not-found-toast')).toHaveTextContent(/Card not found/)
+      await act(async () => { vi.advanceTimersByTime(4000) })
+      expect(screen.queryByTestId('card-not-found-toast')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('fresh board with no stored prefs renders all columns expanded', async () => {
@@ -1692,12 +1695,12 @@ describe('BoardView', () => {
     it('closes CardDetail when the open card is evicted', () => {
       mockSearchParams = new URLSearchParams('card=1')
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       expect(screen.getByTestId('card-detail')).toBeInTheDocument()
 
       // evictColumn dropped the column and, with it, its cards.
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [], columns: makeBoard().columns.slice(1) }) })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
       // Closed with a reason, not silently: an unsaved draft went with it.
@@ -1707,12 +1710,12 @@ describe('BoardView', () => {
     it('hands CardDetail the refreshed card after a board reload replaces it (#1773)', () => {
       mockSearchParams = new URLSearchParams('card=1')
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       expect(screen.getByTestId('card-detail')).toHaveTextContent('Doomed Card')
 
       // A 409 version-conflict refresh swaps in the server's copy of the card.
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [{ ...card, title: 'Refreshed Card', version: 2 }] }) })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       expect(screen.getByTestId('card-detail')).toHaveTextContent('Refreshed Card')
     })
@@ -1722,7 +1725,7 @@ describe('BoardView', () => {
       mockSearchParams = new URLSearchParams('card=1')
       const forceMoveCardTo = vi.fn().mockResolvedValue({ ok: true })
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }), forceMoveCardTo })
-      render(<BoardView {...defaultProps()} />)
+      render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       await userEvent.setup().click(screen.getByRole('button', { name: 'Force From Detail' }))
       expect(forceMoveCardTo).toHaveBeenCalledTimes(1)
       expect(forceMoveCardTo).toHaveBeenCalledWith(1, 11, 21, 9999)
@@ -1732,7 +1735,7 @@ describe('BoardView', () => {
       mockSearchParams = new URLSearchParams('view=analytics')
       const forceMoveCardTo = vi.fn().mockResolvedValue({ ok: true })
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }), forceMoveCardTo })
-      render(<BoardView {...defaultProps()} />)
+      render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       const user = userEvent.setup()
       await user.click(screen.getByTestId('open-card-btn'))
       await user.click(screen.getByRole('button', { name: 'Force From Detail' }))
@@ -1742,12 +1745,12 @@ describe('BoardView', () => {
     it('hands the analytics-view CardDetail the refreshed card too (#1773)', async () => {
       mockSearchParams = new URLSearchParams('view=analytics')
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       await userEvent.setup().click(screen.getByTestId('open-card-btn'))
       expect(screen.getByTestId('card-detail')).toHaveTextContent('Doomed Card')
 
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [{ ...card, title: 'Refreshed Card', version: 2 }] }) })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       expect(screen.getByTestId('card-detail')).toHaveTextContent('Refreshed Card')
     })
@@ -1755,17 +1758,17 @@ describe('BoardView', () => {
     it('closes CardDetail with the notice in the analytics view too', async () => {
       mockSearchParams = new URLSearchParams('view=analytics')
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       // AnalyticsView mock opens card 1.
       await userEvent.setup().click(screen.getByTestId('open-card-btn'))
       expect(screen.getByTestId('card-detail')).toBeInTheDocument()
 
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [] }) })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
       expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
-      expect(screen.getByText('The card you had open was deleted or archived, so it was closed.')).toHaveTextContent('The card you had open was deleted or archived, so it was closed.')
+      expect(screen.getByTestId('card-not-found-toast')).toHaveTextContent('The card you had open was deleted or archived, so it was closed.')
     })
 
     it('the notice clears itself after 4 seconds', () => {
@@ -1773,12 +1776,12 @@ describe('BoardView', () => {
       try {
         mockSearchParams = new URLSearchParams('card=1')
         mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-        const { rerender } = render(<BoardView {...defaultProps()} />)
+        const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
         mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [] }) })
-        rerender(<BoardView {...defaultProps()} />)
-        expect(screen.getByText(/so it was closed/)).toBeInTheDocument()
+        rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+        expect(screen.getByTestId('card-not-found-toast')).toHaveTextContent(/so it was closed/)
         act(() => { vi.advanceTimersByTime(4000) })
-        expect(screen.queryByText(/so it was closed/)).not.toBeInTheDocument()
+        expect(screen.queryByTestId('card-not-found-toast')).not.toBeInTheDocument()
       } finally {
         vi.useRealTimers()
       }
@@ -1788,12 +1791,12 @@ describe('BoardView', () => {
       mockSearchParams = new URLSearchParams('card=1')
       const removeCard = vi.fn()
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }), removeCard })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       await userEvent.setup().click(screen.getByText('Delete From Detail'))
       expect(removeCard).toHaveBeenCalledWith(1)
       // removeCard has now dropped the card from state.
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [] }), removeCard })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
       expect(screen.queryByText(/so it was closed/)).not.toBeInTheDocument()
@@ -1801,19 +1804,19 @@ describe('BoardView', () => {
 
     it('shows no notice when cards leave the board and none is open', () => {
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [] }) })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       expect(screen.queryByText(/so it was closed/)).not.toBeInTheDocument()
     })
 
     it('keeps CardDetail open while the card is still on the board', () => {
       mockSearchParams = new URLSearchParams('card=1')
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [{ ...card, title: 'Renamed' }] }) })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       expect(screen.getByTestId('card-detail')).toBeInTheDocument()
       expect(screen.queryByText(/so it was closed/)).not.toBeInTheDocument()
@@ -1821,14 +1824,14 @@ describe('BoardView', () => {
 
     it('drops an evicted card from the bulk selection (existing prune effect)', async () => {
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
-      const { rerender } = render(<BoardView {...defaultProps()} />)
+      const { rerender } = render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
       await userEvent.setup().click(screen.getByTestId('select-card-1-20'))
       expect(screen.getByTestId('bulk-toolbar')).toBeInTheDocument()
 
       // Another user deleted the card's column: the card is gone, the
       // swimlane row (and so BoardView's tree) is unchanged.
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [], columns: makeBoard().columns.slice(1) }) })
-      rerender(<BoardView {...defaultProps()} />)
+      rerender(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
 
       expect(screen.queryByTestId('bulk-toolbar')).not.toBeInTheDocument()
     })
@@ -2795,7 +2798,7 @@ describe('BoardView card actions (#2059)', () => {
     vi.mocked(moveCard).mockResolvedValue({ card: { ...card2, column: 11 } } as never)
     const updateCardSpy = vi.fn()
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2] }), updateCard: updateCardSpy })
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     fireEvent.click(screen.getByTestId('open-menu-2'))
     fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Done' }))
@@ -2807,14 +2810,38 @@ describe('BoardView card actions (#2059)', () => {
 
   it('a failed archive is shown with the bulk partial-failure wording', async () => {
     vi.mocked(archiveCard).mockRejectedValue(new Error('offline'))
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     fireEvent.click(screen.getByTestId('open-menu-2'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive card' }))
-    expect(await screen.findByText('1 of 1 card could not be archived — a network error occurred.')).toBeInTheDocument()
+    const failure = await screen.findByTestId('card-action-toast')
+    expect(failure).toHaveAttribute('data-variant', 'danger')
+    expect(failure).toHaveTextContent('1 of 1 card could not be archived — a network error occurred.')
     // A failure persists until dismissed (no auto-clear timer).
     await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss card action message' }))
+    fireEvent.click(within(failure).getByRole('button', { name: 'Dismiss notification' }))
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
+  })
+
+  it('archiving on the board view raises the archive toast and no second announcement', async () => {
+    vi.mocked(archiveCard).mockResolvedValue(undefined as never)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive card' }))
+    expect(await screen.findByTestId('archive-toast')).toHaveTextContent('Card archived')
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
     expect(screen.getByTestId('card-action-status')).toHaveTextContent('')
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
+  })
+
+  it('a card-action failure toast does not outlive BoardView (provider stays mounted)', async () => {
+    vi.mocked(archiveCard).mockRejectedValue(new Error('offline'))
+    const ui = (on: boolean) => <ToastProvider>{on && <BoardView currentUser={fakeUser} />}</ToastProvider>
+    const { rerender } = render(ui(true))
+    fireEvent.click(screen.getByTestId('open-menu-2'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive card' }))
+    expect(await screen.findByTestId('card-action-toast')).toHaveAttribute('data-variant', 'danger')
+    rerender(ui(false))
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
   })
 
   it('Block card… opens the card sheet with the block form requested', () => {
@@ -2831,7 +2858,7 @@ describe('BoardView card actions (#2059)', () => {
     vi.mocked(deleteCard).mockResolvedValue(undefined as never)
     const removeCard = vi.fn()
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card1, card2] }), removeCard })
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     fireEvent.click(screen.getByTestId('open-menu-2'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete card…' }))
     expect(deleteCard).not.toHaveBeenCalled()
@@ -2840,33 +2867,34 @@ describe('BoardView card actions (#2059)', () => {
     await waitFor(() => expect(deleteCard).toHaveBeenCalledWith(1, 2))
     await waitFor(() => expect(removeCard).toHaveBeenCalledWith(2))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this card?' })).not.toBeInTheDocument())
-    // The card is gone from view, so the success is shown as well as announced.
-    expect(screen.getByTestId('card-action-status')).toHaveTextContent('Deleted “Second card”.')
-    expect(screen.getByTestId('card-action-status').parentElement).not.toHaveClass('sr-only')
+    // The card is gone from view, so the success is a toast, not only announced.
+    const toast = screen.getByTestId('card-action-toast')
+    expect(toast).toHaveTextContent('Deleted “Second card”.')
+    expect(toast).toHaveAttribute('data-variant', 'success')
   })
 
   it('Copy link writes the card deep link and announces it', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     fireEvent.click(screen.getByTestId('open-menu-2'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link to card' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/boards/1?card=2`))
-    expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Link copied to the clipboard.')
-    // Nothing on the board changes, so it is shown, not only announced.
-    expect(screen.getByTestId('card-action-status').parentElement).not.toHaveClass('sr-only')
+    // Nothing on the board changes, so it is a toast, not only announced.
+    expect(await screen.findByTestId('card-action-toast')).toHaveTextContent('Link copied to the clipboard.')
+    expect(screen.getByTestId('card-action-status')).toHaveTextContent('')
   })
 
   it('says so when the clipboard is blocked', async () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) }, configurable: true })
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     fireEvent.click(screen.getByTestId('open-menu-2'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link to card' }))
-    expect(await screen.findByText("Couldn't copy the link. The browser blocked clipboard access.")).toBeInTheDocument()
+    expect(await screen.findByTestId('card-action-toast')).toHaveTextContent("Couldn't copy the link. The browser blocked clipboard access.")
   })
 
   it('answers palette target queries: none, focused, selection, then the open sheet', () => {
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     expect(query({})).toBeNull()
     expect(query({ focusedCardId: 2 })).toMatchObject({ cardIds: [2], source: 'focused', summary: 'Second card' })
     // A focused id that is not on this board is ignored.
@@ -2880,19 +2908,20 @@ describe('BoardView card actions (#2059)', () => {
 
   it('runs a palette card action from the window event', async () => {
     vi.mocked(updateCard).mockResolvedValue({ ...card2, priority: 'high' } as never)
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     act(() => {
       window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
     })
     await waitFor(() => expect(updateCard).toHaveBeenCalledWith(1, 2, { priority: 'high' }))
     expect(await screen.findByTestId('card-action-status')).toHaveTextContent('Set “Second card” to high priority.')
-    // The board shows the change, so the success is announced only.
+    // The board shows the change, so the success is announced only: no toast.
     expect(screen.getByTestId('card-action-status').parentElement).toHaveClass('sr-only')
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
   })
 
   it('assigns from the window event and clears a fully successful selection', async () => {
     vi.mocked(updateCard).mockResolvedValue({ ...card1 } as never)
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     fireEvent.click(screen.getByTestId('select-card-1-20'))
     act(() => {
       window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [1], action: 'assign', value: 1 } }))
@@ -2938,13 +2967,12 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
   it.each(['summary', 'history', 'analytics'])('shows a palette action result in the %s view', async (view) => {
     mockSearchParams = new URLSearchParams(`view=${view}`)
     vi.mocked(updateCard).mockResolvedValue({ ...card, priority: 'high' } as never)
-    render(<BoardView currentUser={fakeUser} />)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     act(() => {
       window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
     })
-    const status = await screen.findByText('Set “Second card” to high priority.')
-    // The grid is not in view, so the success is shown, not only announced.
-    expect(status.closest('div')).not.toHaveClass('sr-only')
+    // The grid is not in view, so the success is a toast, not only announced.
+    expect(await screen.findByTestId('card-action-toast')).toHaveTextContent('Set “Second card” to high priority.')
   })
 
   it('shows a palette action result in the Lens view', async () => {
@@ -2953,14 +2981,25 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     // A configured lens is the landing tab with no ?view= (#1063).
     mockSearchParams = new URLSearchParams()
     vi.mocked(updateCard).mockResolvedValue({ ...card, priority: 'high' } as never)
-    render(<BoardView currentUser={lensUser} />)
+    render(<ToastProvider><BoardView currentUser={lensUser} /></ToastProvider>)
     expect(await screen.findByTestId('lens-view')).toBeInTheDocument()
     act(() => {
       window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'priority', value: 'high' } }))
     })
-    const status = await screen.findByText('Set “Second card” to high priority.')
-    expect(status.closest('div')).not.toHaveClass('sr-only')
+    expect(await screen.findByTestId('card-action-toast')).toHaveTextContent('Set “Second card” to high priority.')
     expect(screen.getByTestId('lens-view')).toBeInTheDocument()
+  })
+
+  it('archiving from the palette outside the board view raises the archive toast only', async () => {
+    mockSearchParams = new URLSearchParams('view=summary')
+    vi.mocked(archiveCard).mockResolvedValue(undefined as never)
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    act(() => {
+      window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [2], action: 'archive' } }))
+    })
+    expect(await screen.findByTestId('archive-toast')).toHaveTextContent('Card archived')
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(screen.queryByTestId('card-action-toast')).not.toBeInTheDocument()
   })
 
   it('Block card… from the Summary view switches to the board and opens the sheet with the form', async () => {
