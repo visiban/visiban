@@ -604,6 +604,84 @@ describe('ArchivedCardsPanel follows other clients (#2062)', () => {
     expect(screen.queryByText(/Load more/)).not.toBeInTheDocument()
   })
 
+  it('defers a remote archive that arrives during the initial load', async () => {
+    const { subscribe, emit } = setup()
+    let resolveInitial: (p: ArchivedCardsPage) => void = () => {}
+    mockGetArchivedCards.mockReturnValueOnce(new Promise<ArchivedCardsPage>((r) => { resolveInitial = r }))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    emit('card.archived', { card_uid: 'carduid00097' })
+    // Nothing is requested for the pull while the initial load is in flight.
+    expect(mockGetArchivedCards).toHaveBeenCalledTimes(1)
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([fresh, archivedCard], 3))
+    await act(async () => { resolveInitial(makePage([archivedCard], 2)) })
+    await screen.findByText('Fresh')
+    expect(screen.getAllByText('Old feature')).toHaveLength(1)
+    expect(screen.getByText('(3)')).toBeInTheDocument()
+    // Offset is 2 (fresh + old), not over-counted.
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([second], 3))
+    await userEvent.click(screen.getByText(/Load more/))
+    await waitFor(() => expect(mockGetArchivedCards).toHaveBeenLastCalledWith(1, 2))
+  })
+
+  it('stops walking pages once the panel unmounts', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    const { unmount } = render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    let resolvePage: (p: ArchivedCardsPage) => void = () => {}
+    mockGetArchivedCards.mockReturnValueOnce(new Promise<ArchivedCardsPage>((r) => { resolvePage = r }))
+    emit('card.archived', { card_uid: 'carduid00097' })
+    expect(mockGetArchivedCards).toHaveBeenCalledTimes(2)
+    unmount()
+    await act(async () => { resolvePage({ count: 100, offset: 0, page_size: 1, results: [fresh] }) })
+    expect(mockGetArchivedCards).toHaveBeenCalledTimes(2)
+  })
+
+  it('caps the walk and restarts the list from the fetched rows', async () => {
+    const { subscribe, emit } = setup()
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Old feature')
+    mockGetArchivedCards.mockClear()
+    mockGetArchivedCards.mockImplementation((_id: number, at = 0) =>
+      Promise.resolve({
+        count: 1000, offset: at, page_size: 1,
+        results: [{ ...archivedCard, id: 1000 + at, uid: `cap${at}`, title: `Cap ${at}` }],
+      }))
+    emit('card.archived', { card_uid: 'cap0' })
+    await screen.findByText('Cap 19')
+    // 20 walk pages plus one count re-read, never a 21st walk page.
+    await waitFor(() => expect(mockGetArchivedCards).toHaveBeenCalledTimes(21))
+    expect(mockGetArchivedCards).not.toHaveBeenCalledWith(1, 20)
+    expect(screen.queryByText('Old feature')).not.toBeInTheDocument()
+    expect(screen.getByText('Load more (980 remaining)')).toBeInTheDocument()
+  })
+
+  it('does not double-count rows a Load more loaded mid-walk', async () => {
+    const { subscribe, emit } = setup()
+    const mk = (id: number, title: string): Card => ({ ...archivedCard, id, uid: `u${id}`, title })
+    const F = mk(201, 'Row F'), G = mk(202, 'Row G'), B = mk(203, 'Row B')
+    mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 3))
+    render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)
+    await screen.findByText('Load more (2 remaining)')
+    // Server list after the remote archive: F, G, Old, B (page size 2).
+    const all = [F, G, archivedCard, B]
+    let releaseFirst: () => void = () => {}
+    mockGetArchivedCards.mockImplementation((_id: number, at = 0) => {
+      const page = { count: 4, offset: at, page_size: 2, results: all.slice(at, at + 2) }
+      if (at === 0) return new Promise<ArchivedCardsPage>((r) => { releaseFirst = () => r(page) })
+      if (at === 1) return Promise.resolve({ ...page, results: [B] }) // Load more, pre-archive view
+      return Promise.resolve(page)
+    })
+    emit('card.archived', { card_uid: 'u201' })
+    await userEvent.click(screen.getByText(/Load more/))
+    await screen.findByText('Row B')
+    await act(async () => { releaseFirst() })
+    await screen.findByText('Row F')
+    expect(screen.getAllByText('Row B')).toHaveLength(1)
+    expect(screen.getAllByText('Old feature')).toHaveLength(1)
+  })
+
   it('unsubscribes on unmount', async () => {
     const { subscribe, listeners } = setup()
     mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))

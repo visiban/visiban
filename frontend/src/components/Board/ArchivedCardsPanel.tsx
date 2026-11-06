@@ -40,17 +40,27 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
   useEffect(() => {
     setLoading(true);
+    initialLoadingRef.current = true;
+    pullAfterLoadRef.current = false;
     setLoadError(null);
     setCards([]);
     setOffset(0);
     getArchivedCards(board.id, 0)
       .then((page) => {
+        loadedRef.current = page.results;
         setCards(page.results);
         setTotal(page.count);
         setOffset(page.results.length);
       })
       .catch(() => setLoadError("Could not load archived cards. Please try again."))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        initialLoadingRef.current = false;
+        if (pullAfterLoadRef.current) {
+          pullAfterLoadRef.current = false;
+          pullRef.current();
+        }
+      });
   }, [board.id]);
 
   // Deleting a column or swimlane deletes the archived cards in it as well,
@@ -136,7 +146,26 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   // and must not discard the only read that carries the new card. Only the
   // latest pull applies, since each page-0 read supersedes the earlier ones.
   const pullSeq = useRef(0);
+  // A pull that arrives during the initial load would be overwritten by it, and
+  // its offset bump would be over-counted; run it once the load settles.
+  const initialLoadingRef = useRef(true);
+  const pullAfterLoadRef = useRef(false);
+  const pullRef = useRef<() => void>(() => {});
+  const MAX_PULL_PAGES = 20;
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      pullSeq.current += 1;
+    };
+  }, []);
   const pullNewlyArchived = () => {
+    if (!mountedRef.current) return;
+    if (initialLoadingRef.current) {
+      pullAfterLoadRef.current = true;
+      return;
+    }
     totalSeq.current += 1;
     pullSeq.current += 1;
     const seq = pullSeq.current;
@@ -145,9 +174,14 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
     // when a bulk archive added more than a page of cards (#2062).
     const known = new Set(loadedRef.current.map((c) => c.id));
     const fresh: Card[] = [];
+    let capped = false;
     const walk = async (): Promise<number> => {
       let at = 0;
-      for (;;) {
+      for (let pages = 0; ; pages += 1) {
+        if (pages >= MAX_PULL_PAGES) {
+          capped = true;
+          return -2;
+        }
         const page = await getArchivedCards(board.id, at);
         if (seq !== pullSeq.current) return -1;
         let hitKnown = false;
@@ -161,14 +195,25 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
     };
     walk()
       .then((count) => {
-        if (count < 0) return;
-        if (fresh.length > 0) {
-          loadedRef.current = [...fresh, ...loadedRef.current];
-          setCards((prev) => {
-            const have = new Set(prev.map((c) => c.id));
-            return [...fresh.filter((c) => !have.has(c.id)), ...prev];
-          });
-          setOffset((prev) => prev + fresh.length);
+        if (count === -1) return;
+        if (capped) {
+          // Too far from the loaded rows to bridge the gap: restart the list
+          // from what was fetched so offset and total stay truthful.
+          loadedRef.current = fresh;
+          setCards(fresh);
+          setOffset(fresh.length);
+          setTotal(fresh.length);
+          resyncTotal();
+          return;
+        }
+        // Recompute against what is loaded now: a Load more that resolved
+        // mid-walk may already hold some of these rows.
+        const have = new Set(loadedRef.current.map((c) => c.id));
+        const add = fresh.filter((c) => !have.has(c.id));
+        if (add.length > 0) {
+          loadedRef.current = [...add, ...loadedRef.current];
+          setCards((prev) => [...add, ...prev]);
+          setOffset((prev) => prev + add.length);
         }
         setTotal(count + prunedRef.current);
       })
@@ -176,6 +221,8 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
         // Keep the local view; the next Load more re-syncs from the server.
       });
   };
+
+  pullRef.current = pullNewlyArchived;
 
   const eventHandlerRef = useRef<(event: BoardEvent) => void>(() => {});
   eventHandlerRef.current = (event) => {
