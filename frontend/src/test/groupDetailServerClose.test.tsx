@@ -85,6 +85,9 @@ vi.mock('../api/notifications', () => ({
   markRead: vi.fn(),
 }))
 
+// A 4003 close probes the session (#2044); stub it so no real call is made.
+vi.mock('../utils/sessionProbe', () => ({ probeSession: vi.fn().mockResolvedValue(undefined) }))
+
 vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
   // InviteLinkPanel's EmailInviteForm reads it (#731); unavailable keeps the

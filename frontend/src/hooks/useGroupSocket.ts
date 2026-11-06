@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BoardEvent, SocketStatus } from "./useBoardSocket";
+import { checkAndFlagDemoReset } from "../utils/demoReset";
+import { probeSession } from "../utils/sessionProbe";
 
 const PING_TIMEOUT_MS = 45_000;
 
@@ -80,7 +82,23 @@ export function useGroupSocket(
       ws.onclose = (e) => {
         clearTimeout(pingTimer);
         if (canceled) return;
-        if (e.code === 4001 || e.code === 4003) { setStatus("failed"); return; }
+        if (e.code === 4001 || e.code === 4003) {
+          setStatus("failed");
+          // Same handling as useBoardSocket (#2037, #2044): an idle group page
+          // makes no REST call, so the socket may be the only thing that
+          // notices the session ended, and useAuth clears per-user prefs
+          // (recent boards) only on auth:sessionExpired. A demo reset or a
+          // 4001 (no valid credential) dispatches directly. A 4003 is
+          // ambiguous (revoked credential, or merely lost group access, where
+          // signing out would be wrong), so it probes the session and lets the
+          // 401 interceptor sign out only if the session is dead.
+          if (checkAndFlagDemoReset() || e.code === 4001) {
+            window.dispatchEvent(new Event("auth:sessionExpired"));
+          } else {
+            void probeSession();
+          }
+          return;
+        }
         // Our own close (unmount or group change) sets `canceled` first and so
         // returned above. A 1000 that reaches here was sent by the server: this
         // user was removed from the group (#2041). Re-read to find out; if
