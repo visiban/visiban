@@ -106,6 +106,7 @@ javascript:S2871|Array.sort() should use a compare function (localeCompare)
 javascript:S4036|Searching OS commands in PATH is security-sensitive
 javascript:S7761|Data attributes should be accessed using .dataset
 python:S1192|String literals should not be duplicated
+python:S1313|Hardcoded IP addresses should be reviewed for safety
 python:S2068|Hard-coded passwords are security-sensitive
 python:S2245|Pseudorandom number generators are security-sensitive
 python:S3776|Cognitive Complexity of functions should not be too high

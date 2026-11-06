@@ -155,13 +155,23 @@ describe('groups API', () => {
     expect(result.role).toBe('viewer')
   })
 
-  it('percent-encodes the group join token in both calls', async () => {
+  it('accepts real vbng_ tokens unchanged', async () => {
     mockClient.get.mockResolvedValue({ data: {} })
     mockClient.post.mockResolvedValue({ data: {} })
-    await resolveJoinToken('../x?y=1')
-    await joinGroup('../x?y=1')
-    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/groups/join/..%2Fx%3Fy%3D1/')
-    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/groups/join/..%2Fx%3Fy%3D1/')
+    const t = 'vbng_' + 'cd34'.repeat(10)
+    await resolveJoinToken(t)
+    await joinGroup(t)
+    expect(mockClient.get).toHaveBeenCalledWith(`/api/v1/groups/join/${t}/`)
+    expect(mockClient.post).toHaveBeenCalledWith(`/api/v1/groups/join/${t}/`)
+  })
+
+  it.each(['..', 'a/b', 'a%2F', ''])('rejects group join token %j without calling the client', async (t) => {
+    mockClient.get.mockClear()
+    mockClient.post.mockClear()
+    await expect(resolveJoinToken(t)).rejects.toThrow('Invalid join token')
+    await expect(joinGroup(t)).rejects.toThrow('Invalid join token')
+    expect(mockClient.get).not.toHaveBeenCalled()
+    expect(mockClient.post).not.toHaveBeenCalled()
   })
 
   it('joinGroup posts to join endpoint', async () => {

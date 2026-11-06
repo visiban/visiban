@@ -52,6 +52,11 @@ paths = [
   # `--set=valkey.image.repository=<value>` strings match the generic-api-key
   # rule on shape alone — an image repository name, never a credential.
   '''(^|/)scripts/helm-structure-check\.sh$''',
+  # Marketing screenshot fixture: SHARE_TOKEN is a made-up UUID served from a
+  # mocked API to a Playwright run that captures www screenshots. It matches
+  # generic-api-key on the `share_token`-style name plus entropy alone; it
+  # grants access to nothing.
+  '''(^|/)frontend/e2e/marketing/fixtures\.ts$''',
 ]
 
 # Commit-scoped allowlist (#1071). Serves gitleaks-scan, gitleaks-commits and

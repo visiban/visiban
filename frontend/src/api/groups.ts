@@ -1,4 +1,5 @@
 import client from "./client";
+import { safeJoinToken } from "./joinToken";
 import type { Group, GroupLabel, GroupMembership, GroupInviteLink, InviteEmailSent, Board, HealthStatus, Priority } from "../types";
 
 export const listGroups = () =>
@@ -75,11 +76,11 @@ export interface JoinTokenPreview {
   can_register?: boolean;
 }
 
-export const resolveJoinToken = (token: string) =>
-  client.get<JoinTokenPreview>(`/api/v1/groups/join/${encodeURIComponent(token)}/`).then((r) => r.data);
+export const resolveJoinToken = async (token: string) =>
+  client.get<JoinTokenPreview>(`/api/v1/groups/join/${safeJoinToken(token)}/`).then((r) => r.data);
 
-export const joinGroup = (token: string) =>
-  client.post<Group>(`/api/v1/groups/join/${encodeURIComponent(token)}/`).then((r) => r.data);
+export const joinGroup = async (token: string) =>
+  client.post<Group>(`/api/v1/groups/join/${safeJoinToken(token)}/`).then((r) => r.data);
 
 export const transferGroupOwnership = (groupId: number, newOwnerId: number, confirmation: string) =>
   client.post(`/api/v1/groups/${groupId}/transfer-ownership/`, { new_owner_id: newOwnerId, confirmation }).then((r) => r.data);
