@@ -16,3 +16,16 @@ export function safeJoinToken(token: string): string {
   if (!match) throw new Error("Invalid join token");
   return match[0];
 }
+
+/**
+ * Share links use `Board.share_token`, a UUID (hyphenated, 36 chars). Same
+ * contract as `safeJoinToken`: return the regex match so the sanitization is
+ * visible to taint analysis, and reject anything that could rewrite the path.
+ */
+const SHARE_TOKEN_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+export function safeShareToken(token: string): string {
+  const match = SHARE_TOKEN_RE.exec(token);
+  if (!match) throw new Error("Invalid share token");
+  return match[0];
+}

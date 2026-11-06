@@ -1,5 +1,5 @@
 import client from "./client";
-import { safeJoinToken } from "./joinToken";
+import { safeJoinToken, safeShareToken } from "./joinToken";
 import type { Board, BoardFull, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
@@ -303,8 +303,8 @@ export const confirmTrelloImport = (
 };
 
 // Share link
-export const getPublicBoard = (token: string) =>
-  client.get<BoardPublic>(`/api/share/${token}/`).then((r) => r.data);
+export const getPublicBoard = async (token: string) =>
+  client.get<BoardPublic>(`/api/share/${safeShareToken(token)}/`).then((r) => r.data);
 
 // expiresInDays = null → never expires; allowed values: 7, 30, 90.
 // The backend rejects anything else with 400 — keep this list in sync.

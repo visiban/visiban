@@ -208,9 +208,16 @@ describe('Board API wrappers', () => {
     it('sends GET to /api/share/:token/', async () => {
       const boardPublic = { id: 1, name: 'Shared Board' }
       mockClient.get.mockResolvedValue({ data: boardPublic })
-      const result = await getPublicBoard('tok-abc')
-      expect(mockClient.get).toHaveBeenCalledWith('/api/share/tok-abc/')
+      const uuid = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+      const result = await getPublicBoard(uuid)
+      expect(mockClient.get).toHaveBeenCalledWith(`/api/share/${uuid}/`)
       expect(result).toEqual(boardPublic)
+    })
+
+    it.each(['..', 'a/b', 'a%2F', ''])('rejects share token %j without calling the client', async (t) => {
+      mockClient.get.mockClear()
+      await expect(getPublicBoard(t)).rejects.toThrow('Invalid share token')
+      expect(mockClient.get).not.toHaveBeenCalled()
     })
   })
 
