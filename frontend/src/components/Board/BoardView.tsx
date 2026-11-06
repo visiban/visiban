@@ -520,7 +520,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (id === null) return;
     const same = id === activePreset?.id;
     if (same && !presetModified) {
-      notifyPresetAlreadyActive(activePreset?.name ?? "");
+      if (activePreset) notifyPresetAlreadyActive(activePreset.name);
       return;
     }
     boardPreset.applyPreset(id, same ? "reset" : "apply");
