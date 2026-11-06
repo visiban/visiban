@@ -291,6 +291,55 @@ check "load_mrs maps visiban/visiban to its constant API path" \
 check "load_mrs maps visiban/visiban-enterprise to its constant API path" \
   "$([ "$(lp 'visiban/visiban-enterprise' 2>/dev/null)" = "projects/visiban%2Fvisiban-enterprise/merge_requests" ] && echo 0 || echo 1)"
 
+# --- Cost ledger (#2128) ---------------------------------------------------
+# cost_fixture.json: !10/!11 feat with figures; !12 fix `cost-ledger: off`; !13 docs and
+# !14 chore with no readable figure (!14's `subagent-tokens: ~5k` is malformed); !15 fix
+# `cost-ledger: off` beside a figure (contradictory: disabled, the figure is not read);
+# !16 feat whose only cost lines are fenced, commented or in `## Notes` (not read).
+# cost_disabled_fixture.json: every MR says `cost-ledger: off`.
+COST_FIXTURE="$REPO_ROOT/scripts/tests/fixtures/kaizen/cost_fixture.json"
+OFF_FIXTURE="$REPO_ROOT/scripts/tests/fixtures/kaizen/cost_disabled_fixture.json"
+python3 "$SCRIPT" --input "$COST_FIXTURE" --json > "$TMP/cost_out.json"
+python3 "$SCRIPT" --input "$OFF_FIXTURE" --json > "$TMP/off_out.json"
+cj() { python3 - "$1" "${@:2}" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for key in sys.argv[2:]:
+    d = d[key]
+print(json.dumps(d))
+PYEOF
+}
+C="$TMP/cost_out.json"
+check "cost: 2 recorded, 2 disabled, 3 with no figure" \
+  "$([ "$(cj "$C" cost recorded)" = 2 ] && [ "$(cj "$C" cost disabled)" = 2 ] && [ "$(cj "$C" cost none)" = 3 ] && echo 0 || echo 1)"
+check "cost: window state is recorded" "$([ "$(cj "$C" cost state)" = '"recorded"' ] && echo 0 || echo 1)"
+check "cost: malformed and contradictory cost lines are flagged (!14, !15)" \
+  "$([ "$(cj "$C" cost malformed)" = '[14, 15]' ] && echo 0 || echo 1)"
+check "cost: feat mean est. cost 3.00 over its 2 recorded MRs (fenced/commented/Notes lines not read)" \
+  "$([ "$(cj "$C" cost by_class feat mean_est_cost_usd)" = 3.0 ] && [ "$(cj "$C" cost by_class feat recorded)" = 2 ] && echo 0 || echo 1)"
+check "cost: feat mean subagent-tokens 2000" "$([ "$(cj "$C" cost by_class feat mean_subagent_tokens)" = 2000.0 ] && echo 0 || echo 1)"
+check "cost: fix (all off) is disabled, its mean null, never 0" \
+  "$([ "$(cj "$C" cost by_class fix state)" = '"disabled"' ] && [ "$(cj "$C" cost by_class fix mean_est_cost_usd)" = null ] && [ "$(cj "$C" cost by_class fix mean_subagent_tokens)" = null ] && echo 0 || echo 1)"
+check "cost: docs (no line) is none, distinct from disabled" \
+  "$([ "$(cj "$C" cost by_class docs state)" = '"none"' ] && [ "$(cj "$C" cost by_class docs mean_est_cost_usd)" = null ] && echo 0 || echo 1)"
+check "cost: regression-check ran on 2 costed MRs, mean 3.00, 2 findings / 6.00 USD = 0.33 per USD" \
+  "$([ "$(cj "$C" cost by_gate regression-check ran_costed)" = 2 ] && [ "$(cj "$C" cost by_gate regression-check mean_est_cost_usd_ran)" = 3.0 ] && [ "$(cj "$C" cost by_gate regression-check findings_per_usd)" = 0.33 ] && echo 0 || echo 1)"
+check "cost: security-review ran 4.00 vs n/a 2.00" \
+  "$([ "$(cj "$C" cost by_gate security-review mean_est_cost_usd_ran)" = 4.0 ] && [ "$(cj "$C" cost by_gate security-review mean_est_cost_usd_na)" = 2.0 ] && echo 0 || echo 1)"
+COST_TEXT="$(python3 "$SCRIPT" --input "$COST_FIXTURE")"
+check "cost text: a disabled class reads 'disabled', not 0" \
+  "$(printf '%s\n' "$COST_TEXT" | grep -E '^fix ' | grep -q 'disabled' && ! printf '%s\n' "$COST_TEXT" | grep -E '^fix ' | grep -q '0.00 USD' && echo 0 || echo 1)"
+check "cost text: no fenced/commented/Notes figure leaks into a mean" \
+  "$(! printf '%s' "$COST_TEXT" | grep -qE '99\.00|50\.00|999' && echo 0 || echo 1)"
+O="$TMP/off_out.json"
+check "cost (all off): window state disabled, by_gate empty" \
+  "$([ "$(cj "$O" cost state)" = '"disabled"' ] && [ "$(cj "$O" cost by_gate)" = '{}' ] && echo 0 || echo 1)"
+OFF_TEXT="$(python3 "$SCRIPT" --input "$OFF_FIXTURE")"
+check "cost text (all off): says disabled by choice, not 'no MR carries ... yet'" \
+  "$(printf '%s' "$OFF_TEXT" | grep -q 'cost ledger disabled on 2 MR(s): nothing recorded, by choice' && ! printf '%s' "$OFF_TEXT" | grep -q 'line yet' && echo 0 || echo 1)"
+check "cost text (no cost lines): says not recorded yet" \
+  "$(printf '%s' "$TEXT_OUT" | grep -q 'No MR carries a `subagent-tokens:`' && echo 0 || echo 1)"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then
   echo "kaizen_gate_ledger.test.sh: all $pass checks passed"

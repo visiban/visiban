@@ -325,6 +325,43 @@ Every agent finishes by, in order:
    (see Step 5.7). A fix round that touched only docs, tests, comments, or
    changelog text gets no re-check; say so in the report rather than skipping it
    silently. Only after this does the orchestrator tell the implementer to push.
+
+   **Measure the cost lines at the go-ahead (#2128, ported from Blueprint;
+   [`docs/development/cost-ledger.md`](../../../docs/development/cost-ledger.md) is the contract).**
+   The go-ahead message carries them for the implementer to paste at the end of `## Gates`.
+   - **Ask the setting first.** Run `python3 scripts/cost-ledger enabled` in the worktree. Exit 1
+     (off): send the single line `cost-ledger: off` instead of the three lines below, and run none
+     of the measuring scripts, so no transcript is read. Exit 2 (unreadable): the same, plus the
+     `## Notes` line "cost ledger setting unreadable; nothing recorded". The marker never names
+     the layer that turned it off.
+   - **Record agent ids as you go.** Note the `agentId:` the Agent tool result prints for every
+     agent you spawn or resume for this branch (the implementer, each `completeness-check` pass),
+     and `date -u +%Y-%m-%dT%H:%M:%SZ` when you spawn the implementer (the window start, `S`).
+     Take the go-ahead time `T` once, in the same format.
+   - **Run the three scripts in your own session** (they read `$CLAUDE_CODE_SESSION_ID`), in the
+     worktree. Truncate the split file once, then tee each script's stderr into it; shell state
+     does not persist between Bash calls, so set `COST_SPLIT` on each command's own line:
+     ```bash
+     COST_SPLIT="$(git rev-parse --git-dir)/wave-cost-split.txt"; : > "$COST_SPLIT"
+     COST_SPLIT="$(git rev-parse --git-dir)/wave-cost-split.txt"; python3 scripts/subagent-tokens.py --agent <id> [--agent <id> ...] --until <T> 2> >(tee -a "$COST_SPLIT" >&2)
+     COST_SPLIT="$(git rev-parse --git-dir)/wave-cost-split.txt"; python3 scripts/orchestrator-tokens.py --since <S> --until <T> 2> >(tee -a "$COST_SPLIT" >&2)
+     COST_SPLIT="$(git rev-parse --git-dir)/wave-cost-split.txt"; python3 scripts/est-cost.py --agent <id> [--agent <id> ...] --since <S> --until <T> 2> >(tee -a "$COST_SPLIT" >&2)
+     ```
+     Send each stdout line unchanged: `subagent-tokens: <N>`, `orchestrator-tokens: <N>`,
+     `est-cost-usd: <N.NN> (prices YYYY-MM-DD)`. `subagent-tokens:` sums the named agents and
+     their descendants (the implementer's own gate batch), per response, from their transcripts.
+     It is not the `subagent_tokens` field of a completion notification, which is one context's
+     size. Add the `## Notes` line "subagent-tokens: agents the orchestrator named and their
+     descendants, up to the go-ahead".
+   - **A script that exits non-zero sends no line**, and the reason goes in `## Notes`: exit 1 is
+     fail-closed (an agent id with no transcript, a session that does not resolve, an empty window;
+     for `est-cost.py`, the `note:` it printed: a stale, missing or rowless price table, fast mode,
+     a non-global `inference_geo`). Never type an estimate into a measured line. A branch resumed
+     from another session cannot be read from this one: omit `subagent-tokens:` and say so;
+     `orchestrator-tokens:` then covers the current session only, so omit it or add "orchestrator-tokens:
+     current session only" under `## Notes`.
+   - `orchestrator-tokens:` is the session's spend over the window and is shared by every branch
+     of the same wave: never add it to `subagent-tokens:`, and never sum it across a wave's MRs.
 5. **Check for a stale base, immediately before push — not at worktree
    creation.** `scripts/wt new` branches off latest `origin/main`, but the gate
    sequence above (especially an Opus completeness-check on an escalated issue)
@@ -359,7 +396,10 @@ Every agent finishes by, in order:
    with `completeness-check/fix-diff — n/a`). `0 findings` is a real
    outcome; never omit a zero, and never conflate `n/a` with `skipped`. A fix round
    that did not trigger the re-check records `completeness-check/fix-diff — n/a`;
-   one that triggered it and the user declined records `skipped`. If Step 5.5
+   one that triggered it and the user declined records `skipped`. The cost lines the
+   go-ahead message carried (or its one `cost-ledger: off` line) go last in `## Gates`,
+   pasted unchanged; check the draft with `python3 scripts/cost_ledger_lines.py --file
+   <body.md>` (the body file under the checkout, the temp dir or the git dir). If Step 5.5
    found a stale base, note the rebase and what was re-verified in the MR's
    `## Notes` section.
 8. **Never merge.** Hand back the MR URL and stop.
@@ -393,6 +433,44 @@ line (plus the round 2 or `completeness-check/fix-diff` line when one applied); 
 absence means the audit was skipped, and the branch goes back to Step 5.4 rather than
 being reported done.
 
+**Post the cost comment (record 1).** With the ledger on, once the MR is verified, write its
+description into the git dir and check and render it there (the scripts read files only under
+the checkout, the temp dir and the git dir, and a worktree's git dir is outside the checkout):
+
+```bash
+D="$(git rev-parse --git-dir)/wave-cost-desc.md"; glab api "projects/:id/merge_requests/<iid>" | jq -r .description > "$D"
+D="$(git rev-parse --git-dir)/wave-cost-desc.md"; python3 scripts/cost_ledger_lines.py --file "$D"
+D="$(git rev-parse --git-dir)/wave-cost-desc.md"; COST_SPLIT="$(git rev-parse --git-dir)/wave-cost-split.txt"; python3 scripts/cost-table.py --comment --file "$D" --split "$COST_SPLIT" --issue <N> --until <T> --post --mr <iid>
+```
+
+`cost_ledger_lines.py` exits 1 on a malformed, doubled or contradictory cost line: have the
+implementer fix the description first. `cost-table.py` posts `## Cost of this MR (#<N>)`, a
+Sonnet vs Opus table, as an MR comment; without `--post` it prints the body. Exit 3 (ledger off,
+or the description says `cost-ledger: off`): nothing is posted. Exit 4 (the notes could not be
+read or written) or 5 (refused: a later record exists, or record 1 is doubled or hand-written):
+say so in the Step 7 report.
+
+**Work on the MR after record 1** (a fix round after the MR opened, a re-measure) gets its own
+record, `— record K`, never an edit of record 1, and the `## Gates` lines stay record 1's figures.
+In the worktree, once that work is pushed:
+
+1. Window start: `python3 scripts/cost-table.py --next-since --mr <iid>` prints `S` (exit 1: no
+   readable record; post none and say why). Take `T=$(date -u +%Y-%m-%dT%H:%M:%SZ)` once and save
+   the pair with the MR number, `WIN="$(git rev-parse --git-dir)/wave-cost-window.txt"; printf '%s %s %s\n' <iid> <S> <T> > "$WIN"`.
+   A re-run of the same record reads it back (`read -r I S T < "$WIN"`) and reuses it only when
+   `$I` is this MR's iid: `--next-since` returns the posted record's own end.
+2. Truncate `wave-cost-split.txt` and `wave-cost-lines.txt` in the git dir, then rerun the three
+   scripts for `S`..`T` with `1> >(tee -a "$COST_LINES")` beside the stderr tee
+   (`COST_LINES="$(git rev-parse --git-dir)/wave-cost-lines.txt"` on each command's own line).
+   `subagent-tokens.py` takes no `--since` and counts an agent's whole usage up to `--until`, so
+   name only agents spawned fresh in the window; a resumed agent means no `subagent-tokens:` /
+   `est-cost-usd:` line (its cells read `n/a`). A window with no subagent runs
+   `subagent-tokens.py --no-agents` and `est-cost.py --no-agents` (a measured 0, not `n/a`).
+3. `COST_LINES="$(git rev-parse --git-dir)/wave-cost-lines.txt"; COST_SPLIT="$(git rev-parse --git-dir)/wave-cost-split.txt"; python3 scripts/cost-table.py --comment --ledger "$COST_LINES" --split "$COST_SPLIT" --since <S> --until <T> --issue <N> --mr <iid> --post`.
+
+Run one cost post per MR at a time: two sessions posting at once can both take the same record
+number, and the next record's running total then reads `n/a`.
+
 An agent that produced no commit costs the same as one that shipped. Re-brief it
 with what was missing, or take the issue over yourself; do not report it as done.
 
@@ -406,6 +484,9 @@ state plainly:
 - Whether you raised the WIP cap, and whether any worktrees need cleanup
   (`scripts/wt remove <issue>` or `scripts/wt prune`).
 - The wave's shape: how many agents, how many on Opus, and at what effort.
+- Each branch's measured `subagent-tokens:` and its `est-cost-usd:`, beside the table; `n/a`
+  with the reason where a script failed closed, and `cost ledger off` where
+  `scripts/cost-ledger enabled` said so. Never sum `orchestrator-tokens:` across the wave.
 
 Do not merge anything. Do not start another wave without being asked.
 

@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""scripts/cost-ledger - read and write the cost-ledger setting (#2128, ported from macrodream/blueprint#348).
+
+The cost ledger is the set of cost lines /mr and /wave write in an MR's `## Gates`
+section: the measured `subagent-tokens:`, `turns:`, `orchestrator-tokens:`, `cost:`, and the one estimate, `est-cost-usd:`. This script is the only code
+that reads the setting's two layers; skills and scripts ask it with `enabled`. The same answer
+governs the `## Cost of this MR` records scripts/cost-table.py posts (macrodream/blueprint#384).
+
+Layers and precedence (docs/development/cost-ledger.md states this once):
+  Effective value: off if .claude/cost-ledger.json says off; otherwise off if git config
+  visiban.costLedger is false (local or global); otherwise on. A local setting can turn
+  recording off, never on over a project that chose off. An unreadable layer counts as off.
+
+  project  .claude/cost-ledger.json, committed: {"_doc": ..., "schema": 1, "cost-ledger": "on"|"off"}
+  local    git config visiban.costLedger false (local config is shared by every worktree of
+           the clone and is never committed; --global is read too). Only `false` has an effect.
+
+Usage:
+  scripts/cost-ledger status [--json]   effective value and the layer that set it
+  scripts/cost-ledger enabled           quiet; exit 0 on, 1 off, 2 a layer is unreadable
+  scripts/cost-ledger on|off            edit the committed project file (lands through a chore MR)
+  scripts/cost-ledger on|off --local    off: git config --local visiban.costLedger false;
+                                        on: unset that key (never writes true)
+  scripts/cost-ledger --self-test
+
+Exit: 0 ok (enabled: on) - 1 off (enabled only) - 2 unreadable setting or usage error
+"""
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REL = os.path.join(".claude", "cost-ledger.json")
+KEY = "visiban.costLedger"
+SCHEMA = 1
+VALUE_RE = re.compile(r'("cost-ledger"\s*:\s*")(on|off)(")')
+FALSE = ("false", "no", "off", "0", "")
+TRUE = ("true", "yes", "on", "1")
+
+
+def read_project(root):
+    """'on', 'off', or None when the file is missing or unreadable."""
+    try:
+        with open(os.path.join(root, REL), encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError, RecursionError):
+        return None
+    if not isinstance(data, dict) or data.get("schema") != SCHEMA:
+        return None
+    v = data.get("cost-ledger")
+    return v if v in ("on", "off") else None
+
+
+def read_git(root, scope):
+    """'unset', 'false', 'true', or 'unreadable' for one git config scope. Outside a git
+    repository there is no local config: 'unset'."""
+    try:
+        if scope == "local" and subprocess.run(["git", "-C", root, "rev-parse", "--git-dir"],
+                                               capture_output=True, timeout=10).returncode != 0:
+            return "unset"
+        p = subprocess.run(["git", "-C", root, "config", "--" + scope, "--get", KEY],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return "unreadable"
+    if p.returncode == 1 and not p.stdout:
+        return "unset"
+    if p.returncode != 0:
+        return "unreadable"
+    v = p.stdout.strip().lower()
+    if v in FALSE:
+        return "false"
+    if v in TRUE:
+        return "true"
+    return "unreadable"
+
+
+def evaluate(root):
+    """The effective setting as a dict: effective, layer, project, local, global, readable."""
+    project, local, glob = read_project(root), read_git(root, "local"), read_git(root, "global")
+    st = {"project": project or "unreadable", "local": local, "global": glob}
+    if project == "off":
+        eff, layer, ok = "off", "project", True
+    elif project is None:
+        eff, layer, ok = "off", "project, unreadable", False
+    elif local == "false":
+        eff, layer, ok = "off", "git config, local", True
+    elif glob == "false":
+        eff, layer, ok = "off", "git config, global", True
+    elif "unreadable" in (local, glob):
+        eff, layer, ok = "off", "git config, %s, unreadable" % ("local" if local == "unreadable" else "global"), False
+    else:
+        eff, layer, ok = "on", "project", True
+    st.update(effective=eff, layer=layer, readable=ok)
+    return st
+
+
+def status_line(st):
+    extra = "" if st["layer"].startswith("project") else "; project: %s" % st["project"]
+    return "cost-ledger: %s (set by: %s%s)" % (st["effective"], st["layer"], extra)
+
+
+def write_project(root, value, err):
+    path = os.path.join(root, REL)
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        print("cost-ledger: cannot read %s" % REL, file=err)
+        return 2
+    if read_project(root) is None or len(VALUE_RE.findall(text)) != 1:
+        print("cost-ledger: %s is unreadable; fix it by hand (docs/development/cost-ledger.md)" % REL, file=err)
+        return 2
+    new = VALUE_RE.sub(lambda m: m.group(1) + value + m.group(3), text)
+    if new != text:
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".cost-ledger.")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(new)
+            os.chmod(tmp, mode)  # mkstemp makes 0600; keep the file's own mode
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+    return 0
+
+
+def git_local(root, args):
+    try:
+        return subprocess.run(["git", "-C", root, "config", "--local"] + args,
+                              capture_output=True, text=True, timeout=10).returncode
+    except (OSError, subprocess.SubprocessError):
+        return 2
+
+
+def main(argv, root=ROOT, out=sys.stdout, err=sys.stderr):
+    if argv[:1] == ["--self-test"]:
+        return self_test()
+    cmd, rest = (argv[0], argv[1:]) if argv else (None, [])
+    if cmd == "enabled" and not rest:
+        st = evaluate(root)
+        return 0 if st["effective"] == "on" else (1 if st["readable"] else 2)
+    if cmd == "status" and rest in ([], ["--json"]):
+        st = evaluate(root)
+        if rest:
+            print(json.dumps({k: st[k] for k in ("effective", "layer", "project", "local", "global")}), file=out)
+        else:
+            print(status_line(st), file=out)
+        return 0 if st["readable"] else 2
+    if cmd in ("on", "off") and rest in ([], ["--local"]):
+        if rest:
+            rc = git_local(root, [KEY, "false"]) if cmd == "off" else git_local(root, ["--unset-all", KEY])
+            if rc not in (0, 5):  # 5: the key was not set
+                print("cost-ledger: git config failed (exit %d)" % rc, file=err)
+                return 2
+        else:
+            rc = write_project(root, cmd, err)
+            if rc:
+                return rc
+            print("cost-ledger: %s now says %s; commit it through a chore MR" % (REL, cmd), file=err)
+        st = evaluate(root)
+        if cmd == "on" and st["effective"] == "off":
+            print("cost-ledger: still off: %s wins (precedence: docs/development/cost-ledger.md)" % st["layer"], file=err)
+        print(status_line(st), file=out)
+        return 0 if st["readable"] else 2
+    print(__doc__.split("\n\nExit:")[0].split("Usage:")[1].rstrip(), file=err)
+    return 2
+
+
+def self_test():
+    import io
+    fails, ran = [], []
+
+    def check(name, cond, detail=""):
+        ran.append(name)
+        if not cond:
+            fails.append("%s %s" % (name, detail))
+
+    tmp = tempfile.mkdtemp(prefix="cost-ledger-")
+    saved = {k: os.environ.get(k) for k in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM", "GIT_DIR", "GIT_WORK_TREE")}
+    try:
+        gfile = os.path.join(tmp, "gitconfig-global")
+        open(gfile, "w").close()
+        os.environ["GIT_CONFIG_GLOBAL"], os.environ["GIT_CONFIG_NOSYSTEM"] = gfile, "1"
+        for k in ("GIT_DIR", "GIT_WORK_TREE"):
+            os.environ.pop(k, None)
+        root = os.path.join(tmp, "repo")
+        os.makedirs(os.path.join(root, ".claude"))
+        subprocess.run(["git", "init", "-q", root], check=True)
+        pfile = os.path.join(root, REL)
+        template = ('{\n  "_doc": "macrodream/blueprint#348, docs/development/cost-ledger.md",\n'
+                    '  "schema": 1,\n  "cost-ledger": "%s"\n}\n')
+
+        def git(scope, value):
+            base = ["git", "-C", root, "config", "--" + scope]
+            if value is None:
+                subprocess.run(base + ["--unset-all", KEY], capture_output=True)
+            else:
+                subprocess.run(base + [KEY, value], check=True)
+
+        def call(*args):
+            o, e = io.StringIO(), io.StringIO()
+            rc = main(list(args), root, o, e)
+            return rc, o.getvalue(), e.getvalue()
+
+        # Every cell: project on/off x local unset/false/true x global unset/false/true.
+        for proj in ("on", "off"):
+            with open(pfile, "w") as f:
+                f.write(template % proj)
+            for loc in (None, "false", "true"):
+                for glo in (None, "false", "true"):
+                    git("local", loc)
+                    git("global", glo)
+                    want = "on" if proj == "on" and "false" not in (loc, glo) else "off"
+                    st = evaluate(root)
+                    cell = "project %s, local %s, global %s" % (proj, loc, glo)
+                    check("matrix: " + cell, st["effective"] == want and st["readable"], repr(st))
+                    check("enabled exit: " + cell, call("enabled")[0] == (0 if want == "on" else 1))
+        # The negative control: a local `true` never turns recording on over a project off.
+        with open(pfile, "w") as f:
+            f.write(template % "off")
+        git("local", "true")
+        git("global", None)
+        rc, out, _ = call("status")
+        check("negative control: project off + local true is off", rc == 0 and out.startswith("cost-ledger: off (set by: project)"), out)
+        git("local", None)
+        # status wording and JSON.
+        with open(pfile, "w") as f:
+            f.write(template % "on")
+        git("local", "false")
+        rc, out, _ = call("status")
+        check("status names the layer", out.strip() == "cost-ledger: off (set by: git config, local; project: on)", out)
+        rc, out, _ = call("status", "--json")
+        j = json.loads(out)
+        check("status --json", j == {"effective": "off", "layer": "git config, local", "project": "on",
+                                     "local": "false", "global": "unset"}, out)
+        git("local", None)
+        check("status on", call("status")[1].strip() == "cost-ledger: on (set by: project)")
+        # Malformed git value: off, unreadable.
+        git("local", "maybe")
+        st = evaluate(root)
+        check("malformed git value is off and unreadable", st["effective"] == "off" and not st["readable"], repr(st))
+        check("malformed git value: enabled exits 2", call("enabled")[0] == 2)
+        git("local", None)
+        # Malformed project file: exit 2 everywhere.
+        for name, body in [("invalid JSON", "{nope"), ("unknown schema", '{"schema": 2, "cost-ledger": "on"}'),
+                           ("bad value", '{"schema": 1, "cost-ledger": "maybe"}'), ("a list", "[1]"),
+                           ("bool value", '{"schema": 1, "cost-ledger": true}')]:
+            with open(pfile, "w") as f:
+                f.write(body)
+            check("unreadable project (%s): enabled exits 2" % name, call("enabled")[0] == 2)
+            check("unreadable project (%s): status exits 2, says off" % name,
+                  call("status")[0] == 2 and call("status")[1].startswith("cost-ledger: off"))
+            check("unreadable project (%s): off refuses to write" % name,
+                  call("off")[0] == 2 and open(pfile).read() == body)
+        os.unlink(pfile)
+        check("missing project file: enabled exits 2", call("enabled")[0] == 2)
+        # Round trip: byte-stable apart from the value.
+        original = template % "on"
+        with open(pfile, "w") as f:
+            f.write(original)
+        os.chmod(pfile, 0o644)
+        rc, _, _ = call("off")
+        check("off writes the project file", rc == 0 and open(pfile).read() == template % "off")
+        check("off keeps the file's mode", stat.S_IMODE(os.stat(pfile).st_mode) == 0o644, oct(os.stat(pfile).st_mode))
+        rc, _, _ = call("on")
+        check("on/off round trip is byte-stable", rc == 0 and open(pfile).read() == original)
+        rc, _, _ = call("on")
+        check("on when already on is a no-op", rc == 0 and open(pfile).read() == original)
+        # --local.
+        rc, out, _ = call("off", "--local")
+        check("off --local writes false", rc == 0 and read_git(root, "local") == "false" and "off" in out, out)
+        check("off --local leaves the project file alone", open(pfile).read() == original)
+        rc, out, _ = call("on", "--local")
+        check("on --local unsets the key", rc == 0 and read_git(root, "local") == "unset", out)
+        with open(pfile, "w") as f:
+            f.write(template % "off")
+        rc, out, e = call("on", "--local")
+        check("on --local over a project off warns and never writes true",
+              rc == 0 and read_git(root, "local") == "unset" and "still off" in e and out.startswith("cost-ledger: off"),
+              repr((rc, out, e)))
+        # Outside a git repository the local layer is unset, not unreadable.
+        bare = os.path.join(tmp, "not-a-repo")
+        os.makedirs(os.path.join(bare, ".claude"))
+        with open(os.path.join(bare, REL), "w") as f:
+            f.write(original)
+        check("no git repository: local unset, effective on", evaluate(bare)["effective"] == "on"
+              and evaluate(bare)["readable"], repr(evaluate(bare)))
+        # Usage errors.
+        for args in ([], ["bogus"], ["status", "--yaml"], ["on", "--global"], ["enabled", "x"]):
+            check("usage error: %r" % args, call(*args)[0] == 2)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    if fails:
+        for f in fails:
+            print("self-test FAIL: " + f, file=sys.stderr)
+        return 1
+    print("self-test OK (%d checks)" % len(ran))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

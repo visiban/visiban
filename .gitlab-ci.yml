@@ -484,6 +484,52 @@ sonar-scan-selftest:
   script:
     - sh scripts/sonar-scan.sh --self-test
 
+# ─── Cost ledger self-tests (#2128) ──────────────────────────────────────────
+#
+# The MR cost ledger (docs/development/cost-ledger.md) is measured and rendered
+# from a maintainer's own session, never in CI, so nothing else would notice
+# these scripts break. They read local transcripts and hostile MR notes, and a
+# regression reads as a plausible number rather than an error, so each one's
+# --self-test runs on MRs touching it (#1093 house rule). The kaizen reader's
+# shell suite runs here too: it had no CI job before #2128 taught it the cost
+# lines. alpine's python3 (3.11) is older than a workstation's; git is for
+# cost-ledger's self-test, which builds a throwaway repo.
+cost-ledger-selftest:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  rules:
+    - changes: &cost-ledger-selftest-paths
+        - scripts/cost-ledger
+        - scripts/cost_ledger_lines.py
+        - scripts/subagent-tokens.py
+        - scripts/orchestrator-tokens.py
+        - scripts/est-cost.py
+        - scripts/cost-table.py
+        - scripts/lib/transcript_usage.py
+        - scripts/_paths.py
+        - scripts/kaizen_gate_ledger.py
+        - scripts/tests/kaizen_gate_ledger.test.sh
+        - scripts/tests/fixtures/kaizen/*
+        - .claude/cost-ledger.json
+        - .claude/model-prices.json
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *cost-ledger-selftest-paths
+  before_script:
+    - apk add --no-cache python3 git bash
+    - git config --global --add safe.directory '*'
+  script:
+    - python3 scripts/cost-ledger --self-test
+    - python3 scripts/cost-ledger status
+    - python3 scripts/cost_ledger_lines.py --self-test
+    - python3 scripts/subagent-tokens.py --self-test
+    - python3 scripts/orchestrator-tokens.py --self-test
+    - python3 scripts/est-cost.py --self-test
+    - python3 scripts/cost-table.py --self-test
+    - python3 scripts/kaizen_gate_ledger.py --self-test
+    - bash scripts/tests/kaizen_gate_ledger.test.sh
+
 # ─── security::deferred verdict self-test (#1521) ────────────────────────────
 #
 # scripts/security-deferred-verdict.sh holds the accepted-risk verdict logic that
