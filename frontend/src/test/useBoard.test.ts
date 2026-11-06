@@ -2090,6 +2090,244 @@ describe('useBoard — stale card versions (#1969)', () => {
   })
 })
 
+// #2038: a /full/ snapshot may have been read before a frame that arrives while
+// the fetch is in flight. Cards written during the fetch keep the newer copy and
+// their on-board state; every other card takes the snapshot (drift recovery).
+describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+  })
+
+  const card = (id: number, version: number, overrides: Partial<Card> = {}): Card =>
+    ({ ...makeBoard().cards[0], id, uid: `crd${id}`, title: `Card ${id}`, version, ...overrides })
+  const byId = (b: BoardFull | null, id: number) => b!.cards.find((c) => c.id === id)
+  const ids = (b: BoardFull | null) => b!.cards.map((c) => c.id).sort((x, y) => x - y)
+
+  async function renderBoard(cards: Card[], overrides: Partial<BoardFull> = {}) {
+    mockGetBoardFull.mockResolvedValueOnce(makeBoard({ cards, ...overrides }))
+    const hook = renderHook(() => useBoard())
+    await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+    return hook
+  }
+
+  type Hook = Awaited<ReturnType<typeof renderBoard>>
+  /** Start a reload whose response the test resolves later. */
+  function startFetch(result: Hook['result'], via: 'load' | 'silentReload' = 'silentReload') {
+    let resolve!: (b: BoardFull) => void
+    let reject!: (e: unknown) => void
+    mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((res, rej) => { resolve = res; reject = rej }))
+    act(() => { (via === 'load' ? result.current.reload : result.current.silentReload)() })
+    return {
+      resolve: async (b: BoardFull) => {
+        await act(async () => { resolve(b) })
+        await waitFor(() => expect(result.current.loading).toBe(false))
+      },
+      reject: async (e: unknown) => { await act(async () => { reject(e) }) },
+    }
+  }
+
+  for (const via of ['load', 'silentReload'] as const) {
+    it(`keeps a newer frame that landed during the fetch (${via})`, async () => {
+      const { result } = await renderBoard([card(1, 1), card(2, 1)])
+      const fetch = startFetch(result, via)
+      act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
+      await fetch.resolve(makeBoard({ cards: [card(1, 1, { title: 'Before edit' }), card(2, 1, { title: 'Snapshot' })] }))
+      expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2 })
+      // A card nothing wrote during the fetch takes the snapshot.
+      expect(byId(result.current.board, 2)?.title).toBe('Snapshot')
+    })
+  }
+
+  it('an equal version in the snapshot still replaces a card written during the fetch', async () => {
+    const { result } = await renderBoard([card(1, 2)])
+    const fetch = startFetch(result)
+    act(() => { result.current.updateCard(card(1, 2, { attachment_count: 0 })) })
+    // A comment or attachment changes the card without bumping its version.
+    await fetch.resolve(makeBoard({ cards: [card(1, 2, { attachment_count: 3 })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ attachment_count: 3, version: 2 })
+  })
+
+  it('a newer snapshot copy replaces a card written during the fetch', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Frame' })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 3, { title: 'Later still' })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Later still', version: 3 })
+  })
+
+  it('stays authoritative for a card nothing wrote during the fetch, even at a lower version', async () => {
+    // A server-side correction (a restore, a demo reset) can lower a version;
+    // a write that landed before the fetch started does not protect the card.
+    const { result } = await renderBoard([card(1, 1)])
+    act(() => { result.current.updateCard(card(1, 5, { title: 'Before the fetch' })) })
+    const fetch = startFetch(result)
+    await fetch.resolve(makeBoard({ cards: [card(1, 3, { title: 'Corrected' })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Corrected', version: 3 })
+  })
+
+  it('a newer fetch does not inherit the writes of the one it superseded', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const first = startFetch(result)
+    act(() => { result.current.updateCard(card(1, 5, { title: 'During the first fetch' })) })
+    const second = startFetch(result)
+    await second.resolve(makeBoard({ cards: [card(1, 3, { title: 'Second snapshot' })] }))
+    await first.resolve(makeBoard({ cards: [card(1, 1)] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Second snapshot', version: 3 })
+  })
+
+  it('a write after the response landed is not carried into the next fetch', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const first = startFetch(result)
+    await first.resolve(makeBoard({ cards: [card(1, 1)] }))
+    act(() => { result.current.updateCard(card(1, 5)) })
+    const second = startFetch(result)
+    await second.resolve(makeBoard({ cards: [card(1, 3, { title: 'Authoritative' })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Authoritative', version: 3 })
+  })
+
+  it('a failed fetch closes its set, so a later fetch starts clean', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const failed = startFetch(result)
+    await failed.reject({ response: { status: 500 } })
+    act(() => { result.current.updateCard(card(1, 5)) })
+    const next = startFetch(result)
+    await next.resolve(makeBoard({ cards: [card(1, 3, { title: 'Authoritative' })] }))
+    expect(byId(result.current.board, 1)?.version).toBe(3)
+  })
+
+  it('keeps a card created during the fetch that the snapshot predates', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.addCard(card(3, 1, { title: 'Created meanwhile' })) })
+    // Card 2 was removed before the snapshot was read and no frame says so:
+    // drift the reload recovers.
+    await fetch.resolve(makeBoard({ cards: [card(1, 1)] }))
+    expect(ids(result.current.board)).toEqual([1, 3])
+    expect(byId(result.current.board, 3)?.title).toBe('Created meanwhile')
+  })
+
+  it('keeps a card restored during the fetch that the snapshot predates', async () => {
+    const { result } = await renderBoard([card(1, 1)], { archived_card_count: 1 })
+    const fetch = startFetch(result)
+    act(() => { result.current.unarchiveCard(card(2, 1, { title: 'Restored' })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 1)], archived_card_count: 1 }))
+    expect(ids(result.current.board)).toEqual([1, 2])
+    // Not subtracted: an over-count is the safe direction (#1289).
+    expect(result.current.board!.archived_card_count).toBe(1)
+  })
+
+  it('does not bring back a card deleted during the fetch', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1), card(3, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.evictCardByUid('crd1') }) // card.deleted frame
+    act(() => { result.current.removeCard(2) }) // this user's own delete
+    act(() => { result.current.evictCardByUid('crd9') }) // a card not on screen
+    await fetch.resolve(makeBoard({ cards: [card(1, 1), card(2, 1), card(3, 1), card(9, 1)] }))
+    expect(ids(result.current.board)).toEqual([3])
+    expect(result.current.board!.archived_card_count).toBe(0)
+  })
+
+  it('does not bring back a card archived during the fetch, and counts it', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1), card(3, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.archiveCardByUid('crd1') }) // card.archived frame
+    act(() => { result.current.archiveCard(2) }) // this user's own archive
+    act(() => { result.current.archiveCardByUid('crd9') }) // a card not on screen
+    // The snapshot still lists all three as on the board, and counts none.
+    await fetch.resolve(makeBoard({ cards: [card(1, 1), card(2, 1), card(3, 1), card(9, 1)], archived_card_count: 0 }))
+    expect(ids(result.current.board)).toEqual([3])
+    expect(result.current.board!.archived_card_count).toBe(3)
+  })
+
+  it('a card archived and restored during the fetch is merged as a written card', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.archiveCardByUid('crd1') })
+    act(() => { result.current.unarchiveCard(card(1, 2, { title: 'Back' })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 1)], archived_card_count: 0 }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Back', version: 2 })
+    expect(result.current.board!.archived_card_count).toBe(0)
+  })
+
+  it('adds a snapshot card the client never had, even if a frame for it arrived meanwhile', async () => {
+    // The frame cannot be applied (the card is not on screen), so it records
+    // nothing and the snapshot's copy recovers the missed card.created.
+    const { result } = await renderBoard([card(1, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.updateCard(card(2, 4, { title: 'Frame for a missed card' })) })
+    // A frame for a card on screen, so the merge runs rather than short-circuits.
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Edited' })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 1), card(2, 3, { title: 'Snapshot' })] }))
+    expect(ids(result.current.board)).toEqual([1, 2])
+    expect(byId(result.current.board, 2)?.title).toBe('Snapshot')
+    expect(byId(result.current.board, 1)?.title).toBe('Edited')
+  })
+
+  it('keeps a sibling position a card.moved frame set during the fetch at an equal version', async () => {
+    const { result } = await renderBoard([card(1, 1, { position: 0 }), card(2, 1, { position: 1 })])
+    const fetch = startFetch(result)
+    // Card 1 moved to position 1; the server shifted card 2 to 0 without a bump.
+    act(() => { result.current.updateCard(card(1, 2, { position: 1 }), [{ id: 2, position: 0, version: 1 }], 50) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 1, { position: 0 }), card(2, 1, { position: 1, title: 'Snapshot' })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ position: 1, version: 2 })
+    // The rest of card 2 comes from the snapshot; only its position is kept.
+    expect(byId(result.current.board, 2)).toMatchObject({ position: 0, title: 'Snapshot' })
+  })
+
+  it('a newer snapshot copy of a sibling replaces the position a frame set', async () => {
+    const { result } = await renderBoard([card(1, 1, { position: 0 }), card(2, 1, { position: 1 })])
+    const fetch = startFetch(result)
+    act(() => { result.current.updateCard(card(1, 2, { position: 1 }), [{ id: 2, position: 0, version: 1 }], 50) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 2, { position: 1 }), card(2, 2, { position: 4 })] }))
+    expect(byId(result.current.board, 2)).toMatchObject({ position: 4, version: 2 })
+  })
+
+  it('keeps a move response that landed during the fetch', async () => {
+    const { result } = await renderBoard([card(100, 1)])
+    const fetch = startFetch(result)
+    mockMoveCard.mockResolvedValueOnce({ card: card(100, 2, { column: 11 }) })
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+    await fetch.resolve(makeBoard({ cards: [card(100, 1, { column: 10 })] }))
+    expect(byId(result.current.board, 100)).toMatchObject({ column: 11, version: 2 })
+  })
+
+  it('keeps a forced move response that landed during the fetch', async () => {
+    const { result } = await renderBoard([card(100, 1)])
+    const fetch = startFetch(result)
+    mockMoveCard.mockResolvedValueOnce({ card: card(100, 2, { column: 11 }) })
+    await act(async () => { await result.current.forceMoveCardTo(100, 11, 20, 0) })
+    await fetch.resolve(makeBoard({ cards: [card(100, 1, { column: 10 })] }))
+    expect(byId(result.current.board, 100)).toMatchObject({ column: 11, version: 2 })
+  })
+
+  it('returns the snapshot unchanged when nothing was written during the fetch', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const fetch = startFetch(result)
+    const snapshot = makeBoard({ cards: [card(1, 1, { title: 'Snapshot' })] })
+    await fetch.resolve(snapshot)
+    expect(result.current.board).toBe(snapshot)
+  })
+
+  it('returns the snapshot unchanged when the writes did not change the result', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.updateCard(card(1, 2)) })
+    const snapshot = makeBoard({ cards: [card(1, 2, { title: 'Snapshot' })] })
+    await fetch.resolve(snapshot)
+    expect(result.current.board).toBe(snapshot)
+  })
+
+  it('does not merge a snapshot of another board into this one', async () => {
+    const { result } = await renderBoard([card(1, 1)])
+    const fetch = startFetch(result)
+    act(() => { result.current.addCard(card(2, 1)) })
+    act(() => { result.current.updateCard(card(1, 5)) })
+    await fetch.resolve(makeBoard({ id: 2, cards: [card(7, 1)] }))
+    expect(ids(result.current.board)).toEqual([7])
+  })
+})
+
 describe('useBoard — maintenance mode (#783)', () => {
   beforeEach(() => {
     vi.clearAllMocks()

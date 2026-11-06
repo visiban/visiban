@@ -559,7 +559,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   useEffect(() => {
     // Only a version that goes UP is a change. A copy older than one already
     // seen (useBoard drops those since #1969, and a failed move's rollback now
-    // keeps a newer copy, but a full board reload can still deliver one, #2038)
+    // keeps a newer copy, but a full board reload still delivers one for a card
+    // nothing wrote while it was in flight: it stays authoritative there, #2038)
     // is not a remote change and must not close the popover or erase its error.
     if (card.version <= lastSeenVersionRef.current) return;
     lastSeenVersionRef.current = card.version;
