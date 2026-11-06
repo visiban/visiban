@@ -595,12 +595,22 @@ describe('board invite API (#1444)', () => {
     expect(api.post).toHaveBeenCalledWith('/api/v1/boards/join/vbnb_x/')
   })
 
-  it('percent-encodes the join token so it cannot rewrite the request path', async () => {
+  it('accepts real vbnb_ tokens unchanged', async () => {
     api.get.mockResolvedValue({ data: {} })
     api.post.mockResolvedValue({ data: {} })
-    await resolveBoardJoinToken('../x?y=1')
-    await joinBoard('../x?y=1')
-    expect(api.get).toHaveBeenCalledWith('/api/v1/boards/join/..%2Fx%3Fy%3D1/')
-    expect(api.post).toHaveBeenCalledWith('/api/v1/boards/join/..%2Fx%3Fy%3D1/')
+    const t = 'vbnb_' + 'ab12'.repeat(10)
+    await resolveBoardJoinToken(t)
+    await joinBoard(t)
+    expect(api.get).toHaveBeenCalledWith(`/api/v1/boards/join/${t}/`)
+    expect(api.post).toHaveBeenCalledWith(`/api/v1/boards/join/${t}/`)
+  })
+
+  it.each(['..', 'a/b', 'a%2F', ''])('rejects join token %j without calling the client', async (t) => {
+    api.get.mockClear()
+    api.post.mockClear()
+    await expect(resolveBoardJoinToken(t)).rejects.toThrow('Invalid join token')
+    await expect(joinBoard(t)).rejects.toThrow('Invalid join token')
+    expect(api.get).not.toHaveBeenCalled()
+    expect(api.post).not.toHaveBeenCalled()
   })
 })

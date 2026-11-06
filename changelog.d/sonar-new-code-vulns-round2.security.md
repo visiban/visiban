@@ -1,0 +1,1 @@
+Hardened the invite-join client calls: board and group join tokens are now allowlist-validated (`[A-Za-z0-9_-]`, 1-256 chars) before being placed in the request path, so a crafted pending token such as `..` can no longer redirect the request to a different endpoint. The SSRF egress deny-list address literals are recorded as a reviewed Sonar false positive.

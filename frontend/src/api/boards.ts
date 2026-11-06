@@ -1,4 +1,5 @@
 import client from "./client";
+import { safeJoinToken } from "./joinToken";
 import type { Board, BoardFull, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
@@ -60,11 +61,11 @@ export interface BoardJoinResult {
   created: boolean;
 }
 
-export const resolveBoardJoinToken = (token: string) =>
-  client.get<BoardJoinPreview>(`/api/v1/boards/join/${encodeURIComponent(token)}/`).then((r) => r.data);
+export const resolveBoardJoinToken = async (token: string) =>
+  client.get<BoardJoinPreview>(`/api/v1/boards/join/${safeJoinToken(token)}/`).then((r) => r.data);
 
-export const joinBoard = (token: string) =>
-  client.post<BoardJoinResult>(`/api/v1/boards/join/${encodeURIComponent(token)}/`).then((r) => r.data);
+export const joinBoard = async (token: string) =>
+  client.post<BoardJoinResult>(`/api/v1/boards/join/${safeJoinToken(token)}/`).then((r) => r.data);
 
 export const listBoards = () =>
   client.get<{ results: Board[] }>("/api/v1/boards/").then((r) => r.data.results);
