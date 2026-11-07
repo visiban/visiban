@@ -39,7 +39,7 @@ Entry points use file and function names, not line numbers, so the table survive
 **What it doesn't enumerate.**
 
 - Rule 3: the revocation table is a review checklist.
-- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16 and Rule 18: review checklists, pinned by the tests named under each.
+- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16, Rule 17 and Rule 18: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
 - Rule 16 also keeps its shared function outside `visiban/authorization.py` (`accounts/models.py` `record_access_flag_changes`, beside the log model it writes), a deviation from the same step.
@@ -805,6 +805,26 @@ the change back on the admin API, `save_model`, `set_site_admin`, `ensure_site_a
 and `createsuperuser`; neither flag in the Django admin forms; `/auth/me/` and
 `/auth/user/` ignoring both flags), `accounts/tests/test_admin_staff_target_rules.py`
 (all-content accounts in the Django admin).
+
+## Rule 17: Changing the outbound-mail configuration is superuser-only
+
+**Rule.** Only an active superuser changes the instance's email settings. A site
+admin who isn't a superuser, including one holding `can_access_all_content`,
+can read them and send a test email, and nothing else. No route accepts
+server overrides from a non-superuser.
+
+**Why.** The settings are a higher-trust configuration than the rest of the site-admin surface, and the all-content flag is kept separate from it (Rule 16).
+
+| Surface | Entry point | Enforced via |
+|---|---|---|
+| Admin API (change) | `accounts/admin_views.py` `AdminEmailSettingsView.patch` | `accounts/permissions.py` `IsSiteAdminReadOrSuperuserWrite`: any non-safe method needs an active superuser, else `403` |
+| Admin API (read) | `AdminEmailSettingsView.get` | Any site admin (same permission class, safe methods) |
+| Admin API (test send) | `accounts/admin_views.py` `AdminEmailTestView.post` | Site admin. Sends to the caller's own address through the stored configuration; accepts no host, port or recipient from the body |
+| Django admin | `accounts/admin.py` | Doesn't register `SiteEmailSetting` |
+| Admin panel | `frontend/src/components/Admin/EmailSettingsSection.tsx` | Fields disabled and Save hidden when `is_superuser` isn't `true`. Convenience only: the Admin API row above enforces the rule |
+| MCP, imports | `mcp_server/tools.py` | Don't write the settings |
+
+Coverage: `accounts/tests/test_email_settings.py` `EmailSettingsSuperuserOnlyTests`.
 
 ## Rule 18: Deleting a group and transferring its ownership need an admin membership on that group
 

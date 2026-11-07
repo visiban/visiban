@@ -50,7 +50,13 @@ def _connect_user_signals():
         # harmless; outside one (the plain
         # shell path) there is no lock to hold and the read is best-effort.
         if connection.in_atomic_block:
-            qs = qs.select_for_update()
+            # FOR NO KEY UPDATE, not FOR UPDATE: the post_save that follows a
+            # demotion revokes group invite links, waiting on link rows while
+            # this lock is held, and a join holding a link row needs FOR KEY
+            # SHARE on the creator's row, which FOR UPDATE conflicts with (a
+            # deadlock). This save never changes the pk; a changed unique key
+            # is escalated by PostgreSQL itself.
+            qs = qs.select_for_update(no_key=True)
         prior = qs.values(
             "is_superuser", "is_active", "is_site_admin", "can_access_all_content"
         ).first()

@@ -1511,8 +1511,89 @@ describe('AdminPage — Email (SMTP) settings', () => {
 
   async function renderEmailSection(overrides: Partial<SiteEmailSettings> = {}) {
     mockGetAdminEmailSettings.mockResolvedValue({ ...fakeEmailSettings, ...overrides })
-    await renderAdminPageSettled()
+    await renderAdminPageSettled(superuserActor)
   }
+
+  it('shows email settings read-only to a site admin who is not a superuser', async () => {
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    await renderAdminPageSettled(adminUser)
+    expect(screen.getByLabelText('Host')).toBeDisabled()
+    expect(screen.getByLabelText('Port')).toBeDisabled()
+    expect(screen.getByLabelText('Password')).toBeDisabled()
+    expect(screen.queryByText('Save email settings')).not.toBeInTheDocument()
+    expect(screen.getByTestId('email-settings-readonly-note')).toHaveTextContent(
+      'Only a superuser can change email settings.'
+    )
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+  })
+
+  it('links the read-only note to the disabled fields', async () => {
+    await renderAdminPageSettled(adminUser)
+    const noteId = screen.getByTestId('email-settings-readonly-note').id
+    expect(noteId).toBeTruthy()
+    for (const label of ['Host', 'Port', 'Timeout', 'Username', 'Password', 'From address']) {
+      expect(screen.getByLabelText(label).getAttribute('aria-describedby')).toContain(noteId)
+    }
+    expect(screen.getByRole('radiogroup', { name: 'Email configuration source' })).toHaveAttribute(
+      'aria-describedby',
+      noteId
+    )
+  })
+
+  it('tells a read-only admin to ask a superuser instead of re-entering the password', async () => {
+    mockGetAdminEmailSettings.mockResolvedValue({
+      ...fakeEmailSettings,
+      config_source: 'database',
+      effective_source: 'database',
+      password_set: true,
+      password_decryptable: false,
+    })
+    await renderAdminPageSettled(adminUser)
+    expect(screen.getAllByText(/ask a superuser to re-enter it/i)).toHaveLength(2)
+    expect(screen.queryByText(/Re-enter it below/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Clear$/)).not.toBeInTheDocument()
+  })
+
+  it('does not tell a read-only admin to type or clear a stored password', async () => {
+    mockGetAdminEmailSettings.mockResolvedValue({ ...fakeEmailSettings, password_set: true })
+    await renderAdminPageSettled(adminUser)
+    expect(screen.getByText('A password is stored.')).toBeInTheDocument()
+    expect(screen.queryByText(/Type a new one to replace it/)).not.toBeInTheDocument()
+  })
+
+  it('read-only: keeps the no_recipient and backend_pinned remedies, swaps only edit-type ones', async () => {
+    await renderAdminPageSettled(adminUser)
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'no_recipient', detail: 'x' })
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() =>
+      expect(screen.getByText('Add one in your profile, then test again.')).toBeInTheDocument()
+    )
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'backend_pinned', detail: 'x' })
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() =>
+      expect(
+        screen.getByText(/can.t test that path/)
+      ).toBeInTheDocument()
+    )
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'auth_failed', detail: 'x' })
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() =>
+      expect(screen.getByText('Ask a superuser to update the email settings.')).toBeInTheDocument()
+    )
+  })
+
+  it('read-only: hides the blank-password hint when no password is stored', async () => {
+    await renderAdminPageSettled(adminUser)
+    expect(screen.getByText('No password stored.')).toBeInTheDocument()
+    expect(screen.queryByText(/Leave blank if your server doesn.t require a password/)).not.toBeInTheDocument()
+  })
+
+  it('keeps email settings editable for a superuser', async () => {
+    await renderEmailSection()
+    expect(screen.getByLabelText('Host')).not.toBeDisabled()
+    expect(screen.getByText('Save email settings')).toBeInTheDocument()
+    expect(screen.queryByTestId('email-settings-readonly-note')).not.toBeInTheDocument()
+  })
 
   it('shows which source is actually sending mail', async () => {
     await renderEmailSection()

@@ -252,6 +252,8 @@ guide.
 
 ### `PATCH /api/v1/admin/email-settings/`
 
+*(1.3+)* **Permission:** superuser only. A site admin who is not a superuser (including one with all-content access) receives `403 Forbidden`; `GET` stays open to every site admin.
+
 Accepts any subset of `config_source`, `host`, `port`, `username`, `password`, `use_tls`,
 `use_ssl`, `from_email`, `timeout`.
 
@@ -275,6 +277,8 @@ existing value writes no row.
 ### `POST /api/v1/admin/email-settings/test/`
 
 Sends a test email using the configuration currently in effect and reports the result.
+
+Available to any site admin. It changes no settings and accepts no server overrides.
 
 **The recipient is always the requesting admin's own email address.** It cannot be
 supplied in the request body — an admin-gated endpoint that delivered to an arbitrary

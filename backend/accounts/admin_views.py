@@ -60,7 +60,7 @@ from .models import (
     snapshot_site_setting,
 )
 from .invite_utils import effective_site_invite_status, live_site_invite_count, revoke_site_invite_links
-from .permissions import IsSiteAdmin, TokenHasScope
+from .permissions import IsSiteAdmin, IsSiteAdminReadOrSuperuserWrite, TokenHasScope
 from .validators import (
     UsernameFormatValidator,
     email_collides_with_identifier,
@@ -303,9 +303,19 @@ class SiteEmailSettingsResponseSerializer(drf_serializers.Serializer):
 
 
 class AdminEmailSettingsView(APIView):
-    """GET/PATCH the singleton SiteEmailSetting row (#306)."""
+    """GET/PATCH the singleton SiteEmailSetting row (#306).
 
-    permission_classes = _ADMIN_PERMISSIONS
+    Reading is open to any site admin; changing it is superuser-only (#2090).
+    The settings choose which server outbound mail leaves through, so a change
+    is a higher-trust action than the rest of the admin surface.
+    """
+
+    permission_classes = [
+        IsSiteAdminReadOrSuperuserWrite,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+        TokenHasScope,
+    ]
 
     @extend_schema(responses=SiteEmailSettingsResponseSerializer)
     def get(self, request):
@@ -1032,8 +1042,22 @@ def lock_user_row(pk):
 
     Callers read the "before" state of an access change through this so a
     concurrent change cannot slip between the read and the save (#1563).
+
+    The lock is ``FOR NO KEY UPDATE``, the mode the deactivate endpoint takes.
+    A plain ``FOR UPDATE`` also conflicts with ``FOR KEY SHARE``, which
+    PostgreSQL takes on the creator's row when it checks the foreign key of an
+    invite link row written by a join. A deactivation holds this lock while it
+    revokes the user's invite links (waiting on the link rows), so a join that
+    already holds a link row and then needs ``KEY SHARE`` on the same creator
+    row would deadlock with it. ``NO KEY UPDATE`` does not conflict with
+    ``KEY SHARE`` and still conflicts with itself and with ``FOR UPDATE``, so
+    concurrent access changes of one user (and the group admin-minimum guard,
+    #1814) still queue. It is sufficient because no caller changes the primary
+    key or any unique key a foreign key can reference: they write only
+    ``is_active``, ``is_site_admin``, ``can_access_all_content``,
+    ``must_change_password`` and ``has_completed_tour``.
     """
-    return User.objects.select_for_update().get(pk=pk)
+    return User.objects.select_for_update(no_key=True).get(pk=pk)
 
 
 def access_state(user):
