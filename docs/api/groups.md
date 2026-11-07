@@ -162,7 +162,7 @@ Changing `parent` revokes unused invite links in the moved subtree whose creator
 An update that arrives while the group is being deleted waits for the delete to finish and then answers `404`, with nothing written (#1719). A `parent` that is deleted meanwhile answers the unknown-parent `400`.
 
 ### `DELETE /api/v1/groups/{id}/`
-Delete a group. Requires group owner or site admin. A group member who is not the owner gets `403 Forbidden` with `{"detail": "Only the group owner can delete this group."}`; a caller who cannot see the group at all gets `404`.
+Delete a group. Requires the group owner, who must also hold an admin membership on the group itself, or a site admin. A group member who is not the owner gets `403 Forbidden` with `{"detail": "Only the group owner can delete this group."}`; a caller who cannot see the group at all gets `404`.
 
 > **Added in 1.2**
 
@@ -540,7 +540,7 @@ List only starred groups for the current user.
 ## Transfer ownership
 
 ### `POST /api/v1/groups/{id}/transfer-ownership/`
-Transfer group ownership to another user. Requires the **current owner** (not just admin). There is no API route for administrators; a superuser can transfer a departed owner's group from the Django admin (see [Transferring a group's ownership](../administration/django-admin.md#transferring-a-groups-ownership)).
+Transfer group ownership to another user. Requires the **current owner** (not just admin), who must also hold an admin membership on the group itself. There is no API route for administrators; a superuser can transfer a departed owner's group from the Django admin (see [Transferring a group's ownership](../administration/django-admin.md#transferring-a-groups-ownership)).
 
 **Request**
 ```json
