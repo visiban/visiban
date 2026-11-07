@@ -4464,13 +4464,14 @@
 <h3 id="the-csv-files">The CSV files<a class="headerlink" href="#the-csv-files" title="Permanent link">&para;</a></h3>
 <p>Each template's <code>.csv</code> file uses the same layout as <strong>Export → CSV</strong>. Use it to look at the data in a spreadsheet, or to try the CSV importer.</p>
 <p><strong>What CSV import restores:</strong> each card's title, description, column, swimlane, priority, labels, due date, and weight. It also reads the <code>Custom:</code> and <code>Swimlane Custom:</code> columns, restoring card and swimlane custom field values as <strong>text</strong> fields. A CSV carries no field type, so import the JSON file to keep field types and choices.</p>
-<p><strong>Yes, but:</strong> CSV import doesn't restore movement history, comments, or checklists.</p>
+<p><strong>Yes, but:</strong> CSV import doesn't restore movement history, comments, checklists, or block history.</p>
 <h2 id="what-each-template-includes">What each template includes<a class="headerlink" href="#what-each-template-includes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Typed custom fields on cards.</strong> Six to eleven per template. Together the templates use every field type: number (with <code>$</code>, <code>%</code>, or unit formatting), dropdown and multi-select (with choice colors), date, URL, checkbox, and text. Sales Overlay uses all of them on one board. Two per template are pinned to the card face.</li>
 <li><strong>Swimlane fields.</strong> Owner, budget, tier, and similar facts about each row, pinned to the row header. Some are admin-only and hidden from non-admin members.</li>
 <li><strong>Column limits.</strong> WIP and weight limits on the busy columns. On each template one column is deliberately just over its limit, so you can see how that's flagged.</li>
 <li><strong>A full audit trail on every card.</strong> Creation, assignments and reassignments, labels added and removed, priority escalations, due-date changes, renames, description edits, checklist items added, checked, unchecked, and deleted, and comments. Each entry has the user and time it happened, written in the same form the app writes it. So every label, assignee, and checked item on a card traces back to the entry that set it.</li>
+<li><strong>Block history on Simple Kanban.</strong> Blocked and unblocked entries in the activity trail, two cards with a closed block, and one card that is still blocked.</li>
 <li><strong>Movement history.</strong> Cards move through the workflow, sometimes skipping a stage or going back one. Backward moves carry a note explaining why. A card that ends in a lost outcome (Lost, Rejected, Denied) never passes through a winning one first. The heatmap and dwell-time charts are populated as soon as you import.</li>
 <li><strong>Archived cards.</strong> Some finished cards are archived, the way a team clears its Done column.</li>
 <li><strong>Merge request and issue links.</strong> The engineering boards link cards to fictional GitLab and GitHub URLs.</li>
