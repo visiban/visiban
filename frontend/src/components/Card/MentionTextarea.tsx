@@ -1,5 +1,6 @@
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { POPOVER_VIEWPORT_MARGIN } from "../../hooks/useAnchoredPlacement";
 import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -19,11 +20,31 @@ interface MentionState {
   startIndex: number; // index of the '@' in value
 }
 
+/** Whether any part of `r` lies inside the viewport and the nearest scrollable ancestor's visible box. */
+function isRectVisible(r: DOMRect, el: HTMLElement): boolean {
+  let top = 0;
+  let bottom = window.innerHeight;
+  for (let a = el.parentElement; a; a = a.parentElement) {
+    const oy = getComputedStyle(a).overflowY;
+    if (oy === "auto" || oy === "scroll" || oy === "overlay") {
+      const ar = a.getBoundingClientRect();
+      top = Math.max(top, ar.top);
+      bottom = Math.min(bottom, ar.bottom);
+      break;
+    }
+  }
+  return r.bottom > top && r.top < bottom;
+}
+
 export default function MentionTextarea({ value, onChange, onSubmit, members, placeholder, rows = 2, className }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mention, setMention] = useState<MentionState>({ active: false, query: "", startIndex: -1 });
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // Side chosen on first placement, kept while the list narrows so it never flips across the textarea.
+  const sideRef = useRef<"below" | "above" | undefined>(undefined);
+  // Textarea rect at the last placement; the follow loop below re-places when it moves.
+  const lastRectRef = useRef<{ top: number; bottom: number; left: number } | null>(null);
 
   const suggestions = mention.active
     ? members
@@ -34,6 +55,95 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         })
         .slice(0, 6)
     : [];
+
+  const open = mention.active && suggestions.length > 0;
+
+  // The list is `position: fixed` (not `absolute bottom-full`) so the card sheet's scroll region
+  // cannot clip it (#2092). It stays in this component's DOM subtree rather than a body portal
+  // because the sheet's focus trap and click-outside dismissal treat a portal as outside the
+  // dialog. Focus never leaves the textarea: options preventDefault on mousedown.
+  const place = () => {
+    const ta = textareaRef.current;
+    const el = dropdownRef.current;
+    if (!ta || !el) return;
+    const r = ta.getBoundingClientRect();
+    lastRectRef.current = { top: r.top, bottom: r.bottom, left: r.left };
+    // Measure the natural height with no inline cap from an earlier placement.
+    el.style.maxHeight = "";
+    const natural = el.offsetHeight;
+    if (natural === 0) return; // not rendered yet / transient empty render: stay hidden or as-is
+    const margin = POPOVER_VIEWPORT_MARGIN;
+    const gap = 4;
+    const spaceBelow = window.innerHeight - margin - (r.bottom + gap);
+    const spaceAbove = r.top - gap - margin;
+    // Keep the side chosen earlier while the list still fits there (no flip as it narrows); else
+    // below, else above, else the larger side with the list capped to it. The list NEVER overlaps
+    // the textarea (the user is typing in it) and is never pinned: the side and cap are recomputed
+    // on every re-measure, so a list that shrinks leaves the capped side as soon as it fits.
+    let side: "below" | "above";
+    if (sideRef.current === "below" && natural <= spaceBelow) side = "below";
+    else if (sideRef.current === "above" && natural <= spaceAbove) side = "above";
+    else if (natural <= spaceBelow) side = "below";
+    else if (natural <= spaceAbove) side = "above";
+    else side = spaceBelow >= spaceAbove ? "below" : "above";
+    const space = Math.max(0, side === "below" ? spaceBelow : spaceAbove);
+    const height = Math.min(natural, space);
+    if (natural > space) el.style.maxHeight = `${space}px`;
+    sideRef.current = side;
+    el.style.top = `${side === "below" ? r.bottom + gap : r.top - gap - height}px`;
+    el.style.left = `${Math.max(
+      margin,
+      Math.min(r.left, window.innerWidth - el.offsetWidth - margin),
+    )}px`;
+    // Re-anchoring (not dismissing) means the textarea can scroll out of view while the list is
+    // open: out of the viewport, or under the card sheet's header/footer, which clip it inside the
+    // nearest scrollable ancestor. Hide the list then rather than leave it attached to an invisible field.
+    el.style.visibility = isRectVisible(r, ta) ? "" : "hidden";
+  };
+
+  // Re-measure when the visible options change height. Keyed on the ids, not the count: an option
+  // is two lines only when its display name differs from its username, so a same-length list can
+  // change height (frontend/CLAUDE.md: never estimate height from an item count).
+  const suggestionKey = suggestions.map((u) => u.id).join(",");
+  useLayoutEffect(() => {
+    if (!open) {
+      sideRef.current = undefined;
+      return;
+    }
+    place();
+  }, [open, suggestionKey]);
+
+  // Follow the textarea while the list is open. The card sheet re-places itself about 150ms after a
+  // resize or board scroll-end, with a slide, and no scroll/resize event fires for that; a per-frame
+  // rect comparison (cheap, only while open) is the least invasive way to stay attached to it.
+  useEffect(() => {
+    if (!open) return;
+    let id = requestAnimationFrame(function tick() {
+      const r = textareaRef.current?.getBoundingClientRect();
+      const l = lastRectRef.current;
+      if (r && (!l || r.top !== l.top || r.bottom !== l.bottom || r.left !== l.left)) place();
+      id = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
+  // Re-anchor (never dismiss) on scroll and resize: typing makes the browser scroll the caret into
+  // view, so closing on scroll would end the list mid-word. Capture catches inner scroll regions.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open]);
+
+  // Keep the keyboard-selected option visible when the list is capped to a short viewport.
+  useEffect(() => {
+    if (!open) return;
+    dropdownRef.current?.children[selectedIndex]?.scrollIntoView?.({ block: "nearest" });
+  }, [open, selectedIndex]);
 
   // Reset selection when suggestions change
   useEffect(() => {
@@ -115,10 +225,12 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         rows={rows}
         className={className}
       />
-      {mention.active && suggestions.length > 0 && (
+      {open && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 bottom-full mb-1 left-0 w-56 bg-surface border border-line-strong rounded-lg shadow-lg overflow-hidden"
+          // Hidden until the layout effect measures and places it (no flash at 0,0).
+          style={{ position: "fixed", visibility: "hidden", top: 0, left: 0 }}
+          className="z-[60] w-56 max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] bg-surface border border-line-strong rounded-lg shadow-lg overflow-y-auto"
         >
           {suggestions.map((u, i) => (
             <button
@@ -129,9 +241,9 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
                 i === selectedIndex ? "bg-surface-hover" : ""
               }`}
             >
-              <span className="font-medium text-fg">@{u.username}</span>
+              <span className="font-medium text-fg truncate">@{u.username}</span>
               {userDisplayName(u) !== u.username && (
-                <span className="text-xs text-fg-tertiary">{userDisplayName(u)}</span>
+                <span className="text-xs text-fg-tertiary truncate">{userDisplayName(u)}</span>
               )}
             </button>
           ))}
