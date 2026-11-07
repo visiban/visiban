@@ -1,0 +1,91 @@
+{
+  "session_total_tokens": 992000,
+  "forbidden_anywhere": [
+    "Other tokens",
+    "unknown",
+    "Both figures stop at the go-ahead",
+    "/ws/"
+  ],
+  "forbidden_in_table": [
+    "n/a",
+    "Other"
+  ],
+  "steps": {
+    "x-record-1": {
+      "record": 1,
+      "total_tokens": 370000,
+      "total_usd": "1.73",
+      "rows": [
+        "| Subagents | 230,000 | 0.23 USD | none used | none used | 230,000 | 0.23 USD |",
+        "| Orchestrator | none used | none used | 140,000 | 1.50 USD | 140,000 | 1.50 USD |",
+        "| **Total** | **230,000** | **0.23 USD** | **140,000** | **1.50 USD** | **370,000** | **1.73 USD** |"
+      ],
+      "contains": [
+        "- Window: 2026-11-07T09:00:00Z to 2026-11-07T10:00:00Z.",
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
+      ],
+      "absent": [],
+      "state": {
+        "schema": 1,
+        "orchestrator_until": "2026-11-07T10:00:00Z",
+        "agents": {
+          "d1000000000000001": "2026-11-07T10:00:00Z",
+          "d4000000000000004": "2026-11-07T10:00:00Z"
+        }
+      }
+    },
+    "y-record-1": {
+      "record": 1,
+      "total_tokens": 550000,
+      "total_usd": "1.04",
+      "rows": [
+        "| Subagents | 450,000 | 0.54 USD | none used | none used | 450,000 | 0.54 USD |",
+        "| Orchestrator | none used | none used | 100,000 | 0.50 USD | 100,000 | 0.50 USD |",
+        "| **Total** | **450,000** | **0.54 USD** | **100,000** | **0.50 USD** | **550,000** | **1.04 USD** |"
+      ],
+      "contains": [
+        "- Window: 2026-11-07T10:00:00Z to 2026-11-07T11:00:00Z."
+      ],
+      "absent": [
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
+      ],
+      "state": {
+        "schema": 1,
+        "orchestrator_until": "2026-11-07T11:00:00Z",
+        "agents": {
+          "d1000000000000001": "2026-11-07T10:00:00Z",
+          "d4000000000000004": "2026-11-07T10:00:00Z",
+          "d2000000000000002": "2026-11-07T11:00:00Z",
+          "d3000000000000003": "2026-11-07T11:00:00Z"
+        }
+      }
+    },
+    "x-record-2": {
+      "record": 2,
+      "total_tokens": 72000,
+      "total_usd": "0.17",
+      "rows": [
+        "| Subagents | 52,000 | 0.07 USD | none used | none used | 52,000 | 0.07 USD |",
+        "| Orchestrator | none used | none used | 20,000 | 0.10 USD | 20,000 | 0.10 USD |",
+        "| **Total** | **52,000** | **0.07 USD** | **20,000** | **0.10 USD** | **72,000** | **0.17 USD** |",
+        "| **Running total, records 1-2** | **282,000** | **0.30 USD** | **160,000** | **1.60 USD** | **442,000** | **1.90 USD** |"
+      ],
+      "contains": [
+        "- Window: 2026-11-07T11:00:00Z to 2026-11-07T12:00:00Z."
+      ],
+      "absent": [
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
+      ],
+      "state": {
+        "schema": 1,
+        "orchestrator_until": "2026-11-07T12:00:00Z",
+        "agents": {
+          "d1000000000000001": "2026-11-07T12:00:00Z",
+          "d4000000000000004": "2026-11-07T12:00:00Z",
+          "d2000000000000002": "2026-11-07T11:00:00Z",
+          "d3000000000000003": "2026-11-07T11:00:00Z"
+        }
+      }
+    }
+  }
+}

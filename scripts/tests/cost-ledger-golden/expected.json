@@ -4,7 +4,8 @@
     "Other tokens",
     "unknown",
     "SECRET-BRIEF-TEXT",
-    "must not be added"
+    "must not be added",
+    "Both figures stop at the go-ahead"
   ],
   "forbidden_in_table": [
     "n/a",
@@ -22,8 +23,9 @@
       ],
       "contains": [
         "## Cost of this MR (\u0023101)\n",
-        "- Window end: 2026-11-07T10:00:00Z.",
-        "Records do not overlap:"
+        "- Window: 2026-11-07T08:55:00Z to 2026-11-07T10:00:00Z.",
+        "Records do not overlap:",
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
       ],
       "state": {
         "schema": 1,
@@ -62,7 +64,10 @@
       ],
       "contains": [
         "## Cost of this MR (\u0023202)\n",
-        "- Window end: 2026-11-07T11:00:00Z."
+        "- Window: 2026-11-07T10:00:00Z to 2026-11-07T11:00:00Z."
+      ],
+      "absent": [
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
       ],
       "state": {
         "schema": 1,
@@ -89,6 +94,9 @@
         "## Cost of this MR (\u0023101) — record 2\n",
         "- Window: 2026-11-07T11:00:00Z to 2026-11-07T12:00:00Z.",
         "- This MR has no record for 2026-11-07T10:00:00Z to 2026-11-07T11:00:00Z;"
+      ],
+      "absent": [
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
       ],
       "state": {
         "schema": 1,
@@ -126,7 +134,10 @@
       ],
       "contains": [
         "## Cost of this MR (\u0023303)\n",
-        "- Window end: 2026-11-07T13:00:00Z."
+        "- Window: 2026-11-07T12:00:00Z to 2026-11-07T13:00:00Z."
+      ],
+      "absent": [
+        "- This is the session's first record, so the orchestrator row starts at the session's start and includes work done before this MR's issue."
       ],
       "state": {
         "schema": 1,

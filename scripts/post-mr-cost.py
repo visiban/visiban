@@ -21,7 +21,8 @@ which the hook and --round read, and which leaves those agents out of every othe
 else the next record.
 
 The window of a record (non-overlap). Per-session state lives at
-`<git-common-dir>/mr-cost-state/<session-id>.json`:
+`${CLAUDE_CONFIG_DIR:-~/.claude}/mr-cost-state/<session-id>.json` (one file per session, next to the
+transcripts, NOT per repo: a session spans repos):
     {"schema": 1, "orchestrator_until": "<UTC Z>", "agents": {"<agent-id>": "<UTC Z>"}}
 written atomically (a temp file in the same directory, then os.replace) and advanced after EVERY
 successful post to the record's `until`, for the orchestrator and for each agent the record
@@ -35,14 +36,19 @@ never read, not even as a fallback, since reading it brings the shared-marker ov
 file that exists but cannot be read posts nothing and says so: guessing a window would double count.
 
 Which top-level subagents belong to an MR (attribution). A subagent transcript records the session
-root as its cwd and `main` as its branch, so neither can attribute it. The agent's BRIEF can: the
-text of the first `user` entry in its transcript. An agent is counted for this MR when
-  1. it was named with `--agent` (always), or
-  2. its brief names this MR's source branch or its worktree directory leaf, or
-  3. its brief names no other branch matching (feat|fix|docs|chore)/<digits>-, and
-and in every case it has usage after its watermark. An agent whose brief names another branch is
-left for that branch's record. A descendant is measured over its own watermark and goes with its
-top-level parent. The brief is untrusted text: it is only matched against, never echoed.
+root as its cwd and `main` as its branch, so neither can attribute it. Two things in the transcript can:
+  1. WHERE IT ACTS (strongest): the worktree holding most of the agent's Edit/Write/NotebookEdit
+     `file_path`s, else the worktree its Bash `cd <path>` / `git -C <path>` (not show, diff or log) calls
+     target most (a read-only auditor `cd`s into what it audits). When that is known the agent counts for
+     this MR if it is this MR's worktree, and not otherwise; the brief is ignored.
+  2. ITS BRIEF (the text of its first `user` entry), when no home is known: the agent counts if the brief
+     names this MR's source branch, branch leaf or worktree leaf; it is left for another record if it names
+     another branch (feat|fix|docs|chore)/<digits>-... or another `.../<issue>-<slug>` worktree path;
+     otherwise (an unnamed gate) it counts. A brief that names several worktrees (a port agent) is why
+     the home outranks it.
+`--agent` and pins override both. In every case the agent needs usage after its watermark. A descendant
+is measured over its own watermark and goes with its top-level parent. Briefs, paths and commands are
+untrusted text: they are classified and matched, never echoed.
 
 Any failure is fail-soft: the hook exits 0 and prints the command to re-run,
 `python3 scripts/post-mr-cost.py --retry --mr <iid> --session <sid>`, so a broken transcript layout
@@ -84,6 +90,9 @@ ISSUE_RE = re.compile(r"(?:^|/)(?:feat|fix|docs|chore)/(\d{1,9})-")
 # inside `feat/1-x-v2`.
 OTHER_BRANCH_RE = re.compile(r"(?<![\w.-])((?:feat|fix|docs|chore)/\d+-[\w.-]*\w)")
 LEAF_RE = re.compile(r"^\d+-\S")
+# A worktree path component in a brief (`.../blueprint-wt/387-cost-records/`): `<digits>-<slug>` after a
+# slash. Briefs usually name the worktree, not the branch, so this is how another branch's agent is seen.
+OTHER_LEAF_RE = re.compile(r"(?<=/)(\d+-[A-Za-z][\w-]*)(?![\w-]|\.\w)")  # not a file name: `3-tier.md`
 BRIEF_CAP = 256 << 10
 STATE_SCHEMA = 1
 
@@ -248,13 +257,17 @@ def names(brief, token):
 
 
 def attribution(brief, branch, leaf):
-    """True: the brief names this MR's branch or worktree leaf. False: it names another branch
-    (and not this one). None: it names no branch, so usage alone decides."""
-    # A worktree leaf is `<issue>-<slug>` (scripts/wt). Requiring the digits keeps a repo or checkout
-    # name such as `blueprint` from matching `org/blueprint` in a brief and claiming every agent.
-    if names(brief, branch) or (LEAF_RE.match(leaf or "") and names(brief, leaf)):
+    """True: the brief names this MR (its branch, its branch's leaf, or its worktree leaf). False: it
+    names another MR (another branch, or another worktree-path component `<issue>-<slug>`) and not
+    this one. None: it names none, so usage alone decides.
+
+    Naming this MR wins over naming another one: a brief that mentions both is this MR's. A leaf is
+    `<issue>-<slug>` (scripts/wt); requiring the digits keeps a repo or checkout name such as
+    `blueprint` from matching `org/blueprint` in a brief and claiming every agent."""
+    own = {x for x in (leaf, (branch or "").rsplit("/", 1)[-1]) if LEAF_RE.match(x or "")}
+    if names(brief, branch) or any(names(brief, x) for x in own):
         return True
-    if any(m != branch for m in OTHER_BRANCH_RE.findall(brief)):
+    if any(m != branch for m in OTHER_BRANCH_RE.findall(brief)) or any(m not in own for m in OTHER_LEAF_RE.findall(brief)):
         return False
     return None
 
@@ -265,16 +278,28 @@ class StateError(Exception):
     """The state file exists but is not a valid schema-1 state."""
 
 
-def state_path(gitdir, sid):
-    return os.path.join(gitdir, "mr-cost-state", sid + ".json")
+def config_root():
+    """`$CLAUDE_CONFIG_DIR` or `~/.claude`: where Claude Code keeps the transcripts, and so where one
+    file per SESSION lives. The state is not per repo: a session spans repos, and a record in one repo
+    must advance the window every other repo's record starts from."""
+    return os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
 
 
-def read_state(gitdir, sid):
+def pin_key(project, branch):
+    """Pins are keyed `<project path>:<branch>` so one branch name in two repos cannot collide."""
+    return "%s:%s" % (project or "?", branch)
+
+
+def state_path(root, sid):
+    return os.path.join(root, "mr-cost-state", sid + ".json")
+
+
+def read_state(root, sid):
     """{'orchestrator_until': str or None, 'agents': {id: str}}; empty when no state file exists.
     Raises StateError for one that exists but does not validate (never guessed around)."""
     import transcript_usage as tu
     try:
-        with open(state_path(gitdir, sid), encoding="utf-8") as f:
+        with open(state_path(root, sid), encoding="utf-8") as f:
             raw = f.read(1 << 20)
     except FileNotFoundError:
         return {"orchestrator_until": None, "agents": {}}
@@ -295,7 +320,7 @@ def read_state(gitdir, sid):
     return {"orchestrator_until": ou, "agents": dict(ag)}
 
 
-def write_state(gitdir, sid, state, until, agent_ids):
+def write_state(root, sid, state, until, agent_ids):
     """Advance the session's state to `until` for the orchestrator and every agent in agent_ids,
     atomically. Returns True on success. A watermark never moves backwards."""
     def later(old, new):
@@ -304,7 +329,7 @@ def write_state(gitdir, sid, state, until, agent_ids):
     for a in agent_ids:
         agents[a] = later(agents.get(a), until)
     doc = {"schema": STATE_SCHEMA, "orchestrator_until": later(state["orchestrator_until"], until), "agents": agents}
-    d = os.path.dirname(state_path(gitdir, sid))
+    d = os.path.dirname(state_path(root, sid))
     try:
         os.makedirs(d, exist_ok=True)
         fd, tmp = tempfile.mkstemp(prefix=".state-", suffix=".tmp", dir=d)
@@ -312,7 +337,7 @@ def write_state(gitdir, sid, state, until, agent_ids):
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(doc, f, sort_keys=True)
                 f.write("\n")
-            os.replace(tmp, state_path(gitdir, sid))
+            os.replace(tmp, state_path(root, sid))
         except BaseException:
             try:
                 os.remove(tmp)
@@ -326,17 +351,17 @@ def write_state(gitdir, sid, state, until, agent_ids):
 
 # --- agents pinned to a branch (--measure --pin) -------------------------------------------
 
-def pins_path(gitdir, sid):
-    return os.path.join(gitdir, "mr-cost-state", sid + ".pins.json")
+def pins_path(root, sid):
+    return os.path.join(root, "mr-cost-state", sid + ".pins.json")
 
 
-def read_pins(gitdir, sid):
-    """{branch: [agent id]} the orchestrator named for this session, {} when none. Raises StateError.
+def read_pins(root, sid):
+    """{pin key (`<project>:<branch>`): [agent id]} the orchestrator named for this session, {} when none. Raises StateError.
 
     Kept apart from the state file so the state schema stays {orchestrator_until, agents}."""
     import transcript_usage as tu
     try:
-        with open(pins_path(gitdir, sid), encoding="utf-8") as f:
+        with open(pins_path(root, sid), encoding="utf-8") as f:
             d = json.loads(f.read(1 << 20))
     except FileNotFoundError:
         return {}
@@ -350,15 +375,15 @@ def read_pins(gitdir, sid):
     return {k: list(v) for k, v in b.items()}
 
 
-def write_pins(gitdir, sid, branch, ids):
-    """Record that these agents belong to `branch` (atomically); True on success. An agent pinned to
-    a branch is left out of every other branch's record, so name it once and the hook (record 1) and
-    --round (record K) both attribute it the way --measure did."""
-    pins = read_pins(gitdir, sid)
+def write_pins(root, sid, key, ids):
+    """Record that these agents belong to the branch `key` (a pin_key), atomically; True on success. An
+    agent pinned to a branch is left out of every other branch's record, so name it once and the hook
+    (record 1) and --round (record K) both attribute it the way --measure did."""
+    pins = read_pins(root, sid)
     for k in list(pins):
         pins[k] = [a for a in pins[k] if a not in ids]
-    pins[branch] = sorted(set(pins.get(branch, [])) | set(ids))
-    d = os.path.dirname(pins_path(gitdir, sid))
+    pins[key] = sorted(set(pins.get(key, [])) | set(ids))
+    d = os.path.dirname(pins_path(root, sid))
     try:
         os.makedirs(d, exist_ok=True)
         fd, tmp = tempfile.mkstemp(prefix=".pins-", suffix=".tmp", dir=d)
@@ -366,7 +391,7 @@ def write_pins(gitdir, sid, branch, ids):
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump({"schema": STATE_SCHEMA, "branches": pins}, f, sort_keys=True)
                 f.write("\n")
-            os.replace(tmp, pins_path(gitdir, sid))
+            os.replace(tmp, pins_path(root, sid))
         except BaseException:
             try:
                 os.remove(tmp)
@@ -388,9 +413,85 @@ class Opts:
         self.today = today
 
 
-def select_agents(sdir, branch, leaf, explicit, state_agents, until, pinned_elsewhere=frozenset()):
-    """(agent ids to measure, descendant ids with a watermark, notes). See the module docstring for
-    the attribution rule. `notes` are fixed strings: no brief or transcript text."""
+WT_LEAF_RE = re.compile(r"/[^/\s]*-wt/(\d+-[A-Za-z][\w-]*)(?=/|$)")
+CD_RE = re.compile(r"(?:^|[;&|(\s])cd\s+[\"']?(/[^\s;&|\"')]+)")
+GIT_C_RE = re.compile(r"\bgit\s+-C\s+[\"']?(/[^\s;&|\"')]+)[\"']?\s+([a-z-]+)")
+READ_ONLY_GIT = ("show", "diff", "log")
+WRITE_TOOLS = {"Edit": "file_path", "Write": "file_path", "NotebookEdit": "notebook_path"}
+HOME_CAP = 64 << 20
+
+
+def path_home(path, toplevel):
+    """('own', '') for a path under this checkout's toplevel, ('leaf', '<n>-<slug>') for a path under a
+    `*-wt/<n>-<slug>/` worktree, else None. The text is only classified, never kept."""
+    if not isinstance(path, str):
+        return None
+    if toplevel and (path == toplevel or path.startswith(toplevel.rstrip("/") + "/")):
+        return ("own", "")
+    m = WT_LEAF_RE.search(path)
+    return ("leaf", m.group(1)) if m else None
+
+
+def agent_home(path, toplevel):
+    """The worktree an agent ACTS in, read from its own transcript's tool calls, or None.
+
+    A brief can name several worktrees (a port agent reads one and writes another; an auditor reads
+    the one it audits), so attribution by brief text mis-attributes them. What an agent does is
+    firmer: 1. the worktree holding the majority of its Edit/Write/NotebookEdit `file_path`s; else
+    2. the worktree most often the target of a Bash `cd <path>` or `git -C <path> <not show/diff/log>`
+    (a read-only auditor `cd`s into what it audits), when one leads strictly. Paths and commands are
+    untrusted: they are classified into a (kind, leaf) pair and never echoed."""
+    writes, cds, total_writes, seen = {}, {}, 0, set()
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            read = 0
+            for line in f:
+                read += len(line)
+                if read > HOME_CAP:
+                    break
+                if '"tool_use"' not in line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except (ValueError, RecursionError):
+                    continue
+                msg = e.get("message") if isinstance(e, dict) else None
+                content = msg.get("content") if isinstance(msg, dict) else None
+                for b in content if isinstance(content, list) else ():
+                    if not (isinstance(b, dict) and b.get("type") == "tool_use") or b.get("id") in seen:
+                        continue
+                    seen.add(b.get("id"))
+                    inp = b.get("input") if isinstance(b.get("input"), dict) else {}
+                    if b.get("name") in WRITE_TOOLS:
+                        total_writes += 1
+                        h = path_home(inp.get(WRITE_TOOLS[b["name"]]), toplevel)
+                        if h:
+                            writes[h] = writes.get(h, 0) + 1
+                    elif b.get("name") == "Bash" and isinstance(inp.get("command"), str):
+                        cmd = inp["command"]
+                        targets = [m.group(1) for m in CD_RE.finditer(cmd)]
+                        targets += [m.group(1) for m in GIT_C_RE.finditer(cmd) if m.group(2) not in READ_ONLY_GIT]
+                        for t in targets:
+                            h = path_home(t, toplevel)
+                            if h:
+                                cds[h] = cds.get(h, 0) + 1
+    except OSError:
+        return None
+    if writes:
+        top = max(writes, key=writes.get)
+        if writes[top] * 2 > total_writes:
+            return top
+    if cds:
+        ranked = sorted(cds.values(), reverse=True)
+        if len(ranked) == 1 or ranked[0] > ranked[1]:
+            return max(cds, key=cds.get)
+    return None
+
+
+def select_agents(sdir, branch, leaf, explicit, state_agents, until, pinned_elsewhere=frozenset(), toplevel=""):
+    """(agent ids to measure, notes). A top-level agent counts for this MR by the worktree it acts in
+    (agent_home: where it writes, else where it `cd`s) when that is known, and by its brief (attribution)
+    otherwise; --agent and pins override both. `notes` are fixed strings: no brief or transcript text."""
     import transcript_usage as tu
     chosen, notes = [], []
     if not sdir:
@@ -402,8 +503,12 @@ def select_agents(sdir, branch, leaf, explicit, state_agents, until, pinned_else
         if aid in pinned_elsewhere and not forced:
             continue
         if not forced:
-            verdict = attribution(first_user_text(path), branch, leaf)
-            if verdict is False:
+            home = agent_home(path, toplevel)
+            if home is not None:
+                own = {x for x in (leaf, (branch or "").rsplit("/", 1)[-1]) if LEAF_RE.match(x or "")}
+                if not (home[0] == "own" or home[1] in own):
+                    continue
+            elif attribution(first_user_text(path), branch, leaf) is False:
                 continue
         try:
             agents, files = tu.subagent_files(sdir, [aid])
@@ -485,7 +590,7 @@ def worktree_leaf(runner, cwd):
     return os.path.basename(top.strip())
 
 
-def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, floor=None):
+def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, floor=None, project=None):
     """(start, exclusive, sdir, agent ids, state, notes, error) for the next record of this session.
 
     `start` is where the orchestrator window begins: the session's stored watermark (exclusive, the
@@ -494,9 +599,9 @@ def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, floor=None):
     earlier than `floor`, so a record cannot claim to overlap the record before it on the same MR."""
     import transcript_usage as tu
     try:
-        state = read_state(gitdir, sid)
+        state = read_state(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, state_path(gitdir, sid)),)
+        return (None,) * 6 + ("this session's cost state is %s (%s)" % (e, state_path(config_root(), sid)),)
     sdir = find_session_dir(sid, opts.projects_dir)
     try:
         main_path, _ = tu.session_paths(sid, opts.projects_dir)
@@ -511,12 +616,15 @@ def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, floor=None):
     elif floor and floor > start:
         start = floor
     try:
-        pins = read_pins(gitdir, sid)
+        pins = read_pins(config_root(), sid)
     except StateError as e:
-        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, pins_path(gitdir, sid)),)
-    here = set(pins.get(branch, [])) | set(explicit)
-    elsewhere = {a for k, v in pins.items() if k != branch for a in v} - here
-    ids, notes = select_agents(sdir, branch, worktree_leaf(runner, cwd), here, state["agents"], until, elsewhere)
+        return (None,) * 6 + ("this session's pinned agents are %s (%s)" % (e, pins_path(config_root(), sid)),)
+    key = pin_key(project, branch)
+    here = set(pins.get(key, [])) | set(explicit)
+    elsewhere = {a for k, v in pins.items() if k != key for a in v} - here
+    rc_t, top, _ = runner(["git", "rev-parse", "--show-toplevel"], cwd)
+    ids, notes = select_agents(sdir, branch, worktree_leaf(runner, cwd), here, state["agents"], until, elsewhere,
+                               top.strip() if rc_t == 0 else "")
     return start, exclusive, sdir, ids, state, notes, None
 
 
@@ -534,6 +642,8 @@ def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, unt
     with open(splitf, "w", encoding="utf-8") as f:
         f.write("".join(split))
     cmd = [sys.executable, os.path.join(HERE, "cost-table.py"), "--comment"]
+    if not exclusive:
+        cmd += ["--session-start"]  # no earlier record of this session: the window began at its first entry
     if round_k:
         with open(ledger, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
@@ -541,7 +651,7 @@ def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, unt
     else:
         with open(ledger, "w", encoding="utf-8") as f:
             f.write("## Gates\n" + "\n".join(lines) + "\n")
-        cmd += ["--file", ledger]
+        cmd += ["--file", ledger, "--since", since]
     cmd += ["--post", "--mr", str(iid), "--until", until, "--split", splitf, "--project", project]
     m = ISSUE_RE.search(branch or "")
     if m:
@@ -558,7 +668,7 @@ def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, unt
         pass
     if rc != 0:
         return "cost-table exit %d" % rc, False
-    if not write_state(gitdir, sid, state, until, members):
+    if not write_state(config_root(), sid, state, until, members):
         return "posted, but the session cost state could not be written (the next record may overlap this one)", True
     return "", True
 
@@ -615,7 +725,7 @@ def process(payload, opts=None, runner=run, project=None):
     if not gitdir:
         return "MR cost comment skipped for !%d: not in a git checkout. %s" % (iid, manual)
     until = now_utc()
-    since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, [], opts, until)
+    since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, [], opts, until, project=project)
     if err:
         return "MR cost comment skipped for !%d: %s. %s" % (iid, err, manual)
     why, ok = post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, excl, until, ids, state, branch, False, project)
@@ -653,7 +763,7 @@ def process_round(iid, sid, cwd, opts=None, runner=run, explicit=(), project=Non
     if not gitdir:
         return "Record skipped for !%d: not in a git checkout. %s" % (iid, manual)
     until = now_utc()
-    since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, floor)
+    since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, floor, project)
     if err:
         return "Record skipped for !%d: %s. %s" % (iid, err, manual)
     if since > until:
@@ -706,6 +816,7 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
         rc, out, _ = runner(["git", "branch", "--show-current"], cwd)
         branch = out.strip() if rc == 0 else ""
     warn = ""
+    project = repo_project(runner, cwd)
     if pin:
         if not explicit or not branch:
             return [], "--pin needs --agent <id> and a branch (run it in the branch's worktree).\n", 2
@@ -713,8 +824,10 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
             return [], ("refusing to pin to the default branch %s: no MR has that source branch, so the pinned agents "
                         "would be left out of every real branch's record and their tokens never claimed. Run --pin in "
                         "the branch's own worktree (or pass --branch <name>).\n" % branch), 2
+        if project is None:
+            return [], "--pin needs this checkout's `origin` remote to name its project (pins are keyed project:branch).\n", 2
         try:
-            ok = write_pins(gitdir, sid, branch, set(explicit))
+            ok = write_pins(config_root(), sid, pin_key(project, branch), set(explicit))
         except StateError as e:
             return [], "this session's pinned agents are %s.\n" % e, 2
         if not ok:
@@ -723,7 +836,7 @@ def process_measure(sid, cwd, branch, opts=None, runner=run, explicit=(), pin=Fa
         warn = ("post-mr-cost: --agent without --pin applies to this run only; record 1 (the hook) will not "
                 "attribute %s unless they are pinned (add --pin).\n" % ", ".join(sorted(set(explicit))))
     until = now_utc()
-    since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until)
+    since, excl, sdir, ids, state, notes, err = plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=project)
     if err:
         return [], err + ".\n", 0
     lines, split, _members = measure(runner, cwd, sid, sdir, opts, bound(since) if excl else since, until, ids, state["agents"])
@@ -839,6 +952,7 @@ def golden_cases(check):
         empty = os.path.join(tmp, "gitconfig")
         open(empty, "w").close()
         os.environ.update({"PATH": bindir + os.pathsep + saved_path, "FAKE_GLAB_STATE": gstate, "FAKE_GLAB_PROJECT": urllib.parse.quote("g/p", safe=""),
+                           "CLAUDE_CONFIG_DIR": os.path.join(tmp, "claude-config"),
                            "GIT_CONFIG_GLOBAL": empty, "GIT_CONFIG_NOSYSTEM": "1"})
         rc, _, _ = run([sys.executable, os.path.join(HERE, "cost-ledger"), "enabled"], repo)
         check("golden: needs the cost ledger on in this checkout (scripts/cost-ledger status)", rc == 0, "enabled exit %d" % rc)
@@ -851,6 +965,7 @@ def golden_cases(check):
         ct = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(ct)
         gitdir = git_common_dir(run, repo)
+        cfg = config_root()
         sid = sc["session"]
         bodies, errs = [], []
 
@@ -873,9 +988,9 @@ def golden_cases(check):
                 lines, _err, _rc = process_measure(sid, repo, step["branch"], opts, crun, step["agents"], pin=True)
                 check("golden %s: --measure --pin prints the window's ledger lines" % step["name"], lines == want["lines"], repr(lines))
                 check("golden %s: --measure advances nothing" % step["name"],
-                      json.loads(open(state_path(gitdir, sid), encoding="utf-8").read()) == want["state"])
+                      json.loads(open(state_path(cfg, sid), encoding="utf-8").read()) == want["state"])
                 check("golden %s: the pin is recorded for that branch" % step["name"],
-                      read_pins(gitdir, sid) == {step["branch"]: step["agents"]}, repr(read_pins(gitdir, sid)))
+                      read_pins(cfg, sid) == {pin_key("g/p", step["branch"]): step["agents"]}, repr(read_pins(cfg, sid)))
                 continue
             if step["kind"] == "foreign":
                 # A session in this repo ran `glab mr create` for ANOTHER project: nothing may be read or posted.
@@ -889,7 +1004,7 @@ def golden_cases(check):
                       and not msg.startswith("Posted"), msg)
                 check("golden %s: no glab call at all" % step["name"], after == before)
                 check("golden %s: the state is untouched" % step["name"],
-                      json.loads(open(state_path(gitdir, sid), encoding="utf-8").read()) == want["state"])
+                      json.loads(open(state_path(cfg, sid), encoding="utf-8").read()) == want["state"])
                 continue
             if step["kind"] == "hook":
                 msg = process(hook_payload(step["mr"]), opts, crun) or ""
@@ -922,13 +1037,15 @@ def golden_cases(check):
                 check("golden %s: row %s" % (step["name"], line[:30]), line in body.split("\n"), body)
             for text in want["contains"]:
                 check("golden %s: contains %s" % (step["name"], text[:40]), text in body, body)
+            for text in want.get("absent", []):
+                check("golden %s: does not contain %s" % (step["name"], text[:40]), text not in body, body)
             for text in ex["forbidden_anywhere"]:
                 check("golden %s: never %s" % (step["name"], text), text not in body, body)
             table = [l for l in body.split("\n") if l.startswith("|")]
             for text in ex["forbidden_in_table"]:
                 check("golden %s: no %s in a table row" % (step["name"], text), not any(text in l for l in table), "\n".join(table))
-            check("golden %s: state after" % step["name"], json.loads(open(state_path(gitdir, sid), encoding="utf-8").read()) == want["state"],
-                  open(state_path(gitdir, sid), encoding="utf-8").read())
+            check("golden %s: state after" % step["name"], json.loads(open(state_path(cfg, sid), encoding="utf-8").read()) == want["state"],
+                  open(state_path(cfg, sid), encoding="utf-8").read())
         split = "".join(errs)
         check("golden: the per-model split carries real model lines", "model claude-sonnet-5-5" in split and "model claude-opus-5-5" in split, split)
         check("golden: the per-model split has no `model unknown` line (an all-zero <synthetic> row is dropped at the parser)",
@@ -962,7 +1079,9 @@ def golden_cases(check):
         # The legacy shared marker is never read: a stale one must not move any window.
         marker = os.path.join(gitdir, "mr-cost-last-until")
         open(marker, "w").write("2999-01-01T00:00:00Z\n")
-        st = read_state(gitdir, sid)
+        st = read_state(cfg, sid)
+        check("golden: the state is global, not in the repo: nothing under the git dir",
+              not os.path.exists(os.path.join(gitdir, "mr-cost-state")) and os.path.exists(state_path(cfg, sid)))
         check("golden: a legacy mr-cost-last-until marker is not read", st["orchestrator_until"] == sc["steps"][-1]["at"], repr(st))
     finally:
         globals()["now_utc"] = saved_now
@@ -971,7 +1090,123 @@ def golden_cases(check):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def golden_two_repos(check):
+    """One session across TWO repos (different `origin` projects), agent briefs that name only worktree
+    paths: scripts/tests/cost-ledger-golden/two-repos/. The state is one file per session, so a record in
+    repo Y starts where repo X's ended and leaves X's agents to X; the three records add up to the
+    transcripts' usage."""
+    import shutil
+    import importlib.util
+    root = os.path.join(GOLDEN, "two-repos")
+    with open(os.path.join(root, "scenario.json"), encoding="utf-8") as f:
+        sc = json.load(f)
+    with open(os.path.join(root, "expected.json"), encoding="utf-8") as f:
+        ex = json.load(f)
+    tmp = tempfile.mkdtemp(prefix="cost-golden2-")
+    saved_env, saved_now = dict(os.environ), globals()["now_utc"]
+    try:
+        bindir = os.path.join(tmp, "bin")
+        os.makedirs(bindir)
+        shim = os.path.join(bindir, "glab")
+        with open(shim, "w", encoding="utf-8") as f:
+            f.write('#!/bin/sh\nexec "%s" "%s" "$@"\n' % (sys.executable, os.path.join(GOLDEN, "fake-glab.py")))
+        os.chmod(shim, 0o755)
+        empty = os.path.join(tmp, "gitconfig")
+        open(empty, "w").close()
+        os.environ.update({"PATH": bindir + os.pathsep + saved_env.get("PATH", ""), "GIT_CONFIG_GLOBAL": empty,
+                           "GIT_CONFIG_NOSYSTEM": "1", "CLAUDE_CONFIG_DIR": os.path.join(tmp, "claude-config")})
+        cfg = config_root()
+        projects = os.path.join(tmp, "projects")
+        shutil.copytree(os.path.join(root, "projects"), projects)
+        opts = Opts(projects, os.path.join(GOLDEN, "prices.json"), sc["today"])
+        spec = importlib.util.spec_from_file_location("cost_table_golden2", os.path.join(HERE, "cost-table.py"))
+        ct = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ct)
+        repos, forge = {}, {}
+        for name, r in sc["repos"].items():
+            path = os.path.join(tmp, "wt-" + name)
+            subprocess.run(["git", "init", "-q", path], check=True)
+            subprocess.run(["git", "-C", path, "remote", "add", "origin", "https://example.test/%s.git" % r["project"]], check=True)
+            gstate = os.path.join(tmp, "glab-%s.json" % name)
+            with open(gstate, "w", encoding="utf-8") as f:
+                json.dump({"mrs": r["mrs"], "notes": {}, "next_id": 1}, f)
+            repos[name], forge[name] = path, (gstate, urllib.parse.quote(r["project"], safe=""), r["project"])
+        sid = sc["session"]
+        bodies = []
+        # A stale per-repo state (the old location) must be ignored: it would push every window to 2999.
+        old = os.path.join(git_common_dir(run, repos["y"]), "mr-cost-state")
+        os.makedirs(old)
+        open(os.path.join(old, sid + ".json"), "w").write('{"schema": 1, "orchestrator_until": "2999-01-01T00:00:00Z", "agents": {}}')
+        for step in sc["steps"]:
+            globals()["now_utc"] = lambda t=step["at"]: t
+            gstate, enc, project = forge[step["repo"]]
+            os.environ.update({"FAKE_GLAB_STATE": gstate, "FAKE_GLAB_PROJECT": enc})
+            repo, want = repos[step["repo"]], ex["steps"][step["name"]]
+            if step["kind"] == "hook":
+                msg = process({"tool_name": "Bash", "tool_input": {"command": "glab mr create --yes"},
+                               "tool_response": {"stdout": "https://example.test/%s/-/merge_requests/%d\n" % (project, step["mr"])},
+                               "session_id": sid, "cwd": repo}, opts) or ""
+            else:
+                msg = process_round(step["mr"], sid, repo, opts)
+            n = step["name"]
+            check("golden2 %s: posted" % n, msg.startswith("Posted"), msg)
+            body = json.load(open(gstate, encoding="utf-8"))["notes"].get(str(step["mr"]), [{}])[-1].get("body", "")
+            bodies.append(body)
+            rec = ct.parse_record(body) or {}
+            tot = rec.get("total", {})
+            check("golden2 %s: record number and totals" % n, rec.get("k") == want["record"]
+                  and tot.get(("tok", "all")) == want["total_tokens"] and str(tot.get(("usd", "all"))) == want["total_usd"], repr(rec))
+            for line in want["rows"]:
+                check("golden2 %s: row %s" % (n, line[:30]), line in body.split("\n"), body)
+            for text in want["contains"]:
+                check("golden2 %s: contains %s" % (n, text[:40]), text in body, body)
+            for text in want["absent"]:
+                check("golden2 %s: does not contain %s" % (n, text[:40]), text not in body, body)
+            for text in ex["forbidden_anywhere"]:
+                check("golden2 %s: never %s" % (n, text), text not in body, body)
+            table = [l for l in body.split("\n") if l.startswith("|")]
+            for text in ex["forbidden_in_table"]:
+                check("golden2 %s: no %s in a table row" % (n, text), not any(text in l for l in table), "\n".join(table))
+            now_state = json.loads(open(state_path(cfg, sid), encoding="utf-8").read())
+            check("golden2 %s: the session's state after (one file for both repos)" % n, now_state == want["state"], repr(now_state))
+        import transcript_usage as tu
+        last = tu.parse_time(sc["steps"][-1]["at"])
+        every, seen = 0, set()
+        for path in sorted(glob.glob(os.path.join(projects, "**", "*.jsonl"), recursive=True)):
+            for line in open(path, encoding="utf-8"):
+                e = json.loads(line)
+                u = (e.get("message") or {}).get("usage") if e.get("type") == "assistant" else None
+                if not u or e["message"]["id"] in seen or tu.parse_time(e["timestamp"]) > last:
+                    continue
+                seen.add(e["message"]["id"])
+                every += sum(u.get(k, 0) for k in tu.FIELDS)
+        got = sum(((ct.parse_record(b) or {}).get("total", {}).get(("tok", "all")) or 0) for b in bodies)
+        check("golden2: the records of both repos add up to the session's usage (nothing claimed twice, nothing dropped)",
+              got == every == ex["session_total_tokens"], "records %d, transcripts %d, expected %d" % (got, every, ex["session_total_tokens"]))
+        check("golden2: nothing is written under either repo's git dir",
+              not any(os.path.exists(os.path.join(git_common_dir(run, r), "mr-cost-state", sid + ".json")) and
+                      r != repos["y"] for r in repos.values()))
+    finally:
+        globals()["now_utc"] = saved_now
+        os.environ.clear()
+        os.environ.update(saved_env)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def self_test():
+    cfg_tmp = tempfile.mkdtemp(prefix="post-mr-cost-config-")
+    saved = os.environ.get("CLAUDE_CONFIG_DIR")
+    os.environ["CLAUDE_CONFIG_DIR"] = cfg_tmp  # never touch the real ~/.claude/mr-cost-state
+    try:
+        return _self_test()
+    finally:
+        if saved is None:
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        else:
+            os.environ["CLAUDE_CONFIG_DIR"] = saved
+
+
+def _self_test():
     fails, n = [], [0]
 
     def check(name, cond, detail=""):
@@ -1138,7 +1373,7 @@ def self_test():
     lines, err, rc = process_measure("abc-123", main_co, "", runner=run, explicit=[a_id], pin=True)
     check("--pin on main is refused (exit 2) with a clear message and pins nothing",
           rc == 2 and lines == [] and "refusing to pin to the default branch main" in err
-          and not os.path.exists(pins_path(os.path.join(main_co, ".git"), "abc-123")), repr((rc, err)))
+          and not os.path.exists(pins_path(config_root(), "abc-123")), repr((rc, err)))
     subprocess.run(git + ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk"], check=True)
     check("the default branch is whatever origin/HEAD names", "trunk" in default_branches(run, main_co))
     lines, err, rc = process_measure("abc-123", main_co, "trunk", runner=run, explicit=[a_id], pin=True)
@@ -1152,7 +1387,62 @@ def self_test():
     check("re-pinning an agent to another branch removes it from the first (it belongs to one branch)",
           pins.get("feat/2-b") == [a_id] and a_id not in pins.get("feat/1-a", []), repr(pins))
 
+    check("a brief naming this MR AND another keeps this MR (the precedence is pinned)",
+          attribution("branch feat/101-a; the other one is work-wt/202-b and fix/303-c", br, "") is True
+          and attribution("the other one is /ws/work-wt/202-b/ and /ws/work-wt/101-a/ is mine", br, "") is True)
+    check("a brief naming only another worktree path is another MR's (no branch token needed)",
+          attribution("Implement in /ws/work-wt/202-other/ and report", br, "") is False
+          and attribution("Implement in /ws/work-wt/202-other/ and report", br, "101-a") is False)
+    check("this MR's own worktree path is this MR's, even in the main checkout (leaf '' falls back to the branch's leaf)",
+          attribution("Implement in /ws/work-wt/101-a/", br, "") is True)
+    check("a docs path or a file name is not a worktree leaf", attribution("see guides/3-tier-model.md and /x/2-columns.png", br, "") is None
+          and attribution("dated /notes/2026-11-07/log", br, "") is None)
+    check("pins are keyed project:branch", pin_key("g/p", "feat/1-a") == "g/p:feat/1-a" and pin_key("g/q", "feat/1-a") != pin_key("g/p", "feat/1-a"))
+    check("the state root is $CLAUDE_CONFIG_DIR, else ~/.claude", config_root() == os.environ["CLAUDE_CONFIG_DIR"])
+
+    # agent_home: a transcript shaped like the real ones (Bash input.command starting `cd /abs/...-wt/<n>-slug && `,
+    # Edit with an absolute file_path), classified and never echoed.
+    ht = tempfile.mkdtemp(prefix="post-mr-cost-home-")
+
+    def transcript(*calls):
+        path = os.path.join(ht, "t%d.jsonl" % len(os.listdir(ht)))
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "user", "message": {"role": "user", "content": "SECRET-BRIEF"}}) + "\n")
+            for k, (name, inp) in enumerate(calls):
+                f.write(json.dumps({"type": "assistant", "message": {"id": "m%d" % k, "content": [
+                    {"type": "tool_use", "id": "tu%d" % k, "name": name, "input": inp}]}}) + "\n")
+        return path
+    wa, wb = "/Users/x/repos/proj-wt/101-first", "/Users/x/repos/proj-wt/202-second"
+    top = "/Users/x/repos/proj"
+    check("home: the majority of Edit/Write paths wins over a cd",
+          agent_home(transcript(("Edit", {"file_path": wb + "/a.py"}), ("Write", {"file_path": wb + "/b.py"}),
+                                ("Bash", {"command": "cd %s && ls" % wa}), ("Bash", {"command": "cd %s && ls" % wa})), top) == ("leaf", "202-second"))
+    check("home: no writes, the cd target leads (a read-only auditor)",
+          agent_home(transcript(("Bash", {"command": "cd %s && git diff origin/main" % wa}), ("Bash", {"command": "cd %s && git log -1" % wa}),
+                                ("Bash", {"command": "cd %s && ls" % wb})), top) == ("leaf", "101-first"))
+    check("home: git -C counts unless the command is show, diff or log",
+          agent_home(transcript(("Bash", {"command": "git -C %s status" % wa})), top) == ("leaf", "101-first")
+          and agent_home(transcript(("Bash", {"command": "git -C %s show HEAD" % wa}), ("Bash", {"command": "git -C %s diff" % wa}),
+                                    ("Bash", {"command": "git -C %s log" % wa})), top) is None)
+    check("home: a tie between two worktrees is no home (the brief decides)",
+          agent_home(transcript(("Bash", {"command": "cd %s" % wa}), ("Bash", {"command": "cd %s" % wb})), top) is None)
+    check("home: writes that are not a majority fall through to the cd rule",
+          agent_home(transcript(("Edit", {"file_path": wb + "/a.py"}), ("Write", {"file_path": "/tmp/scratch/n.md"}),
+                                ("Write", {"file_path": "/tmp/scratch/m.md"}), ("Bash", {"command": "cd %s" % wa})), top) == ("leaf", "101-first"))
+    check("home: a path under the MR's own toplevel is 'own'", agent_home(transcript(("Edit", {"file_path": top + "/x.py"})), top) == ("own", ""))
+    dup = os.path.join(ht, "dup.jsonl")
+    with open(dup, "w", encoding="utf-8") as f:
+        for tid, w in (("t1", wb), ("t1", wb), ("t2", wa), ("t3", wa)):
+            f.write(json.dumps({"type": "assistant", "message": {"id": "m", "content": [
+                {"type": "tool_use", "id": tid, "name": "Edit", "input": {"file_path": w + "/a"}}]}}) + "\n")
+    check("home: a tool_use repeated in the transcript (same id) is counted once", agent_home(dup, top) == ("leaf", "101-first"))
+    check("home: no tool calls, or an unreadable file, is no home",
+          agent_home(transcript(("Read", {"file_path": wa + "/a"})), top) is None and agent_home(os.path.join(ht, "absent"), top) is None)
+    check("home: the result carries no path or command text",
+          "/Users" not in repr(agent_home(transcript(("Edit", {"file_path": wa + "/a.py"})), top)))
+
     golden_cases(check)
+    golden_two_repos(check)
     if fails:
         for f in fails:
             print("self-test FAIL: " + f, file=sys.stderr)

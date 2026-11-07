@@ -458,7 +458,7 @@ answer. It posts record K for the window this session has not yet claimed (never
 MR's latest record end), counts a resumed agent only for its new usage, and advances the session
 state; it posts nothing, and says why, when the ledger is off, the MR opts out, or record 1 is
 missing. Do not run the three measuring scripts, `cost-table.py --next-since` or `--ledger`, and
-do not save a window pair: the state lives in `<git-common-dir>/mr-cost-state/` and is written
+do not save a window pair: the state lives in `${CLAUDE_CONFIG_DIR:-~/.claude}/mr-cost-state/` (one file per session, shared by every repo it works in) and is written
 only by `post-mr-cost.py` (`docs/development/cost-ledger.md` § *Non-overlap*).
 
 An agent that produced no commit costs the same as one that shipped. Re-brief it

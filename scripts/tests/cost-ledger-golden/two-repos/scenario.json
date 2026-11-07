@@ -1,0 +1,49 @@
+{
+  "session": "5eed0000-0000-4000-8000-000000000002",
+  "today": "2026-11-07",
+  "repos": {
+    "x": {
+      "project": "g/p",
+      "mrs": {
+        "21": {
+          "iid": 21,
+          "description": "",
+          "source_branch": "feat/501-first"
+        }
+      }
+    },
+    "y": {
+      "project": "g/q",
+      "mrs": {
+        "31": {
+          "iid": 31,
+          "description": "",
+          "source_branch": "feat/601-second"
+        }
+      }
+    }
+  },
+  "steps": [
+    {
+      "name": "x-record-1",
+      "kind": "hook",
+      "repo": "x",
+      "mr": 21,
+      "at": "2026-11-07T10:00:00Z"
+    },
+    {
+      "name": "y-record-1",
+      "kind": "hook",
+      "repo": "y",
+      "mr": 31,
+      "at": "2026-11-07T11:00:00Z"
+    },
+    {
+      "name": "x-record-2",
+      "kind": "round",
+      "repo": "x",
+      "mr": 21,
+      "at": "2026-11-07T12:00:00Z"
+    }
+  ]
+}
