@@ -347,10 +347,13 @@ Every agent finishes by, in order:
      descendants (the implementer's own gate batch) included. `--measure` posts nothing and
      advances nothing, so the hook still claims the same tokens at `glab mr create`.
    - **Every brief you write names the branch it is for.** Which top-level agents the measuring
-     counts is decided by the agent's brief (the first message you sent it): a brief that names
-     this branch or its worktree leaf is counted, one that names another
-     `feat|fix|docs|chore/<N>-` branch is left for that branch, and an unnamed gate is counted when
-     it has usage in the window. For an agent whose brief cannot name the branch, pass
+     counts is decided first by where the agent acts, read from its own transcript (the git
+     worktree, and so the branch, its Edit/Write calls land in, else the one its `cd` / `git -C`
+     calls target; a worker under `<main>/.claude/worktrees/agent-*` is its own branch, never the
+     main checkout's), and only when that is unknown by its brief (the first message you sent it): a
+     brief that names this branch or its worktree leaf is counted, one that names another
+     `feat|fix|docs|chore/<N>-` branch or worktree path is left for that branch, and an unnamed gate
+     is counted when it has usage in the window. For an agent whose brief cannot name the branch, pass
      `--agent <id> --pin` on the `--measure` run (in the branch's own worktree; it refuses to pin
      to the default branch): the pin is recorded for this branch and the hook (record 1) and
      `--round` (record K) then attribute that agent the same way.
@@ -454,8 +457,8 @@ file must be under the checkout, the temp dir or the git dir).
 record, `— record K`, never an edit of record 1, and the `## Gates` lines stay the go-ahead
 snapshot. With the ledger on, once that work is pushed, in the worktree, run
 `python3 scripts/post-mr-cost.py --round --mr <iid> [--agent <id> ...]` and relay its one-line
-answer. It posts record K for the window this session has not yet claimed (never earlier than the
-MR's latest record end), counts a resumed agent only for its new usage, and advances the session
+answer. It posts record K for the window this session has not yet claimed (whatever other sessions posted on
+the MR), counts a resumed agent only for its new usage, and advances the session
 state; it posts nothing, and says why, when the ledger is off, the MR opts out, or record 1 is
 missing. Do not run the three measuring scripts, `cost-table.py --next-since` or `--ledger`, and
 do not save a window pair: the state lives in `${CLAUDE_CONFIG_DIR:-~/.claude}/mr-cost-state/` (one file per session, shared by every repo it works in) and is written

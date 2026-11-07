@@ -12,6 +12,11 @@ import re
 import sys
 
 path = os.environ["FAKE_GLAB_STATE"]
+# One call at a time: the state file is read, changed and rewritten, and two concurrent posts must not
+# lose each other's note. The lock is released when this process exits.
+import fcntl
+_lock = open(path + ".lock", "w")
+fcntl.flock(_lock, fcntl.LOCK_EX)
 with open(path, encoding="utf-8") as f:
     st = json.load(f)
 argv = sys.argv[1:]

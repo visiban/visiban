@@ -1,5 +1,15 @@
 {
   "session_total_tokens": 2420000,
+  "pending_phase": {
+    "records": [
+      13000,
+      50000,
+      40000,
+      5000,
+      7000
+    ],
+    "tokens": 115000
+  },
   "forbidden_anywhere": [
     "Other tokens",
     "unknown",

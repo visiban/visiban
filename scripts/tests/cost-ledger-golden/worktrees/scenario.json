@@ -1,0 +1,60 @@
+{
+  "session": "5eed0000-0000-4000-8000-000000000003",
+  "today": "2026-11-07",
+  "project": "g/p",
+  "workers": {
+    "agent-p": "feat/701-p",
+    "agent-q": "feat/702-q"
+  },
+  "mrs": {
+    "41": {
+      "iid": 41,
+      "description": "",
+      "source_branch": "feat/701-p"
+    },
+    "42": {
+      "iid": 42,
+      "description": "",
+      "source_branch": "feat/702-q"
+    },
+    "43": {
+      "iid": 43,
+      "description": "",
+      "source_branch": "feat/703-r"
+    },
+    "44": {
+      "iid": 44,
+      "description": "",
+      "source_branch": "feat/704-s"
+    }
+  },
+  "steps": [
+    {
+      "name": "p-record-1",
+      "kind": "hook",
+      "mr": 41,
+      "at": "2026-11-07T10:00:00Z"
+    },
+    {
+      "name": "q-record-1",
+      "kind": "hook",
+      "mr": 42,
+      "at": "2026-11-07T11:00:00Z"
+    },
+    {
+      "name": "p-record-2",
+      "kind": "round",
+      "mr": 41,
+      "at": "2026-11-07T12:00:00Z"
+    },
+    {
+      "name": "race",
+      "kind": "concurrent",
+      "mrs": [
+        43,
+        44
+      ],
+      "at": "2026-11-07T13:00:00Z"
+    }
+  ]
+}
