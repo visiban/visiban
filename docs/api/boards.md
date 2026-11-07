@@ -2386,3 +2386,4 @@ Public card objects use `uid` as the identifier and carry no database `id`. `ass
 - Responses are unchanged: no `pattern` is published for `color`, because existing rows may not match it.
 - [JSON board import](#post-apiv1boardsimport) does not fail on a non-hex color. It stores the default for that field (`#6B7280` for a column, `#3B82F6` for a swimlane, `#EAB308` for a label), expands `#RGB`, and counts each replacement in `import_summary.skipped.colors`. A color longer than 7 characters is still `400`.
 - Board templates and Trello imports apply the same rule and fall back to the default.
+- The Django admin forms for columns, swimlanes, and labels (superuser-only) apply the same rule: a non-hex color is refused with a field error, and an unchanged legacy value still saves.
