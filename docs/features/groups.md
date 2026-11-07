@@ -31,10 +31,12 @@ Each group has members with one of four roles:
 
 | Role | What they can do |
 |---|---|
-| `admin` | Manage members, create subgroups and boards, delete the group |
+| `admin` | Manage members, create subgroups and boards |
 | `member` | View boards and subgroups, create personal boards |
 | `collaborator` | View boards in the group; can comment on cards but cannot create, edit, move, or delete them |
 | `viewer` | Read-only access to all boards in the group — can view cards and card history but cannot create, edit, move, delete cards, or manage members |
+
+Only the group owner or a site administrator can delete a group; other group admins see a note naming the owner in **Settings → Danger zone** instead of the Delete button.
 
 The group owner's row in **Settings → Members** shows the role as plain text, with no role dropdown or Remove button; transfer ownership first to change the owner. If the server refuses a member removal or role change (for example the last remaining admin), the panel shows the server's reason instead of a generic error.
 
