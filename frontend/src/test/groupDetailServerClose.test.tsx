@@ -320,7 +320,6 @@ describe('GroupDetail first-open resync (#2088)', () => {
     act(() => { sockets[1].onopen?.() })
     await act(async () => {})
     expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
-    // A later reconnect goes through onReconnected, not a second first-open.
     now.mockRestore()
   })
 })
