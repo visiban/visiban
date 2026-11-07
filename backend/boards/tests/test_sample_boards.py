@@ -260,6 +260,10 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
                         self.assertLess(b["blocked_at"], b["unblocked_at"], card["title"])
                 if open_blocks:
                     self.assertEqual(open_blocks[0]["reason"], card["blocked_reason"], card["title"])
+                    # The importer opens the CardBlock from the card's own blocked_at.
+                    self.assertEqual(open_blocks[0]["blocked_at"], card["blocked_at"], card["title"])
+                    blocked_acts = [a["created_at"] for a in acts if a["event_type"] == "blocked"]
+                    self.assertEqual(blocked_acts[-1], card["blocked_at"], card["title"])
                 self.assertEqual(bool(card.get("blocked_at")), bool(open_blocks), card["title"])
                 self.assertLessEqual(len(open_blocks), 1)
                 closed += len(blocks) - len(open_blocks)
@@ -279,7 +283,8 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
             stamps = [
                 datetime.datetime.fromisoformat(ts)
                 for c in data["cards"]
-                for ts in [c.get("created_at"), c.get("archived_at")]
+                for ts in [c.get("created_at"), c.get("archived_at"), c.get("blocked_at")]
+                + [t for b in c.get("blocks", []) for t in (b["blocked_at"], b["unblocked_at"])]
                 + [m["moved_at"] for m in c["movements"]]
                 + [a["created_at"] for a in c["activities"]]
                 + [cm["created_at"] for cm in c["comments"]]
