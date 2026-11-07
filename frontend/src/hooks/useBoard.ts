@@ -169,7 +169,10 @@ function applySiblingPositions(cards: Card[], pairs: readonly CardSiblingPositio
  * swimlanes, labels (and their copies on cards), members, custom field
  * definitions and board-level fields. It must not mutate its argument, and
  * applying it to a board that already reflects it must change nothing, so that
- * replaying it over a `/full/` snapshot is safe (see mergeFullSnapshot).
+ * replaying it over a `/full/` snapshot is safe (see mergeFullSnapshot). It
+ * names what it changes by id: a write that would replace a whole list is
+ * expressed with listChange instead, so it cannot erase an item the snapshot
+ * holds and the screen never had.
  */
 type BoardWrite = (board: BoardFull) => BoardFull;
 
@@ -260,7 +263,9 @@ interface FetchTouches {
  *   fields carry no `version`, so there is nothing to tell an older copy from
  *   a newer one. Replaying a write the snapshot already contains is harmless
  *   (each BoardWrite is idempotent), and a later change the snapshot holds
- *   sends a later frame, which lands after the replayed one.
+ *   sends a later frame, which lands after the replayed one. Each write names
+ *   only the items it changed (whole lists go through listChange), so an item
+ *   the snapshot holds and the screen missed survives the replay.
  * - The writes cascade. A column or swimlane delete also removes its cards
  *   (the server sends only `column.deleted` / `swimlane.deleted`, nothing per
  *   card) and prunes swimlane limits; a label rename or delete rewrites the
@@ -277,7 +282,10 @@ interface FetchTouches {
  * Replay runs after the cards are merged. A card write and a non-card write
  * never undo each other in practice: a card written into a column deleted
  * later in the fetch had already left the board (and is in `removed`), and
- * updateCard drops labels the board no longer has (#1888).
+ * updateCard drops labels the board no longer has (#1888). A card the screen
+ * held in a deleted column but nothing wrote during the fetch is decided by
+ * the replayed cascade alone, so a snapshot that has it in another column (a
+ * move this tab missed) keeps it there.
  */
 function mergeFullSnapshot(prev: BoardFull | null, snapshot: BoardFull, touches: FetchTouches): BoardFull {
   if (!prev || prev.id !== snapshot.id) return snapshot;
@@ -369,6 +377,57 @@ function orderByIds<T extends { id: number }>(items: T[], orderedIds: number[]):
   const named = new Set(orderedIds);
   const ordered = orderedIds.map((id) => byId.get(id)).filter((item): item is T => item !== undefined);
   return [...ordered, ...items.filter((item) => !named.has(item.id))];
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * A whole-list write (a reorder frame or response, or the settings Fields tab
+ * committing its own list) expressed as what it changed relative to `before`,
+ * the list it replaced on screen (#2130). Applied to `current`:
+ * - an item `next` dropped is removed;
+ * - an item `next` added is inserted (or replaces an echo already there);
+ * - an item `next` changed gets only the fields that changed, over the copy in
+ *   `current`, and is skipped when `current` no longer has it (deleted);
+ * - the order follows `next`; an item `current` has that `next` does not name
+ *   (one the screen never had) is kept, placed by its `position`.
+ * Applied to `before` it gives `next`, so the live result is unchanged. Replayed
+ * over a `/full/` snapshot it does not erase what the snapshot holds and this
+ * tab missed, which a plain replace would: the Fields tab's list stops syncing
+ * while a row is being edited, and an HTTP response is not ordered against the
+ * frames that land around it.
+ */
+function listChange<T extends { id: number; position: number }>(before: T[], next: T[]): (current: T[]) => T[] {
+  const beforeById = new Map(before.map((item) => [item.id, item]));
+  const nextIds = new Set(next.map((item) => item.id));
+  const removed = new Set(before.filter((item) => !nextIds.has(item.id)).map((item) => item.id));
+  return (current) => {
+    const currentById = new Map(current.map((item) => [item.id, item]));
+    const ordered: T[] = [];
+    for (const item of next) {
+      const old = beforeById.get(item.id);
+      const mine = currentById.get(item.id);
+      if (!old) {
+        ordered.push(item); // added by this write
+      } else if (mine === undefined) {
+        continue; // changed here, but gone from `current`: do not bring it back
+      } else if (mine === old) {
+        ordered.push(item); // untouched since: the live case
+      } else {
+        const changed = (Object.keys(item) as (keyof T)[]).filter((k) => !sameValue(old[k], item[k]));
+        ordered.push(changed.length === 0 ? mine : { ...mine, ...Object.fromEntries(changed.map((k) => [k, item[k]])) });
+      }
+    }
+    for (const extra of current) {
+      if (nextIds.has(extra.id) || removed.has(extra.id)) continue;
+      const at = ordered.findIndex((item) => item.position > extra.position);
+      if (at === -1) ordered.push(extra);
+      else ordered.splice(at, 0, extra);
+    }
+    return ordered;
+  };
 }
 
 /** Insert `item`, or replace the entry with its id: idempotent, so safe to replay (#2130). */
@@ -502,33 +561,47 @@ export function useBoard() {
   // Applies a non-card write to the board and records it for the in-flight
   // fetch, if any, so the response replays it over its snapshot (#2130; see
   // mergeFullSnapshot). The set is read at call time, as for the card writers.
-  // Cards the write removed (a column or swimlane delete) are also recorded as
-  // removed: the snapshot can hold one of them in another column, for example
-  // a card moved into the deleted column during the fetch, and the replayed
-  // cascade alone would not catch it there.
+  //
+  // `derive` builds the write from the board it is first applied to, the live
+  // one, for a write defined by what it changed there (listChange). The replay
+  // entry applies whatever the live updater derived; that updater runs before
+  // the response's merge (see fetchTouchesRef), and deriving twice (React
+  // StrictMode) yields equivalent writes.
+  //
+  // A card that a write removed (a column or swimlane delete) and that was
+  // itself written during this fetch is also recorded as removed: its copy on
+  // screen is the server's latest, so it really was in the deleted column, but
+  // the snapshot may hold it in its previous column, out of reach of the
+  // replayed cascade. Any other card is left to the cascade: its copy on
+  // screen may be stale (the reload may be recovering a missed move), and the
+  // replayed delete removes exactly the snapshot cards that are in the column.
   //
   // Returns a retraction for an optimistic write that later failed without a
   // reload: a write the server refused is not one the snapshot predates.
-  const writeBoard = useCallback((write: BoardWrite): (() => void) => {
+  const writeBoardFrom = useCallback((derive: (live: BoardFull) => BoardWrite): (() => void) => {
     const touches = fetchTouchesRef.current;
-    touches?.replay.push(write);
+    let derived: BoardWrite | null = null;
+    const entry: BoardWrite = (b) => (derived ? derived(b) : b);
+    touches?.replay.push(entry);
     setBoard((b) => {
       if (!b) return b;
-      const next = write(b);
+      derived = derive(b);
+      const next = derived(b);
       if (touches && next.cards.length < b.cards.length) {
         const kept = new Set(next.cards.map((c) => c.id));
         for (const c of b.cards) {
-          if (!kept.has(c.id)) touches.removed.set(c.uid, false);
+          if (!kept.has(c.id) && touches.written.has(c.id)) touches.removed.set(c.uid, false);
         }
       }
       return next;
     });
     return () => {
       if (!touches) return;
-      const i = touches.replay.lastIndexOf(write);
+      const i = touches.replay.lastIndexOf(entry);
       if (i !== -1) touches.replay.splice(i, 1);
     };
   }, []);
+  const writeBoard = useCallback((write: BoardWrite) => writeBoardFrom(() => write), [writeBoardFrom]);
   // Applies a /full/ response that won the sequence guard. Closing the set
   // first stops later writers from recording into it. Like the close on a
   // failed fetch, this is hygiene rather than correctness: a later writer's
@@ -918,9 +991,10 @@ export function useBoard() {
     });
   }, []);
 
-  // Every non-card writer below goes through writeBoard, so a `/full/`
-  // response replays it over its snapshot (#2130). Each write is idempotent:
-  // the snapshot may already contain it.
+  // Every non-card writer below goes through writeBoard (or writeBoardFrom),
+  // so a `/full/` response replays it over its snapshot (#2130). Each write is
+  // idempotent, since the snapshot may already contain it, and names what it
+  // changes by id.
   const addColumn = useCallback((column: Column) => {
     writeBoard((b) => ({ ...b, columns: upsertById(b.columns, column) }));
   }, [writeBoard]);
@@ -1061,15 +1135,31 @@ export function useBoard() {
     // a caller building the next array from render-captured state would
     // overwrite a previous frame's change. Replayed over a `/full/` snapshot
     // (#2130), the updater runs against the snapshot's list, so BoardView's
-    // `custom_field.created` updater is an upsert.
-    writeBoard((b) => ({ ...b, custom_field_definitions: typeof definitions === 'function' ? definitions(b.custom_field_definitions) : definitions }));
-  }, [writeBoard]);
+    // `custom_field.created` updater is an upsert. A whole list (the Fields
+    // tab, `custom_field.reordered`) is replayed as what it changed
+    // (listChange), so it cannot erase a definition the snapshot holds.
+    if (typeof definitions === 'function') {
+      writeBoard((b) => ({ ...b, custom_field_definitions: definitions(b.custom_field_definitions) }));
+      return;
+    }
+    writeBoardFrom((live) => {
+      const change = listChange(live.custom_field_definitions, definitions);
+      return (b) => ({ ...b, custom_field_definitions: change(b.custom_field_definitions) });
+    });
+  }, [writeBoard, writeBoardFrom]);
 
   // Row field schema (#1140) — exactly parallel to the card version above,
   // and separate because the two are independent per-board schemas.
   const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => {
-    writeBoard((b) => ({ ...b, swimlane_custom_field_definitions: typeof definitions === 'function' ? definitions(b.swimlane_custom_field_definitions) : definitions }));
-  }, [writeBoard]);
+    if (typeof definitions === 'function') {
+      writeBoard((b) => ({ ...b, swimlane_custom_field_definitions: definitions(b.swimlane_custom_field_definitions) }));
+      return;
+    }
+    writeBoardFrom((live) => {
+      const change = listChange(live.swimlane_custom_field_definitions, definitions);
+      return (b) => ({ ...b, swimlane_custom_field_definitions: change(b.swimlane_custom_field_definitions) });
+    });
+  }, [writeBoard, writeBoardFrom]);
 
   // Member rows merge with mergeMemberRow, so a frame replayed over a `/full/`
   // snapshot (#2130) keeps the snapshot's is_site_admin and all-content flags.
@@ -1102,22 +1192,38 @@ export function useBoard() {
     }));
   }, [writeBoard]);
 
-  // column.reordered / swimlane.reordered carry the server's whole list.
+  // A whole column or swimlane list: a column.reordered / swimlane.reordered
+  // frame, or a reorder response. Replayed as what it changed (listChange,
+  // #2130), so it cannot erase a column or swimlane the snapshot holds.
+  const writeColumnList = useCallback((columns: Column[]) => {
+    writeBoardFrom((live) => {
+      const change = listChange(live.columns, columns);
+      return (b) => ({ ...b, columns: change(b.columns) });
+    });
+  }, [writeBoardFrom]);
+  const writeSwimlaneList = useCallback((swimlanes: Swimlane[]) => {
+    writeBoardFrom((live) => {
+      const change = listChange(live.swimlanes, swimlanes);
+      return (b) => ({ ...b, swimlanes: change(b.swimlanes) });
+    });
+  }, [writeBoardFrom]);
+
   const applyColumnOrder = useCallback((columns: Column[]) => {
-    writeBoard((b) => ({ ...b, columns }));
-  }, [writeBoard]);
+    writeColumnList(columns);
+  }, [writeColumnList]);
 
   const applySwimlaneOrder = useCallback((swimlanes: Swimlane[]) => {
-    writeBoard((b) => ({ ...b, swimlanes }));
-  }, [writeBoard]);
+    writeSwimlaneList(swimlanes);
+  }, [writeSwimlaneList]);
 
   const reorderColumns = useCallback(async (orderedIds: number[]) => {
     if (!boardRef.current) return;
     const prev = boardRef.current.columns;
     const retract = writeBoard((b) => ({ ...b, columns: orderByIds(b.columns, orderedIds) }));
     try {
-      const updated = await apiReorderColumns(boardId, orderedIds);
-      writeBoard((b) => ({ ...b, columns: updated }));
+      // An HTTP response is not ordered against frames: applied as what it
+      // changed (listChange), it cannot drop a column created meanwhile.
+      writeColumnList(await apiReorderColumns(boardId, orderedIds));
     } catch {
       // This failure rolls back without a reload, so the optimistic order
       // must not be replayed over an in-flight fetch's snapshot (#2130),
@@ -1125,7 +1231,7 @@ export function useBoard() {
       retract();
       setBoard((b) => b ? { ...b, columns: prev } : b);
     }
-  }, [boardId, writeBoard]);
+  }, [boardId, writeBoard, writeColumnList]);
 
 
   const reorderSwimlanes = useCallback(async (orderedIds: number[]) => {
@@ -1134,15 +1240,14 @@ export function useBoard() {
     // any fetch this was recorded for (#2130).
     writeBoard((b) => ({ ...b, swimlanes: orderByIds(b.swimlanes, orderedIds) }));
     try {
-      const updated = await apiReorderSwimlanes(boardId, orderedIds);
-      writeBoard((b) => ({ ...b, swimlanes: updated }));
+      writeSwimlaneList(await apiReorderSwimlanes(boardId, orderedIds));
     } catch {
       // Re-fetch on failure rather than rolling back to a stale snapshot.
       // A stale snapshot (captured before addSwimlane ran) would drop any
       // swimlane added in the same batch, even though it was persisted.
       load();
     }
-  }, [boardId, load, writeBoard]);
+  }, [boardId, load, writeBoard, writeSwimlaneList]);
 
   /**
    * Replace one swimlane wholesale. Callers handling a `swimlane.updated`
