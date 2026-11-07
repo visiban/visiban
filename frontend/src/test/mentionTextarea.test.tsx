@@ -180,7 +180,7 @@ describe('MentionTextarea re-measure on same-length list (#2092)', () => {
   it('re-places when the options change height but not count', async () => {
     const mk = (id: number, username: string, display: string): BoardMembership => ({
       id, role: 'member', is_moderator: false, joined_at: '',
-      user: { ...fakeUser, id, username, display_name: display, first_name: display, last_name: '' },
+      user: { id, username, display_name: display, avatar_url: '' },
     })
     const twoLine = [mk(11, 'ab1', 'Alpha One'), mk(12, 'ab2', 'Alpha Two'), mk(13, 'ab3', 'Alpha Three')]
     const oneLine = [mk(21, 'ac1', 'ac1'), mk(22, 'ac2', 'ac2'), mk(23, 'ac3', 'ac3')]
