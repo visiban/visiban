@@ -127,11 +127,14 @@ def glab_json(path, cwd):
 
 
 def already_commented(iid, cwd):
-    """True when a `## Cost of this MR` note exists. Unreadable notes count as 'exists' so a
-    flaky API never produces a duplicate."""
+    """True when a `## Cost of this MR` note exists, None when the notes could not be read.
+
+    Unreadable is not 'exists': treating it as such made a flaky `glab api` skip the comment with
+    no trace. The caller reports it and posts nothing, so a flaky API still never duplicates.
+    """
     notes = glab_json("projects/:id/merge_requests/%d/notes?per_page=100" % iid, cwd)
     if not isinstance(notes, list):
-        return True
+        return None
     return any(isinstance(n, dict) and "## Cost of this MR" in str(n.get("body", "")) for n in notes)
 
 
@@ -153,27 +156,66 @@ def measure(runner, cwd, env, sdir, since, until):
     return lines, split
 
 
+OUTCOME = {"why": ""}
+
+
+def quiet(why):
+    """Record why the hook stayed silent (for the log) and return None."""
+    OUTCOME["why"] = why
+    return None
+
+
+def log_firing(cwd, payload, msg):
+    """Append one line to <git common dir>/mr-cost-hook.log for a `glab mr create` the hook saw.
+
+    Why: every skip used to be silent, so 'the hook never fired' and 'the hook fired and skipped'
+    looked identical. No command text, token or transcript content is logged: only the time, the
+    session id, the MR iid (when printed) and a fixed outcome string.
+    """
+    try:
+        rc, out, _ = run(["git", "rev-parse", "--git-common-dir"], cwd, timeout=15)
+        base = os.path.abspath(os.path.join(cwd, out.strip())) if rc == 0 and out.strip() else tempfile.gettempdir()
+        path = os.path.join(base, "mr-cost-hook.log")
+        try:
+            if os.path.getsize(path) > (256 << 10):
+                os.replace(path, path + ".1")
+        except OSError:
+            pass
+        iid = mr_iid((payload.get("tool_input") or {}).get("command", ""), payload.get("tool_response"))
+        outcome = (msg or OUTCOME["why"] or "silent").replace("\n", " ")[:300]
+        sid = payload.get("session_id") or "-"
+        sid = sid if SESSION_RE.match(str(sid)) else "-"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("%s session=%s mr=%s outcome=%s\n" % (now_utc(), sid, iid if iid else "-", outcome))
+    except Exception:  # noqa: BLE001 - logging must never break the hook
+        pass
+
+
 def process(payload, projects_dir=None, runner=run):
     """(message or None). The only function with side effects beyond the scripts it runs."""
+    OUTCOME["why"] = ""
     if payload.get("tool_name") not in (None, "Bash"):
-        return None
+        return quiet("not a Bash call")
     ti = payload.get("tool_input") or {}
     iid = mr_iid(ti.get("command", ""), payload.get("tool_response"))
     if iid is None:
-        return None
+        return quiet("glab mr create ran but no MR URL was printed" if MR_CREATE_RE.search(ti.get("command", "") or "") else "not an MR create")
     cwd = payload.get("cwd") or os.getcwd()
     manual = "Run it by hand: see docs/development/cost-ledger.md (python3 scripts/cost-table.py --comment --post --mr %d)." % iid
     rc, _, _ = runner([sys.executable, os.path.join(HERE, "cost-ledger"), "enabled"], cwd)
     if rc != 0:
-        return None  # the opt-out: ledger off (exit 1) or unreadable (exit 2) means no comment
+        return quiet("cost-ledger off or unreadable (enabled exit %d)" % rc)  # the opt-out
     sid = payload.get("session_id") or ""
     if not SESSION_RE.match(sid):
         return "MR cost comment skipped for !%d: no usable session id. %s" % (iid, manual)
     d = glab_json("projects/:id/merge_requests/%d" % iid, cwd)
     if isinstance(d, dict) and OFF_MARKER_RE.search(str(d.get("description", ""))):
-        return None  # the description opts out
-    if already_commented(iid, cwd):
-        return None
+        return quiet("MR description carries cost-ledger: off")
+    seen = already_commented(iid, cwd)
+    if seen is None:
+        return "MR cost comment not posted for !%d: could not read its notes (glab api failed). %s" % (iid, manual)
+    if seen:
+        return quiet("a cost comment already exists")
     projects_dir = projects_dir or os.path.join(os.path.expanduser("~"), ".claude", "projects")
     sdir = find_session_dir(sid, projects_dir)
     has_transcript = bool(glob.glob(os.path.join(glob.escape(projects_dir), "*", sid + ".jsonl")))
@@ -312,8 +354,11 @@ def main():
     try:
         payload = json.load(sys.stdin)
         msg = process(payload) if isinstance(payload, dict) else None
+        if isinstance(payload, dict) and MR_CREATE_RE.search((payload.get("tool_input") or {}).get("command", "") or ""):
+            log_firing(payload.get("cwd") or os.getcwd(), payload, msg)
     except Exception as e:  # noqa: BLE001 - a hook must never break the tool call it follows
         msg = "MR cost comment hook errored (%s); post it by hand, see docs/development/cost-ledger.md." % type(e).__name__
+        OUTCOME["why"] = "errored: " + type(e).__name__
     if msg:
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": msg}}))
     return 0
@@ -371,6 +416,29 @@ def self_test():
     check("missing session dir -> None", find_session_dir("zzz", tmp) is None)
     check("off marker regex", OFF_MARKER_RE.search("## Gates\ncost-ledger: off\n") is not None
           and OFF_MARKER_RE.search("cost-ledger: on") is None)
+    # The notes read: unreadable is reported (never the old silent 'exists'), readable-and-present is quiet.
+    real_glab = globals()["glab_json"]
+    try:
+        globals()["glab_json"] = lambda path, cwd: {} if path.endswith("%d" % 1745) else None
+        msg = process(payload, runner=runner_for(0))
+        check("unreadable notes are reported, not silent", msg is not None and "could not read its notes" in msg)
+        globals()["glab_json"] = lambda path, cwd: [{"body": "## Cost of this MR (#1)"}] if "notes" in path else {}
+        check("existing comment -> quiet", process(payload, runner=runner_for(0)) is None
+              and OUTCOME["why"] == "a cost comment already exists")
+    finally:
+        globals()["glab_json"] = real_glab
+    # The log: one line per seen `glab mr create`, outcome text, no command text.
+    gd = tempfile.mkdtemp(prefix="post-mr-cost-log-")
+    subprocess.run(["git", "init", "-q", gd], check=False)
+    secret = "glab mr create --description SECRET-TOKEN-xyz"
+    log_firing(gd, dict(payload, tool_input={"command": secret}), None)
+    try:
+        with open(os.path.join(gd, ".git", "mr-cost-hook.log"), encoding="utf-8") as f:
+            logged = f.read()
+    except OSError:
+        logged = ""
+    check("log line written with the outcome", "session=abc-123" in logged and "outcome=" in logged)
+    check("log never carries command text", "SECRET-TOKEN" not in logged)
     # --round: every gate must stop before anything is measured or posted.
     def round_runner(enabled_rc, since_rc=0, since="2026-11-07T14:00:00Z"):
         def r(cmd, cwd, env=None, timeout=300):
