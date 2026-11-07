@@ -90,3 +90,9 @@ class AdminColorFormTests(TestCase):
         form = form_cls(data={"board": self.board.pk, "name": "n", "color": "red"})
         self.assertFalse(form.is_valid())
         self.assertIn("color", form.errors)
+
+    def test_non_ascii_digits_rejected(self):
+        obj = self._make(Label, "#112233")
+        form = self._form(Label, obj, "#٠٠٠")
+        self.assertFalse(form.is_valid())
+        self.assertIn("color", form.errors)
