@@ -152,6 +152,24 @@ def _require_group_admin(user, group):
     raise PermissionDenied(_("You must be a group admin to perform this action."))
 
 
+def _is_owner_with_admin_membership(user, group):
+    """True if ``user`` owns ``group`` and holds an admin membership on that group itself.
+
+    Delete and ownership transfer are owner-only, and the owner must also hold
+    the direct admin row a well-formed group always gives them (security
+    invariants Rule 11). Ownership alone, or a membership on a descendant, is
+    not enough: a group whose owner row was lost is repaired through the Rule 11
+    repair path (a superuser's ownership transfer), not through the owner.
+    """
+    from .models import GroupMembership
+
+    if group.owner_id != user.id:
+        return False
+    return GroupMembership.objects.filter(
+        group=group, user=user, role=GroupMembership.Role.ADMIN,
+    ).exists()
+
+
 def resolve_group_for_board_placement(user, group_id):
     """Return the group a board may be placed in, or raise.
 
@@ -563,7 +581,9 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         group = self.get_object()
-        if group.owner != request.user and not getattr(request.user, "can_access_all_content", False):
+        if not _is_owner_with_admin_membership(request.user, group) and not getattr(
+            request.user, "can_access_all_content", False
+        ):
             # JSON body, like every other 403 here: a bodyless 403 with no
             # Content-Type contradicts the documented JSON error shape (#1570).
             return Response(
@@ -1364,7 +1384,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         group = self.get_object()
 
         # Only current owner can transfer
-        if group.owner_id != request.user.id:
+        if not _is_owner_with_admin_membership(request.user, group):
             raise PermissionDenied("Only the group owner can transfer ownership.")
 
         new_owner_id = request.data.get("new_owner_id")
