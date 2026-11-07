@@ -2853,6 +2853,39 @@ describe('useBoard — non-card writes that land mid-fetch are replayed (#2130)'
     })
   })
 
+  // The writes are replayed in the order they arrived, so the later of two
+  // writes to the same item wins over the snapshot, as it did on screen.
+  it('replays two edits of one column in arrival order', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.updateColumn(col(11, { name: 'First' })) })
+    act(() => { result.current.updateColumn(col(11, { name: 'Second' })) })
+    await resolve(twoByTwo({ columns: [col(10), col(11, { name: 'Snapshot' })] }))
+    expect(result.current.board!.columns[1].name).toBe('Second')
+  })
+
+  it('replays a label created and then deleted in arrival order', async () => {
+    const { result } = await renderBoard(twoByTwo())
+    const resolve = startFetch(result)
+    act(() => { result.current.addLabel(lbl(9, 'Short-lived')) })
+    act(() => { result.current.removeLabel('lbl9') })
+    await resolve(twoByTwo())
+    expect(result.current.board!.labels).toEqual([])
+  })
+
+  // The updater form, fed by swimlane_custom_field.created/updated/deleted
+  // frames (BoardView), mirrors the card-field cases.
+  it('keeps swimlane field definition frames (updater form) made during the fetch', async () => {
+    const sdef = (id: number, name: string) => ({ id, uid: `sf${id}`, name, position: id }) as unknown as SwimlaneCustomFieldDefinition
+    const { result } = await renderBoard(twoByTwo({ swimlane_custom_field_definitions: [sdef(1, 'A'), sdef(2, 'B')] }))
+    const resolve = startFetch(result)
+    act(() => { result.current.applySwimlaneFieldDefinitions((prev) => [...prev, sdef(4, 'Created')]) })
+    act(() => { result.current.applySwimlaneFieldDefinitions((prev) => prev.map((f) => (f.id === 1 ? sdef(1, 'A2') : f))) })
+    act(() => { result.current.applySwimlaneFieldDefinitions((prev) => prev.filter((f) => f.uid !== 'sf2')) })
+    await resolve(twoByTwo({ swimlane_custom_field_definitions: [sdef(1, 'A'), sdef(2, 'B'), sdef(3, 'From the snapshot')] }))
+    expect(result.current.board!.swimlane_custom_field_definitions.map((f) => f.name)).toEqual(['A2', 'From the snapshot', 'Created'])
+  })
+
   it('a non-card write before the fetch is not replayed: the snapshot stays authoritative', async () => {
     const { result } = await renderBoard(twoByTwo())
     act(() => { result.current.updateColumn(col(11, { name: 'Before the fetch' })) })
