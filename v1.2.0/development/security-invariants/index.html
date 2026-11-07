@@ -3214,6 +3214,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rule-18-deleting-a-group-and-transferring-its-ownership-need-an-admin-membership-on-that-group" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 18: Deleting a group and transferring its ownership need an admin membership on that group
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-to-add-a-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4426,10 +4437,11 @@ audit code.</p>
 <p><strong>What it doesn't enumerate.</strong></p>
 <ul>
 <li>Rule 3: the revocation table is a review checklist.</li>
-<li>Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15 and Rule 16: review checklists, pinned by the tests named under each.</li>
+<li>Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16 and Rule 18: review checklists, pinned by the tests named under each.</li>
 <li>Locking: the concurrent tests for each consume-once path cover it.</li>
 <li>Rules 11 and 12 are enumerated by their own tests instead: <code>groups/tests/test_group_member_guards.py</code> <code>GroupMembershipEntryPointTests</code> (Rule 11) and <code>boards/tests/test_analytics_panel_min_role_1826.py</code> <code>AnalyticsExtensionsEntryPointTests</code> (Rule 12). Both rules also keep their shared function outside <code>visiban/authorization.py</code> (<code>groups/services.py</code> <code>lock_membership_for_removal_or_demotion</code> and <code>boards/permissions.py</code> <code>analytics_extensions_for_role</code>), an accepted deviation from step 5 of <a href="#how-to-add-a-rule">How to add a rule</a>.</li>
 <li>Rule 16 also keeps its shared function outside <code>visiban/authorization.py</code> (<code>accounts/models.py</code> <code>record_access_flag_changes</code>, beside the log model it writes), a deviation from the same step.</li>
+<li>Rule 18 also keeps its shared function outside <code>visiban/authorization.py</code> (<code>groups/views.py</code> <code>_is_owner_with_admin_membership</code>, beside the two group actions that call it), a deviation from the same step.</li>
 </ul>
 <p><strong>Go deeper:</strong> <a href="../authorization-entry-points/">Authorization Entry Points</a> says what each entry point calls and how that test finds them.</p>
 <h2 id="rule-1-account-state-gates-apply-to-every-transport">Rule 1: Account-state gates apply to every transport<a class="headerlink" href="#rule-1-account-state-gates-apply-to-every-transport" title="Permanent link">&para;</a></h2>
@@ -5945,6 +5957,45 @@ the change back on the admin API, <code>save_model</code>, <code>set_site_admin<
 and <code>createsuperuser</code>; neither flag in the Django admin forms; <code>/auth/me/</code> and
 <code>/auth/user/</code> ignoring both flags), <code>accounts/tests/test_admin_staff_target_rules.py</code>
 (all-content accounts in the Django admin).</p>
+<h2 id="rule-18-deleting-a-group-and-transferring-its-ownership-need-an-admin-membership-on-that-group">Rule 18: Deleting a group and transferring its ownership need an admin membership on that group<a class="headerlink" href="#rule-18-deleting-a-group-and-transferring-its-ownership-need-an-admin-membership-on-that-group" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> Deleting a group and transferring its ownership are refused unless the
+caller owns the group and holds the <code>admin</code> role on that group's own membership
+row. Ownership alone doesn't qualify, and neither does a membership on a
+descendant or an ancestor. A site admin with <code>can_access_all_content</code> may still
+delete a group. A group whose owner lost the admin row is repaired through the
+Rule 11 repair path (a superuser's ownership transfer), not through its owner.</p>
+<p><strong>Why.</strong> A well-formed group always gives its owner a direct admin row (Rule 11),
+so the extra check changes nothing for well-formed data. It closes the case where
+that row was removed by bad data: the owner's remaining access is then through a
+membership elsewhere in the tree, and the two actions shouldn't be reachable on
+the strength of the stale <code>owner</code> column.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Group delete (REST)</td>
+<td><code>groups/views.py</code> <code>GroupViewSet.destroy</code></td>
+<td><code>_is_owner_with_admin_membership</code>, or <code>can_access_all_content</code>; refused with <code>403</code> and the same <code>{detail}</code> body as a non-owner. The owner is checked again under the row lock</td>
+</tr>
+<tr>
+<td>Group ownership transfer (REST)</td>
+<td><code>groups/views.py</code> <code>GroupViewSet.transfer_ownership</code></td>
+<td><code>_is_owner_with_admin_membership</code>; refused with <code>403</code>. <code>transfer_group_ownership</code> then re-checks the owner under the group row lock</td>
+</tr>
+<tr>
+<td>Group ownership transfer (Django admin)</td>
+<td><code>groups/admin.py</code> <code>GroupAdmin</code> transfer action</td>
+<td>Superuser only; it is the repair path and doesn't use this check</td>
+</tr>
+</tbody>
+</table>
+<p>Coverage: <code>groups/tests/test_group_owner_admin_membership_2114.py</code>.</p>
 <h2 id="how-to-add-a-rule">How to add a rule<a class="headerlink" href="#how-to-add-a-rule" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Write the rule as a statement of behavior, not an implementation: what must

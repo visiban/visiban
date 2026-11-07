@@ -4965,7 +4965,7 @@
 </blockquote>
 <p>An update that arrives while the group is being deleted waits for the delete to finish and then answers <code>404</code>, with nothing written (#1719). A <code>parent</code> that is deleted meanwhile answers the unknown-parent <code>400</code>.</p>
 <h3 id="delete-apiv1groupsid"><code>DELETE /api/v1/groups/{id}/</code><a class="headerlink" href="#delete-apiv1groupsid" title="Permanent link">&para;</a></h3>
-<p>Delete a group. Requires group owner or site admin. A group member who is not the owner gets <code>403 Forbidden</code> with <code>{"detail": "Only the group owner can delete this group."}</code>; a caller who cannot see the group at all gets <code>404</code>.</p>
+<p>Delete a group. Requires the group owner, who must also hold an admin membership on the group itself, or a site admin. <em>(1.3+)</em> The owner must hold an admin membership on the group itself; ownership alone, or a membership on a subgroup or an ancestor, is not enough, and the caller gets the same <code>403</code>. A group member who is not the owner gets <code>403 Forbidden</code> with <code>{"detail": "Only the group owner can delete this group."}</code>; a caller who cannot see the group at all gets <code>404</code>.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
@@ -5538,7 +5538,7 @@
 <hr />
 <h2 id="transfer-ownership">Transfer ownership<a class="headerlink" href="#transfer-ownership" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1groupsidtransfer-ownership"><code>POST /api/v1/groups/{id}/transfer-ownership/</code><a class="headerlink" href="#post-apiv1groupsidtransfer-ownership" title="Permanent link">&para;</a></h3>
-<p>Transfer group ownership to another user. Requires the <strong>current owner</strong> (not just admin). There is no API route for administrators; a superuser can transfer a departed owner's group from the Django admin (see <a href="../../administration/django-admin/#transferring-a-groups-ownership">Transferring a group's ownership</a>).</p>
+<p>Transfer group ownership to another user. Requires the <strong>current owner</strong> (not just admin), who must also hold an admin membership on the group itself. There is no API route for administrators; a superuser can transfer a departed owner's group from the Django admin (see <a href="../../administration/django-admin/#transferring-a-groups-ownership">Transferring a group's ownership</a>).</p>
 <p><strong>Request</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"new_owner_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="nt">"confirmation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
@@ -5547,9 +5547,10 @@
 <li><code>confirmation</code> — must exactly match the group's name (case-sensitive) to prevent accidental transfers</li>
 </ul>
 <p>Since 1.2, a <code>new_owner_id</code> that is not an integer, or is beyond the 64-bit integer range, returns <code>400 Bad Request</code> (it returned <code>500</code> before). A body that is not a JSON object was already a <code>400</code>.</p>
+<p><em>(1.3+)</em> The current owner must hold an admin membership on the group itself; a group whose owner lacks one is repaired by a superuser from the Django admin, as above.</p>
 <p>The previous owner becomes a regular admin after transfer. Returns the updated group object.</p>
 <p><strong>Error responses</strong>
-- <code>403 Forbidden</code> — you are not the current owner
+- <code>403 Forbidden</code> — you are not the current owner, or <em>(1.3+)</em> you are the owner but do not hold an admin membership on this group itself
 - <code>400 Bad Request</code> — request body is not a JSON object
 - <code>400 Bad Request</code> — confirmation does not match group name
 - <code>400 Bad Request</code> — <code>new_owner_id</code> is not a member of this group
