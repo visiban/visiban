@@ -39,10 +39,11 @@ Entry points use file and function names, not line numbers, so the table survive
 **What it doesn't enumerate.**
 
 - Rule 3: the revocation table is a review checklist.
-- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16 and Rule 17: review checklists, pinned by the tests named under each.
+- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16 and Rule 18: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
 - Rule 16 also keeps its shared function outside `visiban/authorization.py` (`accounts/models.py` `record_access_flag_changes`, beside the log model it writes), a deviation from the same step.
+- Rule 18 also keeps its shared function outside `visiban/authorization.py` (`groups/views.py` `_is_owner_with_admin_membership`, beside the two group actions that call it), a deviation from the same step.
 
 **Go deeper:** [Authorization Entry Points](authorization-entry-points.md) says what each entry point calls and how that test finds them.
 
@@ -786,7 +787,7 @@ and `createsuperuser`; neither flag in the Django admin forms; `/auth/me/` and
 `/auth/user/` ignoring both flags), `accounts/tests/test_admin_staff_target_rules.py`
 (all-content accounts in the Django admin).
 
-## Rule 17: Deleting a group and transferring its ownership need an admin membership on that group
+## Rule 18: Deleting a group and transferring its ownership need an admin membership on that group
 
 **Rule.** Deleting a group and transferring its ownership are refused unless the
 caller owns the group and holds the `admin` role on that group's own membership
