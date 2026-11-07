@@ -4509,6 +4509,7 @@
 <h3 id="email">Email<a class="headerlink" href="#email" title="Permanent link">&para;</a></h3>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
 <p>Configure the SMTP server for password-reset and email-verification messages, without editing environment variables or restarting the backend.</p>
+<p><em>(1.3+)</em> <strong>Who can change it:</strong> only a superuser. Other site admins can view the settings and send a test email, but the fields are read-only for them. If none of your admins is a superuser, create one with <code>python manage.py createsuperuser</code> (see <a href="../site-admins/">Site admins</a>).</p>
 <p><strong>Yes, but:</strong> this is available only when the deployment has not pinned <code>EMAIL_BACKEND</code>/<code>backend.email.backend</code> to an explicit value. See <a href="../configuration/#configuring-smtp-from-the-admin-ui">Configuring SMTP from the admin UI</a>.</p>
 <h3 id="maintenance-mode">Maintenance mode<a class="headerlink" href="#maintenance-mode" title="Permanent link">&para;</a></h3>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>

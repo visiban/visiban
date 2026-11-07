@@ -3214,6 +3214,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rule-17-changing-the-outbound-mail-configuration-is-superuser-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 17: Changing the outbound-mail configuration is superuser-only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#rule-18-deleting-a-group-and-transferring-its-ownership-need-an-admin-membership-on-that-group" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4437,7 +4448,7 @@ audit code.</p>
 <p><strong>What it doesn't enumerate.</strong></p>
 <ul>
 <li>Rule 3: the revocation table is a review checklist.</li>
-<li>Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16 and Rule 18: review checklists, pinned by the tests named under each.</li>
+<li>Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16, Rule 17 and Rule 18: review checklists, pinned by the tests named under each.</li>
 <li>Locking: the concurrent tests for each consume-once path cover it.</li>
 <li>Rules 11 and 12 are enumerated by their own tests instead: <code>groups/tests/test_group_member_guards.py</code> <code>GroupMembershipEntryPointTests</code> (Rule 11) and <code>boards/tests/test_analytics_panel_min_role_1826.py</code> <code>AnalyticsExtensionsEntryPointTests</code> (Rule 12). Both rules also keep their shared function outside <code>visiban/authorization.py</code> (<code>groups/services.py</code> <code>lock_membership_for_removal_or_demotion</code> and <code>boards/permissions.py</code> <code>analytics_extensions_for_role</code>), an accepted deviation from step 5 of <a href="#how-to-add-a-rule">How to add a rule</a>.</li>
 <li>Rule 16 also keeps its shared function outside <code>visiban/authorization.py</code> (<code>accounts/models.py</code> <code>record_access_flag_changes</code>, beside the log model it writes), a deviation from the same step.</li>
@@ -5957,6 +5968,54 @@ the change back on the admin API, <code>save_model</code>, <code>set_site_admin<
 and <code>createsuperuser</code>; neither flag in the Django admin forms; <code>/auth/me/</code> and
 <code>/auth/user/</code> ignoring both flags), <code>accounts/tests/test_admin_staff_target_rules.py</code>
 (all-content accounts in the Django admin).</p>
+<h2 id="rule-17-changing-the-outbound-mail-configuration-is-superuser-only">Rule 17: Changing the outbound-mail configuration is superuser-only<a class="headerlink" href="#rule-17-changing-the-outbound-mail-configuration-is-superuser-only" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> Only an active superuser changes the instance's email settings. A site
+admin who isn't a superuser, including one holding <code>can_access_all_content</code>,
+can read them and send a test email, and nothing else. No route accepts
+server overrides from a non-superuser.</p>
+<p><strong>Why.</strong> The settings are a higher-trust configuration than the rest of the site-admin surface, and the all-content flag is kept separate from it (Rule 16).</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforced via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin API (change)</td>
+<td><code>accounts/admin_views.py</code> <code>AdminEmailSettingsView.patch</code></td>
+<td><code>accounts/permissions.py</code> <code>IsSiteAdminReadOrSuperuserWrite</code>: any non-safe method needs an active superuser, else <code>403</code></td>
+</tr>
+<tr>
+<td>Admin API (read)</td>
+<td><code>AdminEmailSettingsView.get</code></td>
+<td>Any site admin (same permission class, safe methods)</td>
+</tr>
+<tr>
+<td>Admin API (test send)</td>
+<td><code>accounts/admin_views.py</code> <code>AdminEmailTestView.post</code></td>
+<td>Site admin. Sends to the caller's own address through the stored configuration; accepts no host, port or recipient from the body</td>
+</tr>
+<tr>
+<td>Django admin</td>
+<td><code>accounts/admin.py</code></td>
+<td>Doesn't register <code>SiteEmailSetting</code></td>
+</tr>
+<tr>
+<td>Admin panel</td>
+<td><code>frontend/src/components/Admin/EmailSettingsSection.tsx</code></td>
+<td>Fields disabled and Save hidden when <code>is_superuser</code> isn't <code>true</code>. Convenience only: the Admin API row above enforces the rule</td>
+</tr>
+<tr>
+<td>MCP, imports</td>
+<td><code>mcp_server/tools.py</code></td>
+<td>Don't write the settings</td>
+</tr>
+</tbody>
+</table>
+<p>Coverage: <code>accounts/tests/test_email_settings.py</code> <code>EmailSettingsSuperuserOnlyTests</code>.</p>
 <h2 id="rule-18-deleting-a-group-and-transferring-its-ownership-need-an-admin-membership-on-that-group">Rule 18: Deleting a group and transferring its ownership need an admin membership on that group<a class="headerlink" href="#rule-18-deleting-a-group-and-transferring-its-ownership-need-an-admin-membership-on-that-group" title="Permanent link">&para;</a></h2>
 <p><strong>Rule.</strong> Deleting a group and transferring its ownership are refused unless the
 caller owns the group and holds the <code>admin</code> role on that group's own membership

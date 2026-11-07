@@ -4901,6 +4901,7 @@ guide.</p>
 </tbody>
 </table>
 <h3 id="patch-apiv1adminemail-settings"><code>PATCH /api/v1/admin/email-settings/</code><a class="headerlink" href="#patch-apiv1adminemail-settings" title="Permanent link">&para;</a></h3>
+<p><em>(1.3+)</em> <strong>Permission:</strong> superuser only. A site admin who is not a superuser (including one with all-content access) receives <code>403 Forbidden</code>; <code>GET</code> stays open to every site admin.</p>
 <p>Accepts any subset of <code>config_source</code>, <code>host</code>, <code>port</code>, <code>username</code>, <code>password</code>, <code>use_tls</code>,
 <code>use_ssl</code>, <code>from_email</code>, <code>timeout</code>.</p>
 <p><code>password</code> is write-only. <strong>Omitting it leaves the stored password unchanged; sending an
@@ -4943,6 +4944,7 @@ never authoritative — an interrupted edit leaves the previous configuration wo
 existing value writes no row.</p>
 <h3 id="post-apiv1adminemail-settingstest"><code>POST /api/v1/admin/email-settings/test/</code><a class="headerlink" href="#post-apiv1adminemail-settingstest" title="Permanent link">&para;</a></h3>
 <p>Sends a test email using the configuration currently in effect and reports the result.</p>
+<p>Available to any site admin. It changes no settings and accepts no server overrides.</p>
 <p><strong>The recipient is always the requesting admin's own email address.</strong> It cannot be
 supplied in the request body — an admin-gated endpoint that delivered to an arbitrary
 address would be usable as an open relay and as a network probe.</p>
