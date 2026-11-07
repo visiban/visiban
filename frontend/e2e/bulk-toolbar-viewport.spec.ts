@@ -6,8 +6,8 @@ import { BOARD_DENSE, BOARD_FULL, CARD, CARD_BUSY } from './fixtures/board'
 // explicit width its shrink-to-fit box is capped near half the viewport (#2071,
 // same defect class as the toast fix in #1439). Its menus open upward from
 // mid-row triggers once the bar wraps, so they must stay inside the viewport too.
-for (const width of [320, 375]) {
-  test(`bulk toolbar fits inside a ${width}px viewport with a gutter`, async ({ page }) => {
+for (const width of [320, 375, 1024]) {
+  test(`bulk toolbar fits inside a ${width}px viewport with a gutter, unsqueezed`, async ({ page }) => {
     await page.setViewportSize({ width, height: 640 })
     await routeAuth(page)
     await routeBoard(page, BOARD_DENSE as unknown as typeof BOARD_FULL)
@@ -31,6 +31,15 @@ for (const width of [320, 375]) {
     await expect(bar).toBeVisible()
     const box = (await bar.boundingBox())!
     console.log(`bulk toolbar @${width}: x=${box.x} w=${box.width} h=${box.height}`)
+    if (width < 640) {
+      // Not squeezed: it takes the full width between the gutters (w-max
+      // capped by max-w). Without w-max it shrink-fits into half the viewport.
+      expect(box.width).toBeGreaterThanOrEqual(width - 33)
+    } else {
+      // Wide screens keep one row; before the fix the bar was 512px wide with
+      // its labels broken onto two lines (66px tall) at 1024.
+      expect(box.height).toBeLessThanOrEqual(52)
+    }
     expect(box.x).toBeGreaterThanOrEqual(15)
     expect(box.x + box.width).toBeLessThanOrEqual(width - 15)
     // Every control stays inside the bar's box (nothing overflows its edge).
