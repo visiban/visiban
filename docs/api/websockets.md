@@ -610,7 +610,7 @@ Related behavior and limits:
 
 ### Missed frames
 
-A transient publish failure does **not** close the socket, so a connected client gets no signal that it missed a frame and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect.
+A transient publish failure does **not** close the socket, so a connected client gets no signal that it missed a frame and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect. *(1.3+, #2088)* The group page also re-reads its board list once when its socket first opens more than 1 second after the page's lists loaded (a slow handshake, or a first connection attempt that failed and was retried); a socket that opens sooner does not, so a frame committed inside that shorter gap is missed until the next reconnect. The re-read can revert a `board.updated` frame applied while it is in flight, until the next frame for that board.
 
 How to resync:
 

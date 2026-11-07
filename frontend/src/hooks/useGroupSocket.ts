@@ -15,7 +15,7 @@ const PING_TIMEOUT_MS = 45_000;
 export function useGroupSocket(
   groupId: number | null,
   onEvent: (event: BoardEvent) => void,
-  options?: { onReconnected?: () => void; onServerClose?: () => void },
+  options?: { onReconnected?: () => void; onFirstConnected?: () => void; onServerClose?: () => void },
 ): { connected: boolean; status: SocketStatus; lastEventAt: number | null; reconnectAttempt: number } {
   const [status, setStatus] = useState<SocketStatus>("connecting");
   const [lastEventAt, setLastEventAt] = useState<number | null>(null);
@@ -24,6 +24,14 @@ export function useGroupSocket(
   onEventRef.current = onEvent;
   const onReconnectedRef = useRef(options?.onReconnected);
   onReconnectedRef.current = options?.onReconnected;
+  // Called on the first open for a given group (#2088), including one that only
+  // succeeds after failed attempts. Exactly one of the two callbacks fires per
+  // open. The caller loaded its lists over REST before this socket existed and
+  // the server adds the socket to the group's broadcast group only during the
+  // handshake, so a frame committed in between is lost; the caller decides
+  // whether the gap was long enough to resync. Mirrors useBoardSocket (#1968).
+  const onFirstConnectedRef = useRef(options?.onFirstConnected);
+  onFirstConnectedRef.current = options?.onFirstConnected;
   // Fires when the server closes the socket with a normal 1000 the client did
   // not ask for (#2041): the server does this when this user was just removed
   // from the board or group. The caller re-reads over REST to find out whether
@@ -58,14 +66,16 @@ export function useGroupSocket(
 
       ws.onopen = () => {
         if (canceled) return;
-        // Fire reconnected callback only after a prior successful open; avoids
-        // a spurious reconcile on initial mount.
+        // onReconnected only after a prior successful open; the first open gets
+        // onFirstConnected instead (#2088) so the caller can close the
+        // load-to-connect gap without a spurious reconcile on every mount.
         const wasReconnect = everConnected;
         everConnected = true;
         setStatus("connected");
         setReconnectAttempt(0);
         resetPingTimeout();
         if (wasReconnect) onReconnectedRef.current?.();
+        else onFirstConnectedRef.current?.();
       };
 
       ws.onmessage = (e) => {

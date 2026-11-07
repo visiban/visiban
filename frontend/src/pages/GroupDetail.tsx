@@ -47,6 +47,10 @@ interface Props {
 /** The new-label row starts on a palette color, so a swatch reads selected from the start. */
 const DEFAULT_LABEL_COLOR = "#F59E0B";
 
+// First-open resync threshold (#2088); see handleFirstConnected. Same value and
+// reasoning as the board's FIRST_OPEN_RESYNC_MS (#1968).
+const FIRST_OPEN_RESYNC_MS = 1000;
+
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -160,10 +164,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     };
   }, []);
 
+  // When the initial list load was applied (Date.now()), or null while it is in
+  // flight. The socket's first open is compared with it (#2088). A ref, not
+  // state: only that open reads it.
+  const loadedAtRef = useRef<number | null>(null);
+
   useEffect(() => {
     setLoading(true);
     setUnavailable(false);
     setError(null);
+    loadedAtRef.current = null;
     // Set by cleanup when the route moves to another group: a late answer for
     // the previous group must not write into, or mark unavailable, the new one.
     let stale = false;
@@ -174,6 +184,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       getGroupMembers(groupId),
     ]).then(([g, sg, b, m]) => {
       if (stale) return;
+      loadedAtRef.current = Date.now();
       setGroup(g);
       setIsStarred(g.is_starred);
       setSubgroups(sg);
@@ -369,6 +380,24 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     getGroupBoards(groupId).then(setBoards).catch(() => { /* stay with current list */ });
   }, [groupId]);
 
+  // First open (#2088): the socket joins the group's broadcast group only during
+  // its handshake, after the lists loaded, so a frame committed in between is in
+  // neither. Reuses handleReconnected when that gap was long enough to have lost
+  // frames (a slow handshake, or a first connect that failed and retried); a
+  // prompt open does not re-read, so every group open does not pay twice. An
+  // unknown load time (load still in flight) counts as a long gap.
+  //
+  // #2038 residual: the re-read replaces the list with a snapshot that can be
+  // older than a board.* frame applied while it is in flight, reverting that
+  // row until the next frame or resync. Not guarded here: the socket has already
+  // joined, so it is the same exposure every reconnect has, runs at most once
+  // per socket, and group rows are whole-object patches that the next frame for
+  // that board repairs.
+  const handleFirstConnected = useCallback(() => {
+    const loadedAt = loadedAtRef.current;
+    if (loadedAt === null || Date.now() - loadedAt > FIRST_OPEN_RESYNC_MS) handleReconnected();
+  }, [handleReconnected]);
+
   const onServerClose = useCallback(() => {
     if (!selfDeletingRef.current) refetchForAccess();
   }, [refetchForAccess]);
@@ -376,7 +405,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useGroupSocket(
     Number.isFinite(groupId) ? groupId : null,
     handleGroupEvent,
-    { onReconnected: handleReconnected, onServerClose },
+    { onReconnected: handleReconnected, onFirstConnected: handleFirstConnected, onServerClose },
   );
 
   // Access loss reaches the client as a 4001/4003 close (status "failed") or,

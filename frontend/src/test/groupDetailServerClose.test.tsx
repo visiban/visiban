@@ -137,7 +137,7 @@ function renderGroupDetail(locationState?: Record<string, unknown>, user: User =
     </MemoryRouter>
   )
 }
-type FakeWS = { onclose: ((e: { code: number }) => void) | null; close: ReturnType<typeof vi.fn> }
+type FakeWS = { onopen: (() => void) | null; onclose: ((e: { code: number }) => void) | null; close: ReturnType<typeof vi.fn> }
 let sockets: FakeWS[]
 class FakeWebSocket {
   onopen: (() => void) | null = null
@@ -261,5 +261,66 @@ describe('GroupDetail with the real group socket (#2041)', () => {
     await screen.findByText('+ New board')
     await act(async () => { rejectLate({ response: { status: 404 } }) })
     expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
+  })
+})
+
+describe('GroupDetail first-open resync (#2088)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sockets = []
+    vi.stubGlobal('WebSocket', FakeWebSocket)
+    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('re-reads the boards once when the socket first opens more than 1 s after the load', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const loads = mockGetGroupBoards.mock.calls.length
+    now.mockReturnValue(1_000_000 + 1500)
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
+    now.mockRestore()
+  })
+
+  it('does not re-read when the socket first opens within 1 s of the load', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const loads = mockGetGroupBoards.mock.calls.length
+    now.mockReturnValue(1_000_000 + 200)
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads)
+    now.mockRestore()
+  })
+
+  it('re-reads once for a first open that succeeds only after a failed attempt and retry', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const loads = mockGetGroupBoards.mock.calls.length
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    act(() => { sockets[0].onclose?.({ code: 1006 }) })
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(sockets).toHaveLength(2)
+    now.mockReturnValue(1_000_000 + 3100)
+    act(() => { sockets[1].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
+    // A later reconnect goes through onReconnected, not a second first-open.
+    now.mockRestore()
   })
 })
