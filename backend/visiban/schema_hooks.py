@@ -74,10 +74,13 @@ _BODY_METHODS = frozenset({"post", "put", "patch"})
 def _reads_client_input(method, operation):
     """True if the operation parses a request body or declares query parameters.
 
-    Those are the only operations that can answer 400: a bare path-parameter
-    lookup either resolves or is a 404, so documenting a 400 there would claim
-    a response the server cannot produce. Header/cookie parameters are not
-    counted for the same reason.
+    These are the operations whose own input can be refused with a 400. A bare
+    path-parameter lookup either resolves or is a 404, so it has no 400 of its
+    own. That is not the whole truth since #2073: a query string over
+    ``DATA_UPLOAD_MAX_NUMBER_FIELDS`` is a JSON 400 on any operation (content
+    negotiation reads the query string), so the schema under-documents it
+    there. Documenting that 400 everywhere is tracked in #2140. Header/cookie
+    parameters are not counted.
 
     Keyed on the HTTP method, not on a ``requestBody`` entry: a view that
     declares no serializer has no ``requestBody`` in the schema, but DRF still

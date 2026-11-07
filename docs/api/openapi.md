@@ -212,10 +212,12 @@ unknown key, say) is now a `400` where it was a `200`. A valid pair such as an e
 multi-select custom field value, is checked after it is decoded. The same refusal applies to a `JSONField` value sent form-encoded or multipart. It does not cover a query string or a form body sent with an unusual `charset` (for example `utf-7`), which can still answer `500`
 ([#2120](https://gitlab.com/visiban/visiban/-/issues/2120)).
 
-Still HTML, because no parser runs where Django raises them: a JSON or urlencoded
+*(Changed in 1.3, #2073)* Two limits are raised where no parser runs: a JSON or urlencoded
 body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (DRF reads `request.body` before calling the parser),
-and a query string over `DATA_UPLOAD_MAX_NUMBER_FIELDS`. Both are tracked in
-[#2073](https://gitlab.com/visiban/visiban/-/issues/2073).
+and a query string over `DATA_UPLOAD_MAX_NUMBER_FIELDS`. The project `EXCEPTION_HANDLER` answers both
+with the same JSON `400`. Because content negotiation reads the query string on every request, any
+operation can answer it, including the ones whose schema entry documents no `400`; documenting it
+on every operation is tracked in [#2140](https://gitlab.com/visiban/visiban/-/issues/2140).
 
 **Server-layer multipart rejections are filtered, not baselined.** When a request's
 `Content-Type` is `multipart/form-data` but the body is malformed, the ASGI server
