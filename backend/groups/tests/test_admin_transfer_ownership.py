@@ -89,6 +89,22 @@ class AdminTransferOwnershipTests(TestCase):
         self.assertEqual(roles[self.heir.pk], GroupMembership.Role.ADMIN)
         self.assertEqual(roles[self.departed.pk], GroupMembership.Role.ADMIN)
 
+    def test_repairs_group_whose_owner_has_no_admin_row(self):
+        """Rule 11 repair path: the owner's admin row is gone, a superuser transfers."""
+        GroupMembership.objects.filter(group=self.group, user=self.departed).delete()
+        self._action(
+            step="confirm", expected_owner=self.departed.pk, new_owner=self.heir.pk
+        )
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.owner_id, self.heir.pk)
+        roles = dict(
+            GroupMembership.objects.filter(group=self.group).values_list(
+                "user_id", "role"
+            )
+        )
+        self.assertEqual(roles[self.heir.pk], GroupMembership.Role.ADMIN)
+        self.assertEqual(roles[self.departed.pk], GroupMembership.Role.ADMIN)
+
     def test_stale_form_refused_when_owner_changed_since_render(self):
         # The page showed "departed" as owner; the API moved it to the heir
         # before the superuser confirmed.

@@ -39,10 +39,11 @@ Entry points use file and function names, not line numbers, so the table survive
 **What it doesn't enumerate.**
 
 - Rule 3: the revocation table is a review checklist.
-- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15 and Rule 16: review checklists, pinned by the tests named under each.
+- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16 and Rule 18: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
 - Rule 16 also keeps its shared function outside `visiban/authorization.py` (`accounts/models.py` `record_access_flag_changes`, beside the log model it writes), a deviation from the same step.
+- Rule 18 also keeps its shared function outside `visiban/authorization.py` (`groups/views.py` `_is_owner_with_admin_membership`, beside the two group actions that call it), a deviation from the same step.
 
 **Go deeper:** [Authorization Entry Points](authorization-entry-points.md) says what each entry point calls and how that test finds them.
 
@@ -785,6 +786,29 @@ the change back on the admin API, `save_model`, `set_site_admin`, `ensure_site_a
 and `createsuperuser`; neither flag in the Django admin forms; `/auth/me/` and
 `/auth/user/` ignoring both flags), `accounts/tests/test_admin_staff_target_rules.py`
 (all-content accounts in the Django admin).
+
+## Rule 18: Deleting a group and transferring its ownership need an admin membership on that group
+
+**Rule.** Deleting a group and transferring its ownership are refused unless the
+caller owns the group and holds the `admin` role on that group's own membership
+row. Ownership alone doesn't qualify, and neither does a membership on a
+descendant or an ancestor. A site admin with `can_access_all_content` may still
+delete a group. A group whose owner lost the admin row is repaired through the
+Rule 11 repair path (a superuser's ownership transfer), not through its owner.
+
+**Why.** A well-formed group always gives its owner a direct admin row (Rule 11),
+so the extra check changes nothing for well-formed data. It closes the case where
+that row was removed by bad data: the owner's remaining access is then through a
+membership elsewhere in the tree, and the two actions shouldn't be reachable on
+the strength of the stale `owner` column.
+
+| Surface | Entry point | Enforced via |
+|---|---|---|
+| Group delete (REST) | `groups/views.py` `GroupViewSet.destroy` | `_is_owner_with_admin_membership`, or `can_access_all_content`; refused with `403` and the same `{detail}` body as a non-owner. The owner is checked again under the row lock |
+| Group ownership transfer (REST) | `groups/views.py` `GroupViewSet.transfer_ownership` | `_is_owner_with_admin_membership`; refused with `403`. `transfer_group_ownership` then re-checks the owner under the group row lock |
+| Group ownership transfer (Django admin) | `groups/admin.py` `GroupAdmin` transfer action | Superuser only; it is the repair path and doesn't use this check |
+
+Coverage: `groups/tests/test_group_owner_admin_membership_2114.py`.
 
 ## How to add a rule
 
