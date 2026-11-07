@@ -31,14 +31,14 @@ class OwnerAdminMembershipTests(TestCase):
     def test_owner_with_only_descendant_membership_cannot_delete(self):
         self._owner_with_descendant_membership_only()
         r = self.client.delete(f"/api/v1/groups/{self.parent.id}/")
-        self.assertIn(r.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(Group.objects.filter(pk=self.parent.id).exists())
 
     def test_owner_with_only_descendant_membership_cannot_transfer(self):
         self._owner_with_descendant_membership_only()
         GroupMembership.objects.create(group=self.parent, user=self.other_admin, role="admin")
         r = self._transfer(self.parent)
-        self.assertIn(r.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.parent.refresh_from_db()
         self.assertEqual(self.parent.owner_id, self.owner.id)
 
