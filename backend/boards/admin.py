@@ -21,6 +21,7 @@ from .serializers import (
 )
 from .permissions import SITE_ADMIN
 from .admin_mixins import ContainerChangedAdminMixin
+from visiban.colors import ColorAdminFormMixin
 from visiban.admin_row_version import RowVersionAdminMixin, RowVersionField, RowVersionFormMixin
 from .services.cards import (
     enforce_column_limits, lock_board_for_card_write, lock_card_cell_entry,
@@ -522,9 +523,27 @@ class CardAdmin(admin.ModelAdmin):
             publish_blocked_peers(peers, request)
 
 
+class ColumnAdminForm(ColorAdminFormMixin, forms.ModelForm):
+    """Column form that applies the API's hex color rule (#2100)."""
+
+    class Meta:
+        model = Column
+        fields = "__all__"
+
+
+class LabelAdminForm(ColorAdminFormMixin, forms.ModelForm):
+    """Label form that applies the API's hex color rule (#2100)."""
+
+    class Meta:
+        model = Label
+        fields = "__all__"
+
+
 @admin.register(Column)
 class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
     """Admin for Column that broadcasts mutations (see CardAdmin for rationale)."""
+
+    form = ColumnAdminForm
 
     def save_model(self, request, obj, form, change):
         # Lock the (target) board row first, as ColumnViewSet.perform_create
@@ -745,7 +764,7 @@ class _BoardEventAdminMixin:
             publish_blocked_peers(peers, request)
 
 
-class SwimlaneAdminForm(forms.ModelForm):
+class SwimlaneAdminForm(ColorAdminFormMixin, forms.ModelForm):
     """Validates ``limit_column_ids`` as the API does (#1150).
 
     The JSON widget accepts any value, so without this a staff user could store
@@ -841,6 +860,7 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
 class LabelAdmin(_BoardEventAdminMixin, admin.ModelAdmin):
     """Admin for Label that broadcasts mutations (see CardAdmin for rationale)."""
 
+    form = LabelAdminForm
     event_created = _broadcast.EVT_LABEL_CREATED
     event_updated = _broadcast.EVT_LABEL_UPDATED
     event_deleted = _broadcast.EVT_LABEL_DELETED
