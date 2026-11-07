@@ -3446,11 +3446,16 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         If another request changed the board's group in between, the value
         sent is no longer an echo but a move, so it must pass the same rule.
         Call after ``refresh_from_db()`` under the lock and before ``save()``.
+
+        On create there is no board yet: pass ``None`` and the group is judged
+        as a placement from no group, so the caller's standing in the target
+        group is re-read after the group lock, as on update.
         """
         if "group" not in self.validated_data:
             return
+        current_group_id = board.group_id if board is not None else None
         try:
-            self._check_group_change(self.validated_data["group"], board.group_id)
+            self._check_group_change(self.validated_data["group"], current_group_id)
         except serializers.ValidationError as exc:
             raise serializers.ValidationError({"group": exc.detail})
 

@@ -1393,7 +1393,7 @@ class BoardImportExportMixin:
         return resolve_group_for_board_placement(request.user, group_id)
 
     @staticmethod
-    def _lock_import_group(group):
+    def _lock_import_group(group, user=None):
         """Take the target group ``FOR KEY SHARE`` before the board insert; 404 if it is gone.
 
         Call inside the import's ``transaction.atomic()``, before
@@ -1412,6 +1412,12 @@ class BoardImportExportMixin:
 
         if not lock_group_for_board_placement(group.pk):
             raise Http404
+        if user is not None:
+            # Resolved before this lock; judge the caller's standing in the
+            # group again now that it is held.
+            from groups.views import _require_group_admin
+
+            _require_group_admin(user, group)
 
     def _import_json(self, request, file, options):
         """Create a new board from a Visiban JSON export file.
@@ -1734,7 +1740,7 @@ class BoardImportExportMixin:
         skipped = _json_skip_counts(data, options)
 
         with _json_import_write_guard(), transaction.atomic():
-            self._lock_import_group(group)
+            self._lock_import_group(group, request.user)
             board = Board.objects.create(
                 name=board_name,
                 description=data.get("description", ""),
@@ -2323,7 +2329,7 @@ class BoardImportExportMixin:
         board_name = (raw_name or "").replace("\x00", "").strip() or None
         try:
             with transaction.atomic():
-                self._lock_import_group(group)
+                self._lock_import_group(group, request.user)
                 board = _trello.execute_plan(plan, request.user, group=group, board_name=board_name)
                 board_data = self._broadcast_imported_board(request, board)
         except _trello.TrelloImportError as exc:
@@ -2597,7 +2603,7 @@ class BoardImportExportMixin:
             )
 
         with transaction.atomic():
-            self._lock_import_group(group)
+            self._lock_import_group(group, request.user)
             board = Board.objects.create(
                 name=board_name,
                 description="",

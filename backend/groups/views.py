@@ -1062,6 +1062,9 @@ class GroupViewSet(viewsets.ModelViewSet):
             from .services import lock_group_for_board_placement
             if not lock_group_for_board_placement(group.pk):
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            # The admin check above ran before this lock; judge the caller's
+            # standing again now that the group is held.
+            _require_group_admin(request.user, group)
             board = serializer.save(owner=request.user, group=group)
             # Create an explicit BoardMembership for the owner so they appear in the
             # board's member list. BoardViewSet.perform_create() does this too; without
