@@ -67,6 +67,7 @@ class AdminUserLockModeTests(TransactionTestCase):
         on A's link row: a deadlock, one side aborted. Now A's request is
         granted at once, A commits, and B proceeds to deactivate.
         """
+        self.assertEqual(User._meta.db_table, "users")  # the literal SQL below depends on it
         have_link, proceed, results = threading.Event(), threading.Event(), {}
 
         def join_like():
@@ -76,10 +77,9 @@ class AdminUserLockModeTests(TransactionTestCase):
                     have_link.set()
                     proceed.wait(HOLD_TIMEOUT)
                     with connection.cursor() as cur:
-                        cur.execute(
-                            f"SELECT id FROM {User._meta.db_table} WHERE id = %s FOR KEY SHARE",
-                            [self.creator.pk],
-                        )
+                        # Literal SQL (no interpolation): Django has no KEY SHARE
+                        # lock API; the table name is pinned by a test assertion.
+                        cur.execute("SELECT id FROM users WHERE id = %s FOR KEY SHARE", [self.creator.pk])
                         results["key_share_rows"] = cur.fetchall()
                 results["join_like"] = "committed"
             except Exception as exc:  # surfaced by the assertions
