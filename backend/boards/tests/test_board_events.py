@@ -15,7 +15,9 @@ bearing parts, and each gets its own class below:
   the socket refuses to send;
 * pruning bounds the table, and a cursor it removed fails loudly rather than
   returning a page that silently skips events (``RetentionAndGoneTests``, and
-  ``PruneMarkTests`` for the per-board prune mark that makes the check exact).
+  ``PruneMarkTests`` for the per-board prune mark that makes the check exact),
+  answering every cursor question from rows and marks the reader may see
+  (``CursorFollowsFeedVisibilityTests``).
 """
 
 import contextlib
@@ -1158,10 +1160,11 @@ class ReaderScopedPruneMarkTests(BoardEventTestBase):
 
     # -- 410 shape and fallback ---------------------------------------------
 
-    def test_the_410_resume_point_survives_a_later_promotion(self):
+    def test_the_410_resume_point_follows_the_role_now_rule(self):
+        """The resume point is this reader's (#2126), so a later promotion is judged like any cursor."""
         cursor = self._record()
-        self._record("card.updated")
-        self._record("share_link.updated")
+        visible = self._record("card.updated")
+        admin_only = self._record("share_link.updated")
         call_command("prune_board_events")
 
         gone = self.assertExpired(self.member, cursor)
@@ -1169,9 +1172,16 @@ class ReaderScopedPruneMarkTests(BoardEventTestBase):
         resume = gone.data["next_cursor"]
         # `after=0` never expires, so a resume point of 0 would pass everything below.
         self.assertGreater(resume, cursor)
+        self.assertEqual(resume, visible)
         self.assertNotExpired(self.member, resume)
+
+        # Promoted: the feed now shows admin-only rows, and one after the resume
+        # point is gone, exactly as for any other cursor
+        # (test_visibility_is_the_readers_role_now).
         BoardMembership.objects.filter(board=self.board, user=self.member).update(role=BoardMembership.Role.ADMIN)
-        self.assertNotExpired(self.member, resume)
+        again = self.assertExpired(self.member, resume)
+        self.assertEqual(again.data["next_cursor"], admin_only)
+        self.assertNotExpired(self.member, admin_only)
 
     def test_a_reader_spared_by_the_marks_pages_new_events(self):
         cursor = self._record()
@@ -1188,21 +1198,21 @@ class ReaderScopedPruneMarkTests(BoardEventTestBase):
         self._record(aged=False)
         self.assertExpired(self.member, foreign)
 
-    def test_foreign_cursor_below_the_record_cannot_be_told_from_a_real_position(self):
-        """The documented limit: between the reader's visible mark and the board-wide one.
+    def test_foreign_cursor_above_the_visible_mark_410s_whatever_else_was_pruned(self):
+        """Above the reader's visible mark the cursor must be a row it may see (#2126).
 
-        The member reads on. The owner could have read the admin-only row, so the
-        owner is told. Nothing the member could have read after the cursor is
-        skipped.
+        Pruned admin-only rows above the member's visible mark do not change the
+        member's answer for a foreign cursor, and the owner, who could have read
+        the admin-only row, is told as before.
         """
         self._record("card.updated")
         other = _make_board(_make_user("evt_type_below"), name="Other")
         foreign = record_board_event(other.id, "card.created", {})
         self._record("share_link.updated")
         call_command("prune_board_events")
-        new = self._record(aged=False)
+        self._record(aged=False)
 
-        self.assertNotExpired(self.member, foreign, ids=[new])
+        self.assertExpired(self.member, foreign)
         self.assertExpired(self.owner, foreign)
 
     def test_foreign_cursor_below_a_visible_pruned_event_still_410s(self):
@@ -1281,6 +1291,223 @@ class ReaderScopedPruneMarkTests(BoardEventTestBase):
         self.assertTrue(selects)
         for sql in selects:
             self.assertNotIn('"data"', sql)
+
+
+class CursorFollowsFeedVisibilityTests(BoardEventTestBase):
+    """The feed's cursor handling follows the feed's visibility rule (#2126).
+
+    The cursor check and the ``410``'s ``next_cursor`` read only rows and marks
+    the reader may see, so an id the reader is not shown gets the same answer
+    as an id that is not on the board, every ``next_cursor`` handed out is a
+    position the reader may see, and resuming from any of them is not a ``410``.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.url = f"/api/v1/boards/{self.board.pk}/events/"
+        self.other_board = _make_board(_make_user("evt_vis_other"), name="Other")
+
+    def _record(self, event="card.created", *, actor=None, aged=False, board=None):
+        pk = record_board_event(
+            (board or self.board).id, event, {"user_id": actor.pk} if actor else {},
+            actor_id=actor.pk if actor else None,
+        )
+        if aged:
+            BoardEvent.objects.filter(pk=pk).update(created_at=timezone.now() - datetime.timedelta(days=45))
+        return pk
+
+    def _off_board(self):
+        return self._record(board=self.other_board)
+
+    def _hidden_from_member(self, *, aged=False):
+        """One row of each kind a member is not shown: admin-only, another user's star and saved filter."""
+        return [
+            self._record("share_link.updated", aged=aged),
+            self._record("board.star_changed", actor=self.owner, aged=aged),
+            self._record("saved_filter.created", actor=self.owner, aged=aged),
+        ]
+
+    def _get(self, user, cursor, limit=None):
+        url = f"{self.url}?after={cursor}" + (f"&limit={limit}" if limit else "")
+        return self.client_for(user).get(url)
+
+    def assertSameAnswer(self, user, cursors):
+        answers = [self._get(user, c) for c in cursors]
+        first = answers[0]
+        for cursor, resp in zip(cursors, answers):
+            self.assertEqual(
+                (resp.status_code, resp.data), (first.status_code, first.data), (user.username, cursor),
+            )
+        return first
+
+    def assertResumes(self, user, cursor, ids=()):
+        resp = self._get(user, cursor)
+        self.assertEqual(resp.status_code, 200, (user.username, cursor))
+        self.assertEqual([e["id"] for e in resp.data["results"]], list(ids), (user.username, cursor))
+
+    # -- hidden ids and off-board ids ---------------------------------------
+
+    def test_hidden_and_off_board_ids_get_one_answer_on_a_board_with_no_mark(self):
+        self._record()
+        hidden = self._hidden_from_member()
+        foreign = self._off_board()
+        newest = self._record()
+
+        for user in (self.member, self.viewer):
+            gone = self.assertSameAnswer(user, [*hidden, foreign])
+            self.assertEqual(gone.status_code, 410)
+            self.assertEqual(gone.data["next_cursor"], newest)
+
+    def test_hidden_and_off_board_ids_get_one_answer_with_nothing_newer(self):
+        self._record()
+        hidden = self._hidden_from_member()
+        foreign = self._off_board()
+
+        for user in (self.member, self.viewer):
+            resp = self.assertSameAnswer(user, [*hidden, foreign])
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.data["results"], [])
+
+    def test_hidden_and_off_board_ids_get_one_answer_above_the_visible_mark(self):
+        self._record(aged=True)
+        call_command("prune_board_events")
+        hidden = self._hidden_from_member()
+        foreign = self._off_board()
+        self._record()
+
+        for user in (self.member, self.viewer):
+            gone = self.assertSameAnswer(user, [*hidden, foreign])
+            self.assertEqual(gone.status_code, 410)
+
+    def test_pruned_hidden_rows_set_no_boundary_a_reader_can_observe(self):
+        """Off-board ids below, between and above pruned hidden rows answer as the pruned ids do."""
+        visible = self._record(aged=True)
+        below = self._off_board()
+        hidden = self._hidden_from_member(aged=True)
+        above = self._off_board()
+        call_command("prune_board_events")
+        newest = self._record()
+
+        for user in (self.member, self.viewer):
+            gone = self.assertSameAnswer(user, [below, *hidden, above])
+            self.assertEqual(gone.status_code, 410)
+            self.assertEqual(gone.data["next_cursor"], newest)
+            # Their own visible mark is still a position they may resume from.
+            self.assertResumes(user, visible, ids=[newest])
+
+    def test_admins_still_resume_from_admin_only_rows(self):
+        admin = _make_user("evt_vis_admin")
+        _make_membership(self.board, admin, BoardMembership.Role.ADMIN)
+        site_admin = _make_user("evt_vis_site_admin", is_superuser=True, is_staff=True)
+        self._record()
+        admin_only = self._record("share_link.updated")
+        newest = self._record()
+
+        for user in (self.owner, admin, site_admin):
+            self.assertResumes(user, admin_only, ids=[newest])
+        self.assertEqual(self._get(self.member, admin_only).status_code, 410)
+
+    def test_a_users_own_per_user_rows_stay_valid_cursors(self):
+        self._record()
+        star = self._record("board.star_changed", actor=self.member)
+        newest = self._record()
+
+        self.assertResumes(self.member, star, ids=[newest])
+        self.assertEqual(self._get(self.viewer, star).status_code, 410)
+
+    # -- every next_cursor handed out resumes --------------------------------
+
+    def test_410_next_cursor_skips_a_hidden_newest_row(self):
+        cursor = self._record(aged=True)
+        self._record(aged=True)
+        kept = self._record()
+        call_command("prune_board_events")
+        admin_only = self._record("share_link.updated")
+        star = self._record("board.star_changed", actor=self.owner)
+
+        for user in (self.member, self.viewer):
+            gone = self._get(user, cursor)
+            self.assertEqual(gone.status_code, 410)
+            self.assertEqual(gone.data["next_cursor"], kept)
+            self.assertResumes(user, kept)
+        # The owner is shown both rows, so its resume point is unchanged by this.
+        gone = self._get(self.owner, cursor)
+        self.assertEqual(gone.data["next_cursor"], star)
+        self.assertResumes(self.owner, star)
+        self.assertGreater(star, admin_only)
+
+    def test_410_next_cursor_skips_a_pruned_hidden_newest_row(self):
+        """Everything after the cursor was pruned, the newest of it a row the member is not shown."""
+        cursor = self._record(aged=True)
+        missed = self._record(aged=True)
+        admin_only = self._record("share_link.updated", aged=True)
+        call_command("prune_board_events")
+
+        gone = self._get(self.member, cursor)
+        self.assertEqual(gone.status_code, 410)
+        self.assertEqual(gone.data["next_cursor"], missed)
+        self.assertResumes(self.member, missed)
+        self.assertEqual(self._get(self.owner, cursor).data["next_cursor"], admin_only)
+
+        # New rows of both kinds arrive and the member keeps reading.
+        self._record("share_link.updated")
+        new = self._record()
+        self.assertResumes(self.member, missed, ids=[new])
+
+    def test_410_next_cursor_on_a_board_with_no_mark_skips_a_hidden_newest_row(self):
+        cursor = self._record()
+        kept = self._record()
+        self._record("share_link.updated")
+        BoardEvent.objects.filter(pk=cursor).delete()  # pruned by a pre-#2058 run
+
+        gone = self._get(self.member, cursor)
+        self.assertEqual(gone.status_code, 410)
+        self.assertEqual(gone.data["next_cursor"], kept)
+        self.assertResumes(self.member, kept)
+        new = self._record()
+        self.assertResumes(self.member, kept, ids=[new])
+
+    def test_a_resume_point_keeps_resuming_after_later_prunes_of_hidden_rows(self):
+        cursor = self._record(aged=True)
+        self._record(aged=True)
+        kept = self._record()
+        call_command("prune_board_events")
+        resume = self._get(self.member, cursor).data["next_cursor"]
+        self.assertEqual(resume, kept)
+
+        # The resume row ages out with hidden rows after it; nothing the member
+        # could have read is lost, so it is not expired.
+        BoardEvent.objects.filter(pk=kept).update(created_at=timezone.now() - datetime.timedelta(days=45))
+        self._hidden_from_member(aged=True)
+        call_command("prune_board_events")
+        new = self._record()
+        self.assertResumes(self.member, resume, ids=[new])
+
+    def test_paging_through_hidden_rows_hands_out_only_cursors_that_resume(self):
+        """In-page cursors are rows the reader is shown, with hidden rows around them."""
+        expected = []
+        for _ in range(3):
+            expected.append(self._record())
+            self._hidden_from_member()
+
+        seen, cursor = [], 0
+        while True:
+            resp = self._get(self.member, cursor, limit=1)
+            self.assertEqual(resp.status_code, 200, cursor)
+            seen += [e["id"] for e in resp.data["results"]]
+            if resp.data["next_cursor"] is None:
+                break
+            cursor = resp.data["next_cursor"]
+            self.assertIn(cursor, expected)
+        self.assertEqual(seen, expected)
+
+        # Hidden rows after the last cursor are pruned: still not a 410.
+        BoardEvent.objects.filter(board_id=self.board.id, pk__gt=cursor).update(
+            created_at=timezone.now() - datetime.timedelta(days=45)
+        )
+        call_command("prune_board_events")
+        new = self._record()
+        self.assertResumes(self.member, cursor, ids=[new])
 
 
 class PruneMarkTests(BoardEventTestBase):
@@ -1488,8 +1715,9 @@ class PruneMarkTests(BoardEventTestBase):
         self._record()
         # The floor by primary key, then the type marks by board.
         self.assertEqual(self._retention_queries(f"{self.url}?after={missed}"), (200, 2, 1))
-        # The 410 adds its resume point: those two reads again, one Max(id).
-        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 4, 2))
+        # The 410 adds its resume point: one Max(id) over the reader's rows,
+        # reusing the marks the check already read (#2126).
+        self.assertEqual(self._retention_queries(f"{self.url}?after={cursor}"), (410, 2, 2))
 
     def test_board_with_no_mark_adds_the_old_exists_check(self):
         cursor = self._record()

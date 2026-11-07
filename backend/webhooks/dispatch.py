@@ -198,8 +198,9 @@ def latest_event_id(board_id: int) -> int:
     ``reenable`` with ``resume_from: latest``. The prune mark matters when
     every event after the old cursor was pruned and nothing newer exists: the
     newest surviving id is then below the mark, and a cursor there would be
-    expired again at once (#2058). Same point the feed's ``410`` hands back as
-    ``next_cursor``.
+    expired again at once (#2058). Board-wide, unlike the feed's ``410``
+    ``next_cursor``, which is computed from the rows and marks its reader may
+    see (``reader_resume_cursor``, #2126).
     """
     return resume_cursor(board_id)
 
