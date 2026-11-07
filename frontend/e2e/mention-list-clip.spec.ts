@@ -43,6 +43,15 @@ test('the @-mention list is fixed, in the viewport, topmost, and focus stays in 
   const bb = await list.boundingBox()
   expect(bb!.y).toBeGreaterThanOrEqual(0)
   expect(bb!.y + bb!.height).toBeLessThanOrEqual(VIEWPORT_H)
+  // The list is capped to the larger free side and scrolls, so the last option is reached by scrolling.
+  await page.getByText('@member5', { exact: true }).scrollIntoViewIfNeeded()
+  // It must never cover the textarea the user is typing in (an element hit-test cannot catch this).
+  const overlap = async () => {
+    const l = (await list.boundingBox())!
+    const t = (await box.boundingBox())!
+    return l.x < t.x + t.width && l.x + l.width > t.x && l.y < t.y + t.height && l.y + l.height > t.y
+  }
+  expect(await overlap()).toBe(false)
   for (const el of [first, page.getByText('@member5', { exact: true })]) {
     const hit = await el.evaluate((node) => {
       const r = node.getBoundingClientRect()
@@ -52,6 +61,18 @@ test('the @-mention list is fixed, in the viewport, topmost, and focus stays in 
     expect(hit).toBe(true)
   }
   await expect(box).toBeFocused()
+
+  // The sheet re-places itself ~150ms after a resize (no event the list can hear); the list must
+  // follow the textarea once it settles instead of staying at the docked-mode spot.
+  await page.setViewportSize({ width: 1000, height: VIEWPORT_H })
+  await page.setViewportSize({ width: 1600, height: VIEWPORT_H })
+  await expect.poll(async () => {
+    const l = (await list.boundingBox())!
+    const t = (await box.boundingBox())!
+    const near = Math.abs(l.x - t.x) <= 1
+    const clear = !(l.y < t.y + t.height && l.y + l.height > t.y)
+    return near && clear
+  }, { timeout: 5_000 }).toBe(true)
 
   // Escape closes the list, not the sheet.
   await page.keyboard.press('Escape')
