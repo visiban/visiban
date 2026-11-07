@@ -54,6 +54,9 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
       Math.min(r.left, window.innerWidth - el.offsetWidth - POPOVER_VIEWPORT_MARGIN),
     );
     sideRef.current = placeFixedElement(el, { top: r.top, bottom: r.bottom, left }, sideRef.current) ?? sideRef.current;
+    // Re-anchoring (not dismissing) on scroll means the textarea can scroll out of view while the
+    // list is open; hide it rather than leave it pinned to the viewport edge, detached from its field.
+    if (r.bottom < 0 || r.top > window.innerHeight) el.style.visibility = "hidden";
   };
 
   // Re-measure when the visible options change height (the query narrows the list).
@@ -76,6 +79,12 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
       window.removeEventListener("resize", place);
     };
   }, [open]);
+
+  // Keep the keyboard-selected option visible when the list is capped to a short viewport.
+  useEffect(() => {
+    if (!open) return;
+    dropdownRef.current?.children[selectedIndex]?.scrollIntoView?.({ block: "nearest" });
+  }, [open, selectedIndex]);
 
   // Reset selection when suggestions change
   useEffect(() => {
@@ -162,7 +171,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
           ref={dropdownRef}
           // Hidden until the layout effect measures and places it (no flash at 0,0).
           style={{ position: "fixed", visibility: "hidden", top: 0, left: 0 }}
-          className="z-[60] w-56 max-w-[calc(100vw-16px)] bg-surface border border-line-strong rounded-lg shadow-lg overflow-hidden"
+          className="z-[60] w-56 max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] bg-surface border border-line-strong rounded-lg shadow-lg overflow-y-auto"
         >
           {suggestions.map((u, i) => (
             <button
@@ -173,9 +182,9 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
                 i === selectedIndex ? "bg-surface-hover" : ""
               }`}
             >
-              <span className="font-medium text-fg">@{u.username}</span>
+              <span className="font-medium text-fg truncate">@{u.username}</span>
               {userDisplayName(u) !== u.username && (
-                <span className="text-xs text-fg-tertiary">{userDisplayName(u)}</span>
+                <span className="text-xs text-fg-tertiary truncate">{userDisplayName(u)}</span>
               )}
             </button>
           ))}

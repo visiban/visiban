@@ -158,3 +158,17 @@ describe('MentionTextarea suggestion list placement (#2092)', () => {
     expect(ta).toHaveFocus()
   })
 })
+
+describe('MentionTextarea off-screen anchor (#2092)', () => {
+  it('hides the list while the textarea is scrolled out of the viewport', async () => {
+    const user = userEvent.setup()
+    render(<MentionTextarea value="" onChange={vi.fn()} members={members} />)
+    const ta = screen.getByRole('textbox')
+    await user.type(ta, '@')
+    const list = screen.getByText('@jdoe').closest('div.z-\\[60\\]') as HTMLElement
+    Object.defineProperty(list, 'offsetHeight', { configurable: true, value: 100 })
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue({ top: -200, bottom: -150, left: 0, right: 300, width: 300, height: 50, x: 0, y: -200, toJSON: () => ({}) } as DOMRect)
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.visibility).toBe('hidden')
+  })
+})
