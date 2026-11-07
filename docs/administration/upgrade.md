@@ -1271,18 +1271,21 @@ endpoint (#1112). It touches the existing, likely-large `cards` table, so it use
     Existing deployments that used the default unauthenticated Valkey (or Redis) keep working after you set this variable. Valkey data is ephemeral (only WebSocket channel state and short-lived cache keys), so no data migration is required.
 
 !!! note "Migration window — GIN trigram indexes (`boards/0030`)"
-    Migration `boards/0030` creates full-text GIN indexes on the `cards` table using `CREATE INDEX` (not `CREATE INDEX CONCURRENTLY`). A standard index build holds an `AccessShareLock` on the table for the duration of the build, blocking writes to `cards`. It takes seconds for most self-hosted deployments; with **millions of cards** it can cause a brief write outage on board operations.
+    Migration `boards/0030` creates two `pg_trgm` GIN trigram indexes (`card_title_trgm_idx`, `card_desc_trgm_idx`) on the `cards` table using `CREATE INDEX` (not `CREATE INDEX CONCURRENTLY`). A standard index build takes a `SHARE` lock on the table for the duration of the build, blocking writes to `cards`. It takes seconds for most self-hosted deployments; with **millions of cards** it can cause a brief write outage on board operations.
 
     **If you have a large `cards` table and need zero-downtime index creation**, pre-create the indexes before running `migrate`:
 
     ```sql
-    CREATE INDEX CONCURRENTLY IF NOT EXISTS boards_card_title_trgm
-      ON boards_card USING gin (title gin_trgm_ops);
-    CREATE INDEX CONCURRENTLY IF NOT EXISTS boards_card_description_trgm
-      ON boards_card USING gin (description gin_trgm_ops);
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS card_title_trgm_idx
+      ON cards USING gin (title gin_trgm_ops);
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS card_desc_trgm_idx
+      ON cards USING gin (description gin_trgm_ops);
     ```
 
-    Then run `python manage.py migrate` as normal. The migration's `CREATE INDEX IF NOT EXISTS` detects the indexes and skips creation.
+    Run each statement on its own: `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block, so do not wrap them in `BEGIN`/`COMMIT` (psql runs each statement separately by default). The index names must match exactly, or the migration will not find them and will build duplicates.
+
+    Then run `python manage.py migrate` as normal. The migration's `CREATE INDEX IF NOT EXISTS` finds indexes with these exact names and skips creation.
 
 !!! warning "Pre-1.0 installs upgrading directly to 1.1 — `groups/0003_placeholder`"
     If your database was created from any pre-1.0 release **and you upgrade directly to 1.1.x without first running 1.0.x**, apply the `groups/0003_placeholder` reconciliation step from [Upgrading to 1.0.0](#upgrading-to-100) below before `manage.py migrate`. Without it, Django's `InconsistentMigrationHistory` check aborts the upgrade and the schema is not advanced.
