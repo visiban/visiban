@@ -67,7 +67,7 @@ What a client actually sees:
 | Open connection closed with `4003` or `1000` | The close code, as sent. |
 | Open connection closed with `1011` | `1011`. Daphne refuses the server's own `1011` close and sends `1011` itself from its error handler, so the code arrives but the server logs an error for each such close (#2142). |
 
-The Visiban web app treats a failed upgrade like any unexpected close: it keeps reconnecting every 3 seconds, and the indicator shows **Reconnecting…**. So a refused handshake neither stops the retries nor signs you out. Only a `4003` on an open connection stops them (see [Connection status](../features/realtime.md#connection-status)).
+The Visiban web app treats a failed upgrade like any unexpected close: it keeps reconnecting every 3 seconds, and the indicator shows **Reconnecting…**. So a refused handshake neither stops the retries nor signs you out. The retries stop only when the server closes an open connection with `4003` (or `4001`, which the server doesn't send on an open connection today), or when it closes the connection with `1000` twice in a row with no message delivered in between (see [Connection status](../features/realtime.md#connection-status)).
 
 #### Handshake during an outage (since 1.3)
 
@@ -88,7 +88,7 @@ Not covered yet: these outages still fail the handshake with a server error (HTT
 - A cookie handshake with the `db` session engine (the default) while the database is unavailable.
 - A board or group membership lookup during the handshake while the database is unavailable, whichever way the connection was authenticated.
 
-REST requests are not covered either, and **this outage still signs a web app user out**. During a cache-only session outage, Django's session middleware reads the session as empty, so every REST request made with the session cookie answers `401` until the cache recovers. The web app treats a `401` as an expired session, signs the user out, and clears per-user state such as recent boards, as it would for a real expiry. The session itself survives: once the cache recovers, signing in again or reloading the page works. Token and PAT requests are not affected, since those credentials aren't stored in the session cache. Tracked in #2143.
+REST requests are not covered either, and **this outage still signs a web app user out**. During a cache-only session outage, Django's session middleware reads the session as empty, so every REST request made with the session cookie answers `401` until the cache recovers. The web app treats a `401` as an expired session, signs the user out, and clears per-user state such as recent boards, as it would for a real expiry. The session survives on the server, but the browser loses it: the response that answers `401` also deletes the session cookie (Django's session middleware clears the cookie of a session it read as empty), so reloading the page after the cache recovers does not restore it, and the user has to sign in again. Token and PAT requests are not affected, since those credentials aren't stored in the session cache. Tracked in #2143.
 
 ---
 
@@ -711,9 +711,9 @@ ws.onclose = (event) => {
   if (event.code === 4001) {
     // not authenticated — redirect to login
   } else if (event.code === 4003) {
-    // no access to this board — at the handshake, or mid-stream after access
-    // was lost or the credential was revoked (see "Access re-check and
-    // eviction"). Do not auto-retry.
+    // no access to this board — mid-stream, after access was lost or the
+    // credential was revoked (see "Access re-check and eviction"). Do not
+    // auto-retry.
   }
   // otherwise (including 1011, a failed server-side access re-check):
   // reconnect logic and re-fetch full board state
