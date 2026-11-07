@@ -118,6 +118,7 @@ Each template's `.csv` file uses the same layout as **Export → CSV**. Use it t
 - **Swimlane fields.** Owner, budget, tier, and similar facts about each row, pinned to the row header. Some are admin-only and hidden from non-admin members.
 - **Column limits.** WIP and weight limits on the busy columns. On each template one column is deliberately just over its limit, so you can see how that's flagged.
 - **A full audit trail on every card.** Creation, assignments and reassignments, labels added and removed, priority escalations, due-date changes, renames, description edits, checklist items added, checked, unchecked, and deleted, and comments. Each entry has the user and time it happened, written in the same form the app writes it. So every label, assignee, and checked item on a card traces back to the entry that set it.
+- **Block history on Simple Kanban.** Blocked and unblocked entries in the activity trail, two cards with a closed block, and one card that is still blocked.
 - **Movement history.** Cards move through the workflow, sometimes skipping a stage or going back one. Backward moves carry a note explaining why. A card that ends in a lost outcome (Lost, Rejected, Denied) never passes through a winning one first. The heatmap and dwell-time charts are populated as soon as you import.
 - **Archived cards.** Some finished cards are archived, the way a team clears its Done column.
 - **Merge request and issue links.** The engineering boards link cards to fictional GitLab and GitHub URLs.

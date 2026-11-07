@@ -536,7 +536,7 @@ def _add_blocks(cards: list[dict], spec: dict, slug: str, done_cols: set[str]) -
         block = {
             "blocked_at": _iso(start), "blocked_by": who, "reason": reason,
             "unblocked_at": None, "unblocked_by": None, "resolution": "",
-            "column": column, "imported_from_username": "",
+            "column": column,
         }
         acts = [{"event_type": "blocked", "from_value": "", "to_value": reason,
                  "actor": who, "created_at": _iso(start)}]

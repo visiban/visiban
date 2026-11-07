@@ -26,7 +26,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, CardActivity, CardComment, CardExternalRef, CardMovement,
+    Board, CardActivity, CardBlock, CardComment, CardExternalRef, CardMovement,
     CustomFieldDefinition, CustomFieldValue, SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
@@ -255,6 +255,11 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
                     [b["unblocked_at"] for b in blocks if b["unblocked_at"]], (path.name, card["title"]),
                 )
                 open_blocks = [b for b in blocks if not b["unblocked_at"]]
+                for b in blocks:
+                    if b["unblocked_at"]:
+                        self.assertLess(b["blocked_at"], b["unblocked_at"], card["title"])
+                if open_blocks:
+                    self.assertEqual(open_blocks[0]["reason"], card["blocked_reason"], card["title"])
                 self.assertEqual(bool(card.get("blocked_at")), bool(open_blocks), card["title"])
                 self.assertLessEqual(len(open_blocks), 1)
                 closed += len(blocks) - len(open_blocks)
@@ -379,12 +384,29 @@ class SampleBoardImportTests(TestCase):
                     board.cards.filter(archived_at__isnull=False).count(),
                     sum(1 for c in cards if c.get("archived_at")),
                 )
+                self.assertEqual(
+                    CardBlock.objects.filter(board=board).count(), sum(len(c.get("blocks", [])) for c in cards),
+                )
+                self.assertEqual(
+                    board.cards.filter(blocked_at__isnull=False).count(),
+                    sum(1 for c in cards if c.get("blocked_at")),
+                )
                 # Exactly the file's history: no synthetic label / checklist /
                 # weight entries stacked on top of the recorded ones.
                 self.assertEqual(
                     CardActivity.objects.filter(card__board=board).count(),
                     sum(len(c["activities"]) for c in cards),
                 )
+
+    def test_imported_blocks_keep_the_sample_name_beside_the_importer(self):
+        path = SAMPLE_DIR / "simple_kanban.json"
+        board = self._import(path)
+        names = sorted(b["blocked_by"] for c in _load(path)["cards"] for b in c.get("blocks", []))
+        self.assertEqual(len(names), 3)
+        self.assertEqual(
+            sorted(CardBlock.objects.filter(board=board).values_list("imported_from_username", flat=True)),
+            names,
+        )
 
     def test_imported_values_are_stored_as_written(self):
         path = SAMPLE_DIR / "sales_overlay.json"
