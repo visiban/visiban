@@ -251,21 +251,14 @@ MR !<N>: pipeline green, but the branch CONFLICTS with main — not mergeable.
 `not_approved`, `discussions_not_resolved`, `draft_status`, `blocked_status`. Report
 those verbatim rather than calling the MR ready; they need a human.
 
-**Record this pass's cost as a new record** (upstream provenance: `macrodream/blueprint#384`), when
-the MR already carries a `## Cost of this MR` comment and `scripts/cost-ledger enabled` exits 0;
-off, unreadable, or no record 1, post none. A `/fix-mr` pass is a later window, so it never edits
-an earlier record or the `## Gates` lines: the window starts at
-`python3 scripts/cost-table.py --next-since --mr <N>` and ends now (capture `--until` once and save
-the `<iid> <since> <until>` pair in `wave-cost-window.txt` in the git dir, and read it back only
-when its first field is this MR's iid; a re-run of the same record reuses it, as `--next-since`
-returns a posted record's own end). Measure it with the same three scripts `/wave` Step 6 uses
-(its "Work on the MR after record 1" steps), and post with
-`scripts/cost-table.py --comment --ledger ... --post`. The steps and the format are in
-`docs/development/cost-ledger.md` § *The cost comments*, not here. A pass that spawned no subagent
-runs `scripts/subagent-tokens.py --no-agents` and
-`scripts/est-cost.py --no-agents --since ... --until ...` (a measured 0 for the subagent cells,
-never a forgotten `--agent`). A measuring script that cannot run otherwise leaves its cells `n/a`;
-say so in the report.
+**Record this pass's cost as a new record** (upstream provenance: `macrodream/blueprint#384`), once
+the fix is pushed, by running `python3 scripts/post-mr-cost.py --round --mr <N>` and reporting its
+one-line result verbatim. It posts `## Cost of this MR (#N) — record K` (this pass's window plus a
+running total) through `scripts/cost-table.py`, and posts nothing, saying why, when the ledger is
+off or unreadable, the MR carries `cost-ledger: off`, or record 1 is missing. A pass that
+changed nothing and pushed nothing still gets no record unless tokens were measured. The window,
+the format and the by-hand fallback (the three measuring scripts plus `cost-table.py --ledger`)
+are in `docs/development/cost-ledger.md` § *The cost comments*, not here.
 
 ---
 

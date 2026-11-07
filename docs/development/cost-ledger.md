@@ -38,6 +38,7 @@ After any `glab mr create` run by Claude Code, the `.claude/hooks/post-mr-cost.s
 - **No double comment:** if the MR already has a `## Cost of this MR` comment (for example `/wave` posted one), the hook leaves it alone.
 - **Window:** from the last MR the hook posted for in this clone (`mr-cost-last-until` in the git dir), or the session start, to now. Subagents are the top-level ones that started in that window. `/wave` names its agents explicitly and stays the more exact path.
 - **Fail-soft:** if the transcript layout changed or `glab` fails, the hook never blocks the MR. It tells the model what to run by hand.
+- **Fix rounds:** the hook can't see them. `/fix-mr` runs `python3 scripts/post-mr-cost.py --round --mr <N>` after its push, which posts `## Cost of this MR (#N) — record K` for the window since the latest record, with the running total. It posts nothing when the ledger is off, the MR carries `cost-ledger: off`, record 1 is missing, or nothing was measured, and it prints one line saying which. It moves the same `mr-cost-last-until` marker, so the next `glab mr create` doesn't re-count the round. Run it by hand the same way for any other work on an open MR.
 - **Limit:** it only sees `glab mr create` run through Claude Code's Bash tool. An MR opened in the GitLab UI or a plain terminal gets no comment.
 
 ## Check it, and turn it on or off
