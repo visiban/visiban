@@ -1393,7 +1393,7 @@ class BoardImportExportMixin:
         return resolve_group_for_board_placement(request.user, group_id)
 
     @staticmethod
-    def _lock_import_group(group):
+    def _lock_import_group(group, user):
         """Take the target group ``FOR KEY SHARE`` before the board insert; 404 if it is gone.
 
         Call inside the import's ``transaction.atomic()``, before
@@ -1403,7 +1403,8 @@ class BoardImportExportMixin:
         answers 404, the answer for an unknown group, instead of failing the
         new board's deferred group foreign key at COMMIT (#1719). A delete
         that arrives during the import waits for it and then detaches the
-        board.
+        board. ``user`` is then judged against the group-admin rule again on a
+        re-read of the group (the rule ``_resolve_import_group`` applied).
         """
         if group is None:
             return
@@ -1412,6 +1413,12 @@ class BoardImportExportMixin:
 
         if not lock_group_for_board_placement(group.pk):
             raise Http404
+        # Resolved before this transaction; judge the caller against the
+        # group re-read inside it, so a change committed since is seen (a
+        # fresh read, not a wait: see security-invariants Rule 6).
+        from groups.views import require_group_admin_reread
+
+        require_group_admin_reread(user, group)
 
     def _import_json(self, request, file, options):
         """Create a new board from a Visiban JSON export file.
@@ -1734,7 +1741,7 @@ class BoardImportExportMixin:
         skipped = _json_skip_counts(data, options)
 
         with _json_import_write_guard(), transaction.atomic():
-            self._lock_import_group(group)
+            self._lock_import_group(group, request.user)
             board = Board.objects.create(
                 name=board_name,
                 description=data.get("description", ""),
@@ -2323,7 +2330,7 @@ class BoardImportExportMixin:
         board_name = (raw_name or "").replace("\x00", "").strip() or None
         try:
             with transaction.atomic():
-                self._lock_import_group(group)
+                self._lock_import_group(group, request.user)
                 board = _trello.execute_plan(plan, request.user, group=group, board_name=board_name)
                 board_data = self._broadcast_imported_board(request, board)
         except _trello.TrelloImportError as exc:
@@ -2597,7 +2604,7 @@ class BoardImportExportMixin:
             )
 
         with transaction.atomic():
-            self._lock_import_group(group)
+            self._lock_import_group(group, request.user)
             board = Board.objects.create(
                 name=board_name,
                 description="",

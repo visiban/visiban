@@ -152,6 +152,23 @@ def _require_group_admin(user, group):
     raise PermissionDenied(_("You must be a group admin to perform this action."))
 
 
+def require_group_admin_reread(user, group):
+    """Judge ``user`` against ``group`` as stored now, not as loaded earlier.
+
+    ``user_is_group_admin`` walks the ``parent`` chain cached on the instance
+    it is given, so an instance loaded before a write transaction can name an
+    ancestor the group has since left. The placement paths call this inside
+    the transaction, after the group lock, to read the group (and so its
+    parent chain) again before judging the caller.
+    """
+    from rest_framework.exceptions import NotFound
+
+    fresh = Group.objects.filter(pk=group.pk).first()
+    if fresh is None:
+        raise NotFound
+    _require_group_admin(user, fresh)
+
+
 def _is_owner_with_admin_membership(user, group):
     """True if ``user`` owns ``group`` and holds an admin membership on that group itself.
 
@@ -1082,6 +1099,11 @@ class GroupViewSet(viewsets.ModelViewSet):
             from .services import lock_group_for_board_placement
             if not lock_group_for_board_placement(group.pk):
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            # The admin check above ran before this transaction. Judge the
+            # caller again against the group re-read inside it, so a change
+            # committed since is seen (a fresh read; the lock above does not
+            # make a demotion wait, see security-invariants Rule 6).
+            require_group_admin_reread(request.user, group)
             board = serializer.save(owner=request.user, group=group)
             # Create an explicit BoardMembership for the owner so they appear in the
             # board's member list. BoardViewSet.perform_create() does this too; without

@@ -308,6 +308,11 @@ class BoardViewSet(
             target_group = serializer.validated_data.get("group")
             if target_group is not None and not lock_group_for_board_placement(target_group.pk):
                 raise _group_gone_error()
+            # The serializer checked the caller's standing in the group before
+            # this transaction; check it again against the group re-read here,
+            # as the PATCH path does (recheck_group_under_lock). A fresh read,
+            # not a wait: see security-invariants Rule 6.
+            serializer.recheck_group_under_lock(None)
             board = serializer.save(owner=self.request.user)
             BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
 
@@ -760,6 +765,12 @@ class BoardViewSet(
             # being deleted answers 404. See lock_group_for_board_placement.
             if board.group_id is not None and not lock_group_for_board_placement(board.group_id):
                 raise NotFound
+            if board.group_id is not None:
+                # Resolved above, before this transaction; judge the caller
+                # again against the group re-read here (a fresh read, not a
+                # wait: see security-invariants Rule 6).
+                from groups.views import require_group_admin_reread
+                require_group_admin_reread(request.user, board.group)
             # Board row first (#1602): a move queued behind a board delete
             # answers 404 rather than re-inserting the board. update_fields so
             # the write is an UPDATE only and cannot overwrite settings with
