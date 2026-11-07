@@ -59,14 +59,17 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     if (r.bottom < 0 || r.top > window.innerHeight) el.style.visibility = "hidden";
   };
 
-  // Re-measure when the visible options change height (the query narrows the list).
+  // Re-measure when the visible options change height. Keyed on the ids, not the count: an option
+  // is two lines only when its display name differs from its username, so a same-length list can
+  // change height (frontend/CLAUDE.md: never estimate height from an item count).
+  const suggestionKey = suggestions.map((u) => u.id).join(",");
   useLayoutEffect(() => {
     if (!open) {
       sideRef.current = undefined;
       return;
     }
     place();
-  }, [open, suggestions.length]);
+  }, [open, suggestionKey]);
 
   // Re-anchor (never dismiss) on scroll and resize: typing makes the browser scroll the caret into
   // view, so closing on scroll would end the list mid-word. Capture catches inner scroll regions.
