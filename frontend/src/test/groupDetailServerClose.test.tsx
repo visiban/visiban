@@ -5,9 +5,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
-import type { User, Group } from '../types'
+import type { User, Group, Board } from '../types'
 
 // #1374 — real useNavigate so the many `void navigate(...)` sites (escape,
 // 404/403 redirect, create/import board, delete group, breadcrumb, Trello
@@ -137,6 +137,11 @@ function renderGroupDetail(locationState?: Record<string, unknown>, user: User =
     </MemoryRouter>
   )
 }
+const fakeBoard = {
+  id: 10, uid: 'b10', name: 'Board', description: '', owner: fakeUser,
+  group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
+} as unknown as Board
+
 type FakeWS = { onopen: (() => void) | null; onclose: ((e: { code: number }) => void) | null; close: ReturnType<typeof vi.fn> }
 let sockets: FakeWS[]
 class FakeWebSocket {
@@ -293,21 +298,52 @@ describe('GroupDetail first-open resync (#2088)', () => {
     now.mockRestore()
   })
 
-  it('re-reads once when the socket opens before the initial load is applied (unknown load time)', async () => {
+  it('keeps the re-read boards when the older initial load lands after it (unknown load time)', async () => {
     // A small clock makes `now - null` (null coerces to 0) look like a quick open,
     // so only the explicit unknown-load-time branch can produce the re-read.
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(500)
+    const oldBoard = { ...fakeBoard, id: 11, uid: 'old', name: 'Old Board' }
+    const gapBoard = { ...fakeBoard, id: 12, uid: 'gap', name: 'Gap Board' }
     let finish: (v: unknown) => void = () => {}
     mockGetGroup.mockImplementation(() => new Promise((res) => { finish = res }))
+    mockGetGroupBoards.mockResolvedValueOnce([oldBoard]).mockResolvedValue([oldBoard, gapBoard])
     renderGroupDetail()
     await act(async () => {})
     const loads = mockGetGroupBoards.mock.calls.length
     act(() => { sockets[0].onopen?.() })
     await act(async () => {})
     expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
+    // The initial load (older snapshot) completes only now, after the re-read.
     finish({ ...fakeGroup, can_place_boards: true })
     await screen.findByText('+ New board')
+    expect(await screen.findByText('Gap Board')).toBeInTheDocument()
+    now.mockRestore()
+  })
+
+  it('drops a boards re-read answered after the route moved to another group', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    const staleBoard = { ...fakeBoard, id: 21, uid: 'stale', name: 'Stale Board' }
+    render(
+      <MemoryRouter initialEntries={['/groups/1']}>
+        <Link to="/groups/2">go to group 2</Link>
+        <Routes>
+          <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByText('+ New board')
+    let answer: (v: unknown) => void = () => {}
+    mockGetGroupBoards.mockImplementationOnce(() => new Promise((res) => { answer = res }))
+    now.mockReturnValue(1_000_000 + 1500)
+    act(() => { sockets[0].onopen?.() })
+    // Navigate to group 2 while the re-read for group 1 is in flight.
+    mockGetGroupBoards.mockResolvedValue([])
+    fireEvent.click(screen.getByText('go to group 2'))
+    await screen.findByText('+ New board')
+    await act(async () => { answer([staleBoard]) })
+    expect(screen.queryByText('Stale Board')).toBeNull()
     now.mockRestore()
   })
 

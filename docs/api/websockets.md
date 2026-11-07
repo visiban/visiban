@@ -610,7 +610,7 @@ Related behavior and limits:
 
 ### Missed frames
 
-A transient publish failure does **not** close the socket, so a connected client gets no signal that it missed a frame and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect. *(1.3+, #2088)* The group page also re-reads its boards list once (only the boards list, not the group's details, subgroups or members, which #2136 tracks) when its socket first opens more than 1 second after the page loaded (a slow handshake, or a first connection attempt that failed and was retried); a socket that opens sooner does not, so a frame committed inside that shorter gap is missed until the next reconnect. The re-read can revert a `board.updated` frame applied while it is in flight, until the next frame for that board.
+A transient publish failure does **not** close the socket, so a connected client gets no signal that it missed a frame and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect. *(1.3+, #2088)* The group page also re-reads its boards list once (only the boards list, not the group's details, subgroups or members, which #2136 tracks) when its socket first opens more than 1 second after the page loaded (a slow handshake, or a first connection attempt that failed and was retried), or opens before the page's initial load has been applied; a socket that opens sooner than 1 second after the load does not, so a frame committed inside that shorter gap is missed until the next reconnect. Only the most recently started boards read is applied, so a slower earlier read cannot overwrite it. The re-read replaces the whole list, so a frame applied while it is in flight can be undone: a `board.deleted` brings the row back and nothing removes it again, a `board.created` is dropped, and a `board.updated` is reverted until the next frame for that board (tracked in #2139).
 
 How to resync:
 
@@ -622,7 +622,7 @@ How to resync:
     - When the tab regains focus, at most once every 30 seconds.
     - After an event that triggers a refetch.
     - When you choose **Refresh board** in the connection popover.
-- **Group-channel frames** have no feed row, so group clients re-fetch the group's boards list. The web app's group page does this when its socket reconnects, and (since 1.3, #2088) when its socket first opens more than 1 second after the page loaded. Only the boards list is re-read; the group's details, subgroups and members are not (tracked in #2136). A first open within that 1 second does not re-read, so a change committed in that shorter gap is missed until the next reconnect.
+- **Group-channel frames** have no feed row, so group clients re-fetch the group's boards list. The web app's group page does this when its socket reconnects, and (since 1.3, #2088) when its socket first opens more than 1 second after the page loaded or before the initial load has been applied. Only the boards list is re-read; the group's details, subgroups and members are not (tracked in #2136). A first open within that 1 second does not re-read, so a change committed in that shorter gap is missed until the next reconnect.
 
 ---
 

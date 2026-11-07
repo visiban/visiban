@@ -168,12 +168,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // flight. The socket's first open is compared with it (#2088). A ref, not
   // state: only that open reads it.
   const loadedAtRef = useRef<number | null>(null);
+  // Sequence for writes of the direct boards list: only the most recently
+  // STARTED fetch may apply (#2088), like useBoard's silentReload. Without it the
+  // initial load, which also waits on getGroup/getSubgroups/getGroupMembers,
+  // can land after a first-open or reconnect re-read and overwrite it with an
+  // older list. A group change bumps it too, so a re-read answered for the
+  // previous group never lands on the next group's page.
+  const boardsSeqRef = useRef(0);
 
   useEffect(() => {
     setLoading(true);
     setUnavailable(false);
     setError(null);
     loadedAtRef.current = null;
+    const boardsSeq = ++boardsSeqRef.current;
     // Set by cleanup when the route moves to another group: a late answer for
     // the previous group must not write into, or mark unavailable, the new one.
     let stale = false;
@@ -188,7 +196,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       setGroup(g);
       setIsStarred(g.is_starred);
       setSubgroups(sg);
-      setBoards(b);
+      if (boardsSeq === boardsSeqRef.current) setBoards(b);
       setMembers(m);
     }).catch((err: unknown) => {
         if (stale) return;
@@ -243,9 +251,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // A ref, so the socket handler does not re-subscribe when the toggle flips.
   const showSubgroupBoardsRef = useRef(false);
   const directBoardIdsRef = useRef<Set<number>>(new Set());
+  const refetchBoardsList = useCallback(() => {
+    const seq = ++boardsSeqRef.current;
+    getGroupBoards(groupId)
+      .then((b) => { if (seq === boardsSeqRef.current) setBoards(b); })
+      .catch(() => { /* stay with current list */ });
+  }, [groupId]);
   const refreshHealthListings = useCallback(() => {
     getSubgroups(groupId).then(setSubgroups).catch(() => { /* stay with current list */ });
-    getGroupBoards(groupId).then(setBoards).catch(() => { /* stay with current list */ });
+    refetchBoardsList();
     if (showSubgroupBoardsRef.current) {
       getGroupDescendantBoards(groupId)
         .then((bs) => setSubgroupBoards(bs.filter((b) => !directBoardIdsRef.current.has(b.id))))
@@ -377,8 +391,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Events fired while the socket was disconnected are not replayed. Refetch
   // the boards list after a reconnect so the UI converges with server state.
   const handleReconnected = useCallback(() => {
-    getGroupBoards(groupId).then(setBoards).catch(() => { /* stay with current list */ });
-  }, [groupId]);
+    refetchBoardsList();
+  }, [refetchBoardsList]);
 
   // First open (#2088): the socket joins the group's broadcast group only during
   // its handshake, after the lists loaded, so a frame committed in between is in
@@ -390,12 +404,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Only the boards list is re-read, as on a reconnect; the group, subgroups and
   // members are not (follow-up #2136).
   //
-  // #2038 residual: the re-read replaces the list with a snapshot that can be
-  // older than a board.* frame applied while it is in flight, reverting that
-  // row until the next frame or resync. Not guarded here: the socket has already
-  // joined, so it is the same exposure every reconnect has, runs at most once
-  // per socket, and group rows are whole-object patches that the next frame for
-  // that board repairs.
+  // #2038 residual, NOT guarded here (follow-up #2139): the re-read replaces the
+  // whole list, so a board.deleted applied while it is in flight brings the row
+  // back with no later frame to remove it, a board.created is dropped, and a
+  // board.updated is reverted until the next frame for that board. The socket
+  // has already joined, so this is the exposure every reconnect has, and the
+  // first-open re-read runs at most once per socket.
   const handleFirstConnected = useCallback(() => {
     const loadedAt = loadedAtRef.current;
     if (loadedAt === null || Date.now() - loadedAt > FIRST_OPEN_RESYNC_MS) handleReconnected();
