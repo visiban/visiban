@@ -293,6 +293,24 @@ describe('GroupDetail first-open resync (#2088)', () => {
     now.mockRestore()
   })
 
+  it('re-reads once when the socket opens before the initial load is applied (unknown load time)', async () => {
+    // A small clock makes `now - null` (null coerces to 0) look like a quick open,
+    // so only the explicit unknown-load-time branch can produce the re-read.
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(500)
+    let finish: (v: unknown) => void = () => {}
+    mockGetGroup.mockImplementation(() => new Promise((res) => { finish = res }))
+    renderGroupDetail()
+    await act(async () => {})
+    const loads = mockGetGroupBoards.mock.calls.length
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
+    finish({ ...fakeGroup, can_place_boards: true })
+    await screen.findByText('+ New board')
+    now.mockRestore()
+  })
+
   it('does not re-read when the socket first opens within 1 s of the load', async () => {
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1_000_000)

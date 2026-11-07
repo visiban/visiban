@@ -387,6 +387,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // prompt open does not re-read, so every group open does not pay twice. An
   // unknown load time (load still in flight) counts as a long gap.
   //
+  // Only the boards list is re-read, as on a reconnect; the group, subgroups and
+  // members are not (follow-up #2136).
+  //
   // #2038 residual: the re-read replaces the list with a snapshot that can be
   // older than a board.* frame applied while it is in flight, reverting that
   // row until the next frame or resync. Not guarded here: the socket has already
