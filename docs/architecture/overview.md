@@ -66,7 +66,7 @@ A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by Pos
 ## WebSocket lifecycle
 
 1. Frontend opens `ws://{host}/ws/boards/{board_id}/` on page load
-2. `AuthMiddlewareStack` authenticates the connection via the session cookie; unauthenticated connections close with code 4001. A caller with no session cookie (a PAT/DRF-token client, a different origin, or a native/CLI client) first requests a short-lived, single-use **ticket** over REST and passes it as `?ticket=` on the upgrade (`accounts.ws_auth.TicketAuthMiddleware`, #1109). The ticket only authenticates the connection; it grants no extra authorization
+2. `AuthMiddlewareStack` authenticates the connection via the session cookie; unauthenticated connections close with code 4001. Every handshake close happens before accept, so Daphne answers it with HTTP 403 and the client never sees the code (browsers report 1006; #2145, see [How a refused handshake reaches the client](../api/websockets.md#how-a-refused-handshake-reaches-the-client)). A caller with no session cookie (a PAT/DRF-token client, a different origin, or a native/CLI client) first requests a short-lived, single-use **ticket** over REST and passes it as `?ticket=` on the upgrade (`accounts.ws_auth.TicketAuthMiddleware`, #1109). The ticket only authenticates the connection; it grants no extra authorization
 3. On connect, the consumer joins the `board_{id}` channel group and separately checks board membership, closing with code 4003 for a non-member (or an account with a pending password or username change), however the connection was authenticated
 4. Any mutation (card move, update, delete) calls `broadcast_board_event()` which publishes to Valkey
 5. Valkey fans the event out to all consumers in the group

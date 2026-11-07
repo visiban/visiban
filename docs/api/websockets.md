@@ -11,7 +11,7 @@ Every frame arrives as `{ "event": "card.moved", "data": { ... }, "event_id": 84
 
 **Why it matters:** a handler written against these events also serves the [change feed](events.md), which carries the same payloads.
 
-**Watch out:** a ticket is consumed by the upgrade, so get a new one for every connection attempt, including every reconnect. A failed handshake closes with `4001` (not authenticated) or `4003` (not a board member).
+**Watch out:** a ticket is consumed by the upgrade, so get a new one for every connection attempt, including every reconnect. A failed handshake closes with `4001` (not authenticated) or `4003` (not a board member), but through the bundled server (Daphne) your client receives a refused upgrade (HTTP `403`), not the code. See [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
 
 **Go deeper:** [Ticket authentication](#ticket-authentication-since-12), [Event reference](#event-reference), [Delivery guarantees](#delivery-guarantees), [Client example](#client-example-javascript).
 
@@ -44,7 +44,7 @@ There are two ways to authenticate the handshake:
 
 When a handshake carries an `Origin` header (browsers always send one), it must match a configured origin: an entry in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, or an origin whose host equals an exact (non-pattern) `ALLOWED_HOSTS` entry. A handshake whose `Origin` matches none of these is refused before authentication. Clients that send no `Origin` header (CLI, native, and agent clients using a ticket) are not affected. The exact-host match ignores both the scheme and the port (an `http` origin matches an `https` host). `ALLOWED_HOSTS` entries that are `*` or start with a dot (such as `.example.com`) are not applied to this match: an install that uses them must list its public origin (for example `https://boards.example.com`) in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, otherwise browser WebSocket connections are refused. An `Origin` that includes credentials, a path, a query, or a fragment, or more than one `Origin` header, is refused. `manage.py check` and `check --deploy` emit system-check warning `accounts.W002` when `DEBUG` is off, `ALLOWED_HOSTS` contains `*` or a leading-dot entry, no non-loopback origin is listed in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, and no exact public host is listed in `ALLOWED_HOSTS`. Listing a public origin clears it. To accept the configuration deliberately, add `"accounts.W002"` to `SILENCED_SYSTEM_CHECKS` (set the `SILENCED_SYSTEM_CHECKS=accounts.W002` environment variable; Helm: `backend.settings.silencedSystemChecks`).
 
-The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails. The table also lists `1011`, which the server sends when an authentication or access check cannot complete, on an open connection or (since 1.3) at the handshake:
+The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails. The table also lists `1011`, which the server sends when an authentication or access check cannot complete, on an open connection or (since 1.3) at the handshake. A code sent at the handshake reaches the client as a refused upgrade, not as the code; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
 
 | Close code | Meaning |
 |---|---|
@@ -53,6 +53,21 @@ The server checks board membership before completing the handshake, regardless o
 | `1011` | Internal error (standard code, since 1.2 for this case) — the server could not complete the mid-stream access re-check, for example during a database outage. The frame that triggered the check is not delivered. This is not a loss of access: reconnect. The Visiban web app reconnects after its fixed reconnect delay (3 seconds); exponential backoff is tracked in #606. Until the server recovers the reconnect handshake can fail too, so keep retrying. The server also sends `1011` if it fails unexpectedly after the handshake. Since 1.3, `1011` is also the code for a handshake whose authentication could not be checked; see [Handshake during an outage](#handshake-during-an-outage-since-13). |
 
 Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
+
+#### How a refused handshake reaches the client
+
+Every handshake refusal on this page (a `4001`, a `4003`, or a `1011` before the connection opens) is sent before the upgrade completes. The ASGI specification has the server answer a close before accept with HTTP `403`, and the bundled server (Daphne) does so whatever the code. **A client never receives a close code for a refused handshake:** browsers report a failed connection with close code `1006`, and other WebSocket libraries report an HTTP `403` handshake failure. Delivering the handshake codes to clients is tracked in #2145.
+
+What a client actually sees:
+
+| When | What the client receives |
+|---|---|
+| Handshake refused (`4001`, `4003`, or `1011` in the tables on this page) | HTTP `403` on the upgrade. A browser reports close code `1006`. A client can't tell the reasons apart: check the credential and access over REST before retrying, and get a fresh ticket for every attempt. |
+| Handshake fails with a server error (see [Handshake during an outage](#handshake-during-an-outage-since-13)) | HTTP `500` on the upgrade. A browser reports close code `1006`. Retry. |
+| Open connection closed with `4003` or `1000` | The close code, as sent. |
+| Open connection closed with `1011` | `1011`. Daphne refuses the server's own `1011` close and sends `1011` itself from its error handler, so the code arrives but the server logs an error for each such close (#2142). |
+
+The Visiban web app treats a failed upgrade like any unexpected close: it keeps reconnecting every 3 seconds, and the indicator shows **Reconnecting…**. So a refused handshake neither stops the retries nor signs you out. Only a `4003` on an open connection stops them (see [Connection status](../features/realtime.md#connection-status)).
 
 #### Handshake during an outage (since 1.3)
 
@@ -65,11 +80,15 @@ A handshake whose authentication cannot be checked because a server-side store f
 | Ticket | The ticket cache, the database, or the cache-only session backend that holds the minting session fails while the ticket is redeemed | `1011`. If the ticket was already claimed when the failure happened, it stays spent: get a new ticket for the retry, as for every connection attempt. |
 | Ticket | The ticket is expired, already spent, or tampered with, or its minting credential is revoked | `4001`, as before. |
 
-The `db` (default) and `cached_db` session engines do not read a cache outage as a missing session, so they are not affected by the first row. A database outage during a cookie handshake is not covered by this table: it fails the handshake as a server error, and the client retries.
+Like every handshake refusal, these codes reach a client as a refused upgrade (HTTP `403`) through the bundled server; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client). They're still the server's answer, and the `1011` keeps an outage from being recorded as a failed authentication.
 
-The handshake codes in this section and in the table above are sent before the upgrade completes. The bundled ASGI server (Daphne) answers any refused upgrade with HTTP `403`, whatever the code, so a client connecting through it sees a failed upgrade (browsers report close code `1006`) and cannot tell a `1011` from a `4001` at the handshake. The Visiban web app reconnects after any failed upgrade, so an outage during the handshake does not sign the user out. On an open connection the codes reach the client as sent.
+Not covered yet: these outages still fail the handshake with a server error (HTTP `500` on the upgrade, and the server logs the error) instead of the `1011` above. The client retries in each case. Tracked in #2144:
 
-REST requests are not covered: during the same cache-only session outage, Django's session middleware reads the session as empty, so a REST request made with the session cookie is unauthenticated (`401` or `403`) until the cache recovers. Token and PAT requests are not affected, since those credentials are not stored in the session cache.
+- A cookie handshake with the `cached_db` session engine while the cache is unavailable. Its session lookup falls back to the database, but writing the session back to the cache then fails.
+- A cookie handshake with the `db` session engine (the default) while the database is unavailable.
+- A board or group membership lookup during the handshake while the database is unavailable, whichever way the connection was authenticated.
+
+REST requests are not covered either, and **this outage still signs a web app user out**. During a cache-only session outage, Django's session middleware reads the session as empty, so every REST request made with the session cookie answers `401` until the cache recovers. The web app treats a `401` as an expired session, signs the user out, and clears per-user state such as recent boards, as it would for a real expiry. The session itself survives: once the cache recovers, signing in again or reloading the page works. Token and PAT requests are not affected, since those credentials aren't stored in the session cache. Tracked in #2143.
 
 ---
 
@@ -77,7 +96,7 @@ REST requests are not covered: during the same cache-only session outage, Django
 
 Session and CSRF cookies are `SameSite=Lax`, so the cookie is not sent on a WebSocket upgrade initiated from another origin. Native, CLI, and agent clients have no cookie jar at all. Those clients authenticate with a **ticket**: a short-lived, single-use credential obtained over REST and spent on the handshake.
 
-A ticket **authenticates only**. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with `4003` exactly as a session connection would be.
+A ticket **authenticates only**. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with `4003` exactly as a session connection would be (received as a refused upgrade, like every handshake refusal; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)).
 
 ### 1. Obtain a ticket
 
@@ -107,6 +126,8 @@ The upgrade consumes the ticket. **Get a new ticket for every connection attempt
 
 ### Rules
 
+Each handshake refusal below reaches your client as a refused upgrade (HTTP `403`), not as the close code it names; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
+
 | Rule | Detail |
 |---|---|
 | Single use | The first connection to present a ticket consumes it. A replay is closed with `4001`. |
@@ -117,7 +138,7 @@ The upgrade consumes the ticket. **Get a new ticket for every connection attempt
 | Bound to its credential | A ticket is bound to the credential it was obtained with (since 1.2, #1483). If that credential is revoked before the ticket is spent (logout, PAT deleted or expired, session token deleted), the handshake is closed with `4001`. After the handshake, the socket stays bound to it. See [Credential revocation](#credential-revocation-since-12). |
 
 !!! warning "Do not put a Personal Access Token in the WebSocket URL"
-    Query strings are recorded in reverse-proxy access logs and proxy history. A PAT placed there is a long-lived credential leak with no time limit. A ticket is single-use and expires in 30 seconds, which bounds the exposure — but it does not remove it: anything able to read the access log and redeem the ticket before your client's own upgrade arrives would win the race and connect as you, once. Single use at least makes that visible rather than silent, since your own connection is then rejected with `4001`.
+    Query strings are recorded in reverse-proxy access logs and proxy history. A PAT placed there is a long-lived credential leak with no time limit. A ticket is single-use and expires in 30 seconds, which bounds the exposure — but it does not remove it: anything able to read the access log and redeem the ticket before your client's own upgrade arrives would win the race and connect as you, once. Single use at least makes that visible rather than silent, since your own connection is then refused (a `4001`, which your client receives as a refused upgrade).
 
     If you terminate TLS at a proxy you control, drop the query string from the access-log format for the `/ws/` location to close this off entirely.
 
@@ -539,7 +560,7 @@ Pushes board create/update/delete events for boards that currently live in the g
 ws://<host>/ws/groups/<group_id>/
 ```
 
-Authentication uses the same two mechanisms as the board channel — session cookie, or a [ticket](#ticket-authentication-since-12) for token-authenticated clients. The server checks that the user is a member of the group or one of its ancestors before completing the handshake and closes with the same `4001` / `4003` codes on failure. *(1.2+)* Only a membership with one of the four roles (`admin`, `member`, `collaborator`, `viewer`) counts, as for the [group REST routes](groups.md#get-apiv1groups); owning the group is not enough on its own (#1829).
+Authentication uses the same two mechanisms as the board channel — session cookie, or a [ticket](#ticket-authentication-since-12) for token-authenticated clients. The server checks that the user is a member of the group or one of its ancestors before completing the handshake and closes with the same `4001` / `4003` codes on failure (a client receives them as a refused upgrade; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)). *(1.2+)* Only a membership with one of the four roles (`admin`, `member`, `collaborator`, `viewer`) counts, as for the [group REST routes](groups.md#get-apiv1groups); owning the group is not enough on its own (#1829).
 
 *(1.2+)* `board.created` and `board.updated` are delivered only to subscribers who can open that board, judged as for [`GET /api/v1/boards/{id}/`](boards.md#get-apiv1boardsid) and the board channel. A group member whose own membership on one board grants no access (its stored role is not one of the four roles) does not receive that board's frames; the socket stays open and every other frame is delivered (#1829). A `board.created` or `board.updated` frame whose `data` has no integer `id` is not delivered to anyone. Whether a subscriber can open a board is re-evaluated with the [access re-check](#access-re-check-and-eviction), so a change to their role on that board takes effect within the same window (about 7 seconds). `board.deleted` is not filtered: it carries only the board's identifiers.
 
@@ -683,6 +704,10 @@ ws.onmessage = (event) => {
 // See the Change Feed page for the cursor and 410 re-sync rules.
 
 ws.onclose = (event) => {
+  // A refused handshake never arrives here as 4001 or 4003 through the
+  // bundled server (Daphne): the browser reports 1006 for it, like any failed
+  // connection (#2145). These branches only see codes sent on an open
+  // connection, which today means 4003 (and 1000).
   if (event.code === 4001) {
     // not authenticated — redirect to login
   } else if (event.code === 4003) {

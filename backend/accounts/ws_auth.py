@@ -70,12 +70,17 @@ an outage says nothing about the credential. 1011 is the code the consumers
 already use when their mid-stream re-check cannot complete (#2003, #2014), so
 the same "server error, retry" reading holds before and after accept.
 
-Transport caveat: every refusal here happens before accept, and Daphne answers
-any pre-accept close with HTTP 403 whatever the code, so a browser sees a
-failed upgrade (1006) for 4001 and 1011 alike. The codes are still the ASGI
-contract (what tests, and any server that surfaces them, observe), and the
-refusal must still not raise: an exception here is a Daphne 500 whose log line
-carries the exception message.
+Transport caveat: every refusal here happens before accept. The ASGI spec has
+the server answer a close before accept with HTTP 403, and Daphne does so
+whatever the code, so no client ever receives 4001 or 1011 from a handshake
+(a browser reports a failed upgrade, 1006). The code is therefore only the
+application's verdict: what the ASGI test communicator observes and what a
+future accept-then-close handshake would deliver (#2145). The refusal must
+still not raise: an exception here is a Daphne 500 whose log line carries the
+exception message. Other handshake-time outages still do raise, outside this
+middleware (#2144): ``cached_db`` during a cache outage (its ``load()`` falls
+back to the database, then the cache write-back raises), the ``db`` engine
+during a database outage, and the consumers' connect() lookups.
 """
 
 import hashlib
@@ -420,7 +425,9 @@ def _is_cache_only_store(store) -> bool:
 
     ``cached_db`` subclasses the db store, not the cache one, so it is not
     matched: its ``load()`` falls back to the database on a cache error and
-    never conflates an outage with an absent session.
+    never conflates an outage with an absent session. (Its write-back to the
+    cache after that fallback can still raise during an outage, which is a
+    raise, not a false denial; at the handshake that is #2144.)
     """
     from django.contrib.sessions.backends.cache import SessionStore as CacheSessionStore
 
