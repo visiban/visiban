@@ -166,6 +166,10 @@ ADMIN_GATE="        _require_group_admin(request.user, group)"
 # checker cannot read. Either way it must not read as a pass.
 copy_tree "$TMP/member"
 strip_gate "$TMP/member/backend/groups/views.py" "    def boards(self, request" "$ADMIN_GATE"
+# The in-transaction re-check (#2115) re-runs the same admin gate, so a fixture
+# that kept it would still hold the role check; membership alone drops both.
+strip_gate "$TMP/member/backend/groups/views.py" "    def boards(self, request" \
+  "            require_group_admin_reread(request.user, group)"
 run_gate --root "$TMP/member"
 check "group membership alone does not satisfy the role check (exit 3)" \
   "$([ "$RC" -eq 3 ] && echo 0 || echo 1)"
