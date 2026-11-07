@@ -41,16 +41,11 @@ TEMPLATES = sorted(p for p in SAMPLE_DIR.glob("*.json") if p.name != "manifest.j
 
 # Every CardActivity type the JSON format can carry. Attachments are the
 # exception: the format has no attachment payload, so a sample entry would
-# point at a file that does not exist. The manual-block types (#1149) are not
-# in the shipped samples yet: a blocked/unblocked activity without the
-# matching per-card `blocks` history and `blocked_at` state would show an
-# activity trail that contradicts the card, and teaching the generator to emit
-# all three is a sample-content change of its own, tracked in #2061.
+# point at a file that does not exist.
 CARRIED_EVENT_TYPES = {
     e.value for e in CardActivity.EventType
 } - {
     CardActivity.EventType.ATTACHMENT_ADDED, CardActivity.EventType.ATTACHMENT_DELETED,
-    CardActivity.EventType.BLOCKED, CardActivity.EventType.UNBLOCKED,
 }
 
 # (title regex, columns the card may legitimately sit in) per template.
@@ -242,6 +237,30 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
             event_types |= {a["event_type"] for c in data["cards"] for a in c["activities"]}
         self.assertEqual(field_types, {t.value for t in CustomFieldDefinition.FieldType})
         self.assertEqual(event_types, CARRIED_EVENT_TYPES)
+
+    def test_block_history_is_consistent_with_the_block_activities(self):
+        """#2061: the samples carry one closed and one open block, and each
+        card's `blocks`, `blocked_at` and blocked/unblocked activities agree."""
+        closed = opened = 0
+        for path in TEMPLATES:
+            for card in _load(path)["cards"]:
+                acts = [a for a in card["activities"] if a["event_type"] in ("blocked", "unblocked")]
+                blocks = card.get("blocks", [])
+                self.assertEqual(
+                    [a["created_at"] for a in acts if a["event_type"] == "blocked"],
+                    [b["blocked_at"] for b in blocks], (path.name, card["title"]),
+                )
+                self.assertEqual(
+                    [a["created_at"] for a in acts if a["event_type"] == "unblocked"],
+                    [b["unblocked_at"] for b in blocks if b["unblocked_at"]], (path.name, card["title"]),
+                )
+                open_blocks = [b for b in blocks if not b["unblocked_at"]]
+                self.assertEqual(bool(card.get("blocked_at")), bool(open_blocks), card["title"])
+                self.assertLessEqual(len(open_blocks), 1)
+                closed += len(blocks) - len(open_blocks)
+                opened += len(open_blocks)
+        self.assertGreaterEqual(closed, 1)
+        self.assertGreaterEqual(opened, 1)
 
     def test_newest_event_is_a_day_before_the_anchor(self):
         """An import moves the anchor (noon) to noon on the import day. With
