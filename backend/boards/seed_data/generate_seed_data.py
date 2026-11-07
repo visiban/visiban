@@ -482,6 +482,79 @@ def _archive_some(cards: list[dict], done_cols: set[str], slug: str) -> None:
         })
 
 
+# ── Manual blocks (#1149, #2061) ──────────────────────────────────────────────
+# Boards that carry block history, and how many cards get a closed block (an
+# activity pair plus an ended `blocks[]` entry) and an open one (blocked now).
+# One board is enough to show the feature and cover both activity types;
+# every other sample stays byte-identical.
+BLOCK_SAMPLES = {"simple_kanban": {"closed": 2, "open": 1}}
+
+_BLOCK_REASONS = [
+    "Waiting on a decision from the stakeholder.",
+    "Blocked on a vendor reply.",
+    "Needs access that has not been granted yet.",
+]
+_BLOCK_RESOLUTIONS = [
+    "Decision made; work resumed.",
+    "Vendor replied with what we needed.",
+    "Access granted.",
+]
+
+
+def _add_blocks(cards: list[dict], spec: dict, slug: str, done_cols: set[str]) -> None:
+    """Give a few cards block history, in the shape the board exporter writes.
+
+    A closed block is a ``blocks[]`` entry with ``unblocked_at`` plus a
+    ``blocked`` and an ``unblocked`` activity at the same instants; an open
+    block is the card's own ``blocked_at`` / ``blocked_reason``, one open
+    ``blocks[]`` entry and a ``blocked`` activity. Live cards outside a done
+    column only, each with room to spare before the anchor, so every stamp
+    stays a day clear of it (#1889). Draws from private per-card generators,
+    so no other card or template shifts.
+    """
+    eligible = []
+    for card in cards:
+        if card.get("archived_at") or card["column"] in done_cols:
+            continue
+        created = _parse(card["movements"][0]["moved_at"])
+        if ANCHOR - timedelta(days=1) - created >= timedelta(days=4):
+            eligible.append(card)
+    eligible.sort(key=lambda c: zlib.crc32(f"{slug}|block|{c['title']}".encode()))
+    picks = eligible[: spec["closed"] + spec["open"]]
+    for n, card in enumerate(picks):
+        rng = _card_rng(slug, "block:" + card["title"])
+        is_open = n >= spec["closed"]
+        created = _parse(card["movements"][0]["moved_at"])
+        horizon = ANCHOR - timedelta(days=1)
+        start = created + timedelta(hours=rng.randint(12, 48))
+        who = rng.choice(DEMO_USERS)
+        reason = _BLOCK_REASONS[n % len(_BLOCK_REASONS)]
+        column = card["column"]
+        for mv in card["movements"]:
+            if _parse(mv["moved_at"]) <= start:
+                column = mv["to_column"]
+        block = {
+            "blocked_at": _iso(start), "blocked_by": who, "reason": reason,
+            "unblocked_at": None, "unblocked_by": None, "resolution": "",
+            "column": column,
+        }
+        acts = [{"event_type": "blocked", "from_value": "", "to_value": reason,
+                 "actor": who, "created_at": _iso(start)}]
+        if is_open:
+            card["blocked_at"] = _iso(start)
+            card["blocked_reason"] = reason
+        else:
+            end = min(start + timedelta(hours=rng.randint(20, 96)), horizon)
+            resolution = _BLOCK_RESOLUTIONS[n % len(_BLOCK_RESOLUTIONS)]
+            block.update(unblocked_at=_iso(end), unblocked_by=who, resolution=resolution)
+            acts.append({"event_type": "unblocked", "from_value": reason,
+                         "to_value": resolution, "actor": who, "created_at": _iso(end)})
+            card["blocked_at"] = None
+            card["blocked_reason"] = ""
+        card["blocks"] = [block]
+        card["activities"] = sorted(card["activities"] + acts, key=lambda a: a["created_at"])
+
+
 # ── Card enrichment ───────────────────────────────────────────────────────────
 def _enrich(card: dict, col_names: list[str], card_seed: int, slug: str,
             label_pool: list[str], descriptions: list[str], done_cols: set[str]) -> dict:
@@ -547,6 +620,8 @@ def _build(tpl: dict, features: dict | None = None) -> dict:
     _apply_features(data, features or {}, slug)
     _archive_some(enriched, {c["name"] for c in data["columns"] if c["is_done"]}, slug)
     _set_column_limits(data, (features or {}).get("column_limits", {}))
+    if slug in BLOCK_SAMPLES:
+        _add_blocks(enriched, BLOCK_SAMPLES[slug], slug, {c["name"] for c in data["columns"] if c["is_done"]})
     # Key order matches the board exporter, so a sample diffs cleanly
     # against an export of the board it produces.
     order = ["schema_version", "name", "description", "columns", "swimlanes",

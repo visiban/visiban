@@ -26,7 +26,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, CardActivity, CardComment, CardExternalRef, CardMovement,
+    Board, CardActivity, CardBlock, CardComment, CardExternalRef, CardMovement,
     CustomFieldDefinition, CustomFieldValue, SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
@@ -41,16 +41,11 @@ TEMPLATES = sorted(p for p in SAMPLE_DIR.glob("*.json") if p.name != "manifest.j
 
 # Every CardActivity type the JSON format can carry. Attachments are the
 # exception: the format has no attachment payload, so a sample entry would
-# point at a file that does not exist. The manual-block types (#1149) are not
-# in the shipped samples yet: a blocked/unblocked activity without the
-# matching per-card `blocks` history and `blocked_at` state would show an
-# activity trail that contradicts the card, and teaching the generator to emit
-# all three is a sample-content change of its own, tracked in #2061.
+# point at a file that does not exist.
 CARRIED_EVENT_TYPES = {
     e.value for e in CardActivity.EventType
 } - {
     CardActivity.EventType.ATTACHMENT_ADDED, CardActivity.EventType.ATTACHMENT_DELETED,
-    CardActivity.EventType.BLOCKED, CardActivity.EventType.UNBLOCKED,
 }
 
 # (title regex, columns the card may legitimately sit in) per template.
@@ -243,6 +238,39 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
         self.assertEqual(field_types, {t.value for t in CustomFieldDefinition.FieldType})
         self.assertEqual(event_types, CARRIED_EVENT_TYPES)
 
+    def test_block_history_is_consistent_with_the_block_activities(self):
+        """#2061: the samples carry one closed and one open block, and each
+        card's `blocks`, `blocked_at` and blocked/unblocked activities agree."""
+        closed = opened = 0
+        for path in TEMPLATES:
+            for card in _load(path)["cards"]:
+                acts = [a for a in card["activities"] if a["event_type"] in ("blocked", "unblocked")]
+                blocks = card.get("blocks", [])
+                self.assertEqual(
+                    [a["created_at"] for a in acts if a["event_type"] == "blocked"],
+                    [b["blocked_at"] for b in blocks], (path.name, card["title"]),
+                )
+                self.assertEqual(
+                    [a["created_at"] for a in acts if a["event_type"] == "unblocked"],
+                    [b["unblocked_at"] for b in blocks if b["unblocked_at"]], (path.name, card["title"]),
+                )
+                open_blocks = [b for b in blocks if not b["unblocked_at"]]
+                for b in blocks:
+                    if b["unblocked_at"]:
+                        self.assertLess(b["blocked_at"], b["unblocked_at"], card["title"])
+                if open_blocks:
+                    self.assertEqual(open_blocks[0]["reason"], card["blocked_reason"], card["title"])
+                    # The importer opens the CardBlock from the card's own blocked_at.
+                    self.assertEqual(open_blocks[0]["blocked_at"], card["blocked_at"], card["title"])
+                    blocked_acts = [a["created_at"] for a in acts if a["event_type"] == "blocked"]
+                    self.assertEqual(blocked_acts[-1], card["blocked_at"], card["title"])
+                self.assertEqual(bool(card.get("blocked_at")), bool(open_blocks), card["title"])
+                self.assertLessEqual(len(open_blocks), 1)
+                closed += len(blocks) - len(open_blocks)
+                opened += len(open_blocks)
+        self.assertGreaterEqual(closed, 1)
+        self.assertGreaterEqual(opened, 1)
+
     def test_newest_event_is_a_day_before_the_anchor(self):
         """An import moves the anchor (noon) to noon on the import day. With
         every event at least a day before it, an import at any hour dates
@@ -255,7 +283,8 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
             stamps = [
                 datetime.datetime.fromisoformat(ts)
                 for c in data["cards"]
-                for ts in [c.get("created_at"), c.get("archived_at")]
+                for ts in [c.get("created_at"), c.get("archived_at"), c.get("blocked_at")]
+                + [t for b in c.get("blocks", []) for t in (b["blocked_at"], b["unblocked_at"])]
                 + [m["moved_at"] for m in c["movements"]]
                 + [a["created_at"] for a in c["activities"]]
                 + [cm["created_at"] for cm in c["comments"]]
@@ -360,12 +389,29 @@ class SampleBoardImportTests(TestCase):
                     board.cards.filter(archived_at__isnull=False).count(),
                     sum(1 for c in cards if c.get("archived_at")),
                 )
+                self.assertEqual(
+                    CardBlock.objects.filter(board=board).count(), sum(len(c.get("blocks", [])) for c in cards),
+                )
+                self.assertEqual(
+                    board.cards.filter(blocked_at__isnull=False).count(),
+                    sum(1 for c in cards if c.get("blocked_at")),
+                )
                 # Exactly the file's history: no synthetic label / checklist /
                 # weight entries stacked on top of the recorded ones.
                 self.assertEqual(
                     CardActivity.objects.filter(card__board=board).count(),
                     sum(len(c["activities"]) for c in cards),
                 )
+
+    def test_imported_blocks_keep_the_sample_name_beside_the_importer(self):
+        path = SAMPLE_DIR / "simple_kanban.json"
+        board = self._import(path)
+        names = sorted(b["blocked_by"] for c in _load(path)["cards"] for b in c.get("blocks", []))
+        self.assertEqual(len(names), 3)
+        self.assertEqual(
+            sorted(CardBlock.objects.filter(board=board).values_list("imported_from_username", flat=True)),
+            names,
+        )
 
     def test_imported_values_are_stored_as_written(self):
         path = SAMPLE_DIR / "sales_overlay.json"
