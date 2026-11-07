@@ -39,7 +39,7 @@ Entry points use file and function names, not line numbers, so the table survive
 **What it doesn't enumerate.**
 
 - Rule 3: the revocation table is a review checklist.
-- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15 and Rule 16: review checklists, pinned by the tests named under each.
+- Rule 5, Rule 9, Rule 10, Rule 13, Rule 14, Rule 15, Rule 16 and Rule 17: review checklists, pinned by the tests named under each.
 - Locking: the concurrent tests for each consume-once path cover it.
 - Rules 11 and 12 are enumerated by their own tests instead: `groups/tests/test_group_member_guards.py` `GroupMembershipEntryPointTests` (Rule 11) and `boards/tests/test_analytics_panel_min_role_1826.py` `AnalyticsExtensionsEntryPointTests` (Rule 12). Both rules also keep their shared function outside `visiban/authorization.py` (`groups/services.py` `lock_membership_for_removal_or_demotion` and `boards/permissions.py` `analytics_extensions_for_role`), an accepted deviation from step 5 of [How to add a rule](#how-to-add-a-rule).
 - Rule 16 also keeps its shared function outside `visiban/authorization.py` (`accounts/models.py` `record_access_flag_changes`, beside the log model it writes), a deviation from the same step.

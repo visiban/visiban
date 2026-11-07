@@ -202,6 +202,8 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   // superusers see the values read-only. Convenience only: the API enforces it.
   const readOnly = currentUser.is_superuser !== true;
   const locked = saving || readOnly;
+  // Links the read-only note to every disabled control (empty when editable).
+  const noteSuffix = readOnly ? " smtp-readonly-note" : "";
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingSourceSwitch, setConfirmingSourceSwitch] = useState(false);
@@ -448,7 +450,9 @@ export default function EmailSettingsSection({ currentUser }: Props) {
     } else if (server.effective_source === "database" && passwordBroken) {
       tone = "warning";
       warningText =
-        "The stored password can't be decrypted, so mail is failing. Re-enter it below.";
+        readOnly
+          ? "The stored password can't be decrypted, so mail is failing. Ask a superuser to re-enter it."
+          : "The stored password can't be decrypted, so mail is failing. Re-enter it below.";
     }
   }
 
@@ -476,15 +480,19 @@ export default function EmailSettingsSection({ currentUser }: Props) {
       </span>
     );
   } else if (server.password_decryptable) {
-    passwordPlaceholder = "Leave blank to keep the current password";
+    passwordPlaceholder = readOnly ? "" : "Leave blank to keep the current password";
     passwordLine1 = <span className="text-fg-muted">A password is stored.</span>;
-    passwordLine2 = (
+    passwordLine2 = readOnly ? null : (
       <span className="text-fg-muted">Type a new one to replace it, or Clear to remove it.</span>
     );
   } else {
-    passwordPlaceholder = "Enter the password again";
+    passwordPlaceholder = readOnly ? "" : "Enter the password again";
     passwordLine1 = (
-      <span className="text-warning">Can&rsquo;t decrypt the stored password — re-enter it.</span>
+      <span className="text-warning">
+        {readOnly
+          ? "Can\u2019t decrypt the stored password — ask a superuser to re-enter it."
+          : "Can\u2019t decrypt the stored password — re-enter it."}
+      </span>
     );
     passwordLine2 = (
       <span className="text-warning">The server&rsquo;s secret key most likely changed.</span>
@@ -518,7 +526,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   } else if (testResult?.kind === "failure") {
     const copy = TEST_COPY[testResult.code] ?? TEST_COPY.unknown;
     resultHeadline = <span className="text-danger">{copy.headline}</span>;
-    resultRemedy = <span className="text-fg-muted">{copy.remedy}</span>;
+    resultRemedy = (
+      <span className="text-fg-muted">
+        {readOnly ? "Ask a superuser to update the email settings." : copy.remedy}
+      </span>
+    );
   }
 
   const inputClass =
@@ -574,7 +586,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
             the field would never get aria-invalid and the message would not
             match the rest of the form. Our validate() is the single authority. */}
         {readOnly && (
-          <p className="text-xs text-fg-muted" data-testid="email-settings-readonly-note">
+          <p
+            id="smtp-readonly-note"
+            className="text-xs text-fg-muted"
+            data-testid="email-settings-readonly-note"
+          >
             Only a superuser can change email settings.
           </p>
         )}
@@ -584,6 +600,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
             className="flex flex-col gap-2"
             role="radiogroup"
             aria-label="Email configuration source"
+            aria-describedby={readOnly ? "smtp-readonly-note" : undefined}
           >
             {CONFIG_SOURCE_OPTIONS.map(({ value, label, description }) => (
               <label
@@ -661,7 +678,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 placeholder="smtp.example.com"
                 autoComplete="off"
                 aria-invalid={!!errors.host}
-                aria-describedby="smtp-host-help"
+                aria-describedby={`smtp-host-help${noteSuffix}`}
                 className={inputClass}
               />
               <p id="smtp-host-help" className="text-xs h-4">
@@ -688,7 +705,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                   onChange={(e) => setDraft((d) => (d ? { ...d, port: e.target.value } : d))}
                   disabled={locked}
                   aria-invalid={!!errors.port}
-                  aria-describedby="smtp-port-help"
+                  aria-describedby={`smtp-port-help${noteSuffix}`}
                   className="w-24 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition"
                 />
               </div>
@@ -707,7 +724,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                     onChange={(e) => setDraft((d) => (d ? { ...d, timeout: e.target.value } : d))}
                     disabled={locked}
                     aria-invalid={!!errors.timeout}
-                    aria-describedby="smtp-timeout-help"
+                    aria-describedby={`smtp-timeout-help${noteSuffix}`}
                     className="w-20 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition"
                   />
                   <span className="text-sm text-fg-tertiary">seconds</span>
@@ -740,7 +757,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 className="flex flex-wrap gap-2"
                 role="radiogroup"
                 aria-label="Encryption"
-                aria-describedby="smtp-encryption-help"
+                aria-describedby={`smtp-encryption-help${noteSuffix}`}
               >
                 {ENCRYPTION_OPTIONS.map(({ value, label }) => (
                   <label
@@ -790,7 +807,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 placeholder="user@example.com"
                 autoComplete="off"
                 aria-invalid={!!errors.username}
-                aria-describedby="smtp-username-help"
+                aria-describedby={`smtp-username-help${noteSuffix}`}
                 className={inputClass}
               />
               <p id="smtp-username-help" className="text-xs h-4">
@@ -832,7 +849,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 placeholder={passwordPlaceholder}
                 autoComplete="new-password"
                 aria-invalid={!!errors.password}
-                aria-describedby="smtp-password-help"
+                aria-describedby={`smtp-password-help${noteSuffix}`}
                 className={`w-full bg-surface border rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted transition disabled:opacity-40 ${
                   passwordBroken ? "border-warning/50" : "border-line"
                 }`}
@@ -856,7 +873,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 placeholder="noreply@yourdomain.com"
                 autoComplete="off"
                 aria-invalid={!!errors.from_email}
-                aria-describedby="smtp-from-email-help"
+                aria-describedby={`smtp-from-email-help${noteSuffix}`}
                 className={inputClass}
               />
               <p id="smtp-from-email-help" className="text-xs h-4">
