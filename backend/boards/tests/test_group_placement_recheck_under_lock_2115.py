@@ -115,7 +115,10 @@ class _PlacementPathsMixin:
         return "groups.services.lock_group_for_board_placement"
 
     def _assert_refused(self, path, resp):
-        self.assertIn(resp.status_code, (400, 403), (path, resp.status_code))
+        expected = 400 if path == "create" else 403
+        self.assertEqual(resp.status_code, expected, (path, resp.status_code))
+        if path == "create":
+            self.assertEqual(list(resp.json()), ["group"])
         self.assertFalse(
             Board.objects.filter(group_id=self.group_id).exists(), f"{path}: a board was placed"
         )
@@ -209,6 +212,7 @@ class ConcurrentRecheckTests(_PlacementPathsMixin, TransactionTestCase):
                     release.set()
                     holder.join(WAIT)
                 requester.join(WAIT)
+                self.assertFalse(requester.is_alive(), f"{path}: request did not finish")
                 self.assertNotIn("holder", results)
                 resp = results["resp"]
                 self.assertNotIsInstance(resp, Exception, resp)

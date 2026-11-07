@@ -1393,7 +1393,7 @@ class BoardImportExportMixin:
         return resolve_group_for_board_placement(request.user, group_id)
 
     @staticmethod
-    def _lock_import_group(group, user=None):
+    def _lock_import_group(group, user):
         """Take the target group ``FOR KEY SHARE`` before the board insert; 404 if it is gone.
 
         Call inside the import's ``transaction.atomic()``, before
@@ -1412,12 +1412,11 @@ class BoardImportExportMixin:
 
         if not lock_group_for_board_placement(group.pk):
             raise Http404
-        if user is not None:
-            # Resolved before this lock; judge the caller's standing in the
-            # group again now that it is held.
-            from groups.views import _require_group_admin
+        # Resolved before this lock; judge the caller's standing in the
+        # group again now that it is held.
+        from groups.views import _require_group_admin
 
-            _require_group_admin(user, group)
+        _require_group_admin(user, group)
 
     def _import_json(self, request, file, options):
         """Create a new board from a Visiban JSON export file.
