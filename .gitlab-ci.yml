@@ -506,6 +506,9 @@ cost-ledger-selftest:
         - scripts/orchestrator-tokens.py
         - scripts/est-cost.py
         - scripts/cost-table.py
+        - scripts/post-mr-cost.py
+        - .claude/hooks/post-mr-cost.sh
+        - .claude/settings.json
         - scripts/lib/transcript_usage.py
         - scripts/_paths.py
         - scripts/kaizen_gate_ledger.py
@@ -527,6 +530,7 @@ cost-ledger-selftest:
     - python3 scripts/orchestrator-tokens.py --self-test
     - python3 scripts/est-cost.py --self-test
     - python3 scripts/cost-table.py --self-test
+    - python3 scripts/post-mr-cost.py --self-test
     - python3 scripts/kaizen_gate_ledger.py --self-test
     - bash scripts/tests/kaizen_gate_ledger.test.sh
 

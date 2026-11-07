@@ -23,10 +23,23 @@ This is a port of Blueprint's cost ledger (macrodream/blueprint#235, macrodream/
 | `.claude/model-prices.json` | The price table `est-cost.py` reads |
 | `scripts/lib/transcript_usage.py` | The transcript usage parser the three measuring scripts share |
 | `scripts/cost-table.py` | Renders and posts the `## Cost of this MR` comment |
+| `scripts/post-mr-cost.py` + `.claude/hooks/post-mr-cost.sh` | The automatic poster: a PostToolUse hook that runs after `glab mr create` |
 | `scripts/cost_ledger_lines.py` | Reads and checks the cost lines in a description; shared by `cost-table.py` and `/kaizen` |
 | `scripts/kaizen_gate_ledger.py` | `/kaizen`'s reader; reports cost by change class and by gate |
 
 Every script has a `--self-test`. The `cost-ledger-selftest` CI job runs them all, plus `scripts/tests/kaizen_gate_ledger.test.sh`, on MRs that touch any of them.
+
+## It posts on its own
+<a id="auto-post"></a>
+
+After any `glab mr create` run by Claude Code, the `.claude/hooks/post-mr-cost.sh` hook posts the `## Cost of this MR` comment, so the comment no longer depends on `/wave` being the path that opened the MR. Before this, only MRs opened through `/wave` got one (of !1736-!1744 only !1737 did).
+
+- **Opt out** with the existing setting: `scripts/cost-ledger off --local` (you only) or `scripts/cost-ledger off` through a chore MR (everyone). Either makes the hook do nothing. A `cost-ledger: off` line in the MR description also opts that one MR out.
+- **No double comment:** if the MR already has a `## Cost of this MR` comment (for example `/wave` posted one), the hook leaves it alone.
+- **Window:** from the last MR the hook posted for in this clone (`mr-cost-last-until` in the git dir), or the session start, to now. Subagents are the top-level ones that started in that window. `/wave` names its agents explicitly and stays the more exact path.
+- **Fail-soft:** if the transcript layout changed or `glab` fails, the hook never blocks the MR. It tells the model what to run by hand.
+- **Fix rounds:** the hook can't see them. `/fix-mr` runs `python3 scripts/post-mr-cost.py --round --mr <N>` after its push, which posts `## Cost of this MR (#N) — record K` for the window since the latest record, with the running total. It posts nothing when the ledger is off, the MR carries `cost-ledger: off`, record 1 is missing, or nothing was measured, and it prints one line saying which. It moves the same `mr-cost-last-until` marker, so the next `glab mr create` doesn't re-count the round. Run it by hand the same way for any other work on an open MR.
+- **Limit:** it only sees `glab mr create` run through Claude Code's Bash tool. An MR opened in the GitLab UI or a plain terminal gets no comment.
 
 ## Check it, and turn it on or off
 <a id="the-setting"></a>
