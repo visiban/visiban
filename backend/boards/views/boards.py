@@ -27,7 +27,7 @@ from visiban.request_shape import coerce_int_id, optional_text, require_json_obj
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardEvent, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
+    Board, BoardFavorite, BoardMembership, Card, Column, Notification, SavedFilter,
     Swimlane,
 )
 from ..permissions import (
@@ -38,7 +38,13 @@ from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
 )
-from ..services.feed import feed_queryset, prune_marks, resume_cursor, serialize_feed_rows
+from ..services.feed import (
+    cursor_row_visible,
+    feed_queryset,
+    prune_marks,
+    reader_resume_cursor,
+    serialize_feed_rows,
+)
 from ..services.notifications import create_notifications
 from ..utils import create_template_columns, resolve_board_template
 from ._helpers import (
@@ -134,60 +140,47 @@ def _parse_events_limit(raw):
     return limit
 
 
-def _events_cursor_expired(board_id, after, page_has_rows, *, role, reader_id):
-    """Whether a nonzero ``after`` cursor skips past events retention pruned (#2058, #2079).
+def _events_cursor_expired(board_id, after, page_has_rows, marks, *, role, reader_id):
+    """Whether a nonzero ``after`` cursor skips past events retention pruned (#2058, #2079, #2126).
+
+    *marks* is ``prune_marks`` for this reader, read after the page. Every input
+    is read through the feed's visibility rule (``boards.services.feed``):
+    the reader's visible mark, and whether the cursor is a row the reader may
+    see. So the answer for an id the reader is not shown is the answer for an
+    id that is not on the board.
 
     Per event type, a cursor is expired only if an event of this board *after*
     it, that this reader could have seen, was pruned; a record with no type
-    counts as well. For a cursor at or below the board's prune record: below the
-    reader's visible mark, something it could have read may be gone (410 even on
-    an empty page, because the events it missed may have been the newest ones);
-    otherwise nothing it could have read was lost, whatever else was pruned (an
-    idle consumer on a quiet board keeps reading). ``prune_marks`` says how
+    counts as well. For a cursor at or below the reader's visible mark: below
+    it, something the reader could have read is gone (410 even on an empty
+    page, because the events it missed may have been the newest ones); at it,
+    nothing it could have read was lost, whatever else was pruned (an idle
+    consumer on a quiet board keeps reading). ``prune_marks`` says how
     visibility is settled.
 
-    The limit: a cursor that was never this board's, between the reader's visible
-    mark and the board-wide one, reads on rather than getting a 410. It cannot be
-    told from a position the reader really held, so nothing the reader could have
-    read is skipped past the cursor it sent; this is a lost warning about a bad
-    cursor, not a lost event.
-
-    Everywhere else the previous inference stands — a missing cursor row with
-    newer rows behind it is 410 — for two reasons:
+    Above the visible mark, or on a board with no mark, a cursor whose row the
+    reader may not see, with newer rows the reader may see, is 410:
 
     * A board with no mark may still have been pruned: installs that pruned
       before #2058 recorded nothing. Treating "no record" as "nothing lost"
       would turn a known-unknown into a silent skip, so such a board keeps
       the old behavior until its next prune writes a mark.
-    * A cursor above the record was never pruned from this board, so if its row
-      is missing it is not this board's cursor (another board's id, or a
-      made-up number). That stays a loud 410 rather than a page that starts
-      somewhere the consumer never was.
+    * A cursor the reader really held above its visible mark is a row it was
+      shown (an in-page ``next_cursor``) or the newest such row (a ``410``'s
+      ``next_cursor``), and that row was not pruned, or the visible mark would
+      cover it. So a missing row there is not a position the reader held
+      (another board's id, or a made-up number), and it stays a loud 410
+      rather than a page that starts somewhere the consumer never was.
+
+    The limit: a cursor that was never this board's and sits exactly at the
+    reader's visible mark reads on. It cannot be told from a resume point the
+    feed handed out, and nothing the reader could have read is skipped past it.
+    A reader whose role narrowed since it was given a cursor at an admin-only
+    row can get one 410 here; that errs toward a re-sync, never a skip.
     """
-    marks = prune_marks(board_id, role=role, reader_id=reader_id)
-    if marks.board_wide is not None and after <= marks.board_wide:
+    if marks.visible is not None and after <= marks.visible:
         return after < marks.visible
-    return page_has_rows and not BoardEvent.objects.filter(board_id=board_id, pk=after).exists()
-
-
-def _events_resume_cursor(board_id):
-    """The ``next_cursor`` a 410 hands back: where to resume after re-syncing (#2058).
-
-    ``/full/`` carries no event id, so without this a consumer told to re-sync
-    has no position to resume from, and its old cursor 410s on every poll.
-
-    It is ``max(newest event id, prune mark)``, not just the newest id: when
-    every event after the cursor was pruned and nothing newer exists, the
-    newest surviving id can sit *below* the mark (or there is none), and
-    resuming there would 410 again. Resuming at the mark is never expired
-    (``after == mark``), and resuming at the newest row is never expired
-    either (its row exists). It is computed now, before the consumer fetches
-    ``/full/``, so an event written in between is replayed after the
-    snapshot rather than lost: at-least-once, never a gap. The webhook
-    dispatcher resumes from the same point (``resume_cursor``).
-    """
-    return resume_cursor(board_id)
-
+    return page_has_rows and not cursor_row_visible(board_id, after, role=role, reader_id=reader_id)
 
 
 def _group_gone_error():
@@ -946,8 +939,9 @@ class BoardViewSet(
         # skips, with the stale mark saying nothing was lost: a silent gap.
         # Read it after, and a prune landing in between can only make the mark
         # newer than the page, which errs toward a 410, never toward a skip.
+        marks = prune_marks(board.id, role=role, reader_id=request.user.id) if after else None
         if after and _events_cursor_expired(
-            board.id, after, bool(rows), role=role, reader_id=request.user.id
+            board.id, after, bool(rows), marks, role=role, reader_id=request.user.id
         ):
             return Response(
                 {
@@ -964,7 +958,13 @@ class BoardViewSet(
                         reverse("board-full", kwargs={"pk": board.pk})
                     ),
                     # Added in 1.3 (#2058): resume `after=` this once re-synced.
-                    "next_cursor": _events_resume_cursor(board.id),
+                    # `/full/` carries no event id, so without it a consumer
+                    # told to re-sync has no position to resume from. Computed
+                    # from this reader's rows and marks (#2126); see
+                    # reader_resume_cursor for why it is not board-wide.
+                    "next_cursor": reader_resume_cursor(
+                        board.id, marks, role=role, reader_id=request.user.id
+                    ),
                 },
                 status=status.HTTP_410_GONE,
             )

@@ -35,7 +35,11 @@ def _hidden_from(role, reader_id):
     rows, which carry the same two columns on purpose, so a per-type mark only
     ever expires a reader's cursor for a pruned event the feed would have shown
     it (#2079). The type-blind record (``BoardEventPruneMark``) has no type to
-    filter on and still counts. A new exclusion added here covers both.
+    filter on and still counts. A new exclusion added here covers both. The
+    feed's cursor handling reads only through those two functions as well: the
+    check that a cursor is one of the board's rows, and the resume point a
+    ``410`` hands back (:func:`reader_resume_cursor`), so every answer the feed
+    gives about a cursor is decided by rows and marks this reader could see.
 
     Per-user rows are returned only to the user they belong to (#1677),
     matching the socket, which forwards them only to that user's own sessions.
@@ -91,11 +95,9 @@ def serialize_feed_rows(board_id, rows, *, role, reader_id):
 class PruneMarks(NamedTuple):
     """What retention pruning removed from one board's feed, as one reader sees it."""
 
-    #: Highest id removed from the board, of any type. ``None``
-    #: when no recording pruner has touched the board.
-    board_wide: int | None
     #: Highest id this reader must treat as missed: per-type marks it could have
-    #: seen, and the type-blind record. A cursor below it is expired.
+    #: seen, and the type-blind record. A cursor below it is expired. ``None``
+    #: when no recording pruner has touched the board.
     visible: int | None
 
 
@@ -134,23 +136,66 @@ def prune_marks(board_id, *, role, reader_id, events=None, count_unrecorded_floo
     if blind is None:
         # Every recording prune writes that row too, so no row means no type
         # marks: a never-pruned board costs one primary-key read.
-        return PruneMarks(None, None)
+        return PruneMarks(None)
     max_pruned_id, unrecorded_floor = blind
     visible = ~_hidden_from(role, reader_id)
     if events is not None:
         visible &= Q(event__in=events)
-    typed = BoardEventPruneTypeMark.objects.filter(board_id=board_id).aggregate(
-        board_wide=Max("max_pruned_id"),
-        visible=Max("max_pruned_id", filter=visible),
+    typed = (
+        BoardEventPruneTypeMark.objects.filter(board_id=board_id)
+        .filter(visible)
+        .aggregate(m=Max("max_pruned_id"))["m"]
     )
     return PruneMarks(
-        board_wide=max(max_pruned_id, unrecorded_floor, typed["board_wide"] or 0),
         visible=max(
             max_pruned_id,
             unrecorded_floor if count_unrecorded_floor else 0,
-            typed["visible"] or 0,
+            typed or 0,
         ),
     )
+
+
+def cursor_row_visible(board_id, after, *, role, reader_id):
+    """Whether *after* is the id of a row of *board_id*'s feed this reader may see.
+
+    The feed's check that a cursor names one of the board's rows (the fallback
+    in ``_events_cursor_expired``), read through :func:`feed_queryset`, so a
+    row the reader is not shown counts the same as an id that is not on the
+    board. One indexed primary-key read.
+    """
+    return feed_queryset(board_id, role=role, reader_id=reader_id).filter(pk=after).exists()
+
+
+def reader_resume_cursor(board_id, marks, *, role, reader_id):
+    """The ``next_cursor`` the feed's ``410`` hands this reader (#2058, #2126).
+
+    ``max(newest row this reader may see, marks.visible)``, where *marks* is
+    the :func:`prune_marks` result the caller just read for the same reader.
+
+    Why reader-scoped rather than :func:`resume_cursor`'s board-wide point:
+    every position the feed hands a reader is then one this reader could
+    already observe, a row the feed shows it or the visible mark its own ``410``
+    boundary sits at. That is what lets :func:`cursor_row_visible` require a
+    row the reader may see without ever answering ``410`` to a cursor the feed
+    gave out. Resuming here is not expired: at the visible mark nothing it
+    could have read was pruned after it, and above the mark its row is one the
+    reader may see. A ``410`` only fires with something to resume past (a
+    visible row after the cursor, or a visible mark above it), so the point is
+    always above the cursor that was refused, never ``0``.
+
+    The trade-off is that the point is only stable for the reader's role now.
+    After a promotion, a pruned admin-only event after it expires it, which is
+    the feed's role-now rule for every cursor (see :func:`prune_marks`), and
+    errs toward a re-sync, never toward a skip.
+
+    Read *marks* after the page, as the view does, for the reason
+    :func:`prune_marks` gives. The newest row is read here, after the marks:
+    an event written in between is replayed after the re-sync rather than
+    lost, at-least-once, never a gap.
+    """
+    rows = feed_queryset(board_id, role=role, reader_id=reader_id)
+    newest = rows.aggregate(newest=Max("id"))["newest"]
+    return max(newest or 0, marks.visible or 0)
 
 
 def pruned_through(board_id):
@@ -186,16 +231,17 @@ def newest_event_id(board_id):
 def resume_cursor(board_id):
     """The newest position on *board_id*'s feed: ``max(newest event id, prune mark)`` (#2058).
 
-    Where a reader that is told to skip ahead (the feed's ``410`` hands it
-    back as ``next_cursor``; a webhook is created at it or re-enabled from it
-    with ``resume_from: latest``) should stand so that it is not immediately
-    expired again. The newest surviving id alone is not enough: when every
+    Where a webhook that is told to skip ahead (it is created at it or
+    re-enabled from it with ``resume_from: latest``) should stand so that it is
+    not immediately expired again. The feed's ``410`` hands a reader
+    :func:`reader_resume_cursor` instead, which is computed from the rows and
+    marks that reader may see (#2126). The newest surviving id alone is not enough: when every
     event after a cursor was pruned and nothing newer exists, it sits *below*
     the mark (or there is none), and a cursor there would still be expired.
     A cursor at the mark is never expired (nothing after it was pruned), and
     neither is one at the newest row (its row exists).
 
     Board-wide on purpose (#2079): it is never below any reader's visible mark,
-    whatever the reader's role becomes later.
+    whatever the webhook's types become later.
     """
     return max(newest_event_id(board_id), pruned_through(board_id) or 0)
