@@ -266,11 +266,11 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     <>
       {/* An open menu opens upward into the space the toast region floats in,
           so the toolbar outranks the region (z-[55]) while one is open. */}
-      <div ref={rootRef} className={`fixed bottom-4 left-1/2 -translate-x-1/2 ${dropdown !== null ? "z-[56]" : "z-40"} flex items-center gap-2 bg-surface text-fg rounded-lg shadow-2xl px-4 py-2.5 border border-line`}>
+      <div ref={rootRef} className={`fixed bottom-4 left-1/2 -translate-x-1/2 ${dropdown !== null ? "z-[56]" : "z-40"} w-max max-w-[calc(100%-2rem)] flex flex-wrap items-center justify-center gap-2 bg-surface text-fg rounded-lg shadow-2xl px-4 py-2.5 border border-line`}>
         <span className="text-sm font-medium tabular-nums">
           {count} selected
         </span>
-        <span className="w-px h-5 bg-surface-active" />
+        <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
         {/* Move */}
         <div className="relative">
@@ -288,7 +288,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           {dropdown === "move" && (
             <div
               role="menu"
-              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto"
+              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
             >
               {board.columns.map((col, i) => (
                 <button
@@ -323,7 +323,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           {dropdown === "assign" && (
             <div
               role="menu"
-              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto"
+              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
             >
               <button
                 ref={(el) => { assignItemRefs.current[0] = el; }}
@@ -366,7 +366,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           {dropdown === "priority" && (
             <div
               role="menu"
-              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px]"
+              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px] max-w-[calc(100vw-2rem)]"
             >
               {priorities.map((p, i) => (
                 <button
@@ -385,7 +385,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           )}
         </div>
 
-        <span className="w-px h-5 bg-surface-active" />
+        <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
         {/* Archive — amber: meaningful but reversible (cards move to Archived panel) */}
         <button
@@ -409,7 +409,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           </button>
         )}
 
-        <span className="w-px h-5 bg-surface-active" />
+        <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
         {/* Deselect */}
         <button
@@ -428,7 +428,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             text swap; conditionally mounting the region itself is unreliable. */}
         <span role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 flex items-center min-w-0">
           {partialError && (
-            <span className="text-warning line-clamp-2 max-w-[20rem]" title={partialError}>{partialError}</span>
+            <span className="text-warning line-clamp-2 max-w-full sm:max-w-[20rem]" title={partialError}>{partialError}</span>
           )}
         </span>
         {busy && (
