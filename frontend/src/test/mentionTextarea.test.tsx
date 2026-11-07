@@ -93,3 +93,68 @@ describe('MentionTextarea Escape (#2036)', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('MentionTextarea suggestion list placement (#2092)', () => {
+  function rect(top: number, bottom: number, left = 20): DOMRect {
+    return { top, bottom, left, right: left + 300, width: 300, height: bottom - top, x: left, y: top, toJSON: () => ({}) } as DOMRect
+  }
+
+  async function openList() {
+    const user = userEvent.setup()
+    render(<MentionTextarea value="" onChange={vi.fn()} members={members} />)
+    const ta = screen.getByRole('textbox')
+    await user.type(ta, '@')
+    const list = screen.getByText('@jdoe').closest('div.z-\\[60\\]') as HTMLElement
+    return { user, ta, list }
+  }
+
+  it('renders the list fixed, so a scroll region cannot clip it, and shows it once placed', async () => {
+    const { list } = await openList()
+    expect(list.style.position).toBe('fixed')
+    // jsdom measures no height, so placement leaves it hidden; give it one and re-place on resize.
+    Object.defineProperty(list, 'offsetHeight', { configurable: true, value: 100 })
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.visibility).toBe('')
+  })
+
+  it('opens below the textarea when there is room, above it when there is not', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(480)
+    const { ta, list } = await openList()
+    Object.defineProperty(list, 'offsetHeight', { configurable: true, value: 100 })
+    const spy = vi.spyOn(ta, 'getBoundingClientRect')
+    spy.mockReturnValue(rect(50, 90))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.top).toBe('94px')
+  })
+
+  it('flips above when the textarea sits near the bottom', async () => {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(480)
+    const { ta, list } = await openList()
+    Object.defineProperty(list, 'offsetHeight', { configurable: true, value: 100 })
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(400, 440))
+    window.dispatchEvent(new Event('resize'))
+    expect(list.style.top).toBe('296px')
+  })
+
+  it('re-anchors on an outside scroll instead of closing, and keeps focus in the textarea', async () => {
+    const { ta, list } = await openList()
+    Object.defineProperty(list, 'offsetHeight', { configurable: true, value: 100 })
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(480)
+    vi.spyOn(ta, 'getBoundingClientRect').mockReturnValue(rect(60, 100))
+    document.body.dispatchEvent(new Event('scroll', { bubbles: false }))
+    window.dispatchEvent(new Event('scroll'))
+    expect(screen.getByText('@jdoe')).toBeInTheDocument()
+    expect(ta).toHaveFocus()
+  })
+
+  it('mousedown on an option inserts the mention and leaves focus in the textarea', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<MentionTextarea value="@" onChange={onChange} members={members} />)
+    const ta = screen.getByRole('textbox')
+    await user.type(ta, 'a')
+    await user.click(screen.getByText('@alice'))
+    expect(onChange).toHaveBeenLastCalledWith('@alice ')
+    expect(ta).toHaveFocus()
+  })
+})

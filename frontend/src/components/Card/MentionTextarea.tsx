@@ -1,5 +1,6 @@
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { POPOVER_VIEWPORT_MARGIN, placeFixedElement, type AnchoredSide } from "../../hooks/useAnchoredPlacement";
 import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -24,6 +25,8 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mention, setMention] = useState<MentionState>({ active: false, query: "", startIndex: -1 });
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // Side chosen on first placement, kept while the list narrows so it never flips across the textarea.
+  const sideRef = useRef<AnchoredSide | undefined>(undefined);
 
   const suggestions = mention.active
     ? members
@@ -34,6 +37,45 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         })
         .slice(0, 6)
     : [];
+
+  const open = mention.active && suggestions.length > 0;
+
+  // The list is `position: fixed` (not `absolute bottom-full`) so the card sheet's scroll region
+  // cannot clip it (#2092). It stays in this component's DOM subtree rather than a body portal
+  // because the sheet's focus trap and click-outside dismissal treat a portal as outside the
+  // dialog. Focus never leaves the textarea: options preventDefault on mousedown.
+  const place = () => {
+    const ta = textareaRef.current;
+    const el = dropdownRef.current;
+    if (!ta || !el) return;
+    const r = ta.getBoundingClientRect();
+    const left = Math.max(
+      POPOVER_VIEWPORT_MARGIN,
+      Math.min(r.left, window.innerWidth - el.offsetWidth - POPOVER_VIEWPORT_MARGIN),
+    );
+    sideRef.current = placeFixedElement(el, { top: r.top, bottom: r.bottom, left }, sideRef.current) ?? sideRef.current;
+  };
+
+  // Re-measure when the visible options change height (the query narrows the list).
+  useLayoutEffect(() => {
+    if (!open) {
+      sideRef.current = undefined;
+      return;
+    }
+    place();
+  }, [open, suggestions.length]);
+
+  // Re-anchor (never dismiss) on scroll and resize: typing makes the browser scroll the caret into
+  // view, so closing on scroll would end the list mid-word. Capture catches inner scroll regions.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open]);
 
   // Reset selection when suggestions change
   useEffect(() => {
@@ -115,10 +157,12 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         rows={rows}
         className={className}
       />
-      {mention.active && suggestions.length > 0 && (
+      {open && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 bottom-full mb-1 left-0 w-56 bg-surface border border-line-strong rounded-lg shadow-lg overflow-hidden"
+          // Hidden until the layout effect measures and places it (no flash at 0,0).
+          style={{ position: "fixed", visibility: "hidden", top: 0, left: 0 }}
+          className="z-[60] w-56 max-w-[calc(100vw-16px)] bg-surface border border-line-strong rounded-lg shadow-lg overflow-hidden"
         >
           {suggestions.map((u, i) => (
             <button
