@@ -302,12 +302,22 @@ its admins, so the role needed must not depend on which endpoint is used.
 | JSON, CSV and Trello import | `boards/views/import_export.py` `_resolve_import_group` | `resolve_group_for_board_placement` | Same as move group |
 | Django admin board form | `boards/admin.py` `BoardAdmin` / `BoardAdminForm` (`fields = "__all__"`, so `group` is editable) | Not covered by this rule | Staff-only surface; see the exception below |
 
-Every API surface in this table judges the caller's group standing again after
-it takes the group row lock (`groups.services.lock_group_for_board_placement`),
-as `PATCH`/`PUT` does through `BoardSerializer.recheck_group_under_lock`, so a
-change in standing that commits while a request waits on the lock refuses the
-placement. `boards/tests/test_group_placement_recheck_under_lock_2115.py`
-covers each surface.
+Every API surface in this table judges the caller's group standing again
+inside the write transaction, after taking the group row lock
+(`groups.services.lock_group_for_board_placement`), as `PATCH`/`PUT` does
+through `BoardSerializer.recheck_group_under_lock`. The second check reads the
+group and the caller's memberships again (`groups.views.require_group_admin_reread`),
+so a change to the caller's role or to the group's parent chain that committed
+since the first check refuses the placement. It is a fresh read, not a wait:
+the placement lock is `FOR KEY SHARE` and a role change or removal takes
+`FOR NO KEY UPDATE` (`groups/services.py`), which do not conflict. What remains
+is a change that commits after the second check: it serializes as "placement
+first, then the change", because the change reads nothing the placement writes.
+Closing that would need a share lock on the caller's membership rows, which is
+deliberately not taken (the same accepted window as `lock_group_for_child_write`
+in `groups/services.py`).
+`boards/tests/test_group_placement_recheck_under_lock_2115.py` covers each
+surface.
 
 Exception: the Django admin board form is limited to staff accounts holding the
 board model permissions and is a site-operator tool, not a group-scoped API, so

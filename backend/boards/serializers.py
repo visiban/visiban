@@ -3413,7 +3413,7 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         self._check_group_change(value, current_group_id)
         return value
 
-    def _check_group_change(self, value, current_group_id):
+    def _check_group_change(self, value, current_group_id, reread=False):
         """Raise the uniform group error unless the caller may move to ``value``.
 
         Shared by validate_group (against the instance the serializer was bound
@@ -3422,6 +3422,10 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         """
         if value is None or value.pk == current_group_id:
             return
+        if reread:
+            # ``value`` was loaded before the write transaction and carries
+            # the parent chain of that moment; judge the stored group.
+            value = type(value).objects.filter(pk=value.pk).first() or value
         request = self.context.get("request")
         user = getattr(request, "user", None)
         # code="does_not_exist" matches the error DRF raises for an unknown id,
@@ -3449,13 +3453,17 @@ class BoardSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
 
         On create there is no board yet: pass ``None`` and the group is judged
         as a placement from no group, so the caller's standing in the target
-        group is re-read after the group lock, as on update.
+        group is re-read inside the write transaction, as on update. The group
+        itself is read again too, so a parent chain that changed since
+        validation is judged as stored.
         """
         if "group" not in self.validated_data:
             return
         current_group_id = board.group_id if board is not None else None
         try:
-            self._check_group_change(self.validated_data["group"], current_group_id)
+            self._check_group_change(
+                self.validated_data["group"], current_group_id, reread=True
+            )
         except serializers.ValidationError as exc:
             raise serializers.ValidationError({"group": exc.detail})
 

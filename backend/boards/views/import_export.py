@@ -1403,7 +1403,8 @@ class BoardImportExportMixin:
         answers 404, the answer for an unknown group, instead of failing the
         new board's deferred group foreign key at COMMIT (#1719). A delete
         that arrives during the import waits for it and then detaches the
-        board.
+        board. ``user`` is then judged against the group-admin rule again on a
+        re-read of the group (the rule ``_resolve_import_group`` applied).
         """
         if group is None:
             return
@@ -1412,11 +1413,12 @@ class BoardImportExportMixin:
 
         if not lock_group_for_board_placement(group.pk):
             raise Http404
-        # Resolved before this lock; judge the caller's standing in the
-        # group again now that it is held.
-        from groups.views import _require_group_admin
+        # Resolved before this transaction; judge the caller against the
+        # group re-read inside it, so a change committed since is seen (a
+        # fresh read, not a wait: see security-invariants Rule 6).
+        from groups.views import require_group_admin_reread
 
-        _require_group_admin(user, group)
+        require_group_admin_reread(user, group)
 
     def _import_json(self, request, file, options):
         """Create a new board from a Visiban JSON export file.
