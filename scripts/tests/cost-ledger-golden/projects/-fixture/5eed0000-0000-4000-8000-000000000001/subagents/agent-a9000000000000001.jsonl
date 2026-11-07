@@ -1,0 +1,3 @@
+{"isSidechain": true, "message": {"content": "Run the regression check on the current diff. SECRET-BRIEF-TEXT must never be echoed.", "role": "user"}, "timestamp": "2026-11-07T0Z", "type": "user"}
+{"isSidechain": true, "message": {"id": "um1", "model": "claude-sonnet-5-5", "role": "assistant", "usage": {"cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "input_tokens": 300000, "output_tokens": 0}}, "timestamp": "2026-11-07T09:55:00Z", "type": "assistant"}
+{"isSidechain": true, "message": {"id": "um2", "model": "claude-sonnet-5-5", "role": "assistant", "usage": {"cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "input_tokens": 100000, "output_tokens": 0}}, "timestamp": "2026-11-07T11:45:00Z", "type": "assistant"}

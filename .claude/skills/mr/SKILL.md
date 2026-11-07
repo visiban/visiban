@@ -211,12 +211,13 @@ is the contract; this is what the description carries.
 
 - **Ask the setting first:** `python3 scripts/cost-ledger enabled`. Exit 0: write the cost
   lines below when you hold them. Exit 1 (off): write the one line `cost-ledger: off` at the
-  end of `## Gates`, no cost line, and run none of the measuring scripts. Exit 2 (unreadable):
+  end of `## Gates`, no cost line, and do not run `scripts/post-mr-cost.py`. Exit 2 (unreadable):
   the same, plus the `## Notes` line "cost ledger setting unreadable; nothing recorded". The
   marker never names the layer that turned it off.
 - **The lines are not in the template** (a template slot only invites an estimate). `/wave` is
   the one writer with real figures: its go-ahead message carries them
-  (`.claude/skills/wave/SKILL.md` Step 5.4), and they go last in `## Gates`, unchanged:
+  (`.claude/skills/wave/SKILL.md` Step 5.4), which gets them from `python3 scripts/post-mr-cost.py
+  --measure` (it posts nothing and advances nothing), and they go last in `## Gates`, unchanged:
   ```
   subagent-tokens: <N>
   orchestrator-tokens: <N>
@@ -224,8 +225,11 @@ is the contract; this is what the description carries.
   ```
   A plain `/mr` with no such figures writes none of them; that is not a gap.
 - `subagent-tokens:` and `orchestrator-tokens:` are **measured**, digits only (never `~5k` or
-  `1,234`), the stdout of `scripts/subagent-tokens.py` and `scripts/orchestrator-tokens.py`.
-  They are the same unit but different scopes: never add them up as the MR's cost.
+  `1,234`), the lines `post-mr-cost.py --measure` prints. They are the same unit but different
+  scopes: never add them up as the MR's cost. Never run the three measuring scripts by hand for
+  this. The window is what the session has not yet claimed in an earlier cost record, so on a
+  multi-issue wave a snapshot line can still cover a stretch another MR's snapshot covers; the
+  `## Cost of this MR` comments are the non-overlapping record.
   `est-cost-usd:` is the **one estimate**, a list-price equivalent from
   `.claude/model-prices.json`, not what a subscription charged. `turns: <N>` and
   `cost: usd <N>` are allowed only for a literally reported, measured figure.
@@ -234,7 +238,7 @@ is the contract; this is what the description carries.
 - **Check the draft** before `glab mr create`: `python3 scripts/cost_ledger_lines.py --file
   <body.md>` exits 1 on a malformed, doubled or contradictory cost line (it never requires one).
   The body file must be under the checkout, the temp dir or the git dir.
-- **The comment posts automatically.** A PostToolUse hook (`.claude/hooks/post-mr-cost.sh`) posts it after `glab mr create` unless `scripts/cost-ledger enabled` is not 0, the description carries `cost-ledger: off`, or a cost comment already exists, so do not post a second one by hand. Details: `docs/development/cost-ledger.md#auto-post`.
+- **The comment posts automatically.** A PostToolUse hook (`.claude/hooks/post-mr-cost.sh`) posts it after `glab mr create` unless `scripts/cost-ledger enabled` is not 0, the description carries `cost-ledger: off`, or a cost comment already exists, so do not post a second one by hand or write the window marker. Details: `docs/development/cost-ledger.md#auto-post`.
 - The human-readable cost table is an MR comment, `## Cost of this MR (#<N>)`, that
   `scripts/cost-table.py` posts after the MR opens (`/wave` Step 6). The description carries no
   `## Cost` section. Step 4 checks that the comment exists when the description carries measured

@@ -28,8 +28,8 @@ The transcripts are untrusted data. An id becomes a path only after a strict pat
 it, and the meta `description` text is never read or echoed.
 
 Usage:
-  python3 scripts/subagent-tokens.py --agent <id> [--agent <id> ...] [--until <ISO 8601>]
-         [--session <session-id>] [--projects-dir <dir>]
+  python3 scripts/subagent-tokens.py --agent <id>[@<since>] [--agent <id> ...] [--until <ISO 8601>]
+         [--agent-since <id>@<since> ...] [--session <session-id>] [--projects-dir <dir>]
   python3 scripts/subagent-tokens.py --no-agents
   python3 scripts/subagent-tokens.py --self-test
 
@@ -37,6 +37,12 @@ Usage:
   (macrodream/blueprint#386): it prints `subagent-tokens: 0`, a measured zero, and opens no
   transcript. It is never a default: without it and without --agent this exits 2, so a forgotten
   --agent can not become a zero. Giving it with --agent is a usage error.
+
+  Per-agent since (macrodream/blueprint#387): `--agent <id>@<since>` counts that agent only from
+  `<since>` on (inclusive), and `--agent-since <id>@<since>` sets the same bound for an agent that
+  is not named, such as a descendant found through `parentAgentId`. An agent with no bound counts
+  from its first entry. Without it a resumed agent was counted whole again in the next record.
+  scripts/post-mr-cost.py passes these from its per-session state.
 
   The session id defaults to $CLAUDE_CODE_SESSION_ID. --until is inclusive and must carry a zone.
   The cost-ledger setting is asked first (`scripts/cost-ledger enabled`, macrodream/blueprint#348):
@@ -93,6 +99,7 @@ def run(argv, out=sys.stdout, err=sys.stderr, enabled=ledger_enabled):
               % ("off" if state == 1 else "setting unreadable"), file=err)
         return 3
     ids, until, sid, none_ran = [], None, None, False
+    since_by_id = {}
     projects_dir = os.path.join(os.path.expanduser("~"), ".claude", "projects")
     i = 0
     while i < len(argv):
@@ -101,18 +108,24 @@ def run(argv, out=sys.stdout, err=sys.stderr, enabled=ledger_enabled):
             none_ran = True
             i += 1
             continue
-        if a not in ("--agent", "--until", "--session", "--projects-dir"):
-            print("usage: subagent-tokens.py --agent <id> [--agent <id>...] [--until T] [--session <sid>]", file=err)
+        if a not in ("--agent", "--agent-since", "--until", "--session", "--projects-dir"):
+            print("usage: subagent-tokens.py --agent <id>[@since] [--agent <id>...] [--agent-since <id>@since] "
+                  "[--until T] [--session <sid>]", file=err)
             return 2
         if i + 1 >= len(argv):
             print("usage: %s needs a value" % a, file=err)
             return 2
         v = argv[i + 1]
-        if a == "--agent":
-            if not tu.AGENT_ID_RE.match(v):
-                print("usage: --agent %r is not an agent id (the `agentId:` of the Agent tool result)" % v, file=err)
+        if a in ("--agent", "--agent-since"):
+            try:
+                aid, asince = tu.parse_agent_spec(v, need_since=(a == "--agent-since"))
+            except ValueError as e:
+                print("usage: %s %s" % (a, e), file=err)
                 return 2
-            ids.append(v)
+            if a == "--agent":
+                ids.append(aid)
+            if asince is not None:
+                since_by_id[aid] = asince
         elif a == "--until":
             until = tu.parse_time(v)
             if until is None:
@@ -154,14 +167,12 @@ def run(argv, out=sys.stdout, err=sys.stderr, enabled=ledger_enabled):
         print("FAIL: %s; no line printed" % e, file=err)
         return 1
 
-    def lines():
-        # One stream, so message ids dedupe across files (a fork repeats its parent's responses).
-        for path in files:
-            with open(path, encoding="utf-8", errors="replace") as f:
-                yield from f
-
+    # One deduplicated sum across files (a fork repeats its parent's responses), each agent cut at
+    # its own lower bound: `--agent <id>@<since>` / `--agent-since <id>@<since>` (the end of that
+    # agent's previous cost record, scripts/post-mr-cost.py), else its first entry.
     try:
-        totals, stats, per_model = tu.measure_detail(lines(), None, until, side="sidechain")
+        rows, stats = tu.measure_rows_sources(tu.agent_sources(files, agents, since_by_id), until, side="sidechain")
+        totals, stats, per_model = tu.sum_rows(rows, stats)
     except OSError as e:
         print("ERROR: %s" % e, file=err)
         return 2
@@ -169,9 +180,9 @@ def run(argv, out=sys.stdout, err=sys.stderr, enabled=ledger_enabled):
         len(agents), sum(1 for _, n in agents if n), sum(1 for _, n in agents if not n),
         ", ".join(a + ("" if n else " (descendant)") for a, n in agents)), file=err)
     print("subagent-tokens: %d messages (input %d, cache-write %d, cache-read %d, output %d); "
-          "skipped %d malformed, %d main-session, %d duplicate message ids, %d outside"
+          "skipped %d malformed, %d main-session, %d duplicate message ids, %d outside, %d empty"
           % ((stats["messages"],) + tuple(totals) + (stats["malformed"], stats["sidechain"],
-                                                       stats["duplicate"], stats["outside"])), file=err)
+                                                       stats["duplicate"], stats["outside"], stats["empty"])), file=err)
     for model in sorted(per_model):
         print("subagent-tokens: model %s %d" % (model, sum(per_model[model])), file=err)
     if stats["messages"] == 0:
@@ -344,6 +355,30 @@ def _cases(tmp, check):
     rc, out, _ = call("--agent", a1, "--session", sid, *pd, enabled=lambda: 0)
     check("injected enabled=0 reads", rc == 0 and out.startswith("subagent-tokens: "), repr(out))
     check("the default gate asks scripts/cost-ledger", ledger_enabled() in (0, 1, 2))
+    # Per-agent since (macrodream/blueprint#387): a resumed agent is counted only after its watermark.
+    t1, t2 = "2026-11-02T10:00:00Z", "2026-11-03T10:00:00Z"
+    write(os.path.join(sub, "agent-%s.jsonl" % a4), [entry("r1", t1, usage, True), entry("r2", t2, usage, True)])
+    rc, out, _ = call("--agent", a4, "--session", sid, *pd)
+    check("no per-agent since: every response of the agent", out == "subagent-tokens: %d\n" % (2 * 7777), repr(out))
+    rc, out, _ = call("--agent", a4 + "@2026-11-03T00:00:00Z", "--session", sid, *pd)
+    check("--agent <id>@<since> counts only responses from that time (the resumed agent's new work)",
+          out == "subagent-tokens: %d\n" % 7777, repr(out))
+    rc, out, _ = call("--agent", a4 + "@" + t2, "--session", sid, *pd)
+    check("the per-agent since bound is inclusive", out == "subagent-tokens: %d\n" % 7777, repr(out))
+    rc, out, _ = call("--agent", a1, "--agent-since", a2 + "@2026-11-05T00:00:00Z", "--session", sid, *pd)
+    check("--agent-since cuts a descendant (not named) at its own bound: a2 drops, a1 and a3 stay",
+          out == "subagent-tokens: %d\n" % (2 * 7777), repr(out))
+    for name, args in (("--agent-since without a time", ("--agent-since", a2)),
+                       ("a naive time", ("--agent", a4 + "@2026-11-03T00:00:00")),
+                       ("a path-like id before @", ("--agent", "../x@2026-11-03T00:00:00Z"))):
+        rc, out, _ = call(*args, "--session", sid, *pd)
+        check("exit 2: " + name, rc == 2 and out == "", repr((rc, out)))
+    # An all-zero (`<synthetic>`) response is dropped, never a phantom model line.
+    zero = {"input_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 0}
+    write(os.path.join(sub, "agent-%s.jsonl" % a4), [entry("z1", t1, zero, True, "<synthetic>"), entry("r1", t1, usage, True)])
+    rc, out, err = call("--agent", a4, "--session", sid, *pd)
+    check("an all-zero response is dropped: no `<synthetic>`/unknown model line, counted as empty",
+          out == "subagent-tokens: 7777\n" and "model unknown" not in err and "1 empty" in err, repr((out, err)))
     # The library's own guards.
     for bad in ("", "../x", "a1/b", "ZZZZZZZZ", "a12"):
         try:
