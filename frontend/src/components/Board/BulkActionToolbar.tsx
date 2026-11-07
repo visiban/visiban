@@ -273,7 +273,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <span aria-hidden="true" className="hidden sm:block w-px h-5 bg-surface-active" />
 
         {/* Move */}
-        <div className="relative">
+        <div className="relative max-[540px]:static">
           <button
             ref={moveRef}
             onClick={() => toggle("move")}
@@ -288,7 +288,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           {dropdown === "move" && (
             <div
               role="menu"
-              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
+              className="absolute bottom-full left-0 max-[540px]:inset-x-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
             >
               {board.columns.map((col, i) => (
                 <button
@@ -308,7 +308,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         </div>
 
         {/* Assign */}
-        <div className="relative">
+        <div className="relative max-[540px]:static">
           <button
             ref={assignRef}
             onClick={() => toggle("assign")}
@@ -323,7 +323,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           {dropdown === "assign" && (
             <div
               role="menu"
-              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
+              className="absolute bottom-full left-0 max-[540px]:inset-x-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-w-[calc(100vw-2rem)] max-h-64 overflow-auto"
             >
               <button
                 ref={(el) => { assignItemRefs.current[0] = el; }}
@@ -351,7 +351,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         </div>
 
         {/* Priority */}
-        <div className="relative">
+        <div className="relative max-[540px]:static">
           <button
             ref={priorityRef}
             onClick={() => toggle("priority")}
@@ -366,7 +366,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           {dropdown === "priority" && (
             <div
               role="menu"
-              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px] max-w-[calc(100vw-2rem)]"
+              className="absolute bottom-full left-0 max-[540px]:inset-x-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px] max-w-[calc(100vw-2rem)]"
             >
               {priorities.map((p, i) => (
                 <button
