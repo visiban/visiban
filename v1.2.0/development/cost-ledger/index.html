@@ -3178,6 +3178,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#it-posts-on-its-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        It posts on its own
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#check-it-and-turn-it-on-or-off" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4450,6 +4461,10 @@
 <td>Renders and posts the <code>## Cost of this MR</code> comment</td>
 </tr>
 <tr>
+<td><code>scripts/post-mr-cost.py</code> + <code>.claude/hooks/post-mr-cost.sh</code></td>
+<td>The automatic poster: a PostToolUse hook that runs after <code>glab mr create</code></td>
+</tr>
+<tr>
 <td><code>scripts/cost_ledger_lines.py</code></td>
 <td>Reads and checks the cost lines in a description; shared by <code>cost-table.py</code> and <code>/kaizen</code></td>
 </tr>
@@ -4460,6 +4475,17 @@
 </tbody>
 </table>
 <p>Every script has a <code>--self-test</code>. The <code>cost-ledger-selftest</code> CI job runs them all, plus <code>scripts/tests/kaizen_gate_ledger.test.sh</code>, on MRs that touch any of them.</p>
+<h2 id="it-posts-on-its-own">It posts on its own<a class="headerlink" href="#it-posts-on-its-own" title="Permanent link">&para;</a></h2>
+<p><a id="auto-post"></a></p>
+<p>After any <code>glab mr create</code> run by Claude Code, the <code>.claude/hooks/post-mr-cost.sh</code> hook posts the <code>## Cost of this MR</code> comment, so the comment no longer depends on <code>/wave</code> being the path that opened the MR. Before this, only MRs opened through <code>/wave</code> got one (of !1736-!1744 only !1737 did).</p>
+<ul>
+<li><strong>Opt out</strong> with the existing setting: <code>scripts/cost-ledger off --local</code> (you only) or <code>scripts/cost-ledger off</code> through a chore MR (everyone). Either makes the hook do nothing. A <code>cost-ledger: off</code> line in the MR description also opts that one MR out.</li>
+<li><strong>No double comment:</strong> if the MR already has a <code>## Cost of this MR</code> comment (for example <code>/wave</code> posted one), the hook leaves it alone.</li>
+<li><strong>Window:</strong> from the last MR the hook posted for in this clone (<code>mr-cost-last-until</code> in the git dir), or the session start, to now. Subagents are the top-level ones that started in that window. <code>/wave</code> names its agents explicitly and stays the more exact path.</li>
+<li><strong>Fail-soft:</strong> if the transcript layout changed or <code>glab</code> fails, the hook never blocks the MR. It tells the model what to run by hand.</li>
+<li><strong>Fix rounds:</strong> the hook can't see them. <code>/fix-mr</code> runs <code>python3 scripts/post-mr-cost.py --round --mr &lt;N&gt;</code> after its push, which posts <code>## Cost of this MR (#N) — record K</code> for the window since the latest record, with the running total. It posts nothing when the ledger is off, the MR carries <code>cost-ledger: off</code>, record 1 is missing, or nothing was measured, and it prints one line saying which. It moves the same <code>mr-cost-last-until</code> marker, so the next <code>glab mr create</code> doesn't re-count the round. Run it by hand the same way for any other work on an open MR.</li>
+<li><strong>Limit:</strong> it only sees <code>glab mr create</code> run through Claude Code's Bash tool. An MR opened in the GitLab UI or a plain terminal gets no comment.</li>
+</ul>
 <h2 id="check-it-and-turn-it-on-or-off">Check it, and turn it on or off<a class="headerlink" href="#check-it-and-turn-it-on-or-off" title="Permanent link">&para;</a></h2>
 <p><a id="the-setting"></a></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python3<span class="w"> </span>scripts/cost-ledger<span class="w"> </span>status<span class="w">          </span><span class="c1"># e.g. "cost-ledger: on (set by: project)"</span>
