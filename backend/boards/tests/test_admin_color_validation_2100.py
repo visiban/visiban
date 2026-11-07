@@ -1,6 +1,7 @@
 """#2100 - the Django admin forms apply the same hex rule as the API (#2093)."""
 from django.contrib import admin
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
+from django.urls import reverse
 
 from accounts.models import User
 from boards.models import Board, Column, Label, Swimlane
@@ -96,3 +97,43 @@ class AdminColorFormTests(TestCase):
         form = self._form(Label, obj, "#٠٠٠")
         self.assertFalse(form.is_valid())
         self.assertIn("color", form.errors)
+
+    def test_add_form_accepts_valid_hex(self):
+        for model in (Column, Swimlane, Label):
+            with self.subTest(model=model.__name__):
+                form_cls = self._form_class(model)
+                form = form_cls(data={"board": self.board.pk, "name": f"add-{model.__name__}", "color": "#abc"})
+                form.is_valid()
+                self.assertNotIn("color", form.errors)
+                self.assertEqual(form.cleaned_data["color"], "#aabbcc")
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+class AdminColorClientTests(TestCase):
+    """The real admin add view, end to end, for one model (Label)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser(username="c2100", password="p", email="c2100@x")
+        group = Group.objects.create(name="GC2100", owner=cls.user)
+        cls.board = Board.objects.create(name="BC2100", owner=cls.user, group=group)
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.url = reverse("admin:boards_label_add")
+
+    def test_bad_color_rerenders_form_and_creates_no_row(self):
+        response = self.client.post(self.url, {"board": self.board.pk, "name": "bad", "color": "red"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Enter a color as #RRGGBB or #RGB.")
+        self.assertFalse(Label.objects.filter(name="bad").exists())
+
+    def test_valid_hex_saves(self):
+        response = self.client.post(self.url, {"board": self.board.pk, "name": "ok", "color": "#abc"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Label.objects.get(name="ok").color, "#aabbcc")
