@@ -582,6 +582,41 @@ describe('GroupDetail', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  describe('Delete group gating (#2129)', () => {
+    const boss: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
+    const openSettings = async (viewer: User, owner: User) => {
+      mockGetGroup.mockResolvedValue({ ...fakeGroup, owner })
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: viewer, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail(undefined, viewer)
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Danger zone')
+    }
+
+    it('offers Delete group to the owner and no note', async () => {
+      await openSettings(fakeUser, fakeUser)
+      expect(screen.getByRole('button', { name: 'Delete group' })).toBeInTheDocument()
+      expect(screen.queryByText(/can delete this group/)).not.toBeInTheDocument()
+    })
+
+    it('hides Delete group from a non-owner admin and names the owner', async () => {
+      await openSettings(fakeUser, boss)
+      expect(screen.queryByRole('button', { name: 'Delete group' })).not.toBeInTheDocument()
+      expect(screen.getByText('Only the group owner (Boss) or a site administrator can delete this group.')).toBeInTheDocument()
+    })
+
+    it('offers Delete group to a user with all-content access who is not the owner', async () => {
+      await openSettings({ ...fakeUser, is_site_admin: true, can_access_all_content: true }, boss)
+      expect(screen.getByRole('button', { name: 'Delete group' })).toBeInTheDocument()
+    })
+
+    it('hides Delete group from an is_site_admin account without all-content access', async () => {
+      await openSettings({ ...fakeUser, is_site_admin: true }, boss)
+      expect(screen.queryByRole('button', { name: 'Delete group' })).not.toBeInTheDocument()
+    })
+  })
+
   it('hides admin controls for non-admin member', async () => {
     const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
     mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner })

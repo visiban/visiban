@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { canDeleteGroup } from "../utils/canDeleteGroup";
 import { neutralizePerUserBoardFields, stripPerUserBoardFields } from "../utils/boardEventPayload";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
@@ -722,6 +723,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // only at this group's direct roles (#1692).
   const canPlaceBoards = group?.can_place_boards === true;
 
+  // Delete is owner-or-all-content only, narrower than isAdmin (#2129).
+  const userCanDeleteGroup = canDeleteGroup({
+    ownerId: group?.owner.id,
+    userId: user.id,
+    hasAllContentAccess: user.can_access_all_content === true,
+  });
+
   const activeTab = isAdmin && searchParams.get("tab") === "settings" ? "settings" : "boards";
 
   // Build Navbar breadcrumb from the ancestors array when available (full chain);
@@ -1336,13 +1344,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     Transfer ownership
                   </button>
                 )}
-                <button
-                  onClick={() => setConfirmDeleteGroup(true)}
-                  className="text-sm text-danger border border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                >
-                  Delete group
-                </button>
+                {userCanDeleteGroup && (
+                  <button
+                    onClick={() => setConfirmDeleteGroup(true)}
+                    className="text-sm text-danger border border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                  >
+                    Delete group
+                  </button>
+                )}
               </div>
+              {/* Same wording shape as Board Settings' note (#2034): the server
+                  allows only the owner or all-content access to delete. */}
+              {!userCanDeleteGroup && (
+                <p className="text-sm text-fg-tertiary">
+                  Only the group owner ({group.owner.display_name || group.owner.username}) or a site administrator can delete this group.
+                </p>
+              )}
               {deleteError && <p role="alert" className="text-danger text-xs mt-2">{deleteError}</p>}
             </section>
           </div>
