@@ -1827,7 +1827,7 @@ def golden_worktrees(check):
         repo = os.path.join(tmp, "main-checkout")
         g = ["git", "-c", "user.name=t", "-c", "user.email=t@example.test", "-C", repo]
         subprocess.run(["git", "init", "-q", "-b", "main", repo], check=True)
-        subprocess.run(g + ["commit", "-q", "--allow-empty", "-m", "x"], check=True)
+        subprocess.run(g + ["commit", "-q", "--no-verify", "--allow-empty", "-m", "x"], check=True)
         subprocess.run(g + ["remote", "add", "origin", "https://example.test/%s.git" % sc["project"]], check=True)
         for wname, wbranch in sc["workers"].items():
             subprocess.run(g + ["worktree", "add", "-q", "-b", wbranch, os.path.join(repo, ".claude", "worktrees", wname)], check=True)
@@ -1919,13 +1919,22 @@ def golden_worktrees(check):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# Variables git itself sets (a hook runs with GIT_DIR and friends) that make EVERY git command, even
+# `git -C <scratch repo>`, act on the outer repository. The self-test builds scratch repos and runs
+# `checkout -B main`, `symbolic-ref` and commits in them, so they must not be inherited.
+REPO_LOCATING_GIT_ENV = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX",
+                         "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE")
+
+
 def self_test():
     cfg_tmp = tempfile.mkdtemp(prefix="post-mr-cost-config-")
     saved = os.environ.get("CLAUDE_CONFIG_DIR")
+    saved_git = {k: os.environ.pop(k) for k in REPO_LOCATING_GIT_ENV if k in os.environ}
     os.environ["CLAUDE_CONFIG_DIR"] = cfg_tmp  # never touch the real ~/.claude/mr-cost-state
     try:
         return _self_test()
     finally:
+        os.environ.update(saved_git)
         if saved is None:
             os.environ.pop("CLAUDE_CONFIG_DIR", None)
         else:
@@ -1939,6 +1948,11 @@ def _self_test():
         n[0] += 1
         if not cond:
             fails.append("%s %s" % (name, detail))
+
+    check("no repo-locating GIT_* variable leaks into the self-test (a pre-push hook sets GIT_DIR, and "
+          "every scratch repo would be the outer one)",
+          not [k for k in REPO_LOCATING_GIT_ENV if k in os.environ],
+          repr([k for k in REPO_LOCATING_GIT_ENV if k in os.environ]))
 
     url = "https://gitlab.com/g/p/-/merge_requests/1745\n"
     check("create + url -> iid", mr_iid("glab mr create --title x --yes", {"stdout": url}) == 1745)
@@ -2098,7 +2112,7 @@ def _self_test():
     main_co = os.path.join(wd, "main-co")
     git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.test", "-C", main_co]
     subprocess.run(["git", "init", "-q", main_co], check=True)
-    subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "x"], check=True)
+    subprocess.run(git + ["commit", "-q", "--no-verify", "--allow-empty", "-m", "x"], check=True)
     linked = os.path.join(wd, "101-a")
     subprocess.run(git + ["worktree", "add", "-q", "-b", "feat/101-a", linked], check=True)
     check("worktree_leaf: the main checkout has no leaf", worktree_leaf(run, main_co) == "")
