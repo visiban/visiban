@@ -847,16 +847,34 @@ class EmailSettingsSuperuserOnlyTests(TestCase):
             self.client.force_authenticate(user)
             self.assertEqual(self.client.get(SETTINGS_URL).status_code, status.HTTP_200_OK)
 
-    def test_other_mutating_methods_refused_for_site_admin(self):
+    def test_permission_class_refuses_every_unsafe_method_for_a_site_admin(self):
+        from rest_framework.test import APIRequestFactory
+
+        from accounts.permissions import IsSiteAdminReadOrSuperuserWrite
+
+        factory = APIRequestFactory()
+        perm = IsSiteAdminReadOrSuperuserWrite()
+        for user, unsafe_allowed in ((self.site_admin, False), (self.superuser, True)):
+            for method in ("put", "post", "patch", "delete"):
+                request = getattr(factory, method)(SETTINGS_URL)
+                request.user = user
+                self.assertEqual(perm.has_permission(request, None), unsafe_allowed, method)
+            for method in ("get", "head", "options"):
+                request = getattr(factory, method)(SETTINGS_URL)
+                request.user = user
+                self.assertTrue(perm.has_permission(request, None), method)
+
+    def test_non_admin_read_gets_the_site_admin_message(self):
+        member = User.objects.create_user(username="plain", email="p@visiban.test", password="pw")
+        self.client.force_authenticate(member)
+        response = self.client.get(SETTINGS_URL)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("site administrator", response.json()["detail"])
+
+    def test_site_admin_write_gets_the_superuser_message(self):
         self.client.force_authenticate(self.site_admin)
-        for method in ("put", "post", "delete"):
-            response = getattr(self.client, method)(SETTINGS_URL, {"host": "x.test"}, format="json")
-            self.assertIn(
-                response.status_code,
-                (status.HTTP_403_FORBIDDEN, status.HTTP_405_METHOD_NOT_ALLOWED),
-                method,
-            )
-        self.assertEqual(SiteEmailSetting.get().host, "")
+        response = self.client.patch(SETTINGS_URL, {"host": "x.test"}, format="json")
+        self.assertIn("superuser", response.json()["detail"])
 
     def test_superuser_can_patch(self):
         self.client.force_authenticate(self.superuser)

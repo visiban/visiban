@@ -981,6 +981,11 @@ class AdminMustChangePwdBlocksTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_patch_email_settings_blocked(self):
+        # The actor must be a superuser: a plain site admin is refused by the
+        # superuser rule before the pending-change gates run, which would let
+        # this test pass with those gates removed.
+        self.admin.is_superuser = True
+        self.admin.save(update_fields=["is_superuser"])
         r = self.client.patch("/api/v1/admin/email-settings/", {})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -1016,6 +1021,11 @@ class AdminMustChangeUsernameBlocksTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_patch_email_settings_blocked(self):
+        # The actor must be a superuser: a plain site admin is refused by the
+        # superuser rule before the pending-change gates run, which would let
+        # this test pass with those gates removed.
+        self.admin.is_superuser = True
+        self.admin.save(update_fields=["is_superuser"])
         r = self.client.patch("/api/v1/admin/email-settings/", {})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 

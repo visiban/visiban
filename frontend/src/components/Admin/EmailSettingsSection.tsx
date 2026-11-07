@@ -146,7 +146,10 @@ function isIntegerInRange(value: string, min: number, max: number): boolean {
   return Number.isInteger(n) && n >= min && n <= max;
 }
 
-const TEST_COPY: Record<EmailTestErrorCode, { headline: string; remedy: string }> = {
+const TEST_COPY: Record<
+  EmailTestErrorCode,
+  { headline: string; remedy: string; readOnlyRemedy?: string }
+> = {
   dns_failure: {
     headline: "Couldn't find that mail server.",
     remedy: "Check the host name for typos.",
@@ -162,6 +165,7 @@ const TEST_COPY: Record<EmailTestErrorCode, { headline: string; remedy: string }
   auth_failed: {
     headline: "The server rejected the username or password.",
     remedy: "Re-enter the password and save before testing again.",
+    readOnlyRemedy: "Ask a superuser to update the email settings.",
   },
   timeout: {
     headline: "The mail server didn't respond in time.",
@@ -170,6 +174,7 @@ const TEST_COPY: Record<EmailTestErrorCode, { headline: string; remedy: string }
   config_unusable: {
     headline: "The saved configuration can't be used.",
     remedy: "Complete the settings above and save, then test again.",
+    readOnlyRemedy: "Ask a superuser to complete the email settings.",
   },
   no_recipient: {
     headline: "Your account has no email address.",
@@ -474,7 +479,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
     );
   } else if (!server.password_set) {
     passwordLine1 = <span className="text-fg-muted">No password stored.</span>;
-    passwordLine2 = (
+    passwordLine2 = readOnly ? null : (
       <span className="text-fg-muted">
         Leave blank if your server doesn&rsquo;t require a password.
       </span>
@@ -528,7 +533,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
     resultHeadline = <span className="text-danger">{copy.headline}</span>;
     resultRemedy = (
       <span className="text-fg-muted">
-        {readOnly ? "Ask a superuser to update the email settings." : copy.remedy}
+        {readOnly ? (copy.readOnlyRemedy ?? copy.remedy) : copy.remedy}
       </span>
     );
   }

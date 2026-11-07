@@ -1561,6 +1561,33 @@ describe('AdminPage — Email (SMTP) settings', () => {
     expect(screen.queryByText(/Type a new one to replace it/)).not.toBeInTheDocument()
   })
 
+  it('read-only: keeps the no_recipient and backend_pinned remedies, swaps only edit-type ones', async () => {
+    await renderAdminPageSettled(adminUser)
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'no_recipient', detail: 'x' })
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() =>
+      expect(screen.getByText('Add one in your profile, then test again.')).toBeInTheDocument()
+    )
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'backend_pinned', detail: 'x' })
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() =>
+      expect(
+        screen.getByText(/can.t test that path/)
+      ).toBeInTheDocument()
+    )
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'auth_failed', detail: 'x' })
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() =>
+      expect(screen.getByText('Ask a superuser to update the email settings.')).toBeInTheDocument()
+    )
+  })
+
+  it('read-only: hides the blank-password hint when no password is stored', async () => {
+    await renderAdminPageSettled(adminUser)
+    expect(screen.getByText('No password stored.')).toBeInTheDocument()
+    expect(screen.queryByText(/Leave blank if your server doesn.t require a password/)).not.toBeInTheDocument()
+  })
+
   it('keeps email settings editable for a superuser', async () => {
     await renderEmailSection()
     expect(screen.getByLabelText('Host')).not.toBeDisabled()

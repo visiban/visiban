@@ -29,7 +29,11 @@ class IsSiteAdminReadOrSuperuserWrite(IsSiteAdmin):
 
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
+            # Not a site admin at all: report the parent's reason, not the
+            # superuser-only one.
+            self.message = IsSiteAdmin.message
             return False
+        self.message = self.__class__.message
         if request.method in SAFE_METHODS:
             return True
         return bool(request.user.is_superuser and request.user.is_active)
