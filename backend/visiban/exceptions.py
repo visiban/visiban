@@ -23,8 +23,11 @@ serializers whose callers let DRF render the error (a view), not for code that
 inspects ``serializer.errors``.
 """
 
+import logging
+
 from rest_framework import status
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ParseError
+from rest_framework.views import exception_handler as drf_exception_handler
 
 
 # The ``code`` for a refused query parameter (#1825, #1832): the one 400 shape
@@ -58,3 +61,38 @@ class CodedValidationError(APIException):
         # (values become ErrorDetail, a str subclass, so they render as JSON
         # strings), rather than wrapping a bare string under a `detail` key.
         super().__init__(detail={"code": code, "detail": detail}, code=code)
+
+
+def api_exception_handler(exc, context):
+    """DRF ``EXCEPTION_HANDLER``: Django's upload-limit errors become a JSON 400 (#2073).
+
+    ``visiban.parsers`` covers the limits Django raises *inside* a parser (#2072).
+    Two raise outside one: ``RequestDataTooBig`` from the ``request.body`` read
+    DRF does before it calls a JSON or urlencoded parser, and
+    ``TooManyFieldsSent`` while Django parses the query string. Both are
+    ``SuspiciousOperation``s that DRF's own handler returns ``None`` for, so
+    they reached Django's HTML 400. Both surface from code the view runs
+    (``request.data`` / ``request.query_params``), i.e. under
+    ``APIView.handle_exception``, so one global handler covers every view,
+    enterprise ones included, with no per-view opt-in.
+
+    Handling the exception here means Django's own ``response_for_exception``
+    never sees it and so never logs it; the ``django.security.<Name>`` record is
+    re-emitted (same logger, level and message) so alerting on it keeps working.
+    """
+    # Local import: visiban.parsers imports nothing from here, but keep the
+    # settings-time import graph (this module is loaded via REST_FRAMEWORK) light.
+    from visiban.parsers import UPLOAD_LIMIT_ERRORS
+
+    if isinstance(exc, UPLOAD_LIMIT_ERRORS):
+        request = context.get("request")
+        logging.getLogger(f"django.security.{type(exc).__name__}").error(
+            str(exc),
+            extra={
+                "status_code": 400,
+                "request": getattr(request, "_request", request),
+            },
+        )
+        # The message names the exceeded setting only, never request data.
+        exc = ParseError(f"Request parse error - {exc}")
+    return drf_exception_handler(exc, context)
