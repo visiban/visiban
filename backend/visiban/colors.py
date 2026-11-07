@@ -9,6 +9,7 @@ hold ``red`` or ``#12345``) would violate.
 """
 import re
 
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 # fullmatch, not ^...$: "$" also matches before a trailing newline.
@@ -49,4 +50,24 @@ class ColorValidationMixin:
         normalized = normalize_hex_color(value)
         if normalized is None:
             raise serializers.ValidationError(COLOR_ERROR_MESSAGE)
+        return normalized
+
+
+class ColorAdminFormMixin:
+    """``clean_color`` for a Django admin ModelForm whose model has a ``color`` (#2100).
+
+    The same rule as ``ColorValidationMixin``, for the one write path that does
+    not go through a serializer. It is a form-level check on purpose, not a
+    model validator, for the reasons in this module's docstring. An unchanged
+    value passes so that a superuser can still save a row whose legacy color
+    is not hex (for example, to rename it).
+    """
+
+    def clean_color(self):
+        value = self.cleaned_data["color"]
+        if self.instance.pk is not None and value == getattr(self.instance, "color", None):
+            return value
+        normalized = normalize_hex_color(value)
+        if normalized is None:
+            raise ValidationError(COLOR_ERROR_MESSAGE)
         return normalized
