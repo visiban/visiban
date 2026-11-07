@@ -5,9 +5,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
-import type { User, Group } from '../types'
+import type { User, Group, Board } from '../types'
 
 // #1374 — real useNavigate so the many `void navigate(...)` sites (escape,
 // 404/403 redirect, create/import board, delete group, breadcrumb, Trello
@@ -137,7 +137,12 @@ function renderGroupDetail(locationState?: Record<string, unknown>, user: User =
     </MemoryRouter>
   )
 }
-type FakeWS = { onclose: ((e: { code: number }) => void) | null; close: ReturnType<typeof vi.fn> }
+const fakeBoard = {
+  id: 10, uid: 'b10', name: 'Board', description: '', owner: fakeUser,
+  group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
+} as unknown as Board
+
+type FakeWS = { onopen: (() => void) | null; onclose: ((e: { code: number }) => void) | null; close: ReturnType<typeof vi.fn> }
 let sockets: FakeWS[]
 class FakeWebSocket {
   onopen: (() => void) | null = null
@@ -261,5 +266,114 @@ describe('GroupDetail with the real group socket (#2041)', () => {
     await screen.findByText('+ New board')
     await act(async () => { rejectLate({ response: { status: 404 } }) })
     expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
+  })
+})
+
+describe('GroupDetail first-open resync (#2088)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sockets = []
+    vi.stubGlobal('WebSocket', FakeWebSocket)
+    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('re-reads the boards once when the socket first opens more than 1 s after the load', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const loads = mockGetGroupBoards.mock.calls.length
+    now.mockReturnValue(1_000_000 + 1500)
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
+    now.mockRestore()
+  })
+
+  it('keeps the re-read boards when the older initial load lands after it (unknown load time)', async () => {
+    // A small clock makes `now - null` (null coerces to 0) look like a quick open,
+    // so only the explicit unknown-load-time branch can produce the re-read.
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(500)
+    const oldBoard = { ...fakeBoard, id: 11, uid: 'old', name: 'Old Board' }
+    const gapBoard = { ...fakeBoard, id: 12, uid: 'gap', name: 'Gap Board' }
+    let finish: (v: unknown) => void = () => {}
+    mockGetGroup.mockImplementation(() => new Promise((res) => { finish = res }))
+    mockGetGroupBoards.mockResolvedValueOnce([oldBoard]).mockResolvedValue([oldBoard, gapBoard])
+    renderGroupDetail()
+    await act(async () => {})
+    const loads = mockGetGroupBoards.mock.calls.length
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
+    // The initial load (older snapshot) completes only now, after the re-read.
+    finish({ ...fakeGroup, can_place_boards: true })
+    await screen.findByText('+ New board')
+    expect(await screen.findByText('Gap Board')).toBeInTheDocument()
+    now.mockRestore()
+  })
+
+  it('drops a boards re-read answered after the route moved to another group', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    const staleBoard = { ...fakeBoard, id: 21, uid: 'stale', name: 'Stale Board' }
+    render(
+      <MemoryRouter initialEntries={['/groups/1']}>
+        <Link to="/groups/2">go to group 2</Link>
+        <Routes>
+          <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByText('+ New board')
+    let answer: (v: unknown) => void = () => {}
+    mockGetGroupBoards.mockImplementationOnce(() => new Promise((res) => { answer = res }))
+    now.mockReturnValue(1_000_000 + 1500)
+    act(() => { sockets[0].onopen?.() })
+    // Navigate to group 2 while the re-read for group 1 is in flight.
+    mockGetGroupBoards.mockResolvedValue([])
+    fireEvent.click(screen.getByText('go to group 2'))
+    await screen.findByText('+ New board')
+    await act(async () => { answer([staleBoard]) })
+    expect(screen.queryByText('Stale Board')).toBeNull()
+    now.mockRestore()
+  })
+
+  it('does not re-read when the socket first opens within 1 s of the load', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const loads = mockGetGroupBoards.mock.calls.length
+    now.mockReturnValue(1_000_000 + 200)
+    act(() => { sockets[0].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads)
+    now.mockRestore()
+  })
+
+  it('re-reads once for a first open that succeeds only after a failed attempt and retry', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    renderGroupDetail()
+    await screen.findByText('+ New board')
+    const loads = mockGetGroupBoards.mock.calls.length
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    act(() => { sockets[0].onclose?.({ code: 1006 }) })
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(sockets).toHaveLength(2)
+    now.mockReturnValue(1_000_000 + 3100)
+    act(() => { sockets[1].onopen?.() })
+    await act(async () => {})
+    expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
+    now.mockRestore()
   })
 })

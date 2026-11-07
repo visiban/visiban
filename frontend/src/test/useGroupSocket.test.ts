@@ -218,4 +218,28 @@ describe('useGroupSocket', () => {
     expect(instances).toHaveLength(2)
     expect(result.current.status).toBe('failed')
   })
+
+  it('fires onFirstConnected on the first open only, and onReconnected on later opens (#2088)', () => {
+    const onFirstConnected = vi.fn()
+    const onReconnected = vi.fn()
+    renderHook(() => useGroupSocket(7, vi.fn(), { onFirstConnected, onReconnected }))
+    act(() => { latestWS().onopen?.() })
+    expect(onFirstConnected).toHaveBeenCalledTimes(1)
+    expect(onReconnected).not.toHaveBeenCalled()
+    act(() => { latestWS().onclose?.({ code: 1006 }) })
+    act(() => { vi.advanceTimersByTime(3000) })
+    act(() => { latestWS().onopen?.() })
+    expect(onFirstConnected).toHaveBeenCalledTimes(1)
+    expect(onReconnected).toHaveBeenCalledTimes(1)
+  })
+
+  it('fires onFirstConnected for a first open that follows failed attempts (#2088)', () => {
+    const onFirstConnected = vi.fn()
+    renderHook(() => useGroupSocket(7, vi.fn(), { onFirstConnected }))
+    act(() => { latestWS().onclose?.({ code: 1006 }) })
+    expect(onFirstConnected).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(3000) })
+    act(() => { latestWS().onopen?.() })
+    expect(onFirstConnected).toHaveBeenCalledTimes(1)
+  })
 })
