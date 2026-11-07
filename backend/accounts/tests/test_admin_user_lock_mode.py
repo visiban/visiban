@@ -27,6 +27,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 import accounts.admin_views as admin_views
+from accounts import credentials
 from accounts.models import SiteSetting, User
 from boards.tests.invite_fixtures import generate_invite
 from boards.tests.lock_wait import assert_blocked_on_lock
@@ -125,13 +126,13 @@ class AdminUserLockModeTests(TransactionTestCase):
         self._queue_behind(admin_views.lock_user_row, held, release, results)
 
     def test_lock_user_row_queues_behind_a_plain_for_update_holder(self):
-        """It conflicts with ``FOR UPDATE`` too, so the other credential routes still serialize."""
+        """It conflicts with ``FOR UPDATE`` too: ``credentials.lock_user_row`` holds it, the admin lock queues."""
         held, release, results = threading.Event(), threading.Event(), {}
 
-        def plain_for_update(pk):
-            return User.objects.select_for_update().get(pk=pk)
+        def credentials_lock(pk):
+            return credentials.lock_user_row(User(pk=pk))
 
-        self._queue_behind(admin_views.lock_user_row, held, release, results, holder_lock=plain_for_update)
+        self._queue_behind(admin_views.lock_user_row, held, release, results, holder_lock=credentials_lock)
 
     def _queue_behind(self, second_lock, held, release, results, holder_lock=None):
         holder_lock = holder_lock or admin_views.lock_user_row
