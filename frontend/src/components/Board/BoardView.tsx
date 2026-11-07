@@ -709,8 +709,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "label.deleted") {
       onLabelDeleted((d as { label_uid: string }).label_uid);
     } else if (event.event === "custom_field.created") {
+      // An upsert, not an append: a `/full/` response replays this updater
+      // over its snapshot, which may already list the field (#2130), and the
+      // Fields tab may have added it from its own create response.
       const created = d as unknown as CustomFieldDefinition;
-      onCustomFieldDefinitionsApplied((prev) => [...prev, created]);
+      onCustomFieldDefinitionsApplied((prev) => (
+        prev.some((f) => f.id === created.id) ? prev.map((f) => (f.id === created.id ? created : f)) : [...prev, created]
+      ));
     } else if (event.event === "custom_field.updated") {
       const updated = d as unknown as CustomFieldDefinition;
       onCustomFieldDefinitionsApplied((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
@@ -720,8 +725,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "custom_field.reordered") {
       onCustomFieldDefinitionsApplied((d as { custom_fields: CustomFieldDefinition[] }).custom_fields);
     } else if (event.event === "swimlane_custom_field.created") {
+      // An upsert, like custom_field.created above (#2130).
       const created = d as unknown as SwimlaneCustomFieldDefinition;
-      onSwimlaneFieldDefinitionsApplied((prev) => [...prev, created]);
+      onSwimlaneFieldDefinitionsApplied((prev) => (
+        prev.some((f) => f.id === created.id) ? prev.map((f) => (f.id === created.id ? created : f)) : [...prev, created]
+      ));
     } else if (event.event === "swimlane_custom_field.updated") {
       const updated = d as unknown as SwimlaneCustomFieldDefinition;
       onSwimlaneFieldDefinitionsApplied((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
@@ -920,7 +928,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // later commit arrives as a frame and the re-read's snapshot includes what
   // the gap dropped. A card frame that lands while the re-read is in flight is
   // kept over an older snapshot copy by useBoard's mergeFullSnapshot (#2038),
-  // as on every reconnect and tab-focus resync.
+  // and any other frame is replayed over the snapshot (#2130), as on every
+  // reconnect and tab-focus resync.
   const lastFullFetchAtRef = useRef(getLastFullFetchAt);
   lastFullFetchAtRef.current = getLastFullFetchAt;
   const onFirstConnected = useCallback(() => {

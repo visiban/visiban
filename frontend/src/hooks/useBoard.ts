@@ -165,9 +165,19 @@ function applySiblingPositions(cards: Card[], pairs: readonly CardSiblingPositio
 }
 
 /**
- * The card writes this client applied while one `/full/` fetch was in flight
- * (#2038). One set exists per fetch, created when the fetch starts and closed
- * when its response arrives, so it holds only what happened after the start.
+ * A pure write to the parts of the board that are not cards (#2130): columns,
+ * swimlanes, labels (and their copies on cards), members, custom field
+ * definitions and board-level fields. It must not mutate its argument, and
+ * applying it to a board that already reflects it must change nothing, so that
+ * replaying it over a `/full/` snapshot is safe (see mergeFullSnapshot).
+ */
+type BoardWrite = (board: BoardFull) => BoardFull;
+
+/**
+ * The writes this client applied while one `/full/` fetch was in flight
+ * (#2038, #2130). One set exists per fetch, created when the fetch starts and
+ * closed when its response arrives, so it holds only what happened after the
+ * start.
  */
 interface FetchTouches {
   /**
@@ -177,8 +187,15 @@ interface FetchTouches {
   written: Set<number>;
   /** Ids of cards whose position a `card.moved` sibling pair set (#1890). */
   siblingPositions: Set<number>;
-  /** Uids of cards that left the board; `true` when they left by archiving. */
+  /**
+   * Uids of cards that left the board; `true` when they left by archiving.
+   * Also holds the cards a column or swimlane delete took with it (#2130).
+   */
   removed: Map<string, boolean>;
+  /** Every non-card write, in the order it was applied (#2130). */
+  replay: BoardWrite[];
+  /** Whether the archived-card count was re-read meanwhile; see refreshArchivedCount. */
+  recountArchived: boolean;
 }
 
 /**
@@ -230,16 +247,46 @@ interface FetchTouches {
  *
  * A different board (the hook is reused across /boards/:id), no previous
  * board, or no writes during the fetch: the snapshot is returned unchanged.
- * Only cards are merged. Columns, swimlanes, labels, members, custom field
- * definitions and board-level fields are replaced by the snapshot as before
- * (#2130). A column or swimlane deleted during the fetch can therefore come
- * back with its cards, because the cascade does not record them, and it stays
- * until the next full read, since no later event removes it again. An equal-version change the snapshot predates (a
- * comment, attachment, checklist or relation) still reverts until the next
- * event; telling those apart needs an event cursor on `/full/` (#2089).
+ * An equal-version change the snapshot predates (a comment, attachment,
+ * checklist or relation) still reverts until the next event for that card;
+ * telling those apart needs an event cursor on `/full/` (#2089).
+ *
+ * The rest of the board (#2130) is handled differently: every non-card write
+ * applied during the fetch is replayed, in order, over the snapshot. This is
+ * the rule docs/api/websockets.md gives API clients (apply the frames that
+ * arrived meanwhile on top of the snapshot, idempotently). Replay rather than
+ * a per-id comparison like the cards above, because:
+ * - Columns, swimlanes, labels, members, custom field definitions and board
+ *   fields carry no `version`, so there is nothing to tell an older copy from
+ *   a newer one. Replaying a write the snapshot already contains is harmless
+ *   (each BoardWrite is idempotent), and a later change the snapshot holds
+ *   sends a later frame, which lands after the replayed one.
+ * - The writes cascade. A column or swimlane delete also removes its cards
+ *   (the server sends only `column.deleted` / `swimlane.deleted`, nothing per
+ *   card) and prunes swimlane limits; a label rename or delete rewrites the
+ *   copies on every card. Replaying the write repeats the cascade over the
+ *   snapshot's cards, including cards this client never had. A deleted column
+ *   or swimlane brought back by the snapshot would otherwise stay until the
+ *   next full read, since no later event removes it again.
+ * - A column or swimlane created meanwhile is put back, so a card created in
+ *   it during the fetch (kept above) is not left without its column.
+ * - A swimlane.updated write is a resolver (mergeSwimlaneFromBroadcast) and is
+ *   re-resolved against the snapshot's copy, so a reload issued to drop
+ *   admin-only values after a demotion (#1140) does not get them back.
+ *
+ * Replay runs after the cards are merged. A card write and a non-card write
+ * never undo each other in practice: a card written into a column deleted
+ * later in the fetch had already left the board (and is in `removed`), and
+ * updateCard drops labels the board no longer has (#1888).
  */
 function mergeFullSnapshot(prev: BoardFull | null, snapshot: BoardFull, touches: FetchTouches): BoardFull {
   if (!prev || prev.id !== snapshot.id) return snapshot;
+  const withCards = mergeSnapshotCards(prev, snapshot, touches);
+  return touches.replay.reduce((board, write) => write(board), withCards);
+}
+
+/** The card half of mergeFullSnapshot (#2038). */
+function mergeSnapshotCards(prev: BoardFull, snapshot: BoardFull, touches: FetchTouches): BoardFull {
   if (touches.written.size === 0 && touches.siblingPositions.size === 0 && touches.removed.size === 0) return snapshot;
   const local = new Map(prev.cards.map((c) => [c.id, c]));
   const inSnapshot = new Set<number>();
@@ -285,6 +332,50 @@ function mergeFullSnapshot(prev: BoardFull | null, snapshot: BoardFull, touches:
     ? snapshot.archived_card_count + archivedMeanwhile
     : snapshot.archived_card_count;
   return { ...snapshot, cards, archived_card_count: archivedCount };
+}
+
+/**
+ * The board without column `columnId`, the cards in it (the server cascades
+ * them and sends only `column.deleted`) and its id in swimlane limits. Shared
+ * by the local delete and the `column.deleted` frame, and replayed over a
+ * `/full/` snapshot that predates the delete (#2130).
+ */
+function withoutColumn(b: BoardFull, columnId: number): BoardFull {
+  return {
+    ...b,
+    columns: b.columns.filter((c) => c.id !== columnId),
+    cards: b.cards.filter((c) => c.column !== columnId),
+    swimlanes: pruneLaneLimitColumn(b.swimlanes, columnId),
+  };
+}
+
+/** The swimlane counterpart of withoutColumn (#2130). */
+function withoutSwimlane(b: BoardFull, swimlaneId: number): BoardFull {
+  return {
+    ...b,
+    swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId),
+    cards: b.cards.filter((c) => c.swimlane !== swimlaneId),
+  };
+}
+
+/**
+ * `items` in `orderedIds` order. An item the list does not name is kept, after
+ * the named ones: live, the ids come from the same state and name them all,
+ * but replayed over a `/full/` snapshot (#2130) the snapshot can hold a column
+ * this client never received, and a reorder must not delete it.
+ */
+function orderByIds<T extends { id: number }>(items: T[], orderedIds: number[]): T[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const named = new Set(orderedIds);
+  const ordered = orderedIds.map((id) => byId.get(id)).filter((item): item is T => item !== undefined);
+  return [...ordered, ...items.filter((item) => !named.has(item.id))];
+}
+
+/** Insert `item`, or replace the entry with its id: idempotent, so safe to replay (#2130). */
+function upsertById<T extends { id: number }>(items: T[], item: T): T[] {
+  return items.some((x) => x.id === item.id)
+    ? items.map((x) => (x.id === item.id ? item : x))
+    : [...items, item];
 }
 
 /**
@@ -392,8 +483,8 @@ export function useBoard() {
   const lastFullAtRef = useRef<number | null>(null);
   const getLastFullFetchAt = useCallback(() => lastFullAtRef.current, []);
 
-  // The card writes applied while the latest `/full/` fetch is in flight, or
-  // null when none is (#2038); see mergeFullSnapshot. Each writer reads the
+  // The writes applied while the latest `/full/` fetch is in flight, or null
+  // when none is (#2038, #2130); see mergeFullSnapshot. Each writer reads the
   // ref when it is called and records into that set from inside its setBoard
   // updater, where it knows whether the card is on the board. Reading it at
   // call time matters: React may run an updater queued before the response
@@ -403,9 +494,40 @@ export function useBoard() {
   // and its updater runs after the merge, on top of it.
   const fetchTouchesRef = useRef<FetchTouches | null>(null);
   const startFetchTouches = useCallback((): FetchTouches => {
-    const touches: FetchTouches = { written: new Set(), siblingPositions: new Set(), removed: new Map() };
+    const touches: FetchTouches = { written: new Set(), siblingPositions: new Set(), removed: new Map(), replay: [], recountArchived: false };
     fetchTouchesRef.current = touches;
     return touches;
+  }, []);
+
+  // Applies a non-card write to the board and records it for the in-flight
+  // fetch, if any, so the response replays it over its snapshot (#2130; see
+  // mergeFullSnapshot). The set is read at call time, as for the card writers.
+  // Cards the write removed (a column or swimlane delete) are also recorded as
+  // removed: the snapshot can hold one of them in another column, for example
+  // a card moved into the deleted column during the fetch, and the replayed
+  // cascade alone would not catch it there.
+  //
+  // Returns a retraction for an optimistic write that later failed without a
+  // reload: a write the server refused is not one the snapshot predates.
+  const writeBoard = useCallback((write: BoardWrite): (() => void) => {
+    const touches = fetchTouchesRef.current;
+    touches?.replay.push(write);
+    setBoard((b) => {
+      if (!b) return b;
+      const next = write(b);
+      if (touches && next.cards.length < b.cards.length) {
+        const kept = new Set(next.cards.map((c) => c.id));
+        for (const c of b.cards) {
+          if (!kept.has(c.id)) touches.removed.set(c.uid, false);
+        }
+      }
+      return next;
+    });
+    return () => {
+      if (!touches) return;
+      const i = touches.replay.lastIndexOf(write);
+      if (i !== -1) touches.replay.splice(i, 1);
+    };
   }, []);
   // Applies a /full/ response that won the sequence guard. Closing the set
   // first stops later writers from recording into it. Like the close on a
@@ -417,6 +539,39 @@ export function useBoard() {
     if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
     setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches));
   }, []);
+
+  // Deleting a column or swimlane cascades to its archived cards, which the
+  // client never holds (they are paged in only by ArchivedCardsPanel) and the
+  // *.deleted event does not say how many there were (#1637). Guessing would
+  // either under-count, which lets the Danger Zone skip typed confirmation, or
+  // keep the stale overstated count. Ask the server for the authoritative
+  // count instead. That is one page-0 request, which serializes up to 50 full
+  // cards just to read `count` (the API has no count-only form), so it is only
+  // made when the board had archived cards at all (`known`, when given, is
+  // the count to judge that by instead of the one on screen).
+  //
+  // A request made while a `/full/` fetch is in flight is flagged on it
+  // (#2130): its answer is discarded when the fetch lands first (the
+  // archivedCountGen guard), or overwritten by the snapshot's count, read
+  // before the delete, when it lands first. Either way the count would stay
+  // too high, so the fetch asks again once its snapshot is applied.
+  const refreshArchivedCount = useCallback((known?: number | null) => {
+    const touches = fetchTouchesRef.current;
+    if (touches) touches.recountArchived = true;
+    const count = known === undefined ? boardRef.current?.archived_card_count : known;
+    if (!count) return;
+    const gen = archivedCountGen.current;
+    getArchivedCards(boardId, 0)
+      .then((page) => {
+        if (gen !== archivedCountGen.current) return;
+        // b.id guard: BoardProvider stays mounted across /boards/:id changes,
+        // so a late response for board A must never land on board B.
+        setBoard((b) => b && b.id === boardId ? { ...b, archived_card_count: page.count } : b);
+      })
+      .catch(() => {
+        // Keep the previous count: it can only overstate, the safe direction.
+      });
+  }, [boardId]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -432,6 +587,7 @@ export function useBoard() {
         lastFullAtRef.current = Date.now();
         setUnavailable(false);
         applyFullSnapshot(b, touches);
+        if (touches.recountArchived) refreshArchivedCount(b.archived_card_count);
       })
       .catch((err) => {
         // A superseded failure must not surface: the newer request owns state.
@@ -450,7 +606,7 @@ export function useBoard() {
       // and its superseder (load or silentReload) clears it when it settles, so
       // loading can never stay stuck true.
       .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
-  }, [boardId, startFetchTouches, applyFullSnapshot]);
+  }, [boardId, startFetchTouches, applyFullSnapshot, refreshArchivedCount]);
 
   // `load` changes only with boardId. /boards/:id reuses this instance across
   // boards, so a previous board's unavailable/error state must not carry over
@@ -478,6 +634,7 @@ export function useBoard() {
         lastFullAtRef.current = Date.now();
         setUnavailable(false);
         applyFullSnapshot(b, touches);
+        if (touches.recountArchived) refreshArchivedCount(b.archived_card_count);
       })
       .catch((err) => {
         if (seq !== fetchSeqRef.current) return;
@@ -494,7 +651,7 @@ export function useBoard() {
         // worth surfacing to the user; the WS connection will recover it.
       })
       .finally(() => { if (seq === fetchSeqRef.current) setLoading(false); });
-  }, [boardId, load, startFetchTouches, applyFullSnapshot]);
+  }, [boardId, load, startFetchTouches, applyFullSnapshot, refreshArchivedCount]);
 
   const clearMoveError = useCallback(() => {
     setMoveError(null);
@@ -710,29 +867,6 @@ export function useBoard() {
     });
   }, []);
 
-  // Deleting a column or swimlane cascades to its archived cards, which the
-  // client never holds (they are paged in only by ArchivedCardsPanel) and the
-  // *.deleted event does not say how many there were (#1637). Guessing would
-  // either under-count, which lets the Danger Zone skip typed confirmation, or
-  // keep the stale overstated count. Ask the server for the authoritative
-  // count instead. That is one page-0 request, which serializes up to 50 full
-  // cards just to read `count` (the API has no count-only form), so it is only
-  // made when the board had archived cards at all.
-  const refreshArchivedCount = useCallback(() => {
-    if (!(boardRef.current?.archived_card_count)) return;
-    const gen = archivedCountGen.current;
-    getArchivedCards(boardId, 0)
-      .then((page) => {
-        if (gen !== archivedCountGen.current) return;
-        // b.id guard: BoardProvider stays mounted across /boards/:id changes,
-        // so a late response for board A must never land on board B.
-        setBoard((b) => b && b.id === boardId ? { ...b, archived_card_count: page.count } : b);
-      })
-      .catch(() => {
-        // Keep the previous count: it can only overstate, the safe direction.
-      });
-  }, [boardId]);
-
   // Archive / unarchive keep BoardFull.archived_card_count current in-session,
   // because the settings modal's Danger Zone gates typed-name confirmation on
   // it (#1289) and /full/ only reports it at load time. Each updater only moves
@@ -784,23 +918,18 @@ export function useBoard() {
     });
   }, []);
 
+  // Every non-card writer below goes through writeBoard, so a `/full/`
+  // response replays it over its snapshot (#2130). Each write is idempotent:
+  // the snapshot may already contain it.
   const addColumn = useCallback((column: Column) => {
-    setBoard((b) => {
-      if (!b) return b;
-      const exists = b.columns.some((c) => c.id === column.id);
-      return exists
-        ? { ...b, columns: b.columns.map((c) => (c.id === column.id ? column : c)) }
-        : { ...b, columns: [...b.columns, column] };
-    });
-  }, []);
+    writeBoard((b) => ({ ...b, columns: upsertById(b.columns, column) }));
+  }, [writeBoard]);
 
   const removeColumn = useCallback(async (columnId: number) => {
-    setBoard((b) => b ? {
-      ...b,
-      columns: b.columns.filter((c) => c.id !== columnId),
-      cards: b.cards.filter((c) => c.column !== columnId),
-      swimlanes: pruneLaneLimitColumn(b.swimlanes, columnId),
-    } : b);
+    // Recorded although optimistic: a failure reloads, and that reload
+    // supersedes any fetch this was recorded for, so the write is never
+    // replayed over a snapshot when the server refused it.
+    writeBoard((b) => withoutColumn(b, columnId));
     try {
       await apiDeleteColumn(boardId, columnId);
     } catch {
@@ -810,17 +939,11 @@ export function useBoard() {
     }
     // Do not rely on the socket echo to correct the archived count (#1637).
     refreshArchivedCount();
-  }, [boardId, load, refreshArchivedCount]);
+  }, [boardId, load, refreshArchivedCount, writeBoard]);
 
   const addSwimlane = useCallback((swimlane: Swimlane) => {
-    setBoard((b) => {
-      if (!b) return b;
-      const exists = b.swimlanes.some((s) => s.id === swimlane.id);
-      return exists
-        ? { ...b, swimlanes: b.swimlanes.map((s) => (s.id === swimlane.id ? swimlane : s)) }
-        : { ...b, swimlanes: [...b.swimlanes, swimlane] };
-    });
-  }, []);
+    writeBoard((b) => ({ ...b, swimlanes: upsertById(b.swimlanes, swimlane) }));
+  }, [writeBoard]);
 
   const updateCard = useCallback((card: Card, siblingPositions?: readonly CardSiblingPosition[], eventId?: number) => {
     // Fed by card.updated and card.moved frames and by every HTTP card response
@@ -885,41 +1008,47 @@ export function useBoard() {
     });
   }, []);
 
+  // A column.updated for a column the board does not hold (deleted, or never
+  // received) changes nothing, here and when replayed.
   const updateColumn = useCallback((column: Column) => {
-    setBoard((b) => b ? { ...b, columns: b.columns.map((c) => c.id === column.id ? column : c) } : b);
-  }, []);
+    writeBoard((b) => ({ ...b, columns: b.columns.map((c) => c.id === column.id ? column : c) }));
+  }, [writeBoard]);
 
+  // An upsert, not an append: replayed over a snapshot that already lists the
+  // label (#2130), an append would show it twice.
   const addLabel = useCallback((label: Label) => {
-    setBoard((b) => b ? { ...b, labels: [...b.labels, label] } : b);
-  }, []);
+    writeBoard((b) => ({ ...b, labels: upsertById(b.labels, label) }));
+  }, [writeBoard]);
 
   const updateLabel = useCallback((label: Label) => {
     // The server broadcasts only the label on `label.updated`, so the copies
     // embedded in cards[*].labels would keep the old name/color (#1888).
-    // Untouched cards keep their identity.
-    setBoard((b) => b ? {
+    // Untouched cards keep their identity. Replayed over a `/full/` snapshot
+    // (#2130), this also renames the copies on the snapshot's cards.
+    writeBoard((b) => ({
       ...b,
       labels: b.labels.map((l) => l.id === label.id ? label : l),
       cards: b.cards.map((c) => c.labels.some((l) => l.id === label.id)
         ? { ...c, labels: c.labels.map((l) => l.id === label.id ? label : l) }
         : c),
-    } : b);
-  }, []);
+    }));
+  }, [writeBoard]);
 
   const removeLabel = useCallback((labelUid: string) => {
     // The server drops the card<->label M2M rows silently and broadcasts only
     // `label.deleted` (no per-card `card.updated`), so strip the label from
     // every local card too (#1888); CardItem renders card.labels unfiltered.
     // Cards not holding the label keep their identity so memo'd CardItems
-    // do not re-render.
-    setBoard((b) => b ? {
+    // do not re-render. Replayed over a `/full/` snapshot (#2130), this also
+    // strips it from the snapshot's cards.
+    writeBoard((b) => ({
       ...b,
       labels: b.labels.filter((l) => l.uid !== labelUid),
       cards: b.cards.map((c) => c.labels.some((l) => l.uid === labelUid)
         ? { ...c, labels: c.labels.filter((l) => l.uid !== labelUid) }
         : c),
-    } : b);
-  }, []);
+    }));
+  }, [writeBoard]);
 
   // Custom fields (#371) — one wholesale-replace setter rather than granular
   // add/update/remove mutators like labels above. Callers pass either the full
@@ -930,36 +1059,39 @@ export function useBoard() {
   const applyCustomFieldDefinitions = useCallback((definitions: CustomFieldDefinition[] | ((prev: CustomFieldDefinition[]) => CustomFieldDefinition[])) => {
     // Updater form (#1970): socket frames can land before React re-renders, so
     // a caller building the next array from render-captured state would
-    // overwrite a previous frame's change.
-    setBoard((b) => b ? { ...b, custom_field_definitions: typeof definitions === 'function' ? definitions(b.custom_field_definitions) : definitions } : b);
-  }, []);
+    // overwrite a previous frame's change. Replayed over a `/full/` snapshot
+    // (#2130), the updater runs against the snapshot's list, so BoardView's
+    // `custom_field.created` updater is an upsert.
+    writeBoard((b) => ({ ...b, custom_field_definitions: typeof definitions === 'function' ? definitions(b.custom_field_definitions) : definitions }));
+  }, [writeBoard]);
 
   // Row field schema (#1140) — exactly parallel to the card version above,
   // and separate because the two are independent per-board schemas.
   const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => {
-    setBoard((b) => b ? { ...b, swimlane_custom_field_definitions: typeof definitions === 'function' ? definitions(b.swimlane_custom_field_definitions) : definitions } : b);
-  }, []);
+    writeBoard((b) => ({ ...b, swimlane_custom_field_definitions: typeof definitions === 'function' ? definitions(b.swimlane_custom_field_definitions) : definitions }));
+  }, [writeBoard]);
 
+  // Member rows merge with mergeMemberRow, so a frame replayed over a `/full/`
+  // snapshot (#2130) keeps the snapshot's is_site_admin and all-content flags.
   const addMember = useCallback((membership: BoardMembership) => {
-    setBoard((b) => {
-      if (!b) return b;
+    writeBoard((b) => {
       const exists = b.members.some((m) => m.user.id === membership.user.id);
       return exists
         ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership) : m) }
         : { ...b, members: [...b.members, membership] };
     });
-  }, []);
+  }, [writeBoard]);
 
   const updateMember = useCallback((membership: BoardMembership) => {
-    setBoard((b) => b ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership) : m) } : b);
-  }, []);
+    writeBoard((b) => ({ ...b, members: b.members.map((m) => m.user.id === membership.user.id ? mergeMemberRow(m, membership) : m) }));
+  }, [writeBoard]);
 
   const removeMember = useCallback((userId: number) => {
     // Removing a membership does not remove an all-content user's access
     // (#1301): keep them listed with no membership row. A later re-read lists
     // them again only for a reader who sees the all-content roster, or when
     // they are also inherited from the board's group or the owner.
-    setBoard((b) => b ? {
+    writeBoard((b) => ({
       ...b,
       members: b.members.flatMap((m): EffectiveBoardMember[] => {
         if (m.user.id !== userId) return [m];
@@ -967,51 +1099,50 @@ export function useBoard() {
           ? [{ ...m, id: null, role: "site_admin", has_all_content_access: true }]
           : [];
       }),
-    } : b);
-  }, []);
+    }));
+  }, [writeBoard]);
 
+  // column.reordered / swimlane.reordered carry the server's whole list.
   const applyColumnOrder = useCallback((columns: Column[]) => {
-    setBoard((b) => b ? { ...b, columns } : b);
-  }, []);
+    writeBoard((b) => ({ ...b, columns }));
+  }, [writeBoard]);
 
   const applySwimlaneOrder = useCallback((swimlanes: Swimlane[]) => {
-    setBoard((b) => b ? { ...b, swimlanes } : b);
-  }, []);
+    writeBoard((b) => ({ ...b, swimlanes }));
+  }, [writeBoard]);
 
   const reorderColumns = useCallback(async (orderedIds: number[]) => {
     if (!boardRef.current) return;
     const prev = boardRef.current.columns;
-    setBoard((b) => {
-      if (!b) return b;
-      const map = new Map(b.columns.map((c) => [c.id, c]));
-      return { ...b, columns: orderedIds.map((id) => map.get(id)!).filter(Boolean) };
-    });
+    const retract = writeBoard((b) => ({ ...b, columns: orderByIds(b.columns, orderedIds) }));
     try {
       const updated = await apiReorderColumns(boardId, orderedIds);
-      setBoard((b) => b ? { ...b, columns: updated } : b);
+      writeBoard((b) => ({ ...b, columns: updated }));
     } catch {
+      // This failure rolls back without a reload, so the optimistic order
+      // must not be replayed over an in-flight fetch's snapshot (#2130),
+      // which holds the order the server kept.
+      retract();
       setBoard((b) => b ? { ...b, columns: prev } : b);
     }
-  }, [boardId]);
+  }, [boardId, writeBoard]);
 
 
   const reorderSwimlanes = useCallback(async (orderedIds: number[]) => {
     if (!boardRef.current) return;
-    setBoard((b) => {
-      if (!b) return b;
-      const map = new Map(b.swimlanes.map((s) => [s.id, s]));
-      return { ...b, swimlanes: orderedIds.map((id) => map.get(id)!).filter(Boolean) };
-    });
+    // Recorded although optimistic: a failure reloads (below), superseding
+    // any fetch this was recorded for (#2130).
+    writeBoard((b) => ({ ...b, swimlanes: orderByIds(b.swimlanes, orderedIds) }));
     try {
       const updated = await apiReorderSwimlanes(boardId, orderedIds);
-      setBoard((b) => b ? { ...b, swimlanes: updated } : b);
+      writeBoard((b) => ({ ...b, swimlanes: updated }));
     } catch {
       // Re-fetch on failure rather than rolling back to a stale snapshot.
       // A stale snapshot (captured before addSwimlane ran) would drop any
       // swimlane added in the same batch, even though it was persisted.
       load();
     }
-  }, [boardId, load]);
+  }, [boardId, load, writeBoard]);
 
   /**
    * Replace one swimlane wholesale. Callers handling a `swimlane.updated`
@@ -1022,16 +1153,18 @@ export function useBoard() {
    */
   const updateSwimlane = useCallback((swimlane: Swimlane | ((board: BoardFull) => Swimlane)) => {
     // Resolver form (#1970): the socket handler derives the merged swimlane
-    // from the latest board state, not a render-captured copy.
-    setBoard((b) => {
-      if (!b) return b;
+    // from the latest board state, not a render-captured copy. Replayed over a
+    // `/full/` snapshot (#2130), it resolves against the snapshot's copy.
+    writeBoard((b) => {
       const next = typeof swimlane === 'function' ? swimlane(b) : swimlane;
       return { ...b, swimlanes: b.swimlanes.map((s) => s.id === next.id ? next : s) };
     });
-  }, []);
+  }, [writeBoard]);
 
   const removeSwimlane = useCallback(async (swimlaneId: number) => {
-    setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId), cards: b.cards.filter((c) => c.swimlane !== swimlaneId) } : b);
+    // Recorded although optimistic: a failure reloads, superseding any fetch
+    // this was recorded for (#2130), as in removeColumn.
+    writeBoard((b) => withoutSwimlane(b, swimlaneId));
     try {
       await apiDeleteSwimlane(boardId, swimlaneId);
     } catch {
@@ -1039,37 +1172,30 @@ export function useBoard() {
       return;
     }
     refreshArchivedCount();
-  }, [boardId, load, refreshArchivedCount]);
+  }, [boardId, load, refreshArchivedCount, writeBoard]);
 
   // Pure state-only helpers for WebSocket receive path — these update local
   // state without firing API calls, preventing redundant round-trips when
   // another client's mutation is broadcast to all connected clients.
+  //
+  // The frame names the column by uid. Replayed over a `/full/` snapshot
+  // (#2130), the uid is looked up in the snapshot, so a column this client
+  // never received is still removed, with its cards.
   const evictColumn = useCallback((columnUid: string) => {
-    setBoard((b) => {
-      if (!b) return b;
+    writeBoard((b) => {
       const col = b.columns.find((c) => c.uid === columnUid);
-      return {
-        ...b,
-        columns: b.columns.filter((c) => c.uid !== columnUid),
-        cards: col ? b.cards.filter((c) => c.column !== col.id) : b.cards,
-        swimlanes: col ? pruneLaneLimitColumn(b.swimlanes, col.id) : b.swimlanes,
-      };
+      return col ? withoutColumn(b, col.id) : b;
     });
     refreshArchivedCount();
-  }, [refreshArchivedCount]);
+  }, [refreshArchivedCount, writeBoard]);
 
   const evictSwimlane = useCallback((swimlaneUid: string) => {
-    setBoard((b) => {
-      if (!b) return b;
+    writeBoard((b) => {
       const sl = b.swimlanes.find((s) => s.uid === swimlaneUid);
-      return {
-        ...b,
-        swimlanes: b.swimlanes.filter((s) => s.uid !== swimlaneUid),
-        cards: sl ? b.cards.filter((c) => c.swimlane !== sl.id) : b.cards,
-      };
+      return sl ? withoutSwimlane(b, sl.id) : b;
     });
     refreshArchivedCount();
-  }, [refreshArchivedCount]);
+  }, [refreshArchivedCount, writeBoard]);
 
   // card.deleted. Recorded for an in-flight fetch even when the card is not on
   // screen, so a snapshot read before the delete cannot bring it back (#2038).
@@ -1094,20 +1220,26 @@ export function useBoard() {
     // refreshArchivedCount (guarded by archivedCountGen against being overtaken
     // by them or by a reload) are therefore the only in-session writers; a full
     // reload re-seeds it.
+    //
+    // Fed by board.updated, share_link.updated, board.star_changed, the
+    // viewer's own role change and HTTP responses (health status, the Sharing
+    // tab), all replayed over an in-flight `/full/` snapshot (#2130).
     const { archived_card_count: _ignored, ...rest } = patch;
-    setBoard((b) => b ? { ...b, ...rest } : b);
-  }, []);
+    writeBoard((b) => ({ ...b, ...rest }));
+  }, [writeBoard]);
 
   const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
     if (!boardRef.current) return;
-    setBoard((b) => b ? { ...b, ...patch } : b);
+    // Recorded although optimistic: a failure reloads, superseding any fetch
+    // this was recorded for (#2130).
+    writeBoard((b) => ({ ...b, ...patch }));
     try {
       await apiPatchBoard(boardId, patch);
     } catch {
       // Reload fresh state on failure
       load();
     }
-  }, [boardId, load]);
+  }, [boardId, load, writeBoard]);
 
   return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }

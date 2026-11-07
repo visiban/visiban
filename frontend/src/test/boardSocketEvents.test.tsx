@@ -372,6 +372,25 @@ describe('BoardView socket event routing — new event types', () => {
     expect(state.map((f) => (f as { name: string }).name)).toEqual(['A', 'B2'])
   })
 
+  // useBoard replays these updaters over a /full/ snapshot that may already
+  // list the field (#2130), so a created frame must replace, not duplicate.
+  for (const [event, apply, prefix] of [
+    ['custom_field.created', 'applyCustomFieldDefinitions', 'cf'],
+    ['swimlane_custom_field.created', 'applySwimlaneFieldDefinitions', 'sf'],
+  ] as const) {
+    it(`${event} upserts, so replaying it over a list that has the field does not duplicate it (#2130)`, async () => {
+      const ctx = makeContext()
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      const def = (id: number, name: string) => ({ id, uid: `${prefix}${id}`, name }) as unknown as Record<string, unknown>
+      act(() => { getOnEvent.dispatch({ event, data: def(1, 'Frame') }) })
+      const updater = (ctx[apply] as ReturnType<typeof vi.fn>).mock.calls[0][0] as (prev: unknown[]) => unknown[]
+      expect(updater([def(1, 'Snapshot'), def(2, 'B')]).map((f) => (f as { name: string }).name)).toEqual(['Frame', 'B'])
+      expect(updater([def(2, 'B')]).map((f) => (f as { name: string }).name)).toEqual(['B', 'Frame'])
+    })
+  }
+
   it('swimlane.updated resolves the merge against the latest board, not a render capture (#1970)', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
