@@ -60,7 +60,7 @@ from .models import (
     snapshot_site_setting,
 )
 from .invite_utils import effective_site_invite_status, live_site_invite_count, revoke_site_invite_links
-from .permissions import IsSiteAdmin, TokenHasScope
+from .permissions import IsSiteAdmin, IsSiteAdminReadOrSuperuserWrite, TokenHasScope
 from .validators import (
     UsernameFormatValidator,
     email_collides_with_identifier,
@@ -303,9 +303,19 @@ class SiteEmailSettingsResponseSerializer(drf_serializers.Serializer):
 
 
 class AdminEmailSettingsView(APIView):
-    """GET/PATCH the singleton SiteEmailSetting row (#306)."""
+    """GET/PATCH the singleton SiteEmailSetting row (#306).
 
-    permission_classes = _ADMIN_PERMISSIONS
+    Reading is open to any site admin; changing it is superuser-only (#2090).
+    The settings choose which server outbound mail leaves through, so a change
+    is a higher-trust action than the rest of the admin surface.
+    """
+
+    permission_classes = [
+        IsSiteAdminReadOrSuperuserWrite,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+        TokenHasScope,
+    ]
 
     @extend_schema(responses=SiteEmailSettingsResponseSerializer)
     def get(self, request):

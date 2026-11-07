@@ -107,7 +107,7 @@ backend:
     #
     # Empty (the default since 1.2) leaves EMAIL_BACKEND unset, so the backend
     # resolves email from the EMAIL_* values below OR from the configuration a
-    # site admin saves in Admin → Settings → Email — whichever the admin
+    # superuser saves in Admin → Settings → Email — whichever the superuser
     # selects. Setting this to an explicit value PINS the backend and disables
     # that admin UI entirely, which is the right choice only when you
     # deliberately want env-only configuration (or a third-party relay backend).

@@ -80,7 +80,7 @@ backend:
     useTls: true
 ```
 
-**Email can wait.** Since 1.2, `backend.email.backend` defaults to `""` (unset) instead of `"smtp"`. You can leave `backend.email.*` blank and install first. A site admin can then configure SMTP from **Admin → Settings → Email**, with no redeploy. The chart's render-time check for a placeholder `fromAddress` (for example `noreply@example.com`) fires only when `backend.email.host` is set, so an install with the whole block blank passes.
+**Email can wait.** Since 1.2, `backend.email.backend` defaults to `""` (unset) instead of `"smtp"`. You can leave `backend.email.*` blank and install first. A superuser can then configure SMTP from **Admin → Settings → Email**, with no redeploy. The chart's render-time check for a placeholder `fromAddress` (for example `noreply@example.com`) fires only when `backend.email.host` is set, so an install with the whole block blank passes.
 
 **Watch out: setting `backend.email.backend` locks the UI.** Set it only if you want env-only email configuration. Doing so pins the backend and **disables** the Admin → Settings → Email UI. Filling in `host`, `user`, and `password` alone doesn't pin it.
 

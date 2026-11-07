@@ -368,6 +368,9 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "Changing email settings requires a superuser"
+    `PATCH /api/v1/admin/email-settings/` now returns `403` for a site admin who is not a superuser. They can still read the settings and send a test email. If none of your admins is a superuser, run `python manage.py createsuperuser` (see [Site admins](site-admins.md)).
+
 !!! warning "Only a superuser can grant all-content access"
     `can_access_all_content` reads and writes every board and group, and until 1.3 any site admin could set it, including on their own account. Since 1.3 only a superuser can grant it (#1830). **Grant all-content** is hidden from other site admins, and `PATCH /api/v1/admin/users/{id}/` with `can_access_all_content: true` returns `400` for them. Setting `true` on an account that already has the flag still succeeds and changes nothing, except on a superuser account, where a site admin who isn't a superuser still gets `400`, as in 1.2. Scripts that grant the flag need a superuser's token. Revoking is unchanged: any site admin can still revoke the flag from an account that is not a superuser.
 

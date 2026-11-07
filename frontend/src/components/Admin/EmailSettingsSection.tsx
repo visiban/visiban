@@ -146,7 +146,10 @@ function isIntegerInRange(value: string, min: number, max: number): boolean {
   return Number.isInteger(n) && n >= min && n <= max;
 }
 
-const TEST_COPY: Record<EmailTestErrorCode, { headline: string; remedy: string }> = {
+const TEST_COPY: Record<
+  EmailTestErrorCode,
+  { headline: string; remedy: string; readOnlyRemedy?: string }
+> = {
   dns_failure: {
     headline: "Couldn't find that mail server.",
     remedy: "Check the host name for typos.",
@@ -162,6 +165,7 @@ const TEST_COPY: Record<EmailTestErrorCode, { headline: string; remedy: string }
   auth_failed: {
     headline: "The server rejected the username or password.",
     remedy: "Re-enter the password and save before testing again.",
+    readOnlyRemedy: "Ask a superuser to update the email settings.",
   },
   timeout: {
     headline: "The mail server didn't respond in time.",
@@ -170,6 +174,7 @@ const TEST_COPY: Record<EmailTestErrorCode, { headline: string; remedy: string }
   config_unusable: {
     headline: "The saved configuration can't be used.",
     remedy: "Complete the settings above and save, then test again.",
+    readOnlyRemedy: "Ask a superuser to complete the email settings.",
   },
   no_recipient: {
     headline: "Your account has no email address.",
@@ -198,6 +203,12 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   const [clearPassword, setClearPassword] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [saving, setSaving] = useState(false);
+  // Changing email settings is superuser-only (#2090); site admins who are not
+  // superusers see the values read-only. Convenience only: the API enforces it.
+  const readOnly = currentUser.is_superuser !== true;
+  const locked = saving || readOnly;
+  // Links the read-only note to every disabled control (empty when editable).
+  const noteSuffix = readOnly ? " smtp-readonly-note" : "";
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingSourceSwitch, setConfirmingSourceSwitch] = useState(false);
@@ -318,7 +329,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft || !server || saving) return;
+    if (!draft || !server || locked) return;
 
     const found = validate(draft, server);
     setErrors(found);
@@ -444,7 +455,9 @@ export default function EmailSettingsSection({ currentUser }: Props) {
     } else if (server.effective_source === "database" && passwordBroken) {
       tone = "warning";
       warningText =
-        "The stored password can't be decrypted, so mail is failing. Re-enter it below.";
+        readOnly
+          ? "The stored password can't be decrypted, so mail is failing. Ask a superuser to re-enter it."
+          : "The stored password can't be decrypted, so mail is failing. Re-enter it below.";
     }
   }
 
@@ -466,21 +479,25 @@ export default function EmailSettingsSection({ currentUser }: Props) {
     );
   } else if (!server.password_set) {
     passwordLine1 = <span className="text-fg-muted">No password stored.</span>;
-    passwordLine2 = (
+    passwordLine2 = readOnly ? null : (
       <span className="text-fg-muted">
         Leave blank if your server doesn&rsquo;t require a password.
       </span>
     );
   } else if (server.password_decryptable) {
-    passwordPlaceholder = "Leave blank to keep the current password";
+    passwordPlaceholder = readOnly ? "" : "Leave blank to keep the current password";
     passwordLine1 = <span className="text-fg-muted">A password is stored.</span>;
-    passwordLine2 = (
+    passwordLine2 = readOnly ? null : (
       <span className="text-fg-muted">Type a new one to replace it, or Clear to remove it.</span>
     );
   } else {
-    passwordPlaceholder = "Enter the password again";
+    passwordPlaceholder = readOnly ? "" : "Enter the password again";
     passwordLine1 = (
-      <span className="text-warning">Can&rsquo;t decrypt the stored password — re-enter it.</span>
+      <span className="text-warning">
+        {readOnly
+          ? "Can\u2019t decrypt the stored password — ask a superuser to re-enter it."
+          : "Can\u2019t decrypt the stored password — re-enter it."}
+      </span>
     );
     passwordLine2 = (
       <span className="text-warning">The server&rsquo;s secret key most likely changed.</span>
@@ -514,7 +531,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   } else if (testResult?.kind === "failure") {
     const copy = TEST_COPY[testResult.code] ?? TEST_COPY.unknown;
     resultHeadline = <span className="text-danger">{copy.headline}</span>;
-    resultRemedy = <span className="text-fg-muted">{copy.remedy}</span>;
+    resultRemedy = (
+      <span className="text-fg-muted">
+        {readOnly ? (copy.readOnlyRemedy ?? copy.remedy) : copy.remedy}
+      </span>
+    );
   }
 
   const inputClass =
@@ -569,18 +590,28 @@ export default function EmailSettingsSection({ currentUser }: Props) {
             an unstyled native bubble instead of the reserved error slot — so
             the field would never get aria-invalid and the message would not
             match the rest of the form. Our validate() is the single authority. */}
+        {readOnly && (
+          <p
+            id="smtp-readonly-note"
+            className="text-xs text-fg-muted"
+            data-testid="email-settings-readonly-note"
+          >
+            Only a superuser can change email settings.
+          </p>
+        )}
         <form onSubmit={handleSave} noValidate className="flex flex-col gap-3">
           {/* B1. Configuration source */}
           <div
             className="flex flex-col gap-2"
             role="radiogroup"
             aria-label="Email configuration source"
+            aria-describedby={readOnly ? "smtp-readonly-note" : undefined}
           >
             {CONFIG_SOURCE_OPTIONS.map(({ value, label, description }) => (
               <label
                 key={value}
                 className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
-                  saving ? "opacity-40 pointer-events-none" : ""
+                  saving ? "opacity-40 pointer-events-none" : readOnly ? "pointer-events-none" : ""
                 } ${
                   draft.config_source === value
                     ? "border-primary-emphasis bg-primary-emphasis/10"
@@ -593,7 +624,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                   name="smtp_config_source"
                   value={value}
                   checked={draft.config_source === value}
-                  disabled={saving}
+                  disabled={locked}
                   onChange={() => setDraft((d) => (d ? { ...d, config_source: value } : d))}
                 />
                 <span
@@ -648,11 +679,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 type="text"
                 value={draft.host}
                 onChange={(e) => setDraft((d) => (d ? { ...d, host: e.target.value } : d))}
-                disabled={saving}
+                disabled={locked}
                 placeholder="smtp.example.com"
                 autoComplete="off"
                 aria-invalid={!!errors.host}
-                aria-describedby="smtp-host-help"
+                aria-describedby={`smtp-host-help${noteSuffix}`}
                 className={inputClass}
               />
               <p id="smtp-host-help" className="text-xs h-4">
@@ -677,9 +708,9 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                   inputMode="numeric"
                   value={draft.port}
                   onChange={(e) => setDraft((d) => (d ? { ...d, port: e.target.value } : d))}
-                  disabled={saving}
+                  disabled={locked}
                   aria-invalid={!!errors.port}
-                  aria-describedby="smtp-port-help"
+                  aria-describedby={`smtp-port-help${noteSuffix}`}
                   className="w-24 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition"
                 />
               </div>
@@ -696,9 +727,9 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                     inputMode="numeric"
                     value={draft.timeout}
                     onChange={(e) => setDraft((d) => (d ? { ...d, timeout: e.target.value } : d))}
-                    disabled={saving}
+                    disabled={locked}
                     aria-invalid={!!errors.timeout}
-                    aria-describedby="smtp-timeout-help"
+                    aria-describedby={`smtp-timeout-help${noteSuffix}`}
                     className="w-20 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition"
                   />
                   <span className="text-sm text-fg-tertiary">seconds</span>
@@ -731,13 +762,13 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 className="flex flex-wrap gap-2"
                 role="radiogroup"
                 aria-label="Encryption"
-                aria-describedby="smtp-encryption-help"
+                aria-describedby={`smtp-encryption-help${noteSuffix}`}
               >
                 {ENCRYPTION_OPTIONS.map(({ value, label }) => (
                   <label
                     key={value}
                     className={`px-2 py-1 text-xs rounded border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
-                      saving ? "opacity-40 pointer-events-none" : ""
+                      saving ? "opacity-40 pointer-events-none" : readOnly ? "pointer-events-none" : ""
                     } ${
                       draft.encryption === value
                         ? "border-primary-emphasis bg-primary-emphasis/10 text-fg"
@@ -750,7 +781,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                       name="smtp_encryption"
                       value={value}
                       checked={draft.encryption === value}
-                      disabled={saving}
+                      disabled={locked}
                       onChange={() => setDraft((d) => (d ? { ...d, encryption: value } : d))}
                     />
                     {label}
@@ -777,11 +808,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 type="text"
                 value={draft.username}
                 onChange={(e) => setDraft((d) => (d ? { ...d, username: e.target.value } : d))}
-                disabled={saving}
+                disabled={locked}
                 placeholder="user@example.com"
                 autoComplete="off"
                 aria-invalid={!!errors.username}
-                aria-describedby="smtp-username-help"
+                aria-describedby={`smtp-username-help${noteSuffix}`}
                 className={inputClass}
               />
               <p id="smtp-username-help" className="text-xs h-4">
@@ -800,14 +831,14 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 <label htmlFor="smtp-password" className={labelClass}>
                   Password
                 </label>
-                {server.password_set && !clearPassword && (
+                {!readOnly && server.password_set && !clearPassword && (
                   <button
                     type="button"
                     onClick={() => {
                       setClearPassword(true);
                       setPasswordInput("");
                     }}
-                    disabled={saving}
+                    disabled={locked}
                     className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 rounded text-xs disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Clear
@@ -819,11 +850,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 type="password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                disabled={saving || clearPassword}
+                disabled={locked || clearPassword}
                 placeholder={passwordPlaceholder}
                 autoComplete="new-password"
                 aria-invalid={!!errors.password}
-                aria-describedby="smtp-password-help"
+                aria-describedby={`smtp-password-help${noteSuffix}`}
                 className={`w-full bg-surface border rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted transition disabled:opacity-40 ${
                   passwordBroken ? "border-warning/50" : "border-line"
                 }`}
@@ -843,11 +874,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 type="text"
                 value={draft.from_email}
                 onChange={(e) => setDraft((d) => (d ? { ...d, from_email: e.target.value } : d))}
-                disabled={saving}
+                disabled={locked}
                 placeholder="noreply@yourdomain.com"
                 autoComplete="off"
                 aria-invalid={!!errors.from_email}
-                aria-describedby="smtp-from-email-help"
+                aria-describedby={`smtp-from-email-help${noteSuffix}`}
                 className={inputClass}
               />
               <p id="smtp-from-email-help" className="text-xs h-4">
@@ -874,25 +905,27 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 <span className="text-fg-muted">Unsaved changes</span>
               ) : null}
             </p>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={!dirty || saving}
-                aria-label="Discard email settings changes"
-                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                Cancel
-              </button>
-              <button
-                ref={saveTriggerRef("save")}
-                type="submit"
-                disabled={!dirty || saving}
-                className="bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                Save email settings
-              </button>
-            </div>
+            {readOnly ? null : (
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={!dirty || saving}
+                  aria-label="Discard email settings changes"
+                  className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Cancel
+                </button>
+                <button
+                  ref={saveTriggerRef("save")}
+                  type="submit"
+                  disabled={!dirty || saving}
+                  className="bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Save email settings
+                </button>
+              </div>
+            )}
           </div>
 
           {confirmingSourceSwitch && (

@@ -1350,6 +1350,12 @@ Any component that calls `useDraggable`, `useSortable`, or registers interactive
 
 This applies to `CardItem` and any future draggable component used in unauthenticated or view-only contexts (e.g. share board page, print view).
 
+## Read-only composite editors (#2090)
+
+A multi-field form that some roles may view but not change (the admin Email settings section) shows its values with the fields `disabled` and the action buttons (Save, Cancel, Clear) omitted. A single `text-xs text-fg-muted` note near the top says who can change it, and `aria-describedby` on each control points at the note's `id`. Copy that tells the user to type, re-enter or clear a value is replaced with "ask a superuser" wording.
+
+This is a deliberate exception to "omit controls, never disabled" (Withheld row actions, and the card-detail sub-section rule) and to the plain read-only text line used for single-value settings. Those rules cover a control that does nothing for the viewer. Here the stored values are the content the viewer came for, and bare text lines would drop the labels and layout they rely on. Do not use this pattern for a navigation link or a single action; omit those.
+
 ## One-time token reveal
 
 When a token or secret is shown exactly once after creation (e.g. invite links, PATs), use an inline expanded state on the newly created row — never a modal or toast:

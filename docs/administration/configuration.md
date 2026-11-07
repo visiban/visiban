@@ -325,7 +325,7 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 
 > **Added in 1.2**
 
-Site admins can configure outbound email from **Admin → Settings → Email** without shell access or a container restart, which suits managed and cloud deployments.
+*(1.3+)* A superuser can configure outbound email from **Admin → Settings → Email** without shell access or a container restart, which suits managed and cloud deployments.
 
 1. Fill in the server, port, sender address, and credentials.
 2. Switch **Configuration source** to **Stored in this admin UI**.
