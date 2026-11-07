@@ -455,7 +455,7 @@ class SiteAdminLockTests(_Base):
             r = self.post(self.target, is_active="")
         self.assertEqual(r.status_code, 302)
         if connection.features.has_select_for_update:
-            locking = [q["sql"] for q in ctx.captured_queries if "FOR UPDATE" in q["sql"] and "is_site_admin" in q["sql"]]
+            locking = [q["sql"] for q in ctx.captured_queries if "FOR NO KEY UPDATE" in q["sql"] and "is_site_admin" in q["sql"]]
             self.assertTrue(locking)
         else:
             # SQLite has no row locks; the query itself must still be issued.

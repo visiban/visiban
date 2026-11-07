@@ -457,8 +457,18 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             # ordered statement gives concurrent saves the same lock order, so
             # they serialize instead of deadlocking, and two accounts removing
             # each other's access cannot both pass the last-admin checks.
+            #
+            # FOR NO KEY UPDATE, the mode the deactivate endpoint takes: the
+            # revocations below wait on invite link rows while this lock is
+            # held, and a join that already holds a link row needs FOR KEY
+            # SHARE on the creator's row. FOR UPDATE would conflict with it
+            # and deadlock; NO KEY UPDATE does not, and still conflicts with
+            # itself and FOR UPDATE, so saves and guards still queue. The
+            # save does not change the pk; if a submitted unique key (the
+            # username) does change, PostgreSQL escalates that UPDATE to the
+            # stronger mode by itself.
             locked = list(
-                User.objects.select_for_update()
+                User.objects.select_for_update(no_key=True)
                 .filter(
                     Q(pk=obj.pk)
                     | Q(is_site_admin=True, is_active=True)

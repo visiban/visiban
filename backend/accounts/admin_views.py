@@ -1032,8 +1032,22 @@ def lock_user_row(pk):
 
     Callers read the "before" state of an access change through this so a
     concurrent change cannot slip between the read and the save (#1563).
+
+    The lock is ``FOR NO KEY UPDATE``, the mode the deactivate endpoint takes.
+    A plain ``FOR UPDATE`` also conflicts with ``FOR KEY SHARE``, which
+    PostgreSQL takes on the creator's row when it checks the foreign key of an
+    invite link row written by a join. A deactivation holds this lock while it
+    revokes the user's invite links (waiting on the link rows), so a join that
+    already holds a link row and then needs ``KEY SHARE`` on the same creator
+    row would deadlock with it. ``NO KEY UPDATE`` does not conflict with
+    ``KEY SHARE`` and still conflicts with itself and with ``FOR UPDATE``, so
+    concurrent access changes of one user (and the group admin-minimum guard,
+    #1814) still queue. It is sufficient because no caller changes the primary
+    key or any unique key a foreign key can reference: they write only
+    ``is_active``, ``is_site_admin``, ``can_access_all_content``,
+    ``must_change_password`` and ``has_completed_tour``.
     """
-    return User.objects.select_for_update().get(pk=pk)
+    return User.objects.select_for_update(no_key=True).get(pk=pk)
 
 
 def access_state(user):
