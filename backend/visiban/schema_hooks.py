@@ -6,8 +6,8 @@ Registered via ``SPECTACULAR_SETTINGS["POSTPROCESSING_HOOKS"]`` in
 
 # The body DRF's default exception handler returns for AuthenticationFailed,
 # NotAuthenticated, PermissionDenied, NotFound, and Throttled — every one of
-# them renders as ``{"detail": "<message>"}``. Visiban does not configure a
-# custom ``EXCEPTION_HANDLER`` (see REST_FRAMEWORK in settings.py), so this is
+# them renders as ``{"detail": "<message>"}``. Visiban's ``EXCEPTION_HANDLER`` (see REST_FRAMEWORK in settings.py)
+# only adds a 400 for Django's upload-limit errors (#2073), so this is
 # not a convention the views choose — it is what the framework does whenever
 # no view-level code intercepts the exception, which is true almost
 # everywhere.  ``boards.services.errors.CardServiceError`` subclasses are the

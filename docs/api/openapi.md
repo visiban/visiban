@@ -172,7 +172,7 @@ summary and unobserved-baseline report (#1607). On failure, `after_script` print
 `Internal Server Error:` lines and a `401` count from that file. Full tracebacks are in the
 artifact.
 
-**Error envelope.** Visiban has no custom DRF `EXCEPTION_HANDLER`, so authentication,
+**Error envelope.** Visiban's DRF `EXCEPTION_HANDLER` (`visiban.exceptions.api_exception_handler`) only adds a JSON `400` for Django's upload-limit errors and delegates to DRF's default for everything else, so authentication,
 permission, lookup, and throttling failures all render as DRF's default `{"detail": "<message>"}`.
 `visiban/schema_hooks.py` (a drf-spectacular `POSTPROCESSING_HOOKS` entry) documents that
 envelope for 401/403/404/429 on every operation that doesn't already declare a response for
