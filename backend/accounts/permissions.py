@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from .models import MCP_SCOPES, SCOPE_ADMIN, PersonalAccessToken
 
@@ -14,6 +14,25 @@ class IsSiteAdmin(BasePermission):
             and request.user.is_authenticated
             and request.user.is_site_admin
         )
+
+
+class IsSiteAdminReadOrSuperuserWrite(IsSiteAdmin):
+    """Site admins may read; only an active superuser may change.
+
+    Subclasses IsSiteAdmin on purpose: ``_declares_site_admin_gate`` and the PAT
+    admin-surface check recognize the gate by that inheritance, and a route that
+    reads and writes the instance's outbound-mail configuration must stay in the
+    admin surface. Safe methods fall through to the parent check unchanged.
+    """
+
+    message = "Only a superuser can change this setting."
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        return bool(request.user.is_superuser and request.user.is_active)
 
 
 def _declares_site_admin_gate(view) -> bool:

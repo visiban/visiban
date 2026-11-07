@@ -1511,8 +1511,28 @@ describe('AdminPage — Email (SMTP) settings', () => {
 
   async function renderEmailSection(overrides: Partial<SiteEmailSettings> = {}) {
     mockGetAdminEmailSettings.mockResolvedValue({ ...fakeEmailSettings, ...overrides })
-    await renderAdminPageSettled()
+    await renderAdminPageSettled(superuserActor)
   }
+
+  it('shows email settings read-only to a site admin who is not a superuser', async () => {
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    await renderAdminPageSettled(adminUser)
+    expect(screen.getByLabelText('Host')).toBeDisabled()
+    expect(screen.getByLabelText('Port')).toBeDisabled()
+    expect(screen.getByLabelText('Password')).toBeDisabled()
+    expect(screen.queryByText('Save email settings')).not.toBeInTheDocument()
+    expect(screen.getByTestId('email-settings-readonly-note')).toHaveTextContent(
+      'Only a superuser can change email settings.'
+    )
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+  })
+
+  it('keeps email settings editable for a superuser', async () => {
+    await renderEmailSection()
+    expect(screen.getByLabelText('Host')).not.toBeDisabled()
+    expect(screen.getByText('Save email settings')).toBeInTheDocument()
+    expect(screen.queryByTestId('email-settings-readonly-note')).not.toBeInTheDocument()
+  })
 
   it('shows which source is actually sending mail', async () => {
     await renderEmailSection()

@@ -191,8 +191,12 @@ class ErrorClassificationTests(TestCase):
 
 class AdminEmailSettingsAPITests(TestCase):
     def setUp(self):
+        # Changing email settings is superuser-only (#2090), so the default
+        # actor for the behavior tests below is a superuser. The restriction
+        # itself is covered by EmailSettingsSuperuserOnlyTests.
         self.admin = User.objects.create_user(
-            username="admin", email="admin@visiban.test", password="pw", is_site_admin=True
+            username="admin", email="admin@visiban.test", password="pw",
+            is_site_admin=True, is_superuser=True,
         )
         self.member = User.objects.create_user(
             username="member", email="member@visiban.test", password="pw"
@@ -805,3 +809,82 @@ class AdminEmailTestSchemaContractTests(TestCase):
     def test_null_detail_is_rejected_by_schema(self):
         with self.assertRaises(jsonschema.ValidationError):
             self._assert_valid("400", {"success": False, "code": "timeout", "detail": None})
+
+
+class EmailSettingsSuperuserOnlyTests(TestCase):
+    """Changing email settings requires a superuser; site admins keep read access (#2090)."""
+
+    def setUp(self):
+        self.site_admin = User.objects.create_user(
+            username="siteadmin", email="sa@visiban.test", password="pw", is_site_admin=True
+        )
+        self.all_content = User.objects.create_user(
+            username="allcontent", email="ac@visiban.test", password="pw",
+            is_site_admin=True, can_access_all_content=True,
+        )
+        self.superuser = User.objects.create_user(
+            username="super", email="su@visiban.test", password="pw", is_superuser=True
+        )
+        self.client = APIClient()
+
+    def _assert_patch_refused(self, user):
+        self.client.force_authenticate(user)
+        response = self.client.patch(
+            SETTINGS_URL, {"config_source": "database", "host": "smtp.other.test"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(SiteEmailSetting.get().host, "")
+        self.assertFalse(AdminActionLog.objects.filter(action__startswith="email_settings.").exists())
+
+    def test_site_admin_cannot_patch(self):
+        self._assert_patch_refused(self.site_admin)
+
+    def test_site_admin_with_all_content_access_cannot_patch(self):
+        self._assert_patch_refused(self.all_content)
+
+    def test_site_admin_can_still_read(self):
+        for user in (self.site_admin, self.all_content):
+            self.client.force_authenticate(user)
+            self.assertEqual(self.client.get(SETTINGS_URL).status_code, status.HTTP_200_OK)
+
+    def test_other_mutating_methods_refused_for_site_admin(self):
+        self.client.force_authenticate(self.site_admin)
+        for method in ("put", "post", "delete"):
+            response = getattr(self.client, method)(SETTINGS_URL, {"host": "x.test"}, format="json")
+            self.assertIn(
+                response.status_code,
+                (status.HTTP_403_FORBIDDEN, status.HTTP_405_METHOD_NOT_ALLOWED),
+                method,
+            )
+        self.assertEqual(SiteEmailSetting.get().host, "")
+
+    def test_superuser_can_patch(self):
+        self.client.force_authenticate(self.superuser)
+        response = self.client.patch(SETTINGS_URL, {"host": "smtp.other.test"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(SiteEmailSetting.get().host, "smtp.other.test")
+
+    def test_inactive_superuser_cannot_patch(self):
+        self.superuser.is_active = False
+        self.superuser.save()
+        self.client.force_authenticate(self.superuser)
+        response = self.client.patch(SETTINGS_URL, {"host": "smtp.other.test"}, format="json")
+        self.assertIn(response.status_code, (401, 403))
+        self.assertEqual(SiteEmailSetting.get().host, "")
+
+    def test_site_admin_can_still_use_test_send(self):
+        self.client.force_authenticate(self.site_admin)
+        with mock.patch("accounts.admin_views.build_smtp_backend") as build:
+            build.return_value.send_messages.return_value = 1
+            response = self.client.post(TEST_URL)
+        self.assertNotEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_test_send_takes_no_overrides_and_uses_stored_config(self):
+        """The test-send route changes nothing: it ignores any host in the body."""
+        self.client.force_authenticate(self.site_admin)
+        with mock.patch("accounts.admin_views.build_smtp_backend") as build:
+            build.return_value.send_messages.return_value = 1
+            self.client.post(TEST_URL, {"host": "smtp.other.test", "to": "x@y.test"}, format="json")
+        self.assertEqual(SiteEmailSetting.get().host, "")
+        for call in build.call_args_list:
+            self.assertNotIn("smtp.other.test", repr(call))

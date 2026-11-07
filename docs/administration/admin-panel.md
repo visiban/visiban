@@ -38,6 +38,8 @@ Set who can create an account. Changes take effect immediately, with no restart.
 
 Configure the SMTP server for password-reset and email-verification messages, without editing environment variables or restarting the backend.
 
+**Who can change it:** only a superuser. Other site admins can view the settings and send a test email, but the fields are read-only for them.
+
 **Yes, but:** this is available only when the deployment has not pinned `EMAIL_BACKEND`/`backend.email.backend` to an explicit value. See [Configuring SMTP from the admin UI](../administration/configuration.md#configuring-smtp-from-the-admin-ui).
 
 ### Maintenance mode

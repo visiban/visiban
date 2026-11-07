@@ -786,6 +786,26 @@ and `createsuperuser`; neither flag in the Django admin forms; `/auth/me/` and
 `/auth/user/` ignoring both flags), `accounts/tests/test_admin_staff_target_rules.py`
 (all-content accounts in the Django admin).
 
+## Rule 17: Changing the outbound-mail configuration is superuser-only
+
+**Rule.** Only an active superuser changes the instance's email settings. A site
+admin who isn't a superuser, including one holding `can_access_all_content`,
+can read them and send a test email, and nothing else. No route accepts
+server overrides from a non-superuser.
+
+**Why.** The settings are a higher-trust configuration than the rest of the site-admin surface, and the all-content flag is kept separate from it (Rule 16).
+
+| Surface | Entry point | Enforced via |
+|---|---|---|
+| Admin API (change) | `accounts/admin_views.py` `AdminEmailSettingsView.patch` | `accounts/permissions.py` `IsSiteAdminReadOrSuperuserWrite`: any non-safe method needs an active superuser, else `403` |
+| Admin API (read) | `AdminEmailSettingsView.get` | Any site admin (same permission class, safe methods) |
+| Admin API (test send) | `accounts/admin_views.py` `AdminEmailTestView.post` | Site admin. Sends to the caller's own address through the stored configuration; accepts no host, port or recipient from the body |
+| Django admin | `accounts/admin.py` | Doesn't register `SiteEmailSetting` |
+| Admin panel | `frontend/src/components/Admin/EmailSettingsSection.tsx` | Fields disabled and Save hidden when `is_superuser` isn't `true`. Convenience only: the Admin API row above enforces the rule |
+| MCP, imports | `mcp_server/tools.py` | Don't write the settings |
+
+Coverage: `accounts/tests/test_email_settings.py` `EmailSettingsSuperuserOnlyTests`.
+
 ## How to add a rule
 
 1. Write the rule as a statement of behavior, not an implementation: what must
