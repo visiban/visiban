@@ -5965,8 +5965,7 @@
           "unblocked_at": "2025-12-24T23:00:00+00:00",
           "unblocked_by": "demo3",
           "resolution": "Decision made; work resumed.",
-          "column": "Backlog",
-          "imported_from_username": ""
+          "column": "Backlog"
         }
       ]
     },
@@ -9757,8 +9756,7 @@
           "unblocked_at": null,
           "unblocked_by": null,
           "resolution": "",
-          "column": "Backlog",
-          "imported_from_username": ""
+          "column": "Backlog"
         }
       ]
     },
@@ -16331,8 +16329,7 @@
           "unblocked_at": "2025-12-24T09:00:00+00:00",
           "unblocked_by": "demo3",
           "resolution": "Vendor replied with what we needed.",
-          "column": "Backlog",
-          "imported_from_username": ""
+          "column": "Backlog"
         }
       ]
     }
