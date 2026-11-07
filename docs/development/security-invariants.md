@@ -306,7 +306,9 @@ Every API surface in this table judges the caller's group standing again
 inside the write transaction, after taking the group row lock
 (`groups.services.lock_group_for_board_placement`), as `PATCH`/`PUT` does
 through `BoardSerializer.recheck_group_under_lock`. The second check reads the
-group and the caller's memberships again (`groups.views.require_group_admin_reread`),
+group and the caller's memberships again (`groups.views.require_group_admin_reread`
+for group board create, move group and the imports; `BoardSerializer._check_group_change`
+with `reread=True` for board create and `PATCH`/`PUT`),
 so a change to the caller's role or to the group's parent chain that committed
 since the first check refuses the placement. It is a fresh read, not a wait:
 the placement lock is `FOR KEY SHARE` and a role change or removal takes
