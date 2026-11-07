@@ -275,9 +275,9 @@ interface FetchTouches {
  *   next full read, since no later event removes it again.
  * - A column or swimlane created meanwhile is put back, so a card created in
  *   it during the fetch (kept above) is not left without its column.
- * - A swimlane.updated write is a resolver (mergeSwimlaneFromBroadcast) and is
- *   re-resolved against the snapshot's copy, so a reload issued to drop
- *   admin-only values after a demotion (#1140) does not get them back.
+ * - A swimlane.updated write in resolver form (mergeSwimlaneFromBroadcast) is
+ *   re-resolved against the snapshot's copy of the swimlane, not the copy
+ *   that was on screen.
  *
  * Replay runs after the cards are merged. A card write and a non-card write
  * never undo each other in practice: a card written into a column deleted
