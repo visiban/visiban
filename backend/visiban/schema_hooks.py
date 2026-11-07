@@ -6,8 +6,8 @@ Registered via ``SPECTACULAR_SETTINGS["POSTPROCESSING_HOOKS"]`` in
 
 # The body DRF's default exception handler returns for AuthenticationFailed,
 # NotAuthenticated, PermissionDenied, NotFound, and Throttled — every one of
-# them renders as ``{"detail": "<message>"}``. Visiban does not configure a
-# custom ``EXCEPTION_HANDLER`` (see REST_FRAMEWORK in settings.py), so this is
+# them renders as ``{"detail": "<message>"}``. Visiban's ``EXCEPTION_HANDLER`` (see REST_FRAMEWORK in settings.py)
+# only adds a 400 for Django's upload-limit errors (#2073), so this is
 # not a convention the views choose — it is what the framework does whenever
 # no view-level code intercepts the exception, which is true almost
 # everywhere.  ``boards.services.errors.CardServiceError`` subclasses are the
@@ -74,10 +74,13 @@ _BODY_METHODS = frozenset({"post", "put", "patch"})
 def _reads_client_input(method, operation):
     """True if the operation parses a request body or declares query parameters.
 
-    Those are the only operations that can answer 400: a bare path-parameter
-    lookup either resolves or is a 404, so documenting a 400 there would claim
-    a response the server cannot produce. Header/cookie parameters are not
-    counted for the same reason.
+    These are the operations whose own input can be refused with a 400. A bare
+    path-parameter lookup either resolves or is a 404, so it has no 400 of its
+    own. That is not the whole truth since #2073: a query string over
+    ``DATA_UPLOAD_MAX_NUMBER_FIELDS`` is a JSON 400 on any operation (content
+    negotiation reads the query string), so the schema under-documents it
+    there. Documenting that 400 everywhere is tracked in #2140. Header/cookie
+    parameters are not counted.
 
     Keyed on the HTTP method, not on a ``requestBody`` entry: a view that
     declares no serializer has no ``requestBody`` in the schema, but DRF still

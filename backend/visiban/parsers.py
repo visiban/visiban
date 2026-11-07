@@ -51,8 +51,9 @@ exactly DRF's. The ``django.security.<ExceptionName>`` error Django logs for a
 ``SuspiciousOperation`` is kept (same logger, level and message), so an
 operator alerting on it still sees an upload-limit probe.
 
-Out of reach of a parser, so still an HTML 400 (follow-up tracked in #2073,
-a project ``EXCEPTION_HANDLER`` or ``Request`` override):
+Out of reach of a parser (#2073), so handled by the project
+``EXCEPTION_HANDLER`` (``visiban.exceptions.api_exception_handler``) instead,
+which gives the same JSON 400 and keeps the same log line:
 
 - ``RequestDataTooBig`` for a JSON or urlencoded body over
   ``DATA_UPLOAD_MAX_MEMORY_SIZE``. DRF reads ``request.body`` for those two

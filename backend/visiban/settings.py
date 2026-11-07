@@ -637,6 +637,8 @@ REST_FRAMEWORK = {
         "visiban.parsers.LimitedFormParser",
         "visiban.parsers.LimitedMultiPartParser",
     ],
+    # Upload-limit errors raised outside a parser become a JSON 400 (#2073).
+    "EXCEPTION_HANDLER": "visiban.exceptions.api_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "visiban.pagination.OffsetCountPagination",
     "PAGE_SIZE": 50,
