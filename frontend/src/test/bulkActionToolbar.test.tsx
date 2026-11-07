@@ -123,6 +123,8 @@ describe('BulkActionToolbar', () => {
     expect(bar.className).toContain('max-w-[calc(100%-2rem)]')
     expect(bar.className).toContain('flex-wrap')
     await userEvent.setup().click(screen.getByText('Move to...'))
+    // Below 540px the menu anchors to the bar, not its mid-row trigger.
+    expect(screen.getByRole('menu').className).toContain('max-[540px]:inset-x-0')
     expect(bar.className).toContain('z-[56]')
   })
 
