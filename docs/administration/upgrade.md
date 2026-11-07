@@ -1283,7 +1283,9 @@ endpoint (#1112). It touches the existing, likely-large `cards` table, so it use
       ON cards USING gin (description gin_trgm_ops);
     ```
 
-    Run each statement on its own: `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block, so do not wrap them in `BEGIN`/`COMMIT` (psql runs each statement separately by default). The index names must match exactly, or the migration will not find them and will build duplicates.
+    Run each statement on its own: `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block, so do not wrap them in `BEGIN`/`COMMIT` and do not run the file with `psql -1` / `--single-transaction`, which breaks it (plain `psql` runs each statement separately by default). The index names must match exactly, or the migration will not find them and will build duplicates.
+
+    If a `CREATE INDEX CONCURRENTLY` fails or is canceled, PostgreSQL leaves an `INVALID` index under that name, and the migration's `IF NOT EXISTS` then skips it by name, so card search silently loses its index. Check `\d cards` for `INVALID`, run `DROP INDEX card_title_trgm_idx;` (or `DROP INDEX card_desc_trgm_idx;`), and re-run the statement.
 
     Then run `python manage.py migrate` as normal. The migration's `CREATE INDEX IF NOT EXISTS` finds indexes with these exact names and skips creation.
 
