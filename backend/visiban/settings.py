@@ -332,6 +332,9 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    # Refuses a charset (utf-7) that decodes to a lone surrogate (#2120). After
+    # Security/CORS so the 400 carries their headers; before anything reads GET/POST.
+    "visiban.middleware.RequestCharsetMiddleware",
     # Restrict /admin/ to loopback (or DJANGO_ADMIN_ALLOWED_IPS) in production.
     # Placed early so the check runs before session/auth processing.
     "visiban.middleware.AdminIPRestrictionMiddleware",

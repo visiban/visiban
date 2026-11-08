@@ -1,3 +1,4 @@
+import codecs
 import functools
 import ipaddress
 import logging
@@ -23,6 +24,74 @@ logger = logging.getLogger(__name__)
 # Addresses trusted by default when no DJANGO_ADMIN_ALLOWED_IPS env var is set.
 # Loopback addresses only — matches both IPv4 and the IPv6 loopback.
 _LOOPBACK_IPS = ("127.0.0.1", "::1")
+
+
+# Text codecs Django must not decode a request with because they can turn plain
+# ASCII into a lone UTF-16 surrogate (utf-7, unicode-escape, raw-unicode-escape,
+# punycode) or raise even in replace mode (idna, undefined). Canonical
+# ``codecs.lookup(...).name`` values, so aliases (utf7, u7, ...) match too.
+# Every other text codec CPython 3.11 ships was swept over short (1- and 2-byte)
+# inputs and never yields a surrogate or raises. A codec a future Python adds
+# fails test_every_codec_is_classified until someone decides whether it belongs
+# here (the short sweep cannot find a producer that needs 5+ bytes).
+_UNSAFE_REQUEST_CODECS = frozenset({
+    "utf-7", "unicode-escape", "raw-unicode-escape", "punycode", "idna", "undefined",
+})
+
+
+def _is_unsafe_request_codec(encoding):
+    """True if ``encoding`` is a known codec Django must not decode a request with."""
+    try:
+        info = codecs.lookup(encoding)
+    except LookupError:
+        return False  # Django ignores an unknown charset, so nothing to refuse
+    if info.name in _UNSAFE_REQUEST_CODECS:
+        return True
+    try:
+        # DRF's own text-codec test: hex, base64, rot13, zlib, bz2, uu and quopri
+        # are bytes-to-bytes (or str-to-str) codecs; "".encode() fails for them.
+        "".encode(info.name)
+    except LookupError:
+        return True
+    return False
+
+
+class RequestCharsetMiddleware:
+    """Refuse a request whose ``Content-Type`` declares an unsafe ``charset`` (#2120).
+
+    WHY: Django honors ``charset=`` on the request's ``Content-Type`` for
+    ``request.POST`` and multipart field/file names, and under WSGI for
+    ``request.GET`` too (under Daphne/ASGI the query string is always read as
+    UTF-8, so production does not hit the query-string case; the multipart one
+    is reachable there). A codec such as ``utf-7`` (``+2AA-`` decodes to
+    ``"\\ud800"``) turns plain ASCII into a lone UTF-16 surrogate, which UTF-8
+    cannot encode, so psycopg raises on PostgreSQL and the request is an
+    unhandled 500. #2085 guarded only the JSON body. Refusing at the one place
+    the encoding is chosen covers every surface, including views added later,
+    instead of patching each reader.
+
+    The check is a deny-list, so every other charset (ISO-8859-2, Windows-1251,
+    Shift_JIS, GBK, KOI8-R, ...) keeps working: the four surrogate-producing text
+    codecs, ``idna``/``undefined`` (which raise), and non-text codecs (``hex``,
+    ``base64``, ``rot13``, ...) are refused. An unknown charset name is ignored,
+    as Django does. Must stay in ``MIDDLEWARE``
+    (docs/architecture/open-core-boundary.md).
+
+    Runs right after Security/CORS (so the 400 carries their headers) and before
+    anything has touched ``request.GET``/``POST`` yet. Answers the
+    documented JSON ``{"detail": ...}`` 400.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # ``request.encoding`` is what Django set from the Content-Type charset
+        # (None when absent or unknown).
+        encoding = request.encoding
+        if encoding and _is_unsafe_request_codec(encoding):
+            return JsonResponse({"detail": "Unsupported request charset. Use UTF-8."}, status=400)
+        return self.get_response(request)
 
 
 class AdminIPRestrictionMiddleware:
