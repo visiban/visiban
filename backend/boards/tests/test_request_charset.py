@@ -9,17 +9,21 @@ are reachable in production. SQLite stores a surrogate silently, so these tests
 assert the status, and the PostgreSQL run is the real proof.
 """
 import codecs
+import contextlib
 import encodings
 import encodings.aliases
 import pkgutil
 import json
 from pathlib import Path
 
+from unittest import mock
+
+from django.http import JsonResponse, multipartparser
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, Card, Column, Swimlane
+from boards.models import Board, BoardMembership, Card, Column, Swimlane
 from visiban.middleware import _is_unsafe_request_codec
 
 
@@ -239,3 +243,165 @@ class AdmittedCodecSweepTests(TestCase):
                     f"{name} decodes {raw!r} to a lone surrogate",
                 )
         self.assertGreater(admitted, 80)
+
+
+def _django_raises_on_non_text_codec():
+    """True if the installed Django's header parser raises for ``filename*=hex''...`` (< 5.2.19)."""
+    from django.utils.http import parse_header_parameters
+
+    try:
+        parse_header_parameters("form-data; name=\"f\"; filename*=hex''%41.json")
+    except LookupError:
+        return True
+    except ValueError:
+        return False
+    return False
+
+
+DJANGO_RAISES_ON_NON_TEXT_CODEC = _django_raises_on_non_text_codec()
+
+
+@contextlib.contextmanager
+def _header_parser_raises():
+    """Make Django's multipart header parser raise what Django < 5.2.19 raised for ``hex``."""
+    real = multipartparser.parse_header_parameters
+
+    def parse(line, *args, **kwargs):
+        if "filename*" in line:
+            raise LookupError("'hex' is not a text encoding")
+        return real(line, *args, **kwargs)
+
+    with mock.patch.object(multipartparser, "parse_header_parameters", parse):
+        yield
+
+
+class PartFilenameCodecTests(TestCase):
+    """A part's RFC 2231 ``filename*`` codec that is not a text codec is a 400, not a 500 (#2151).
+
+    ``LookupError`` used to escape Django's multipart header parser for
+    ``hex``/``base64``. Covers every multipart endpoint: the two pinned import
+    actions, the card attachment upload and (default parser) a board PATCH.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="pf-owner", password="pass")
+        self.board = Board.objects.create(name="B", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+        col = Column.objects.create(board=self.board, name="Todo", position=0)
+        lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=lane, title="Keep", created_by=self.user, position=0
+        )
+        self.client = APIClient(raise_request_exception=False)
+        self.client.force_authenticate(self.user)
+        self.urls = {
+            "trello": "/api/v1/boards/import/trello/?dry_run=true",
+            "import": "/api/v1/boards/import/",
+            "attachment": f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
+            "board_patch": f"/api/v1/boards/{self.board.pk}/",
+        }
+
+    @staticmethod
+    def body(codec, name="%41.json"):
+        return (
+            f"--b\r\nContent-Disposition: form-data; name=\"file\"; filename*={codec}''{name}\r\n"
+            "Content-Type: application/json\r\n\r\n{}\r\n--b--\r\n"
+        ).encode()
+
+    def send(self, client, key, codec, **extra):
+        method = client.patch if key == "board_patch" else client.post
+        return method(
+            self.urls[key], data=self.body(codec),
+            content_type="multipart/form-data; boundary=b", **extra,
+        )
+
+    def test_non_text_codec_is_never_a_500_on_every_multipart_endpoint(self):
+        # Django < 5.2.19 raises LookupError from its header parser; >= 5.2.19
+        # decodes or ignores the codec itself. Either way: never a 500, and a
+        # 400 with the fixed detail where Django raises.
+        for key in self.urls:
+            for codec in ("hex", "base64", "rot13", "zlib"):
+                with self.subTest(endpoint=key, codec=codec):
+                    resp = self.send(self.client, key, codec)
+                    self.assertLess(resp.status_code, 500, resp.content[:300])
+                    if DJANGO_RAISES_ON_NON_TEXT_CODEC and key != "board_patch":
+                        self.assertEqual(resp.status_code, 400)
+
+    def test_lookup_error_from_the_header_parser_is_a_400_on_every_multipart_endpoint(self):
+        # Deterministic on every Django version: force the parser to raise.
+        for key in self.urls:
+            with self.subTest(endpoint=key), _header_parser_raises():
+                resp = self.send(self.client, key, "hex")
+                self.assertEqual(resp.status_code, 400, resp.content[:300])
+                self.assertEqual(resp["Content-Type"], "application/json")
+                self.assertEqual(
+                    resp.json(),
+                    {"detail": "Multipart form parse error - unsupported charset in a part header."},
+                )
+
+    def test_surrogate_and_raising_codecs_are_not_a_500(self):
+        for key in self.urls:
+            for codec in ("utf-7", "punycode", "undefined"):
+                with self.subTest(endpoint=key, codec=codec):
+                    resp = self.send(self.client, key, codec)
+                    self.assertLess(resp.status_code, 500, resp.content[:300])
+
+    def test_unknown_codec_name_is_not_a_500(self):
+        for key in self.urls:
+            with self.subTest(endpoint=key):
+                resp = self.send(self.client, key, "nonsense")
+                self.assertLess(resp.status_code, 500, resp.content[:300])
+
+    def test_valid_utf8_filename_star_still_works(self):
+        fixture = (Path(__file__).parent / "fixtures" / "trello_export.json").read_bytes()
+        body = (
+            b"--b\r\nContent-Disposition: form-data; name=\"file\"; filename*=utf-8''%41.json\r\n"
+            b"Content-Type: application/json\r\n\r\n" + fixture + b"\r\n--b--\r\n"
+        )
+        resp = self.client.post(
+            self.urls["trello"], data=body, content_type="multipart/form-data; boundary=b",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+
+    def _factory_request(self, codec):
+        from django.test import RequestFactory
+
+        return RequestFactory().post(
+            "/x/", data=self.body(codec), content_type="multipart/form-data; boundary=b",
+        )
+
+    def test_django_level_body_read_drops_the_part_instead_of_raising(self):
+        # Drives the middleware directly: a Django-level read of request.POST/FILES
+        # (admin or allauth views; DRF routes its own reads through its parser)
+        # must see an empty body, not the LookupError.
+        from visiban.middleware import RequestCharsetMiddleware
+
+        seen = {}
+
+        def get_response(request):
+            seen["post"], seen["files"] = dict(request.POST), dict(request.FILES)
+            return JsonResponse({})
+
+        with _header_parser_raises():
+            resp = RequestCharsetMiddleware(get_response)(self._factory_request("hex"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(seen, {"post": {}, "files": {}})
+
+    def test_django_level_read_without_the_guard_raises_lookup_error(self):
+        # Proves the test above discriminates: the bare request does raise.
+        with _header_parser_raises(), self.assertRaises(LookupError):
+            self._factory_request("hex").POST
+
+    def test_key_and_index_errors_still_propagate(self):
+        from visiban.middleware import _drop_unusable_part_charsets
+
+        for exc in (KeyError("k"), IndexError("i")):
+            with self.subTest(exc=type(exc).__name__):
+                def boom(META, post_data, exc=exc):
+                    raise exc
+
+                request = self._factory_request("utf-8")
+                request.parse_file_upload = boom  # the original the wrapper wraps
+                _drop_unusable_part_charsets(request)
+                with self.assertRaises(type(exc)):
+                    request.POST

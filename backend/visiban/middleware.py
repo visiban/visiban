@@ -6,7 +6,8 @@ import os
 import re
 
 from django.conf import settings
-from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse, QueryDict
+from django.utils.datastructures import MultiValueDict
 from django.urls import Resolver404, resolve
 
 from accounts.models import get_maintenance_message, get_maintenance_state
@@ -56,6 +57,35 @@ def _is_unsafe_request_codec(encoding):
     return False
 
 
+def _drop_unusable_part_charsets(request):
+    """Make ``request.POST``/``FILES`` treat a part with an unusable codec as absent (#2151).
+
+    WHY: a multipart part header such as ``filename*=hex''%41.json`` makes
+    Django's header parser call ``unquote(..., encoding="hex")``, and the
+    ``LookupError`` (a non-text codec) escapes as a 500 wherever Django itself
+    reads the body: Django admin and allauth views reading ``request.POST``.
+    Django already drops a part whose param is undecodable (utf-7), so this
+    answers the same way: an empty ``POST``/``FILES``. DRF endpoints parse the
+    body with ``LimitedMultiPartParser`` (a 400) and never reach this hook,
+    including for session-auth CSRF checks. The request-level codec test above
+    cannot see these: the codec comes from the part header, which is only
+    available once the body is parsed. ``KeyError``/``IndexError`` are
+    ``LookupError`` subclasses but are bugs, so they propagate.
+    """
+    original = request.parse_file_upload
+
+    def parse_file_upload(META, post_data):
+        try:
+            return original(META, post_data)
+        except LookupError as exc:
+            if isinstance(exc, (KeyError, IndexError)):
+                raise  # a real bug, not an unknown codec; keep it a loud 500
+            logger.warning("Dropped multipart body: a part header names an unusable codec")
+            return QueryDict(encoding=request._encoding), MultiValueDict()
+
+    request.parse_file_upload = parse_file_upload
+
+
 class RequestCharsetMiddleware:
     """Refuse a request whose ``Content-Type`` declares an unsafe ``charset`` (#2120).
 
@@ -91,6 +121,7 @@ class RequestCharsetMiddleware:
         encoding = request.encoding
         if encoding and _is_unsafe_request_codec(encoding):
             return JsonResponse({"detail": "Unsupported request charset. Use UTF-8."}, status=400)
+        _drop_unusable_part_charsets(request)
         return self.get_response(request)
 
 
