@@ -230,10 +230,11 @@ Deep fuzz, Sonar and kaizen are `allow_failure: true` and **can't** turn the bad
 Not every bespoke script called out when #1093 was filed got a self-test in the same pass. These are deferred deliberately, not silently:
 
 - **`scripts/close-milestone-issues.sh`** — an action script (closes GitLab issues via
-  `glab`), not a detection/gate script: there's no pass/fail verdict to prove still fires.
-  A meaningful self-test would need to mock the `glab` API surface, which is a larger lift
-  than this issue's scope. Not wired into `.gitlab-ci.yml` either, so the parity meta-gate
-  doesn't (and shouldn't yet) flag it.
+  `glab`), not a detection/gate script. Since #1904 it has a stub-`glab` test,
+  `scripts/tests/close-milestone-issues.test.sh`, proving a glab failure exits nonzero
+  instead of looking like an empty milestone. That test is not yet wired into
+  `.gitlab-ci.yml` (wiring the remaining `scripts/tests/*.test.sh` is tracked in #2117), so
+  the parity meta-gate doesn't flag it.
 - **`manage.py check_migration_concurrency`** — the Django management command described in
   `docs/development/database-migrations.md`. Real detection logic with the same silent-green
   failure mode as everything else on this page, but it isn't a file under `scripts/`, so

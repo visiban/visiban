@@ -1438,7 +1438,13 @@ else
     MILESTONE_TITLE="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
   fi
   echo "Closing open milestone issues for '${MILESTONE_TITLE}'..."
-  "$(dirname "$0")/close-milestone-issues.sh" "$MILESTONE_TITLE" || true
+  # The tag is already pushed, so a failure here must not abort the release, but it
+  # must not pass silently either (#1904): close-milestone-issues.sh exits nonzero on
+  # any glab failure, and we surface that with the manual re-run command.
+  if ! "$(dirname "$0")/close-milestone-issues.sh" "$MILESTONE_TITLE"; then
+    echo "WARNING: could not close all issues in milestone '${MILESTONE_TITLE}'." >&2
+    echo "         Re-run: scripts/close-milestone-issues.sh \"${MILESTONE_TITLE}\"" >&2
+  fi
 fi
 
 echo ""

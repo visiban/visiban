@@ -8,7 +8,9 @@
 #   scripts/close-milestone-issues.sh "1.0"
 #
 # Requires: glab authenticated, GITLAB_REPO set or run from repo root.
-# Exits 0 even if there are no open issues (idempotent).
+# Exits 0 even if there are no open issues (idempotent). Exits nonzero, loudly, on
+# any glab/API failure (#1904): a failed call is never reported as "no milestone"
+# or "nothing left to close".
 
 set -euo pipefail
 
@@ -23,43 +25,91 @@ REPO="${GITLAB_REPO:-$(git remote get-url origin 2>/dev/null | sed 's|.*[:/]\(.*
 
 echo "Fetching open issues for milestone '${MILESTONE}' in ${REPO}..."
 
-# Verify the milestone exists before looping. glab issue list --milestone accepts
-# any string and silently returns empty results if no matching milestone is found,
-# which trips set -o pipefail via grep's exit-1 on empty input. We detect this
-# early and print a helpful error instead of exiting silently.
-if ! glab api "projects/${REPO//\//%2F}/milestones" 2>/dev/null \
-    | python3 -c "import sys, json; ms=json.load(sys.stdin); exit(0 if any(m['title']=='''${MILESTONE}''' for m in ms) else 1)" 2>/dev/null; then
-  echo "ERROR: No milestone titled '${MILESTONE}' found in ${REPO}." >&2
-  echo "Available milestones:" >&2
-  glab api "projects/${REPO//\//%2F}/milestones" 2>/dev/null \
-    | python3 -c "import sys,json; [print('  -', m['title']) for m in json.load(sys.stdin)]" 2>/dev/null || true
+PROJECT="projects/${REPO//\//%2F}"
+
+die() {
+  echo "ERROR: $*" >&2
   exit 1
-fi
+}
 
+# api_get <path> — print the response body, or die. A glab failure (auth, network,
+# 5xx) must never look like an empty result (#1904), so the exit status is checked
+# explicitly instead of discarding stderr and piping into a parser.
+api_get() {
+  local out
+  if ! out=$(glab api "$1" 2>&1); then
+    die "glab api $1 failed: ${out}"
+  fi
+  printf '%s' "$out"
+}
+
+# Verify the milestone exists before looping. The issues API silently returns an
+# empty list for an unknown milestone title, so check the milestone list first.
+# Titles are passed via argv, never interpolated into Python source.
+ms_json=$(api_get "${PROJECT}/milestones?state=all&per_page=100")
+ms_check=$(printf '%s' "$ms_json" | python3 -c '
+import sys, json
+try:
+    ms = json.load(sys.stdin)
+except ValueError:
+    print("BAD"); sys.exit(0)
+if not isinstance(ms, list):
+    print("BAD"); sys.exit(0)
+print("FOUND" if any(m.get("title") == sys.argv[1] for m in ms) else "MISSING")
+for m in ms:
+    print("  - " + str(m.get("title")))
+' "$MILESTONE") || die "could not parse milestones response from glab"
+case "$(printf '%s\n' "$ms_check" | head -n1)" in
+  FOUND) ;;
+  MISSING)
+    echo "ERROR: No milestone titled '${MILESTONE}' found in ${REPO}." >&2
+    echo "Available milestones:" >&2
+    printf '%s\n' "$ms_check" | tail -n +2 >&2
+    exit 1
+    ;;
+  *) die "milestones response from glab was not a JSON array: ${ms_json}" ;;
+esac
+
+# Collect every open issue iid first, paging until a short/empty page. Collecting
+# before closing keeps pagination stable (closing shifts later pages) and lets a
+# fetch failure abort before any issue is touched.
+encoded_ms=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$MILESTONE")
+ids=()
 page=1
-closed=0
 while true; do
-  # Fetch one page of open issues in the milestone.
-  # Use `|| true` on the grep so an empty page (no matching lines) does not
-  # cause the pipeline to exit non-zero under set -o pipefail.
-  ids=$(glab issue list \
-    --milestone "$MILESTONE" \
-    --page "$page" \
-    --per-page 30 \
-    2>&1 | grep '^#' | awk '{print $1}' | tr -d '#' || true)
-
-  [[ -z "$ids" ]] && break
-
-  for id in $ids; do
-    echo "  Closing #${id}..."
-    glab issue close "$id" 2>&1
-    ((closed++)) || true
-  done
-
+  body=$(api_get "${PROJECT}/issues?milestone=${encoded_ms}&state=opened&per_page=100&page=${page}")
+  page_ids=$(printf '%s' "$body" | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+if not isinstance(d, list):
+    sys.exit(3)
+print("\n".join(str(i["iid"]) for i in d))
+print("COUNT=%d" % len(d))
+') || die "issues page ${page} was not a JSON array: ${body}"
+  count="${page_ids##*COUNT=}"
+  while IFS= read -r id; do
+    [[ "$id" == COUNT=* || -z "$id" ]] && continue
+    ids+=("$id")
+  done <<<"$page_ids"
+  [[ "$count" -lt 100 ]] && break
   page=$((page + 1))
 done
 
-if [[ $closed -eq 0 ]]; then
+closed=0
+failed=0
+for id in "${ids[@]+"${ids[@]}"}"; do
+  echo "  Closing #${id}..."
+  if glab issue close "$id" 2>&1; then
+    closed=$((closed + 1))
+  else
+    echo "ERROR: failed to close #${id}" >&2
+    failed=$((failed + 1))
+  fi
+done
+
+if [[ $failed -gt 0 ]]; then
+  die "closed ${closed} issue(s) but ${failed} failed in milestone '${MILESTONE}'."
+elif [[ $closed -eq 0 ]]; then
   echo "No open issues found for milestone '${MILESTONE}' — nothing to close."
 else
   echo "Closed ${closed} issue(s) in milestone '${MILESTONE}'."
