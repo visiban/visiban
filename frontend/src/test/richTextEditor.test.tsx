@@ -774,7 +774,7 @@ describe('RichTextEditor mention popup lifecycle (#1457)', () => {
 
 describe('RichTextEditor mention combobox attributes (#2149)', () => {
   // Reuses the lifecycle harness shape: fake suggestion props, no ProseMirror.
-  function start() {
+  function start(extra: Record<string, string> = {}) {
     const component = { element: document.createElement('div'), updateProps: vi.fn(), destroy: vi.fn(), ref: { onKeyDown: vi.fn(() => false) } }
     vi.mocked(ReactRenderer).mockImplementation(function () { return component } as never)
     render(<RichTextEditor value="text" onSave={vi.fn()} members={[]} />)
@@ -782,6 +782,7 @@ describe('RichTextEditor mention combobox attributes (#2149)', () => {
     const { suggestion } = configure.mock.calls.at(-1)?.[0] as { suggestion: { render: () => { onStart: (p: unknown) => void; onExit: () => void; onKeyDown: (p: { event: KeyboardEvent }) => boolean } } }
     const dom = document.createElement('div')
     dom.setAttribute('role', 'textbox')
+    for (const [k, v] of Object.entries(extra)) dom.setAttribute(k, v)
     const dispatch = vi.fn()
     const editor = { isDestroyed: false, view: { dispatch, dom }, state: { tr: { setMeta: vi.fn() } } }
     const renderer = suggestion.render()
@@ -799,7 +800,8 @@ describe('RichTextEditor mention combobox attributes (#2149)', () => {
     expect(dom).toHaveAttribute('role', 'combobox')
     expect(dom).toHaveAttribute('aria-haspopup', 'listbox')
     expect(dom).toHaveAttribute('aria-autocomplete', 'list')
-    expect(dom).toHaveAttribute('aria-multiline', 'true')
+    expect(dom).not.toHaveAttribute('aria-multiline')
+    expect(dom).toHaveAttribute('aria-label', 'Add a description…')
     expect(dom).toHaveAttribute('aria-expanded', 'false')
     expect(dom).not.toHaveAttribute('aria-controls')
 
@@ -819,7 +821,7 @@ describe('RichTextEditor mention combobox attributes (#2149)', () => {
 
     onActive({ listboxId: 'lb', activeId: 'lb-option-0' })
     renderer.onExit()
-    for (const a of ['aria-expanded', 'aria-haspopup', 'aria-autocomplete', 'aria-controls', 'aria-activedescendant', 'aria-multiline']) {
+    for (const a of ['aria-expanded', 'aria-haspopup', 'aria-autocomplete', 'aria-controls', 'aria-activedescendant', 'aria-label']) {
       expect(dom).not.toHaveAttribute(a)
     }
     expect(dom).toHaveAttribute('role', 'textbox')
@@ -835,6 +837,13 @@ describe('RichTextEditor mention combobox attributes (#2149)', () => {
     expect(dom).toHaveAttribute('role', 'textbox')
     expect(dom).not.toHaveAttribute('aria-activedescendant')
     renderer.onExit()
+  })
+
+  it('restores a pre-existing aria-label rather than clobbering it', () => {
+    const { dom, renderer } = start({ 'aria-label': 'Card description' })
+    expect(dom).toHaveAttribute('aria-label', 'Card description')
+    renderer.onExit()
+    expect(dom).toHaveAttribute('aria-label', 'Card description')
   })
 
   it('ends the suggestion when the editor blurs', () => {

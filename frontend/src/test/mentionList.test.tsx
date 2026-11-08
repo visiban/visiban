@@ -138,4 +138,10 @@ describe('MentionList ARIA (#2137)', () => {
     render(<MentionList items={[]} command={vi.fn()} onActiveChange={onActiveChange} />)
     expect(onActiveChange).toHaveBeenLastCalledWith(null)
   })
+
+  it('keeps editor focus when the pointer lands on the list surface (#2149)', () => {
+    render(<MentionList items={[alice]} command={vi.fn()} />)
+    const notPrevented = fireEvent.mouseDown(screen.getByRole('listbox'))
+    expect(notPrevented).toBe(false)
+  })
 })

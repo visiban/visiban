@@ -36,26 +36,38 @@ const mentionSuggestionKey = new PluginKey("mentionSuggestion");
  *
  * WAI-ARIA 1.2 combobox: the focused element itself is the combobox, so while
  * the list is open the contenteditable's `role="textbox"` becomes
- * `role="combobox"` (with `aria-multiline`, which the role drops), matching
- * `MentionTextarea`. `aria-expanded` is not supported on `textbox`, so keeping
+ * `role="combobox"`, matching `MentionTextarea`. Only attributes ARIA 1.2
+ * supports on `combobox` are set (no `aria-multiline`), and it gets an accessible name
+ * (the placeholder) if it has none. Every attribute touched is snapshotted and
+ * restored, not just the role. `aria-expanded` is not supported on `textbox`, so keeping
  * the textbox role and adding only `aria-activedescendant` would not announce
  * that a list opened. Focus never leaves the editor.
  */
 const COMBOBOX_ATTRS = [
+  "role",
+  "aria-label",
   "aria-expanded",
   "aria-haspopup",
   "aria-autocomplete",
   "aria-controls",
   "aria-activedescendant",
-  "aria-multiline",
 ] as const;
+
+type ComboboxSnapshot = Record<(typeof COMBOBOX_ATTRS)[number], string | null>;
+
+function snapshotAttrs(dom: HTMLElement): ComboboxSnapshot {
+  return Object.fromEntries(COMBOBOX_ATTRS.map((a) => [a, dom.getAttribute(a)])) as ComboboxSnapshot;
+}
 
 function setMentionCombobox(
   dom: HTMLElement,
   state: { listboxId: string; activeId: string } | null,
+  label: string,
 ) {
   dom.setAttribute("role", "combobox");
-  dom.setAttribute("aria-multiline", "true");
+  if (!dom.getAttribute("aria-label") && !dom.getAttribute("aria-labelledby")) {
+    dom.setAttribute("aria-label", label);
+  }
   dom.setAttribute("aria-autocomplete", "list");
   dom.setAttribute("aria-haspopup", "listbox");
   dom.setAttribute("aria-expanded", state ? "true" : "false");
@@ -68,10 +80,12 @@ function setMentionCombobox(
   }
 }
 
-function clearMentionCombobox(dom: HTMLElement, previousRole: string | null) {
-  for (const a of COMBOBOX_ATTRS) dom.removeAttribute(a);
-  if (previousRole === null) dom.removeAttribute("role");
-  else dom.setAttribute("role", previousRole);
+function clearMentionCombobox(dom: HTMLElement, snapshot: ComboboxSnapshot) {
+  for (const a of COMBOBOX_ATTRS) {
+    const v = snapshot[a];
+    if (v === null) dom.removeAttribute(a);
+    else dom.setAttribute(a, v);
+  }
 }
 
 interface Props {
@@ -342,12 +356,12 @@ export default function RichTextEditor({
             const onResize = () => endSuggestion();
             let resizeObserver: ResizeObserver | undefined;
             let editorDom: HTMLElement | undefined;
-            let previousRole: string | null = null;
+            let snapshot: ComboboxSnapshot | null = null;
             let comboboxOn = false;
             const onEditorBlur = () => endSuggestion();
             // Stable identity so MentionList's effect does not re-fire per render.
             const onActiveChange = (state: { listboxId: string; activeId: string } | null) => {
-              if (editorDom && comboboxOn) setMentionCombobox(editorDom, state);
+              if (editorDom && comboboxOn) setMentionCombobox(editorDom, state, placeholder);
             };
 
             return {
@@ -367,9 +381,9 @@ export default function RichTextEditor({
                   editor.view.dispatch(editor.state.tr.setMeta(mentionSuggestionKey, { exit: true }));
                 };
                 editorDom = editor.view.dom as HTMLElement;
-                previousRole = editorDom.getAttribute("role");
+                snapshot = snapshotAttrs(editorDom);
                 comboboxOn = true;
-                setMentionCombobox(editorDom, null);
+                setMentionCombobox(editorDom, null, placeholder);
                 editorDom.addEventListener("blur", onEditorBlur);
                 popup = document.createElement("div");
                 popup.dataset.testid = "mention-popup";
@@ -404,7 +418,7 @@ export default function RichTextEditor({
                 if (event.key === "Escape") {
                   popup?.remove();
                   comboboxOn = false;
-                  if (editorDom) clearMentionCombobox(editorDom, previousRole);
+                  if (editorDom && snapshot) clearMentionCombobox(editorDom, snapshot);
                   // Signal that this Escape was consumed by the mention popup so
                   // the useEscapeStack handler at priority 31 doesn't also cancel
                   // edit mode in the same keypress.
@@ -418,7 +432,7 @@ export default function RichTextEditor({
                 comboboxOn = false;
                 if (editorDom) {
                   editorDom.removeEventListener("blur", onEditorBlur);
-                  clearMentionCombobox(editorDom, previousRole);
+                  if (snapshot) clearMentionCombobox(editorDom, snapshot);
                   editorDom = undefined;
                 }
                 resizeObserver?.disconnect();

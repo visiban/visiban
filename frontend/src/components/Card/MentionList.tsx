@@ -67,6 +67,9 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
       id={`${baseId}-listbox`}
       role="listbox"
       aria-label="Mention suggestions"
+      // Keep focus in the editor when the pointer lands on padding or the
+      // scrollbar: a blur would end the suggestion (#2149).
+      onMouseDown={(e) => e.preventDefault()}
       className="bg-surface border border-line-strong rounded-lg shadow-xl py-1 min-w-40 max-w-64">
       {props.items.map((u, i) => (
         <div
