@@ -18,7 +18,7 @@ from unittest import skipUnless
 from unittest.mock import patch
 
 from django.db import connection, connections, transaction
-from django.test import TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 
 from boards.broadcast import persist_board_event
@@ -27,6 +27,7 @@ from boards.services.feed import (
     FEED_LOCK_NAMESPACE,
     HORIZON_PROBES,
     PruneMarks,
+    _PROBE_SQL,
     feed_horizon,
     feed_lock_key,
     newest_event_id,
@@ -455,3 +456,17 @@ class HorizonWithoutContentionTests(TestCase):
         self.assertEqual(reader_resume_cursor(*args, ceiling=first, **kwargs), first)
         # A visible prune mark above the ceiling still counts: it names no row.
         self.assertEqual(reader_resume_cursor(self.board.id, PruneMarks(second + 5), ceiling=first, **kwargs), second + 5)
+
+
+class ProbeSqlTests(SimpleTestCase):
+    """The probe's literal SQL still names BoardEvent's table and key (#2053).
+
+    The statement is written out rather than formatted from ``BoardEvent._meta``
+    so no formatted string reaches ``cursor.execute``. This pins the literal to
+    the model, so a rename of either fails here instead of in production.
+    """
+
+    def test_probe_sql_names_the_board_event_table(self):
+        quote = connection.ops.quote_name
+        self.assertIn(f"MAX({quote(BoardEvent._meta.pk.column)})", _PROBE_SQL)
+        self.assertIn(f"FROM {quote(BoardEvent._meta.db_table)} ", _PROBE_SQL)

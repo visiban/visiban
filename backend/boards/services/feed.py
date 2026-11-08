@@ -383,6 +383,18 @@ def event_id_after_writer_lock(board_id):
     )
 
 
+# The probe statement is a literal, not built from ``BoardEvent._meta``, so no
+# formatted string ever reaches ``cursor.execute`` (sast-severity-gate flags
+# that shape whatever it interpolates). A table name cannot be a bound
+# parameter, so the names are written out here, and
+# ``test_probe_sql_names_the_board_event_table`` fails if the model's table or
+# primary-key column is ever renamed without this.
+_PROBE_SQL = (
+    'SELECT (SELECT MAX("id") FROM "board_events" WHERE board_id = %s), '
+    "pg_try_advisory_xact_lock(%s, %s)"
+)
+
+
 class _EndProbe(Exception):
     """Raised to roll back the savepoint that holds a probe's lock."""
 
@@ -405,11 +417,7 @@ def _probe(board_id):
     caller's transaction as it was.
     """
     namespace, objid = feed_lock_key(board_id)
-    sql = (
-        f"SELECT (SELECT MAX({connection.ops.quote_name(BoardEvent._meta.pk.column)}) "
-        f"FROM {connection.ops.quote_name(BoardEvent._meta.db_table)} WHERE board_id = %s), "
-        "pg_try_advisory_xact_lock(%s, %s)"
-    )
+    sql = _PROBE_SQL
     params = (board_id, namespace, objid)
     if not connection.in_atomic_block:
         with connection.cursor() as cursor:
