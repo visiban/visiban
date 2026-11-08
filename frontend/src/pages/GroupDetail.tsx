@@ -51,6 +51,38 @@ const DEFAULT_LABEL_COLOR = "#F59E0B";
 // reasoning as the board's FIRST_OPEN_RESYNC_MS (#1968).
 const FIRST_OPEN_RESYNC_MS = 1000;
 
+/**
+ * A pure write to the direct boards list (#2139): a socket frame, or this
+ * session's own create or move-out. It must not mutate its argument, and
+ * applying it to a list that already reflects it must change nothing, so that
+ * replaying it over a boards re-read is safe (see refetchBoardsList).
+ */
+type BoardsWrite = (boards: Board[]) => Board[];
+
+/** Append `incoming` unless a row with its id is already listed. */
+function addBoardRow(incoming: Board): BoardsWrite {
+  return (prev) => (prev.some((b) => b.id === incoming.id) ? prev : [...prev, incoming]);
+}
+
+/**
+ * Patch the listed row with `incoming.id`. A board moved *into* this group
+ * arrives as board.updated on the per-board channel but board.created on the
+ * group channel, so an update for an unlisted id is not an insert.
+ */
+function patchBoardRow(incoming: Partial<Board> & { id: number }): BoardsWrite {
+  return (prev) => (prev.some((b) => b.id === incoming.id)
+    ? prev.map((b) => (b.id === incoming.id ? { ...b, ...incoming } : b))
+    : prev);
+}
+
+/** Drop every row `matches` selects. */
+function removeBoardRows(matches: (b: Board) => boolean): BoardsWrite {
+  return (prev) => {
+    const next = prev.filter((b) => !matches(b));
+    return next.length === prev.length ? prev : next;
+  };
+}
+
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -175,12 +207,30 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // older list. A group change bumps it too, so a re-read answered for the
   // previous group never lands on the next group's page.
   const boardsSeqRef = useRef(0);
+  // The list writes applied while the latest boards re-read is in flight, in
+  // order, or null when none is (#2139); see refetchBoardsList. One array per
+  // re-read, created when it starts and closed when its answer arrives, so it
+  // holds only what happened after the start and a later re-read never sees an
+  // earlier one's writes.
+  const boardsReplayRef = useRef<BoardsWrite[] | null>(null);
+  // Applies a write to the direct boards list and records it for the in-flight
+  // re-read, if any. The array is read at call time: an updater queued before
+  // the answer arrived runs before the answer's own write, so recording it now
+  // puts it in the array that answer replays; a write made after the answer
+  // finds the array closed and its updater lands on top of the answer.
+  const writeBoards = useCallback((write: BoardsWrite) => {
+    boardsReplayRef.current?.push(write);
+    setBoards(write);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
     setUnavailable(false);
     setError(null);
     loadedAtRef.current = null;
+    // The bump below drops a re-read still in flight for the previous group;
+    // close its array too, so the next group's writes are not collected into it.
+    boardsReplayRef.current = null;
     const boardsSeq = ++boardsSeqRef.current;
     // Set by cleanup when the route moves to another group: a late answer for
     // the previous group must not write into, or mark unavailable, the new one.
@@ -251,11 +301,48 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // A ref, so the socket handler does not re-subscribe when the toggle flips.
   const showSubgroupBoardsRef = useRef(false);
   const directBoardIdsRef = useRef<Set<number>>(new Set());
+  // Re-read the direct boards list (reconnect, late first open, health change)
+  // and apply it over the list on screen (#2139), like useBoard's
+  // mergeFullSnapshot does for a board's columns and labels (#2130).
+  //
+  // The server reads the list at some point while the request is in flight, so
+  // a frame applied meanwhile may be newer than the answer. Replacing the list
+  // wholesale would undo it: a board.deleted brings the row back and no later
+  // frame removes it again, a board.created is dropped, and a board.updated or
+  // star change reverts until the next frame for that board. So every list
+  // write applied during the re-read is replayed, in order, over the answer.
+  // Each write is idempotent, so replaying one the answer already reflects
+  // changes nothing; a later change the answer holds sends a later frame, which
+  // lands on top. A delete replayed over an answer that still lists the board is
+  // the tombstone; a create replayed over one that lacks it keeps the row; a
+  // create then delete during the same re-read leaves it gone. Rows no write
+  // touched come from the answer as they are: recovering a frame missed while
+  // the socket was down is what the re-read is for.
+  //
+  // Only the most recently started read applies (boardsSeqRef). A superseded
+  // read's writes need no carrying over: the newer read was sent after they were
+  // applied, so after the server committed them, and its answer includes them.
+  //
+  // The initial load (the effect above) replaces the list without a replay: no
+  // write can land while it is in flight. The page offers no board actions
+  // until it loads, and a socket that opens before then re-reads on first open
+  // (handleFirstConnected), which supersedes the load.
   const refetchBoardsList = useCallback(() => {
     const seq = ++boardsSeqRef.current;
+    const replay: BoardsWrite[] = [];
+    boardsReplayRef.current = replay;
     getGroupBoards(groupId)
-      .then((b) => { if (seq === boardsSeqRef.current) setBoards(b); })
-      .catch(() => { /* stay with current list */ });
+      .then((b) => {
+        if (seq !== boardsSeqRef.current) return;
+        // Still the latest read, so the open array is this one; close it so
+        // later writes land on top of the answer instead of in it.
+        boardsReplayRef.current = null;
+        setBoards(replay.reduce((list, write) => write(list), b));
+      })
+      .catch(() => {
+        // Stay with the current list.
+        if (seq === boardsSeqRef.current) boardsReplayRef.current = null;
+      });
   }, [groupId]);
   const refreshHealthListings = useCallback(() => {
     getSubgroups(groupId).then(setSubgroups).catch(() => { /* stay with current list */ });
@@ -265,7 +352,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         .then((bs) => setSubgroupBoards(bs.filter((b) => !directBoardIdsRef.current.has(b.id))))
         .catch(() => { /* stay with current list */ });
     }
-  }, [groupId]);
+  }, [groupId, refetchBoardsList]);
 
   // Set while this session is deleting the group, so its own socket echo of
   // group.deleted does not flash the unavailable page before it navigates away.
@@ -292,19 +379,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       // is_starred is the creator's value (#1559); this subscriber has not starred it.
       const incoming = neutralizePerUserBoardFields(data as unknown as BoardEventPayload);
       if (typeof incoming.id !== "number") return;
-      setBoards((prev) => (prev.some((b) => b.id === incoming.id) ? prev : [...prev, incoming]));
+      writeBoards(addBoardRow(incoming));
       flagAnimate(incoming.id);
     } else if (evt.event === "board.updated") {
       // is_starred is the acting user's value (#1559); keep the local one.
       const incoming = stripPerUserBoardFields(data as unknown as BoardEventPayload) as Partial<Board> & { id: number };
       if (typeof incoming.id !== "number") return;
-      setBoards((prev) => {
-        const exists = prev.some((b) => b.id === incoming.id);
-        // A board moved *into* this group arrives as board.updated on the per-board
-        // channel but board.created on the group channel — so updated here is a pure
-        // patch of an existing row.
-        return exists ? prev.map((b) => (b.id === incoming.id ? { ...b, ...incoming } : b)) : prev;
-      });
+      writeBoards(patchBoardRow(incoming));
     } else if (evt.event === "board.deleted") {
       // board_uid is the canonical key on delete (always present); the legacy
       // integer board_id only appears on move-out. Evict on EITHER match so an
@@ -318,7 +399,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       captureFocusedBoardId();
       const matches = (b: Board) =>
         (uid !== undefined && b.uid === uid) || (id !== undefined && b.id === id);
-      setBoards((prev) => prev.filter((b) => !matches(b)));
+      writeBoards(removeBoardRows(matches));
       setSubgroupBoards((prev) => prev.filter((b) => !matches(b)));
     } else if (evt.event === "group.updated") {
       // Ownership transfer — refetch the group to get the updated owner object.
@@ -376,7 +457,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       if (typeof payload.user_id === "number" && payload.user_id === user.id && typeof payload.uid === "string") {
         const targetUid = payload.uid;
         const nextStarred = !!payload.is_starred;
-        setBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
+        writeBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
         setSubgroupBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
       }
     } else if (evt.event === "group.star_changed") {
@@ -386,7 +467,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setIsStarred(!!payload.is_starred);
       }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards]);
 
   // Events fired while the socket was disconnected are not replayed. Refetch
   // the boards list after a reconnect so the UI converges with server state.
@@ -402,14 +483,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // unknown load time (load still in flight) counts as a long gap.
   //
   // Only the boards list is re-read, as on a reconnect; the group, subgroups and
-  // members are not (follow-up #2136).
-  //
-  // #2038 residual, NOT guarded here (follow-up #2139): the re-read replaces the
-  // whole list, so a board.deleted applied while it is in flight brings the row
-  // back with no later frame to remove it, a board.created is dropped, and a
-  // board.updated is reverted until the next frame for that board. The socket
-  // has already joined, so this is the exposure every reconnect has, and the
-  // first-open re-read runs at most once per socket.
+  // members are not (follow-up #2136). Frames applied while the re-read is in
+  // flight are replayed over its answer (#2139; see refetchBoardsList).
   const handleFirstConnected = useCallback(() => {
     const loadedAt = loadedAtRef.current;
     if (loadedAt === null || Date.now() - loadedAt > FIRST_OPEN_RESYNC_MS) handleReconnected();
@@ -580,7 +655,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, _setAsDefault: boolean) => {
     const board = await createGroupBoard(groupId, { name, template, swimlane_name: swimlaneName });
-    setBoards((prev) => [...prev, board]);
+    // Through writeBoards, like a frame: a re-read in flight may predate the create (#2139).
+    writeBoards(addBoardRow(board));
     setCreatingBoard(false);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // the board was already created and there is nothing to roll back.
@@ -1425,7 +1501,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           onMoved={(updated) => {
             // Remove from this group's list if moved elsewhere
             if (updated.group !== groupId) {
-              setBoards((prev) => prev.filter((b) => b.id !== updated.id));
+              writeBoards(removeBoardRows((b) => b.id === updated.id));
             }
             setMovingBoard(null);
           }}
