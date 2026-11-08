@@ -55,6 +55,13 @@ beforeEach(() => {
   })
 })
 
+describe('AnalyticsView beta notice (#2012)', () => {
+  it('hides the decorative "·" divider from assistive tech', () => {
+    render(<AnalyticsView {...props} />)
+    expect(screen.getByText('·')).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
 describe('AnalyticsView keeps one flow dashboard mounted', () => {
   it('makes one round of requests when the tab opens, not one per heatmap state', async () => {
     render(<AnalyticsView {...props} />)

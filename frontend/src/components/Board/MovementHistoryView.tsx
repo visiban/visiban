@@ -264,8 +264,7 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  // focusIsInTable only reads refs and document.body
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // focusIsInTable is recreated every render but only reads refs and document.body, so omitting it from deps cannot go stale
   }, [data, focusedIndex]);
 
   // Scroll the focused row into view and give it real DOM focus when focus
@@ -279,7 +278,7 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
     if (row && document.activeElement !== row && focusIsInTable(document.activeElement)) {
       row.focus?.();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Re-runs only when focusedIndex changes; focusIsInTable only reads refs and document.body
   }, [focusedIndex]);
 
   // The slide-in takes focus on open and unmounts on close, which drops focus

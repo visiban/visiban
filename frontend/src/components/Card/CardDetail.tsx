@@ -1337,7 +1337,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               >
                 {swimlane?.name}
               </button>
-              <span className="text-xs text-fg-faint mx-1 shrink-0">›</span>
+              <span className="text-xs text-fg-faint mx-1 shrink-0" aria-hidden="true">›</span>
               <button
                 onClick={onClose}
                 className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"

@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import SeparatorPlus from "./SeparatorPlus";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -484,7 +485,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-info/50" : "bg-surface-active/70"}`} />
               {isAdmin && onInsertColumn && sepHighlighted && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-info text-xs font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
+                  <SeparatorPlus className="text-xs" />
                 </div>
               )}
             </div>

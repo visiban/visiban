@@ -899,7 +899,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center mb-1">
                 {group.ancestors.map((ancestor, i) => (
                   <span key={ancestor.id} className="flex items-center">
-                    {i > 0 && <span className="text-fg-faint mx-1.5 select-none">/</span>}
+                    {i > 0 && <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>}
                     <a
                       href={`/groups/${ancestor.id}`}
                       // void: navigate() can return a Promise in React Router v7; fire-and-forget.
@@ -911,7 +911,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </a>
                   </span>
                 ))}
-                <span className="text-fg-faint mx-1.5 select-none">/</span>
+                <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>
                 <span className="text-sm text-fg-secondary max-w-[12rem] truncate" title={group.name}>{group.name}</span>
               </nav>
             )}

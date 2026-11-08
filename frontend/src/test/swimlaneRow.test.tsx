@@ -107,6 +107,12 @@ describe('SwimlaneRow', () => {
     expect(container.querySelector('[data-current-card-id="7"]')).not.toBeNull()
   })
 
+  it('hides the hover "+" in the column separator from assistive tech (#2012)', () => {
+    render(<SwimlaneRow {...defaultProps()} onInsertColumn={vi.fn()} hoveredSepIndex={1} />)
+    const glyph = screen.getByText('+')
+    expect(glyph).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('renders swimlane contact email', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     expect(screen.getByText('a@test.com')).toBeInTheDocument()

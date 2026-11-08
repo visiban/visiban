@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import SeparatorPlus from "./SeparatorPlus";
 
 const DRAG_THRESHOLD = 4; // px — movement beyond this is a resize, not a click
 
@@ -75,11 +76,11 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
 
       {/* "+" at each column center — mirrors ColumnSeparator showing "+" at each swimlane row */}
       {isAdmin && hovered && colCenterXs?.map((cx, i) => (
-        <span
+        <SeparatorPlus
           key={i}
-          className="absolute text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm pointer-events-none"
+          className="absolute text-[10px] pointer-events-none"
           style={{ left: cx, top: "50%", transform: "translate(-50%, -50%)" }}
-        >+</span>
+        />
       ))}
 
       {/* Column separator continuation — keeps the highlighted column strip unbroken through this row */}

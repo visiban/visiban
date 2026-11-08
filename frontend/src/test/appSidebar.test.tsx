@@ -500,6 +500,16 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Frontend')).toBeInTheDocument()
   })
 
+  it('hides the decorative "+" beside New board / New group from assistive tech (#2012)', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
+    const plusses = screen.getAllByText('+')
+    expect(plusses).toHaveLength(2)
+    plusses.forEach((p) => expect(p).toHaveAttribute('aria-hidden', 'true'))
+  })
+
   it('clicking New board opens CreateBoardModal', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])

@@ -166,6 +166,11 @@ describe('CardDetail', () => {
     expect(titleInput).toHaveAttribute('id', 'card-detail-title')
   })
 
+  it('hides the decorative "›" between swimlane and column from assistive tech (#2012)', () => {
+    render(<CardDetail {...defaultProps()} />)
+    expect(screen.getByText('›')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('renders swimlane and column names', () => {
     render(<CardDetail {...defaultProps()} />)
     // Swimlane and column names are in the same <p> split by a span
