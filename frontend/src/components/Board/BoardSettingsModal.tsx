@@ -13,7 +13,7 @@ import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSettingsWebhooksTab";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
-import type { BoardExportLogEntry, BoardExportMinRole } from "../../types";
+import type { BoardExportLogEntry, BoardExportMinRole, BoardMembership } from "../../types";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
@@ -152,6 +152,14 @@ interface StagedInvite {
   role: BoardRole;
 }
 
+const ADD_FALLBACK_ERROR = "Couldn't add this member.";
+
+/** One line of copy for a refused add: the server's `detail` when it sent one. */
+function addMemberErrorMessage(err: unknown): string {
+  const data = (err as { response?: { data?: { detail?: unknown } } })?.response?.data;
+  return typeof data?.detail === "string" && data.detail ? data.detail : ADD_FALLBACK_ERROR;
+}
+
 function RoleTooltip() {
   return (
     <RoleInfoTooltip label="Role descriptions">
@@ -280,6 +288,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [staged, setStaged] = useState<StagedInvite[]>([]);
   const [inviting, setInviting] = useState(false);
+  // #1299 — per-user reason a staged add was refused, keyed by user id. Adds
+  // are sent independently, so one refusal must not discard the others.
+  const [stagedErrors, setStagedErrors] = useState<Record<number, string>>({});
+  // Latest staged list, read after the adds settle: people staged or edited
+  // while the requests were in flight must survive the reconcile.
+  const stagedRef = useRef<StagedInvite[]>([]);
+  stagedRef.current = staged;
   const [exportFormat, setExportFormat] = useState<"json" | "csv">("json");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
@@ -801,27 +816,70 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     searchInputRef.current?.focus();
   };
 
+  const clearStagedError = (userId: number) => {
+    // The failure summary describes the refused rows; once the last one is
+    // edited or removed it would be stale, so clear it with them.
+    if (userId in stagedErrors && Object.keys(stagedErrors).length === 1) setInviteError(null);
+    setStagedErrors((prev) => {
+      if (!(userId in prev)) return prev;
+      const { [userId]: _dropped, ...rest } = prev;
+      return rest;
+    });
+  };
+
   const handleInviteSubmit = async () => {
     if (staged.length === 0) return;
     setInviting(true);
     setInviteError(null);
     setInviteSuccess(null);
+    setStagedErrors({});
+    const sent = staged;
     try {
-      const results = await Promise.all(staged.map((s) => setBoardMember(board.id, s.user.id, s.role)));
-      setMembers((prev) => {
-        const next = [...prev];
-        for (const updated of results) {
-          const idx = next.findIndex((m) => m.user.id === updated.user.id);
-          if (idx >= 0) next[idx] = { ...next[idx], role: updated.role };
-          else next.push(updated);
-        }
-        return next;
+      const outcomes = await Promise.allSettled(
+        sent.map((s) => setBoardMember(board.id, s.user.id, s.role)),
+      );
+      const results: BoardMembership[] = [];
+      const errors: Record<number, string> = {};
+      outcomes.forEach((o, i) => {
+        if (o.status === "fulfilled") results.push(o.value);
+        else errors[sent[i].user.id] = addMemberErrorMessage(o.reason);
       });
-      setStaged([]);
-      onMembersAdded?.(results.map((r) => r.user.id));
-      setInviteSuccess(`Added ${results.length} member${results.length !== 1 ? "s" : ""} to the board.`);
-    } catch {
-      setInviteError("Failed to add some members. Please try again.");
+      if (results.length > 0) {
+        setMembers((prev) => {
+          const next = [...prev];
+          for (const updated of results) {
+            const idx = next.findIndex((m) => m.user.id === updated.user.id);
+            if (idx >= 0) next[idx] = { ...next[idx], role: updated.role };
+            else next.push(updated);
+          }
+          return next;
+        });
+        onMembersAdded?.(results.map((r) => r.user.id));
+      }
+      // Only the rows that were added leave the staged list. Refused rows
+      // stay for retry/removal, and anyone staged while the requests were in
+      // flight is untouched.
+      const failedIds = new Set(Object.keys(errors).map(Number));
+      const addedIds = new Set(results.map((r) => r.user.id));
+      setStaged((prev) => prev.filter((s) => !addedIds.has(s.user.id)));
+      // Roles are locked while the requests are in flight, so a reason always
+      // describes the role on the row. A row removed mid-flight has no place
+      // to show one, so its reason is dropped.
+      const liveErrors: Record<number, string> = {};
+      for (const [id, msg] of Object.entries(errors)) {
+        if (stagedRef.current.some((x) => x.user.id === Number(id))) liveErrors[Number(id)] = msg;
+      }
+      setStagedErrors(liveErrors);
+      const failed = failedIds.size;
+      if (failed === 0) {
+        setInviteSuccess(`Added ${results.length} member${results.length !== 1 ? "s" : ""} to the board.`);
+      } else if (results.length > 0) {
+        setInviteError(
+          `Added ${results.length} member${results.length !== 1 ? "s" : ""}. ${failed} could not be added.`,
+        );
+      } else {
+        setInviteError(failed === 1 ? "That member could not be added." : "None of those members could be added.");
+      }
     } finally {
       setInviting(false);
     }
@@ -1271,38 +1329,57 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-2">To be added</p>
                         <div className="flex flex-col gap-0">
                           {staged.map((s) => (
-                            <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-line/60 last:border-0">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Avatar user={s.user} size="sm" />
-                                <p className="text-sm text-fg truncate">{userDisplayName(s.user)}</p>
+                            <div key={s.user.id} className="py-2.5 border-b border-line/60 last:border-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Avatar user={s.user} size="sm" />
+                                  <p className="text-sm text-fg truncate">{userDisplayName(s.user)}</p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <SelectDropdown
+                                    value={s.role}
+                                    onChange={(v) => {
+                                      setStaged((prev) =>
+                                        prev.map((x) => x.user.id === s.user.id ? { ...x, role: v } : x)
+                                      );
+                                      clearStagedError(s.user.id);
+                                    }}
+                                    options={ROLE_OPTIONS}
+                                    size="xs"
+                                    // Locked while the adds are in flight so the role that was sent
+                                    // is the role that was added (#1299).
+                                    disabled={inviting}
+                                    ariaDescribedBy={stagedErrors[s.user.id] ? `staged-error-${s.user.id}` : undefined}
+                                  />
+                                  <button
+                                    aria-describedby={stagedErrors[s.user.id] ? `staged-error-${s.user.id}` : undefined}
+                                    onClick={() => {
+                                      setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id));
+                                      clearStagedError(s.user.id);
+                                    }}
+                                    className="text-xs text-fg-muted hover:text-danger transition w-5 text-center"
+                                    title="Remove from invite list"
+                                    aria-label="Remove from invite list"
+                                    // Removing a row mid-flight would not cancel its add, and the
+                                    // person could be re-staged under a new reason (#1299).
+                                    disabled={inviting}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <SelectDropdown
-                                  value={s.role}
-                                  onChange={(v) =>
-                                    setStaged((prev) =>
-                                      prev.map((x) => x.user.id === s.user.id ? { ...x, role: v } : x)
-                                    )
-                                  }
-                                  options={ROLE_OPTIONS}
-                                  size="xs"
-                                />
-                                <button
-                                  onClick={() => setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id))}
-                                  className="text-xs text-fg-muted hover:text-danger transition w-5 text-center"
-                                  title="Remove from invite list"
-                                  aria-label="Remove from invite list"
-                                >
-                                  ✕
-                                </button>
-                              </div>
+                              {stagedErrors[s.user.id] && (
+                                <p id={`staged-error-${s.user.id}`} role="alert" className="text-xs text-danger mt-1 pl-8 break-words">
+                                  <span className="sr-only">{userDisplayName(s.user)}: </span>{stagedErrors[s.user.id]}
+                                </p>
+                              )}
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    <p className="text-xs h-4">
+                    <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
                       <span className={inviteError ? "text-danger" : inviteSuccess ? "text-success" : ""}>{inviteError ?? inviteSuccess ?? ""}</span>
                     </p>
 

@@ -1031,6 +1031,195 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     await waitFor(() => { expect(screen.getByText(/added 1 member to the board/i)).toBeInTheDocument() })
   })
 
+  describe('independent staged adds (#1299)', () => {
+    const bobUser: User = { ...aliceUser, id: 98, username: 'bobby', email: 'bobby@example.com', first_name: 'Bobby', last_name: 'Tables', display_name: 'Bobby Tables' }
+    const membership = (u: User) => ({ id: u.id, user: u, role: 'member', is_moderator: false, joined_at: '' })
+
+    const carolUser: User = { ...aliceUser, id: 97, username: 'carol', email: 'carol@example.com', first_name: 'Carol', last_name: 'Danvers', display_name: 'Carol Danvers' }
+
+    async function stageNamed(name: string) {
+      const input = screen.getByPlaceholderText(/search by name or email/i)
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+        setter?.call(input, 'q' + name.length)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      await act(async () => { vi.advanceTimersByTime(350) })
+      await waitFor(() => screen.getByText(name))
+      await act(async () => {
+        screen.getByText(name).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      })
+    }
+
+    async function stageBoth(onMembersAdded?: (ids: number[]) => void) {
+      mockSearchUsers.mockResolvedValue([aliceUser, bobUser, carolUser])
+      render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} onMembersAdded={onMembersAdded} />)
+      await stageNamed('Alice Wonder')
+      await stageNamed('Bobby Tables')
+      await waitFor(() => screen.getByRole('button', { name: /add 2 members to board/i }))
+    }
+    const submit = async () => {
+      await act(async () => { screen.getByRole('button', { name: /add 2 members to board/i }).click() })
+    }
+
+    it('applies every add when all succeed', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        Promise.resolve(membership(id === 99 ? aliceUser : bobUser)))
+      await stageBoth()
+      await submit()
+      expect(await screen.findByText(/added 2 members to the board/i)).toBeInTheDocument()
+      expect(screen.queryByText(/to be added/i)).toBeNull()
+    })
+
+    it('applies the others and shows the reason beside the refused user', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99
+          ? Promise.reject({ response: { data: { detail: 'You cannot add this user.' } } })
+          : Promise.resolve(membership(bobUser)))
+      const onMembersAdded = vi.fn()
+      await stageBoth(onMembersAdded)
+      await submit()
+      expect(await screen.findByText('You cannot add this user.')).toBeInTheDocument()
+      expect(screen.getByText('You cannot add this user.')).toHaveAttribute('role', 'alert')
+      expect(screen.getByText(/added 1 member\. 1 could not be added/i)).toBeInTheDocument()
+      // The applied member is in the Members list; only its id is reported.
+      expect(screen.getByText('Bobby Tables')).toBeInTheDocument()
+      expect(onMembersAdded).toHaveBeenCalledTimes(1)
+      expect(onMembersAdded).toHaveBeenCalledWith([98])
+      // Refused row stays staged; the applied one left the staged list.
+      expect(screen.getByText(/to be added/i)).toBeInTheDocument()
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(1)
+      // Clearing the refused row removes its message.
+      await act(async () => { screen.getByTitle('Remove from invite list').click() })
+      expect(screen.queryByText('You cannot add this user.')).toBeNull()
+      // The failure summary goes with the last refused row.
+      expect(screen.queryByText(/could not be added/i)).toBeNull()
+    })
+
+    it('keeps people staged while the adds were in flight, and names the person in the alert', async () => {
+      let resolveBob!: (v: unknown) => void
+      let rejectAlice!: (e: unknown) => void
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        new Promise((res, rej) => { if (id === 98) resolveBob = res; else rejectAlice = rej }))
+      await stageBoth()
+      await submit()
+      await stageNamed('Carol Danvers')
+      await act(async () => {
+        resolveBob(membership(bobUser))
+        rejectAlice({ response: { data: { detail: 'You cannot add this user.' } } })
+      })
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent('Alice Wonder: You cannot add this user.')
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
+      expect(screen.getByText('Carol Danvers')).toBeInTheDocument()
+      // The row's controls point at the message.
+      const carolRow = screen.getByText('Carol Danvers').closest('div.py-2\\.5') as HTMLElement
+      expect(within(carolRow).getByRole('combobox')).toHaveTextContent('Member')
+      expect(within(carolRow).getByTitle('Remove from invite list')).not.toHaveAttribute('aria-describedby')
+      expect(within(carolRow).queryByRole('alert')).toBeNull()
+      const aliceRow = alert.closest('div.py-2\\.5') as HTMLElement
+      expect(within(aliceRow).getByTitle('Remove from invite list')).toHaveAttribute('aria-describedby', alert.id)
+      expect(within(aliceRow).getByRole('combobox')).toHaveAttribute('aria-describedby', alert.id)
+    })
+
+    it('clears the reason when the refused row role is edited', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99
+          ? Promise.reject({ response: { data: { detail: 'You cannot add this user.' } } })
+          : Promise.resolve(membership(bobUser)))
+      await stageBoth()
+      await submit()
+      const alert = await screen.findByRole('alert')
+      const aliceRow = alert.closest('div.py-2\\.5') as HTMLElement
+      await act(async () => { within(aliceRow).getByRole('combobox').click() })
+      await act(async () => { screen.getByRole('option', { name: 'Viewer' }).click() })
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(screen.queryByText(/could not be added/i)).toBeNull()
+    })
+
+    it('locks every role dropdown and Remove button while the adds are in flight', async () => {
+      let rejectAlice!: (e: unknown) => void
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99 ? new Promise((_r, rej) => { rejectAlice = rej }) : Promise.resolve(membership(bobUser)))
+      await stageBoth()
+      await submit()
+      const aliceRow = screen.getByText('Alice Wonder').closest('div.py-2\\.5') as HTMLElement
+      expect(within(aliceRow).getByRole('combobox')).toBeDisabled()
+      expect(within(aliceRow).getByTitle('Remove from invite list')).toBeDisabled()
+      await act(async () => { rejectAlice({ response: { data: { detail: 'Refused.' } } }) })
+      expect(await screen.findByText('Refused.')).toBeInTheDocument()
+      expect(within(aliceRow).getByRole('combobox')).toBeEnabled()
+      expect(within(aliceRow).getByTitle('Remove from invite list')).toBeEnabled()
+    })
+
+    it('keeps the failure summary while typing in the search box', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        id === 99
+          ? Promise.reject({ response: { data: { detail: 'Refused.' } } })
+          : Promise.resolve(membership(bobUser)))
+      await stageBoth()
+      await submit()
+      expect(await screen.findByText(/added 1 member\. 1 could not be added/i)).toBeInTheDocument()
+      const input = screen.getByPlaceholderText(/search by name or email/i)
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+        setter?.call(input, 'zz')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      expect(screen.getByText(/added 1 member\. 1 could not be added/i)).toBeInTheDocument()
+      expect(screen.getByText('Refused.')).toBeInTheDocument()
+    })
+
+    it.each([
+      ['an empty string', ''],
+      ['a number', 123],
+      ['an object', { code: 'x' }],
+    ])('falls back to the generic copy when detail is %s', async (_label, detail) => {
+      mockSetBoardMember.mockRejectedValue({ response: { data: { detail } } })
+      await stageBoth()
+      await submit()
+      expect((await screen.findAllByText("Couldn't add this member.")).length).toBe(2)
+    })
+
+    it('shows a non-empty string detail as sent', async () => {
+      mockSetBoardMember.mockRejectedValue({ response: { data: { detail: 'Server says no.' } } })
+      await stageBoth()
+      await submit()
+      expect((await screen.findAllByText('Server says no.')).length).toBe(2)
+      expect(screen.queryByText("Couldn't add this member.")).toBeNull()
+    })
+
+    it('reports the outcome in a polite live region', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) => Promise.resolve(membership(id === 99 ? aliceUser : bobUser)))
+      await stageBoth()
+      await submit()
+      const summary = (await screen.findByText(/added 2 members to the board/i)).closest('[role="status"]')
+      expect(summary).toHaveAttribute('aria-live', 'polite')
+      expect(summary).toHaveAttribute('aria-atomic', 'true')
+    })
+
+    it('keeps every row and each reason when all are refused', async () => {
+      mockSetBoardMember.mockImplementation((_b: number, id: number) =>
+        Promise.reject({ response: { data: { detail: `Refused ${id}` } } }))
+      const onMembersAdded = vi.fn()
+      await stageBoth(onMembersAdded)
+      await submit()
+      expect(await screen.findByText('Refused 99')).toBeInTheDocument()
+      expect(onMembersAdded).not.toHaveBeenCalled()
+      expect(screen.getByText('Refused 98')).toBeInTheDocument()
+      expect(screen.getByText(/none of those members could be added/i)).toBeInTheDocument()
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
+    })
+
+    it('falls back to generic copy on a network error and keeps the row staged', async () => {
+      mockSetBoardMember.mockRejectedValue(new Error('Network Error'))
+      await stageBoth()
+      await submit()
+      expect((await screen.findAllByText("Couldn't add this member.")).length).toBe(2)
+      expect(screen.getAllByTitle('Remove from invite list')).toHaveLength(2)
+    })
+  })
+
   describe('site-admin lock after an add (#1706)', () => {
     // The add response carries no site-admin flag for a caller who is not a
     // site admin, so the lock must come from the re-read board.
@@ -1076,7 +1265,8 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     const submitBtn = screen.getByRole('button', { name: /add 1 member to board/i })
     await act(async () => { submitBtn.click() })
 
-    await waitFor(() => { expect(screen.getByText(/failed to add some members/i)).toBeInTheDocument() })
+    await waitFor(() => { expect(screen.getByText(/that member could not be added/i)).toBeInTheDocument() })
+    expect(screen.getByText("Couldn't add this member.")).toBeInTheDocument()
   })
 })
 
