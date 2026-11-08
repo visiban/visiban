@@ -220,6 +220,13 @@ Any chip built as an `inline-flex` container around one or more `truncate` text 
 
 `overflow-hidden` on a chip is a backstop, not the truncation mechanism: every flex child that can hold long text still needs `min-w-0` plus `truncate`. Anything inside a clipped chip with a focus ring needs at least ring-width (2px) of padding on each clipped edge, so do not reduce the chip's `py-0.5`.
 
+## Decorative glyphs (#2012)
+
+- **A decorative glyph rendered in its own `<span>`/element is `aria-hidden="true"`.** This covers separators and hover affordances that sit beside the real content: the hover "+" (`SeparatorPlus`, used by `RowSeparator`, `ColumnSeparator` and `SwimlaneRow`), breadcrumb dividers (`/`, `›`), the `·` between notices, and the sidebar's split "+" spans next to "New board" / "New group". Otherwise a screen reader announces a stray "+" or "slash".
+- **Inline "+ Label" text is out of scope.** When the "+" is part of the same text node as the label (e.g. `+ New board`), it is read as part of the label; do not split it out just to hide it.
+- **A glyph that is the only content of a control needs an `aria-label` on the control, not `aria-hidden`** — hiding it would leave the control unnamed.
+- A bare `eslint-disable` also needs a `-- reason` (see `docs/development/suppressions.md`).
+
 ## Top chrome — two-row composition
 
 The authenticated UI is framed by two horizontally-divided chrome rows and a main region. Maintain this skeleton across all routes; feature work lands inside the rows, not on top of them.
@@ -247,7 +254,6 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - **Active tab** (e.g. "Board"): `bg-primary text-on-primary rounded px-3 py-1 text-sm font-medium`
 - **Inactive tabs** (e.g. "Summary", "Analytics"): `text-fg-tertiary hover:text-fg hover:bg-surface-active px-3 py-1 text-sm rounded` — same height and padding as the active tab so the bar never shifts (the active tab adds only `font-medium`); the tabs sit in a `bg-surface-hover rounded p-0.5` group, so the hover uses the stronger `bg-surface-active` to stay visible
 - **Vertical separators** between logical groups: `<div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />` (see § Top chrome), never a `|` character
-- **Decorative glyphs are `aria-hidden="true"`** — a `+`, `·`, `/`, `⋯` or `×` that only decorates (the hover "+" via `SeparatorPlus` in `RowSeparator`/`ColumnSeparator`/`SwimlaneRow`, breadcrumb `/` and `·` dividers, the "+" beside a button label) is hidden from assistive tech, never the only content of an interactive element. A bare `eslint-disable` also needs a `-- reason` (see `docs/development/suppressions.md`)
 - **Connection status**: use the `ConnectionStatus` component (see § Connection status indicator below) — single canonical component for the sub-nav live indicator and for the group detail header
 - **Settings and utilities** (shortcuts, export, board settings): icon-only buttons sharing one treatment, `p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover` plus the standard focus ring
 
@@ -744,7 +750,7 @@ Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies)
 <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center mb-1">
   {ancestors.map((ancestor, i) => (
     <span key={ancestor.id} className="flex items-center">
-      {i > 0 && <span className="text-fg-faint mx-1.5 select-none">/</span>}
+      {i > 0 && <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>}
       <a
         href={`/groups/${ancestor.id}`}
         onClick={(e) => { e.preventDefault(); navigate(`/groups/${ancestor.id}`); }}
@@ -755,13 +761,13 @@ Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies)
       </a>
     </span>
   ))}
-  <span className="text-fg-faint mx-1.5 select-none">/</span>
+  <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>
   <span className="text-sm text-fg-secondary max-w-[12rem] truncate" title={current.name}>{current.name}</span>
 </nav>
 ```
 
 - Ancestor links: `text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition`
-- Separator `/`: `text-fg-faint mx-1.5 select-none`
+- Separator `/`: `text-fg-faint mx-1.5 select-none` with `aria-hidden="true"`
 - Current item (non-linked): `text-sm text-fg-secondary`
 - Per-item max-width: `max-w-[12rem] truncate` with `title` attribute for full name
 - Container: `flex flex-wrap items-center` — wraps on narrow viewports

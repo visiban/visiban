@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CreateGroupModal from '../components/Group/CreateGroupModal'
 import type { Group } from '../types'
@@ -206,6 +206,17 @@ describe('CreateGroupModal', () => {
     )
     expect(screen.getByPlaceholderText('Subgroup name')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('e.g. Engineering')).not.toBeInTheDocument()
+  })
+
+  it('hides the breadcrumb "/" dividers from assistive tech in the post-creation state (#2012)', async () => {
+    const parent = makeGroup({ id: 5, name: 'Engineering' })
+    mockCreateGroup.mockResolvedValue(makeGroup({ id: 6, name: 'Ops' }))
+    render(<CreateGroupModal parentGroup={parent} onCreated={onCreated} onClose={onClose} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Backend'), 'Ops')
+    await user.keyboard('{Enter}')
+    const nav = await screen.findByRole('navigation', { name: 'Group breadcrumb' })
+    expect(within(nav).getByText('/')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('shows a Done button (not Cancel) in the post-creation state', async () => {

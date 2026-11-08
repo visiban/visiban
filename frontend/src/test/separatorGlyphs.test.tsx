@@ -7,7 +7,7 @@ import SeparatorPlus from '../components/Board/SeparatorPlus'
 // The hover "+" is purely decorative (the separator itself is the control), so
 // it must be hidden from assistive tech or it is announced as a stray "+".
 describe('separator hover glyphs are aria-hidden (#2012)', () => {
-  it('SeparatorPlus (also used by SwimlaneRow) is aria-hidden', () => {
+  it('the shared SeparatorPlus component itself is aria-hidden (SwimlaneRow usage is asserted in swimlaneRow.test.tsx)', () => {
     const { getByText } = render(<SeparatorPlus className="text-xs" />)
     expect(getByText('+')).toHaveAttribute('aria-hidden', 'true')
   })

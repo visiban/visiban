@@ -4,6 +4,17 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import ShareBoardHeader from '../components/Board/ShareBoardHeader'
 
+describe('ShareBoardHeader separator (#2012)', () => {
+  it('hides the decorative "/" from assistive tech', () => {
+    render(
+      <MemoryRouter initialEntries={['/share/tok']}>
+        <ShareBoardHeader boardName="B" />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('/')).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
 describe('ShareBoardHeader sign-in CTA (#1740)', () => {
   it('navigates to an existing route (/), not a nonexistent /login', async () => {
     render(

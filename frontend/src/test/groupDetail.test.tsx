@@ -729,6 +729,12 @@ describe('GroupDetail', () => {
     // Both the Navbar and in-page breadcrumbs render the ancestor links
     expect((await screen.findAllByText('RootOrg')).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('PlatformTeam').length).toBeGreaterThanOrEqual(1)
+
+    // #2012: the in-page breadcrumb dividers are decorative and hidden from assistive tech
+    const nav = screen.getAllByRole('navigation', { name: 'Group breadcrumb' })[0]
+    const dividers = within(nav).getAllByText('/')
+    expect(dividers).toHaveLength(2)
+    dividers.forEach((d) => expect(d).toHaveAttribute('aria-hidden', 'true'))
   })
 
   it('does not render breadcrumb for root-level groups', async () => {
