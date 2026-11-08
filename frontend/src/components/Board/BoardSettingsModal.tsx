@@ -12,7 +12,9 @@ import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSettingsWebhooksTab";
 import { userDisplayName } from "../../types";
-import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
+import type { Column } from "../../types";
+import BoardSettingsPoliciesSection from "./BoardSettingsPoliciesSection";
+import { exportBoardCsv, exportBoardJson, patchColumn, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
 import type { BoardExportLogEntry, BoardExportMinRole, BoardMembership } from "../../types";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
@@ -127,6 +129,10 @@ interface Props {
    *  was replaced and no longer works, so the reveal is withdrawn. Null until
    *  such a frame arrives. */
   shareLinkIssuedAt?: string | null;
+  /** #2156 — called with the server's column after the Rules tab saves a column
+   *  policy, so the board (and the column header's Policy button) update
+   *  without waiting for the socket echo. */
+  onColumnUpdated?: (column: Column) => void;
 }
 
 const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
@@ -182,7 +188,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true, onColumnUpdated }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -1523,6 +1529,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   </div>
                 </section>
               )}
+
+              {/* #2156 — column policies for the whole board */}
+              <BoardSettingsPoliciesSection
+                columns={board.columns}
+                isAdmin={isAdmin}
+                hiddenColumnIds={viewPrefs?.hiddenColumnIds}
+                onSaveColumnPolicy={async (columnId, policy) => {
+                  const updated = await patchColumn(board.id, columnId, { policy });
+                  onColumnUpdated?.(updated);
+                }}
+              />
 
               {/* Card aging settings */}
               <section aria-labelledby="card-aging-heading">

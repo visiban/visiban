@@ -3417,6 +3417,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           // #1935: share-link state (never the token) back into board state.
           onShareChanged={mergeBoardState}
           shareLinkIssuedAt={shareLinkIssuedAt}
+          onColumnUpdated={handleColumnUpdated}
         />
       )}
 
