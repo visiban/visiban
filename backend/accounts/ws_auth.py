@@ -77,10 +77,14 @@ whatever the code, so no client ever receives 4001 or 1011 from a handshake
 application's verdict: what the ASGI test communicator observes and what a
 future accept-then-close handshake would deliver (#2145). The refusal must
 still not raise: an exception here is a Daphne 500 whose log line carries the
-exception message. Other handshake-time outages still do raise, outside this
-middleware (#2144): ``cached_db`` during a cache outage (its ``load()`` falls
-back to the database, then the cache write-back raises), the ``db`` engine
-during a database outage, and the consumers' connect() lookups.
+exception message.
+
+The handshake-time outages that raise outside this middleware —
+``cached_db`` during a cache outage (its ``load()`` falls back to the
+database, then the cache write-back raises), the ``db`` engine during a
+database outage, and the consumers' connect() lookups — are refused the same
+way by ``HandshakeOutageMiddleware``, which wraps ``AuthMiddlewareStack`` and
+the router (#2144).
 """
 
 import hashlib
@@ -427,7 +431,8 @@ def _is_cache_only_store(store) -> bool:
     matched: its ``load()`` falls back to the database on a cache error and
     never conflates an outage with an absent session. (Its write-back to the
     cache after that fallback can still raise during an outage, which is a
-    raise, not a false denial; at the handshake that is #2144.)
+    raise, not a false denial; at the handshake ``HandshakeOutageMiddleware``
+    turns it into a 1011, #2144.)
     """
     from django.contrib.sessions.backends.cache import SessionStore as CacheSessionStore
 
@@ -676,3 +681,120 @@ async def _refuse_unavailable(receive, send):
     """
     await receive()  # websocket.connect
     await send({"type": "websocket.close", "code": CLOSE_AUTH_UNAVAILABLE})
+
+
+def _handshake_outage_errors() -> tuple:
+    """The exception classes ``HandshakeOutageMiddleware`` reads as an outage.
+
+    Bounded on purpose: database connection errors (``OperationalError``,
+    ``InterfaceError``), the builtin ``ConnectionError`` and ``TimeoutError``
+    (socket-level failures a cache client can surface as-is), and redis-py's
+    ``ConnectionError`` and ``TimeoutError``, which do *not* subclass the
+    builtins (``redis.exceptions.RedisError`` derives from ``Exception``),
+    plus its ``ReadOnlyError`` (a write to a replica during a failover).
+    Other Redis server replies (OOM, ``MISCONF``) stay outside the set.
+    redis-py is what Django's ``RedisCache`` and ``channels_redis`` both use,
+    against Redis or Valkey alike. Anything else (a programming error, an
+    ``IntegrityError``) still raises, so a bug is not disguised as an outage
+    and keeps its traceback.
+    """
+    from django.db import InterfaceError, OperationalError
+
+    errors = [OperationalError, InterfaceError, ConnectionError, TimeoutError]
+    try:
+        from redis.exceptions import ConnectionError as RedisConnectionError
+        from redis.exceptions import ReadOnlyError as RedisReadOnlyError
+        from redis.exceptions import TimeoutError as RedisTimeoutError
+    except ImportError:  # pragma: no cover — redis is a hard dependency today
+        pass
+    else:
+        errors += [RedisConnectionError, RedisTimeoutError, RedisReadOnlyError]
+    return tuple(errors)
+
+
+# ASGI messages that answer the handshake. Once one has been sent the
+# handshake is decided, and a later exception is no longer this
+# middleware's to turn into a refusal.
+_HANDSHAKE_ANSWERS = frozenset(
+    {"websocket.accept", "websocket.close", "websocket.http.response.start"}
+)
+
+
+class HandshakeOutageMiddleware(BaseMiddleware):
+    """Refuse a handshake with 1011 when a backing store fails before accept (#2144).
+
+    Wraps ``AuthMiddlewareStack`` from the outside, so it sits between the
+    origin check and the session lookup, and everything the stack runs —
+    Channels' session and user resolution, ``TicketAuthMiddleware``, the
+    router and every routed consumer's ``connect()``, including the ones
+    enterprise registers through ``enterprise_websocket_urlpatterns`` — is
+    inside it. Why outside the stack rather than in each consumer:
+    ``AuthMiddleware.resolve_scope`` raises before any consumer exists (a
+    ``cached_db`` cache write-back during a cache outage, or a ``db`` session
+    read during a database outage), so only a wrapper outside it can catch
+    that; one wrapper then also covers every consumer's connect-time lookups
+    without each consumer, or an enterprise consumer it cannot see,
+    restating the rule.
+
+    Why: without it the exception escapes the application, Daphne answers the
+    upgrade with HTTP 500, and its log line carries the exception message,
+    which can name a database or cache host and credentials. With it the
+    handshake gets the same ``CLOSE_AUTH_UNAVAILABLE`` (1011) refusal
+    ``TicketAuthMiddleware`` gives the outages it can see (#2086), and only
+    the exception class name is logged.
+
+    Never fails open: a caught exception always ends in a close, never in a
+    call further down the stack, so no scope (authenticated or anonymous)
+    reaches a consumer after an outage. Only the bounded set from
+    ``_handshake_outage_errors`` is caught, and only while the handshake is
+    still undecided: once anything inside has sent an accept or a close, the
+    exception is re-raised unchanged (after accept that is the consumers'
+    existing 1011 path, #2003, #2142).
+
+    Transport caveat, as for every pre-accept refusal (#2145): Daphne answers
+    a close before accept with HTTP 403 whatever the code, so a browser sees a
+    failed upgrade (1006), not 1011. That is the #2086 behavior this matches;
+    the code is the application's verdict, and the 500 and its log line are
+    what this middleware removes.
+    """
+
+    def __init__(self, inner):
+        super().__init__(inner)
+        self._outage_errors = _handshake_outage_errors()
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "websocket":
+            return await self.inner(scope, receive, send)
+
+        connect_received = False
+        answered = False
+
+        async def tracked_receive():
+            nonlocal connect_received
+            message = await receive()
+            if message.get("type") == "websocket.connect":
+                connect_received = True
+            return message
+
+        async def tracked_send(message):
+            nonlocal answered
+            if message.get("type") in _HANDSHAKE_ANSWERS:
+                answered = True
+            await send(message)
+
+        try:
+            return await self.inner(scope, tracked_receive, tracked_send)
+        except self._outage_errors as exc:
+            if answered:
+                raise
+            outage = type(exc).__name__
+        # Refuse outside the except block on purpose: if the close itself
+        # fails (the client is gone), its traceback must not chain the outage
+        # as __context__, or Daphne's log would print the message after all.
+        # Class name only: the message can carry connection details.
+        logger.warning("websocket handshake could not complete: error=%s", outage)
+        if not connect_received:
+            # The failure came before anything read the connect message
+            # (the session lookup runs before the consumer starts).
+            await receive()
+        await send({"type": "websocket.close", "code": CLOSE_AUTH_UNAVAILABLE})

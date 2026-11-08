@@ -50,7 +50,7 @@ The server checks board membership before completing the handshake, regardless o
 |---|---|
 | `4001` | Unauthenticated — no valid session cookie, and no valid ticket. The client must log in (or obtain a fresh ticket) before reconnecting. |
 | `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help for a non-member. The same account-state checks as REST and MCP apply: an account with a pending password or username change is also closed with `4003`, at connect and on the access re-check, and once the pending change is completed a later reconnect can succeed. An account deactivated while a connection is open is closed with `4003` at the next access re-check; a reconnect attempt by an inactive account is refused at authentication with `4001`. Since 1.2, `4003` can also arrive **mid-stream** on an open connection, when the user loses access or when the credential it connected with is revoked (logout, password change, revoked session or token). With database-backed sessions (the default) and cache-only sessions (since 1.3), `4003` means the server completed the check and found no access; a server-side failure during the check closes with `1011` instead. See [Access re-check and eviction](#access-re-check-and-eviction). |
-| `1011` | Internal error (standard code, since 1.2 for this case) — the server could not complete the mid-stream access re-check, for example during a database outage. The frame that triggered the check is not delivered. This is not a loss of access: reconnect. The Visiban web app reconnects after its fixed reconnect delay (3 seconds); exponential backoff is tracked in #606. Until the server recovers the reconnect handshake can fail too, so keep retrying. The server also sends `1011` if it fails unexpectedly after the handshake. Since 1.3, `1011` is also the code for a handshake whose authentication could not be checked; see [Handshake during an outage](#handshake-during-an-outage-since-13). |
+| `1011` | Internal error (standard code, since 1.2 for this case) — the server could not complete the mid-stream access re-check, for example during a database outage. The frame that triggered the check is not delivered. This is not a loss of access: reconnect. The Visiban web app reconnects after its fixed reconnect delay (3 seconds); exponential backoff is tracked in #606. Until the server recovers the reconnect handshake can fail too, so keep retrying. The server also sends `1011` if it fails unexpectedly after the handshake. Since 1.3, `1011` is also the code for a handshake whose authentication or access check could not complete; see [Handshake during an outage](#handshake-during-an-outage-since-13). |
 
 Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
 
@@ -63,7 +63,7 @@ What a client actually sees:
 | When | What the client receives |
 |---|---|
 | Handshake refused (`4001`, `4003`, or `1011` in the tables on this page) | HTTP `403` on the upgrade. A browser reports close code `1006`. A client can't tell the reasons apart: check the credential and access over REST before retrying, and get a fresh ticket for every attempt. |
-| Handshake fails with a server error (see [Handshake during an outage](#handshake-during-an-outage-since-13)) | HTTP `500` on the upgrade. A browser reports close code `1006`. Retry. |
+| Handshake fails with an unexpected server error (not a database or cache outage, which is a `1011` refusal; see [Handshake during an outage](#handshake-during-an-outage-since-13)) | HTTP `500` on the upgrade. A browser reports close code `1006`. Retry. |
 | Open connection closed with `4003` or `1000` | The close code, as sent. |
 | Open connection closed with `1011` | `1011`. Daphne refuses the server's own `1011` close and sends `1011` itself from its error handler, so the code arrives but the server logs an error for each such close (#2142). |
 
@@ -71,7 +71,7 @@ The Visiban web app treats a failed upgrade like any unexpected close: it keeps 
 
 #### Handshake during an outage (since 1.3)
 
-A handshake whose authentication cannot be checked because a server-side store failed is refused with `1011`, never with `4001`, and the connection is never admitted (#2086). `4001` still means the credential itself was checked and is not valid. The cases are:
+A handshake whose authentication or access check cannot complete because a server-side store (the database or the cache) failed is refused with `1011`, never with `4001` or `4003`, and the connection is never admitted (#2086, #2144). `4001` still means the credential itself was checked and is not valid, and `4003` that the access check completed and found no access. The cases are:
 
 | Handshake | Failure | Result |
 |---|---|---|
@@ -79,16 +79,15 @@ A handshake whose authentication cannot be checked because a server-side store f
 | Session cookie, any session engine | The session is absent or expired (the cache, if any, is healthy), or it no longer matches the account's password | `4001`, as before. |
 | Ticket | The ticket cache, the database, or the cache-only session backend that holds the minting session fails while the ticket is redeemed | `1011`. If the ticket was already claimed when the failure happened, it stays spent: get a new ticket for the retry, as for every connection attempt. |
 | Ticket | The ticket is expired, already spent, or tampered with, or its minting credential is revoked | `4001`, as before. |
+| Session cookie, with `SESSION_ENGINE` set to `django.contrib.sessions.backends.cached_db` | The cache is unavailable (the session lookup falls back to the database, then writing the session back to the cache fails) | `1011` (#2144). |
+| Session cookie, with the `db` session engine (the default) | The database is unavailable | `1011` (#2144). |
+| Any | The board or group membership lookup fails because the database is unavailable, whichever way the connection was authenticated | `1011` (#2144). This also covers consumers an extension registers on the WebSocket router. |
 
 Like every handshake refusal, these codes reach a client as a refused upgrade (HTTP `403`) through the bundled server; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client). They're still the server's answer, and the `1011` keeps an outage from being recorded as a failed authentication.
 
-Not covered yet: these outages still fail the handshake with a server error (HTTP `500` on the upgrade, and the server logs the error) instead of the `1011` above. The client retries in each case. Tracked in #2144:
+Each of these refusals logs a `WARNING` that names at most the error class (for example `websocket handshake could not complete: error=OperationalError`), never the error message, which can include a database or cache host. Before 1.3 the `cached_db`, `db` and membership-lookup rows failed the upgrade with HTTP `500` and the server logged the full error. An error that isn't a database or cache connection failure (a bug, for example) still fails the upgrade with HTTP `500`, and the connection is not admitted.
 
-- A cookie handshake with the `cached_db` session engine while the cache is unavailable. Its session lookup falls back to the database, but writing the session back to the cache then fails.
-- A cookie handshake with the `db` session engine (the default) while the database is unavailable.
-- A board or group membership lookup during the handshake while the database is unavailable, whichever way the connection was authenticated.
-
-REST requests are not covered either, and **this outage still signs a web app user out**. During a cache-only session outage, Django's session middleware reads the session as empty, so every REST request made with the session cookie answers `401` until the cache recovers. The web app treats a `401` as an expired session, signs the user out, and clears per-user state such as recent boards, as it would for a real expiry. The session survives on the server, but the browser loses it: the response that answers `401` also deletes the session cookie (Django's session middleware clears the cookie of a session it read as empty), so reloading the page after the cache recovers does not restore it, and the user has to sign in again. Token and PAT requests are not affected, since those credentials aren't stored in the session cache. Tracked in #2143.
+REST requests are not covered, and **a cache-only session outage still signs a web app user out**. During a cache-only session outage, Django's session middleware reads the session as empty, so every REST request made with the session cookie answers `401` until the cache recovers. The web app treats a `401` as an expired session, signs the user out, and clears per-user state such as recent boards, as it would for a real expiry. The session survives on the server, but the browser loses it: the response that answers `401` also deletes the session cookie (Django's session middleware clears the cookie of a session it read as empty), so reloading the page after the cache recovers does not restore it, and the user has to sign in again. Token and PAT requests are not affected, since those credentials aren't stored in the session cache. Tracked in #2143.
 
 ---
 

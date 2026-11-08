@@ -7,7 +7,7 @@ from channels.auth import AuthMiddlewareStack
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "visiban.settings")
 django.setup()
 
-from accounts.ws_auth import TicketAuthMiddleware  # noqa: E402 — must be after setup()
+from accounts.ws_auth import HandshakeOutageMiddleware, TicketAuthMiddleware  # noqa: E402 — must be after setup()
 from accounts.ws_origin import OptionalOriginValidator  # noqa: E402
 from boards.routing import websocket_urlpatterns as board_ws_patterns  # noqa: E402
 from groups.routing import websocket_urlpatterns as group_ws_patterns  # noqa: E402
@@ -45,9 +45,20 @@ application = ProtocolTypeRouter(
         # OptionalOriginValidator is outermost: a present Origin header must
         # match the configured origins; a missing one (non-browser ticket
         # clients) passes through to the auth middleware unchanged.
+        #
+        # HandshakeOutageMiddleware wraps AuthMiddlewareStack from OUTSIDE
+        # (#2144): a database or cache outage raised by the session lookup,
+        # by TicketAuthMiddleware, or by any routed consumer's connect() —
+        # enterprise ones included, since the router is inside it — refuses
+        # the handshake with 1011 instead of escaping as a Daphne HTTP 500
+        # whose log line carries the exception message. It never fails open:
+        # a caught outage always ends in a close. Under Daphne that pre-accept
+        # close still reaches a browser as HTTP 403 (#2145).
         "websocket": OptionalOriginValidator(
-            AuthMiddlewareStack(
-                TicketAuthMiddleware(URLRouter(websocket_urlpatterns))
+            HandshakeOutageMiddleware(
+                AuthMiddlewareStack(
+                    TicketAuthMiddleware(URLRouter(websocket_urlpatterns))
+                )
             )
         ),
     }

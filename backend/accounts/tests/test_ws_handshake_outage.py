@@ -11,6 +11,10 @@ real ASGI stack (``visiban.asgi.application``):
   ``TicketAuthMiddleware``. It must close 1011, and the ticket stays spent.
 - never fail open: an absent or expired session, or a spent ticket, still
   closes 4001 with the cache healthy.
+- outages outside ``TicketAuthMiddleware`` (#2144): ``cached_db`` during a
+  cache outage, the ``db`` engine during a database outage, and the board,
+  group and enterprise consumers' connect() lookups during a database outage
+  are refused 1011 by ``HandshakeOutageMiddleware`` instead of raising.
 
 TransactionTestCase: the middleware and the consumer reach the ORM from a
 worker thread through ``database_sync_to_async`` (see test_ws_ticket_e2e.py).
@@ -23,7 +27,7 @@ from unittest.mock import patch
 from channels.testing import WebsocketCommunicator
 from django.conf import settings
 from django.core.cache import cache
-from django.db import OperationalError
+from django.db import InterfaceError, OperationalError
 from django.test import TransactionTestCase, override_settings
 
 from accounts.models import User
@@ -221,3 +225,137 @@ class TicketHandshakeOutageTests(_HandshakeOutageBase):
         ticket, _ = session_ticket(self.user)
         accepted, _ = _connect(f"{self.path}?ticket={ticket}")
         self.assertTrue(accepted)
+
+
+# --- #2144: outages that raise outside TicketAuthMiddleware --------------------
+
+CACHED_DB_ENGINE = "django.contrib.sessions.backends.cached_db"
+LOCMEM_SET = "django.core.cache.backends.locmem.LocMemCache.set"
+CURSOR_EXECUTE = "django.db.backends.utils.CursorWrapper.execute"
+
+
+def _redis_connection_error(message):
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    return RedisConnectionError(message)
+
+
+@override_settings(SESSION_ENGINE=CACHED_DB_ENGINE)
+class CachedDbCookieHandshakeOutageTests(_HandshakeOutageBase):
+    """``cached_db`` reads a cache error as a miss, falls back to the database,
+    then writes the session back to the cache. During an outage that write
+    raises out of Channels' ``AuthMiddleware``."""
+
+    def test_live_session_connects(self):
+        accepted, _ = _connect(self.path, login_session(self.user))
+        self.assertTrue(accepted)
+
+    def test_cache_outage_closes_1011_not_500(self):
+        key = login_session(self.user)
+        for error in (
+            ConnectionError("cache down at redis://secret-host"),
+            _redis_connection_error("Error 111 connecting to secret-host:6379"),
+        ):
+            with self.subTest(error=type(error).__module__):
+                with patch(LOCMEM_GET, side_effect=error), patch(LOCMEM_SET, side_effect=error):
+                    with self.assertLogs("accounts.ws_auth", level="WARNING") as logs:
+                        accepted, code = _connect(self.path, key)
+                self.assertFalse(accepted)
+                self.assertEqual(code, CLOSE_AUTH_UNAVAILABLE)
+                joined = "\n".join(logs.output)
+                self.assertIn("error=ConnectionError", joined)
+                self.assertNotIn("secret-host", joined)
+                self.assertNotIn(key, joined)
+
+    def test_absent_session_still_closes_4001(self):
+        """Never fail open: with the cache healthy a deleted session is a 4001."""
+        key = login_session(self.user)
+        import_module(CACHED_DB_ENGINE).SessionStore(session_key=key).delete()
+        self.assertEqual(_connect(self.path, key), (False, 4001))
+
+
+class DbCookieHandshakeOutageTests(_HandshakeOutageBase):
+    """The default ``db`` engine: the session read raises during a database
+    outage, before any consumer runs."""
+
+    def test_database_outage_closes_1011_not_500(self):
+        key = login_session(self.user)
+        for error in (
+            OperationalError("could not connect to server at secret-host"),
+            InterfaceError("connection already closed secret-host"),
+        ):
+            with self.subTest(error=type(error).__name__):
+                with patch(CURSOR_EXECUTE, side_effect=error):
+                    with self.assertLogs("accounts.ws_auth", level="WARNING") as logs:
+                        accepted, code = _connect(self.path, key)
+                self.assertFalse(accepted)
+                self.assertEqual(code, CLOSE_AUTH_UNAVAILABLE)
+                joined = "\n".join(logs.output)
+                self.assertIn(f"error={type(error).__name__}", joined)
+                self.assertNotIn("secret-host", joined)
+                self.assertNotIn(key, joined)
+
+    def test_database_outage_on_a_ticket_handshake_closes_1011(self):
+        """The session lookup runs before TicketAuthMiddleware even sees the
+        ticket, so a cookie on a ticket handshake hits the outage first."""
+        key = login_session(self.user)
+        ticket, _ = session_ticket(self.user, key)
+        with patch(CURSOR_EXECUTE, side_effect=OperationalError("db down")):
+            self.assertEqual(
+                _connect(f"{self.path}?ticket={ticket}", key), (False, 1011)
+            )
+
+    def test_recovery_connects(self):
+        key = login_session(self.user)
+        with patch(CURSOR_EXECUTE, side_effect=OperationalError("db down")):
+            self.assertEqual(_connect(self.path, key), (False, 1011))
+        accepted, _ = _connect(self.path, key)
+        self.assertTrue(accepted)
+
+
+class ConsumerConnectOutageTests(_HandshakeOutageBase):
+    """Authentication succeeds; the consumer's connect() lookup then raises."""
+
+    def test_board_role_lookup_outage_closes_1011(self):
+        key = login_session(self.user)
+        with patch(
+            "boards.consumers._lookup_role",
+            side_effect=OperationalError("db down at secret-host"),
+        ):
+            with self.assertLogs("accounts.ws_auth", level="WARNING") as logs:
+                accepted, code = _connect(self.path, key)
+        self.assertFalse(accepted)
+        self.assertEqual(code, 1011)
+        self.assertNotIn("secret-host", "\n".join(logs.output))
+
+    def test_board_role_lookup_outage_on_a_ticket_handshake_closes_1011(self):
+        ticket, _ = session_ticket(self.user)
+        with patch("boards.consumers._lookup_role", side_effect=OperationalError("db down")):
+            self.assertEqual(_connect(f"{self.path}?ticket={ticket}"), (False, 1011))
+
+    def test_group_access_lookup_outage_closes_1011(self):
+        group = Group.objects.create(name="Outage group", owner=self.user)
+        GroupMembership.objects.create(
+            group=group, user=self.user, role=GroupMembership.Role.ADMIN
+        )
+        key = login_session(self.user)
+        with patch(
+            "groups.consumers._user_can_access_group_id",
+            side_effect=OperationalError("db down"),
+        ):
+            accepted, code = _connect(f"/ws/groups/{group.id}/", key)
+        self.assertFalse(accepted)
+        self.assertEqual(code, 1011)
+
+    def test_non_member_still_closes_4003(self):
+        """Never fail open: with the database healthy a non-member is a 4003."""
+        outsider = User.objects.create_user(username="outage_outsider", password="pass")
+        self.assertEqual(_connect(self.path, login_session(outsider)), (False, 4003))
+
+    def test_a_programming_error_is_not_disguised_as_an_outage(self):
+        """Only the bounded outage set is caught; a bug still raises (and is
+        never admitted)."""
+        key = login_session(self.user)
+        with patch("boards.consumers._lookup_role", side_effect=ValueError("bug")):
+            with self.assertRaises(ValueError):
+                _connect(self.path, key)
