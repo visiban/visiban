@@ -67,6 +67,7 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.parse
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -198,6 +199,7 @@ TS_FMT = "%Y-%m-%dT%H:%M:%SZ"
 HEAD_RE = re.compile(r"^## Cost of this MR(?: \(#[0-9]{1,9}\))?(?: " + DASH + r" record ([0-9]{1,4}))?$")
 HEADER_RE = re.compile(r"^\| \| ((?:(?:Sonnet|Opus|Other) tokens \| (?:Sonnet|Opus|Other) est\. cost \| ){2,3})"
                        r"Total tokens \| Est\. cost \|$")
+HEADER_COMPACT_RE = re.compile(r"^\| \| Tokens \| Est\. cost \|$")
 HEADER_FAM_RE = re.compile(r"(Sonnet|Opus|Other) tokens \| (Sonnet|Opus|Other) est\. cost \| ")
 TOTAL_ROW_RE = re.compile(r"^\| \*\*Total\*\* \| (.{1,4000}) \|$")
 CELL_RE = re.compile(r"^\*\*(.{1,400})\*\*$")
@@ -251,7 +253,11 @@ def _valid_ts(text):
         return False
 
 
-def _render(body, issue, until, split_text, record=1, since=None, prior=None):
+FIRST_RECORD = ("- This is the session's first record, so the orchestrator row starts at the session's start and "
+                "includes work done before this MR's issue.")
+
+
+def _render(body, issue, until, split_text, record=1, since=None, prior=None, session_start=False):
     """(lines, own total) of one record. Own total is {column: value or None} for its **Total** row,
     the figures the next record's running total adds up; columns are (kind, family or 'all')."""
     f = figures(body)
@@ -265,9 +271,14 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None):
     # left as it is, so a wrong 0 beside real subagent figures still trips the mismatch note.
     if f["subagent"][0] == 0 and "subagent" not in sp["tokens"] and "subagent" not in sp["usd"]:
         sp["tokens"]["subagent"], sp["usd"]["subagent"] = {}, {}
-    fams = ["Sonnet", "Opus"]
-    if (any("Other" in sp[k].get(s, {}) for k in sp for s in SIDES)
-            or any("Other" in p["fams"] for p in prior.get("records", []))):
+    # No per-model split at all (neither side has a family): a compact Tokens / Est. cost table,
+    # not a per-family table whose every cell reads `n/a` (macrodream/blueprint#387).
+    compact = not any(sp["tokens"].get(sd) for sd in SIDES)
+    fams = [] if compact else ["Sonnet", "Opus"]
+    # `Other` appears only when some model outside Sonnet and Opus actually used tokens: an empty
+    # column of `n/a` cells is noise (a zero-usage `<synthetic>` row used to create one).
+    if not compact and (any(sp["tokens"].get(sd, {}).get("Other", 0) > 0 for sd in SIDES)
+                        or any((p["total"].get(("tok", "Other")) or 0) > 0 for p in prior.get("records", []))):
         fams.append("Other")
 
     def tok(side, fam):
@@ -296,7 +307,11 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None):
         cells = []
         for fm in fams:
             cells += [tok(side, fm), usd(side, fm)]
-        cells += [_cell(f[key], n), side_usd(side)]
+        if compact:
+            # A side's cost needs the split; only a measured 0 (--no-agents) has a known cost.
+            cells += [_cell(f[key], n), "0.00 USD" if f[key][0] == 0 else "-"]
+        else:
+            cells += [_cell(f[key], n), side_usd(side)]
         rows.append("| %s | %s |" % (label, " | ".join(cells)))
     tcells, own = [], {}
     for fm in fams:
@@ -322,8 +337,12 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None):
     end, why = window_end(until)
     prices = f["usd"][0][1] if f["usd"][0] and f["usd"][0][1] else None
     out = [heading, "",
+           "| | Tokens | Est. cost |" if compact else
            "| | " + " | ".join("%s tokens | %s est. cost" % (fm, fm) for fm in fams) + " | Total tokens | Est. cost |",
            sep] + rows + [""]
+    if compact:
+        out.append("- No per-model split was recorded for this record, so the Sonnet and Opus breakdown and each row's cost "
+                   "are not shown; the Total row is the record.")
     for side, key in (("subagent", "subagent"), ("orchestrator", "orchestrator")):
         if side in sp["tokens"] and f[key][0] is not None and sum(sp["tokens"][side].values()) != f[key][0]:
             out.append("- The %s model split sums to %s tokens, not the ledger line's %s; the `%s-tokens:` line is the record."
@@ -338,7 +357,12 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None):
                        % (got.quantize(CENT), f["usd"][0][0]))
     out.append("- Costs are estimates at list prices from `.claude/model-prices.json` (%s), not billed amounts; a model with no price row shows `n/a`."
                % ("prices %s" % prices if prices else "no price date on the ledger line"))
-    if record == 1:
+    if record == 1 and since is not None and end:
+        # The record's actual window (macrodream/blueprint#387): it is posted by the hook or --retry after the
+        # MR opened, not at the go-ahead. The parser reads this line back up to the first `. ` (WINK_RE).
+        out.append("- Window: %s to %s. This record counts only the session's work in this window; later work on this MR "
+                   "goes in later records." % (since, end))
+    elif record == 1:
         # The parser reads this line back up to the first `. ` (END1_RE): keep that prefix stable.
         out.append("- Window end: %s. Both figures stop at the go-ahead to push; later work on this MR goes in later records."
                    % (end if end else "n/a (%s)" % why))
@@ -346,8 +370,11 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None):
         out.append("- Window: %s to %s. This record counts only the work in this window; the running-total row adds the earlier records."
                    % (since, end))
         for g0, g1 in prior.get("gaps") or []:
-            out.append("- No record covers %s to %s, so that work is in no total." % (g0, g1))
+            out.append("- This MR has no record for %s to %s; the session's work in that stretch is in another MR's record from "
+                       "the same session, or in none." % (g0, g1))
         out.append("- Running total: %s." % ("the last row, records 1-%d" % record if running[1] is None else "n/a (%s)" % running[1]))
+    if session_start:
+        out.append(FIRST_RECORD)
     if prior.get("foreign"):
         out.append("- %d note(s) with this heading by another user were not read." % prior["foreign"])
     # Visiban's /wave has no per-agent budget, so it writes no `budget-exceeded:` line; the bullet
@@ -358,8 +385,9 @@ def _render(body, issue, until, split_text, record=1, since=None, prior=None):
         roles = ", ".join("%s %d" % (r, k) for r, k in sorted(b[1].items()))
         out.append("- Agents over their /wave budget (`budget-exceeded:`): %d%s." % (b[0], " (%s)" % roles if roles else ""))
     out += [
-        "- The orchestrator figure is the session's spend over the window and is shared by every branch of the same wave, "
-        "so two MRs' totals must not be added.",
+        "- Records do not overlap: the orchestrator row is this session's spend since its previous cost record, across "
+        "every branch it worked, and each subagent is counted only for usage after its previous record. "
+        "Records from one session add up to its total.",
         "",
         FOOTER_1 if record == 1 else FOOTER_K,
     ]
@@ -375,6 +403,10 @@ def _running(own, fams, prior):
     for col in cols:
         vals = [own.get(col)]
         for p in prior["records"]:
+            if col[1] != "all" and not p["fams"]:
+                # A compact record (no per-model split) has no family figures: n/a, not 0.
+                vals.append(None)
+                continue
             # A family column a record does not show was not used in it (only `Other` comes and goes).
             vals.append(p["total"][col] if col in p["total"] else 0)
         if any(v is None for v in vals):
@@ -386,9 +418,9 @@ def _running(own, fams, prior):
     return cells, None
 
 
-def comment_lines(body, issue=None, until=None, split_text=None, record=1, since=None, prior=None):
+def comment_lines(body, issue=None, until=None, split_text=None, record=1, since=None, prior=None, session_start=False):
     """The comment as a list of lines."""
-    return _render(body, issue, until, split_text, record, since, prior)[0]
+    return _render(body, issue, until, split_text, record, since, prior, session_start)[0]
 
 
 # --- reading earlier records back (untrusted note text) --------------------------------------
@@ -419,13 +451,21 @@ def parse_record(body):
     if not "".join(lines[1:]).isascii():
         return None
     headers = [m for m in map(HEADER_RE.match, lines) if m]
+    compact = [l for l in lines if HEADER_COMPACT_RE.match(l)]
     totals = [m for m in map(TOTAL_ROW_RE.match, lines) if m]
-    wins = [m for m in map(END1_RE.match if k == 1 else WINK_RE.match, lines) if m]
-    if len(headers) != 1 or len(totals) != 1 or len(wins) != 1:
+    wins = [m for m in map(WINK_RE.match, lines) if m]
+    if k == 1:
+        # Record 1 states either `Window end: X.` (posted at the go-ahead) or `Window: S to U.` (macrodream/blueprint#387).
+        wins += [m for m in map(END1_RE.match, lines) if m]
+    if len(headers) + len(compact) != 1 or len(totals) != 1 or len(wins) != 1:
         return None
-    fams = [a for a, b in HEADER_FAM_RE.findall(headers[0].group(1) + "") if a == b]
-    if len(fams) * 2 != headers[0].group(1).count(" | ") or fams[:2] != ["Sonnet", "Opus"] or fams[2:] not in ([], ["Other"]):
-        return None
+    if compact:
+        fams = []  # a record rendered without a per-model split: only the all-column Total
+    else:
+        fams = [a for a, b in HEADER_FAM_RE.findall(headers[0].group(1) + "") if a == b]
+        if (len(fams) * 2 != headers[0].group(1).count(" | ") or fams[:2] != ["Sonnet", "Opus"]
+                or fams[2:] not in ([], ["Other"])):
+            return None
     cells = totals[0].group(1).split(" | ")
     if len(cells) != len(fams) * 2 + 2:
         return None
@@ -444,7 +484,7 @@ def parse_record(body):
             total[col] = decimal.Decimal(USD_CELL_RE.match(v).group(1))
         else:
             return None
-    if k == 1:
+    if k == 1 and wins[0].re is END1_RE:
         start, end = None, wins[0].group(1)
     else:
         start, end = wins[0].group(1), wins[0].group(2)
@@ -455,13 +495,26 @@ def parse_record(body):
     return {"k": k, "start": start, "end": end, "fams": fams, "total": total}
 
 
+PROJECT_RE = re.compile(r"^[0-9A-Za-z_.-]+(?:/[0-9A-Za-z_.-]+)+\Z")
+PROJECT = {"path": None}
+
+
+def scope_path(path, project):
+    """`projects/:id/...` with :id replaced by the URL-encoded project path, so a call never resolves
+    `:id` against whatever repo the process happens to run in (macrodream/blueprint#387)."""
+    if not project:
+        return path
+    return path.replace("projects/:id/", "projects/%s/" % urllib.parse.quote(project, safe=""), 1)
+
+
 def glab_api(method, path, payload=None):
     """(returncode, stdout) of one `glab api` call; the JSON payload goes through stdin. `path` is
-    built only from constants and integers (the iid, a note id, a page number), never from text."""
+    built only from constants and integers (the iid, a note id, a page number) and the URL-encoded
+    project path, never from text."""
     glab = shutil.which("glab")
     if glab is None:
         return 1, ""
-    cmd = [glab, "api", "-X", method, path]
+    cmd = [glab, "api", "-X", method, scope_path(path, PROJECT["path"])]
     data = None
     if payload is not None:
         cmd += ["--input", "-", "-H", "Content-Type: application/json"]
@@ -542,25 +595,22 @@ def plan_followup(own, foreign, since, until):
     else:
         recs = sorted((o["rec"] for o in earlier), key=lambda r: r["k"])
         prev = recs[-1]
-        # Every earlier pair, not just the latest: an overlap would be summed twice, so the total
-        # stays n/a once any pair overlaps. A gap, like the current window's, is stated and summed.
-        bad = None
+        # Records are non-overlapping in TOKENS, not in time (macrodream/blueprint#387): each claims what no
+        # earlier record of ITS session claimed, so two sessions' records on one MR may cover the same hours
+        # and still count different tokens. The running total therefore sums the records whatever their
+        # windows; a gap between windows is stated, not a reason to withhold the total.
         gaps = []
+        bad = None
         for a, b in zip(recs, recs[1:]):
             if a["end"] is None:
                 bad = "record %d states no window end" % a["k"]
-            elif b["start"] is not None and b["start"] < a["end"]:
-                bad = "record %d starts before record %d ended, so work would be counted twice" % (b["k"], a["k"])
-            elif b["start"] is not None and b["start"] > a["end"]:
-                gaps.append((a["end"], b["start"]))
-            if bad:
                 break
+            if b["start"] is not None and b["start"] > a["end"]:
+                gaps.append((a["end"], b["start"]))
         if bad:
             prior["reason"] = bad
         elif prev["end"] is None:
             prior["reason"] = "record %d states no window end" % prev["k"]
-        elif since < prev["end"]:
-            prior["reason"] = "this window starts before record %d ended, so work would be counted twice" % prev["k"]
         else:
             prior["records"] = recs
             prior["gaps"] = gaps
@@ -603,13 +653,14 @@ def _read_capped(path, cap):
 
 
 USAGE = ("usage: cost-table.py --comment (--file <description.md> | --ledger <lines.txt> --since T --until T --mr <iid>) "
-         "[--issue N] [--until T] [--split F] [--post [--mr <iid>]] | --next-since --mr <iid> | --self-test")
+         "[--issue N] [--until T] [--since T] [--session-start] [--split F] [--project ns/proj] [--post [--mr <iid>]] | "
+         "--next-since --mr <iid> | --self-test")
 
 
 def comment_main(argv, enabled, stdout, stderr, api):
     opts, i = {}, 0
-    flags = ("--file", "--ledger", "--issue", "--since", "--until", "--split", "--mr")
-    post_it = next_since = False
+    flags = ("--file", "--ledger", "--issue", "--since", "--until", "--split", "--mr", "--project")
+    post_it = next_since = session_start = False
     while i < len(argv):
         a = argv[i]
         if a == "--comment":
@@ -620,12 +671,22 @@ def comment_main(argv, enabled, stdout, stderr, api):
         elif a == "--next-since":
             next_since = True
             i += 1
+        elif a == "--session-start":
+            session_start = True
+            i += 1
         elif a in flags and i + 1 < len(argv) and a not in opts:
             opts[a] = argv[i + 1]
             i += 2
         else:
             print(USAGE, file=stderr)
             return 2
+    PROJECT["path"] = None
+    if "--project" in opts:
+        proj = opts.pop("--project")
+        if not PROJECT_RE.match(proj):
+            print("cost-table: --project must be a namespace/project path", file=stderr)
+            return 2
+        PROJECT["path"] = proj
     nums = {}
     for k in ("--issue", "--mr"):
         v = opts.get(k)
@@ -652,7 +713,7 @@ def comment_main(argv, enabled, stdout, stderr, api):
         print(latest["rec"]["end"], file=stdout)
         return 0
     if follow == ("--file" in opts) or (post_it and not nums["--mr"]) or (follow and not (
-            nums["--mr"] and "--since" in opts and "--until" in opts)) or (not follow and "--since" in opts):
+            nums["--mr"] and "--since" in opts and "--until" in opts)):
         print(USAGE, file=stderr)
         return 2
     since = until = None
@@ -661,6 +722,13 @@ def comment_main(argv, enabled, stdout, stderr, api):
         until, why_u = window_end(opts["--until"])
         if since is None or until is None or since > until:
             print("cost-table: --since and --until must be ISO 8601 with a zone, --since first", file=stderr)
+            return 2
+    elif "--since" in opts:
+        # Record 1 may state its actual window (macrodream/blueprint#387) instead of only its end.
+        since, why_s = window_end(opts["--since"])
+        end1, _w = window_end(opts.get("--until"))
+        if since is None or (end1 is not None and since > end1):
+            print("cost-table: --since must be ISO 8601 with a zone and not after --until", file=stderr)
             return 2
     try:
         if follow:
@@ -684,7 +752,7 @@ def comment_main(argv, enabled, stdout, stderr, api):
         print(msg, file=stderr)
         return rc
     if not follow:
-        text = "\n".join(comment_lines(body, nums["--issue"], opts.get("--until"), split))
+        text = "\n".join(comment_lines(body, nums["--issue"], opts.get("--until"), split, since=since, session_start=session_start))
         if not post_it:
             print(text, file=stdout)
             return 0
@@ -699,7 +767,8 @@ def comment_main(argv, enabled, stdout, stderr, api):
     if rc:
         print(m, file=stderr)
         return rc
-    text = "\n".join(comment_lines(body, nums["--issue"], until, split, record=k, since=since, prior=prior))
+    text = "\n".join(comment_lines(body, nums["--issue"], until, split, record=k, since=since, prior=prior,
+                                    session_start=session_start))
     if not post_it:
         print(text, file=stdout)
         return 0
@@ -843,8 +912,12 @@ def self_test():
                  "| Orchestrator | none used | none used | 1,997,645 | 0.87 USD | 1,997,645 | 0.87 USD |",
                  "| **Total** | **2,000,000** | **0.50 USD** | **2,591,969** | **1.07 USD** | **4,591,969** | **1.57 USD** |",
                  "Window end: 2026-11-04T15:30:00Z.", "prices 2026-11-03", "(`budget-exceeded:`): 1 (implementer 1)",
-                 "shared by every branch of the same wave", "must not be added"):
+                 "Records do not overlap: the orchestrator row is this session's spend since its previous cost record, across "
+                 "every branch it worked, and each subagent is counted only for usage after its previous record. "
+                 "Records from one session add up to its total."):
         check("comment: " + want[:40], want in com, com)
+    check("comment: the retired never-add footnote is gone", "must not be added" not in com
+          and "shared by every branch of the same wave" not in com, com)
     check("comment: record 1 has no running-total row", "Running total" not in com, com)
     check("comment: hostile split lines are not echoed", "SECRET" not in com and "evil" not in com and "$9" not in com, com)
     check("comment: no ledger line, no `gate:` line", not any(cl.COSTISH_RE.match(ln) or cl.GATE_PREFIX_RE.match(ln)
@@ -853,7 +926,14 @@ def self_test():
           and parse_record(com)["end"] == "2026-11-04T15:30:00Z", repr(parse_record(com)))
     # No split / no estimate / no window: n/a with a reason, never 0.
     bare = "\n".join(comment_lines(full, None, None, None))
-    check("comment: no split is n/a with reason", "n/a (no per-model split recorded" in bare and "| 0 |" not in bare, bare)
+    check("comment: no split renders the compact Tokens / Est. cost table, with no n/a split cells (macrodream/blueprint#387)",
+          "| | Tokens | Est. cost |\n|---|---|---|\n" in bare and "| Subagents | 2,594,324 | - |" in bare
+          and "| **Total** | **4,591,969** | **1.57 USD** |" in bare and "n/a (no per-model split recorded" not in bare
+          and "Sonnet tokens" not in bare and "| 0 |" not in bare, bare)
+    check("comment: a compact record says why it has no breakdown", "No per-model split was recorded for this record" in bare, bare)
+    check("comment: a compact record parses back with its Total (so --next-since and numbering still read it)",
+          parse_record(bare) is not None and parse_record(bare)["fams"] == []
+          and parse_record(bare)["total"] == {("tok", "all"): 4591969, ("usd", "all"): decimal.Decimal("1.57")}, repr(parse_record(bare)))
     check("comment: no window end is n/a", "Window end: n/a (no window end given)" in bare, bare)
     check("comment: no budget line, no budget bullet", "budget-exceeded" not in bare, bare)
     check("comment: heading without an issue", bare.startswith("## Cost of this MR\n"), bare)
@@ -922,7 +1002,8 @@ def self_test():
     open(dpath, "w", encoding="utf-8").write(withb)
     for args in (["--file", dpath, "--comment", "--post"], ["--file", dpath, "--comment", "--issue", "x"],
                  ["--comment"], ["--file", dpath, "--comment", "--bogus"], ["--file", dpath, "--comment", "--split", tmp2],
-                 ["--file", dpath, "--comment", "--since", "2026-11-04T15:30:00Z"],
+                 ["--file", dpath, "--comment", "--since", "yesterday"],
+                 ["--file", dpath, "--comment", "--since", "2026-11-04T16:00:00Z", "--until", "2026-11-04T15:30:00Z"],
                  ["--file", dpath, "--ledger", dpath, "--comment", "--mr", "7", "--since", "2026-11-04T15:30:00Z", "--until", "2026-11-04T16:30:00Z"],
                  ["--ledger", dpath, "--comment", "--mr", "7", "--until", "2026-11-04T16:30:00Z"],
                  ["--ledger", dpath, "--comment", "--since", "2026-11-04T15:30:00Z", "--until", "2026-11-04T16:30:00Z"],
@@ -939,8 +1020,8 @@ def self_test():
               rc == 2 and "outside" in e.getvalue(), repr((rc, e.getvalue())))
     o = io.StringIO()
     rc = main(["--file", dpath, "--comment", "--split", os.path.join(tmp2, "absent.txt")], enabled=on, stdout=o, stderr=io.StringIO())
-    check("cli comment: a missing --split file is the same as none (n/a cells, exit 0)",
-          rc == 0 and "n/a (no per-model split recorded" in o.getvalue(), repr((rc, o.getvalue())))
+    check("cli comment: a missing --split file is the same as none (compact table, exit 0)",
+          rc == 0 and "| | Tokens | Est. cost |" in o.getvalue() and "n/a (no per-model split" not in o.getvalue(), repr((rc, o.getvalue())))
     # A doubled split (a re-run appended twice) is flagged for tokens and for USD.
     dbl = "\n".join(comment_lines(full, 1, None, split + "\n" + split))
     check("comment: doubled split flags the USD sum", "model split sums to 3.14 USD, not the ledger line's 1.57 USD" in dbl, dbl)
@@ -1104,27 +1185,28 @@ def self_test():
     rc, sent, bg, _ = follow([note(10, mr288), note(12, b3)], since=E3, until="2026-11-04T19:00:00Z")
     check("gap: records 1 and 3 -> record 4, total n/a",
           "%s record 4\n" % DASH in bg and "Running total: n/a (this user's earlier records are not exactly records 1-3)" in bg, bg)
-    # Overlap: a window that starts before the previous one ended would count work twice.
+    # Overlap in time: another session's record may cover the same hours, so the running total sums both.
     rc, sent, bo, _ = follow([note(10, mr288)], since="2026-11-04T15:00:00Z")
-    check("overlap: total n/a", "Running total: n/a (this window starts before record 1 ended" in bo, bo)
-    # An earlier pair that overlaps (record 2 starts before record 1 ended) keeps record 3's total n/a.
+    check("a window that starts before the previous record ended (another session's record): the running total sums both",
+          "Running total: the last row, records 1-2" in bo and "**11,560,862**" in bo and "starts before" not in bo, bo)
+    # An earlier pair that overlaps in time (record 2 starts before record 1 ended) still sums into record 3's total.
     ov2 = b2.replace("- Window: %s to %s." % (S2, E2), "- Window: 2026-11-04T10:00:00Z to 2026-11-04T17:00:00Z.")
     rc, sent, bo2, _ = follow([note(10, mr288), note(11, ov2)], since=E2, until=E3)
-    check("earlier overlap: record 3 total n/a with a reason",
-          "%s record 3\n" % DASH in bo2 and "Running total: n/a (record 2 starts before record 1 ended" in bo2, bo2)
+    check("an earlier pair that overlaps in time: record 3's total still sums all three",
+          "%s record 3\n" % DASH in bo2 and "Running total: the last row, records 1-3" in bo2 and "starts before" not in bo2, bo2)
     # Record 1 is refused when this user's only note is a parsed record K.
     calls = []
     rc, _ = upsert(7, "NEW", fake([note(5, b2)], calls))
     check("upsert: record 1 refused (exit 5) over a lone parsed record 2", rc == 5 and not any(c[0] in ("PUT", "POST") for c in calls), repr(calls))
     # A later start than the previous end: the uncounted stretch is stated, the total still adds up.
     rc, sent, bl, _ = follow([note(10, mr288)], since="2026-11-04T16:00:00Z")
-    check("time gap: stated and the total stands", "No record covers 2026-11-04T15:38:24Z to 2026-11-04T16:00:00Z" in bl
+    check("time gap: stated and the total stands", "This MR has no record for 2026-11-04T15:38:24Z to 2026-11-04T16:00:00Z" in bl
           and "**11,560,862**" in bl, bl)
     # An earlier pair with a gap (record 2 starts after record 1 ended): record 3 sums and states it.
     gp2 = b2.replace("- Window: %s to %s." % (S2, E2), "- Window: 2026-11-04T16:00:00Z to %s." % E2)
     rc, sent, bg3, _ = follow([note(10, mr288), note(11, gp2)], since=E2, until=E3)
     check("earlier gap: record 3 sums and states the uncovered stretch",
-          "%s record 3\n" % DASH in bg3 and "No record covers 2026-11-04T15:38:24Z to 2026-11-04T16:00:00Z" in bg3
+          "%s record 3\n" % DASH in bg3 and "This MR has no record for 2026-11-04T15:38:24Z to 2026-11-04T16:00:00Z" in bg3
           and "Running total: the last row" in bg3 and "**11,562,362**" in bg3, bg3)
     # Record K has no `## Gates`: it states no budget bullet; record 1 shows one only when its line exists.
     check("record K: no budget-exceeded bullet", "budget-exceeded" not in b2, b2)
@@ -1173,6 +1255,78 @@ def self_test():
                                               "est-cost: orchestrator model claude-sonnet-5-5 0.10 USD\n")
     rc, sent, bm, _ = follow([note(10, mr288)])
     check("no subagent-tokens line stays n/a, never 0", "| Subagents | n/a (no per-model split" in bm and "n/a (no `subagent-tokens:` line" in bm, bm)
+
+    # --- macrodream/blueprint#387: empty rows, the compact table and records that mix both shapes ---
+    open(lpath, "w", encoding="utf-8").write("subagent-tokens: 1000\norchestrator-tokens: 500\nest-cost-usd: 0.40 (prices 2026-11-03)\n")
+    open(s2path, "w", encoding="utf-8").write(
+        "subagent-tokens: model claude-sonnet-5-5 1000\nsubagent-tokens: model unknown 0\n"
+        "orchestrator-tokens: model claude-sonnet-5-5 500\norchestrator-tokens: model unknown 0\n"
+        "est-cost: subagent model claude-sonnet-5-5 0.30 USD\nest-cost: orchestrator model claude-sonnet-5-5 0.10 USD\n")
+    rc, sent, bu, _ = follow([note(10, mr288)])
+    check("an `unknown 0` split line adds no Other column and no n/a cell",
+          rc == 0 and "Other" not in bu and "n/a" not in bu.split("- Costs are")[0], bu)
+    check("a column of real Other tokens is still shown", "Other tokens | Other est. cost" in oth)
+    # A compact record K, whose running total adds a full record 1 (all-column figures only).
+    open(lpath, "w", encoding="utf-8").write("subagent-tokens: 0\norchestrator-tokens: 500\nest-cost-usd: 0.10 (prices 2026-11-03)\n")
+    open(s2path, "w", encoding="utf-8").write("")
+    rc, sent, bc, _ = follow([note(10, mr288)])
+    check("compact record K: Subagents is a measured 0, Orchestrator has no per-row cost, the Total is real",
+          rc == 0 and "| | Tokens | Est. cost |" in bc and "| Subagents | 0 | 0.00 USD |" in bc
+          and "| Orchestrator | 500 | - |" in bc and "| **Total** | **500** | **0.10 USD** |" in bc
+          and "n/a (no per-model split" not in bc, bc)
+    check("compact record K: the running total adds the earlier record's all-column figures",
+          "| **Running total, records 1-2** | **11,559,862** | **3.20 USD** |" in bc, bc)
+    pc = parse_record(bc)
+    check("compact record K parses back", pc is not None and pc["k"] == 2 and pc["fams"] == []
+          and pc["total"][("tok", "all")] == 500, repr(pc))
+    # A full record after a compact one: the family columns are n/a (the compact record has none), the rest add up.
+    open(lpath, "w", encoding="utf-8").write("subagent-tokens: 1000\norchestrator-tokens: 500\nest-cost-usd: 0.40 (prices 2026-11-03)\n")
+    open(s2path, "w", encoding="utf-8").write(split2)
+    comp1 = "\n".join(comment_lines(full, 383, "2026-11-04T15:38:24Z", None))
+    rc, sent, bx, _ = follow([note(10, comp1)])
+    check("a full record after a compact record 1: family running totals are n/a, the all-column ones add up",
+          rc == 0 and "| **Running total, records 1-2** | **n/a (a record has no figure in this column)** |" in bx
+          and "**4,593,469** | **1.97 USD** |" in bx, bx)
+    o = io.StringIO()
+    rc = main(["--next-since", "--mr", "288"], enabled=on, stdout=o, stderr=io.StringIO(), api=fake([note(10, comp1)], []))
+    check("--next-since reads a compact record 1", rc == 0 and o.getvalue() == "2026-11-04T15:38:24Z\n", repr((rc, o.getvalue())))
+    check("an old record (!288's) is still record 1 beside the new footnote wording", (parse_record(mr288) or {}).get("k") == 1)
+
+    check("--project accepts a deeply nested project path (no depth cap)", PROJECT_RE.match("/".join("g%d" % i for i in range(20)) + "/p") is not None
+          and PROJECT_RE.match("not a project") is None)
+    # macrodream/blueprint#387: every API path names its project explicitly when --project is given.
+    check("scope_path: :id becomes the URL-encoded project path",
+          scope_path("projects/:id/merge_requests/7/notes?per_page=100", "ns/sub/p")
+          == "projects/ns%2Fsub%2Fp/merge_requests/7/notes?per_page=100")
+    check("scope_path: no project leaves the path alone (manual use)", scope_path("projects/:id/x", None) == "projects/:id/x")
+    check("scope_path: `user` has no project part", scope_path("user", "ns/p") == "user")
+    rc = main(["--next-since", "--mr", "7", "--project", "not a project"], enabled=on, stdout=io.StringIO(), stderr=io.StringIO(),
+              api=lambda *a: (0, "[]"))
+    check("--project must be a namespace/project path", rc == 2)
+    rc = main(["--next-since", "--mr", "7", "--project", "ns/p"], enabled=on, stdout=io.StringIO(), stderr=io.StringIO(),
+              api=fake([note(10, comp1)], []))
+    check("--project is accepted beside --next-since", rc == 0 and PROJECT["path"] == "ns/p")
+    PROJECT["path"] = None
+
+    # macrodream/blueprint#387: record 1 states its real window, and says when the session just started.
+    w1 = "\n".join(comment_lines(full, 383, "2026-11-04T16:00:00Z", split, since="2026-11-04T15:00:00Z", session_start=True))
+    w2 = "\n".join(comment_lines(full, 383, "2026-11-04T16:00:00Z", split, since="2026-11-04T15:00:00Z"))
+    check("record 1 with a start states `Window: S to U.`, not the go-ahead end", "- Window: 2026-11-04T15:00:00Z to 2026-11-04T16:00:00Z. " in w1
+          and "Window end:" not in w1 and "stop at the go-ahead" not in w1, w1)
+    check("the first-record sentence appears only when the window began at the session's start",
+          FIRST_RECORD in w1 and FIRST_RECORD not in w2, w1 + w2)
+    p1 = parse_record(w1)
+    check("record 1 in the new window format parses (start and end), and old `Window end:` records still parse",
+          p1 is not None and (p1["k"], p1["start"], p1["end"]) == (1, "2026-11-04T15:00:00Z", "2026-11-04T16:00:00Z")
+          and parse_record(mr288)["end"] == "2026-11-04T15:38:24Z", repr(p1))
+    o = io.StringIO()
+    rc = main(["--next-since", "--mr", "288"], enabled=on, stdout=o, stderr=io.StringIO(), api=fake([note(10, w1)], []))
+    check("--next-since reads a new-format record 1", rc == 0 and o.getvalue() == "2026-11-04T16:00:00Z\n", repr((rc, o.getvalue())))
+    o = io.StringIO()
+    rc = main(["--file", dpath, "--comment", "--until", "2026-11-04T16:00:00Z", "--since", "2026-11-04T15:00:00Z", "--session-start"],
+              enabled=on, stdout=o, stderr=io.StringIO())
+    check("cli: --since and --session-start on record 1", rc == 0 and "- Window: 2026-11-04T15:00:00Z to" in o.getvalue()
+          and FIRST_RECORD in o.getvalue(), o.getvalue()[:200])
 
     # The real setting reader answers with one of its three codes.
     check("ledger_enabled: answers 0, 1 or 2", ledger_enabled() in (0, 1, 2))

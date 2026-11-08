@@ -1,0 +1,68 @@
+{
+  "session": "5eed0000-0000-4000-8000-000000000001",
+  "today": "2026-11-07",
+  "mrs": {
+    "11": {
+      "iid": 11,
+      "description": "",
+      "source_branch": "feat/101-a"
+    },
+    "12": {
+      "iid": 12,
+      "description": "",
+      "source_branch": "fix/202-b"
+    },
+    "13": {
+      "iid": 13,
+      "description": "",
+      "source_branch": "docs/303-c"
+    },
+    "15": {
+      "iid": 15,
+      "description": "",
+      "source_branch": "docs/505-e"
+    }
+  },
+  "steps": [
+    {
+      "name": "a-record-1",
+      "kind": "hook",
+      "mr": 11,
+      "at": "2026-11-07T10:00:00Z"
+    },
+    {
+      "name": "pin-n",
+      "kind": "pin",
+      "branch": "feat/101-a",
+      "agents": [
+        "c1000000000000001"
+      ],
+      "at": "2026-11-07T10:55:00Z"
+    },
+    {
+      "name": "b-record-1",
+      "kind": "hook",
+      "mr": 12,
+      "at": "2026-11-07T11:00:00Z"
+    },
+    {
+      "name": "a-record-2",
+      "kind": "round",
+      "mr": 11,
+      "at": "2026-11-07T12:00:00Z"
+    },
+    {
+      "name": "d-foreign",
+      "kind": "foreign",
+      "mr": 14,
+      "project": "h/other",
+      "at": "2026-11-07T12:45:00Z"
+    },
+    {
+      "name": "c-retry",
+      "kind": "retry",
+      "mr": 13,
+      "at": "2026-11-07T13:00:00Z"
+    }
+  ]
+}

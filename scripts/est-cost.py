@@ -33,8 +33,8 @@ strict pattern accepts it, and no transcript or table string is echoed except a 
 model name.
 
 Usage:
-  python3 scripts/est-cost.py --agent <id> [--agent <id> ...] --since <ISO 8601> --until <ISO 8601>
-         [--session <session-id>] [--projects-dir <dir>] [--prices <file>] [--today YYYY-MM-DD]
+  python3 scripts/est-cost.py --agent <id>[@<since>] [--agent <id> ...] --since <ISO 8601> --until <ISO 8601>
+         [--agent-since <id>@<since> ...] [--session <session-id>] [--projects-dir <dir>] [--prices <file>] [--today YYYY-MM-DD]
   python3 scripts/est-cost.py --no-agents --since <ISO 8601> --until <ISO 8601> [same options]
   python3 scripts/est-cost.py --self-test
 
@@ -43,6 +43,10 @@ Usage:
   stderr labels the run `orchestrator-only` and prints the orchestrator per-model lines and no
   subagent ones. It is never a default: without --agent and without it this exits 2; both
   together is a usage error; an orchestrator with no usage in the window still prints no line.
+
+  Per-agent since (macrodream/blueprint#387), the same as scripts/subagent-tokens.py: `--agent
+  <id>@<since>` prices that agent only from `<since>` on, `--agent-since <id>@<since>` sets the bound
+  for an agent that is not named (a descendant). `--since` bounds the orchestrator only.
 
   The session id defaults to $CLAUDE_CODE_SESSION_ID. Times must carry a zone.
   The cost-ledger setting is asked first (`scripts/cost-ledger enabled`): off or unreadable
@@ -167,7 +171,7 @@ def cents(x):
     return x.quantize(D("0.01"), rounding=decimal.ROUND_HALF_UP)
 
 
-def estimate(sid, ids, since, until, projects_dir, table, err, orchestrator_only=False):
+def estimate(sid, ids, since, until, projects_dir, table, err, orchestrator_only=False, since_by_id=None):
     """(total Decimal) for the orchestrator window plus the agents; raises Omit."""
     try:
         main_path, sdir = tu.session_paths(sid, projects_dir)
@@ -175,16 +179,12 @@ def estimate(sid, ids, since, until, projects_dir, table, err, orchestrator_only
     except ValueError as e:
         raise Omit("%s" % e)
 
-    def sub_lines():
-        for path in files:
-            with open(path, encoding="utf-8", errors="replace") as f:
-                yield from f
-
     try:
         with open(main_path, encoding="utf-8", errors="replace") as f:
             orows, ostats = tu.measure_rows(f, since, until, side="main")
+        # Each agent is cut at its own lower bound (`--agent <id>@<since>`), else its first entry.
         srows, sstats = ([], {"messages": 0}) if orchestrator_only else \
-            tu.measure_rows(sub_lines(), None, until, side="sidechain")
+            tu.measure_rows_sources(tu.agent_sources(files, agents, since_by_id or {}), until, side="sidechain")
     except OSError:
         raise Omit("a transcript could not be read")
     if not ostats["messages"]:
@@ -216,10 +216,11 @@ def run(argv, out=sys.stdout, err=sys.stderr, enabled=ledger_enabled, today=None
               % ("off" if state == 1 else "setting unreadable"), file=err)
         return 3
     ids, since, until, sid, prices_path, none_ran = [], None, None, None, DEFAULT_PRICES, False
+    since_by_id = {}
     projects_dir = os.path.join(os.path.expanduser("~"), ".claude", "projects")
     day = today
     i = 0
-    flags = ("--agent", "--since", "--until", "--session", "--projects-dir", "--prices", "--today")
+    flags = ("--agent", "--agent-since", "--since", "--until", "--session", "--projects-dir", "--prices", "--today")
     while i < len(argv):
         a = argv[i]
         if a == "--no-agents":
@@ -234,11 +235,16 @@ def run(argv, out=sys.stdout, err=sys.stderr, enabled=ledger_enabled, today=None
             return 2
         v = argv[i + 1]
         i += 2
-        if a == "--agent":
-            if not tu.AGENT_ID_RE.match(v):
-                print("usage: --agent %r is not an agent id (the `agentId:` of the Agent tool result)" % v, file=err)
+        if a in ("--agent", "--agent-since"):
+            try:
+                aid, asince = tu.parse_agent_spec(v, need_since=(a == "--agent-since"))
+            except ValueError as e:
+                print("usage: %s %s" % (a, e), file=err)
                 return 2
-            ids.append(v)
+            if a == "--agent":
+                ids.append(aid)
+            if asince is not None:
+                since_by_id[aid] = asince
         elif a in ("--since", "--until"):
             t = tu.parse_time(v)
             if t is None:
@@ -285,7 +291,7 @@ def run(argv, out=sys.stdout, err=sys.stderr, enabled=ledger_enabled, today=None
         return 2
     try:
         table, checked = load_prices(prices_path, day)
-        total = estimate(sid, ids, since, until, projects_dir, table, err, none_ran)
+        total = estimate(sid, ids, since, until, projects_dir, table, err, none_ran, since_by_id)
     except Omit as e:
         print("FAIL: %s; no line printed" % e, file=err)
         print("note: est-cost-usd omitted: %s" % e, file=err)
@@ -488,6 +494,17 @@ def _cases(tmp, check):
           rc == 1 and o.getvalue() == "" and "no orchestrator usage" in e.getvalue(), repr((rc, e.getvalue())))
     rc, out, err = call("--no-agents", prices=prices_file("norow2.json", models={"m-b": table["m-b"]}))
     check("--no-agents still omits on a model with no row", rc == 1 and out == "" and "model m-a has no row" in err, err)
+    # Per-agent since (macrodream/blueprint#387): a1 (30.0024 USD) responded at `ts`; a2 (0.012006 USD) is its descendant.
+    rc, out, err = call("--agent", a1 + "@2026-11-01T10:00:01Z")
+    check("--agent <id>@<since> prices only responses from that time: a1 drops, its descendant a2 stays (5.80 + 0.012006)",
+          rc == 0 and out == "est-cost-usd: 5.81 (prices 2026-11-03)\n", repr((rc, out, err)))
+    rc, out, err = call("--agent", a1 + "@2026-11-01T10:00:00Z")
+    check("the per-agent bound is inclusive", rc == 0 and out.startswith("est-cost-usd: 35.81"), repr((rc, out)))
+    rc, out, err = call("--agent", a1 + "@2026-11-01T10:00:01Z", "--agent-since", a2 + "@2026-11-01T10:00:01Z")
+    check("--agent-since cuts a descendant too: nothing left from the agents omits the line",
+          rc == 1 and out == "" and "no subagent usage" in err, repr((rc, out, err)))
+    rc, out, _ = call("--agent-since", a2)
+    check("--agent-since without a time is a usage error", rc == 2 and out == "", repr((rc, out)))
     # Neither --agent nor --no-agents, with valid times: exit 2 (a forgotten --agent is never a zero).
     o, e = io.StringIO(), io.StringIO()
     rc = run(["--prices", good, "--projects-dir", projects, "--session", sid, "--since",
@@ -516,7 +533,8 @@ def _cases(tmp, check):
     # The shipped table must itself load, with every model this repo's transcripts name.
     try:
         shipped, _ = load_prices(DEFAULT_PRICES, datetime.date.fromisoformat(json.load(open(DEFAULT_PRICES))["checked"]))
-        have = all(m in shipped for m in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"))
+        have = all(m in shipped for m in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1",
+                                           "claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-4-5"))
     except (Omit, OSError, ValueError):
         have = False
     check("the shipped .claude/model-prices.json is well formed and covers the repo's models", have)

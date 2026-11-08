@@ -130,18 +130,12 @@ def modifier_of(entry):
     return None
 
 
-def measure_rows(lines, since=None, until=None, side="main"):
-    """The per-response rows behind measure_detail: (rows, stats), each row
-    (vals, model, cache_write_1h, modifier) with vals the 4 ints in FIELDS order and modifier
-    the modifier_of text or None. side="main" keeps
-    entries NOT marked isSidechain (the orchestrating session); side="sidechain" keeps only
-    isSidechain entries (subagent transcripts). The other side is counted in stats["sidechain"]
-    (the count of entries skipped for being on the other side; the key name is historical).
-    One row per message id across every line handed in."""
-    if side not in ("main", "sidechain"):
-        raise ValueError("side must be 'main' or 'sidechain'")
-    stats = {"messages": 0, "malformed": 0, "sidechain": 0, "duplicate": 0, "outside": 0}
-    by_id, anon = {}, []
+def _new_stats():
+    return {"messages": 0, "malformed": 0, "sidechain": 0, "duplicate": 0, "outside": 0, "empty": 0}
+
+
+def _collect(lines, since, until, side, stats, by_id, anon):
+    """Fold one source's entries into by_id/anon/stats (the body of measure_rows_sources)."""
     for raw in lines:
         if not raw.strip():
             continue
@@ -169,6 +163,13 @@ def measure_rows(lines, since=None, until=None, side="main"):
             stats["outside"] += 1
             continue
         mid, vals = got
+        if not any(vals):
+            # Claude Code writes `<synthetic>` assistant entries with all-zero usage on an
+            # interrupt or an error. They carry no tokens, and their model name fails MODEL_RE, so
+            # keeping them made a phantom `model unknown 0` line and an empty `Other` column.
+            # Dropped before the duplicate check so a zero row can never replace a real one.
+            stats["empty"] += 1
+            continue
         row = (vals, _model_of(entry), cache_1h_of(entry, vals[1]), modifier_of(entry))
         if mid is None:
             anon.append(row)
@@ -177,15 +178,40 @@ def measure_rows(lines, since=None, until=None, side="main"):
             by_id[mid] = row  # last write wins; observed duplicates are identical
         else:
             by_id[mid] = row
+
+
+def measure_rows_sources(sources, until=None, side="main"):
+    """measure_rows over several sources, each with its OWN lower bound.
+
+    `sources` is an iterable of (lines, since) with `since` an aware datetime or None. One row per
+    message id across every source, so a fork that repeats its parent's response is still counted
+    once. This is how a per-agent watermark (post-mr-cost.py) cuts each agent's transcript at the
+    end of that agent's previous cost record while the totals stay one deduplicated sum."""
+    if side not in ("main", "sidechain"):
+        raise ValueError("side must be 'main' or 'sidechain'")
+    stats = _new_stats()
+    by_id, anon = {}, []
+    for lines, since in sources:
+        _collect(lines, since, until, side, stats, by_id, anon)
     rows = list(by_id.values()) + anon
     stats["messages"] = len(rows)
     return rows, stats
 
 
-def measure_detail(lines, since=None, until=None, side="main"):
-    """Sum usage over the window for one side (see measure_rows).
-    Returns (totals, stats, per_model) where per_model is {model: [4 ints]}."""
-    rows, stats = measure_rows(lines, since, until, side)
+def measure_rows(lines, since=None, until=None, side="main"):
+    """The per-response rows behind measure_detail: (rows, stats), each row
+    (vals, model, cache_write_1h, modifier) with vals the 4 ints in FIELDS order and modifier
+    the modifier_of text or None. side="main" keeps
+    entries NOT marked isSidechain (the orchestrating session); side="sidechain" keeps only
+    isSidechain entries (subagent transcripts). The other side is counted in stats["sidechain"]
+    (the count of entries skipped for being on the other side; the key name is historical).
+    A response whose four usage values are all zero is dropped and counted in stats["empty"].
+    One row per message id across every line handed in."""
+    return measure_rows_sources([(lines, since)], until, side)
+
+
+def sum_rows(rows, stats):
+    """(totals, stats, per_model) for measure_rows output; per_model is {model: [4 ints]}."""
     totals = [sum(r[0][i] for r in rows) for i in range(len(FIELDS))]
     per_model = collections.defaultdict(lambda: [0] * len(FIELDS))
     for vals, model, _, _ in rows:
@@ -194,10 +220,42 @@ def measure_detail(lines, since=None, until=None, side="main"):
     return totals, stats, dict(per_model)
 
 
+def measure_detail(lines, since=None, until=None, side="main"):
+    """Sum usage over the window for one side (see measure_rows).
+    Returns (totals, stats, per_model) where per_model is {model: [4 ints]}."""
+    rows, stats = measure_rows(lines, since, until, side)
+    return sum_rows(rows, stats)
+
+
 def measure(lines, since=None, until=None, side="main"):
     """Sum usage over the window. Returns (totals, stats)."""
     totals, stats, _ = measure_detail(lines, since, until, side)
     return totals, stats
+
+
+def parse_agent_spec(text, need_since=False):
+    """(agent id, since datetime or None) from `<id>` or `<id>@<ISO 8601 with a zone>`.
+    Raises ValueError for a malformed id or time, or a missing time when `need_since`."""
+    ident, sep, when = text.partition("@")
+    if not AGENT_ID_RE.match(ident):
+        raise ValueError("%r is not an agent id (the `agentId:` of the Agent tool result)" % ident[:80])
+    if not sep:
+        if need_since:
+            raise ValueError("%s needs `<id>@<ISO 8601 time>`" % ident)
+        return ident, None
+    since = parse_time(when)
+    if since is None:
+        raise ValueError("the time after `@` for %s is not ISO 8601 with a zone" % ident)
+    return ident, since
+
+
+def agent_sources(files, agents, since_by_id):
+    """[(lines, since)] for measure_rows_sources: `files` and `agents` are subagent_files output
+    (same order), `since_by_id` maps an agent id to its own lower bound (absent: its first entry)."""
+    def reader(path):
+        with open(path, encoding="utf-8", errors="replace") as f:
+            yield from f
+    return [(reader(path), since_by_id.get(aid)) for (aid, _named), path in zip(agents, files)]
 
 
 def _read_json(path):

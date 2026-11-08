@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "checked": "2026-11-07",
+  "source": "https://example.test/pricing",
+  "models": {
+    "claude-opus-5-5": {
+      "input": 5,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10,
+      "cache_read": 0.5,
+      "output": 25
+    },
+    "claude-sonnet-5-5": {
+      "input": 1,
+      "cache_write_5m": 1.25,
+      "cache_write_1h": 2,
+      "cache_read": 0.1,
+      "output": 10
+    }
+  }
+}

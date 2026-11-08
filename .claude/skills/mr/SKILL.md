@@ -211,12 +211,13 @@ is the contract; this is what the description carries.
 
 - **Ask the setting first:** `python3 scripts/cost-ledger enabled`. Exit 0: write the cost
   lines below when you hold them. Exit 1 (off): write the one line `cost-ledger: off` at the
-  end of `## Gates`, no cost line, and run none of the measuring scripts. Exit 2 (unreadable):
+  end of `## Gates`, no cost line, and do not run `scripts/post-mr-cost.py`. Exit 2 (unreadable):
   the same, plus the `## Notes` line "cost ledger setting unreadable; nothing recorded". The
   marker never names the layer that turned it off.
 - **The lines are not in the template** (a template slot only invites an estimate). `/wave` is
   the one writer with real figures: its go-ahead message carries them
-  (`.claude/skills/wave/SKILL.md` Step 5.4), and they go last in `## Gates`, unchanged:
+  (`.claude/skills/wave/SKILL.md` Step 5.4), which gets them from `python3 scripts/post-mr-cost.py
+  --measure` (it posts nothing and advances nothing), and they go last in `## Gates`, unchanged:
   ```
   subagent-tokens: <N>
   orchestrator-tokens: <N>
@@ -224,8 +225,11 @@ is the contract; this is what the description carries.
   ```
   A plain `/mr` with no such figures writes none of them; that is not a gap.
 - `subagent-tokens:` and `orchestrator-tokens:` are **measured**, digits only (never `~5k` or
-  `1,234`), the stdout of `scripts/subagent-tokens.py` and `scripts/orchestrator-tokens.py`.
-  They are the same unit but different scopes: never add them up as the MR's cost.
+  `1,234`), the lines `post-mr-cost.py --measure` prints. They are the same unit but different
+  scopes: never add them up as the MR's cost. Never run the three measuring scripts by hand for
+  this. The window is what the session has not yet claimed in an earlier cost record, so on a
+  multi-issue wave a snapshot line can still cover a stretch another MR's snapshot covers; the
+  `## Cost of this MR` comments are the non-overlapping record.
   `est-cost-usd:` is the **one estimate**, a list-price equivalent from
   `.claude/model-prices.json`, not what a subscription charged. `turns: <N>` and
   `cost: usd <N>` are allowed only for a literally reported, measured figure.
@@ -234,11 +238,11 @@ is the contract; this is what the description carries.
 - **Check the draft** before `glab mr create`: `python3 scripts/cost_ledger_lines.py --file
   <body.md>` exits 1 on a malformed, doubled or contradictory cost line (it never requires one).
   The body file must be under the checkout, the temp dir or the git dir.
-- **The comment posts automatically.** A PostToolUse hook (`.claude/hooks/post-mr-cost.sh`) posts it after `glab mr create` unless `scripts/cost-ledger enabled` is not 0, the description carries `cost-ledger: off`, or a cost comment already exists, so do not post a second one by hand. Details: `docs/development/cost-ledger.md#auto-post`.
+- **The comment posts automatically.** A PostToolUse hook (`.claude/hooks/post-mr-cost.sh`) posts it after `glab mr create` unless `scripts/cost-ledger enabled` is not 0, the description carries `cost-ledger: off`, or a cost comment already exists, so do not post a second one by hand or write the window marker. Details: `docs/development/cost-ledger.md#auto-post`.
 - The human-readable cost table is an MR comment, `## Cost of this MR (#<N>)`, that
-  `scripts/cost-table.py` posts after the MR opens (`/wave` Step 6). The description carries no
-  `## Cost` section. Step 4 checks that the comment exists when the description carries measured
-  cost lines.
+  `scripts/post-mr-cost.py` posts (through `scripts/cost-table.py`): the `PostToolUse` hook for
+  record 1 when the MR opens, `--round` for later records. The description carries no `## Cost`
+  section.
 
 ---
 
@@ -275,24 +279,7 @@ CI runs automatically on push. To watch the pipeline and auto-fix failures to gr
   /fix-mr !<NNN>
 ```
 
-**Check the cost comment (a hand-run `/mr` only).** When an agent opens the MR under `/wave`, skip
-this: `/wave` Step 6 posts record 1 and owns the check, and the implementer has no window end or
-split file to post with. For a person-typed `/mr`: when `python3 scripts/cost-ledger enabled` exits 0
-AND the description carries measured cost lines (`subagent-tokens:`, `orchestrator-tokens:` or
-`est-cost-usd:`), run `python3 scripts/cost-table.py --next-since --mr <NNN>`.
-
-- Exit 0: this user has a record 1 (or later) with a window end. Nothing to do.
-- Exit 1: no such record (none, one that does not parse, or one with no window end). Report it
-  plainly with the exit code, and do not call the MR complete.
-- Exit 4: the notes could not be read. Report the state as unknown; never treat it as missing.
-- Exit 3: ledger off, so no comment is expected.
-
-This check reports only; it does not post. Posting needs `--until`, the go-ahead-to-push time that
-bounds record 1's window, and a split file from the measuring run. A hand-run `/mr` has neither,
-and a made-up `--until` renders `Window end: n/a`, which then fails this same check forever. Post
-through `/wave` Step 6 (its exact commands) from the session that holds the window and split.
-Exempt, and no comment expected (`docs/development/cost-ledger.md` says this "isn't a gap"): a
-plain `/mr` with no cost lines, ledger off, or a description with `cost-ledger: off`.
+**The cost comment.** Do not post or check it by hand: the `PostToolUse` hook posts record 1 when `glab mr create` runs. If it did not (`mr-cost-hook.log` in the git common dir says why), run `python3 scripts/post-mr-cost.py --retry --mr <NNN>` and report its output.
 
 Always emit the `/fix-mr !<NNN>` follow-up line — it is a one-keystroke handoff to
 the pipeline-watch loop. Do **not** invoke `/fix-mr` yourself; both skills are

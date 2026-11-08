@@ -508,6 +508,7 @@ cost-ledger-selftest:
         - scripts/cost-table.py
         - scripts/post-mr-cost.py
         - .claude/hooks/post-mr-cost.sh
+        - scripts/tests/cost-ledger-golden/**/*
         - .claude/settings.json
         - scripts/lib/transcript_usage.py
         - scripts/_paths.py

@@ -1,0 +1,3 @@
+{"isSidechain": true, "message": {"content": "Review the implementer's diff.", "role": "user"}, "timestamp": "2026-11-07T0Z", "type": "user"}
+{"isSidechain": true, "message": {"id": "dm1", "model": "claude-sonnet-5-5", "role": "assistant", "usage": {"cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "input_tokens": 100000, "output_tokens": 10000}}, "timestamp": "2026-11-07T09:20:00Z", "type": "assistant"}
+{"isSidechain": true, "message": {"id": "dm2", "model": "claude-sonnet-5-5", "role": "assistant", "usage": {"cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "input_tokens": 50000, "output_tokens": 0}}, "timestamp": "2026-11-07T11:50:00Z", "type": "assistant"}

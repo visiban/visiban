@@ -251,14 +251,18 @@ MR !<N>: pipeline green, but the branch CONFLICTS with main — not mergeable.
 `not_approved`, `discussions_not_resolved`, `draft_status`, `blocked_status`. Report
 those verbatim rather than calling the MR ready; they need a human.
 
-**Record this pass's cost as a new record** (upstream provenance: `macrodream/blueprint#384`), once
-the fix is pushed, by running `python3 scripts/post-mr-cost.py --round --mr <N>` and reporting its
-one-line result verbatim. It posts `## Cost of this MR (#N) — record K` (this pass's window plus a
-running total) through `scripts/cost-table.py`, and posts nothing, saying why, when the ledger is
-off or unreadable, the MR carries `cost-ledger: off`, or record 1 is missing. A pass that
-changed nothing and pushed nothing still gets no record unless tokens were measured. The window,
-the format and the by-hand fallback (the three measuring scripts plus `cost-table.py --ledger`)
-are in `docs/development/cost-ledger.md` § *The cost comments*, not here.
+**Record this pass's cost as a new record** (upstream provenance: `macrodream/blueprint#384`, `macrodream/blueprint#387`), when the MR already
+carries a `## Cost of this MR` comment and `scripts/cost-ledger enabled` exits 0; off, unreadable,
+or no record 1, post none. A `/fix-mr` pass is a later window, so it never edits an earlier record
+or the `## Gates` lines. After the push, in the worktree, run
+`python3 scripts/post-mr-cost.py --round --mr <N>` and relay its one line. It measures the window
+this session has not yet claimed (the orchestrator since its previous cost record, and each
+subagent only for usage after its own previous record), posts the record through
+`scripts/cost-table.py`, and advances the per-session state; a pass that spawned no subagent needs
+nothing extra, and a re-run with nothing new to claim posts nothing. Do not run the three measuring
+scripts, `cost-table.py --next-since` or `--ledger`, or save a window pair by hand. The steps and
+the format are in `docs/development/cost-ledger.md` § *The cost records* and § *Non-overlap*, not here.
+If it cannot post, say so in the report.
 
 ---
 
